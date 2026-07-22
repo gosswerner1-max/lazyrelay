@@ -123,17 +123,20 @@ async function getOrCreateCustomerId(paddle: Paddle, email: string): Promise<str
   return created.id;
 }
 
-/** Creates a Paddle transaction whose checkout.url can be used as a hosted
- * payment link — the closest Paddle-Billing equivalent to Stripe's Checkout
- * Session URL. There is no direct "create subscription for a brand-new
- * customer" call in Paddle Billing — a subscription is created by Paddle as
- * a side effect of a completed transaction, so this is the correct entry
- * point, not a workaround. */
+/** Creates a Paddle transaction to check out. Returns the transactionId,
+ * which the frontend passes to Paddle.js's `Paddle.Checkout.open({
+ * transactionId })` to render the real payment overlay on our own page —
+ * Paddle Billing has no hosted Checkout Session page the way Stripe does;
+ * checkout.url (kept below) only comes into play if Paddle.js itself fails
+ * to load, as a plain-redirect fallback. There is no direct "create
+ * subscription for a brand-new customer" call in Paddle Billing either — a
+ * subscription is created by Paddle as a side effect of a completed
+ * transaction, so this is the correct entry point, not a workaround. */
 export async function buildCheckoutTransaction(
   apiKey: string,
   environment: Environment,
   params: { accountEmail: string; tier: "pro" | "business"; priceId: string }
-): Promise<{ checkoutUrl: string | null }> {
+): Promise<{ transactionId: string; checkoutUrl: string | null }> {
   const paddle = new Paddle(apiKey, { environment });
   const customerId = await getOrCreateCustomerId(paddle, params.accountEmail);
   const transaction = await paddle.transactions.create({
@@ -146,5 +149,5 @@ export async function buildCheckoutTransaction(
     // outright without either this or a dashboard-level default set).
     checkout: { url: "https://lazyrelay.com" },
   });
-  return { checkoutUrl: transaction.checkout?.url ?? null };
+  return { transactionId: transaction.id, checkoutUrl: transaction.checkout?.url ?? null };
 }

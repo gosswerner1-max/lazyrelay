@@ -268,12 +268,12 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
 
     const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
     try {
-      const { checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
+      const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
         accountEmail: account.email,
         tier,
         priceId,
       });
-      res.json({ checkoutUrl });
+      res.json({ transactionId, checkoutUrl });
     } catch (err) {
       res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
     }
