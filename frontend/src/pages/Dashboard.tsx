@@ -29,6 +29,8 @@ export function Dashboard() {
   const [mediaUploading, setMediaUploading] = useState(false);
   const [mediaDragActive, setMediaDragActive] = useState(false);
   const [paddle, setPaddle] = useState<Paddle | undefined>(undefined);
+  const [finalizingUpgrade, setFinalizingUpgrade] = useState(false);
+  const pendingTierRef = useRef<"pro" | "business" | null>(null);
 
   async function refresh() {
     setError(null);
@@ -56,9 +58,7 @@ export function Dashboard() {
   // Paddle.js renders the real payment overlay on this page —
   // Paddle Billing has no hosted Checkout Session URL the way Stripe does,
   // so a bare redirect to transaction.checkout.url just bounces back here
-  // with an unused query param and never shows a payment form. The
-  // checkout.completed event is how we know to refresh the subscription
-  // without waiting on the webhook round trip.
+  // with an unused query param and never shows a payment form.
   useEffect(() => {
     const token = import.meta.env.VITE_PADDLE_CLIENT_TOKEN;
     if (!token) return;
@@ -69,12 +69,41 @@ export function Dashboard() {
       token,
       environment,
       eventCallback: (event) => {
+        // checkout.completed fires the instant the card is charged, but our
+        // tier flip depends on Paddle's subscription.activated webhook,
+        // which lands a few seconds later — an immediate refresh() here
+        // reads the still-"free" row. Poll briefly instead of refreshing
+        // once so the banner updates itself without a manual reload.
         if (event.name === "checkout.completed") {
-          refresh();
+          pollUntilUpgraded();
         }
       },
     }).then(setPaddle);
   }, []);
+
+  async function pollUntilUpgraded() {
+    const expectedTier = pendingTierRef.current;
+    setFinalizingUpgrade(true);
+    try {
+      for (let attempt = 0; attempt < 10; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const sub = await api.getSubscription();
+        const upgraded = expectedTier
+          ? sub.tier === expectedTier && (sub.status === "active" || sub.status === "trialing")
+          : sub.tier !== "free";
+        if (upgraded) {
+          setSubscription(sub);
+          return;
+        }
+      }
+      // Timed out waiting on the webhook — refresh once more anyway so the
+      // banner shows whatever the real current state is rather than nothing.
+      await refresh();
+    } finally {
+      setFinalizingUpgrade(false);
+      pendingTierRef.current = null;
+    }
+  }
 
   async function handleConnect() {
     try {
@@ -142,6 +171,7 @@ export function Dashboard() {
     try {
       const { transactionId, checkoutUrl } = await api.startCheckout(tier);
       if (paddle && transactionId) {
+        pendingTierRef.current = tier;
         paddle.Checkout.open({ transactionId });
         return;
       }
@@ -193,10 +223,16 @@ export function Dashboard() {
       <div className="plan-banner">
         <div className="plan-banner-inner">
           <span>
-            You're on the <strong>{tierNames[currentTier]}</strong> plan
-            {currentTier === "free" && " — 10 posts per connected account, refillable monthly"}
+            {finalizingUpgrade ? (
+              "Finalizing your upgrade..."
+            ) : (
+              <>
+                You're on the <strong>{tierNames[currentTier]}</strong> plan
+                {currentTier === "free" && " — 10 posts per connected account, refillable monthly"}
+              </>
+            )}
           </span>
-          {isFreeOrLapsed && (
+          {isFreeOrLapsed && !finalizingUpgrade && (
             <button className="plan-banner-cta" onClick={() => setTab("Settings")}>
               Upgrade to Pro
             </button>
