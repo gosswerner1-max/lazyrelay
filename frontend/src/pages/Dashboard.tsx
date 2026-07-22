@@ -1,16 +1,23 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "../context/AuthContext";
-import { api, type SocialAccount, type ScheduledPost } from "../lib/api";
+import { api, type SocialAccount, type ScheduledPost, type Subscription } from "../lib/api";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
+import { Spinner } from "../components/Spinner";
+
+const TABS = ["Overview", "Posts", "Accounts", "Settings"] as const;
+type Tab = (typeof TABS)[number];
 
 export function Dashboard() {
   const { signOut } = useAuth();
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>("Overview");
+  const [billingBusy, setBillingBusy] = useState<"pro" | "business" | "cancel" | null>(null);
 
   const [content, setContent] = useState("");
   const [scheduledFor, setScheduledFor] = useState("");
@@ -20,9 +27,14 @@ export function Dashboard() {
   async function refresh() {
     setError(null);
     try {
-      const [accs, pts] = await Promise.all([api.listSocialAccounts(), api.listScheduledPosts()]);
+      const [accs, pts, sub] = await Promise.all([
+        api.listSocialAccounts(),
+        api.listScheduledPosts(),
+        api.getSubscription(),
+      ]);
       setAccounts(accs);
       setPosts(pts);
+      setSubscription(sub);
       if (accs.length > 0 && !selectedAccount) setSelectedAccount(accs[0].id);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -73,7 +85,46 @@ export function Dashboard() {
     }
   }
 
-  if (loading) return <p className="loading">Loading...</p>;
+  async function handleUpgrade(tier: "pro" | "business") {
+    setBillingBusy(tier);
+    setError(null);
+    try {
+      const { checkoutUrl } = await api.startCheckout(tier);
+      if (!checkoutUrl) {
+        setError("Checkout couldn't start — no checkout URL was returned.");
+        return;
+      }
+      window.location.href = checkoutUrl;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBillingBusy(null);
+    }
+  }
+
+  async function handleCancelSubscription() {
+    if (!window.confirm("Cancel your subscription? You'll keep access until the end of the current billing period.")) {
+      return;
+    }
+    setBillingBusy("cancel");
+    setError(null);
+    try {
+      await api.cancelSubscription();
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBillingBusy(null);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="loading">
+        <Spinner />
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard">
@@ -87,8 +138,21 @@ export function Dashboard() {
         </button>
       </header>
 
+      <nav className="tab-bar">
+        {TABS.map((t) => (
+          <button
+            key={t}
+            className={t === tab ? "tab-active" : ""}
+            onClick={() => setTab(t)}
+          >
+            {t}
+          </button>
+        ))}
+      </nav>
+
       {error && <p className="error">{error}</p>}
 
+      {(tab === "Overview" || tab === "Accounts") && (
       <section>
         <h2>Connected accounts</h2>
         {accounts.length === 0 ? (
@@ -108,7 +172,10 @@ export function Dashboard() {
         )}
         <button onClick={handleConnect}>+ Connect a social account</button>
       </section>
+      )}
 
+      {(tab === "Overview" || tab === "Posts") && (
+      <>
       <section>
         <h2>Schedule a post</h2>
         {accounts.length === 0 ? (
@@ -178,6 +245,57 @@ export function Dashboard() {
           </ul>
         )}
       </section>
+      </>
+      )}
+
+      {tab === "Settings" && (
+      <section>
+        <h2>Billing</h2>
+        {(() => {
+          const tierNames = { free: "Free", pro: "Pro", business: "Business" } as const;
+          const canUpgrade = !subscription || subscription.tier === "free" || subscription.status === "cancelled";
+          return (
+            <>
+              <p className="current-plan">
+                Current plan: <strong>{subscription ? tierNames[subscription.tier] : "Free"}</strong>
+                {subscription?.status && subscription.status !== "cancelled" && (
+                  <span className={`status-badge status-${subscription.status}`}>{subscription.status}</span>
+                )}
+              </p>
+
+              {canUpgrade ? (
+                <div className="pricing-grid billing-upgrade-grid">
+                  <div className="pricing-card">
+                    <h3>Pro</h3>
+                    <p className="pricing-price">
+                      $24.99<span className="pricing-period">/mo</span>
+                    </p>
+                    <p className="pricing-note">15 accounts, unlimited posts, AI-agent access</p>
+                    <button className="cta" onClick={() => handleUpgrade("pro")} disabled={billingBusy !== null}>
+                      {billingBusy === "pro" ? "Starting checkout..." : "Upgrade to Pro"}
+                    </button>
+                  </div>
+                  <div className="pricing-card">
+                    <h3>Business</h3>
+                    <p className="pricing-price">
+                      $49<span className="pricing-period">/mo</span>
+                    </p>
+                    <p className="pricing-note">Unlimited accounts, priority support</p>
+                    <button className="cta" onClick={() => handleUpgrade("business")} disabled={billingBusy !== null}>
+                      {billingBusy === "business" ? "Starting checkout..." : "Upgrade to Business"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={handleCancelSubscription} disabled={billingBusy !== null}>
+                  {billingBusy === "cancel" ? "Cancelling..." : "Cancel subscription"}
+                </button>
+              )}
+            </>
+          );
+        })()}
+      </section>
+      )}
     </div>
   );
 }

@@ -1,12 +1,17 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../context/AuthContext";
-import banner from "../assets/banner.png";
+import { BrandMark } from "../components/BrandMark";
 
-export function Login() {
+interface LoginProps {
+  initialMode?: "signin" | "signup";
+  onBack: () => void;
+}
+
+export function Login({ initialMode = "signin", onBack }: LoginProps) {
   const { signIn, signUp } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [signedUp, setSignedUp] = useState(false);
@@ -25,19 +30,20 @@ export function Login() {
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-hero">
-        <img src={banner} alt="LazyRelay — automate, schedule, publish, repeat" />
-      </div>
-
+    <div className="auth-page auth-page--compact">
       {signedUp ? (
         <div className="auth-card">
+          <BrandMark size={40} />
           <h1>Check your email</h1>
           <p>We sent a confirmation link to {email}. Confirm it, then come back and sign in.</p>
           <button onClick={() => { setSignedUp(false); setMode("signin"); }}>Back to sign in</button>
         </div>
       ) : (
         <div className="auth-card">
+          <div className="wordmark">
+            <BrandMark size={36} />
+            <span style={{ fontSize: 22 }}>LazyRelay</span>
+          </div>
           <p className="subtitle">{mode === "signin" ? "Sign in to your account" : "Create your account"}</p>
           <form onSubmit={handleSubmit}>
             <label>
@@ -64,6 +70,9 @@ export function Login() {
           </button>
         </div>
       )}
+      <button className="link" onClick={onBack}>
+        &larr; Back to home
+      </button>
     </div>
   );
 }

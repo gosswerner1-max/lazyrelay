@@ -134,6 +134,26 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
     res.status(204).send();
   });
 
+  // Reports the caller's current tier/status — "free" with no status when
+  // no subscription row exists yet (a fresh signup before ever upgrading),
+  // which is a normal state, not an error.
+  router.get("/subscription", requireAuth, async (req: AuthedRequest, res) => {
+    const { data: sub, error } = await supabase
+      .from("subscriptions")
+      .select("tier, status, current_period_end")
+      .eq("account_id", req.accountId)
+      .maybeSingle();
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    if (!sub) {
+      res.json({ tier: "free", status: null, currentPeriodEnd: null });
+      return;
+    }
+    res.json({ tier: sub.tier, status: sub.status, currentPeriodEnd: sub.current_period_end });
+  });
+
   // Starts a real Paddle checkout transaction for upgrading to a paid tier.
   // Only meaningful once MOR_API_KEY + the tier's price ID env vars exist
   // (see BILLING_KNOWLEDGE.md) — reports a clear error rather than a

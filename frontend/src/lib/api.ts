@@ -40,6 +40,12 @@ export interface ScheduledPost {
   post_results: Array<{ verified_live: boolean; platform_post_url: string | null; error_message: string | null }>;
 }
 
+export interface Subscription {
+  tier: "free" | "pro" | "business";
+  status: "trialing" | "active" | "past_due" | "cancelled" | null;
+  currentPeriodEnd: string | null;
+}
+
 export const api = {
   listSocialAccounts: (): Promise<SocialAccount[]> => authedFetch("/social-accounts"),
   startConnect: (): Promise<{ authorizeUrl: string }> => authedFetch("/social-accounts/connect"),
@@ -53,6 +59,9 @@ export const api = {
   }): Promise<ScheduledPost> => authedFetch("/scheduled-posts", { method: "POST", body: JSON.stringify(input) }),
   deleteScheduledPost: (id: string): Promise<null> => authedFetch(`/scheduled-posts/${id}`, { method: "DELETE" }),
 
+  getSubscription: (): Promise<Subscription> => authedFetch("/subscription"),
+  startCheckout: (tier: "pro" | "business"): Promise<{ checkoutUrl: string | null }> =>
+    authedFetch("/subscription/checkout", { method: "POST", body: JSON.stringify({ tier }) }),
   cancelSubscription: (): Promise<{ cancelled: boolean }> =>
     authedFetch("/subscription/cancel", { method: "POST" }),
 };

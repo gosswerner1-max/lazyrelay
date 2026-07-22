@@ -19,6 +19,8 @@
   --error: #d1372f;
   --error-bg: rgba(209, 55, 47, 0.09);
   --shadow: rgba(20, 23, 31, 0.06) 0 6px 20px -6px;
+  --navy: #14171f;
+  --hero-bg: #040c1c;
 
   --font-display: "League Spartan", system-ui, sans-serif;
   --font-body: "Work Sans", system-ui, sans-serif;
@@ -81,6 +83,24 @@ button {
   justify-content: center;
   min-height: 100svh;
   color: var(--wire);
+}
+
+/* Spinner (loading indicator) */
+.spinner {
+  display: inline-flex;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
 }
 
 /* RelaySignal brand mark */
