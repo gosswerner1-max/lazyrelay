@@ -17,6 +17,11 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent): Pro
     throw new Error(`No account found for email ${event.accountEmail}: ${accountError?.message}`);
   }
 
+  // onConflict targets account_id, not mor_subscription_id — a customer has
+  // exactly one subscription row, but Paddle issues a brand-new subscription
+  // id on every checkout, so conflicting on mor_subscription_id let a
+  // cancel-then-resubscribe insert a second row instead of updating the
+  // existing one (found live 2026-07-22; see migration 0007's note).
   const { error } = await supabase.from("subscriptions").upsert(
     {
       account_id: account.id,
@@ -26,7 +31,7 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent): Pro
       current_period_end: event.currentPeriodEnd,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "mor_subscription_id" },
+    { onConflict: "account_id" },
   );
   if (error) throw error;
 
