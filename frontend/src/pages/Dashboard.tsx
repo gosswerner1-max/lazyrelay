@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api, type SocialAccount, type ScheduledPost, type Subscription } from "../lib/api";
 import { RelaySignal } from "../components/RelaySignal";
@@ -11,6 +11,7 @@ type Tab = (typeof TABS)[number];
 
 export function Dashboard() {
   const { signOut } = useAuth();
+  const mediaInputRef = useRef<HTMLInputElement>(null);
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -23,6 +24,9 @@ export function Dashboard() {
   const [scheduledFor, setScheduledFor] = useState("");
   const [selectedAccount, setSelectedAccount] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [mediaUploading, setMediaUploading] = useState(false);
+  const [mediaDragActive, setMediaDragActive] = useState(false);
 
   async function refresh() {
     setError(null);
@@ -64,16 +68,38 @@ export function Dashboard() {
       await api.createScheduledPost({
         socialAccountId: selectedAccount,
         content,
+        mediaUrl: mediaUrl ?? undefined,
         scheduledFor: new Date(scheduledFor).toISOString(),
       });
       setContent("");
       setScheduledFor("");
+      setMediaUrl(null);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleMediaFile(file: File) {
+    setError(null);
+    setMediaUploading(true);
+    try {
+      const { url } = await api.uploadMedia(file);
+      setMediaUrl(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setMediaUploading(false);
+    }
+  }
+
+  function handleMediaDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setMediaDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleMediaFile(file);
   }
 
   async function handleDelete(id: string) {
@@ -126,8 +152,26 @@ export function Dashboard() {
     );
   }
 
+  const tierNames = { free: "Free", pro: "Pro", business: "Business" } as const;
+  const currentTier = subscription?.tier ?? "free";
+  const isFreeOrLapsed = currentTier === "free" || subscription?.status === "cancelled";
+
   return (
-    <div className="dashboard">
+    <>
+      <div className="plan-banner">
+        <div className="plan-banner-inner">
+          <span>
+            You're on the <strong>{tierNames[currentTier]}</strong> plan
+            {currentTier === "free" && " — 10 posts per connected account, refillable monthly"}
+          </span>
+          {isFreeOrLapsed && (
+            <button className="plan-banner-cta" onClick={() => setTab("Settings")}>
+              Upgrade to Pro
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="dashboard">
       <header>
         <div className="wordmark">
           <BrandMark size={30} />
@@ -195,6 +239,56 @@ export function Dashboard() {
             <label>
               Content
               <textarea value={content} onChange={(e) => setContent(e.target.value)} required />
+            </label>
+            <label>
+              Media (optional)
+              <div
+                className={`media-dropzone${mediaDragActive ? " media-dropzone-active" : ""}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setMediaDragActive(true);
+                }}
+                onDragLeave={() => setMediaDragActive(false)}
+                onDrop={handleMediaDrop}
+                onClick={() => mediaInputRef.current?.click()}
+              >
+                <input
+                  ref={mediaInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime"
+                  hidden
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleMediaFile(file);
+                    e.target.value = "";
+                  }}
+                />
+                {mediaUploading ? (
+                  <span>Uploading...</span>
+                ) : mediaUrl ? (
+                  <div className="media-preview">
+                    {mediaUrl.match(/\.(mp4|mov)$/i) ? (
+                      <video src={mediaUrl} muted />
+                    ) : (
+                      <img src={mediaUrl} alt="Attached media preview" />
+                    )}
+                    <button
+                      type="button"
+                      className="media-remove"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMediaUrl(null);
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <span>
+                    <strong>Drag and drop</strong> an image or video, or click to browse
+                  </span>
+                )}
+              </div>
             </label>
             <label>
               When
@@ -300,6 +394,7 @@ export function Dashboard() {
         })()}
       </section>
       )}
-    </div>
+      </div>
+    </>
   );
 }

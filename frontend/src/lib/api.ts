@@ -59,6 +59,27 @@ export const api = {
   }): Promise<ScheduledPost> => authedFetch("/scheduled-posts", { method: "POST", body: JSON.stringify(input) }),
   deleteScheduledPost: (id: string): Promise<null> => authedFetch(`/scheduled-posts/${id}`, { method: "DELETE" }),
 
+  // Not routed through authedFetch — that helper always sets a JSON
+  // Content-Type, which breaks multipart uploads (the browser needs to set
+  // its own Content-Type with the multipart boundary for FormData).
+  uploadMedia: async (file: File): Promise<{ url: string }> => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) throw new Error("Not signed in");
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`${API_URL}/media/upload`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error ?? `Upload failed: ${res.status}`);
+    }
+    return res.json();
+  },
+
   getSubscription: (): Promise<Subscription> => authedFetch("/subscription"),
   startCheckout: (tier: "pro" | "business"): Promise<{ checkoutUrl: string | null }> =>
     authedFetch("/subscription/checkout", { method: "POST", body: JSON.stringify({ tier }) }),
