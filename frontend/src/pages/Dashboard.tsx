@@ -170,7 +170,7 @@ export function Dashboard() {
             ))}
           </ul>
         )}
-        <button onClick={handleConnect}>+ Connect a social account</button>
+        <button className="btn-outline" onClick={handleConnect}>+ Connect a social account</button>
       </section>
       )}
 
@@ -237,7 +237,11 @@ export function Dashboard() {
                         )}
                       </span>
                     )}
-                    {p.status === "pending" && <button onClick={() => handleDelete(p.id)}>Cancel</button>}
+                    {p.status === "pending" && (
+                      <button className="btn-outline" onClick={() => handleDelete(p.id)}>
+                        Cancel
+                      </button>
+                    )}
                   </div>
                 </li>
               );
@@ -287,7 +291,7 @@ export function Dashboard() {
                   </div>
                 </div>
               ) : (
-                <button onClick={handleCancelSubscription} disabled={billingBusy !== null}>
+                <button className="btn-outline" onClick={handleCancelSubscription} disabled={billingBusy !== null}>
                   {billingBusy === "cancel" ? "Cancelling..." : "Cancel subscription"}
                 </button>
               )}

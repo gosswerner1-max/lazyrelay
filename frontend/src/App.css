@@ -193,10 +193,12 @@
 }
 
 .dashboard section h2 {
-  font-size: 15px;
+  font-size: 13px;
   margin-bottom: 16px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  color: var(--signal);
+  font-weight: 700;
 }
 
 .dashboard .empty {
@@ -205,7 +207,10 @@
   margin-bottom: 12px;
 }
 
-.dashboard button {
+/* Scoped explicitly (rather than a blanket ".dashboard button") so it never
+ * fights the tab bar or header "Sign out" link — same class + element
+ * specificity meant a later blanket rule was silently overriding both. */
+.btn-outline {
   padding: 8px 14px;
   border: 1px solid var(--signal);
   border-radius: 8px;
@@ -215,7 +220,7 @@
   font-size: 14px;
 }
 
-.dashboard button:hover {
+.btn-outline:hover {
   background: var(--signal);
   color: #fff;
 }
