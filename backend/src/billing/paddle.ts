@@ -140,6 +140,11 @@ export async function buildCheckoutTransaction(
     items: [{ priceId: params.priceId, quantity: 1 }],
     customerId,
     customData: { accountEmail: params.accountEmail, tier: params.tier },
+    // Explicit checkout.url avoids requiring a "default payment link" to be
+    // configured in the Paddle dashboard (a real gap found 2026-07-22 while
+    // testing the live checkout flow — Paddle rejects transaction creation
+    // outright without either this or a dashboard-level default set).
+    checkout: { url: "https://lazyrelay.com" },
   });
   return { checkoutUrl: transaction.checkout?.url ?? null };
 }
