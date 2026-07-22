@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { supabase } from "../supabase.js";
 import { cancelSubscription } from "../billing/sync.js";
+import { buildCheckoutTransaction } from "../billing/paddle.js";
+import { Environment } from "@paddle/paddle-node-sdk";
 import type { MerchantOfRecordAdapter } from "../billing/types.js";
 import type { PlatformAdapter } from "../platforms/types.js";
 import { startConnect, completeConnect } from "../platforms/connect.js";
@@ -130,6 +132,49 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       return;
     }
     res.status(204).send();
+  });
+
+  // Starts a real Paddle checkout transaction for upgrading to a paid tier.
+  // Only meaningful once MOR_API_KEY + the tier's price ID env vars exist
+  // (see BILLING_KNOWLEDGE.md) — reports a clear error rather than a
+  // confusing Paddle SDK exception if they don't.
+  router.post("/subscription/checkout", requireAuth, async (req: AuthedRequest, res) => {
+    const { tier } = req.body ?? {};
+    if (tier !== "pro" && tier !== "business") {
+      res.status(400).json({ error: 'tier must be "pro" or "business" (use the Free tier by just not upgrading)' });
+      return;
+    }
+
+    const apiKey = process.env.MOR_API_KEY;
+    const priceId = tier === "pro" ? process.env.PADDLE_PRICE_ID_PRO : process.env.PADDLE_PRICE_ID_BUSINESS;
+    if (!apiKey || !priceId) {
+      res.status(503).json({
+        error: "Billing isn't live yet — no Paddle account/price configured. See BILLING_KNOWLEDGE.md.",
+      });
+      return;
+    }
+
+    const { data: account, error: accountError } = await supabase
+      .from("accounts")
+      .select("email")
+      .eq("id", req.accountId)
+      .single();
+    if (accountError || !account) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+
+    const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
+    try {
+      const { checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
+        accountEmail: account.email,
+        tier,
+        priceId,
+      });
+      res.json({ checkoutUrl });
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+    }
   });
 
   // The cancellation flow — this is THE trust-critical endpoint. Cancels

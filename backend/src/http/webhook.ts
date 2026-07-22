@@ -12,13 +12,20 @@ export function buildWebhookHandler(morAdapter: MerchantOfRecordAdapter) {
 
     let event;
     try {
-      event = morAdapter.parseWebhookEvent(rawBody, String(signature));
+      event = await morAdapter.parseWebhookEvent(rawBody, String(signature));
     } catch (err) {
       // Never trust an unverified webhook — reject outright rather than
       // processing it "just in case." A forged webhook could otherwise
       // grant free access or falsely mark a real subscription cancelled.
       console.error("Webhook signature verification failed:", err);
       res.status(401).json({ error: "Invalid webhook signature" });
+      return;
+    }
+
+    // A verified-but-irrelevant event (e.g. Stripe's charge.refunded,
+    // payment_intent.succeeded) — genuinely nothing to sync, not an error.
+    if (event === null) {
+      res.status(200).json({ received: true, ignored: true });
       return;
     }
 

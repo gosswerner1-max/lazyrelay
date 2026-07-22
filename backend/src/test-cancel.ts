@@ -4,7 +4,7 @@ import { cancelSubscription } from "./billing/sync.js";
 import type { MerchantOfRecordAdapter, SubscriptionEvent, CancelResult } from "./billing/types.js";
 
 class MockAdapterSucceeds implements MerchantOfRecordAdapter {
-  parseWebhookEvent(): SubscriptionEvent {
+  async parseWebhookEvent(): Promise<SubscriptionEvent> {
     throw new Error("not used in this test");
   }
   async cancelSubscription(): Promise<CancelResult> {
@@ -13,7 +13,7 @@ class MockAdapterSucceeds implements MerchantOfRecordAdapter {
 }
 
 class MockAdapterFails implements MerchantOfRecordAdapter {
-  parseWebhookEvent(): SubscriptionEvent {
+  async parseWebhookEvent(): Promise<SubscriptionEvent> {
     throw new Error("not used in this test");
   }
   async cancelSubscription(): Promise<CancelResult> {
@@ -33,7 +33,7 @@ async function seedAccountWithSubscription(morSubId: string) {
   await supabase.from("accounts").insert({ id: accountId, email });
   await supabase.from("subscriptions").insert({
     account_id: accountId,
-    tier: "solo",
+    tier: "free",
     status: "active",
     mor_subscription_id: morSubId,
     current_period_end: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
