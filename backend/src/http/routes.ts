@@ -8,6 +8,11 @@ import type { PlatformAdapter } from "../platforms/types.js";
 import { startConnect, completeConnect } from "../platforms/connect.js";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 
+// Free tier: 10 posts per connected social account, refilling every
+// calendar month (decided 2026-07-22 — matches the pricing page's "10 posts
+// per account, refillable" copy, which had no enforcement until now).
+const FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT = 10;
+
 export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter: PlatformAdapter): Router {
   const router = Router();
 
@@ -79,6 +84,36 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
     if (accountError || !account || account.account_id !== req.accountId) {
       res.status(403).json({ error: "Social account not found or not owned by this caller" });
       return;
+    }
+
+    // Free tier: 10 posts per connected account per calendar month. Paid
+    // tiers (Pro/Business) in good standing (active or trialing) are
+    // unlimited; past_due/cancelled/no-subscription all fall back to the
+    // free limit — a lapsed payment shouldn't keep unlimited posting.
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("tier, status")
+      .eq("account_id", req.accountId)
+      .maybeSingle();
+    const isPaidInGoodStanding = sub?.tier !== "free" && (sub?.status === "active" || sub?.status === "trialing");
+    if (!isPaidInGoodStanding) {
+      const now = new Date();
+      const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+      const { count, error: countError } = await supabase
+        .from("scheduled_posts")
+        .select("id", { count: "exact", head: true })
+        .eq("social_account_id", socialAccountId)
+        .gte("created_at", startOfMonth);
+      if (countError) {
+        res.status(500).json({ error: countError.message });
+        return;
+      }
+      if ((count ?? 0) >= FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT) {
+        res.status(403).json({
+          error: `Free tier limit reached: ${FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT} posts per connected account per month. Upgrade to Pro for unlimited posts, or wait until next month.`,
+        });
+        return;
+      }
     }
 
     const { data, error } = await supabase
