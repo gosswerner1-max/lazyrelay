@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Landing } from "./pages/Landing";
 import { Login } from "./pages/Login";
@@ -11,6 +11,10 @@ import "./App.css";
 function Root() {
   const { session, loading } = useAuth();
   const [view, setView] = useState<"landing" | "signin" | "signup" | "privacy" | "contact">("landing");
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [view]);
 
   if (loading) {
     return (
