@@ -81,7 +81,7 @@ export const api = {
   },
 
   getSubscription: (): Promise<Subscription> => authedFetch("/subscription"),
-  startCheckout: (tier: "pro" | "business"): Promise<{ checkoutUrl: string | null }> =>
+  startCheckout: (tier: "pro" | "business"): Promise<{ transactionId: string; checkoutUrl: string | null }> =>
     authedFetch("/subscription/checkout", { method: "POST", body: JSON.stringify({ tier }) }),
   cancelSubscription: (): Promise<{ cancelled: boolean }> =>
     authedFetch("/subscription/cancel", { method: "POST" }),

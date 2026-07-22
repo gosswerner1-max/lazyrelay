@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
 import { api, type SocialAccount, type ScheduledPost, type Subscription } from "../lib/api";
 import { RelaySignal } from "../components/RelaySignal";
@@ -27,6 +28,7 @@ export function Dashboard() {
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [mediaUploading, setMediaUploading] = useState(false);
   const [mediaDragActive, setMediaDragActive] = useState(false);
+  const [paddle, setPaddle] = useState<Paddle | undefined>(undefined);
 
   async function refresh() {
     setError(null);
@@ -49,6 +51,29 @@ export function Dashboard() {
 
   useEffect(() => {
     refresh();
+  }, []);
+
+  // Paddle.js renders the real payment overlay on this page —
+  // Paddle Billing has no hosted Checkout Session URL the way Stripe does,
+  // so a bare redirect to transaction.checkout.url just bounces back here
+  // with an unused query param and never shows a payment form. The
+  // checkout.completed event is how we know to refresh the subscription
+  // without waiting on the webhook round trip.
+  useEffect(() => {
+    const token = import.meta.env.VITE_PADDLE_CLIENT_TOKEN;
+    if (!token) return;
+    const environment = (import.meta.env.VITE_PADDLE_ENVIRONMENT === "production" ? "production" : "sandbox") as
+      | "production"
+      | "sandbox";
+    initializePaddle({
+      token,
+      environment,
+      eventCallback: (event) => {
+        if (event.name === "checkout.completed") {
+          refresh();
+        }
+      },
+    }).then(setPaddle);
   }, []);
 
   async function handleConnect() {
@@ -115,7 +140,14 @@ export function Dashboard() {
     setBillingBusy(tier);
     setError(null);
     try {
-      const { checkoutUrl } = await api.startCheckout(tier);
+      const { transactionId, checkoutUrl } = await api.startCheckout(tier);
+      if (paddle && transactionId) {
+        paddle.Checkout.open({ transactionId });
+        return;
+      }
+      // Fallback only — bare redirect won't show a real payment form (see
+      // the Paddle.js note above), but it's better than nothing if Paddle.js
+      // itself failed to load (e.g. VITE_PADDLE_CLIENT_TOKEN missing).
       if (!checkoutUrl) {
         setError("Checkout couldn't start — no checkout URL was returned.");
         return;
