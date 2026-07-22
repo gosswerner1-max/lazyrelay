@@ -157,22 +157,24 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onContact }: Landin
         <h2>Pricing</h2>
         <div className="pricing-grid">
           {PRICING.map((plan) => (
-            <div className={plan.featured ? "pricing-card pricing-card-featured" : "pricing-card"} key={plan.tier}>
+            <div className={plan.featured ? "pricing-card-wrap" : "pricing-card-wrap pricing-card-wrap-plain"} key={plan.tier}>
               {plan.featured && <span className="badge-soon pricing-badge">Most popular</span>}
-              <h3>{plan.name}</h3>
-              <p className="pricing-price">
-                {plan.price}
-                {plan.tier !== "free" && <span className="pricing-period">/mo</span>}
-              </p>
-              <p className="pricing-note">{plan.note}</p>
-              <ul>
-                {plan.features.map((f) => (
-                  <li key={f}>{f}</li>
-                ))}
-              </ul>
-              <button className="cta" onClick={onGetStarted}>
-                {plan.cta}
-              </button>
+              <div className={plan.featured ? "pricing-card pricing-card-featured" : "pricing-card"}>
+                <h3>{plan.name}</h3>
+                <p className="pricing-price">
+                  {plan.price}
+                  {plan.tier !== "free" && <span className="pricing-period">/mo</span>}
+                </p>
+                <p className="pricing-note">{plan.note}</p>
+                <ul>
+                  {plan.features.map((f) => (
+                    <li key={f}>{f}</li>
+                  ))}
+                </ul>
+                <button className="cta" onClick={onGetStarted}>
+                  {plan.cta}
+                </button>
+              </div>
             </div>
           ))}
         </div>
