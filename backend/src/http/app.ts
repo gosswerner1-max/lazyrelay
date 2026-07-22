@@ -18,5 +18,13 @@ export function buildApp(morAdapter: MerchantOfRecordAdapter, platformAdapter: P
 
   app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
+  // Catches middleware errors (e.g. multer's file-too-large rejection on
+  // /media/upload) as clean JSON instead of falling through to Express's
+  // default HTML error page.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    res.status(400).json({ error: err.message });
+  });
+
   return app;
 }

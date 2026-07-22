@@ -1,4 +1,6 @@
 import { Router } from "express";
+import multer from "multer";
+import { randomUUID } from "node:crypto";
 import { supabase } from "../supabase.js";
 import { cancelSubscription } from "../billing/sync.js";
 import { buildCheckoutTransaction } from "../billing/paddle.js";
@@ -12,6 +14,22 @@ import { requireAuth, type AuthedRequest } from "./auth.js";
 // calendar month (decided 2026-07-22 — matches the pricing page's "10 posts
 // per account, refillable" copy, which had no enforcement until now).
 const FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT = 10;
+
+// Post media (images/video attached to a scheduled post) — uploaded via
+// multipart form data, held in memory only long enough to forward the
+// buffer to Supabase Storage's "post-media" bucket (see migration
+// 0007_post_media_bucket.sql). 20MB covers a real photo/short clip without
+// letting someone upload something absurd through this endpoint.
+const MEDIA_UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
+const ALLOWED_MEDIA_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "video/mp4",
+  "video/quicktime",
+]);
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MEDIA_UPLOAD_MAX_BYTES } });
 
 export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter: PlatformAdapter): Router {
   const router = Router();
@@ -59,6 +77,35 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       return;
     }
     res.json(data);
+  });
+
+  // Uploads a single image/video for use as a scheduled post's media_url.
+  // Goes through our own service-role Supabase client, not the browser
+  // directly — customers never touch storage credentials, and this is
+  // where mime-type/size validation actually gets enforced server-side.
+  router.post("/media/upload", requireAuth, upload.single("file"), async (req: AuthedRequest, res) => {
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: "No file uploaded (expected multipart field \"file\")" });
+      return;
+    }
+    if (!ALLOWED_MEDIA_MIME_TYPES.has(file.mimetype)) {
+      res.status(400).json({ error: `Unsupported file type "${file.mimetype}" — use an image (jpeg/png/webp/gif) or video (mp4/mov)` });
+      return;
+    }
+
+    const extension = file.originalname.includes(".") ? file.originalname.split(".").pop() : "bin";
+    const path = `${req.accountId}/${randomUUID()}.${extension}`;
+    const { error: uploadError } = await supabase.storage
+      .from("post-media")
+      .upload(path, file.buffer, { contentType: file.mimetype });
+    if (uploadError) {
+      res.status(500).json({ error: uploadError.message });
+      return;
+    }
+
+    const { data } = supabase.storage.from("post-media").getPublicUrl(path);
+    res.status(201).json({ url: data.publicUrl });
   });
 
   // Schedule a new post. account_id is taken from the verified JWT, never
