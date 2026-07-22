@@ -642,16 +642,11 @@
   display: flex;
   flex-direction: column;
   flex: 1;
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background: var(--hero-bg);
+  border: 1px solid transparent;
   border-radius: 14px;
   padding: 32px;
   text-align: left;
-}
-
-.pricing-card-featured {
-  border-color: var(--signal);
-  box-shadow: 0 0 0 1px var(--signal);
 }
 
 .pricing-badge {
@@ -665,14 +660,14 @@
 .pricing-card h3 {
   font-family: var(--font-display);
   font-size: 22px;
-  color: var(--ink);
+  color: #fff;
   margin: 0;
 }
 
 .pricing-price {
   font-family: var(--font-display);
   font-size: 34px;
-  color: var(--ink);
+  color: #fff;
   margin: 12px 0 0;
 }
 
@@ -680,11 +675,11 @@
   font-family: var(--font-body);
   font-size: 14px;
   font-weight: 500;
-  color: var(--wire);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .pricing-note {
-  color: var(--wire);
+  color: rgba(255, 255, 255, 0.7);
   font-weight: 500;
   font-size: 13px;
   margin: 4px 0 20px;
@@ -697,7 +692,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  color: var(--wire);
+  color: rgba(255, 255, 255, 0.7);
   font-size: 14px;
 }
 
