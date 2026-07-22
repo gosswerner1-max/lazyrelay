@@ -216,7 +216,16 @@ export function Dashboard() {
 
   const tierNames = { free: "Free", pro: "Pro", business: "Business" } as const;
   const currentTier = subscription?.tier ?? "free";
-  const isFreeOrLapsed = currentTier === "free" || subscription?.status === "cancelled";
+  const isFreePlan = currentTier === "free";
+  // A cancelled paid plan keeps access until the current period ends — it's
+  // not lapsed to Free yet, so the banner/CTA copy should say "resubscribe,"
+  // not "upgrade" (that read as contradictory: "You're on the Pro plan" next
+  // to an "Upgrade to Pro" button).
+  const isCancelling = !isFreePlan && subscription?.status === "cancelled";
+  const isFreeOrLapsed = isFreePlan || isCancelling;
+  const periodEndDate = subscription?.currentPeriodEnd
+    ? new Date(subscription.currentPeriodEnd).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    : null;
 
   return (
     <>
@@ -228,13 +237,14 @@ export function Dashboard() {
             ) : (
               <>
                 You're on the <strong>{tierNames[currentTier]}</strong> plan
-                {currentTier === "free" && " — 10 posts per connected account, refillable monthly"}
+                {isFreePlan && " — 10 posts per connected account, refillable monthly"}
+                {isCancelling && ` — cancels${periodEndDate ? ` on ${periodEndDate}` : " at the end of your billing period"}`}
               </>
             )}
           </span>
           {isFreeOrLapsed && !finalizingUpgrade && (
             <button className="plan-banner-cta" onClick={() => setTab("Settings")}>
-              Upgrade to Pro
+              {isCancelling ? "Resubscribe" : "Upgrade to Pro"}
             </button>
           )}
         </div>
@@ -420,12 +430,21 @@ export function Dashboard() {
         {(() => {
           const tierNames = { free: "Free", pro: "Pro", business: "Business" } as const;
           const canUpgrade = !subscription || subscription.tier === "free" || subscription.status === "cancelled";
+          // A cancelled paid plan keeps access until the period end — label
+          // the resume action "Resubscribe" so it doesn't read as
+          // contradictory next to "Current plan: Pro".
+          const isCancelling = subscription?.tier !== "free" && subscription?.status === "cancelled";
+          const periodEndDate = subscription?.currentPeriodEnd
+            ? new Date(subscription.currentPeriodEnd).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+            : null;
           return (
             <>
               <p className="current-plan">
                 Current plan: <strong>{subscription ? tierNames[subscription.tier] : "Free"}</strong>
-                {subscription?.status && subscription.status !== "cancelled" && (
-                  <span className={`status-badge status-${subscription.status}`}>{subscription.status}</span>
+                {subscription?.status && (
+                  <span className={`status-badge status-${subscription.status}`}>
+                    {isCancelling ? `cancelling${periodEndDate ? ` — ends ${periodEndDate}` : ""}` : subscription.status}
+                  </span>
                 )}
               </p>
 
@@ -438,7 +457,7 @@ export function Dashboard() {
                     </p>
                     <p className="pricing-note">15 accounts, unlimited posts, AI-agent access</p>
                     <button className="cta" onClick={() => handleUpgrade("pro")} disabled={billingBusy !== null}>
-                      {billingBusy === "pro" ? "Starting checkout..." : "Upgrade to Pro"}
+                      {billingBusy === "pro" ? "Starting checkout..." : isCancelling ? "Resubscribe to Pro" : "Upgrade to Pro"}
                     </button>
                   </div>
                   <div className="pricing-card">
@@ -448,7 +467,7 @@ export function Dashboard() {
                     </p>
                     <p className="pricing-note">Unlimited accounts, priority support</p>
                     <button className="cta" onClick={() => handleUpgrade("business")} disabled={billingBusy !== null}>
-                      {billingBusy === "business" ? "Starting checkout..." : "Upgrade to Business"}
+                      {billingBusy === "business" ? "Starting checkout..." : isCancelling ? "Resubscribe to Business" : "Upgrade to Business"}
                     </button>
                   </div>
                 </div>

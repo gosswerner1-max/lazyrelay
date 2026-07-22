@@ -473,6 +473,11 @@
   color: var(--error);
 }
 
+.status-cancelled {
+  background: rgba(234, 179, 8, 0.14);
+  color: #a16207;
+}
+
 .current-plan {
   font-size: 15px;
   color: var(--ink);
