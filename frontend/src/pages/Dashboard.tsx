@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
-import { api, type SocialAccount, type ScheduledPost, type Subscription } from "../lib/api";
+import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile } from "../lib/api";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
@@ -16,6 +16,9 @@ export function Dashboard() {
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [storageUsage, setStorageUsage] = useState<StorageUsage | null>(null);
+  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
+  const [mediaBusyId, setMediaBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Overview");
@@ -35,14 +38,18 @@ export function Dashboard() {
   async function refresh() {
     setError(null);
     try {
-      const [accs, pts, sub] = await Promise.all([
+      const [accs, pts, sub, usage, media] = await Promise.all([
         api.listSocialAccounts(),
         api.listScheduledPosts(),
         api.getSubscription(),
+        api.getStorageUsage(),
+        api.listMedia(),
       ]);
       setAccounts(accs);
       setPosts(pts);
       setSubscription(sub);
+      setStorageUsage(usage);
+      setMediaFiles(media);
       if (accs.length > 0 && !selectedAccount) setSelectedAccount(accs[0].id);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -142,11 +149,39 @@ export function Dashboard() {
     try {
       const { url } = await api.uploadMedia(file);
       setMediaUrl(url);
+      // Usage/quota just changed — refresh the gauge and file list so
+      // they're never stale relative to what was just uploaded.
+      const [usage, media] = await Promise.all([api.getStorageUsage(), api.listMedia()]);
+      setStorageUsage(usage);
+      setMediaFiles(media);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setMediaUploading(false);
     }
+  }
+
+  async function handleDeleteMedia(id: string) {
+    if (!window.confirm("Delete this file? This can't be undone.")) return;
+    setMediaBusyId(id);
+    setError(null);
+    try {
+      await api.deleteMedia(id);
+      const [usage, media] = await Promise.all([api.getStorageUsage(), api.listMedia()]);
+      setStorageUsage(usage);
+      setMediaFiles(media);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setMediaBusyId(null);
+    }
+  }
+
+  function formatBytes(bytes: number): string {
+    const MB = 1024 * 1024;
+    const GB = MB * 1024;
+    if (bytes >= GB) return `${(bytes / GB).toFixed(2)}GB`;
+    return `${(bytes / MB).toFixed(1)}MB`;
   }
 
   function handleMediaDrop(e: DragEvent<HTMLDivElement>) {
@@ -422,6 +457,62 @@ export function Dashboard() {
         )}
       </section>
       </>
+      )}
+
+      {tab === "Settings" && (
+      <section>
+        <h2>Storage</h2>
+        {storageUsage && (() => {
+          const pct = Math.min(100, (storageUsage.usedBytes / storageUsage.quotaBytes) * 100);
+          const fillClass = pct >= 100 ? "storage-gauge-full" : pct >= 85 ? "storage-gauge-warn" : "";
+          return (
+            <div className="storage-gauge">
+              <div className="storage-gauge-track">
+                <div className={`storage-gauge-fill ${fillClass}`} style={{ width: `${pct}%` }} />
+              </div>
+              <div className="storage-gauge-label">
+                <span>
+                  {formatBytes(storageUsage.usedBytes)} of {formatBytes(storageUsage.quotaBytes)} used
+                </span>
+                {pct >= 85 && (
+                  <span>
+                    {pct >= 100
+                      ? "Storage full — delete files below to upload new media."
+                      : "Getting full — delete unused files or upgrade for more space."}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+        {mediaFiles.length === 0 ? (
+          <p className="empty">No uploaded media yet.</p>
+        ) : (
+          <ul className="media-list">
+            {mediaFiles.map((m) => (
+              <li key={m.id}>
+                {m.mime_type.startsWith("image/") ? (
+                  <img className="media-list-thumb" src={m.url} alt="" />
+                ) : (
+                  <div className="media-list-thumb" />
+                )}
+                <span className="media-list-meta">
+                  {formatBytes(m.size_bytes)}
+                  {m.width && m.height ? ` · ${m.width}×${m.height}` : ""} ·{" "}
+                  {new Date(m.created_at).toLocaleDateString()}
+                </span>
+                <button
+                  className="btn-outline"
+                  onClick={() => handleDeleteMedia(m.id)}
+                  disabled={mediaBusyId !== null}
+                >
+                  {mediaBusyId === m.id ? "Deleting..." : "Delete"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
       )}
 
       {tab === "Settings" && (

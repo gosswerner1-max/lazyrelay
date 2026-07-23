@@ -46,6 +46,22 @@ export interface Subscription {
   currentPeriodEnd: string | null;
 }
 
+export interface StorageUsage {
+  tier: "free" | "pro" | "business";
+  usedBytes: number;
+  quotaBytes: number;
+}
+
+export interface MediaFile {
+  id: string;
+  url: string;
+  mime_type: string;
+  size_bytes: number;
+  width: number | null;
+  height: number | null;
+  created_at: string;
+}
+
 export const api = {
   listSocialAccounts: (): Promise<SocialAccount[]> => authedFetch("/social-accounts"),
   startConnect: (): Promise<{ authorizeUrl: string }> => authedFetch("/social-accounts/connect"),
@@ -79,6 +95,10 @@ export const api = {
     }
     return res.json();
   },
+
+  getStorageUsage: (): Promise<StorageUsage> => authedFetch("/media/usage"),
+  listMedia: (): Promise<MediaFile[]> => authedFetch("/media"),
+  deleteMedia: (id: string): Promise<null> => authedFetch(`/media/${id}`, { method: "DELETE" }),
 
   getSubscription: (): Promise<Subscription> => authedFetch("/subscription"),
   startCheckout: (tier: "pro" | "business"): Promise<{ transactionId: string; checkoutUrl: string | null }> =>

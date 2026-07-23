@@ -12,6 +12,7 @@ import { startConnect, completeConnect } from "../platforms/connect.js";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { tieredRateLimit, publicRateLimit } from "./rateLimit.js";
 import { validateMediaForPlatform, type Platform } from "../mediaLimits.js";
+import { checkQuotaForNewUpload, getStorageUsage } from "../storageQuota.js";
 
 // Free tier: 10 posts per connected social account, refilling every
 // calendar month (decided 2026-07-22 — matches the pricing page's "10 posts
@@ -98,6 +99,17 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       return;
     }
 
+    // Per-account storage quota — the defense against the "upload media
+    // forever, never attached to anything, for free" cost-abuse gap. We
+    // never delete a customer's files ourselves; once they're at quota,
+    // new uploads are rejected until they delete something or upgrade —
+    // same model as any cloud storage gauge, not a notice-and-delete policy.
+    const quotaError = await checkQuotaForNewUpload(req.accountId!, file.buffer.length);
+    if (quotaError) {
+      res.status(413).json({ error: quotaError });
+      return;
+    }
+
     const extension = file.originalname.includes(".") ? file.originalname.split(".").pop() : "bin";
     const path = `${req.accountId}/${randomUUID()}.${extension}`;
     const { error: uploadError } = await supabase.storage
@@ -131,6 +143,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
     const { error: metaError } = await supabase.from("media_uploads").insert({
       account_id: req.accountId,
       url: data.publicUrl,
+      storage_path: path,
       mime_type: file.mimetype,
       size_bytes: file.buffer.length,
       width,
@@ -142,6 +155,80 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
     }
 
     res.status(201).json({ url: data.publicUrl });
+  });
+
+  // Storage gauge — used/quota bytes for the caller's account, same model
+  // as any cloud-storage usage indicator. See storageQuota.ts.
+  router.get("/media/usage", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    try {
+      const usage = await getStorageUsage(req.accountId!);
+      res.json(usage);
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // Lists the caller's own uploaded media, newest first — the "manage your
+  // files" view a customer uses to find something to delete once they're
+  // near quota.
+  router.get("/media", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data, error } = await supabase
+      .from("media_uploads")
+      .select("id, url, mime_type, size_bytes, width, height, created_at")
+      .eq("account_id", req.accountId)
+      .order("created_at", { ascending: false });
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    res.json(data);
+  });
+
+  // Deletes a customer's own uploaded media — this is the ONLY way media
+  // ever gets removed; LazyRelay never auto-deletes a customer's files.
+  // Blocked if the file is still referenced by a pending/posting scheduled
+  // post (checked via media_url match) so deleting storage out from under
+  // an about-to-fire post can't silently break it.
+  router.delete("/media/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: media, error: mediaError } = await supabase
+      .from("media_uploads")
+      .select("id, account_id, url, storage_path")
+      .eq("id", req.params.id)
+      .single();
+    if (mediaError || !media || media.account_id !== req.accountId) {
+      res.status(404).json({ error: "Media not found or not owned by this caller" });
+      return;
+    }
+
+    const { count: inUseCount, error: inUseError } = await supabase
+      .from("scheduled_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("media_url", media.url)
+      .in("status", ["pending", "posting"]);
+    if (inUseError) {
+      res.status(500).json({ error: inUseError.message });
+      return;
+    }
+    if ((inUseCount ?? 0) > 0) {
+      res.status(409).json({ error: "This file is attached to a post that hasn't gone out yet — cancel or wait for that post before deleting it." });
+      return;
+    }
+
+    if (media.storage_path) {
+      const { error: storageError } = await supabase.storage.from("post-media").remove([media.storage_path]);
+      if (storageError) {
+        res.status(500).json({ error: storageError.message });
+        return;
+      }
+    }
+
+    const { error: deleteError } = await supabase.from("media_uploads").delete().eq("id", media.id);
+    if (deleteError) {
+      res.status(500).json({ error: deleteError.message });
+      return;
+    }
+
+    res.status(204).send();
   });
 
   // Schedule a new post. account_id is taken from the verified JWT, never
