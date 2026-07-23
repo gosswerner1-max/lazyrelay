@@ -17,12 +17,28 @@
 // routes.ts/webhook.ts.
 
 export interface SubscriptionEvent {
+  kind: "tier";
   morSubscriptionId: string;
   accountEmail: string;
   tier: "free" | "pro" | "business" | "enterprise";
   status: "trialing" | "active" | "past_due" | "cancelled";
   currentPeriodEnd: string; // ISO timestamp
 }
+
+/** A storage add-on (2026-07-23) is deliberately its OWN Paddle
+ *  subscription, not folded into the tier subscription — a customer can
+ *  stack multiple add-ons, and cancelling one must not touch the main
+ *  tier subscription. See storage_addons migration 0012. */
+export interface StorageAddonEvent {
+  kind: "storage_addon";
+  morSubscriptionId: string;
+  accountEmail: string;
+  gbAmount: number;
+  status: "trialing" | "active" | "past_due" | "cancelled";
+  currentPeriodEnd: string; // ISO timestamp
+}
+
+export type BillingEvent = SubscriptionEvent | StorageAddonEvent;
 
 export interface CancelResult {
   success: boolean;
@@ -39,7 +55,7 @@ export interface MerchantOfRecordAdapter {
    *  Promise, discovered while implementing PaddleMorAdapter — this was
    *  synchronous when only Stripe was the target, changed when Paddle
    *  replaced it (see billing/paddle.ts). */
-  parseWebhookEvent(rawBody: string, signatureHeader: string): Promise<SubscriptionEvent | null>;
+  parseWebhookEvent(rawBody: string, signatureHeader: string): Promise<BillingEvent | null>;
 
   /** Cancels a subscription with the MoR directly — this must actually
    *  cancel, not just mark our own local status, since Blotato's #1

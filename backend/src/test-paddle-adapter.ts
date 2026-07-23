@@ -87,7 +87,7 @@ async function main() {
       const rawBody = buildEventPayload("subscription.created", fakeSubscriptionNotification({ status: "active" }));
       const event = await adapter.parseWebhookEvent(rawBody, signPayload(rawBody));
       assertEqual(event?.status, "active", "status");
-      assertEqual(event?.tier, "pro", "tier");
+      assertEqual(event && "tier" in event ? event.tier : undefined, "pro", "tier");
       assertEqual(event?.accountEmail, "customer@example.com", "accountEmail");
       assertEqual(event?.morSubscriptionId, "sub_test123", "morSubscriptionId");
     }),
@@ -99,7 +99,7 @@ async function main() {
       );
       const event = await adapter.parseWebhookEvent(rawBody, signPayload(rawBody));
       assertEqual(event?.status, "past_due", "status");
-      assertEqual(event?.tier, "business", "tier");
+      assertEqual(event && "tier" in event ? event.tier : undefined, "business", "tier");
     }),
 
     test("subscription.paused maps to past_due (payment-lapse state, not full cancellation)", async () => {

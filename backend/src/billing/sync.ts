@@ -1,13 +1,14 @@
 import { supabase } from "../supabase.js";
-import type { SubscriptionEvent, MerchantOfRecordAdapter, CancelResult } from "./types.js";
+import type { BillingEvent, MerchantOfRecordAdapter, CancelResult } from "./types.js";
 
 /** Called by the webhook HTTP handler after signature verification. Keeps
  *  our local `subscriptions` row in sync with what the MoR actually thinks
  *  the state is — this table is the source of truth for what a customer
  *  sees, and it must never silently drift from reality (that drift is
  *  exactly the "silent trial-to-paid conversion" pattern in Blotato's
- *  billing complaints). */
-export async function syncSubscriptionFromWebhook(event: SubscriptionEvent): Promise<void> {
+ *  billing complaints). Branches to the storage-addons sync path for
+ *  add-on subscriptions (2026-07-23) — see BillingEvent's `kind` field. */
+export async function syncSubscriptionFromWebhook(event: BillingEvent): Promise<void> {
   const { data: account, error: accountError } = await supabase
     .from("accounts")
     .select("id")
@@ -15,6 +16,25 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent): Pro
     .single();
   if (accountError || !account) {
     throw new Error(`No account found for email ${event.accountEmail}: ${accountError?.message}`);
+  }
+
+  if (event.kind === "storage_addon") {
+    // Upserted on mor_subscription_id, NOT account_id — unlike the tier
+    // subscription, a customer can legitimately stack several active
+    // add-ons at once, so each Paddle subscription gets its own row.
+    const { error } = await supabase.from("storage_addons").upsert(
+      {
+        account_id: account.id,
+        mor_subscription_id: event.morSubscriptionId,
+        gb_amount: event.gbAmount,
+        status: event.status,
+        current_period_end: event.currentPeriodEnd,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "mor_subscription_id" },
+    );
+    if (error) throw error;
+    return;
   }
 
   // onConflict targets account_id, not mor_subscription_id — a customer has
@@ -70,5 +90,30 @@ export async function cancelSubscription(
     .eq("mor_subscription_id", subscription.mor_subscription_id);
   await supabase.from("accounts").update({ cancelled_at: new Date().toISOString() }).eq("id", accountId);
 
+  return result;
+}
+
+/** Cancels a single storage add-on — separate from cancelSubscription()
+ *  since one add-on's cancellation must never touch the account's main
+ *  tier subscription (a customer can have several add-ons active and
+ *  cancel just one). Same cancel-with-the-MoR-first discipline. */
+export async function cancelStorageAddon(
+  accountId: string,
+  addonId: string,
+  adapter: MerchantOfRecordAdapter,
+): Promise<CancelResult> {
+  const { data: addon, error } = await supabase
+    .from("storage_addons")
+    .select("id, account_id, mor_subscription_id")
+    .eq("id", addonId)
+    .single();
+  if (error || !addon || addon.account_id !== accountId) {
+    return { success: false, errorMessage: "Storage add-on not found or not owned by this caller." };
+  }
+
+  const result = await adapter.cancelSubscription(addon.mor_subscription_id);
+  if (!result.success) return result;
+
+  await supabase.from("storage_addons").update({ status: "cancelled" }).eq("id", addon.id);
   return result;
 }

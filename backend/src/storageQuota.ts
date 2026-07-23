@@ -23,14 +23,32 @@ export interface StorageUsage {
   tier: Tier;
   usedBytes: number;
   quotaBytes: number;
+  addonBytes: number;
+}
+
+/** Sum of all active/trialing storage add-ons for this account, in bytes.
+ *  Free-tier accounts can't purchase add-ons (see routes.ts), so this is
+ *  always 0 for them in practice — not special-cased here since the
+ *  underlying query is correct regardless. */
+async function getActiveAddonBytes(accountId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("storage_addons")
+    .select("gb_amount")
+    .eq("account_id", accountId)
+    .in("status", ["active", "trialing"]);
+  if (error) throw error;
+  return (data ?? []).reduce((sum, row) => sum + row.gb_amount * GB, 0);
 }
 
 export async function getStorageUsage(accountId: string): Promise<StorageUsage> {
   const tier = await resolveTier(accountId);
-  const { data, error } = await supabase.from("media_uploads").select("size_bytes").eq("account_id", accountId);
+  const [{ data, error }, addonBytes] = await Promise.all([
+    supabase.from("media_uploads").select("size_bytes").eq("account_id", accountId),
+    getActiveAddonBytes(accountId),
+  ]);
   if (error) throw error;
   const usedBytes = (data ?? []).reduce((sum, row) => sum + row.size_bytes, 0);
-  return { tier, usedBytes, quotaBytes: STORAGE_QUOTA_BYTES[tier] };
+  return { tier, usedBytes, quotaBytes: STORAGE_QUOTA_BYTES[tier] + addonBytes, addonBytes };
 }
 
 /** Checked BEFORE accepting a new upload — returns a customer-facing reason
@@ -41,6 +59,6 @@ export async function checkQuotaForNewUpload(accountId: string, newFileBytes: nu
 
   const usedMB = (usage.usedBytes / MB).toFixed(1);
   const quotaMB = (usage.quotaBytes / MB).toFixed(0);
-  const upgradeHint = usage.tier === "enterprise" ? " Please" : " Upgrade for more storage, or";
+  const upgradeHint = usage.tier === "enterprise" ? " Please" : " Upgrade, buy more storage, or";
   return `You're using ${usedMB}MB of your ${quotaMB}MB storage limit — this file won't fit.${upgradeHint} delete some existing media to free up space.`;
 }

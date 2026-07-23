@@ -3,7 +3,7 @@ import multer from "multer";
 import { randomUUID } from "node:crypto";
 import { imageSize } from "image-size";
 import { supabase } from "../supabase.js";
-import { cancelSubscription } from "../billing/sync.js";
+import { cancelSubscription, cancelStorageAddon } from "../billing/sync.js";
 import { buildCheckoutTransaction } from "../billing/paddle.js";
 import { Environment } from "@paddle/paddle-node-sdk";
 import type { MerchantOfRecordAdapter } from "../billing/types.js";
@@ -14,7 +14,27 @@ import { tieredRateLimit, publicRateLimit } from "./rateLimit.js";
 import { validateMediaForPlatform, type Platform } from "../mediaLimits.js";
 import { checkQuotaForNewUpload, getStorageUsage } from "../storageQuota.js";
 import { checkAccountLimit } from "../accountLimits.js";
-import type { Tier } from "../tier.js";
+import { resolveTier, type Tier } from "../tier.js";
+
+// Storage add-ons — priced 2026-07-23 after researching real comparables
+// (consumer cloud storage clusters $0.005-0.02/GB/mo, the closest real B2B
+// benchmark — Microsoft 365 extra storage — runs ~$0.20/GB/mo). Landed on a
+// 20-40x markup over the $0.015/GB raw R2 cost: this is discretionary
+// convenience pricing on top of an already-paid subscription, not a storage
+// product competing on raw economics, so the margin is deliberate. Declining
+// $/GB per tier (bigger block = better relative value) mirrors every real
+// benchmark found and nudges toward the larger tier instead of repeat-buying
+// the small one. Free tier cannot buy add-ons — someone needing more than
+// 250MB should upgrade to a real tier first, which itself includes more
+// storage; add-ons are for someone already paying who wants MORE than their
+// tier's base amount (e.g. Starter + only 10 accounts, but heavy media use).
+const STORAGE_ADDON_GB_OPTIONS = [5, 20, 50] as const;
+type StorageAddonGb = (typeof STORAGE_ADDON_GB_OPTIONS)[number];
+const ADDON_PRICE_ID_ENV_VAR: Record<StorageAddonGb, string> = {
+  5: "PADDLE_PRICE_ID_STORAGE_5GB",
+  20: "PADDLE_PRICE_ID_STORAGE_20GB",
+  50: "PADDLE_PRICE_ID_STORAGE_50GB",
+};
 
 // Free tier: 10 posts per connected social account, refilling every
 // calendar month (decided 2026-07-22 — matches the pricing page's "10 posts
@@ -439,6 +459,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
     const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
     try {
       const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
+        kind: "tier",
         accountEmail: account.email,
         tier,
         priceId,
@@ -454,6 +475,83 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
   // get marked cancelled. See billing/sync.ts for the full reasoning.
   router.post("/subscription/cancel", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const result = await cancelSubscription(req.accountId!, morAdapter);
+    if (!result.success) {
+      res.status(502).json({ error: result.errorMessage ?? "Cancellation failed at the payment provider" });
+      return;
+    }
+    res.json({ cancelled: true });
+  });
+
+  // Lists the caller's active/trialing storage add-ons — the "manage your
+  // extra storage" view alongside the storage gauge.
+  router.get("/storage-addons", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data, error } = await supabase
+      .from("storage_addons")
+      .select("id, gb_amount, status, current_period_end")
+      .eq("account_id", req.accountId)
+      .in("status", ["active", "trialing"])
+      .order("created_at", { ascending: true });
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    res.json(data);
+  });
+
+  // Starts a real Paddle checkout transaction for a storage add-on. Free
+  // tier can't buy add-ons — upgrading to a real tier already includes more
+  // storage; add-ons are for someone already paying who wants MORE than
+  // their tier's base amount. Same checkout-overlay pattern as
+  // /subscription/checkout, just a different customData shape (see
+  // buildCheckoutTransaction in billing/paddle.ts).
+  router.post("/storage-addons/checkout", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { gbAmount } = req.body ?? {};
+    if (!STORAGE_ADDON_GB_OPTIONS.includes(gbAmount)) {
+      res.status(400).json({ error: `gbAmount must be one of ${STORAGE_ADDON_GB_OPTIONS.join(", ")}` });
+      return;
+    }
+
+    const tier = await resolveTier(req.accountId!);
+    if (tier === "free") {
+      res.status(403).json({ error: "Storage add-ons aren't available on the Free tier — upgrade to a paid plan first." });
+      return;
+    }
+
+    const apiKey = process.env.MOR_API_KEY;
+    const priceId = ADDON_PRICE_ID_ENV_VAR[gbAmount as StorageAddonGb] ? process.env[ADDON_PRICE_ID_ENV_VAR[gbAmount as StorageAddonGb]] : undefined;
+    if (!apiKey || !priceId) {
+      res.status(503).json({ error: "Billing isn't live yet — no Paddle account/price configured for this add-on." });
+      return;
+    }
+
+    const { data: account, error: accountError } = await supabase
+      .from("accounts")
+      .select("email")
+      .eq("id", req.accountId)
+      .single();
+    if (accountError || !account) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+
+    const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
+    try {
+      const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
+        kind: "storage_addon",
+        accountEmail: account.email,
+        gbAmount,
+        priceId,
+      });
+      res.json({ transactionId, checkoutUrl });
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // Cancels a single storage add-on — does not touch the account's main
+  // tier subscription. See billing/sync.ts's cancelStorageAddon.
+  router.post("/storage-addons/:id/cancel", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const result = await cancelStorageAddon(req.accountId!, String(req.params.id), morAdapter);
     if (!result.success) {
       res.status(502).json({ error: result.errorMessage ?? "Cancellation failed at the payment provider" });
       return;

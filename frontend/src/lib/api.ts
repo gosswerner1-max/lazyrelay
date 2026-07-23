@@ -53,6 +53,7 @@ export interface StorageUsage {
   tier: "free" | "pro" | "business" | "enterprise";
   usedBytes: number;
   quotaBytes: number;
+  addonBytes: number;
 }
 
 export interface MediaFile {
@@ -63,6 +64,13 @@ export interface MediaFile {
   width: number | null;
   height: number | null;
   created_at: string;
+}
+
+export interface StorageAddon {
+  id: string;
+  gb_amount: number;
+  status: "trialing" | "active" | "past_due" | "cancelled";
+  current_period_end: string | null;
 }
 
 export const api = {
@@ -110,4 +118,12 @@ export const api = {
     authedFetch("/subscription/checkout", { method: "POST", body: JSON.stringify({ tier }) }),
   cancelSubscription: (): Promise<{ cancelled: boolean }> =>
     authedFetch("/subscription/cancel", { method: "POST" }),
+
+  listStorageAddons: (): Promise<StorageAddon[]> => authedFetch("/storage-addons"),
+  startStorageAddonCheckout: (
+    gbAmount: 5 | 20 | 50
+  ): Promise<{ transactionId: string; checkoutUrl: string | null }> =>
+    authedFetch("/storage-addons/checkout", { method: "POST", body: JSON.stringify({ gbAmount }) }),
+  cancelStorageAddon: (id: string): Promise<{ cancelled: boolean }> =>
+    authedFetch(`/storage-addons/${id}/cancel`, { method: "POST" }),
 };

@@ -1,5 +1,5 @@
 import { Paddle, Environment } from "@paddle/paddle-node-sdk";
-import type { MerchantOfRecordAdapter, SubscriptionEvent, CancelResult } from "./types.js";
+import type { MerchantOfRecordAdapter, BillingEvent, SubscriptionEvent, CancelResult } from "./types.js";
 
 // Real Paddle Billing adapter — see BILLING_KNOWLEDGE.md for why Paddle was
 // chosen over Stripe Managed Payments (Stripe doesn't support South Africa
@@ -12,7 +12,7 @@ import type { MerchantOfRecordAdapter, SubscriptionEvent, CancelResult } from ".
 // surprises found this way that a docs-only read would have missed:
 // (1) `webhooks.unmarshal()` is ASYNC (returns Promise<EventEntity>), unlike
 //     Stripe's synchronous constructEvent — MerchantOfRecordAdapter's
-//     interface had to change to Promise<SubscriptionEvent | null>.
+//     interface had to change to Promise<BillingEvent | null>.
 // (2) `transactions.create()` requires a `customerId`, not an inline email —
 //     Paddle has no "create transaction for arbitrary email" shortcut, so a
 //     get-or-create Customer lookup is a required step, not a nicety.
@@ -22,9 +22,13 @@ import type { MerchantOfRecordAdapter, SubscriptionEvent, CancelResult } from ".
 // paused/canceled/trialing/resumed/imported` (note: "canceled", one "l").
 // Custom metadata field is `customData` (SDK) / `custom_data` (raw API),
 // echoed back on every webhook — same synchronous-parsing-friendly design
-// as the (now-removed) Stripe adapter: embed accountEmail+tier in
-// customData at checkout-creation time so parsing itself needs no extra
-// network call beyond the (already-async) signature verification.
+// as the (now-removed) Stripe adapter: embed identifying data in customData
+// at checkout-creation time so parsing itself needs no extra network call
+// beyond the (already-async) signature verification.
+//
+// 2026-07-23: extended to also handle storage add-ons (see storage_addons
+// migration 0012) — each add-on is its own Paddle subscription, distinguished
+// from a tier subscription via customData.kind, not a separate event type.
 
 const STATUS_MAP: Record<string, SubscriptionEvent["status"] | undefined> = {
   trialing: "trialing",
@@ -52,17 +56,30 @@ interface SubscriptionLike {
   currentBillingPeriod: { endsAt: string } | null;
 }
 
-function readCustomData(sub: SubscriptionLike): { accountEmail: string; tier: SubscriptionEvent["tier"] } {
+/** Branches on customData.kind to build either a tier SubscriptionEvent or
+ *  a StorageAddonEvent — the two are otherwise-identical Paddle
+ *  subscriptions distinguished only by what we embedded at checkout time. */
+function buildEventFromCustomData(sub: SubscriptionLike, status: SubscriptionEvent["status"]): BillingEvent {
   const customData = sub.customData ?? {};
   const accountEmail = customData.accountEmail;
-  const tier = customData.tier;
   if (typeof accountEmail !== "string" || !accountEmail) {
     throw new Error(`Subscription ${sub.id} has no customData.accountEmail — was it created via buildCheckoutTransaction?`);
   }
+  const currentPeriodEnd = sub.currentBillingPeriod?.endsAt ?? new Date().toISOString();
+
+  if (customData.kind === "storage_addon") {
+    const gbAmount = customData.gbAmount;
+    if (typeof gbAmount !== "number" || gbAmount <= 0) {
+      throw new Error(`Subscription ${sub.id} has invalid/missing customData.gbAmount "${String(gbAmount)}"`);
+    }
+    return { kind: "storage_addon", morSubscriptionId: sub.id, accountEmail, gbAmount, status, currentPeriodEnd };
+  }
+
+  const tier = customData.tier;
   if (typeof tier !== "string" || !(VALID_TIERS as readonly string[]).includes(tier)) {
     throw new Error(`Subscription ${sub.id} has invalid/missing customData.tier "${String(tier)}"`);
   }
-  return { accountEmail, tier: tier as SubscriptionEvent["tier"] };
+  return { kind: "tier", morSubscriptionId: sub.id, accountEmail, tier: tier as SubscriptionEvent["tier"], status, currentPeriodEnd };
 }
 
 export class PaddleMorAdapter implements MerchantOfRecordAdapter {
@@ -79,7 +96,7 @@ export class PaddleMorAdapter implements MerchantOfRecordAdapter {
    * unmarshal itself throws, never resolves to a falsy value on failure —
    * confirmed by reading the SDK's own .d.ts, which has no `| null` on its
    * return type). Returns null for a verified-but-irrelevant event. */
-  async parseWebhookEvent(rawBody: string, signatureHeader: string): Promise<SubscriptionEvent | null> {
+  async parseWebhookEvent(rawBody: string, signatureHeader: string): Promise<BillingEvent | null> {
     const event = await this.paddle.webhooks.unmarshal(rawBody, this.webhookSecret, signatureHeader);
 
     if (!RELEVANT_EVENT_TYPES.has(event.eventType)) {
@@ -93,14 +110,7 @@ export class PaddleMorAdapter implements MerchantOfRecordAdapter {
       throw new Error(`Unmapped Paddle subscription status "${subscription.status}" for ${subscription.id}`);
     }
 
-    const { accountEmail, tier } = readCustomData(subscription);
-    return {
-      morSubscriptionId: subscription.id,
-      accountEmail,
-      tier,
-      status,
-      currentPeriodEnd: subscription.currentBillingPeriod?.endsAt ?? new Date().toISOString(),
-    };
+    return buildEventFromCustomData(subscription, status);
   }
 
   async cancelSubscription(morSubscriptionId: string): Promise<CancelResult> {
@@ -123,6 +133,10 @@ async function getOrCreateCustomerId(paddle: Paddle, email: string): Promise<str
   return created.id;
 }
 
+type CheckoutParams =
+  | { kind: "tier"; accountEmail: string; tier: "pro" | "business" | "enterprise"; priceId: string }
+  | { kind: "storage_addon"; accountEmail: string; gbAmount: number; priceId: string };
+
 /** Creates a Paddle transaction to check out. Returns the transactionId,
  * which the frontend passes to Paddle.js's `Paddle.Checkout.open({
  * transactionId })` to render the real payment overlay on our own page —
@@ -131,18 +145,26 @@ async function getOrCreateCustomerId(paddle: Paddle, email: string): Promise<str
  * to load, as a plain-redirect fallback. There is no direct "create
  * subscription for a brand-new customer" call in Paddle Billing either — a
  * subscription is created by Paddle as a side effect of a completed
- * transaction, so this is the correct entry point, not a workaround. */
+ * transaction, so this is the correct entry point, not a workaround.
+ *
+ * Handles both a tier upgrade and a storage add-on purchase — the only
+ * difference is what gets embedded in customData, which is what
+ * buildEventFromCustomData() above branches on when the webhook comes back. */
 export async function buildCheckoutTransaction(
   apiKey: string,
   environment: Environment,
-  params: { accountEmail: string; tier: "pro" | "business" | "enterprise"; priceId: string }
+  params: CheckoutParams
 ): Promise<{ transactionId: string; checkoutUrl: string | null }> {
   const paddle = new Paddle(apiKey, { environment });
   const customerId = await getOrCreateCustomerId(paddle, params.accountEmail);
+  const customData =
+    params.kind === "storage_addon"
+      ? { accountEmail: params.accountEmail, kind: "storage_addon", gbAmount: params.gbAmount }
+      : { accountEmail: params.accountEmail, kind: "tier", tier: params.tier };
   const transaction = await paddle.transactions.create({
     items: [{ priceId: params.priceId, quantity: 1 }],
     customerId,
-    customData: { accountEmail: params.accountEmail, tier: params.tier },
+    customData,
     // Explicit checkout.url avoids requiring a "default payment link" to be
     // configured in the Paddle dashboard (a real gap found 2026-07-22 while
     // testing the live checkout flow — Paddle rejects transaction creation

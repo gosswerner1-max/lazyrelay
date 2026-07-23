@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
-import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile } from "../lib/api";
+import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon } from "../lib/api";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
@@ -19,6 +19,8 @@ export function Dashboard() {
   const [storageUsage, setStorageUsage] = useState<StorageUsage | null>(null);
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [mediaBusyId, setMediaBusyId] = useState<string | null>(null);
+  const [storageAddons, setStorageAddons] = useState<StorageAddon[]>([]);
+  const [addonBusy, setAddonBusy] = useState<5 | 20 | 50 | string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Overview");
@@ -38,18 +40,20 @@ export function Dashboard() {
   async function refresh() {
     setError(null);
     try {
-      const [accs, pts, sub, usage, media] = await Promise.all([
+      const [accs, pts, sub, usage, media, addons] = await Promise.all([
         api.listSocialAccounts(),
         api.listScheduledPosts(),
         api.getSubscription(),
         api.getStorageUsage(),
         api.listMedia(),
+        api.listStorageAddons(),
       ]);
       setAccounts(accs);
       setPosts(pts);
       setSubscription(sub);
       setStorageUsage(usage);
       setMediaFiles(media);
+      setStorageAddons(addons);
       if (accs.length > 0 && !selectedAccount) setSelectedAccount(accs[0].id);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -222,6 +226,58 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBillingBusy(null);
+    }
+  }
+
+  async function handleBuyStorageAddon(gbAmount: 5 | 20 | 50) {
+    setAddonBusy(gbAmount);
+    setError(null);
+    try {
+      const { transactionId, checkoutUrl } = await api.startStorageAddonCheckout(gbAmount);
+      if (paddle && transactionId) {
+        paddle.Checkout.open({ transactionId });
+        // Storage add-ons don't flip a tier the pricing banner cares about,
+        // just the quota gauge — poll the addon list + usage briefly instead
+        // of the tier-polling pollUntilUpgraded() above.
+        for (let attempt = 0; attempt < 10; attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          const addons = await api.listStorageAddons();
+          if (addons.some((a) => a.gb_amount === gbAmount)) {
+            setStorageAddons(addons);
+            const usage = await api.getStorageUsage();
+            setStorageUsage(usage);
+            break;
+          }
+        }
+        return;
+      }
+      if (!checkoutUrl) {
+        setError("Checkout couldn't start — no checkout URL was returned.");
+        return;
+      }
+      window.location.href = checkoutUrl;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAddonBusy(null);
+    }
+  }
+
+  async function handleCancelStorageAddon(id: string) {
+    if (!window.confirm("Cancel this storage add-on? You'll lose the extra space at the end of the billing period.")) {
+      return;
+    }
+    setAddonBusy(id);
+    setError(null);
+    try {
+      await api.cancelStorageAddon(id);
+      const [addons, usage] = await Promise.all([api.listStorageAddons(), api.getStorageUsage()]);
+      setStorageAddons(addons);
+      setStorageUsage(usage);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAddonBusy(null);
     }
   }
 
@@ -507,6 +563,49 @@ export function Dashboard() {
                   disabled={mediaBusyId !== null}
                 >
                   {mediaBusyId === m.id ? "Deleting..." : "Delete"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      )}
+
+      {tab === "Settings" && currentTier !== "free" && (
+      <section>
+        <h2>Buy more storage</h2>
+        <p className="pricing-note">Add extra space on top of your plan's included storage — cancel any add-on separately, any time.</p>
+        <div className="pricing-grid billing-upgrade-grid">
+          {([
+            { gb: 5 as const, price: "2.99" },
+            { gb: 20 as const, price: "7.99" },
+            { gb: 50 as const, price: "14.99" },
+          ]).map(({ gb, price }) => (
+            <div className="pricing-card" key={gb}>
+              <h3>+{gb}GB</h3>
+              <p className="pricing-price">
+                ${price}<span className="pricing-period">/mo</span>
+              </p>
+              <button className="cta" onClick={() => handleBuyStorageAddon(gb)} disabled={addonBusy !== null}>
+                {addonBusy === gb ? "Starting checkout..." : `Add +${gb}GB`}
+              </button>
+            </div>
+          ))}
+        </div>
+        {storageAddons.length > 0 && (
+          <ul className="media-list">
+            {storageAddons.map((a) => (
+              <li key={a.id}>
+                <span className="media-list-meta">
+                  +{a.gb_amount}GB storage
+                  <span className={`status-badge status-${a.status}`}>{a.status}</span>
+                </span>
+                <button
+                  className="btn-outline"
+                  onClick={() => handleCancelStorageAddon(a.id)}
+                  disabled={addonBusy !== null}
+                >
+                  {addonBusy === a.id ? "Cancelling..." : "Cancel"}
                 </button>
               </li>
             ))}
