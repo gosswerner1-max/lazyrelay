@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { randomUUID } from "node:crypto";
+import { imageSize } from "image-size";
 import { supabase } from "../supabase.js";
 import { cancelSubscription } from "../billing/sync.js";
 import { buildCheckoutTransaction } from "../billing/paddle.js";
@@ -10,6 +11,7 @@ import type { PlatformAdapter } from "../platforms/types.js";
 import { startConnect, completeConnect } from "../platforms/connect.js";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { tieredRateLimit, publicRateLimit } from "./rateLimit.js";
+import { validateMediaForPlatform, type Platform } from "../mediaLimits.js";
 
 // Free tier: 10 posts per connected social account, refilling every
 // calendar month (decided 2026-07-22 — matches the pricing page's "10 posts
@@ -29,6 +31,7 @@ const ALLOWED_MEDIA_MIME_TYPES = new Set([
   "image/gif",
   "video/mp4",
   "video/quicktime",
+  "video/webm", // TikTok-supported format, not previously allowed here
 ]);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MEDIA_UPLOAD_MAX_BYTES } });
 
@@ -106,6 +109,38 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
     }
 
     const { data } = supabase.storage.from("post-media").getPublicUrl(path);
+
+    // Measure real dimensions ourselves (images only — video needs ffprobe,
+    // not added yet, see mediaLimits.ts) so /scheduled-posts can validate
+    // against the TARGET platform's actual requirements later using
+    // server-measured metadata, not anything a client could misreport.
+    let width: number | null = null;
+    let height: number | null = null;
+    if (file.mimetype.startsWith("image/")) {
+      try {
+        const dims = imageSize(file.buffer);
+        width = dims.width ?? null;
+        height = dims.height ?? null;
+      } catch {
+        // Unreadable/corrupt image headers — leave dimensions null rather
+        // than fail the upload; the platform itself will reject it later
+        // if it's genuinely broken, and dimension checks just get skipped.
+      }
+    }
+
+    const { error: metaError } = await supabase.from("media_uploads").insert({
+      account_id: req.accountId,
+      url: data.publicUrl,
+      mime_type: file.mimetype,
+      size_bytes: file.buffer.length,
+      width,
+      height,
+    });
+    if (metaError) {
+      res.status(500).json({ error: metaError.message });
+      return;
+    }
+
     res.status(201).json({ url: data.publicUrl });
   });
 
@@ -126,12 +161,39 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
     // insert failure.
     const { data: account, error: accountError } = await supabase
       .from("social_accounts")
-      .select("id, account_id")
+      .select("id, account_id, platform")
       .eq("id", socialAccountId)
       .single();
     if (accountError || !account || account.account_id !== req.accountId) {
       res.status(403).json({ error: "Social account not found or not owned by this caller" });
       return;
+    }
+
+    // Pre-flight check against the TARGET platform's real requirements —
+    // this is what lets a customer find out their file doesn't comply
+    // (wrong size, wrong format, wrong aspect ratio) immediately, instead
+    // of only discovering it after a scheduled post silently fails later.
+    // Uses server-measured metadata from media_uploads, not anything the
+    // client claims. See mediaLimits.ts for exactly what is and isn't
+    // checked (video duration/resolution aren't yet — needs ffprobe).
+    if (mediaUrl) {
+      const { data: media } = await supabase
+        .from("media_uploads")
+        .select("mime_type, size_bytes, width, height")
+        .eq("url", mediaUrl)
+        .maybeSingle();
+      if (media) {
+        const result = validateMediaForPlatform(account.platform as Platform, {
+          mimeType: media.mime_type,
+          sizeBytes: media.size_bytes,
+          width: media.width,
+          height: media.height,
+        });
+        if (!result.valid) {
+          res.status(400).json({ error: result.reason });
+          return;
+        }
+      }
     }
 
     // Free tier: 10 posts per connected account per calendar month. Paid
