@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { syncSubscriptionFromWebhook } from "../billing/sync.js";
+import { syncSubscriptionFromWebhook, recordBillingEvent } from "../billing/sync.js";
 import type { MerchantOfRecordAdapter } from "../billing/types.js";
 
 /** Receives raw MoR webhook payloads. Must be mounted with a raw-body
@@ -30,7 +30,11 @@ export function buildWebhookHandler(morAdapter: MerchantOfRecordAdapter) {
     }
 
     try {
-      await syncSubscriptionFromWebhook(event);
+      if (event.kind === "sale_record" || event.kind === "refund_record") {
+        await recordBillingEvent(event);
+      } else {
+        await syncSubscriptionFromWebhook(event);
+      }
       res.status(200).json({ received: true });
     } catch (err) {
       console.error("Webhook processing failed:", err);

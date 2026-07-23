@@ -38,7 +38,48 @@ export interface StorageAddonEvent {
   currentPeriodEnd: string; // ISO timestamp
 }
 
-export type BillingEvent = SubscriptionEvent | StorageAddonEvent;
+/** A completed Paddle transaction ("a sale") — captured for IPE Projects'
+ *  own SARS bookkeeping, per the user's requirement (2026-07-23). Paddle is
+ *  the merchant of record and issues its own tax invoice to the customer;
+ *  this is a separate, internal-only record of the payment Paddle actually
+ *  collected and what it paid out to IPE Projects for it. Never sent to the
+ *  customer — see billing_records migration 0014 and BILLING_KNOWLEDGE.md. */
+export interface SaleRecordEvent {
+  kind: "sale_record";
+  accountEmail: string;
+  paddleTransactionId: string;
+  paddleSubscriptionId: string | null;
+  invoiceNumber: string | null;
+  currencyCode: string;
+  subtotal: string;
+  tax: string;
+  total: string;
+  grandTotal: string;
+  payoutCurrencyCode: string | null;
+  payoutSubtotal: string | null;
+  payoutTax: string | null;
+  payoutFee: string | null;
+  payoutEarnings: string | null;
+  occurredAt: string; // ISO timestamp — Paddle's billedAt
+}
+
+/** A Paddle refund/credit adjustment — same internal-bookkeeping purpose as
+ *  SaleRecordEvent. No accountEmail of its own (Paddle's adjustment payload
+ *  doesn't carry one) — resolved by sync.ts via the linked sale record. */
+export interface RefundRecordEvent {
+  kind: "refund_record";
+  paddleAdjustmentId: string;
+  paddleTransactionId: string; // links back to the original sale
+  paddleSubscriptionId: string | null;
+  reason: string;
+  currencyCode: string;
+  subtotal: string;
+  tax: string;
+  total: string;
+  occurredAt: string; // ISO timestamp — Paddle's createdAt
+}
+
+export type BillingEvent = SubscriptionEvent | StorageAddonEvent | SaleRecordEvent | RefundRecordEvent;
 
 export interface CancelResult {
   success: boolean;

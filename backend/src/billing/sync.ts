@@ -1,5 +1,12 @@
 import { supabase } from "../supabase.js";
-import type { BillingEvent, MerchantOfRecordAdapter, CancelResult } from "./types.js";
+import type {
+  SubscriptionEvent,
+  StorageAddonEvent,
+  MerchantOfRecordAdapter,
+  CancelResult,
+  SaleRecordEvent,
+  RefundRecordEvent,
+} from "./types.js";
 
 /** Called by the webhook HTTP handler after signature verification. Keeps
  *  our local `subscriptions` row in sync with what the MoR actually thinks
@@ -8,7 +15,7 @@ import type { BillingEvent, MerchantOfRecordAdapter, CancelResult } from "./type
  *  exactly the "silent trial-to-paid conversion" pattern in Blotato's
  *  billing complaints). Branches to the storage-addons sync path for
  *  add-on subscriptions (2026-07-23) — see BillingEvent's `kind` field. */
-export async function syncSubscriptionFromWebhook(event: BillingEvent): Promise<void> {
+export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | StorageAddonEvent): Promise<void> {
   const { data: account, error: accountError } = await supabase
     .from("accounts")
     .select("id")
@@ -60,6 +67,85 @@ export async function syncSubscriptionFromWebhook(event: BillingEvent): Promise<
       .from("accounts")
       .update({ cancelled_at: new Date().toISOString() })
       .eq("id", account.id);
+  }
+}
+
+async function recordSale(event: SaleRecordEvent): Promise<void> {
+  const { data: account, error: accountError } = await supabase
+    .from("accounts")
+    .select("id")
+    .eq("email", event.accountEmail)
+    .single();
+  if (accountError || !account) {
+    throw new Error(`No account found for email ${event.accountEmail}: ${accountError?.message}`);
+  }
+
+  const { error } = await supabase.from("billing_records").insert({
+    account_id: account.id,
+    kind: "sale",
+    paddle_transaction_id: event.paddleTransactionId,
+    paddle_subscription_id: event.paddleSubscriptionId,
+    invoice_number: event.invoiceNumber,
+    currency_code: event.currencyCode,
+    subtotal: event.subtotal,
+    tax: event.tax,
+    total: event.total,
+    grand_total: event.grandTotal,
+    payout_currency_code: event.payoutCurrencyCode,
+    payout_subtotal: event.payoutSubtotal,
+    payout_tax: event.payoutTax,
+    payout_fee: event.payoutFee,
+    payout_earnings: event.payoutEarnings,
+    occurred_at: event.occurredAt,
+  });
+  if (error) throw error;
+}
+
+/** A refund's Paddle payload carries no customer email — the account is
+ *  resolved via the original sale record already stored for this
+ *  transactionId, not by looking anything up in Paddle itself. If that sale
+ *  record isn't found, this throws rather than inserting a refund record
+ *  with a guessed/null account — an orphaned tax record is worse than a
+ *  webhook retry (Paddle retries failed deliveries). */
+async function recordRefund(event: RefundRecordEvent): Promise<void> {
+  const { data: saleRecord, error: saleError } = await supabase
+    .from("billing_records")
+    .select("account_id")
+    .eq("paddle_transaction_id", event.paddleTransactionId)
+    .eq("kind", "sale")
+    .single();
+  if (saleError || !saleRecord) {
+    throw new Error(
+      `No sale record found for transaction ${event.paddleTransactionId} — cannot record refund ${event.paddleAdjustmentId} without it`,
+    );
+  }
+
+  const { error } = await supabase.from("billing_records").insert({
+    account_id: saleRecord.account_id,
+    kind: "refund",
+    paddle_transaction_id: event.paddleTransactionId,
+    paddle_adjustment_id: event.paddleAdjustmentId,
+    paddle_subscription_id: event.paddleSubscriptionId,
+    reason: event.reason,
+    currency_code: event.currencyCode,
+    subtotal: event.subtotal,
+    tax: event.tax,
+    total: event.total,
+    occurred_at: event.occurredAt,
+  });
+  if (error) throw error;
+}
+
+/** Writes an internal SARS bookkeeping record for a completed sale or a
+ *  refund/credit adjustment — see billing_records migration 0014. Called by
+ *  the webhook handler alongside (not instead of) syncSubscriptionFromWebhook,
+ *  since a "sale_record"/"refund_record" event never overlaps with a
+ *  subscription-lifecycle one for the same webhook delivery. */
+export async function recordBillingEvent(event: SaleRecordEvent | RefundRecordEvent): Promise<void> {
+  if (event.kind === "sale_record") {
+    await recordSale(event);
+  } else {
+    await recordRefund(event);
   }
 }
 

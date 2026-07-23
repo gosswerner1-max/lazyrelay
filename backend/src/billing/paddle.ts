@@ -1,5 +1,12 @@
 import { Paddle, Environment } from "@paddle/paddle-node-sdk";
-import type { MerchantOfRecordAdapter, BillingEvent, SubscriptionEvent, CancelResult } from "./types.js";
+import type {
+  MerchantOfRecordAdapter,
+  BillingEvent,
+  SubscriptionEvent,
+  SaleRecordEvent,
+  RefundRecordEvent,
+  CancelResult,
+} from "./types.js";
 
 // Real Paddle Billing adapter — see BILLING_KNOWLEDGE.md for why Paddle was
 // chosen over Stripe Managed Payments (Stripe doesn't support South Africa
@@ -45,6 +52,11 @@ const RELEVANT_EVENT_TYPES = new Set([
   "subscription.past_due",
   "subscription.paused",
   "subscription.canceled",
+  // Added 2026-07-23 for internal SARS bookkeeping records (billing_records,
+  // migration 0014) — a completed sale and a refund/credit adjustment,
+  // distinct from the subscription-lifecycle events above.
+  "transaction.completed",
+  "adjustment.created",
 ]);
 
 export const VALID_TIERS = ["free", "pro", "business", "enterprise"] as const;
@@ -82,6 +94,105 @@ function buildEventFromCustomData(sub: SubscriptionLike, status: SubscriptionEve
   return { kind: "tier", morSubscriptionId: sub.id, accountEmail, tier: tier as SubscriptionEvent["tier"], status, currentPeriodEnd };
 }
 
+interface TransactionTotalsLike {
+  subtotal: string;
+  tax: string;
+  total: string;
+  grandTotal: string;
+}
+interface TransactionPayoutTotalsLike {
+  currencyCode: string;
+  subtotal: string;
+  tax: string;
+  fee: string;
+  earnings: string;
+}
+interface TransactionLike {
+  id: string;
+  customData: Record<string, unknown> | null;
+  subscriptionId: string | null;
+  invoiceNumber: string | null;
+  currencyCode: string;
+  billedAt: string | null;
+  details: {
+    totals: TransactionTotalsLike | null;
+    payoutTotals: TransactionPayoutTotalsLike | null;
+  } | null;
+}
+
+/** Builds the internal SARS bookkeeping record for a completed sale. Reuses
+ *  the same customData.accountEmail trick already relied on for
+ *  subscriptions — embedded at checkout time via buildCheckoutTransaction,
+ *  echoed back on the transaction webhook, so no extra Paddle API call is
+ *  needed to resolve who this sale belongs to. */
+function buildSaleRecordEvent(txn: TransactionLike): SaleRecordEvent {
+  const customData = txn.customData ?? {};
+  const accountEmail = customData.accountEmail;
+  if (typeof accountEmail !== "string" || !accountEmail) {
+    throw new Error(`Transaction ${txn.id} has no customData.accountEmail — was it created via buildCheckoutTransaction?`);
+  }
+  const totals = txn.details?.totals;
+  if (!totals) throw new Error(`Transaction ${txn.id} has no details.totals — cannot record a sale without amounts`);
+  const payoutTotals = txn.details?.payoutTotals ?? null;
+
+  return {
+    kind: "sale_record",
+    accountEmail,
+    paddleTransactionId: txn.id,
+    paddleSubscriptionId: txn.subscriptionId,
+    invoiceNumber: txn.invoiceNumber,
+    currencyCode: txn.currencyCode,
+    subtotal: totals.subtotal,
+    tax: totals.tax,
+    total: totals.total,
+    grandTotal: totals.grandTotal,
+    payoutCurrencyCode: payoutTotals?.currencyCode ?? null,
+    payoutSubtotal: payoutTotals?.subtotal ?? null,
+    payoutTax: payoutTotals?.tax ?? null,
+    payoutFee: payoutTotals?.fee ?? null,
+    payoutEarnings: payoutTotals?.earnings ?? null,
+    occurredAt: txn.billedAt ?? new Date().toISOString(),
+  };
+}
+
+interface AdjustmentTotalsLike {
+  subtotal: string;
+  tax: string;
+  total: string;
+}
+interface AdjustmentLike {
+  id: string;
+  action: string;
+  transactionId: string;
+  subscriptionId: string | null;
+  reason: string;
+  currencyCode: string;
+  totals: AdjustmentTotalsLike | null;
+  createdAt: string;
+}
+
+/** Builds the internal SARS bookkeeping record for a refund/credit
+ *  adjustment. Unlike a sale, Paddle's adjustment payload carries no
+ *  customer email — sync.ts resolves the account by looking up the
+ *  original sale record already stored for this transactionId. */
+function buildRefundRecordEvent(adj: AdjustmentLike): RefundRecordEvent {
+  const totals = adj.totals;
+  if (!totals) throw new Error(`Adjustment ${adj.id} has no totals — cannot record a refund without amounts`);
+
+  return {
+    kind: "refund_record",
+    paddleAdjustmentId: adj.id,
+    paddleTransactionId: adj.transactionId,
+    paddleSubscriptionId: adj.subscriptionId,
+    reason: `${adj.action}: ${adj.reason}`,
+    currencyCode: adj.currencyCode,
+    subtotal: totals.subtotal,
+    tax: totals.tax,
+    total: totals.total,
+    occurredAt: adj.createdAt,
+  };
+}
+
 export class PaddleMorAdapter implements MerchantOfRecordAdapter {
   private paddle: Paddle;
 
@@ -100,8 +211,15 @@ export class PaddleMorAdapter implements MerchantOfRecordAdapter {
     const event = await this.paddle.webhooks.unmarshal(rawBody, this.webhookSecret, signatureHeader);
 
     if (!RELEVANT_EVENT_TYPES.has(event.eventType)) {
-      // Transaction-side events, etc. — verified-legitimate, nothing to sync.
+      // Anything else — verified-legitimate, nothing to sync.
       return null;
+    }
+
+    if (event.eventType === "transaction.completed") {
+      return buildSaleRecordEvent(event.data as unknown as TransactionLike);
+    }
+    if (event.eventType === "adjustment.created") {
+      return buildRefundRecordEvent(event.data as unknown as AdjustmentLike);
     }
 
     const subscription = event.data as unknown as SubscriptionLike;
