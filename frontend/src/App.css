@@ -200,6 +200,17 @@
   gap: 4px;
   border-bottom: 1px solid var(--line);
   margin-bottom: 24px;
+  /* On a narrow phone the 4 tabs (Overview/Posts/Accounts/Settings) need
+     more width than fits — confirmed via measurement at 375px (335px
+     available vs 362px needed). Scroll instead of silently clipping the
+     rightmost tab, since that's exactly where Settings/billing lives. */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.tab-bar::-webkit-scrollbar {
+  display: none;
 }
 
 .tab-bar button {
@@ -211,6 +222,8 @@
   font-size: 14px;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .tab-bar button:hover {
