@@ -18,6 +18,8 @@
   --confirm-bg: rgba(31, 157, 104, 0.1);
   --error: #d1372f;
   --error-bg: rgba(209, 55, 47, 0.09);
+  --warn: #a16207;
+  --warn-bg: rgba(234, 179, 8, 0.14);
   --shadow: rgba(20, 23, 31, 0.06) 0 6px 20px -6px;
   --navy: #14171f;
   --hero-bg: #040c1c;
@@ -47,6 +49,8 @@
     --confirm-bg: rgba(62, 201, 138, 0.14);
     --error: #ff6b61;
     --error-bg: rgba(255, 107, 97, 0.13);
+    --warn: #f2b842;
+    --warn-bg: rgba(242, 184, 66, 0.16);
     --shadow: rgba(0, 0, 0, 0.4) 0 6px 20px -6px;
   }
 }

@@ -457,8 +457,8 @@
 }
 
 .status-posting {
-  background: rgba(234, 179, 8, 0.14);
-  color: #a16207;
+  background: var(--warn-bg);
+  color: var(--warn);
 }
 
 .status-posted {
@@ -487,8 +487,8 @@
 }
 
 .status-cancelled {
-  background: rgba(234, 179, 8, 0.14);
-  color: #a16207;
+  background: var(--warn-bg);
+  color: var(--warn);
 }
 
 .current-plan {
@@ -542,7 +542,7 @@
 }
 
 .storage-gauge-fill.storage-gauge-warn {
-  background: #eab308;
+  background: var(--warn);
 }
 
 .storage-gauge-fill.storage-gauge-full {
