@@ -910,8 +910,10 @@
 
 .landing-footer-links {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
+  justify-content: center;
+  gap: 8px 16px;
   margin: 0;
 }
 
