@@ -6,6 +6,7 @@ interface LandingProps {
   onSignIn: () => void;
   onGetStarted: () => void;
   onPrivacy: () => void;
+  onTerms: () => void;
   onContact: () => void;
 }
 
@@ -93,7 +94,7 @@ const FAQ = [
   },
 ];
 
-export function Landing({ onSignIn, onGetStarted, onPrivacy, onContact }: LandingProps) {
+export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact }: LandingProps) {
   return (
     <div className="landing">
       <header className="landing-nav">
@@ -237,6 +238,9 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onContact }: Landin
           </button>
           <button className="link" onClick={onPrivacy}>
             Privacy Policy
+          </button>
+          <button className="link" onClick={onTerms}>
+            Terms of Service
           </button>
           <a href="mailto:hello@lazyrelay.com">hello@lazyrelay.com</a>
         </p>

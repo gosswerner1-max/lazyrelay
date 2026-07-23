@@ -4,13 +4,14 @@ import { Landing } from "./pages/Landing";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { PrivacyPolicy } from "./pages/PrivacyPolicy";
+import { TermsOfService } from "./pages/TermsOfService";
 import { Contact } from "./pages/Contact";
 import { Spinner } from "./components/Spinner";
 import "./App.css";
 
 function Root() {
   const { session, loading } = useAuth();
-  const [view, setView] = useState<"landing" | "signin" | "signup" | "privacy" | "contact">("landing");
+  const [view, setView] = useState<"landing" | "signin" | "signup" | "privacy" | "terms" | "contact">("landing");
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -30,6 +31,10 @@ function Root() {
     return <PrivacyPolicy onBack={() => setView("landing")} />;
   }
 
+  if (view === "terms") {
+    return <TermsOfService onBack={() => setView("landing")} />;
+  }
+
   if (view === "contact") {
     return <Contact onBack={() => setView("landing")} />;
   }
@@ -40,6 +45,7 @@ function Root() {
         onSignIn={() => setView("signin")}
         onGetStarted={() => setView("signup")}
         onPrivacy={() => setView("privacy")}
+        onTerms={() => setView("terms")}
         onContact={() => setView("contact")}
       />
     );

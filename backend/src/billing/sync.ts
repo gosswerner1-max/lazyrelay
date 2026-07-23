@@ -67,7 +67,15 @@ export async function syncSubscriptionFromWebhook(event: BillingEvent): Promise<
  *  Cancels with the MoR FIRST — only marks our own record cancelled once
  *  that real cancellation succeeds, never the other way around. A cancel
  *  button that just flips a local flag while billing continues is exactly
- *  the failure mode this whole product exists to not repeat. */
+ *  the failure mode this whole product exists to not repeat.
+ *
+ *  Also cancels any active/trialing storage add-ons (2026-07-23 — decided
+ *  against leaving them running after the main plan cancels: a Free-tier
+ *  account silently still paying for +50GB is a confusing state nobody
+ *  asked for, not a deliberate feature). Add-on cancellation failures are
+ *  logged but don't block the main-plan cancellation from completing —
+ *  the customer's primary intent (stop the big bill) still succeeds even
+ *  if one add-on's MoR call has a transient failure. */
 export async function cancelSubscription(
   accountId: string,
   adapter: MerchantOfRecordAdapter,
@@ -89,6 +97,20 @@ export async function cancelSubscription(
     .update({ status: "cancelled" })
     .eq("mor_subscription_id", subscription.mor_subscription_id);
   await supabase.from("accounts").update({ cancelled_at: new Date().toISOString() }).eq("id", accountId);
+
+  const { data: addons } = await supabase
+    .from("storage_addons")
+    .select("id, mor_subscription_id")
+    .eq("account_id", accountId)
+    .in("status", ["active", "trialing"]);
+  for (const addon of addons ?? []) {
+    const addonResult = await adapter.cancelSubscription(addon.mor_subscription_id);
+    if (addonResult.success) {
+      await supabase.from("storage_addons").update({ status: "cancelled" }).eq("id", addon.id);
+    } else {
+      console.error(`Failed to cancel storage add-on ${addon.id} alongside main plan:`, addonResult.errorMessage);
+    }
+  }
 
   return result;
 }

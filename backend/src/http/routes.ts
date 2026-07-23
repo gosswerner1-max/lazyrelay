@@ -30,6 +30,11 @@ import { resolveTier, type Tier } from "../tier.js";
 // tier's base amount (e.g. Starter + only 10 accounts, but heavy media use).
 const STORAGE_ADDON_GB_OPTIONS = [5, 20, 50] as const;
 type StorageAddonGb = (typeof STORAGE_ADDON_GB_OPTIONS)[number];
+// Closes off unbounded stacking (a scripted retry loop or fat-fingered
+// repeat-click spinning up dozens of subscriptions) without affecting any
+// real customer — 5 add-ons is already up to +250GB on top of the tier's
+// base quota, far beyond realistic single-account usage.
+const MAX_ACTIVE_STORAGE_ADDONS = 5;
 const ADDON_PRICE_ID_ENV_VAR: Record<StorageAddonGb, string> = {
   5: "PADDLE_PRICE_ID_STORAGE_5GB",
   20: "PADDLE_PRICE_ID_STORAGE_20GB",
@@ -514,6 +519,22 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
     const tier = await resolveTier(req.accountId!);
     if (tier === "free") {
       res.status(403).json({ error: "Storage add-ons aren't available on the Free tier — upgrade to a paid plan first." });
+      return;
+    }
+
+    const { count: activeAddonCount, error: countError } = await supabase
+      .from("storage_addons")
+      .select("id", { count: "exact", head: true })
+      .eq("account_id", req.accountId)
+      .in("status", ["active", "trialing"]);
+    if (countError) {
+      res.status(500).json({ error: countError.message });
+      return;
+    }
+    if ((activeAddonCount ?? 0) >= MAX_ACTIVE_STORAGE_ADDONS) {
+      res.status(403).json({
+        error: `You already have ${MAX_ACTIVE_STORAGE_ADDONS} storage add-ons — cancel one before adding another.`,
+      });
       return;
     }
 
