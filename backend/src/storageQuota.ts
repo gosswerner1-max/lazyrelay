@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { resolveTier, type Tier } from "./tier.js";
 
 /** Per-account storage quota — the actual defense against the "upload media
  *  that's never attached to a post, forever, for free" cost-abuse gap found
@@ -8,27 +9,20 @@ import { supabase } from "./supabase.js";
  *  Google Drive/Dropbox's own storage gauge, not a notice-and-delete policy.
  *  Numbers below are a starting point, easy to tune later; they aren't tied
  *  to any external research, just a reasonable per-tier scale-up. */
-export type Tier = "free" | "pro" | "business";
-
 const GB = 1024 * 1024 * 1024;
 const MB = 1024 * 1024;
 
 export const STORAGE_QUOTA_BYTES: Record<Tier, number> = {
   free: 250 * MB,
-  pro: 5 * GB,
-  business: 20 * GB,
+  pro: 5 * GB, // "Starter"
+  business: 10 * GB, // "Pro"
+  enterprise: 20 * GB, // "Business"
 };
 
 export interface StorageUsage {
   tier: Tier;
   usedBytes: number;
   quotaBytes: number;
-}
-
-async function resolveTier(accountId: string): Promise<Tier> {
-  const { data } = await supabase.from("subscriptions").select("tier, status").eq("account_id", accountId).maybeSingle();
-  const isPaidInGoodStanding = data?.tier !== "free" && (data?.status === "active" || data?.status === "trialing");
-  return isPaidInGoodStanding ? (data!.tier as Tier) : "free";
 }
 
 export async function getStorageUsage(accountId: string): Promise<StorageUsage> {
@@ -47,6 +41,6 @@ export async function checkQuotaForNewUpload(accountId: string, newFileBytes: nu
 
   const usedMB = (usage.usedBytes / MB).toFixed(1);
   const quotaMB = (usage.quotaBytes / MB).toFixed(0);
-  const upgradeHint = usage.tier === "free" ? " Upgrade to Pro for more storage, or" : " Please";
+  const upgradeHint = usage.tier === "enterprise" ? " Please" : " Upgrade for more storage, or";
   return `You're using ${usedMB}MB of your ${quotaMB}MB storage limit — this file won't fit.${upgradeHint} delete some existing media to free up space.`;
 }

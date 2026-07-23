@@ -43,7 +43,7 @@ const RELEVANT_EVENT_TYPES = new Set([
   "subscription.canceled",
 ]);
 
-export const VALID_TIERS = ["free", "pro", "business"] as const;
+export const VALID_TIERS = ["free", "pro", "business", "enterprise"] as const;
 
 interface SubscriptionLike {
   id: string;
@@ -135,7 +135,7 @@ async function getOrCreateCustomerId(paddle: Paddle, email: string): Promise<str
 export async function buildCheckoutTransaction(
   apiKey: string,
   environment: Environment,
-  params: { accountEmail: string; tier: "pro" | "business"; priceId: string }
+  params: { accountEmail: string; tier: "pro" | "business" | "enterprise"; priceId: string }
 ): Promise<{ transactionId: string; checkoutUrl: string | null }> {
   const paddle = new Paddle(apiKey, { environment });
   const customerId = await getOrCreateCustomerId(paddle, params.accountEmail);

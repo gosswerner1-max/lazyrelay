@@ -13,6 +13,8 @@ import { requireAuth, type AuthedRequest } from "./auth.js";
 import { tieredRateLimit, publicRateLimit } from "./rateLimit.js";
 import { validateMediaForPlatform, type Platform } from "../mediaLimits.js";
 import { checkQuotaForNewUpload, getStorageUsage } from "../storageQuota.js";
+import { checkAccountLimit } from "../accountLimits.js";
+import type { Tier } from "../tier.js";
 
 // Free tier: 10 posts per connected social account, refilling every
 // calendar month (decided 2026-07-22 — matches the pricing page's "10 posts
@@ -45,6 +47,13 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
   // browser sends except the opaque, one-time state token.
   router.get("/social-accounts/connect", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     try {
+      // Real per-tier cap, not just marketing copy — see accountLimits.ts
+      // for why even the top tier is capped rather than truly unlimited.
+      const limitError = await checkAccountLimit(req.accountId!);
+      if (limitError) {
+        res.status(403).json({ error: limitError });
+        return;
+      }
       const url = await startConnect(req.accountId!, platformAdapter);
       res.json({ authorizeUrl: url });
     } catch (err) {
@@ -307,7 +316,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       }
       if ((count ?? 0) >= FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT) {
         res.status(403).json({
-          error: `Free tier limit reached: ${FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT} posts per connected account per month. Upgrade to Pro for unlimited posts, or wait until next month.`,
+          error: `Free tier limit reached: ${FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT} posts per connected account per month. Upgrade to Starter for unlimited posts, or wait until next month.`,
         });
         return;
       }
@@ -392,13 +401,24 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
   // confusing Paddle SDK exception if they don't.
   router.post("/subscription/checkout", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { tier } = req.body ?? {};
-    if (tier !== "pro" && tier !== "business") {
-      res.status(400).json({ error: 'tier must be "pro" or "business" (use the Free tier by just not upgrading)' });
+    if (tier !== "pro" && tier !== "business" && tier !== "enterprise") {
+      res.status(400).json({
+        error: 'tier must be "pro" (Starter), "business" (Pro), or "enterprise" (Business) — use the Free tier by just not upgrading',
+      });
       return;
     }
 
     const apiKey = process.env.MOR_API_KEY;
-    const priceId = tier === "pro" ? process.env.PADDLE_PRICE_ID_PRO : process.env.PADDLE_PRICE_ID_BUSINESS;
+    // Internal tier codes were kept stable across the Starter/Pro/Business
+    // rename (see tier.ts) — the env var names below reflect the CURRENT
+    // display name, not the internal code, so double-check this mapping
+    // against tier.ts's TIER_DISPLAY_NAMES before changing either.
+    const priceId =
+      tier === "pro"
+        ? process.env.PADDLE_PRICE_ID_STARTER
+        : tier === "business"
+          ? process.env.PADDLE_PRICE_ID_PRO
+          : process.env.PADDLE_PRICE_ID_BUSINESS;
     if (!apiKey || !priceId) {
       res.status(503).json({
         error: "Billing isn't live yet — no Paddle account/price configured. See BILLING_KNOWLEDGE.md.",

@@ -1,9 +1,7 @@
 import rateLimit from "express-rate-limit";
 import type { Request } from "express";
-import { supabase } from "../supabase.js";
 import type { AuthedRequest } from "./auth.js";
-
-type Tier = "free" | "pro" | "business";
+import { resolveTier as resolveTierUncached, type Tier } from "../tier.js";
 
 // Requests/minute per tier. This limits request VOLUME against our own
 // infra (and, once real platform adapters exist, protects LazyRelay's own
@@ -15,8 +13,9 @@ type Tier = "free" | "pro" | "business";
 // separately, this is just the request-rate backstop underneath it.
 const TIER_LIMITS: Record<Tier, number> = {
   free: 60,
-  pro: 300,
-  business: 600,
+  pro: 300, // "Starter"
+  business: 450, // "Pro"
+  enterprise: 600, // "Business"
 };
 
 // Cached per account for a short window so every request doesn't cost a
@@ -29,14 +28,7 @@ async function resolveTier(accountId: string): Promise<Tier> {
   const cached = tierCache.get(accountId);
   if (cached && cached.expiresAt > Date.now()) return cached.tier;
 
-  const { data } = await supabase
-    .from("subscriptions")
-    .select("tier, status")
-    .eq("account_id", accountId)
-    .maybeSingle();
-  const isPaidInGoodStanding = data?.tier !== "free" && (data?.status === "active" || data?.status === "trialing");
-  const tier: Tier = isPaidInGoodStanding ? (data!.tier as Tier) : "free";
-
+  const tier = await resolveTierUncached(accountId);
   tierCache.set(accountId, { tier, expiresAt: Date.now() + TIER_CACHE_TTL_MS });
   return tier;
 }

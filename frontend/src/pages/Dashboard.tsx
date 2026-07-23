@@ -22,7 +22,7 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Overview");
-  const [billingBusy, setBillingBusy] = useState<"pro" | "business" | "cancel" | null>(null);
+  const [billingBusy, setBillingBusy] = useState<"pro" | "business" | "enterprise" | "cancel" | null>(null);
 
   const [content, setContent] = useState("");
   const [scheduledFor, setScheduledFor] = useState("");
@@ -33,7 +33,7 @@ export function Dashboard() {
   const [mediaDragActive, setMediaDragActive] = useState(false);
   const [paddle, setPaddle] = useState<Paddle | undefined>(undefined);
   const [finalizingUpgrade, setFinalizingUpgrade] = useState(false);
-  const pendingTierRef = useRef<"pro" | "business" | null>(null);
+  const pendingTierRef = useRef<"pro" | "business" | "enterprise" | null>(null);
 
   async function refresh() {
     setError(null);
@@ -200,7 +200,7 @@ export function Dashboard() {
     }
   }
 
-  async function handleUpgrade(tier: "pro" | "business") {
+  async function handleUpgrade(tier: "pro" | "business" | "enterprise") {
     setBillingBusy(tier);
     setError(null);
     try {
@@ -249,7 +249,7 @@ export function Dashboard() {
     );
   }
 
-  const tierNames = { free: "Free", pro: "Pro", business: "Business" } as const;
+  const tierNames = { free: "Free", pro: "Starter", business: "Pro", enterprise: "Business" } as const;
   const currentTier = subscription?.tier ?? "free";
   const isFreePlan = currentTier === "free";
   // A cancelled paid plan keeps access until the current period ends — it's
@@ -279,7 +279,7 @@ export function Dashboard() {
           </span>
           {isFreeOrLapsed && !finalizingUpgrade && (
             <button className="plan-banner-cta" onClick={() => setTab("Settings")}>
-              {isCancelling ? "Resubscribe" : "Upgrade to Pro"}
+              {isCancelling ? "Resubscribe" : "Upgrade"}
             </button>
           )}
         </div>
@@ -519,7 +519,7 @@ export function Dashboard() {
       <section>
         <h2>Billing</h2>
         {(() => {
-          const tierNames = { free: "Free", pro: "Pro", business: "Business" } as const;
+          const tierNames = { free: "Free", pro: "Starter", business: "Pro", enterprise: "Business" } as const;
           const canUpgrade = !subscription || subscription.tier === "free" || subscription.status === "cancelled";
           // A cancelled paid plan keeps access until the period end — label
           // the resume action "Resubscribe" so it doesn't read as
@@ -542,23 +542,33 @@ export function Dashboard() {
               {canUpgrade ? (
                 <div className="pricing-grid billing-upgrade-grid">
                   <div className="pricing-card">
-                    <h3>Pro</h3>
+                    <h3>Starter — 5GB storage</h3>
                     <p className="pricing-price">
                       $24.99<span className="pricing-period">/mo</span>
                     </p>
-                    <p className="pricing-note">15 accounts, unlimited posts, AI-agent access</p>
+                    <p className="pricing-note">20 accounts, unlimited posts, AI-agent access</p>
                     <button className="cta" onClick={() => handleUpgrade("pro")} disabled={billingBusy !== null}>
-                      {billingBusy === "pro" ? "Starting checkout..." : isCancelling ? "Resubscribe to Pro" : "Upgrade to Pro"}
+                      {billingBusy === "pro" ? "Starting checkout..." : isCancelling ? "Resubscribe to Starter" : "Upgrade to Starter"}
                     </button>
                   </div>
                   <div className="pricing-card">
-                    <h3>Business</h3>
+                    <h3>Pro — 10GB storage</h3>
                     <p className="pricing-price">
-                      $49<span className="pricing-period">/mo</span>
+                      $48.99<span className="pricing-period">/mo</span>
                     </p>
-                    <p className="pricing-note">Unlimited accounts, priority support</p>
+                    <p className="pricing-note">40 accounts, unlimited posts, AI-agent access, priority support</p>
                     <button className="cta" onClick={() => handleUpgrade("business")} disabled={billingBusy !== null}>
-                      {billingBusy === "business" ? "Starting checkout..." : isCancelling ? "Resubscribe to Business" : "Upgrade to Business"}
+                      {billingBusy === "business" ? "Starting checkout..." : isCancelling ? "Resubscribe to Pro" : "Upgrade to Pro"}
+                    </button>
+                  </div>
+                  <div className="pricing-card">
+                    <h3>Business — 20GB storage</h3>
+                    <p className="pricing-price">
+                      $79.99<span className="pricing-period">/mo</span>
+                    </p>
+                    <p className="pricing-note">100 accounts, unlimited posts, AI-agent access, priority support</p>
+                    <button className="cta" onClick={() => handleUpgrade("enterprise")} disabled={billingBusy !== null}>
+                      {billingBusy === "enterprise" ? "Starting checkout..." : isCancelling ? "Resubscribe to Business" : "Upgrade to Business"}
                     </button>
                   </div>
                 </div>

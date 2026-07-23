@@ -19,7 +19,7 @@
 export interface SubscriptionEvent {
   morSubscriptionId: string;
   accountEmail: string;
-  tier: "free" | "pro" | "business";
+  tier: "free" | "pro" | "business" | "enterprise";
   status: "trialing" | "active" | "past_due" | "cancelled";
   currentPeriodEnd: string; // ISO timestamp
 }

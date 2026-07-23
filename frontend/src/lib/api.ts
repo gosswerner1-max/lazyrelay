@@ -40,14 +40,17 @@ export interface ScheduledPost {
   post_results: Array<{ verified_live: boolean; platform_post_url: string | null; error_message: string | null }>;
 }
 
+// Internal tier codes are stable across the Starter/Pro/Business rename
+// (2026-07-23) — "pro" displays as "Starter", "business" displays as "Pro",
+// "enterprise" is the genuinely new top tier, displaying as "Business".
 export interface Subscription {
-  tier: "free" | "pro" | "business";
+  tier: "free" | "pro" | "business" | "enterprise";
   status: "trialing" | "active" | "past_due" | "cancelled" | null;
   currentPeriodEnd: string | null;
 }
 
 export interface StorageUsage {
-  tier: "free" | "pro" | "business";
+  tier: "free" | "pro" | "business" | "enterprise";
   usedBytes: number;
   quotaBytes: number;
 }
@@ -101,7 +104,9 @@ export const api = {
   deleteMedia: (id: string): Promise<null> => authedFetch(`/media/${id}`, { method: "DELETE" }),
 
   getSubscription: (): Promise<Subscription> => authedFetch("/subscription"),
-  startCheckout: (tier: "pro" | "business"): Promise<{ transactionId: string; checkoutUrl: string | null }> =>
+  startCheckout: (
+    tier: "pro" | "business" | "enterprise"
+  ): Promise<{ transactionId: string; checkoutUrl: string | null }> =>
     authedFetch("/subscription/checkout", { method: "POST", body: JSON.stringify({ tier }) }),
   cancelSubscription: (): Promise<{ cancelled: boolean }> =>
     authedFetch("/subscription/cancel", { method: "POST" }),

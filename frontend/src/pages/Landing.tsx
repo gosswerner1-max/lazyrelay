@@ -36,24 +36,32 @@ const PRICING = [
     name: "Free",
     price: "$0",
     note: "Get started, no card required",
-    features: ["3 connected accounts", "10 posts per account, refillable", "Proof-of-Publish verification"],
+    features: ["3 connected accounts", "10 posts per account, refillable", "250MB storage", "Proof-of-Publish verification"],
     cta: "Get started free",
+  },
+  {
+    tier: "starter" as const,
+    name: "Starter",
+    price: "$24.99",
+    note: "For creators posting regularly",
+    features: ["20 connected accounts", "Unlimited scheduled posts", "AI-agent / MCP access", "5GB storage", "Proof-of-Publish verification"],
+    cta: "Get started",
   },
   {
     tier: "pro" as const,
     name: "Pro",
-    price: "$24.99",
-    note: "For creators posting regularly",
-    features: ["15 connected accounts", "Unlimited scheduled posts", "AI-agent / MCP access", "Proof-of-Publish verification"],
+    price: "$48.99",
+    note: "For growing teams",
+    features: ["40 connected accounts", "Unlimited scheduled posts", "AI-agent / MCP access", "10GB storage", "Priority support"],
     cta: "Get started",
     featured: true,
   },
   {
     tier: "business" as const,
     name: "Business",
-    price: "$49",
-    note: "For teams and agencies",
-    features: ["Unlimited connected accounts", "Unlimited scheduled posts", "AI-agent / MCP access", "Priority support"],
+    price: "$79.99",
+    note: "For agencies at scale",
+    features: ["100 connected accounts", "Unlimited scheduled posts", "AI-agent / MCP access", "20GB storage", "Priority support"],
     cta: "Get started",
   },
 ];
@@ -73,7 +81,7 @@ const FAQ = [
   },
   {
     q: "Is it free?",
-    a: "There's a genuinely free tier with no card required, and paid Pro/Business tiers if you need more connected accounts or unlimited posts. You can start free and upgrade later from your dashboard whenever you're ready.",
+    a: "There's a genuinely free tier with no card required, and paid Starter/Pro/Business tiers if you need more connected accounts or unlimited posts. You can start free and upgrade later from your dashboard whenever you're ready.",
   },
   {
     q: "What happens if a post fails to publish?",
@@ -179,7 +187,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onContact }: Landin
           ))}
         </div>
         <p className="section-note pricing-footnote">
-          Start on Free, upgrade to Pro or Business any time from your dashboard.
+          Start on Free, upgrade to Starter, Pro, or Business any time from your dashboard.
         </p>
       </section>
 
