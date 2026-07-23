@@ -117,6 +117,20 @@ async function getAccessToken(socialAccountId: string): Promise<string> {
   return token as string;
 }
 
+/** A paused account (plan downgrade past the tier's connected-account limit —
+ *  see ops/accounts/accounts_ops.js's enforceDowngradePause()) keeps its
+ *  connection and tokens intact but must never actually post. Checked before
+ *  spending a vault read on a token that won't be used. */
+async function isAccountPaused(socialAccountId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("social_accounts")
+    .select("paused_at")
+    .eq("id", socialAccountId)
+    .single();
+  if (error || !data) throw error ?? new Error("social account not found");
+  return data.paused_at !== null;
+}
+
 /** A failure that hasn't exhausted its retries goes back to `pending` with
  *  an exponential backoff delay instead of being marked `failed` outright.
  *  Only once MAX_RETRIES is exhausted does this become a real, alerted
@@ -143,6 +157,17 @@ async function handleFailure(post: DuePost, message: string): Promise<void> {
 
 async function processPost(post: DuePost, adapter: PlatformAdapter): Promise<void> {
   try {
+    if (await isAccountPaused(post.social_account_id)) {
+      // Not a platform/adapter failure — retrying won't help until the
+      // account is unpaused, so this skips handleFailure's backoff-retry
+      // path and the circuit breaker entirely, and fails immediately with
+      // a reason the customer can act on (upgrade or reconnect).
+      await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id);
+      console.warn(`Post ${post.id} failed: connected account is paused (plan downgrade).`);
+      await notifyOps(`Post ${post.id} failed: social account ${post.social_account_id} is paused (plan downgrade past connected-account limit).`);
+      return;
+    }
+
     const accessToken = await getAccessToken(post.social_account_id);
 
     const attempt = await adapter.post({

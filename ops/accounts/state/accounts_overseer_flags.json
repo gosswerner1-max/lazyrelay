@@ -1,0 +1,9 @@
+{
+  "latest_overseer_flag": {
+    "problems": [
+      "auditor not proven: module edited since last recorded self-test pass — stale"
+    ],
+    "healthy": false,
+    "_recordedAt": "2026-07-22T08:54:17.352Z"
+  }
+}
