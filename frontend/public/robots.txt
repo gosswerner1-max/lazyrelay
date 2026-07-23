@@ -1,0 +1,27 @@
+# LazyRelay — https://lazyrelay.com
+# Open to all crawlers, including AI answer-engine crawlers (AEO).
+User-agent: *
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+Sitemap: https://lazyrelay.com/sitemap.xml
