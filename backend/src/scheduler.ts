@@ -1,7 +1,70 @@
 import { supabase } from "./supabase.js";
 import type { PlatformAdapter } from "./platforms/types.js";
+import { notifyOps } from "./notify.js";
 
 const CLAIM_BATCH_SIZE = 10;
+
+// A post that fails gets retried with exponential backoff before being
+// marked permanently failed — a one-off network blip or momentary platform
+// error shouldn't kill a post that would have gone through on a later
+// attempt. 3 retries at 2/4/8 minutes, then it's a real failure.
+const MAX_RETRIES = 3;
+const BACKOFF_BASE_MINUTES = 2;
+
+// Circuit breaker: trips after CONSECUTIVE_FAILURE_THRESHOLD failures in a
+// row for a given platform, pausing all posting to that platform for
+// BREAKER_COOLDOWN_MS. This isn't (only) about the failing customer's own
+// posts — hammering a platform that's already rejecting/rate-limiting us
+// risks LazyRelay's own app-level API access getting throttled or flagged,
+// which would degrade service for every customer on that platform, not
+// just the one whose posts are currently failing.
+const CONSECUTIVE_FAILURE_THRESHOLD = 5;
+const BREAKER_COOLDOWN_MS = 5 * 60_000;
+
+interface BreakerState {
+  consecutiveFailures: number;
+  trippedUntil: number | null;
+}
+const breakers = new Map<string, BreakerState>();
+
+function getBreaker(platform: string): BreakerState {
+  let state = breakers.get(platform);
+  if (!state) {
+    state = { consecutiveFailures: 0, trippedUntil: null };
+    breakers.set(platform, state);
+  }
+  return state;
+}
+
+/** True if the breaker is currently open for this platform. A breaker
+ *  whose cooldown has elapsed resets itself here and gives the platform
+ *  another chance, rather than staying tripped forever. */
+function isBreakerTripped(platform: string): boolean {
+  const state = getBreaker(platform);
+  if (!state.trippedUntil) return false;
+  if (state.trippedUntil > Date.now()) return true;
+  state.consecutiveFailures = 0;
+  state.trippedUntil = null;
+  return false;
+}
+
+function recordSuccess(platform: string): void {
+  const state = getBreaker(platform);
+  state.consecutiveFailures = 0;
+  state.trippedUntil = null;
+}
+
+function recordFailure(platform: string): void {
+  const state = getBreaker(platform);
+  state.consecutiveFailures += 1;
+  if (state.consecutiveFailures >= CONSECUTIVE_FAILURE_THRESHOLD && !state.trippedUntil) {
+    state.trippedUntil = Date.now() + BREAKER_COOLDOWN_MS;
+    void notifyOps(
+      `Circuit breaker tripped for platform "${platform}" after ${state.consecutiveFailures} consecutive failures — ` +
+        `pausing all posting to this platform for ${BREAKER_COOLDOWN_MS / 60_000} minutes.`
+    );
+  }
+}
 
 interface DuePost {
   id: string;
@@ -9,6 +72,7 @@ interface DuePost {
   social_account_id: string;
   content: string;
   media_url: string | null;
+  retry_count: number;
 }
 
 /** Finds posts due to go out and claims them (status pending -> posting)
@@ -18,7 +82,7 @@ interface DuePost {
 async function claimDuePosts(): Promise<DuePost[]> {
   const { data: due, error: selectError } = await supabase
     .from("scheduled_posts")
-    .select("id, account_id, social_account_id, content, media_url")
+    .select("id, account_id, social_account_id, content, media_url, retry_count")
     .eq("status", "pending")
     .lte("scheduled_for", new Date().toISOString())
     .limit(CLAIM_BATCH_SIZE);
@@ -53,6 +117,30 @@ async function getAccessToken(socialAccountId: string): Promise<string> {
   return token as string;
 }
 
+/** A failure that hasn't exhausted its retries goes back to `pending` with
+ *  an exponential backoff delay instead of being marked `failed` outright.
+ *  Only once MAX_RETRIES is exhausted does this become a real, alerted
+ *  failure — this is what actually backs the Proof-of-Publish promise
+ *  against transient errors instead of just the happy path. */
+async function handleFailure(post: DuePost, message: string): Promise<void> {
+  if (post.retry_count < MAX_RETRIES) {
+    const backoffMinutes = BACKOFF_BASE_MINUTES * 2 ** post.retry_count;
+    const nextAttempt = new Date(Date.now() + backoffMinutes * 60_000).toISOString();
+    await supabase
+      .from("scheduled_posts")
+      .update({ status: "pending", retry_count: post.retry_count + 1, scheduled_for: nextAttempt })
+      .eq("id", post.id);
+    console.warn(
+      `Post ${post.id} failed (attempt ${post.retry_count + 1}/${MAX_RETRIES + 1}): ${message}. Retrying at ${nextAttempt}.`
+    );
+    return;
+  }
+
+  await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id);
+  console.error(`Post ${post.id} permanently failed after ${MAX_RETRIES + 1} attempts: ${message}`);
+  await notifyOps(`Post ${post.id} permanently failed after ${MAX_RETRIES + 1} attempts: ${message}`);
+}
+
 async function processPost(post: DuePost, adapter: PlatformAdapter): Promise<void> {
   try {
     const accessToken = await getAccessToken(post.social_account_id);
@@ -65,7 +153,8 @@ async function processPost(post: DuePost, adapter: PlatformAdapter): Promise<voi
     });
 
     if (!attempt.success || !attempt.platformPostId) {
-      await markFailed(post.id, attempt.errorMessage ?? "post attempt failed, no reason given");
+      recordFailure(adapter.platform);
+      await handleFailure(post, attempt.errorMessage ?? "post attempt failed, no reason given");
       return;
     }
 
@@ -84,23 +173,31 @@ async function processPost(post: DuePost, adapter: PlatformAdapter): Promise<voi
       error_message: verification.errorMessage,
     });
 
-    await supabase
-      .from("scheduled_posts")
-      .update({ status: verification.verifiedLive ? "posted" : "failed" })
-      .eq("id", post.id);
+    if (!verification.verifiedLive) {
+      recordFailure(adapter.platform);
+      await handleFailure(post, verification.errorMessage ?? "post published but verification could not confirm it went live");
+      return;
+    }
+
+    recordSuccess(adapter.platform);
+    await supabase.from("scheduled_posts").update({ status: "posted" }).eq("id", post.id);
   } catch (err) {
-    await markFailed(post.id, err instanceof Error ? err.message : String(err));
+    recordFailure(adapter.platform);
+    await handleFailure(post, err instanceof Error ? err.message : String(err));
   }
 }
 
-async function markFailed(postId: string, message: string): Promise<void> {
-  await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", postId);
-  console.error(`Post ${postId} failed: ${message}`);
-}
-
 /** One poll cycle: claim whatever's due, process each post. Call this on
- *  an interval (or from a cron trigger) — it does not loop internally. */
+ *  an interval (or from a cron trigger) — it does not loop internally.
+ *  Skips claiming entirely while this platform's circuit breaker is open,
+ *  so posts stay untouched (still pending) rather than being claimed into
+ *  a stuck "posting" state during a known outage. */
 export async function runSchedulerCycle(adapter: PlatformAdapter): Promise<void> {
+  if (isBreakerTripped(adapter.platform)) {
+    console.warn(`Skipping scheduler cycle — circuit breaker open for platform "${adapter.platform}".`);
+    return;
+  }
+
   const due = await claimDuePosts();
   if (due.length === 0) return;
 

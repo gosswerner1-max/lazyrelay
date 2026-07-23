@@ -9,6 +9,7 @@ import type { MerchantOfRecordAdapter } from "../billing/types.js";
 import type { PlatformAdapter } from "../platforms/types.js";
 import { startConnect, completeConnect } from "../platforms/connect.js";
 import { requireAuth, type AuthedRequest } from "./auth.js";
+import { tieredRateLimit, publicRateLimit } from "./rateLimit.js";
 
 // Free tier: 10 posts per connected social account, refilling every
 // calendar month (decided 2026-07-22 — matches the pricing page's "10 posts
@@ -38,7 +39,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
   // frontend should redirect the user to. Real account identity comes from
   // the verified JWT; the callback below never has to trust anything the
   // browser sends except the opaque, one-time state token.
-  router.get("/social-accounts/connect", requireAuth, async (req: AuthedRequest, res) => {
+  router.get("/social-accounts/connect", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     try {
       const url = await startConnect(req.accountId!, platformAdapter);
       res.json({ authorizeUrl: url });
@@ -52,7 +53,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
   // Identity/authorization instead comes entirely from the state token,
   // which was minted server-side for a specific account and can only be
   // used once (see platforms/connect.ts).
-  router.get("/social-accounts/callback", async (req, res) => {
+  router.get("/social-accounts/callback", publicRateLimit, async (req, res) => {
     const { code, state } = req.query;
     if (typeof code !== "string" || typeof state !== "string") {
       res.status(400).json({ error: "Missing code or state" });
@@ -66,7 +67,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
     }
   });
 
-  router.get("/social-accounts", requireAuth, async (req: AuthedRequest, res) => {
+  router.get("/social-accounts", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data, error } = await supabase
       .from("social_accounts")
       .select("id, platform, platform_account_id, display_name, connected_at, disconnected_at")
@@ -83,7 +84,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
   // Goes through our own service-role Supabase client, not the browser
   // directly — customers never touch storage credentials, and this is
   // where mime-type/size validation actually gets enforced server-side.
-  router.post("/media/upload", requireAuth, upload.single("file"), async (req: AuthedRequest, res) => {
+  router.post("/media/upload", requireAuth, tieredRateLimit, upload.single("file"), async (req: AuthedRequest, res) => {
     const file = req.file;
     if (!file) {
       res.status(400).json({ error: "No file uploaded (expected multipart field \"file\")" });
@@ -112,7 +113,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
   // from the request body — a client can't schedule a post as someone else
   // by passing a different account_id, since requireAuth already resolved
   // who's actually calling.
-  router.post("/scheduled-posts", requireAuth, async (req: AuthedRequest, res) => {
+  router.post("/scheduled-posts", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { socialAccountId, content, mediaUrl, scheduledFor } = req.body ?? {};
     if (!socialAccountId || !content || !scheduledFor) {
       res.status(400).json({ error: "socialAccountId, content, and scheduledFor are required" });
@@ -181,7 +182,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
     res.status(201).json(data);
   });
 
-  router.get("/scheduled-posts", requireAuth, async (req: AuthedRequest, res) => {
+  router.get("/scheduled-posts", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data, error } = await supabase
       .from("scheduled_posts")
       .select("*, post_results(*)")
@@ -198,7 +199,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
   // already posting/posted/failed cannot — matches the pending-only DELETE
   // policy already enforced by RLS in 0001, checked here too for a clean
   // error message rather than a silent no-op delete.
-  router.delete("/scheduled-posts/:id", requireAuth, async (req: AuthedRequest, res) => {
+  router.delete("/scheduled-posts/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { error, count } = await supabase
       .from("scheduled_posts")
       .delete({ count: "exact" })
@@ -219,7 +220,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
   // Reports the caller's current tier/status — "free" with no status when
   // no subscription row exists yet (a fresh signup before ever upgrading),
   // which is a normal state, not an error.
-  router.get("/subscription", requireAuth, async (req: AuthedRequest, res) => {
+  router.get("/subscription", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data: sub, error } = await supabase
       .from("subscriptions")
       .select("tier, status, current_period_end")
@@ -240,7 +241,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
   // Only meaningful once MOR_API_KEY + the tier's price ID env vars exist
   // (see BILLING_KNOWLEDGE.md) — reports a clear error rather than a
   // confusing Paddle SDK exception if they don't.
-  router.post("/subscription/checkout", requireAuth, async (req: AuthedRequest, res) => {
+  router.post("/subscription/checkout", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { tier } = req.body ?? {};
     if (tier !== "pro" && tier !== "business") {
       res.status(400).json({ error: 'tier must be "pro" or "business" (use the Free tier by just not upgrading)' });
@@ -282,7 +283,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
   // The cancellation flow — this is THE trust-critical endpoint. Cancels
   // with the Merchant of Record first; only then does the local record
   // get marked cancelled. See billing/sync.ts for the full reasoning.
-  router.post("/subscription/cancel", requireAuth, async (req: AuthedRequest, res) => {
+  router.post("/subscription/cancel", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const result = await cancelSubscription(req.accountId!, morAdapter);
     if (!result.success) {
       res.status(502).json({ error: result.errorMessage ?? "Cancellation failed at the payment provider" });
