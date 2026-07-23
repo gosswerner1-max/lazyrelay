@@ -242,6 +242,9 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact 
           <button className="link" onClick={onTerms}>
             Terms of Service
           </button>
+          <a className="link" href="/refunds">
+            Refund Policy
+          </a>
           <a href="mailto:hello@lazyrelay.com">hello@lazyrelay.com</a>
         </p>
         <p>&copy; {new Date().getFullYear()} LazyRelay. All rights reserved.</p>

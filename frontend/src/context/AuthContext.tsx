@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { trackSignUp } from "../lib/analytics";
 
 interface AuthContextValue {
   session: Session | null;
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string) => {
     const { error } = await supabase.auth.signUp({ email, password });
+    if (!error) trackSignUp();
     return { error: error?.message ?? null };
   };
 

@@ -30,6 +30,10 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
             These terms govern your use of LazyRelay, a scheduling and publishing tool that connects to your
             social media accounts. By creating an account, you agree to them.
           </p>
+          <p>
+            LazyRelay is operated by IPE Projects (Pty) Ltd, a company registered in South Africa
+            (registration number 2021/003176/07).
+          </p>
 
           <h3>Subscriptions and billing</h3>
           <p>
