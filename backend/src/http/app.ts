@@ -8,6 +8,11 @@ import type { PlatformAdapter } from "../platforms/types.js";
 export function buildApp(morAdapter: MerchantOfRecordAdapter, platformAdapter: PlatformAdapter) {
   const app = express();
 
+  // Render sits in front of the app behind exactly one reverse proxy hop,
+  // which sets X-Forwarded-For. Without this, express-rate-limit can't
+  // tell real client IPs from the proxy's and throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+  app.set("trust proxy", 1);
+
   // Webhook route needs the raw body for signature verification — mounted
   // BEFORE express.json() so the JSON parser never touches it.
   app.post("/api/webhooks/mor", express.raw({ type: "application/json" }), buildWebhookHandler(morAdapter));
