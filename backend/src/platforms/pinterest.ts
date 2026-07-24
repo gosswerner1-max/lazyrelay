@@ -12,9 +12,11 @@ const USER_ACCOUNT_URL = "https://api.pinterest.com/v5/user_account";
 const BOARDS_URL = "https://api.pinterest.com/v5/boards";
 const PINS_URL = "https://api.pinterest.com/v5/pins";
 
-// pins:read/pins:write let us create + verify Pins; boards:read is needed to
-// pick a board to post to (Pin creation requires a board_id — see post()).
-const SCOPES = "pins:read,pins:write,boards:read,user_accounts:read";
+// pins:read/pins:write let us create + verify Pins; boards:read/boards:write
+// are both needed to pick a board to post to — confirmed live: requesting
+// only boards:read still got "Missing: ['boards:write']" back from Pinterest
+// when creating a Pin against an existing board.
+const SCOPES = "pins:read,pins:write,boards:read,boards:write,user_accounts:read";
 
 interface PinterestTokenResponse {
   access_token?: string;
