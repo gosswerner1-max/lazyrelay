@@ -4,6 +4,7 @@ import { runSchedulerCycle } from "./scheduler.js";
 import { StubAdapter } from "./platforms/stub.js";
 import { TikTokAdapter } from "./platforms/tiktok.js";
 import { PinterestAdapter } from "./platforms/pinterest.js";
+import { YouTubeAdapter } from "./platforms/youtube.js";
 import type { PlatformAdapter } from "./platforms/types.js";
 import { StubMorAdapter } from "./billing/stub.js";
 import { PaddleMorAdapter } from "./billing/paddle.js";
@@ -22,15 +23,15 @@ async function main() {
   }
   console.log("Connected to Supabase.");
 
-  // TikTok and Pinterest are both real PlatformAdapters now (Content Posting
-  // API Sandbox / Trial access — see project-platform-app-registration
-  // memory), but only one PlatformAdapter is wired app-wide at a time
-  // (buildApp/runSchedulerCycle both take a single adapter, not a per-
-  // platform registry) — a real registry is future work once a third
-  // adapter makes the single-slot limit actually bite. ACTIVE_PLATFORM picks
-  // which one is live; defaulting to "tiktok" keeps prod behavior unchanged
-  // for anyone who hasn't set the flag. Meta/X/YouTube stay on the stub
-  // until their own real adapters are built.
+  // TikTok, Pinterest, and YouTube are all real PlatformAdapters now (see
+  // project-platform-app-registration memory), but only one PlatformAdapter
+  // is wired app-wide at a time (buildApp/runSchedulerCycle both take a
+  // single adapter, not a per-platform registry) — a real registry is
+  // future work now that a third adapter makes the single-slot limit
+  // actually bite. ACTIVE_PLATFORM picks which one is live; defaulting to
+  // "tiktok" keeps prod behavior unchanged for anyone who hasn't set the
+  // flag. Meta/X/Reddit stay on the stub until their own real adapters
+  // are built.
   const activePlatform = process.env.ACTIVE_PLATFORM ?? "tiktok";
   let platformAdapter: PlatformAdapter = new StubAdapter();
   if (
@@ -55,6 +56,17 @@ async function main() {
       process.env.PINTEREST_APP_SECRET,
       process.env.PINTEREST_REDIRECT_URI,
     );
+  } else if (
+    activePlatform === "youtube" &&
+    process.env.YOUTUBE_CLIENT_ID &&
+    process.env.YOUTUBE_CLIENT_SECRET &&
+    process.env.YOUTUBE_REDIRECT_URI
+  ) {
+    platformAdapter = new YouTubeAdapter(
+      process.env.YOUTUBE_CLIENT_ID,
+      process.env.YOUTUBE_CLIENT_SECRET,
+      process.env.YOUTUBE_REDIRECT_URI,
+    );
   }
   const morAdapter: MerchantOfRecordAdapter =
     process.env.MOR_API_KEY && process.env.MOR_WEBHOOK_SECRET
@@ -73,7 +85,10 @@ async function main() {
       `TIKTOK_REDIRECT_URI=${process.env.TIKTOK_REDIRECT_URI ? "set" : "MISSING"}; ` +
       `PINTEREST_APP_ID=${process.env.PINTEREST_APP_ID ? "set" : "MISSING"} ` +
       `PINTEREST_APP_SECRET=${process.env.PINTEREST_APP_SECRET ? "set" : "MISSING"} ` +
-      `PINTEREST_REDIRECT_URI=${process.env.PINTEREST_REDIRECT_URI ? "set" : "MISSING"}`,
+      `PINTEREST_REDIRECT_URI=${process.env.PINTEREST_REDIRECT_URI ? "set" : "MISSING"}; ` +
+      `YOUTUBE_CLIENT_ID=${process.env.YOUTUBE_CLIENT_ID ? "set" : "MISSING"} ` +
+      `YOUTUBE_CLIENT_SECRET=${process.env.YOUTUBE_CLIENT_SECRET ? "set" : "MISSING"} ` +
+      `YOUTUBE_REDIRECT_URI=${process.env.YOUTUBE_REDIRECT_URI ? "set" : "MISSING"}`,
   );
 
   const app = buildApp(morAdapter, platformAdapter);
