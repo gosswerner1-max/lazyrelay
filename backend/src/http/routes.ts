@@ -2,6 +2,7 @@ import { Router, type Response } from "express";
 import multer from "multer";
 import { randomUUID } from "node:crypto";
 import { imageSize } from "image-size";
+import { fileTypeFromBuffer } from "file-type";
 import { supabase } from "../supabase.js";
 import { cancelSubscription, cancelStorageAddon } from "../billing/sync.js";
 import { buildCheckoutTransaction } from "../billing/paddle.js";
@@ -143,8 +144,18 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       res.status(400).json({ error: "No file uploaded (expected multipart field \"file\")" });
       return;
     }
-    if (!ALLOWED_MEDIA_MIME_TYPES.has(file.mimetype)) {
-      res.status(400).json({ error: `Unsupported file type "${file.mimetype}" — use an image (jpeg/png/webp/gif) or video (mp4/mov)` });
+    // The client-supplied mimetype/filename (file.mimetype, file.originalname)
+    // are just headers the caller chose to send — trusting them is how a file
+    // named "photo.png.exe" with a spoofed image/png Content-Type would sail
+    // through and land in storage with a literal .exe extension. Detect the
+    // REAL type from the file's magic bytes instead, and use that (not
+    // anything client-supplied) for both the allowlist check and the stored
+    // file's extension/content-type.
+    const detected = await fileTypeFromBuffer(file.buffer);
+    if (!detected || !ALLOWED_MEDIA_MIME_TYPES.has(detected.mime)) {
+      res.status(400).json({
+        error: `Unsupported or unrecognized file type${detected ? ` "${detected.mime}"` : ""} — use an image (jpeg/png/webp/gif) or video (mp4/mov/webm)`,
+      });
       return;
     }
 
@@ -159,11 +170,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       return;
     }
 
-    const extension = file.originalname.includes(".") ? file.originalname.split(".").pop() : "bin";
-    const path = `${req.accountId}/${randomUUID()}.${extension}`;
+    const path = `${req.accountId}/${randomUUID()}.${detected.ext}`;
     const { error: uploadError } = await supabase.storage
       .from("post-media")
-      .upload(path, file.buffer, { contentType: file.mimetype });
+      .upload(path, file.buffer, { contentType: detected.mime });
     if (uploadError) {
       dbError(res, uploadError, "POST /media/upload storage.upload");
       return;
@@ -177,7 +187,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
     // server-measured metadata, not anything a client could misreport.
     let width: number | null = null;
     let height: number | null = null;
-    if (file.mimetype.startsWith("image/")) {
+    if (detected.mime.startsWith("image/")) {
       try {
         const dims = imageSize(file.buffer);
         width = dims.width ?? null;
@@ -193,7 +203,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       account_id: req.accountId,
       url: data.publicUrl,
       storage_path: path,
-      mime_type: file.mimetype,
+      mime_type: detected.mime,
       size_bytes: file.buffer.length,
       width,
       height,
