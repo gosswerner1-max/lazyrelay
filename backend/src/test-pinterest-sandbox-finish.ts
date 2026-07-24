@@ -7,7 +7,7 @@ import { PinterestAdapter } from "./platforms/pinterest.js";
 // public image Pin, and poll verifyPublished() to confirm it actually went
 // live on Pinterest — not just that post() returned success. Mirrors
 // test-tiktok-sandbox-finish.ts.
-const TEST_IMAGE_URL = "https://lazyrelay.com/lazyrelay-icon-1024.png";
+const TEST_IMAGE_URL = "https://lazyrelay.com/favicon.png";
 
 async function main() {
   const socialAccountId = process.argv[2];
