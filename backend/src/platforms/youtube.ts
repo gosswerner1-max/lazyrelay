@@ -20,8 +20,11 @@ const SCOPES = "https://www.googleapis.com/auth/youtube.upload https://www.googl
 // category field, so this is a fixed default rather than a per-post choice.
 const DEFAULT_CATEGORY_ID = "22";
 
-const STATUS_POLL_ATTEMPTS = 5;
-const STATUS_POLL_DELAY_MS = 3000;
+// A fresh upload's real processing time exceeded a 15s window in testing
+// (post() succeeded immediately, but verifyPublished() needed longer to see
+// "processed") — 10 attempts x 6s gives a minute of real headroom.
+const STATUS_POLL_ATTEMPTS = 10;
+const STATUS_POLL_DELAY_MS = 6000;
 
 interface GoogleTokenResponse {
   access_token?: string;
