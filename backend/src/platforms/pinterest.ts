@@ -6,11 +6,23 @@ import type {
   OAuthExchangeResult,
 } from "./types.js";
 
+// The browser-facing consent page always stays on the real pinterest.com
+// host — only the API calls below move to the Sandbox subdomain.
 const AUTHORIZE_URL = "https://www.pinterest.com/oauth/";
-const TOKEN_URL = "https://api.pinterest.com/v5/oauth/token";
-const USER_ACCOUNT_URL = "https://api.pinterest.com/v5/user_account";
-const BOARDS_URL = "https://api.pinterest.com/v5/boards";
-const PINS_URL = "https://api.pinterest.com/v5/pins";
+
+// This app currently has Trial access (see project-platform-app-registration
+// memory) — confirmed live: Pinterest rejects Pin creation against the
+// production API host for Trial apps ("use API Sandbox ... instead"), and
+// Pinterest's own docs confirm every call (OAuth token exchange, reads, and
+// writes alike) must go through api-sandbox.pinterest.com while on Trial,
+// using its own separate tokens/entities from production. This is a
+// deliberate stopgap mirroring TikTok's SELF_ONLY hardcode — switch back to
+// api.pinterest.com once this app is approved for Standard access.
+const API_BASE = "https://api-sandbox.pinterest.com";
+const TOKEN_URL = `${API_BASE}/v5/oauth/token`;
+const USER_ACCOUNT_URL = `${API_BASE}/v5/user_account`;
+const BOARDS_URL = `${API_BASE}/v5/boards`;
+const PINS_URL = `${API_BASE}/v5/pins`;
 
 // pins:read/pins:write let us create + verify Pins; boards:read/boards:write
 // are both needed to pick a board to post to — confirmed live: requesting
