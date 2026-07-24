@@ -9,7 +9,7 @@ import { TikTokAdapter } from "./platforms/tiktok.js";
 // project-platform-app-registration memory for how to do a real end-to-end
 // TikTok Sandbox test once a test-user account exists.
 
-function main() {
+async function main() {
   const clientKey = process.env.TIKTOK_CLIENT_KEY;
   const clientSecret = process.env.TIKTOK_CLIENT_SECRET;
   const redirectUri = process.env.TIKTOK_REDIRECT_URI;
@@ -23,7 +23,7 @@ function main() {
   const pass1 = adapter.platform === "tiktok";
   console.log(`[platform is "tiktok"] -> ${pass1 ? "PASS" : "FAIL"}`);
 
-  const url = adapter.getAuthorizeUrl("test-state-123");
+  const url = await adapter.getAuthorizeUrl("test-state-123");
   console.log("Authorize URL:", url);
   const parsed = new URL(url);
 

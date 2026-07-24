@@ -15,7 +15,7 @@ import type {
 export class StubAdapter implements PlatformAdapter {
   readonly platform: "meta" = "meta";
 
-  getAuthorizeUrl(state: string): string {
+  async getAuthorizeUrl(state: string): Promise<string> {
     return `https://stub.invalid/oauth/authorize?state=${encodeURIComponent(state)}`;
   }
 

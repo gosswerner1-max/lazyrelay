@@ -21,7 +21,7 @@ class AlwaysFailsAdapter implements PlatformAdapter {
   readonly platform: "meta" = "meta";
   callCount = 0;
 
-  getAuthorizeUrl(state: string): string {
+  async getAuthorizeUrl(state: string): Promise<string> {
     return `https://stub.invalid/oauth/authorize?state=${encodeURIComponent(state)}`;
   }
   async exchangeCode(): Promise<OAuthExchangeResult> {

@@ -33,14 +33,17 @@ export interface OAuthExchangeResult {
 }
 
 export interface PlatformAdapter {
-  readonly platform: "meta" | "tiktok" | "pinterest" | "youtube";
+  readonly platform: "meta" | "tiktok" | "pinterest" | "youtube" | "mastodon" | "bluesky";
 
   /** The URL to send a user to in order to start connecting an account.
    *  `state` must be echoed back on the callback and checked — it's what
    *  ties a callback to the specific LazyRelay account that started the
    *  flow, so one user can't accidentally (or maliciously) connect a
-   *  platform account to someone else's LazyRelay account. */
-  getAuthorizeUrl(state: string): string;
+   *  platform account to someone else's LazyRelay account. Async because
+   *  some platforms (Mastodon's per-instance app registration, Bluesky's
+   *  PAR round-trip) need a real network call before a URL exists — unlike
+   *  Meta/TikTok/Pinterest/YouTube, which can build one synchronously. */
+  getAuthorizeUrl(state: string): Promise<string>;
 
   /** Exchanges the OAuth callback code for real tokens + the platform's
    *  own account id/display name. This is the one place a plaintext token

@@ -48,7 +48,7 @@ export class TikTokAdapter implements PlatformAdapter {
     private readonly redirectUri: string,
   ) {}
 
-  getAuthorizeUrl(state: string): string {
+  async getAuthorizeUrl(state: string): Promise<string> {
     const params = new URLSearchParams({
       client_key: this.clientKey,
       scope: SCOPES,

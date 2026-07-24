@@ -61,7 +61,7 @@ export class YouTubeAdapter implements PlatformAdapter {
     private readonly redirectUri: string,
   ) {}
 
-  getAuthorizeUrl(state: string): string {
+  async getAuthorizeUrl(state: string): Promise<string> {
     const params = new URLSearchParams({
       client_id: this.clientId,
       redirect_uri: this.redirectUri,

@@ -14,7 +14,7 @@ export async function startConnect(
     .single();
   if (error || !data) throw error ?? new Error("failed to create oauth state");
 
-  return adapter.getAuthorizeUrl(data.id);
+  return await adapter.getAuthorizeUrl(data.id);
 }
 
 /** Handles the OAuth callback: validates the state token (exists, not

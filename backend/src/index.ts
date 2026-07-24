@@ -5,6 +5,8 @@ import { StubAdapter } from "./platforms/stub.js";
 import { TikTokAdapter } from "./platforms/tiktok.js";
 import { PinterestAdapter } from "./platforms/pinterest.js";
 import { YouTubeAdapter } from "./platforms/youtube.js";
+import { MastodonAdapter } from "./platforms/mastodon.js";
+import { BlueskyAdapter } from "./platforms/bluesky.js";
 import type { PlatformAdapter } from "./platforms/types.js";
 import { StubMorAdapter } from "./billing/stub.js";
 import { PaddleMorAdapter } from "./billing/paddle.js";
@@ -67,6 +69,17 @@ async function main() {
       process.env.YOUTUBE_CLIENT_SECRET,
       process.env.YOUTUBE_REDIRECT_URI,
     );
+  } else if (activePlatform === "mastodon" && process.env.MASTODON_REDIRECT_URI) {
+    // No client id/secret env vars — Mastodon app registration is
+    // self-service and instant (POST /api/v1/apps), so the adapter
+    // registers itself against its default instance on first use rather
+    // than requiring pre-provisioned credentials like every other platform.
+    platformAdapter = new MastodonAdapter(process.env.MASTODON_REDIRECT_URI);
+  } else if (activePlatform === "bluesky" && process.env.BLUESKY_CONNECT_PAGE_URL) {
+    // No client id/secret — this adapter uses app passwords, not OAuth
+    // (see platforms/bluesky.ts), so the only real config it needs is
+    // where LazyRelay's own connect-form page lives.
+    platformAdapter = new BlueskyAdapter(process.env.BLUESKY_CONNECT_PAGE_URL);
   }
   const morAdapter: MerchantOfRecordAdapter =
     process.env.MOR_API_KEY && process.env.MOR_WEBHOOK_SECRET
@@ -88,7 +101,9 @@ async function main() {
       `PINTEREST_REDIRECT_URI=${process.env.PINTEREST_REDIRECT_URI ? "set" : "MISSING"}; ` +
       `YOUTUBE_CLIENT_ID=${process.env.YOUTUBE_CLIENT_ID ? "set" : "MISSING"} ` +
       `YOUTUBE_CLIENT_SECRET=${process.env.YOUTUBE_CLIENT_SECRET ? "set" : "MISSING"} ` +
-      `YOUTUBE_REDIRECT_URI=${process.env.YOUTUBE_REDIRECT_URI ? "set" : "MISSING"}`,
+      `YOUTUBE_REDIRECT_URI=${process.env.YOUTUBE_REDIRECT_URI ? "set" : "MISSING"}; ` +
+      `MASTODON_REDIRECT_URI=${process.env.MASTODON_REDIRECT_URI ? "set" : "MISSING"}; ` +
+      `BLUESKY_CONNECT_PAGE_URL=${process.env.BLUESKY_CONNECT_PAGE_URL ? "set" : "MISSING"}`,
   );
 
   const app = buildApp(morAdapter, platformAdapter);
