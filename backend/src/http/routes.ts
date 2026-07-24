@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import multer from "multer";
 import { randomUUID } from "node:crypto";
 import { imageSize } from "image-size";
@@ -63,6 +63,21 @@ const ALLOWED_MEDIA_MIME_TYPES = new Set([
 ]);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MEDIA_UPLOAD_MAX_BYTES } });
 
+// A scheduled post's text content — generous enough for any real platform's
+// limit (X's 280 chars is the tightest we support) while still capping
+// unbounded input before it reaches the database.
+const MAX_POST_CONTENT_LENGTH = 5000;
+
+// Postgres/Supabase error messages can name internal detail (constraint
+// names, column names, query shape) that shouldn't reach a customer. Log the
+// real message server-side for debugging, return a generic one to the
+// client. Use this for DB-layer errors; a message we wrote ourselves
+// (validation, business-rule errors) should still be returned directly.
+function dbError(res: Response, err: { message: string }, context: string): void {
+  console.error(`[routes] ${context}:`, err.message);
+  res.status(500).json({ error: "Something went wrong on our end. Please try again." });
+}
+
 export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter: PlatformAdapter): Router {
   const router = Router();
 
@@ -112,7 +127,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       .eq("account_id", req.accountId)
       .is("disconnected_at", null);
     if (error) {
-      res.status(500).json({ error: error.message });
+      dbError(res, error, "GET /social-accounts");
       return;
     }
     res.json(data);
@@ -150,7 +165,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       .from("post-media")
       .upload(path, file.buffer, { contentType: file.mimetype });
     if (uploadError) {
-      res.status(500).json({ error: uploadError.message });
+      dbError(res, uploadError, "POST /media/upload storage.upload");
       return;
     }
 
@@ -184,7 +199,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       height,
     });
     if (metaError) {
-      res.status(500).json({ error: metaError.message });
+      dbError(res, metaError, "POST /media/upload media_uploads.insert");
       return;
     }
 
@@ -212,7 +227,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       .eq("account_id", req.accountId)
       .order("created_at", { ascending: false });
     if (error) {
-      res.status(500).json({ error: error.message });
+      dbError(res, error, "GET /media");
       return;
     }
     res.json(data);
@@ -240,7 +255,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       .eq("media_url", media.url)
       .in("status", ["pending", "posting"]);
     if (inUseError) {
-      res.status(500).json({ error: inUseError.message });
+      dbError(res, inUseError, "DELETE /media/:id scheduled_posts lookup");
       return;
     }
     if ((inUseCount ?? 0) > 0) {
@@ -251,14 +266,14 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
     if (media.storage_path) {
       const { error: storageError } = await supabase.storage.from("post-media").remove([media.storage_path]);
       if (storageError) {
-        res.status(500).json({ error: storageError.message });
+        dbError(res, storageError, "DELETE /media/:id storage.remove");
         return;
       }
     }
 
     const { error: deleteError } = await supabase.from("media_uploads").delete().eq("id", media.id);
     if (deleteError) {
-      res.status(500).json({ error: deleteError.message });
+      dbError(res, deleteError, "DELETE /media/:id media_uploads.delete");
       return;
     }
 
@@ -273,6 +288,37 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
     const { socialAccountId, content, mediaUrl, scheduledFor } = req.body ?? {};
     if (!socialAccountId || !content || !scheduledFor) {
       res.status(400).json({ error: "socialAccountId, content, and scheduledFor are required" });
+      return;
+    }
+    if (typeof socialAccountId !== "string") {
+      res.status(400).json({ error: "socialAccountId must be a string" });
+      return;
+    }
+    if (typeof content !== "string" || content.trim().length === 0) {
+      res.status(400).json({ error: "content must be a non-empty string" });
+      return;
+    }
+    if (content.length > MAX_POST_CONTENT_LENGTH) {
+      res.status(400).json({ error: `content must be ${MAX_POST_CONTENT_LENGTH} characters or fewer` });
+      return;
+    }
+    if (typeof scheduledFor !== "string") {
+      res.status(400).json({ error: "scheduledFor must be an ISO date string" });
+      return;
+    }
+    const scheduledDate = new Date(scheduledFor);
+    if (Number.isNaN(scheduledDate.getTime())) {
+      res.status(400).json({ error: "scheduledFor must be a valid date" });
+      return;
+    }
+    // Allow "now" and small clock-skew/latency slack rather than a strict
+    // future-only check — scheduling for immediate posting is legitimate,
+    // and a rigid ">Date.now()" comparison is fragile across a real network
+    // hop. Still rejects genuinely stale input (e.g. a client bug sending
+    // last year's date).
+    const SCHEDULED_FOR_PAST_GRACE_MS = 60_000;
+    if (scheduledDate.getTime() < Date.now() - SCHEDULED_FOR_PAST_GRACE_MS) {
+      res.status(400).json({ error: "scheduledFor can't be in the past" });
       return;
     }
 
@@ -336,7 +382,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
         .eq("social_account_id", socialAccountId)
         .gte("created_at", startOfMonth);
       if (countError) {
-        res.status(500).json({ error: countError.message });
+        dbError(res, countError, "POST /scheduled-posts free-tier count");
         return;
       }
       if ((count ?? 0) >= FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT) {
@@ -359,7 +405,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       .select()
       .single();
     if (error) {
-      res.status(500).json({ error: error.message });
+      dbError(res, error, "POST /scheduled-posts insert");
       return;
     }
     res.status(201).json(data);
@@ -372,7 +418,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       .eq("account_id", req.accountId)
       .order("scheduled_for", { ascending: true });
     if (error) {
-      res.status(500).json({ error: error.message });
+      dbError(res, error, "GET /scheduled-posts");
       return;
     }
     res.json(data);
@@ -390,7 +436,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       .eq("account_id", req.accountId)
       .eq("status", "pending");
     if (error) {
-      res.status(500).json({ error: error.message });
+      dbError(res, error, "DELETE /scheduled-posts/:id");
       return;
     }
     if (count === 0) {
@@ -410,7 +456,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       .eq("account_id", req.accountId)
       .maybeSingle();
     if (error) {
-      res.status(500).json({ error: error.message });
+      dbError(res, error, "GET /subscription");
       return;
     }
     if (!sub) {
@@ -497,7 +543,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       .in("status", ["active", "trialing"])
       .order("created_at", { ascending: true });
     if (error) {
-      res.status(500).json({ error: error.message });
+      dbError(res, error, "GET /storage-addons");
       return;
     }
     res.json(data);
@@ -528,7 +574,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
       .eq("account_id", req.accountId)
       .in("status", ["active", "trialing"]);
     if (countError) {
-      res.status(500).json({ error: countError.message });
+      dbError(res, countError, "POST /storage-addons/checkout active-count");
       return;
     }
     if ((activeAddonCount ?? 0) >= MAX_ACTIVE_STORAGE_ADDONS) {
