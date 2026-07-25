@@ -7,6 +7,7 @@ import { PinterestAdapter } from "./platforms/pinterest.js";
 import { YouTubeAdapter } from "./platforms/youtube.js";
 import { MastodonAdapter } from "./platforms/mastodon.js";
 import { BlueskyAdapter } from "./platforms/bluesky.js";
+import { TelegramAdapter } from "./platforms/telegram.js";
 import type { PlatformAdapter } from "./platforms/types.js";
 import { StubMorAdapter } from "./billing/stub.js";
 import { PaddleMorAdapter } from "./billing/paddle.js";
@@ -80,6 +81,16 @@ async function main() {
     // (see platforms/bluesky.ts), so the only real config it needs is
     // where LazyRelay's own connect-form page lives.
     platformAdapter = new BlueskyAdapter(process.env.BLUESKY_CONNECT_PAGE_URL);
+  } else if (activePlatform === "telegram" && process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CONNECT_PAGE_URL) {
+    // No OAuth at all — TELEGRAM_BOT_TOKEN authenticates every call as the
+    // one shared @lazyrelay_bot; TELEGRAM_LOG_CHAT_ID is optional but
+    // strongly recommended (see platforms/telegram.ts) for real per-message
+    // Proof-of-Publish verification instead of a degraded channel-only check.
+    platformAdapter = new TelegramAdapter(
+      process.env.TELEGRAM_BOT_TOKEN,
+      process.env.TELEGRAM_CONNECT_PAGE_URL,
+      process.env.TELEGRAM_LOG_CHAT_ID,
+    );
   }
   const morAdapter: MerchantOfRecordAdapter =
     process.env.MOR_API_KEY && process.env.MOR_WEBHOOK_SECRET
@@ -103,7 +114,10 @@ async function main() {
       `YOUTUBE_CLIENT_SECRET=${process.env.YOUTUBE_CLIENT_SECRET ? "set" : "MISSING"} ` +
       `YOUTUBE_REDIRECT_URI=${process.env.YOUTUBE_REDIRECT_URI ? "set" : "MISSING"}; ` +
       `MASTODON_REDIRECT_URI=${process.env.MASTODON_REDIRECT_URI ? "set" : "MISSING"}; ` +
-      `BLUESKY_CONNECT_PAGE_URL=${process.env.BLUESKY_CONNECT_PAGE_URL ? "set" : "MISSING"}`,
+      `BLUESKY_CONNECT_PAGE_URL=${process.env.BLUESKY_CONNECT_PAGE_URL ? "set" : "MISSING"}; ` +
+      `TELEGRAM_BOT_TOKEN=${process.env.TELEGRAM_BOT_TOKEN ? "set" : "MISSING"} ` +
+      `TELEGRAM_CONNECT_PAGE_URL=${process.env.TELEGRAM_CONNECT_PAGE_URL ? "set" : "MISSING"} ` +
+      `TELEGRAM_LOG_CHAT_ID=${process.env.TELEGRAM_LOG_CHAT_ID ? "set" : "MISSING"}`,
   );
 
   const app = buildApp(morAdapter, platformAdapter);
