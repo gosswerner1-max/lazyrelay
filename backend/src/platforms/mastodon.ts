@@ -20,9 +20,16 @@ import type {
 // a backend one) and register/cache per-instance client credentials.
 const DEFAULT_INSTANCE = "https://mastodon.social";
 
-// write:statuses lets us post; read:accounts lets us look up the connected
-// account's real display name instead of just the opaque user id.
-const SCOPES = "write:statuses read:accounts";
+// write:statuses lets us post; write:media is a SEPARATE granular scope
+// required by POST /api/v2/media, and read:statuses is a separate scope
+// again required by GET /api/v1/statuses/:id (verifyPublished) — all three
+// confirmed live via real 403 "This action is outside the authorized
+// scopes" responses when omitted, even though the adjacent write:statuses/
+// read:accounts scopes worked fine. Mastodon's OAuth scopes are strictly
+// per-resource, never implied by a sibling scope. read:accounts lets us
+// look up the connected account's real display name instead of just the
+// opaque user id.
+const SCOPES = "write:statuses write:media read:statuses read:accounts";
 
 interface MastodonAppCredentials {
   client_id?: string;
