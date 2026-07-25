@@ -10,6 +10,8 @@ import { BlueskyAdapter } from "./platforms/bluesky.js";
 import { TelegramAdapter } from "./platforms/telegram.js";
 import { LinkedInAdapter } from "./platforms/linkedin.js";
 import { ThreadsAdapter } from "./platforms/threads.js";
+import { FacebookAdapter } from "./platforms/facebook.js";
+import { InstagramAdapter } from "./platforms/instagram.js";
 import type { PlatformAdapter } from "./platforms/types.js";
 import { StubMorAdapter } from "./billing/stub.js";
 import { PaddleMorAdapter } from "./billing/paddle.js";
@@ -115,6 +117,28 @@ async function main() {
       process.env.THREADS_APP_SECRET,
       process.env.THREADS_REDIRECT_URI,
     );
+  } else if (
+    activePlatform === "facebook" &&
+    process.env.META_APP_ID &&
+    process.env.META_APP_SECRET &&
+    process.env.META_REDIRECT_URI
+  ) {
+    platformAdapter = new FacebookAdapter(
+      process.env.META_APP_ID,
+      process.env.META_APP_SECRET,
+      process.env.META_REDIRECT_URI,
+    );
+  } else if (
+    activePlatform === "instagram" &&
+    process.env.META_APP_ID &&
+    process.env.META_APP_SECRET &&
+    process.env.META_REDIRECT_URI
+  ) {
+    platformAdapter = new InstagramAdapter(
+      process.env.META_APP_ID,
+      process.env.META_APP_SECRET,
+      process.env.META_REDIRECT_URI,
+    );
   }
   const morAdapter: MerchantOfRecordAdapter =
     process.env.MOR_API_KEY && process.env.MOR_WEBHOOK_SECRET
@@ -147,7 +171,10 @@ async function main() {
       `LINKEDIN_REDIRECT_URI=${process.env.LINKEDIN_REDIRECT_URI ? "set" : "MISSING"}; ` +
       `THREADS_APP_ID=${process.env.THREADS_APP_ID ? "set" : "MISSING"} ` +
       `THREADS_APP_SECRET=${process.env.THREADS_APP_SECRET ? "set" : "MISSING"} ` +
-      `THREADS_REDIRECT_URI=${process.env.THREADS_REDIRECT_URI ? "set" : "MISSING"}`,
+      `THREADS_REDIRECT_URI=${process.env.THREADS_REDIRECT_URI ? "set" : "MISSING"}; ` +
+      `META_APP_ID=${process.env.META_APP_ID ? "set" : "MISSING"} ` +
+      `META_APP_SECRET=${process.env.META_APP_SECRET ? "set" : "MISSING"} ` +
+      `META_REDIRECT_URI=${process.env.META_REDIRECT_URI ? "set" : "MISSING"}`,
   );
 
   const app = buildApp(morAdapter, platformAdapter);
