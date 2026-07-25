@@ -8,6 +8,7 @@ import { YouTubeAdapter } from "./platforms/youtube.js";
 import { MastodonAdapter } from "./platforms/mastodon.js";
 import { BlueskyAdapter } from "./platforms/bluesky.js";
 import { TelegramAdapter } from "./platforms/telegram.js";
+import { LinkedInAdapter } from "./platforms/linkedin.js";
 import type { PlatformAdapter } from "./platforms/types.js";
 import { StubMorAdapter } from "./billing/stub.js";
 import { PaddleMorAdapter } from "./billing/paddle.js";
@@ -91,6 +92,17 @@ async function main() {
       process.env.TELEGRAM_CONNECT_PAGE_URL,
       process.env.TELEGRAM_LOG_CHAT_ID,
     );
+  } else if (
+    activePlatform === "linkedin" &&
+    process.env.LINKEDIN_CLIENT_ID &&
+    process.env.LINKEDIN_CLIENT_SECRET &&
+    process.env.LINKEDIN_REDIRECT_URI
+  ) {
+    platformAdapter = new LinkedInAdapter(
+      process.env.LINKEDIN_CLIENT_ID,
+      process.env.LINKEDIN_CLIENT_SECRET,
+      process.env.LINKEDIN_REDIRECT_URI,
+    );
   }
   const morAdapter: MerchantOfRecordAdapter =
     process.env.MOR_API_KEY && process.env.MOR_WEBHOOK_SECRET
@@ -117,7 +129,10 @@ async function main() {
       `BLUESKY_CONNECT_PAGE_URL=${process.env.BLUESKY_CONNECT_PAGE_URL ? "set" : "MISSING"}; ` +
       `TELEGRAM_BOT_TOKEN=${process.env.TELEGRAM_BOT_TOKEN ? "set" : "MISSING"} ` +
       `TELEGRAM_CONNECT_PAGE_URL=${process.env.TELEGRAM_CONNECT_PAGE_URL ? "set" : "MISSING"} ` +
-      `TELEGRAM_LOG_CHAT_ID=${process.env.TELEGRAM_LOG_CHAT_ID ? "set" : "MISSING"}`,
+      `TELEGRAM_LOG_CHAT_ID=${process.env.TELEGRAM_LOG_CHAT_ID ? "set" : "MISSING"}; ` +
+      `LINKEDIN_CLIENT_ID=${process.env.LINKEDIN_CLIENT_ID ? "set" : "MISSING"} ` +
+      `LINKEDIN_CLIENT_SECRET=${process.env.LINKEDIN_CLIENT_SECRET ? "set" : "MISSING"} ` +
+      `LINKEDIN_REDIRECT_URI=${process.env.LINKEDIN_REDIRECT_URI ? "set" : "MISSING"}`,
   );
 
   const app = buildApp(morAdapter, platformAdapter);
