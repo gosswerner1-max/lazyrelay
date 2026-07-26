@@ -584,7 +584,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // with the Merchant of Record first; only then does the local record
   // get marked cancelled. See billing/sync.ts for the full reasoning.
   router.post("/subscription/cancel", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const result = await cancelSubscription(req.accountId!, morAdapter);
+    const { feedback } = req.body ?? {};
+    const result = await cancelSubscription(req.accountId!, morAdapter, typeof feedback === "string" ? feedback : undefined);
     if (!result.success) {
       res.status(502).json({ error: result.errorMessage ?? "Cancellation failed at the payment provider" });
       return;

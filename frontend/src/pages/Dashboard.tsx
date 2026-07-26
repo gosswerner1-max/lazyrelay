@@ -43,6 +43,8 @@ export function Dashboard() {
   const [notice, setNotice] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Overview");
   const [billingBusy, setBillingBusy] = useState<"pro" | "business" | "enterprise" | "cancel" | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelFeedback, setCancelFeedback] = useState("");
 
   const [content, setContent] = useState("");
   const [scheduledFor, setScheduledFor] = useState("");
@@ -334,14 +336,13 @@ export function Dashboard() {
     }
   }
 
-  async function handleCancelSubscription() {
-    if (!window.confirm("Cancel your subscription? You'll keep access until the end of the current billing period.")) {
-      return;
-    }
+  async function handleConfirmCancelSubscription() {
     setBillingBusy("cancel");
     setError(null);
     try {
-      await api.cancelSubscription();
+      await api.cancelSubscription(cancelFeedback);
+      setShowCancelModal(false);
+      setCancelFeedback("");
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -770,8 +771,8 @@ export function Dashboard() {
                   </div>
                 </div>
               ) : (
-                <button className="btn-outline" onClick={handleCancelSubscription} disabled={billingBusy !== null}>
-                  {billingBusy === "cancel" ? "Cancelling..." : "Cancel subscription"}
+                <button className="btn-outline" onClick={() => setShowCancelModal(true)} disabled={billingBusy !== null}>
+                  Cancel subscription
                 </button>
               )}
             </>
@@ -780,6 +781,48 @@ export function Dashboard() {
       </section>
       )}
       </div>
+
+      {showCancelModal && (
+        <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>We're sorry to see you go</h2>
+              <button className="modal-close" onClick={() => setShowCancelModal(false)} aria-label="Close">
+                &times;
+              </button>
+            </div>
+            <p className="modal-subtitle">Before you cancel, please note:</p>
+            <ul className="modal-loss-list">
+              <li>
+                You'll lose <strong>{accounts.length}</strong> connected account{accounts.length === 1 ? "" : "s"} — you'll need
+                to reconnect them if you come back.
+              </li>
+              {currentTier !== "free" && <li>Your posts will drop back to the Free tier's 10-per-account monthly limit.</li>}
+              <li>
+                You'll keep access until {periodEndDate ? periodEndDate : "the end of your current billing period"} — this
+                doesn't cancel immediately.
+              </li>
+            </ul>
+            <label className="modal-feedback-label">
+              What's missing? What could we improve?
+              <textarea
+                className="modal-feedback-input"
+                value={cancelFeedback}
+                onChange={(e) => setCancelFeedback(e.target.value)}
+                placeholder="Optional — helps us make LazyRelay better"
+              />
+            </label>
+            <div className="modal-actions">
+              <button className="btn-outline" onClick={() => setShowCancelModal(false)}>
+                Keep my plan
+              </button>
+              <button className="modal-confirm-cancel" onClick={handleConfirmCancelSubscription} disabled={billingBusy !== null}>
+                {billingBusy === "cancel" ? "Cancelling..." : "Submit & Continue to Cancel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

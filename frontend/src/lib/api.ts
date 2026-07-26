@@ -139,8 +139,8 @@ export const api = {
     tier: "pro" | "business" | "enterprise"
   ): Promise<{ transactionId: string; checkoutUrl: string | null }> =>
     authedFetch("/subscription/checkout", { method: "POST", body: JSON.stringify({ tier }) }),
-  cancelSubscription: (): Promise<{ cancelled: boolean }> =>
-    authedFetch("/subscription/cancel", { method: "POST" }),
+  cancelSubscription: (feedback?: string): Promise<{ cancelled: boolean }> =>
+    authedFetch("/subscription/cancel", { method: "POST", body: JSON.stringify({ feedback }) }),
 
   listStorageAddons: (): Promise<StorageAddon[]> => authedFetch("/storage-addons"),
   startStorageAddonCheckout: (

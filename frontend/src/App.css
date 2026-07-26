@@ -1097,3 +1097,109 @@
   font-weight: 600;
   font-size: 14px;
 }
+
+/* Cancel-subscription modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 23, 31, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+
+.modal-card {
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 28px;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modal-header h2 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--wire);
+  padding: 4px;
+}
+
+.modal-subtitle {
+  font-weight: 600;
+  font-size: 14px;
+  margin: 16px 0 8px;
+}
+
+.modal-loss-list {
+  margin: 0 0 18px;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.modal-feedback-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.modal-feedback-input {
+  font: 14px/1.4 var(--font-body);
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  min-height: 70px;
+  resize: vertical;
+}
+
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.modal-confirm-cancel {
+  background: var(--error);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modal-confirm-cancel:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.modal-confirm-cancel:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

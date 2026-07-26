@@ -165,10 +165,11 @@ export async function recordBillingEvent(event: SaleRecordEvent | RefundRecordEv
 export async function cancelSubscription(
   accountId: string,
   adapter: MerchantOfRecordAdapter,
+  feedback?: string,
 ): Promise<CancelResult> {
   const { data: subscription, error } = await supabase
     .from("subscriptions")
-    .select("mor_subscription_id")
+    .select("mor_subscription_id, tier")
     .eq("account_id", accountId)
     .single();
   if (error || !subscription) {
@@ -177,6 +178,18 @@ export async function cancelSubscription(
 
   const result = await adapter.cancelSubscription(subscription.mor_subscription_id);
   if (!result.success) return result;
+
+  // Best-effort — a feedback-insert failure must never block the actual
+  // cancellation from completing, same principle as the storage-addon
+  // cancellation below.
+  if (feedback?.trim()) {
+    await supabase
+      .from("cancellation_feedback")
+      .insert({ account_id: accountId, tier: subscription.tier, feedback: feedback.trim() })
+      .then(({ error: feedbackError }) => {
+        if (feedbackError) console.error("Failed to store cancellation feedback:", feedbackError.message);
+      });
+  }
 
   await supabase
     .from("subscriptions")
