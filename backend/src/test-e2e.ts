@@ -51,7 +51,8 @@ async function main() {
   if (postError || !post) throw postError;
 
   console.log("Seeded test data. Running scheduler cycle...");
-  await runSchedulerCycle(new StubAdapter());
+  const stubAdapter = new StubAdapter();
+  await runSchedulerCycle(new Map([[stubAdapter.platform, stubAdapter]]));
 
   const { data: finalPost } = await supabase
     .from("scheduled_posts")

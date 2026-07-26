@@ -14,15 +14,16 @@ async function main() {
   await supabase.from("accounts").insert({ id: accountId, email });
 
   const adapter = new StubAdapter();
+  const registry = new Map([[adapter.platform, adapter]]);
 
   // Start the flow — should return a real authorize URL containing a state token.
-  const authorizeUrl = await startConnect(accountId, adapter);
+  const authorizeUrl = await startConnect(accountId, adapter.platform, registry);
   console.log("Authorize URL:", authorizeUrl);
   const state = new URL(authorizeUrl).searchParams.get("state");
   if (!state) throw new Error("no state param in authorize URL");
 
   // Simulate the platform's callback with that real state + a fake code.
-  const socialAccountId = await completeConnect(state, "fake-oauth-code", adapter);
+  const socialAccountId = await completeConnect(state, "fake-oauth-code", registry);
 
   const { data: socialAccount } = await supabase
     .from("social_accounts")
@@ -42,7 +43,7 @@ async function main() {
   // create a second social_account.
   let replayFailed = false;
   try {
-    await completeConnect(state, "fake-oauth-code", adapter);
+    await completeConnect(state, "fake-oauth-code", registry);
   } catch {
     replayFailed = true;
   }

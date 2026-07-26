@@ -22,7 +22,9 @@ const authClient = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_
 const PORT = 3099;
 
 async function main() {
-  const app = buildApp(new StubMorAdapter(), new StubAdapter());
+  const stubAdapter = new StubAdapter();
+  const registry = new Map([[stubAdapter.platform, stubAdapter]]);
+  const app = buildApp(new StubMorAdapter(), registry);
   const server = app.listen(PORT);
 
   // Health check, no auth
@@ -85,7 +87,7 @@ async function main() {
   console.log(`List status: ${listRes.status}, count: ${list.length} -> ${list.length === 1 ? "PASS" : "FAIL"}`);
 
   // Run the actual scheduler against it, then check the post shows as posted
-  await runSchedulerCycle(new StubAdapter());
+  await runSchedulerCycle(registry);
   const listAfter = await fetch(`http://localhost:${PORT}/api/scheduled-posts`, {
     headers: { Authorization: `Bearer ${jwt}` },
   }).then((r) => r.json());

@@ -38,7 +38,8 @@ async function main() {
   console.log("Test account created:", accountId, email);
 
   const adapter = new MastodonAdapter(redirectUri);
-  const authorizeUrl = await startConnect(accountId, adapter);
+  const registry = new Map([[adapter.platform, adapter]]);
+  const authorizeUrl = await startConnect(accountId, adapter.platform, registry);
   const state = new URL(authorizeUrl).searchParams.get("state")!;
 
   console.log("\nOpen this URL, log in, and approve:\n");
@@ -57,7 +58,7 @@ async function main() {
   if (!code) throw new Error("Timed out waiting for OAuth code");
 
   console.log("Got code, exchanging via completeConnect()...");
-  const socialAccountId = await completeConnect(state, code, adapter);
+  const socialAccountId = await completeConnect(state, code, registry);
   console.log("social_accounts row created:", socialAccountId);
 
   const { data: account, error } = await supabase

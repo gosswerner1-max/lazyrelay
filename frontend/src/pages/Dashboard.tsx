@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
-import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon } from "../lib/api";
+import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo } from "../lib/api";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
@@ -10,10 +10,27 @@ import { Spinner } from "../components/Spinner";
 const TABS = ["Overview", "Posts", "Accounts", "Settings"] as const;
 type Tab = (typeof TABS)[number];
 
+// Read once at module scope (not inside the component) — React 18
+// StrictMode double-mounts components in dev, and a component-scoped
+// effect that reads-then-strips the URL loses the value on the second
+// mount, since the window was already mutated by the first. Module
+// evaluation only happens once per page load regardless of StrictMode.
+function readAndClearConnectParams(): { connectError: string | null; connected: boolean } {
+  const params = new URLSearchParams(window.location.search);
+  const connectError = params.get("connectError");
+  const connected = params.get("connected") !== null;
+  if (connectError || connected) {
+    window.history.replaceState({}, "", window.location.pathname);
+  }
+  return { connectError, connected };
+}
+const connectParams = readAndClearConnectParams();
+
 export function Dashboard() {
   const { signOut } = useAuth();
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
+  const [platforms, setPlatforms] = useState<PlatformInfo[]>([]);
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [storageUsage, setStorageUsage] = useState<StorageUsage | null>(null);
@@ -23,13 +40,15 @@ export function Dashboard() {
   const [addonBusy, setAddonBusy] = useState<5 | 20 | 50 | string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Overview");
   const [billingBusy, setBillingBusy] = useState<"pro" | "business" | "enterprise" | "cancel" | null>(null);
 
   const [content, setContent] = useState("");
   const [scheduledFor, setScheduledFor] = useState("");
-  const [selectedAccount, setSelectedAccount] = useState("");
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [mediaUploading, setMediaUploading] = useState(false);
   const [mediaDragActive, setMediaDragActive] = useState(false);
@@ -40,13 +59,14 @@ export function Dashboard() {
   async function refresh() {
     setError(null);
     try {
-      const [accs, pts, sub, usage, media, addons] = await Promise.all([
+      const [accs, pts, sub, usage, media, addons, plats] = await Promise.all([
         api.listSocialAccounts(),
         api.listScheduledPosts(),
         api.getSubscription(),
         api.getStorageUsage(),
         api.listMedia(),
         api.listStorageAddons(),
+        api.getPlatforms(),
       ]);
       setAccounts(accs);
       setPosts(pts);
@@ -54,7 +74,10 @@ export function Dashboard() {
       setStorageUsage(usage);
       setMediaFiles(media);
       setStorageAddons(addons);
-      if (accs.length > 0 && !selectedAccount) setSelectedAccount(accs[0].id);
+      setPlatforms(plats);
+      // Drop any selected account that disappeared (e.g. disconnected)
+      // since the last refresh, rather than silently submitting for it.
+      setSelectedAccountIds((prev) => prev.filter((id) => accs.some((a) => a.id === id)));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -64,6 +87,20 @@ export function Dashboard() {
 
   useEffect(() => {
     refresh();
+  }, []);
+
+  // The OAuth callback redirects here with ?connected=1 or ?connectError=...
+  // (the customer's browser lands on the backend's own domain mid-flow,
+  // then bounces back here) — connectParams was already read + stripped
+  // from the URL once at module scope (see readAndClearConnectParams), so
+  // this just surfaces whatever it found.
+  useEffect(() => {
+    if (connectParams.connectError) {
+      setError(connectParams.connectError);
+    } else if (connectParams.connected) {
+      setNotice("Account connected!");
+      refresh();
+    }
   }, []);
 
   // Paddle.js renders the real payment overlay on this page —
@@ -116,26 +153,42 @@ export function Dashboard() {
     }
   }
 
-  async function handleConnect() {
+  async function handleConnect(platform: string) {
+    setConnectingPlatform(platform);
+    setError(null);
     try {
-      const { authorizeUrl } = await api.startConnect();
+      const { authorizeUrl } = await api.startConnect(platform);
       window.location.href = authorizeUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+      setConnectingPlatform(null);
     }
+  }
+
+  function toggleSelectedAccount(id: string) {
+    setSelectedAccountIds((prev) => (prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]));
   }
 
   async function handleSchedule(e: FormEvent) {
     e.preventDefault();
+    if (selectedAccountIds.length === 0) {
+      setError("Select at least one connected account to post to.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
-      await api.createScheduledPost({
-        socialAccountId: selectedAccount,
-        content,
-        mediaUrl: mediaUrl ?? undefined,
-        scheduledFor: new Date(scheduledFor).toISOString(),
-      });
+      // One scheduled_posts row per selected account — same content/media/time
+      // fanned out to every platform the customer checked, via the existing
+      // single-post endpoint rather than a new batch one.
+      for (const socialAccountId of selectedAccountIds) {
+        await api.createScheduledPost({
+          socialAccountId,
+          content,
+          mediaUrl: mediaUrl ?? undefined,
+          scheduledFor: new Date(scheduledFor).toISOString(),
+        });
+      }
       setContent("");
       setScheduledFor("");
       setMediaUrl(null);
@@ -364,6 +417,7 @@ export function Dashboard() {
       </nav>
 
       {error && <p className="error">{error}</p>}
+      {notice && <p className="notice">{notice}</p>}
 
       {(tab === "Overview" || tab === "Accounts") && (
       <section>
@@ -383,7 +437,45 @@ export function Dashboard() {
             ))}
           </ul>
         )}
-        <button className="btn-outline" onClick={handleConnect}>+ Connect a social account</button>
+        <h3>Connect a platform</h3>
+        <div className="platform-grid">
+          {platforms.map((p) => {
+            // A platform not yet configured on this deploy (missing env
+            // vars) is just as unclickable as a genuine "coming soon" one —
+            // dim both the same way rather than only handling the X/Reddit
+            // case and letting an unconfigured tile error on click.
+            const disabled = p.comingSoon || !p.configured;
+            const connectedCount = accounts.filter((a) => a.platform === p.platform).length;
+            return (
+              <button
+                key={p.platform}
+                type="button"
+                className={`platform-tile${disabled ? " platform-tile-coming-soon" : ""}${connectedCount > 0 ? " platform-tile-connected" : ""}`}
+                disabled={disabled || connectingPlatform !== null}
+                title={
+                  p.comingSoon
+                    ? "Coming soon"
+                    : !p.configured
+                      ? "Not set up on this deploy yet"
+                      : connectedCount > 0
+                        ? "Connected — click to connect another account"
+                        : undefined
+                }
+                onClick={() => handleConnect(p.platform)}
+              >
+                <PlatformIcon platform={p.platform} size={20} comingSoon={disabled} />
+                <span className="platform-tile-name">{p.platform}</span>
+                {p.comingSoon && <span className="platform-tile-badge">Coming soon</span>}
+                {!disabled && connectedCount > 0 && (
+                  <span className="platform-tile-badge platform-tile-badge-connected">
+                    &#10003; Connected{connectedCount > 1 ? ` (${connectedCount})` : ""}
+                  </span>
+                )}
+                {!disabled && connectingPlatform === p.platform && <span className="platform-tile-badge">Connecting...</span>}
+              </button>
+            );
+          })}
+        </div>
       </section>
       )}
 
@@ -396,14 +488,20 @@ export function Dashboard() {
         ) : (
           <form onSubmit={handleSchedule} className="schedule-form">
             <label>
-              Account
-              <select value={selectedAccount} onChange={(e) => setSelectedAccount(e.target.value)}>
+              Post to
+              <div className="account-checkbox-list">
                 {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
+                  <label key={a.id} className="account-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={selectedAccountIds.includes(a.id)}
+                      onChange={() => toggleSelectedAccount(a.id)}
+                    />
+                    <PlatformIcon platform={a.platform} size={14} />
                     {a.display_name ?? a.platform_account_id}
-                  </option>
+                  </label>
                 ))}
-              </select>
+              </div>
             </label>
             <label>
               Content

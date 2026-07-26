@@ -8,8 +8,7 @@ import { cancelSubscription, cancelStorageAddon } from "../billing/sync.js";
 import { buildCheckoutTransaction } from "../billing/paddle.js";
 import { Environment } from "@paddle/paddle-node-sdk";
 import type { MerchantOfRecordAdapter } from "../billing/types.js";
-import type { PlatformAdapter } from "../platforms/types.js";
-import { startConnect, completeConnect } from "../platforms/connect.js";
+import { startConnect, completeConnect, type PlatformAdapterRegistry } from "../platforms/connect.js";
 import { requireAuth, type AuthedRequest } from "./auth.js";
 import { tieredRateLimit, publicRateLimit } from "./rateLimit.js";
 import { validateMediaForPlatform, type Platform } from "../mediaLimits.js";
@@ -79,14 +78,50 @@ function dbError(res: Response, err: { message: string }, context: string): void
   res.status(500).json({ error: "Something went wrong on our end. Please try again." });
 }
 
-export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter: PlatformAdapter): Router {
+// Every platform LazyRelay supports, in the shape the frontend's platform
+// picker grid needs. "x" and "reddit" are always comingSoon: true — X has
+// no adapter built yet, Reddit is blocked on Reddit's own commercial-API
+// approval (see product/reference-social-automation-saas-venture-research
+// memory) — neither is ever in the registry, so they'd otherwise just show
+// up as "not configured" with no explanation.
+const ALL_PLATFORMS = [
+  "tiktok", "pinterest", "youtube", "mastodon", "bluesky", "telegram",
+  "linkedin", "threads", "facebook", "instagram", "discord", "tumblr",
+  "x", "reddit",
+] as const;
+const COMING_SOON_PLATFORMS = new Set(["x", "reddit"]);
+
+export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: PlatformAdapterRegistry): Router {
   const router = Router();
+
+  // Drives the frontend's platform-picker grid — every platform LazyRelay
+  // supports, whether it's actually configured (in the registry) right
+  // now, and whether it's a "coming soon" tile that should never be
+  // clickable regardless of configuration.
+  router.get("/platforms", requireAuth, tieredRateLimit, (_req: AuthedRequest, res) => {
+    res.json(
+      ALL_PLATFORMS.map((platform) => ({
+        platform,
+        configured: registry.has(platform),
+        comingSoon: COMING_SOON_PLATFORMS.has(platform),
+      })),
+    );
+  });
 
   // Starts the "connect your social account" flow — returns the URL the
   // frontend should redirect the user to. Real account identity comes from
   // the verified JWT; the callback below never has to trust anything the
   // browser sends except the opaque, one-time state token.
   router.get("/social-accounts/connect", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { platform } = req.query;
+    if (typeof platform !== "string" || !ALL_PLATFORMS.includes(platform as (typeof ALL_PLATFORMS)[number])) {
+      res.status(400).json({ error: `platform must be one of: ${ALL_PLATFORMS.join(", ")}` });
+      return;
+    }
+    if (COMING_SOON_PLATFORMS.has(platform)) {
+      res.status(400).json({ error: `${platform} is coming soon and isn't available to connect yet.` });
+      return;
+    }
     try {
       // Real per-tier cap, not just marketing copy — see accountLimits.ts
       // for why even the top tier is capped rather than truly unlimited.
@@ -95,7 +130,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
         res.status(403).json({ error: limitError });
         return;
       }
-      const url = await startConnect(req.accountId!, platformAdapter);
+      const url = await startConnect(req.accountId!, platform, registry);
       res.json({ authorizeUrl: url });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
@@ -107,17 +142,27 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
   // Identity/authorization instead comes entirely from the state token,
   // which was minted server-side for a specific account and can only be
   // used once (see platforms/connect.ts).
+  //
+  // This is the platform's own redirect_uri, so the browser lands here —
+  // on the API's domain, not the frontend's — no matter what. The one
+  // thing that WAS broken (not something this refactor introduced): once
+  // the exchange finished, this used to just dead-end on a raw JSON blob
+  // instead of ever sending the customer back to their dashboard. It now
+  // redirects to the frontend either way, success or failure, with a query
+  // param the dashboard reads once and clears (see Dashboard.tsx).
+  const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
   router.get("/social-accounts/callback", publicRateLimit, async (req, res) => {
     const { code, state } = req.query;
     if (typeof code !== "string" || typeof state !== "string") {
-      res.status(400).json({ error: "Missing code or state" });
+      res.redirect(`${frontendUrl}/?connectError=${encodeURIComponent("Missing code or state")}`);
       return;
     }
     try {
-      const socialAccountId = await completeConnect(state, code, platformAdapter);
-      res.json({ connected: true, socialAccountId });
+      await completeConnect(state, code, registry);
+      res.redirect(`${frontendUrl}/?connected=1`);
     } catch (err) {
-      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+      const message = err instanceof Error ? err.message : String(err);
+      res.redirect(`${frontendUrl}/?connectError=${encodeURIComponent(message)}`);
     }
   });
 
@@ -360,6 +405,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, platformAdapter
         .eq("url", mediaUrl)
         .maybeSingle();
       if (media) {
+        // account.platform is DB-sourced (the CHECK constraint already
+        // limits it to the real platform union), not client input — the
+        // cast here is safe now that mediaLimits.ts's Platform type covers
+        // all 13 real values, not just 3.
         const result = validateMediaForPlatform(account.platform as Platform, {
           mimeType: media.mime_type,
           sizeBytes: media.size_bytes,

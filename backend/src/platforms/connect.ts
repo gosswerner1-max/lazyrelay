@@ -1,12 +1,25 @@
 import { supabase } from "../supabase.js";
 import type { PlatformAdapter } from "./types.js";
 
+export type PlatformAdapterRegistry = Map<string, PlatformAdapter>;
+
+function resolveAdapter(registry: PlatformAdapterRegistry, platform: string): PlatformAdapter {
+  const adapter = registry.get(platform);
+  if (!adapter) throw new Error(`"${platform}" isn't available to connect right now.`);
+  return adapter;
+}
+
 /** Starts a connect flow: creates a one-time, 15-minute state token tied to
- *  this account + platform, returns the URL to redirect the user to. */
+ *  this account + platform, returns the URL to redirect the user to. The
+ *  adapter is resolved from the registry by `platform` — this is what lets
+ *  several platforms be connectable at once instead of just one globally
+ *  injected adapter. */
 export async function startConnect(
   accountId: string,
-  adapter: PlatformAdapter,
+  platform: string,
+  registry: PlatformAdapterRegistry,
 ): Promise<string> {
+  const adapter = resolveAdapter(registry, platform);
   const { data, error } = await supabase
     .from("oauth_states")
     .insert({ account_id: accountId, platform: adapter.platform })
@@ -18,14 +31,15 @@ export async function startConnect(
 }
 
 /** Handles the OAuth callback: validates the state token (exists, not
- *  expired, matches the platform), consumes it (one-time use — deleted
- *  regardless of success, so it can never be replayed), exchanges the code
- *  for real tokens, and stores the result with the token encrypted via
- *  Vault. Returns the new social_accounts row id. */
+ *  expired), consumes it (one-time use — deleted regardless of success, so
+ *  it can never be replayed), resolves the correct adapter from the
+ *  registry using the platform the state row was created for, exchanges
+ *  the code for real tokens, and stores the result with the token
+ *  encrypted via Vault. Returns the new social_accounts row id. */
 export async function completeConnect(
   state: string,
   code: string,
-  adapter: PlatformAdapter,
+  registry: PlatformAdapterRegistry,
 ): Promise<string> {
   const { data: stateRow, error: stateError } = await supabase
     .from("oauth_states")
@@ -43,9 +57,12 @@ export async function completeConnect(
   if (new Date(stateRow.expires_at) < new Date()) {
     throw new Error("Connect link expired — please try connecting again");
   }
-  if (stateRow.platform !== adapter.platform) {
-    throw new Error("Platform mismatch on connect callback");
-  }
+
+  // The adapter is looked up BY the platform the state row was created
+  // for, not compared against a pre-selected single adapter — this makes
+  // the old "platform mismatch" failure mode structurally impossible now
+  // that every connect flow shares one callback route across all platforms.
+  const adapter = resolveAdapter(registry, stateRow.platform);
 
   const result = await adapter.exchangeCode(code);
 

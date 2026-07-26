@@ -73,9 +73,32 @@ export interface StorageAddon {
   current_period_end: string | null;
 }
 
+export interface PlatformInfo {
+  platform: string;
+  configured: boolean;
+  comingSoon: boolean;
+}
+
 export const api = {
   listSocialAccounts: (): Promise<SocialAccount[]> => authedFetch("/social-accounts"),
-  startConnect: (): Promise<{ authorizeUrl: string }> => authedFetch("/social-accounts/connect"),
+  getPlatforms: (): Promise<PlatformInfo[]> => authedFetch("/platforms"),
+  startConnect: (platform: string): Promise<{ authorizeUrl: string }> =>
+    authedFetch(`/social-accounts/connect?platform=${encodeURIComponent(platform)}`),
+
+  // For platforms without real OAuth (Bluesky, Telegram, Discord) — the
+  // connect-form page collects a credential, JSON-encodes it as `code`, and
+  // resubmits here directly. Not routed through authedFetch: this call has
+  // to work even if the browser's Supabase session expired mid-flow, since
+  // identity comes entirely from the one-time `state` token minted when the
+  // connect flow started, same as a real OAuth callback.
+  completeManualConnect: async (code: string, state: string): Promise<{ connected: boolean; socialAccountId: string }> => {
+    const res = await fetch(
+      `${API_URL}/social-accounts/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
+    );
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error ?? `Connect failed: ${res.status}`);
+    return body;
+  },
 
   listScheduledPosts: (): Promise<ScheduledPost[]> => authedFetch("/scheduled-posts"),
   createScheduledPost: (input: {

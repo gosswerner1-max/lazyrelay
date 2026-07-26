@@ -98,10 +98,11 @@ async function main() {
   console.log("\n=== Test 1: retry with backoff, then permanent failure ===");
   const { accountId: accountId1, postId: postId1 } = await seedAccountWithDuePost();
   const adapter1 = new AlwaysFailsAdapter();
+  const registry1 = new Map([[adapter1.platform, adapter1 as PlatformAdapter]]);
 
   // Attempt 1: fails, should go back to pending with retry_count=1 and a
   // future scheduled_for (backoff), NOT "failed".
-  await runSchedulerCycle(adapter1);
+  await runSchedulerCycle(registry1);
   let state = await getPostState(postId1);
   console.log("After attempt 1:", state);
   const backoffApplied = state.status === "pending" && state.retry_count === 1 && new Date(state.scheduled_for) > new Date();
@@ -115,7 +116,7 @@ async function main() {
 
   // Attempts 2, 3, 4 (retry_count goes 1->2, 2->3, 3->4 = MAX_RETRIES exceeded -> permanently failed on the 4th attempt)
   for (let i = 0; i < 3; i++) {
-    await runSchedulerCycle(adapter1);
+    await runSchedulerCycle(registry1);
     state = await getPostState(postId1);
     if (state.status === "pending") {
       await supabase.from("scheduled_posts").update({ scheduled_for: new Date(Date.now() - 1000).toISOString() }).eq("id", postId1);
@@ -135,6 +136,7 @@ async function main() {
   console.log("\n=== Test 2: circuit breaker trips and skips further cycles ===");
   const { accountId: accountId2, postId: postId2 } = await seedAccountWithDuePost();
   const adapter2 = new AlwaysFailsAdapter();
+  const registry2 = new Map([[adapter2.platform, adapter2 as PlatformAdapter]]);
 
   // Drive 5 consecutive failures (CONSECUTIVE_FAILURE_THRESHOLD) across
   // separate due posts so the breaker's failure count actually increments
@@ -161,10 +163,10 @@ async function main() {
 
   // Cycle 1 processes postId2 (1 failure); cycles 2-5 each process one of
   // the 4 extra posts (failures 2-5) -> breaker should trip after failure 5.
-  await runSchedulerCycle(adapter2); // failure 1 (postId2)
+  await runSchedulerCycle(registry2); // failure 1 (postId2)
   for (const id of extraPostIds) {
     await supabase.from("scheduled_posts").update({ scheduled_for: new Date(Date.now() - 1000).toISOString() }).eq("id", id);
-    await runSchedulerCycle(adapter2);
+    await runSchedulerCycle(registry2);
   }
 
   const callsBeforeBreakerCheck = adapter2.callCount;
@@ -185,7 +187,7 @@ async function main() {
     .select()
     .single();
 
-  await runSchedulerCycle(adapter2);
+  await runSchedulerCycle(registry2);
   const stateAfterTrip = await getPostState(postAfterTrip!.id);
   console.log("Post seeded after trip:", stateAfterTrip, `| adapter.post() calls now: ${adapter2.callCount}`);
 

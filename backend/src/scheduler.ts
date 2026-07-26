@@ -1,5 +1,5 @@
 import { supabase } from "./supabase.js";
-import type { PlatformAdapter } from "./platforms/types.js";
+import type { PlatformAdapterRegistry } from "./platforms/connect.js";
 import { notifyOps } from "./notify.js";
 
 const CLAIM_BATCH_SIZE = 10;
@@ -73,16 +73,19 @@ interface DuePost {
   content: string;
   media_url: string | null;
   retry_count: number;
+  platform: string;
 }
 
 /** Finds posts due to go out and claims them (status pending -> posting)
  *  so a second concurrent run of this poller can't double-post the same
  *  row — same claim-before-act discipline as the lock/race-condition fix
- *  already proven necessary in Lazy Download's own social automation. */
+ *  already proven necessary in Lazy Download's own social automation.
+ *  Joins social_accounts for platform so a single cycle can dispatch each
+ *  post to the right adapter instead of assuming one platform for everything. */
 async function claimDuePosts(): Promise<DuePost[]> {
   const { data: due, error: selectError } = await supabase
     .from("scheduled_posts")
-    .select("id, account_id, social_account_id, content, media_url, retry_count")
+    .select("id, account_id, social_account_id, content, media_url, retry_count, social_accounts(platform)")
     .eq("status", "pending")
     .lte("scheduled_for", new Date().toISOString())
     .limit(CLAIM_BATCH_SIZE);
@@ -99,7 +102,13 @@ async function claimDuePosts(): Promise<DuePost[]> {
   // poller that already claimed one of these ids simply updates 0 rows for it.
 
   if (claimError) throw claimError;
-  return due;
+  return due.map((p) => {
+    // Supabase's PostgREST client types a to-one embed as an array even
+    // though the FK guarantees exactly one row here.
+    const account = Array.isArray(p.social_accounts) ? p.social_accounts[0] : p.social_accounts;
+    const { social_accounts: _social_accounts, ...rest } = p as typeof p & { social_accounts: unknown };
+    return { ...rest, platform: account?.platform } as DuePost;
+  });
 }
 
 async function getAccessToken(socialAccountId: string): Promise<string> {
@@ -155,7 +164,22 @@ async function handleFailure(post: DuePost, message: string): Promise<void> {
   await notifyOps(`Post ${post.id} permanently failed after ${MAX_RETRIES + 1} attempts: ${message}`);
 }
 
-async function processPost(post: DuePost, adapter: PlatformAdapter): Promise<void> {
+/** Reverts a claimed post back to pending without counting it as a retry —
+ *  used when a post's platform breaker is open, since this isn't a failed
+ *  attempt, just a post that hasn't been tried yet this cycle. */
+async function unclaimPost(post: DuePost): Promise<void> {
+  await supabase.from("scheduled_posts").update({ status: "pending" }).eq("id", post.id);
+}
+
+async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Promise<void> {
+  const adapter = registry.get(post.platform);
+  if (!adapter) {
+    // Platform isn't configured on this deploy (env vars missing) — not a
+    // post/adapter failure, so this doesn't count against retries either;
+    // just leave it pending for the next cycle once the platform is live.
+    console.warn(`Post ${post.id} left pending — no adapter configured for platform "${post.platform}".`);
+    return;
+  }
   try {
     if (await isAccountPaused(post.social_account_id)) {
       // Not a platform/adapter failure — retrying won't help until the
@@ -212,22 +236,24 @@ async function processPost(post: DuePost, adapter: PlatformAdapter): Promise<voi
   }
 }
 
-/** One poll cycle: claim whatever's due, process each post. Call this on
- *  an interval (or from a cron trigger) — it does not loop internally.
- *  Skips claiming entirely while this platform's circuit breaker is open,
- *  so posts stay untouched (still pending) rather than being claimed into
- *  a stuck "posting" state during a known outage. */
-export async function runSchedulerCycle(adapter: PlatformAdapter): Promise<void> {
-  if (isBreakerTripped(adapter.platform)) {
-    console.warn(`Skipping scheduler cycle — circuit breaker open for platform "${adapter.platform}".`);
-    return;
-  }
-
+/** One poll cycle: claim whatever's due across ALL platforms, process each
+ *  post against its own platform's adapter. Call this on an interval (or
+ *  from a cron trigger) — it does not loop internally. A single tripped
+ *  breaker no longer skips the whole cycle (that only made sense back when
+ *  one cycle meant one platform) — instead, any post whose platform's
+ *  breaker is open gets un-claimed (back to pending, no retry-count hit)
+ *  and the cycle moves on to the next post. */
+export async function runSchedulerCycle(registry: PlatformAdapterRegistry): Promise<void> {
   const due = await claimDuePosts();
   if (due.length === 0) return;
 
   console.log(`Claimed ${due.length} due post(s).`);
   for (const post of due) {
-    await processPost(post, adapter);
+    if (isBreakerTripped(post.platform)) {
+      console.warn(`Un-claiming post ${post.id} — circuit breaker open for platform "${post.platform}".`);
+      await unclaimPost(post);
+      continue;
+    }
+    await processPost(post, registry);
   }
 }

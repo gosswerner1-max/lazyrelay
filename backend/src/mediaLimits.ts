@@ -26,7 +26,48 @@
  *  extractable content when researched) — flagged as lower-confidence below.
  */
 
-export type Platform = "meta" | "tiktok" | "pinterest";
+export type Platform =
+  | "meta"
+  | "tiktok"
+  | "pinterest"
+  | "youtube"
+  | "mastodon"
+  | "bluesky"
+  | "telegram"
+  | "linkedin"
+  | "threads"
+  | "facebook"
+  | "instagram"
+  | "discord"
+  | "tumblr";
+
+// Platforms without a researched, bespoke rule yet fall back to the same
+// 20MB size cap + mime allowlist LazyRelay's own /media/upload endpoint
+// already enforces (see MEDIA_UPLOAD_MAX_BYTES/ALLOWED_MEDIA_MIME_TYPES in
+// routes.ts) — a real, working floor rather than pretending full
+// platform-specific validation exists for all 13 platforms.
+const GENERIC_FALLBACK_RULES: PlatformRules = {
+  image: {
+    maxSizeBytes: 20 * 1024 * 1024,
+    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"],
+  },
+  video: {
+    maxSizeBytes: 20 * 1024 * 1024,
+    allowedMimeTypes: ["video/mp4", "video/quicktime", "video/webm"],
+  },
+};
+const PLATFORMS_WITH_GENERIC_RULES: Platform[] = [
+  "youtube",
+  "mastodon",
+  "bluesky",
+  "telegram",
+  "linkedin",
+  "threads",
+  "facebook",
+  "instagram",
+  "discord",
+  "tumblr",
+];
 
 export interface MediaMeta {
   mimeType: string;
@@ -80,6 +121,19 @@ const RULES: Record<Platform, PlatformRules> = {
     },
     video: { maxSizeBytes: 20 * MB, allowedMimeTypes: ["video/mp4", "video/quicktime"] }, // video Pin max size unconfirmed — using the image cap as a conservative floor, not a sourced number
   },
+  // The remaining platforms don't have a researched, bespoke rule yet — see
+  // GENERIC_FALLBACK_RULES above. validateMediaForPlatform() surfaces this
+  // via the `unchecked` field rather than pretending real limits exist.
+  youtube: GENERIC_FALLBACK_RULES,
+  mastodon: GENERIC_FALLBACK_RULES,
+  bluesky: GENERIC_FALLBACK_RULES,
+  telegram: GENERIC_FALLBACK_RULES,
+  linkedin: GENERIC_FALLBACK_RULES,
+  threads: GENERIC_FALLBACK_RULES,
+  facebook: GENERIC_FALLBACK_RULES,
+  instagram: GENERIC_FALLBACK_RULES,
+  discord: GENERIC_FALLBACK_RULES,
+  tumblr: GENERIC_FALLBACK_RULES,
 };
 
 // Instagram feed image dimension/aspect-ratio range — the one platform with
@@ -89,6 +143,9 @@ const INSTAGRAM_IMAGE_ASPECT_RATIO_RANGE = { min: 0.8, max: 1.91 }; // 4:5 to 1.
 
 export function validateMediaForPlatform(platform: Platform, media: MediaMeta): MediaValidationResult {
   const unchecked: string[] = [];
+  if (PLATFORMS_WITH_GENERIC_RULES.includes(platform)) {
+    unchecked.push(`${platform} has no researched platform-specific media rules yet — validated against a generic size/format floor only`);
+  }
   const rules = RULES[platform];
 
   if (isImage(media.mimeType)) {

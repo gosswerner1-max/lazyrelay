@@ -25,7 +25,7 @@ async function main() {
   await supabase.from("accounts").insert({ id: accountId, email });
 
   const adapter = new YouTubeAdapter(clientId, clientSecret, redirectUri);
-  const authorizeUrl = await startConnect(accountId, adapter);
+  const authorizeUrl = await startConnect(accountId, adapter.platform, new Map([[adapter.platform, adapter]]));
 
   writeFileSync(
     "youtube-sandbox-test-state.json",
