@@ -12,6 +12,8 @@ import { LinkedInAdapter } from "./platforms/linkedin.js";
 import { ThreadsAdapter } from "./platforms/threads.js";
 import { FacebookAdapter } from "./platforms/facebook.js";
 import { InstagramAdapter } from "./platforms/instagram.js";
+import { DiscordAdapter } from "./platforms/discord.js";
+import { TumblrAdapter } from "./platforms/tumblr.js";
 import type { PlatformAdapter } from "./platforms/types.js";
 import { StubMorAdapter } from "./billing/stub.js";
 import { PaddleMorAdapter } from "./billing/paddle.js";
@@ -139,6 +141,19 @@ async function main() {
       process.env.META_APP_SECRET,
       process.env.META_REDIRECT_URI,
     );
+  } else if (activePlatform === "discord" && process.env.DISCORD_CONNECT_PAGE_URL) {
+    platformAdapter = new DiscordAdapter(process.env.DISCORD_CONNECT_PAGE_URL);
+  } else if (
+    activePlatform === "tumblr" &&
+    process.env.TUMBLR_CLIENT_ID &&
+    process.env.TUMBLR_CLIENT_SECRET &&
+    process.env.TUMBLR_REDIRECT_URI
+  ) {
+    platformAdapter = new TumblrAdapter(
+      process.env.TUMBLR_CLIENT_ID,
+      process.env.TUMBLR_CLIENT_SECRET,
+      process.env.TUMBLR_REDIRECT_URI,
+    );
   }
   const morAdapter: MerchantOfRecordAdapter =
     process.env.MOR_API_KEY && process.env.MOR_WEBHOOK_SECRET
@@ -174,7 +189,11 @@ async function main() {
       `THREADS_REDIRECT_URI=${process.env.THREADS_REDIRECT_URI ? "set" : "MISSING"}; ` +
       `META_APP_ID=${process.env.META_APP_ID ? "set" : "MISSING"} ` +
       `META_APP_SECRET=${process.env.META_APP_SECRET ? "set" : "MISSING"} ` +
-      `META_REDIRECT_URI=${process.env.META_REDIRECT_URI ? "set" : "MISSING"}`,
+      `META_REDIRECT_URI=${process.env.META_REDIRECT_URI ? "set" : "MISSING"}; ` +
+      `DISCORD_CONNECT_PAGE_URL=${process.env.DISCORD_CONNECT_PAGE_URL ? "set" : "MISSING"}; ` +
+      `TUMBLR_CLIENT_ID=${process.env.TUMBLR_CLIENT_ID ? "set" : "MISSING"} ` +
+      `TUMBLR_CLIENT_SECRET=${process.env.TUMBLR_CLIENT_SECRET ? "set" : "MISSING"} ` +
+      `TUMBLR_REDIRECT_URI=${process.env.TUMBLR_REDIRECT_URI ? "set" : "MISSING"}`,
   );
 
   const app = buildApp(morAdapter, platformAdapter);
