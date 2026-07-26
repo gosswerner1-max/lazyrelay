@@ -85,7 +85,7 @@ interface DuePost {
 async function claimDuePosts(): Promise<DuePost[]> {
   const { data: due, error: selectError } = await supabase
     .from("scheduled_posts")
-    .select("id, account_id, social_account_id, content, media_url, retry_count, social_accounts(platform)")
+    .select("id")
     .eq("status", "pending")
     .lte("scheduled_for", new Date().toISOString())
     .limit(CLAIM_BATCH_SIZE);
@@ -94,15 +94,26 @@ async function claimDuePosts(): Promise<DuePost[]> {
   if (!due || due.length === 0) return [];
 
   const ids = due.map((p) => p.id);
-  const { error: claimError } = await supabase
+  // The UPDATE's own `.select()` return value — NOT the earlier SELECT's
+  // `due` list — is the only trustworthy source of what this call actually
+  // claimed. A stress test (10 concurrent scheduler cycles racing one due
+  // post) proved the earlier version wrong: every concurrent call re-used
+  // its own pre-update `due` snapshot regardless of whether its UPDATE
+  // affected 0 or 1 rows, so 9 of 10 concurrent cycles double-processed
+  // the same post. `.eq("status","pending")` on the UPDATE still only
+  // flips rows atomically at the DB layer, but the row only belongs to a
+  // caller whose UPDATE's `.select()` actually returned it back.
+  const { data: claimed, error: claimError } = await supabase
     .from("scheduled_posts")
     .update({ status: "posting" })
     .in("id", ids)
-    .eq("status", "pending"); // only claims rows still pending — a concurrent
-  // poller that already claimed one of these ids simply updates 0 rows for it.
+    .eq("status", "pending")
+    .select("id, account_id, social_account_id, content, media_url, retry_count, social_accounts(platform)");
 
   if (claimError) throw claimError;
-  return due.map((p) => {
+  if (!claimed || claimed.length === 0) return [];
+
+  return claimed.map((p) => {
     // Supabase's PostgREST client types a to-one embed as an array even
     // though the FK guarantees exactly one row here.
     const account = Array.isArray(p.social_accounts) ? p.social_accounts[0] : p.social_accounts;
