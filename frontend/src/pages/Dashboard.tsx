@@ -67,6 +67,7 @@ export function Dashboard() {
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [mediaUploading, setMediaUploading] = useState(false);
   const [mediaDragActive, setMediaDragActive] = useState(false);
+  const [historyShown, setHistoryShown] = useState(10);
   const [paddle, setPaddle] = useState<Paddle | undefined>(undefined);
   const [finalizingUpgrade, setFinalizingUpgrade] = useState(false);
   const pendingTierRef = useRef<"pro" | "business" | "enterprise" | null>(null);
@@ -279,7 +280,8 @@ export function Dashboard() {
     if (file) handleMediaFile(file);
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(id: string, isHistory: boolean) {
+    if (isHistory && !window.confirm("Delete this post from history? This can't be undone.")) return;
     try {
       await api.deleteScheduledPost(id);
       await refresh();
@@ -655,50 +657,79 @@ export function Dashboard() {
         )}
       </section>
 
-      <section>
-        <h2>Scheduled posts</h2>
-        {posts.length === 0 ? (
-          <p className="empty">Nothing scheduled yet.</p>
-        ) : (
-          <ul className="post-list">
-            {posts.map((p) => {
-              const result = p.post_results?.[0];
-              const account = accounts.find((a) => a.id === p.social_account_id);
-              return (
-                <li key={p.id} className={`post-status-${p.status}`}>
-                  {account && (
-                    <div className="post-platform">
-                      <PlatformIcon platform={account.platform} size={14} />
-                      {account.display_name ?? account.platform_account_id}
-                    </div>
+      {(() => {
+        const upcoming = posts.filter((p) => p.status === "pending" || p.status === "posting");
+        const history = posts
+          .filter((p) => p.status !== "pending" && p.status !== "posting")
+          .slice()
+          .sort((a, b) => new Date(b.scheduled_for).getTime() - new Date(a.scheduled_for).getTime());
+        const historyToShow = history.slice(0, historyShown);
+
+        const renderPost = (p: ScheduledPost) => {
+          const result = p.post_results?.[0];
+          const account = accounts.find((a) => a.id === p.social_account_id);
+          return (
+            <li key={p.id} className={`post-status-${p.status}`}>
+              {account && (
+                <div className="post-platform">
+                  <PlatformIcon platform={account.platform} size={14} />
+                  {account.display_name ?? account.platform_account_id}
+                </div>
+              )}
+              <div className="post-content">{p.content}</div>
+              <div className="post-meta">
+                <span className={`status-badge status-${p.status}`}>{p.status}</span>
+                <span>{new Date(p.scheduled_for).toLocaleString()}</span>
+                {result && (
+                  <span className={result.verified_live ? "verified" : "not-verified"}>
+                    {result.verified_live ? (
+                      <>
+                        <RelaySignal size={14} pulsing /> Confirmed live
+                      </>
+                    ) : (
+                      `Not confirmed — ${result.error_message ?? "couldn't verify"}`
+                    )}
+                  </span>
+                )}
+                {p.status !== "posting" && (
+                  <button className="btn-outline" onClick={() => handleDelete(p.id, p.status !== "pending")}>
+                    {p.status === "pending" ? "Cancel" : "Delete"}
+                  </button>
+                )}
+              </div>
+            </li>
+          );
+        };
+
+        return (
+          <>
+            <section>
+              <h2>Upcoming</h2>
+              {upcoming.length === 0 ? (
+                <p className="empty">Nothing scheduled yet.</p>
+              ) : (
+                <ul className="post-list">{upcoming.map(renderPost)}</ul>
+              )}
+            </section>
+
+            <section>
+              <h2>History</h2>
+              {history.length === 0 ? (
+                <p className="empty">No posts sent yet.</p>
+              ) : (
+                <>
+                  <ul className="post-list">{historyToShow.map(renderPost)}</ul>
+                  {historyShown < history.length && (
+                    <button className="btn-outline" onClick={() => setHistoryShown((n) => n + 10)}>
+                      Load more ({history.length - historyShown} more)
+                    </button>
                   )}
-                  <div className="post-content">{p.content}</div>
-                  <div className="post-meta">
-                    <span className={`status-badge status-${p.status}`}>{p.status}</span>
-                    <span>{new Date(p.scheduled_for).toLocaleString()}</span>
-                    {result && (
-                      <span className={result.verified_live ? "verified" : "not-verified"}>
-                        {result.verified_live ? (
-                          <>
-                            <RelaySignal size={14} pulsing /> Confirmed live
-                          </>
-                        ) : (
-                          `Not confirmed — ${result.error_message ?? "couldn't verify"}`
-                        )}
-                      </span>
-                    )}
-                    {p.status === "pending" && (
-                      <button className="btn-outline" onClick={() => handleDelete(p.id)}>
-                        Cancel
-                      </button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+                </>
+              )}
+            </section>
+          </>
+        );
+      })()}
       </>
       )}
 

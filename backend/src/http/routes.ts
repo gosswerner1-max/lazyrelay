@@ -78,6 +78,34 @@ function dbError(res: Response, err: { message: string }, context: string): void
   res.status(500).json({ error: "Something went wrong on our end. Please try again." });
 }
 
+// Deleting a scheduled_posts row never touches the underlying media_uploads
+// row/storage file on its own — the same uploaded file can be attached to
+// several scheduled posts (e.g. one fan-out schedule to 3 platforms). Only
+// reclaim it once nothing else pending/posting still references the URL,
+// mirroring DELETE /media/:id's in-use check but firing silently as a
+// side-effect of post deletion rather than a user-facing 409.
+async function releaseMediaIfOrphaned(mediaUrl: string, accountId: string): Promise<void> {
+  const { count: stillInUse } = await supabase
+    .from("scheduled_posts")
+    .select("id", { count: "exact", head: true })
+    .eq("media_url", mediaUrl)
+    .in("status", ["pending", "posting"]);
+  if ((stillInUse ?? 0) > 0) return;
+
+  const { data: media } = await supabase
+    .from("media_uploads")
+    .select("id, storage_path")
+    .eq("url", mediaUrl)
+    .eq("account_id", accountId)
+    .maybeSingle();
+  if (!media) return;
+
+  if (media.storage_path) {
+    await supabase.storage.from("post-media").remove([media.storage_path]);
+  }
+  await supabase.from("media_uploads").delete().eq("id", media.id);
+}
+
 // Every platform LazyRelay supports, in the shape the frontend's platform
 // picker grid needs. "x" and "reddit" are always comingSoon: true — X has
 // no adapter built yet, Reddit is blocked on Reddit's own commercial-API
@@ -483,24 +511,49 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.json(data);
   });
 
-  // A pending post can be deleted (cancelled before it goes out); one
-  // already posting/posted/failed cannot — matches the pending-only DELETE
-  // policy already enforced by RLS in 0001, checked here too for a clean
-  // error message rather than a silent no-op delete.
+  // A pending post can be cancelled, or a posted/failed one cleared from
+  // history — either way this is deleting the customer's own row. Only a
+  // post mid-flight ("posting") is protected, since the scheduler is
+  // actively working it at that moment.
   router.delete("/scheduled-posts/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: existing, error: fetchError } = await supabase
+      .from("scheduled_posts")
+      .select("id, media_url, status")
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .maybeSingle();
+    if (fetchError) {
+      dbError(res, fetchError, "DELETE /scheduled-posts/:id lookup");
+      return;
+    }
+    if (!existing) {
+      res.status(404).json({ error: "Not found or not owned by this caller" });
+      return;
+    }
+    if (existing.status === "posting") {
+      res.status(409).json({ error: "This post is being published right now — try again in a moment" });
+      return;
+    }
+
     const { error, count } = await supabase
       .from("scheduled_posts")
       .delete({ count: "exact" })
       .eq("id", req.params.id)
-      .eq("account_id", req.accountId)
-      .eq("status", "pending");
+      .eq("account_id", req.accountId);
     if (error) {
       dbError(res, error, "DELETE /scheduled-posts/:id");
       return;
     }
     if (count === 0) {
-      res.status(404).json({ error: "Not found, not owned by this caller, or no longer pending" });
+      res.status(404).json({ error: "Not found or not owned by this caller" });
       return;
+    }
+
+    // Deleting the post is what a customer actually means by "free up
+    // storage" — reclaim the attached media too, but only once nothing else
+    // (another pending/posting post) still points at the same file.
+    if (existing.media_url) {
+      await releaseMediaIfOrphaned(existing.media_url, req.accountId!);
     }
     res.status(204).send();
   });
