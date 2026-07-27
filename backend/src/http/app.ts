@@ -17,7 +17,33 @@ export function buildApp(morAdapter: MerchantOfRecordAdapter, registry: Platform
   // BEFORE express.json() so the JSON parser never touches it.
   app.post("/api/webhooks/mor", express.raw({ type: "application/json" }), buildWebhookHandler(morAdapter));
 
-  app.use(cors({ origin: process.env.FRONTEND_URL ?? "http://localhost:5173" }));
+  // The site is reachable at both the bare domain and the www subdomain
+  // (DNS/hosting serves both rather than redirecting one to the other), so
+  // a single FRONTEND_URL origin silently CORS-blocks whichever variant
+  // isn't listed — confirmed live via a customer hitting www.lazyrelay.com
+  // and getting "Failed to fetch" on every API call. Accept both.
+  const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
+  const allowedOrigins = new Set([frontendUrl]);
+  try {
+    const url = new URL(frontendUrl);
+    const bareHost = url.hostname.replace(/^www\./, "");
+    allowedOrigins.add(`${url.protocol}//${bareHost}`);
+    allowedOrigins.add(`${url.protocol}//www.${bareHost}`);
+  } catch {
+    // frontendUrl wasn't a valid absolute URL (e.g. still the localhost
+    // default) — the single entry already added is enough for that case.
+  }
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.has(origin)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error("Not allowed by CORS"));
+      },
+    }),
+  );
   app.use(express.json());
   app.use("/api", buildRouter(morAdapter, registry));
 
