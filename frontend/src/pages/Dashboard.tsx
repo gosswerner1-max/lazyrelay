@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
-import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo } from "../lib/api";
+import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey } from "../lib/api";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
@@ -29,6 +29,11 @@ const connectParams = readAndClearConnectParams();
 export function Dashboard() {
   const { signOut } = useAuth();
   const mediaInputRef = useRef<HTMLInputElement>(null);
+  // refresh() re-fetches the account on every call (including after
+  // unrelated actions like scheduling a post) — only seed the business-name
+  // input from the server once, so it never clobbers text the user is
+  // actively typing into the Settings field.
+  const businessNameSeeded = useRef(false);
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [platforms, setPlatforms] = useState<PlatformInfo[]>([]);
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
@@ -38,6 +43,14 @@ export function Dashboard() {
   const [mediaBusyId, setMediaBusyId] = useState<string | null>(null);
   const [storageAddons, setStorageAddons] = useState<StorageAddon[]>([]);
   const [addonBusy, setAddonBusy] = useState<5 | 20 | 50 | string | null>(null);
+  const [account, setAccount] = useState<Account | null>(null);
+  const [businessNameInput, setBusinessNameInput] = useState("");
+  const [savingBusinessName, setSavingBusinessName] = useState(false);
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [apiKeyName, setApiKeyName] = useState("");
+  const [creatingKey, setCreatingKey] = useState(false);
+  const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null);
+  const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -61,7 +74,7 @@ export function Dashboard() {
   async function refresh() {
     setError(null);
     try {
-      const [accs, pts, sub, usage, media, addons, plats] = await Promise.all([
+      const [accs, pts, sub, usage, media, addons, plats, acct, keys] = await Promise.all([
         api.listSocialAccounts(),
         api.listScheduledPosts(),
         api.getSubscription(),
@@ -69,6 +82,8 @@ export function Dashboard() {
         api.listMedia(),
         api.listStorageAddons(),
         api.getPlatforms(),
+        api.getAccount(),
+        api.listApiKeys(),
       ]);
       setAccounts(accs);
       setPosts(pts);
@@ -77,6 +92,12 @@ export function Dashboard() {
       setMediaFiles(media);
       setStorageAddons(addons);
       setPlatforms(plats);
+      setAccount(acct);
+      if (!businessNameSeeded.current) {
+        setBusinessNameInput(acct.businessName ?? "");
+        businessNameSeeded.current = true;
+      }
+      setApiKeys(keys);
       // Drop any selected account that disappeared (e.g. disconnected)
       // since the last refresh, rather than silently submitting for it.
       setSelectedAccountIds((prev) => prev.filter((id) => accs.some((a) => a.id === id)));
@@ -336,6 +357,53 @@ export function Dashboard() {
     }
   }
 
+  async function handleSaveBusinessName(e: FormEvent) {
+    e.preventDefault();
+    setSavingBusinessName(true);
+    setError(null);
+    try {
+      const updated = await api.updateAccount(businessNameInput.trim() || null);
+      setAccount(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingBusinessName(false);
+    }
+  }
+
+  async function handleCreateApiKey(e: FormEvent) {
+    e.preventDefault();
+    if (!apiKeyName.trim()) return;
+    setCreatingKey(true);
+    setError(null);
+    try {
+      const created = await api.createApiKey(apiKeyName.trim());
+      setNewlyCreatedKey(created.key);
+      setApiKeyName("");
+      const keys = await api.listApiKeys();
+      setApiKeys(keys);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCreatingKey(false);
+    }
+  }
+
+  async function handleRevokeApiKey(id: string) {
+    if (!window.confirm("Revoke this API key? Anything using it will immediately stop working.")) return;
+    setRevokingKeyId(id);
+    setError(null);
+    try {
+      await api.revokeApiKey(id);
+      const keys = await api.listApiKeys();
+      setApiKeys(keys);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRevokingKeyId(null);
+    }
+  }
+
   async function handleConfirmCancelSubscription() {
     setBillingBusy("cancel");
     setError(null);
@@ -398,7 +466,7 @@ export function Dashboard() {
       <header>
         <div className="wordmark">
           <BrandMark size={30} />
-          <span>LazyRelay</span>
+          <span>{account?.businessName ? `Welcome, ${account.businessName}` : "LazyRelay"}</span>
         </div>
         <button className="link" onClick={signOut}>
           Sign out
@@ -663,6 +731,87 @@ export function Dashboard() {
                 >
                   {mediaBusyId === m.id ? "Deleting..." : "Delete"}
                 </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      )}
+
+      {tab === "Settings" && (
+      <section>
+        <h2>Account</h2>
+        <form onSubmit={handleSaveBusinessName} className="account-name-form">
+          <label>
+            What should we call you?
+            <input
+              type="text"
+              value={businessNameInput}
+              onChange={(e) => setBusinessNameInput(e.target.value)}
+              placeholder="Your business or brand name"
+              maxLength={80}
+            />
+          </label>
+          <button type="submit" disabled={savingBusinessName}>
+            {savingBusinessName ? "Saving..." : "Save"}
+          </button>
+        </form>
+      </section>
+      )}
+
+      {tab === "Settings" && (
+      <section>
+        <h2>API keys</h2>
+        <p className="pricing-note">
+          Let your own AI agent post and schedule directly through LazyRelay's API, without a browser or a human
+          login. Each key acts as this account — treat it like a password.
+        </p>
+        {newlyCreatedKey && (
+          <div className="api-key-reveal">
+            <p><strong>Copy this key now</strong> — it won't be shown again.</p>
+            <code>{newlyCreatedKey}</code>
+            <button type="button" className="btn-outline" onClick={() => setNewlyCreatedKey(null)}>
+              Done
+            </button>
+          </div>
+        )}
+        <form onSubmit={handleCreateApiKey} className="api-key-form">
+          <input
+            type="text"
+            value={apiKeyName}
+            onChange={(e) => setApiKeyName(e.target.value)}
+            placeholder="Key name (e.g. Posting agent)"
+            maxLength={60}
+          />
+          <button type="submit" disabled={creatingKey || !apiKeyName.trim()}>
+            {creatingKey ? "Creating..." : "Create key"}
+          </button>
+        </form>
+        {apiKeys.length === 0 ? (
+          <p className="empty">No API keys yet.</p>
+        ) : (
+          <ul className="media-list">
+            {apiKeys.map((k) => (
+              <li key={k.id}>
+                <span className="media-list-meta">
+                  <strong>{k.name}</strong> — {k.key_prefix}...
+                  {k.revoked_at ? (
+                    <span className="status-badge status-cancelled">revoked</span>
+                  ) : (
+                    <span className="status-badge status-active">
+                      {k.last_used_at ? `last used ${new Date(k.last_used_at).toLocaleDateString()}` : "never used"}
+                    </span>
+                  )}
+                </span>
+                {!k.revoked_at && (
+                  <button
+                    className="btn-outline"
+                    onClick={() => handleRevokeApiKey(k.id)}
+                    disabled={revokingKeyId !== null}
+                  >
+                    {revokingKeyId === k.id ? "Revoking..." : "Revoke"}
+                  </button>
+                )}
               </li>
             ))}
           </ul>

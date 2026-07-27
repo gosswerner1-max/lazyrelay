@@ -79,6 +79,20 @@ export interface PlatformInfo {
   comingSoon: boolean;
 }
 
+export interface Account {
+  email: string;
+  businessName: string | null;
+}
+
+export interface ApiKey {
+  id: string;
+  name: string;
+  key_prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}
+
 export const api = {
   listSocialAccounts: (): Promise<SocialAccount[]> => authedFetch("/social-accounts"),
   getPlatforms: (): Promise<PlatformInfo[]> => authedFetch("/platforms"),
@@ -141,6 +155,15 @@ export const api = {
     authedFetch("/subscription/checkout", { method: "POST", body: JSON.stringify({ tier }) }),
   cancelSubscription: (feedback?: string): Promise<{ cancelled: boolean }> =>
     authedFetch("/subscription/cancel", { method: "POST", body: JSON.stringify({ feedback }) }),
+
+  getAccount: (): Promise<Account> => authedFetch("/account"),
+  updateAccount: (businessName: string | null): Promise<Account> =>
+    authedFetch("/account", { method: "PATCH", body: JSON.stringify({ businessName }) }),
+
+  listApiKeys: (): Promise<ApiKey[]> => authedFetch("/api-keys"),
+  createApiKey: (name: string): Promise<ApiKey & { key: string }> =>
+    authedFetch("/api-keys", { method: "POST", body: JSON.stringify({ name }) }),
+  revokeApiKey: (id: string): Promise<null> => authedFetch(`/api-keys/${id}`, { method: "DELETE" }),
 
   listStorageAddons: (): Promise<StorageAddon[]> => authedFetch("/storage-addons"),
   startStorageAddonCheckout: (

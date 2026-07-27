@@ -8,6 +8,7 @@ import { TermsOfService } from "./pages/TermsOfService";
 import { Contact } from "./pages/Contact";
 import { ConnectForm } from "./pages/ConnectForm";
 import { Spinner } from "./components/Spinner";
+import { CookieConsent } from "./components/CookieConsent";
 import "./App.css";
 
 const MANUAL_CONNECT_PLATFORMS = ["bluesky", "telegram", "discord"] as const;
@@ -117,6 +118,7 @@ function App() {
   return (
     <AuthProvider>
       <Root />
+      <CookieConsent />
     </AuthProvider>
   );
 }

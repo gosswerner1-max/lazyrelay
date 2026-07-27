@@ -11,13 +11,26 @@
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://lazyrelay.com/" />
     <link rel="canonical" href="https://lazyrelay.com/" />
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-0FM5Z6EYKF"></script>
     <script>
+      // Consent Mode v2 default — MUST run before gtag.js is requested, so
+      // no cookie/storage access happens until the visitor actually
+      // chooses (see src/components/CookieConsent.tsx, which calls
+      // gtag('consent', 'update', ...) once they do). Analytics itself is
+      // NOT gated behind this file — GA4 still measures consent-mode
+      // "cookieless pings" either way; what's gated is real cookie storage.
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
+      gtag('consent', 'default', {
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+        analytics_storage: 'denied',
+        personalization_storage: 'denied',
+      });
       gtag('js', new Date());
       gtag('config', 'G-0FM5Z6EYKF');
     </script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-0FM5Z6EYKF"></script>
   </head>
   <body>
     <div id="root"></div>

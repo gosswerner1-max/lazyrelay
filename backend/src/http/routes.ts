@@ -1,6 +1,6 @@
 import { Router, type Response } from "express";
 import multer from "multer";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import { imageSize } from "image-size";
 import { fileTypeFromBuffer } from "file-type";
 import { supabase } from "../supabase.js";
@@ -9,7 +9,7 @@ import { buildCheckoutTransaction } from "../billing/paddle.js";
 import { Environment } from "@paddle/paddle-node-sdk";
 import type { MerchantOfRecordAdapter } from "../billing/types.js";
 import { startConnect, completeConnect, type PlatformAdapterRegistry } from "../platforms/connect.js";
-import { requireAuth, type AuthedRequest } from "./auth.js";
+import { requireAuth, requireHumanAuth, type AuthedRequest, API_KEY_PREFIX, hashApiKey } from "./auth.js";
 import { tieredRateLimit, publicRateLimit } from "./rateLimit.js";
 import { validateMediaForPlatform, type Platform } from "../mediaLimits.js";
 import { checkQuotaForNewUpload, getStorageUsage } from "../storageQuota.js";
@@ -684,6 +684,108 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
     res.json({ cancelled: true });
+  });
+
+  // The dashboard's "Welcome, {name}" header and the business-name field
+  // shown at signup — set once at signup via Supabase auth metadata (see
+  // migration 0024), editable afterward here.
+  router.get("/account", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data, error } = await supabase.from("accounts").select("email, business_name").eq("id", req.accountId).single();
+    if (error || !data) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+    res.json({ email: data.email, businessName: data.business_name });
+  });
+
+  router.patch("/account", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { businessName } = req.body ?? {};
+    if (businessName !== null && typeof businessName !== "string") {
+      res.status(400).json({ error: "businessName must be a string or null" });
+      return;
+    }
+    if (typeof businessName === "string" && businessName.length > 80) {
+      res.status(400).json({ error: "businessName must be 80 characters or fewer" });
+      return;
+    }
+    const { data, error } = await supabase
+      .from("accounts")
+      .update({ business_name: businessName?.trim() || null })
+      .eq("id", req.accountId)
+      .select("email, business_name")
+      .single();
+    if (error || !data) {
+      dbError(res, error ?? { message: "update returned no row" }, "PATCH /account");
+      return;
+    }
+    res.json({ email: data.email, businessName: data.business_name });
+  });
+
+  // API keys let a customer's own AI agent call this API directly and
+  // headlessly (bring-your-own-agent — see tier.ts/pricing copy) instead of
+  // needing a Supabase browser session, which by definition requires a
+  // human to log in. Only requireAuth's Supabase-JWT path may create or
+  // list keys — an agent authenticating WITH an API key can't mint more of
+  // them, so a leaked key can't be used to self-escalate into permanent
+  // access if the original key is later revoked.
+  router.post("/api-keys", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { name } = req.body ?? {};
+    if (typeof name !== "string" || name.trim().length === 0) {
+      res.status(400).json({ error: "name is required" });
+      return;
+    }
+    if (name.length > 60) {
+      res.status(400).json({ error: "name must be 60 characters or fewer" });
+      return;
+    }
+    const rawKey = `${API_KEY_PREFIX}${randomBytes(24).toString("hex")}`;
+    const { data, error } = await supabase
+      .from("api_keys")
+      .insert({
+        account_id: req.accountId,
+        name: name.trim(),
+        key_prefix: rawKey.slice(0, API_KEY_PREFIX.length + 6),
+        key_hash: hashApiKey(rawKey),
+      })
+      .select("id, name, key_prefix, created_at")
+      .single();
+    if (error || !data) {
+      dbError(res, error ?? { message: "insert returned no row" }, "POST /api-keys");
+      return;
+    }
+    // The only time the raw key is ever returned — it's not retrievable
+    // again after this response, only key_prefix is kept for display.
+    res.status(201).json({ ...data, key: rawKey });
+  });
+
+  router.get("/api-keys", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data, error } = await supabase
+      .from("api_keys")
+      .select("id, name, key_prefix, created_at, last_used_at, revoked_at")
+      .eq("account_id", req.accountId)
+      .order("created_at", { ascending: false });
+    if (error) {
+      dbError(res, error, "GET /api-keys");
+      return;
+    }
+    res.json(data);
+  });
+
+  router.delete("/api-keys/:id", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: key } = await supabase.from("api_keys").select("account_id").eq("id", req.params.id).maybeSingle();
+    if (!key || key.account_id !== req.accountId) {
+      res.status(404).json({ error: "API key not found" });
+      return;
+    }
+    const { error } = await supabase
+      .from("api_keys")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("id", req.params.id);
+    if (error) {
+      dbError(res, error, "DELETE /api-keys/:id");
+      return;
+    }
+    res.status(204).end();
   });
 
   return router;

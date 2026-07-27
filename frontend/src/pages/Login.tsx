@@ -11,6 +11,7 @@ export function Login({ initialMode = "signin", onBack }: LoginProps) {
   const { signIn, signUp } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [businessName, setBusinessName] = useState("");
   const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -20,7 +21,7 @@ export function Login({ initialMode = "signin", onBack }: LoginProps) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-    const result = mode === "signin" ? await signIn(email, password) : await signUp(email, password);
+    const result = mode === "signin" ? await signIn(email, password) : await signUp(email, password, businessName);
     setSubmitting(false);
     if (result.error) {
       setError(result.error);
@@ -46,6 +47,18 @@ export function Login({ initialMode = "signin", onBack }: LoginProps) {
           </div>
           <p className="subtitle">{mode === "signin" ? "Sign in to your account" : "Create your account"}</p>
           <form onSubmit={handleSubmit}>
+            {mode === "signup" && (
+              <label>
+                What should we call you?
+                <input
+                  type="text"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  placeholder="Your business or brand name"
+                  maxLength={80}
+                />
+              </label>
+            )}
             <label>
               Email
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
