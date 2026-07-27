@@ -48,6 +48,11 @@ interface InstagramContainerResponse {
   error?: { message?: string };
 }
 
+interface InstagramContainerStatusResponse {
+  status_code?: "IN_PROGRESS" | "FINISHED" | "ERROR" | "EXPIRED" | "PUBLISHED";
+  error?: { message?: string };
+}
+
 interface InstagramMediaResponse {
   id?: string;
   permalink?: string;
@@ -163,6 +168,30 @@ export class InstagramAdapter implements PlatformAdapter {
     return json.instagram_business_account.id;
   }
 
+  // Instagram downloads/processes the image asynchronously after container
+  // creation — calling media_publish before status_code reaches FINISHED
+  // fails with "Media ID is not available." Poll rather than publish
+  // immediately. 10 tries * 3s covers Instagram's typical few-second
+  // processing window without hanging the scheduler cycle indefinitely.
+  private async waitForContainerReady(containerId: string, accessToken: string): Promise<string | null> {
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const url = new URL(`${GRAPH_BASE}/${containerId}`);
+      url.searchParams.set("fields", "status_code");
+      url.searchParams.set("access_token", accessToken);
+      const res = await fetch(url.toString());
+      const json = (await res.json()) as InstagramContainerStatusResponse;
+      if (!res.ok) {
+        return json.error?.message ?? `Could not check Instagram container status (HTTP ${res.status})`;
+      }
+      if (json.status_code === "FINISHED") return null;
+      if (json.status_code === "ERROR" || json.status_code === "EXPIRED") {
+        return `Instagram media container failed processing (${json.status_code})`;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+    return "Instagram media container did not finish processing in time";
+  }
+
   // Two-step publish, same shape as the Threads adapter: create a media
   // container, then publish it as a second call.
   async post(request: PostRequest): Promise<PostAttemptResult> {
@@ -193,6 +222,11 @@ export class InstagramAdapter implements PlatformAdapter {
         platformPostId: null,
         errorMessage: containerJson.error?.message ?? `Instagram container creation failed (HTTP ${containerRes.status})`,
       };
+    }
+
+    const containerError = await this.waitForContainerReady(containerJson.id, request.accessToken);
+    if (containerError) {
+      return { success: false, platformPostId: null, errorMessage: containerError };
     }
 
     const publishParams = new URLSearchParams({

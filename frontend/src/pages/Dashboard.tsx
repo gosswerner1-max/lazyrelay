@@ -192,8 +192,7 @@ export function Dashboard() {
     setSelectedAccountIds((prev) => (prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]));
   }
 
-  async function handleSchedule(e: FormEvent) {
-    e.preventDefault();
+  async function submitPost(scheduledForIso: string) {
     if (selectedAccountIds.length === 0) {
       setError("Select at least one connected account to post to.");
       return;
@@ -209,7 +208,7 @@ export function Dashboard() {
           socialAccountId,
           content,
           mediaUrl: mediaUrl ?? undefined,
-          scheduledFor: new Date(scheduledFor).toISOString(),
+          scheduledFor: scheduledForIso,
         });
       }
       setContent("");
@@ -221,6 +220,15 @@ export function Dashboard() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleSchedule(e: FormEvent) {
+    e.preventDefault();
+    await submitPost(new Date(scheduledFor).toISOString());
+  }
+
+  async function handlePostNow() {
+    await submitPost(new Date().toISOString());
   }
 
   async function handleMediaFile(file: File) {
@@ -635,9 +643,14 @@ export function Dashboard() {
                 required
               />
             </label>
-            <button type="submit" disabled={submitting}>
-              {submitting ? "Scheduling..." : "Schedule"}
-            </button>
+            <div className="schedule-form-actions">
+              <button type="submit" disabled={submitting}>
+                {submitting ? "Scheduling..." : "Schedule"}
+              </button>
+              <button type="button" className="post-now-btn" disabled={submitting} onClick={handlePostNow}>
+                {submitting ? "Posting..." : "Post Now"}
+              </button>
+            </div>
           </form>
         )}
       </section>
@@ -650,8 +663,15 @@ export function Dashboard() {
           <ul className="post-list">
             {posts.map((p) => {
               const result = p.post_results?.[0];
+              const account = accounts.find((a) => a.id === p.social_account_id);
               return (
                 <li key={p.id} className={`post-status-${p.status}`}>
+                  {account && (
+                    <div className="post-platform">
+                      <PlatformIcon platform={account.platform} size={14} />
+                      {account.display_name ?? account.platform_account_id}
+                    </div>
+                  )}
                   <div className="post-content">{p.content}</div>
                   <div className="post-meta">
                     <span className={`status-badge status-${p.status}`}>{p.status}</span>

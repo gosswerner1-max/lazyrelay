@@ -338,7 +338,7 @@
   gap: 14px;
 }
 
-.schedule-form label {
+.schedule-form > label {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -427,12 +427,22 @@
 
 .account-checkbox {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 14px;
   font-weight: 400;
   text-transform: none;
   letter-spacing: normal;
+  padding: 6px 4px;
+  cursor: pointer;
+}
+
+.account-checkbox input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
 }
 
 .media-dropzone {
@@ -499,6 +509,30 @@
   background: var(--signal);
   color: #fff;
   border: none;
+}
+
+.schedule-form-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.post-now-btn {
+  align-self: flex-start;
+  background: var(--paper);
+  color: var(--signal);
+  border: 1px solid var(--signal);
+}
+
+.post-platform {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  margin-bottom: 6px;
 }
 
 .post-list li {
