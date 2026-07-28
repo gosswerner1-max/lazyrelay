@@ -21,6 +21,7 @@ const fs = require("fs");
 const ExcelJS = require("exceljs");
 const { getSupabaseClient } = require("../shared/supabaseClient.js");
 const { getMorStatus } = require("../billing/billing_ops.js");
+const { gatherStorageUsage } = require("../shared/storageUsage.js");
 
 // Real pricing constants — mirrored from frontend/src/pages/Landing.tsx
 // (subscription tiers) and Dashboard.tsx (storage add-ons). Kept here
@@ -30,15 +31,6 @@ const { getMorStatus } = require("../billing/billing_ops.js");
 const TIER_PRICE_USD = { free: 0, pro: 24.99, business: 48.99, enterprise: 79.99 };
 const TIER_DISPLAY_NAMES = { free: "Free", pro: "Starter", business: "Pro", enterprise: "Business" };
 const STORAGE_ADDON_PRICE_USD = { 5: 2.99, 20: 7.99, 50: 14.99 };
-
-// Supabase's own infra storage billing (distinct from our customer-facing
-// per-tier quotas above — this is what SUPABASE charges US for hosting the
-// bytes, not what we charge customers). Pro plan ($25/mo) includes 100GB
-// of Storage, then meters overage per GB beyond that. Verify these two
-// numbers against Supabase's current pricing page periodically — they're
-// the one part of this report that isn't a live API read.
-const SUPABASE_STORAGE_INCLUDED_GB = 100;
-const SUPABASE_STORAGE_OVERAGE_PER_GB_USD = 0.021;
 
 const WEEK_MS = 7 * 24 * 3600 * 1000;
 
@@ -110,18 +102,6 @@ async function gatherAccountsAndRevenue(supabase) {
     weekStart: start,
     weekEnd: end,
   };
-}
-
-async function gatherStorageUsage(supabase) {
-  const { data, error } = await supabase.from("media_uploads").select("size_bytes");
-  if (error) throw error;
-
-  const totalBytes = (data ?? []).reduce((sum, row) => sum + row.size_bytes, 0);
-  const totalGb = totalBytes / (1024 * 1024 * 1024);
-  const overageGb = Math.max(0, totalGb - SUPABASE_STORAGE_INCLUDED_GB);
-  const overageCostUsd = overageGb * SUPABASE_STORAGE_OVERAGE_PER_GB_USD;
-
-  return { totalGb, includedGb: SUPABASE_STORAGE_INCLUDED_GB, overageGb, overageCostUsd };
 }
 
 async function gatherPlatformActivity(supabase, weekStart, weekEnd) {
