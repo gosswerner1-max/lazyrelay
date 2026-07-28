@@ -5,6 +5,7 @@ import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { PrivacyPolicy } from "./pages/PrivacyPolicy";
 import { TermsOfService } from "./pages/TermsOfService";
+import { DataDeletion } from "./pages/DataDeletion";
 import { Contact } from "./pages/Contact";
 import { ConnectForm } from "./pages/ConnectForm";
 import { Spinner } from "./components/Spinner";
@@ -13,11 +14,12 @@ import "./App.css";
 
 const MANUAL_CONNECT_PLATFORMS = ["bluesky", "telegram", "discord"] as const;
 
-type View = "landing" | "signin" | "signup" | "privacy" | "terms" | "contact";
+type View = "landing" | "signin" | "signup" | "privacy" | "terms" | "data-deletion" | "contact";
 
 const PATH_TO_VIEW: Record<string, View> = {
   "/terms": "terms",
   "/privacy": "privacy",
+  "/data-deletion": "data-deletion",
   "/contact": "contact",
   "/login": "signin",
   "/signup": "signup",
@@ -28,6 +30,7 @@ const VIEW_TO_PATH: Partial<Record<View, string>> = {
   landing: "/",
   terms: "/terms",
   privacy: "/privacy",
+  "data-deletion": "/data-deletion",
   contact: "/contact",
   signin: "/login",
   signup: "/signup",
@@ -93,6 +96,10 @@ function Root() {
 
   if (view === "terms") {
     return <TermsOfService onBack={() => setView("landing")} />;
+  }
+
+  if (view === "data-deletion") {
+    return <DataDeletion onBack={() => setView("landing")} />;
   }
 
   if (view === "contact") {
