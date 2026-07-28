@@ -31,6 +31,15 @@ const TIER_PRICE_USD = { free: 0, pro: 24.99, business: 48.99, enterprise: 79.99
 const TIER_DISPLAY_NAMES = { free: "Free", pro: "Starter", business: "Pro", enterprise: "Business" };
 const STORAGE_ADDON_PRICE_USD = { 5: 2.99, 20: 7.99, 50: 14.99 };
 
+// Supabase's own infra storage billing (distinct from our customer-facing
+// per-tier quotas above — this is what SUPABASE charges US for hosting the
+// bytes, not what we charge customers). Pro plan ($25/mo) includes 100GB
+// of Storage, then meters overage per GB beyond that. Verify these two
+// numbers against Supabase's current pricing page periodically — they're
+// the one part of this report that isn't a live API read.
+const SUPABASE_STORAGE_INCLUDED_GB = 100;
+const SUPABASE_STORAGE_OVERAGE_PER_GB_USD = 0.021;
+
 const WEEK_MS = 7 * 24 * 3600 * 1000;
 
 function weekWindow(now = new Date()) {
@@ -103,6 +112,18 @@ async function gatherAccountsAndRevenue(supabase) {
   };
 }
 
+async function gatherStorageUsage(supabase) {
+  const { data, error } = await supabase.from("media_uploads").select("size_bytes");
+  if (error) throw error;
+
+  const totalBytes = (data ?? []).reduce((sum, row) => sum + row.size_bytes, 0);
+  const totalGb = totalBytes / (1024 * 1024 * 1024);
+  const overageGb = Math.max(0, totalGb - SUPABASE_STORAGE_INCLUDED_GB);
+  const overageCostUsd = overageGb * SUPABASE_STORAGE_OVERAGE_PER_GB_USD;
+
+  return { totalGb, includedGb: SUPABASE_STORAGE_INCLUDED_GB, overageGb, overageCostUsd };
+}
+
 async function gatherPlatformActivity(supabase, weekStart, weekEnd) {
   const { data: socialAccounts, error: saError } = await supabase
     .from("social_accounts")
@@ -157,7 +178,7 @@ const INFRA_COSTS_USD = [
   { provider: "Roundcube / IMAP-SMTP", tierNeeded: "Bundled, no change", monthlyCost: 0 },
 ];
 
-async function buildWorkbook(summary, platformActivity, morStatus) {
+async function buildWorkbook(summary, platformActivity, morStatus, storageUsage) {
   const NAVY = "14171F";
   const ACCENT = "FF5630";
   const wb = new ExcelJS.Workbook();
@@ -260,9 +281,34 @@ async function buildWorkbook(summary, platformActivity, morStatus) {
   infraTotalRow.getCell(3).numberFormat = '$#,##0;($#,##0);"-"';
   ws.addRow([]);
 
+  // --- Supabase media storage overage ---
+  // This is the one infra cost that actually scales with customer count —
+  // Render/Supabase's own compute+DB tiers are flat until you outgrow them
+  // (see SERVICE_PROVIDERS.md), but customer-uploaded media directly grows
+  // Supabase Storage usage, which is metered beyond the Pro plan's included
+  // 100GB. Tracked separately from INFRA_COSTS_USD (which is fixed) so the
+  // report is honest about which cost is flat and which one moves.
+  sectionHeader("SUPABASE MEDIA STORAGE (usage-based — scales with customers)");
+  dataHeaderRow(["Metric", "Value", "", "", "", ""]);
+  const storageRows = {
+    total: ws.addRow(["Total media storage used (GB)", storageUsage.totalGb]),
+    included: ws.addRow(["Included in Pro plan (GB)", storageUsage.includedGb]),
+    overageGb: ws.addRow(["Overage (GB)", storageUsage.overageGb]),
+    overageCost: ws.addRow(["Overage cost (USD/mo)", storageUsage.overageCostUsd]),
+  };
+  storageRows.total.getCell(2).numberFormat = "0.00";
+  storageRows.included.getCell(2).numberFormat = "0";
+  storageRows.overageGb.getCell(2).numberFormat = "0.00";
+  storageRows.overageCost.getCell(2).numberFormat = '$#,##0.00;($#,##0.00);"-"';
+  storageRows.overageCost.font = { bold: true };
+  ws.addRow([]);
+
   // --- Net ---
-  sectionHeader("NET (MRR minus fixed infra cost)");
-  const netRow = ws.addRow(["Net monthly (MRR − infra)", { formula: `D${totalMrrRow.number}-C${infraTotalRow.number}` }]);
+  sectionHeader("NET (MRR minus fixed infra cost minus storage overage)");
+  const netRow = ws.addRow([
+    "Net monthly (MRR − infra − storage overage)",
+    { formula: `D${totalMrrRow.number}-C${infraTotalRow.number}-B${storageRows.overageCost.number}` },
+  ]);
   netRow.font = { bold: true, size: 11 };
   netRow.getCell(2).numberFormat = '$#,##0.00;($#,##0.00);"-"';
 
@@ -283,8 +329,9 @@ async function main() {
 
   const summary = await gatherAccountsAndRevenue(supabase);
   const platformActivity = await gatherPlatformActivity(supabase, summary.weekStart, summary.weekEnd);
+  const storageUsage = await gatherStorageUsage(supabase);
 
-  const wb = await buildWorkbook(summary, platformActivity, morStatus);
+  const wb = await buildWorkbook(summary, platformActivity, morStatus, storageUsage);
 
   const filename = `LazyRelay_Weekly_Report_${summary.weekEnd.toISOString().slice(0, 10)}.xlsx`;
   const outPath = path.join(outputDir, filename);
@@ -299,6 +346,8 @@ async function main() {
         cancelledThisWeek: summary.cancelledThisWeek,
         mrr: summary.mrr,
         billingEnvironment: morStatus.environment,
+        storageUsedGb: Number(storageUsage.totalGb.toFixed(2)),
+        storageOverageCostUsd: Number(storageUsage.overageCostUsd.toFixed(2)),
       },
       null,
       2
