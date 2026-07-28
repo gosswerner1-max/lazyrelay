@@ -42,6 +42,17 @@ ping and a real look at whether Render/Supabase need a tier upgrade, per the
 guidance already in SERVICE_PROVIDERS.md — this domain's job is to make that
 decision data-driven instead of a guess.
 
+## cPanel disk quota — deliberately NOT automated
+
+The shared cPanel account (5GB quota, ~39% used as of 2026-07-28, mostly
+The Lazy Download's `public_html`, not LazyRelay) has no visible "API
+Tokens" feature — this host restricts/hides cPanel API access for this
+account. Rather than build a fragile workaround (e.g. scraping an
+authenticated browser session), this is intentionally left as a periodic
+manual check, not part of the automated Health & Safety suite. Not urgent
+at current usage — revisit if it trends upward meaningfully (real customer
+media uploads growing, etc.).
+
 ## Design boundary
 
 This domain only reports. It never restarts services, never changes Render/
