@@ -16,18 +16,31 @@ const PAST_DUE_GRACE_HOURS = 24; // money-impacting -> tight loop, same
 // reasoning as Lazy Download's vendor-issue follow-up policy (24h for
 // money-impacting issues vs 1-2 days for standard ones).
 
+/** `live` only ever meant "credentials are present," not "this is real
+ * production billing" — confirmed 2026-07-28 that backend/.env still holds a
+ * Paddle SANDBOX key with `PADDLE_ENVIRONMENT` unset, so the daily billing
+ * task was reporting sandbox test data as if it were real customer
+ * dunning/refund candidates with no way to tell from the output. `environment`
+ * mirrors the exact same check `backend/src/index.ts` uses to construct the
+ * real PaddleMorAdapter (`PADDLE_ENVIRONMENT === "production"` → production,
+ * else sandbox) — same source of truth as the actual running adapter, not a
+ * separate guess from the key's naming convention. Callers (the SKILL.md
+ * report) must treat `environment !== "production"` as "don't act on these
+ * candidates as real," not just log them quietly. */
 function getMorStatus() {
   const creds = getMorCredentials();
-  return { live: creds !== null };
+  if (!creds) return { live: false, environment: "none" };
+  const environment = process.env.PADDLE_ENVIRONMENT === "production" ? "production" : "sandbox";
+  return { live: true, environment };
 }
 
 /** Subscriptions stuck in past_due for longer than the grace period —
  * real dunning-follow-up candidates. Requires the MoR to actually be live;
  * reports that honestly rather than returning a misleading empty list. */
 async function findPastDueNeedingFollowup(supabase, graceHours = PAST_DUE_GRACE_HOURS) {
-  const { live } = getMorStatus();
+  const { live, environment } = getMorStatus();
   if (!live) {
-    return { handled: false, reason: "no billing/MoR live yet — nothing to follow up on", candidates: [] };
+    return { handled: false, reason: "no billing/MoR live yet — nothing to follow up on", environment, candidates: [] };
   }
   const cutoff = new Date(Date.now() - graceHours * 3600 * 1000).toISOString();
   const { data, error } = await supabase
@@ -36,7 +49,11 @@ async function findPastDueNeedingFollowup(supabase, graceHours = PAST_DUE_GRACE_
     .eq("status", "past_due")
     .lt("updated_at", cutoff);
   if (error) throw error;
-  return { handled: true, reason: "ok", candidates: data ?? [] };
+  const reason =
+    environment === "production"
+      ? "ok"
+      : `ok, but MoR is in ${environment} mode — these are NOT real customers, do not act on them as real dunning candidates`;
+  return { handled: true, reason, environment, candidates: data ?? [] };
 }
 
 /** Refund handling per the now-published Refund Policy (lazyrelay.com/refunds,

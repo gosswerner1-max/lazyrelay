@@ -1,4 +1,6 @@
 import { supabase } from "../supabase.js";
+import { ACCOUNT_LIMITS } from "../accountLimits.js";
+import type { Tier } from "../tier.js";
 import type {
   SubscriptionEvent,
   StorageAddonEvent,
@@ -7,6 +9,50 @@ import type {
   SaleRecordEvent,
   RefundRecordEvent,
 } from "./types.js";
+
+/** Reverses a prior downgrade-pause (ops/accounts/accounts_ops.js's
+ *  planDowngradePause/enforceDowngradePause) when a webhook brings a
+ *  subscription back to "active" — e.g. an upgrade, or a past_due account
+ *  paying up. Without this, an account that was paused for exceeding its
+ *  old tier's limit stayed paused forever after upgrading, since nothing
+ *  called the JS ops module's unpauseAccounts() from the real webhook path
+ *  (confirmed gap, 2026-07-28 — that function only ever ran in its own
+ *  smoke test). Unpauses oldest-paused-first, up to the new tier's limit,
+ *  mirroring the pause side's oldest-connected-stays-active convention. */
+async function unpausePausedAccountsUpToLimit(accountId: string, tier: Tier): Promise<void> {
+  const limit = ACCOUNT_LIMITS[tier];
+
+  const { count: activeCount, error: activeError } = await supabase
+    .from("social_accounts")
+    .select("id", { count: "exact", head: true })
+    .eq("account_id", accountId)
+    .is("disconnected_at", null)
+    .is("paused_at", null);
+  if (activeError) throw activeError;
+
+  const room = limit - (activeCount ?? 0);
+  if (room <= 0) return;
+
+  const { data: paused, error: pausedError } = await supabase
+    .from("social_accounts")
+    .select("id")
+    .eq("account_id", accountId)
+    .is("disconnected_at", null)
+    .not("paused_at", "is", null)
+    .order("paused_at", { ascending: true })
+    .limit(room);
+  if (pausedError) throw pausedError;
+  if (!paused || paused.length === 0) return;
+
+  const { error: unpauseError } = await supabase
+    .from("social_accounts")
+    .update({ paused_at: null })
+    .in(
+      "id",
+      paused.map((p) => p.id),
+    );
+  if (unpauseError) throw unpauseError;
+}
 
 /** Called by the webhook HTTP handler after signature verification. Keeps
  *  our local `subscriptions` row in sync with what the MoR actually thinks
@@ -67,6 +113,8 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
       .from("accounts")
       .update({ cancelled_at: new Date().toISOString() })
       .eq("id", account.id);
+  } else if (event.status === "active") {
+    await unpausePausedAccountsUpToLimit(account.id, event.tier as Tier);
   }
 }
 
