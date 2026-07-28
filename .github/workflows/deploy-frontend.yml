@@ -1,0 +1,71 @@
+name: Deploy frontend to cPanel
+
+# Replaces the manual zip-and-drag-into-cPanel-File-Manager workflow
+# (see memory: reference-ftp-hosting.md / project-infrastructure-status).
+# Builds the Vite/React frontend and FTP-uploads dist/ straight to the
+# lazyrelay.com document root on push to main.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
+  workflow_dispatch: {}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      # frontend/.env.production is gitignored (see frontend/.gitignore) —
+      # these VITE_* values are all documented as safe-to-expose client-side
+      # values (anon key, public client token), not real secrets, but they
+      # still need to exist as repo secrets since the file itself isn't
+      # committed. Set these under Settings -> Secrets and variables ->
+      # Actions in the GitHub repo before this workflow can build correctly.
+      - name: Write .env.production
+        working-directory: frontend
+        run: |
+          cat > .env.production <<EOF
+          VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_API_URL=${{ secrets.VITE_API_URL }}
+          VITE_PADDLE_CLIENT_TOKEN=${{ secrets.VITE_PADDLE_CLIENT_TOKEN }}
+          VITE_PADDLE_ENVIRONMENT=${{ secrets.VITE_PADDLE_ENVIRONMENT }}
+          EOF
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Deploy to cPanel via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: frontend/dist/
+          # Adjust to the real remote path if it differs — matches the
+          # cPanel document root lazyrelay.com is served from
+          # (/home/lazydown/lazyrelay.com per prior manual deploys).
+          server-dir: /lazyrelay.com/
+          # Never touch these — they hold the 4 mailboxes' data and the
+          # legal-page static-HTML fallbacks that aren't part of the Vite
+          # build output, and dangerous-clean-slate would delete them.
+          exclude: |
+            **/.well-known/**
+            **/cgi-bin/**
