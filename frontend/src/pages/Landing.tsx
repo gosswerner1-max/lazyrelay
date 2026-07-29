@@ -82,7 +82,7 @@ const FAQ = [
   },
   {
     q: "Which platforms are supported?",
-    a: "Meta (Facebook/Instagram), TikTok, and Pinterest.",
+    a: "Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, and Tumblr.",
   },
   {
     q: "Can I set up a recurring posting schedule instead of scheduling each post one at a time?",
@@ -162,9 +162,18 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact 
           Connect your accounts and start posting today.
         </p>
         <div className="platform-row">
-          <PlatformIcon platform="meta" size={28} />
+          <PlatformIcon platform="facebook" size={28} />
+          <PlatformIcon platform="instagram" size={28} />
           <PlatformIcon platform="tiktok" size={28} />
           <PlatformIcon platform="pinterest" size={28} />
+          <PlatformIcon platform="youtube" size={28} />
+          <PlatformIcon platform="linkedin" size={28} />
+          <PlatformIcon platform="threads" size={28} />
+          <PlatformIcon platform="mastodon" size={28} />
+          <PlatformIcon platform="bluesky" size={28} />
+          <PlatformIcon platform="telegram" size={28} />
+          <PlatformIcon platform="discord" size={28} />
+          <PlatformIcon platform="tumblr" size={28} />
         </div>
       </section>
 
@@ -227,9 +236,9 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact 
         </div>
         <div className="landing-disclaimer">
           <p>
-            LazyRelay is not affiliated with, endorsed by, or sponsored by Meta, TikTok, or Pinterest.
-            We connect to these platforms using their official APIs and comply with each platform's own
-            Terms of Service.
+            LazyRelay is not affiliated with, endorsed by, or sponsored by any of the platforms it
+            connects to. We connect using each platform's official APIs and comply with each
+            platform's own Terms of Service.
           </p>
           <p>
             LazyRelay doesn't set its own limits on post length, images, or videos — we follow whatever
