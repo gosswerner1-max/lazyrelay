@@ -107,7 +107,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact 
     <div className="landing">
       <header className="landing-nav">
         <div className="wordmark">
-          <BrandMark size={28} />
+          <BrandMark size={40} />
           <span>LazyRelay</span>
         </div>
         <nav className="landing-nav-links">
@@ -162,18 +162,18 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact 
           Connect your accounts and start posting today.
         </p>
         <div className="platform-row">
-          <PlatformIcon platform="facebook" size={28} />
-          <PlatformIcon platform="instagram" size={28} />
-          <PlatformIcon platform="tiktok" size={28} />
-          <PlatformIcon platform="pinterest" size={28} />
-          <PlatformIcon platform="youtube" size={28} />
-          <PlatformIcon platform="linkedin" size={28} />
-          <PlatformIcon platform="threads" size={28} />
-          <PlatformIcon platform="mastodon" size={28} />
-          <PlatformIcon platform="bluesky" size={28} />
-          <PlatformIcon platform="telegram" size={28} />
-          <PlatformIcon platform="discord" size={28} />
-          <PlatformIcon platform="tumblr" size={28} />
+          <PlatformIcon platform="facebook" size={40} />
+          <PlatformIcon platform="instagram" size={40} />
+          <PlatformIcon platform="tiktok" size={40} />
+          <PlatformIcon platform="pinterest" size={40} />
+          <PlatformIcon platform="youtube" size={40} />
+          <PlatformIcon platform="linkedin" size={40} />
+          <PlatformIcon platform="threads" size={40} />
+          <PlatformIcon platform="mastodon" size={40} />
+          <PlatformIcon platform="bluesky" size={40} />
+          <PlatformIcon platform="telegram" size={40} />
+          <PlatformIcon platform="discord" size={40} />
+          <PlatformIcon platform="tumblr" size={40} />
         </div>
       </section>
 
