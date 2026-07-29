@@ -13,7 +13,11 @@ interface LandingProps {
 const FEATURES = [
   {
     title: "Smart Scheduling",
-    body: "Queue up posts for exactly when you want them to go out — set it once and move on with your day.",
+    body: "Queue up a one-time post for exactly when you want it to go out — set it once and move on with your day.",
+  },
+  {
+    title: "Recurring Schedules",
+    body: "Set up a weekly content cadence once — pick the days, the time, and the platforms — and LazyRelay keeps posting it every week until you pause or delete it.",
   },
   {
     title: "Auto Posting",
@@ -27,7 +31,7 @@ const FEATURES = [
 
 const STEPS = [
   { title: "Connect your accounts", body: "Link the social accounts you want to post to." },
-  { title: "Schedule a post", body: "Write your content and pick when it should go out." },
+  { title: "Schedule your content", body: "Write a one-time post, or set up a recurring weekly schedule once." },
   { title: "It happens automatically", body: "LazyRelay posts it for you and confirms it's live." },
 ];
 
@@ -37,7 +41,7 @@ const PRICING = [
     name: "Free",
     price: "$0",
     note: "Get started, no card required",
-    features: ["3 connected accounts", "10 posts per account, refillable", "250MB storage", "Proof-of-Publish verification"],
+    features: ["3 connected accounts", "10 posts per account, refillable", "One-time scheduled posts only", "250MB storage", "Proof-of-Publish verification"],
     cta: "Get started free",
   },
   {
@@ -45,7 +49,7 @@ const PRICING = [
     name: "Starter",
     price: "$24.99",
     note: "For creators posting regularly",
-    features: ["20 connected accounts", "Unlimited scheduled posts", "AI-agent / MCP access", "5GB storage", "Proof-of-Publish verification"],
+    features: ["20 connected accounts", "Unlimited scheduled posts", "3 recurring schedules", "AI-agent / MCP access", "5GB storage", "Proof-of-Publish verification"],
     cta: "Get started",
   },
   {
@@ -53,7 +57,7 @@ const PRICING = [
     name: "Pro",
     price: "$48.99",
     note: "For growing teams",
-    features: ["40 connected accounts", "Unlimited scheduled posts", "AI-agent / MCP access", "10GB storage", "Priority support"],
+    features: ["40 connected accounts", "Unlimited scheduled posts", "5 recurring schedules", "AI-agent / MCP access", "10GB storage", "Priority support"],
     cta: "Get started",
     featured: true,
   },
@@ -62,7 +66,7 @@ const PRICING = [
     name: "Business",
     price: "$79.99",
     note: "For agencies at scale",
-    features: ["100 connected accounts", "Unlimited scheduled posts", "AI-agent / MCP access", "20GB storage", "Priority support"],
+    features: ["100 connected accounts", "Unlimited scheduled posts", "Unlimited recurring schedules", "AI-agent / MCP access", "20GB storage", "Priority support"],
     cta: "Get started",
   },
 ];
@@ -79,6 +83,10 @@ const FAQ = [
   {
     q: "Which platforms are supported?",
     a: "Meta (Facebook/Instagram), TikTok, and Pinterest. We're still in early testing while platform connections are being rolled out.",
+  },
+  {
+    q: "Can I set up a recurring posting schedule instead of scheduling each post one at a time?",
+    a: "Yes. Set up a recurring schedule once — content, days of the week, time, and which connected accounts it goes to — and LazyRelay keeps posting it every week automatically. You can pause it any time without losing the setup, resume whenever you're ready, or delete it outright. Free is one-time posts only; Starter gets 3 recurring schedules, Pro gets 5, and Business is unlimited.",
   },
   {
     q: "Is it free?",

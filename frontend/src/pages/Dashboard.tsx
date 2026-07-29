@@ -60,7 +60,9 @@ export function Dashboard() {
   const [cancelFeedback, setCancelFeedback] = useState("");
 
   const [content, setContent] = useState("");
-  const [scheduledFor, setScheduledFor] = useState("");
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
+  const [scheduleTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -311,7 +313,8 @@ export function Dashboard() {
         });
       }
       setContent("");
-      setScheduledFor("");
+      setScheduleDate("");
+      setScheduleTime("");
       setMediaUrl(null);
       await refresh();
     } catch (err) {
@@ -323,7 +326,11 @@ export function Dashboard() {
 
   async function handleSchedule(e: FormEvent) {
     e.preventDefault();
-    await submitPost(new Date(scheduledFor).toISOString());
+    if (!scheduleDate || !scheduleTime) {
+      setError("Pick both a date and a time to schedule this post for.");
+      return;
+    }
+    await submitPost(new Date(`${scheduleDate}T${scheduleTime}`).toISOString());
   }
 
   async function handlePostNow() {
@@ -659,7 +666,7 @@ export function Dashboard() {
       {(tab === "Overview" || tab === "Posts") && (
       <>
       <section>
-        <h2>Schedule a post</h2>
+        <h2>Schedule a one-time post</h2>
         {accounts.length === 0 ? (
           <p className="empty">Connect an account first.</p>
         ) : (
@@ -735,11 +742,20 @@ export function Dashboard() {
               </div>
             </label>
             <label>
-              When
+              Date
               <input
-                type="datetime-local"
-                value={scheduledFor}
-                onChange={(e) => setScheduledFor(e.target.value)}
+                type="date"
+                value={scheduleDate}
+                onChange={(e) => setScheduleDate(e.target.value)}
+                required
+              />
+            </label>
+            <label>
+              Time ({scheduleTimezone})
+              <input
+                type="time"
+                value={scheduleTime}
+                onChange={(e) => setScheduleTime(e.target.value)}
                 required
               />
             </label>
