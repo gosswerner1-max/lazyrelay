@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
 import banner from "../assets/banner.png";
@@ -103,6 +104,17 @@ const FAQ = [
 ];
 
 export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact }: LandingProps) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setMobileMenuOpen(false);
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [mobileMenuOpen]);
+
   return (
     <div className="landing">
       <header className="landing-nav">
@@ -110,6 +122,16 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact 
           <BrandMark size={40} />
           <span>LazyRelay</span>
         </div>
+        <button
+          type="button"
+          className="mobile-menu-toggle"
+          aria-expanded={mobileMenuOpen}
+          aria-controls="mobile-nav-menu"
+          aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+          onClick={() => setMobileMenuOpen((open) => !open)}
+        >
+          <span aria-hidden="true">{mobileMenuOpen ? "✕" : "☰"}</span>
+        </button>
         <nav className="landing-nav-links">
           <a href="#features">Features</a>
           <a href="#pricing">Pricing</a>
@@ -123,6 +145,41 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact 
           </button>
         </nav>
       </header>
+
+      {mobileMenuOpen && (
+        <nav id="mobile-nav-menu" className="mobile-nav-menu">
+          <a href="#features" onClick={() => setMobileMenuOpen(false)}>
+            Features
+          </a>
+          <a href="#pricing" onClick={() => setMobileMenuOpen(false)}>
+            Pricing
+          </a>
+          <a href="#faq" onClick={() => setMobileMenuOpen(false)}>
+            FAQ
+          </a>
+          <a href="#about" onClick={() => setMobileMenuOpen(false)}>
+            About
+          </a>
+          <button
+            className="link"
+            onClick={() => {
+              setMobileMenuOpen(false);
+              onContact();
+            }}
+          >
+            Contact
+          </button>
+          <button
+            className="link"
+            onClick={() => {
+              setMobileMenuOpen(false);
+              onSignIn();
+            }}
+          >
+            Sign in
+          </button>
+        </nav>
+      )}
 
       <section className="landing-hero">
         <img src={banner} alt="LazyRelay — automate, schedule, publish, repeat" />
