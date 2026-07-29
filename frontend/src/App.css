@@ -116,13 +116,13 @@
   padding: 11px 16px;
   border: none;
   border-radius: 8px;
-  background: var(--signal);
+  background: var(--signal-solid);
   color: #fff;
   font-weight: 600;
 }
 
 .auth-card button[type="submit"]:hover {
-  background: var(--signal-hover);
+  background: var(--signal-solid-hover);
 }
 
 .auth-card button[type="submit"]:disabled {
@@ -185,7 +185,7 @@
   padding: 6px 14px;
   border: none;
   border-radius: 8px;
-  background: var(--signal);
+  background: var(--signal-solid);
   color: #fff;
   font-weight: 600;
   font-size: 13px;
@@ -193,7 +193,7 @@
 }
 
 .plan-banner-cta:hover {
-  background: var(--signal-hover);
+  background: var(--signal-solid-hover);
 }
 
 .dashboard {
@@ -294,7 +294,7 @@
 }
 
 .btn-outline:hover {
-  background: var(--signal);
+  background: var(--signal-solid);
   color: #fff;
 }
 
@@ -506,7 +506,7 @@
 
 .schedule-form button[type="submit"] {
   align-self: flex-start;
-  background: var(--signal);
+  background: var(--signal-solid);
   color: #fff;
   border: none;
 }
@@ -839,14 +839,14 @@
   padding: 14px 28px;
   border: none;
   border-radius: 10px;
-  background: var(--signal);
+  background: var(--signal-solid);
   color: #fff;
   font-weight: 600;
   font-size: 16px;
 }
 
 .cta:hover {
-  background: var(--signal-hover);
+  background: var(--signal-solid-hover);
 }
 
 .landing-section {
