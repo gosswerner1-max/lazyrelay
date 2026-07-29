@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
-import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey } from "../lib/api";
+import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule } from "../lib/api";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
@@ -63,6 +63,16 @@ export function Dashboard() {
   const [scheduledFor, setScheduledFor] = useState("");
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  const [recurringSchedules, setRecurringSchedules] = useState<RecurringSchedule[]>([]);
+  const [rsEditingId, setRsEditingId] = useState<string | null>(null);
+  const [rsContent, setRsContent] = useState("");
+  const [rsSelectedAccountIds, setRsSelectedAccountIds] = useState<string[]>([]);
+  const [rsDaysOfWeek, setRsDaysOfWeek] = useState<number[]>([]);
+  const [rsTimeOfDay, setRsTimeOfDay] = useState("09:00");
+  const [rsTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const [rsSubmitting, setRsSubmitting] = useState(false);
+  const [rsBusyId, setRsBusyId] = useState<string | null>(null);
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [mediaUploading, setMediaUploading] = useState(false);
@@ -75,7 +85,7 @@ export function Dashboard() {
   async function refresh() {
     setError(null);
     try {
-      const [accs, pts, sub, usage, media, addons, plats, acct, keys] = await Promise.all([
+      const [accs, pts, sub, usage, media, addons, plats, acct, keys, recurring] = await Promise.all([
         api.listSocialAccounts(),
         api.listScheduledPosts(),
         api.getSubscription(),
@@ -85,6 +95,7 @@ export function Dashboard() {
         api.getPlatforms(),
         api.getAccount(),
         api.listApiKeys(),
+        api.listRecurringSchedules(),
       ]);
       setAccounts(accs);
       setPosts(pts);
@@ -94,6 +105,7 @@ export function Dashboard() {
       setStorageAddons(addons);
       setPlatforms(plats);
       setAccount(acct);
+      setRecurringSchedules(recurring);
       if (!businessNameSeeded.current) {
         setBusinessNameInput(acct.businessName ?? "");
         businessNameSeeded.current = true;
@@ -191,6 +203,92 @@ export function Dashboard() {
 
   function toggleSelectedAccount(id: string) {
     setSelectedAccountIds((prev) => (prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]));
+  }
+
+  function toggleRsAccount(id: string) {
+    setRsSelectedAccountIds((prev) => (prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]));
+  }
+
+  function toggleRsDay(day: number) {
+    setRsDaysOfWeek((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()));
+  }
+
+  function resetRsForm() {
+    setRsEditingId(null);
+    setRsContent("");
+    setRsSelectedAccountIds([]);
+    setRsDaysOfWeek([]);
+    setRsTimeOfDay("09:00");
+  }
+
+  function startEditingRecurringSchedule(s: RecurringSchedule) {
+    setRsEditingId(s.id);
+    setRsContent(s.content);
+    setRsSelectedAccountIds(s.social_account_ids);
+    setRsDaysOfWeek(s.days_of_week);
+    setRsTimeOfDay(s.time_of_day.slice(0, 5));
+  }
+
+  async function submitRecurringSchedule(e: FormEvent) {
+    e.preventDefault();
+    if (rsSelectedAccountIds.length === 0) {
+      setError("Select at least one connected account for this recurring schedule.");
+      return;
+    }
+    if (rsDaysOfWeek.length === 0) {
+      setError("Pick at least one day of the week for this recurring schedule.");
+      return;
+    }
+    setRsSubmitting(true);
+    setError(null);
+    try {
+      const input = {
+        content: rsContent,
+        socialAccountIds: rsSelectedAccountIds,
+        daysOfWeek: rsDaysOfWeek,
+        timeOfDay: rsTimeOfDay,
+        timezone: rsTimezone,
+      };
+      if (rsEditingId) {
+        await api.updateRecurringSchedule(rsEditingId, input);
+      } else {
+        await api.createRecurringSchedule(input);
+      }
+      resetRsForm();
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRsSubmitting(false);
+    }
+  }
+
+  async function handleTogglePauseResume(s: RecurringSchedule) {
+    setRsBusyId(s.id);
+    setError(null);
+    try {
+      await api.updateRecurringSchedule(s.id, { status: s.status === "active" ? "paused" : "active" });
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRsBusyId(null);
+    }
+  }
+
+  async function handleDeleteRecurringSchedule(id: string) {
+    if (!window.confirm("Delete this recurring schedule? Already-generated upcoming posts can either be cancelled too, or left to fire once more.")) return;
+    const cancelUpcoming = window.confirm("Also cancel any already-generated upcoming posts from this schedule? Choose Cancel to keep them.");
+    setRsBusyId(id);
+    setError(null);
+    try {
+      await api.deleteRecurringSchedule(id, cancelUpcoming);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRsBusyId(null);
+    }
   }
 
   async function submitPost(scheduledForIso: string) {
@@ -654,6 +752,111 @@ export function Dashboard() {
               </button>
             </div>
           </form>
+        )}
+      </section>
+
+      <section>
+        <h2>Recurring schedules</h2>
+        <p className="muted">
+          Set up a weekly content cadence once — LazyRelay keeps posting it to your chosen platforms every week until you pause or delete it.
+        </p>
+        {accounts.length === 0 ? (
+          <p className="empty">Connect an account first.</p>
+        ) : (
+          <form onSubmit={submitRecurringSchedule} className="schedule-form">
+            <label>
+              Post to
+              <div className="account-checkbox-list">
+                {accounts.map((a) => (
+                  <label key={a.id} className="account-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={rsSelectedAccountIds.includes(a.id)}
+                      onChange={() => toggleRsAccount(a.id)}
+                    />
+                    <PlatformIcon platform={a.platform} size={14} />
+                    {a.display_name ?? a.platform_account_id}
+                  </label>
+                ))}
+              </div>
+            </label>
+            <label>
+              Content
+              <textarea value={rsContent} onChange={(e) => setRsContent(e.target.value)} required />
+            </label>
+            <label>
+              Days of the week
+              <div className="account-checkbox-list">
+                {[
+                  { label: "Mon", value: 1 },
+                  { label: "Tue", value: 2 },
+                  { label: "Wed", value: 3 },
+                  { label: "Thu", value: 4 },
+                  { label: "Fri", value: 5 },
+                  { label: "Sat", value: 6 },
+                  { label: "Sun", value: 7 },
+                ].map((d) => (
+                  <label key={d.value} className="account-checkbox">
+                    <input type="checkbox" checked={rsDaysOfWeek.includes(d.value)} onChange={() => toggleRsDay(d.value)} />
+                    {d.label}
+                  </label>
+                ))}
+              </div>
+            </label>
+            <label>
+              Time ({rsTimezone})
+              <input type="time" value={rsTimeOfDay} onChange={(e) => setRsTimeOfDay(e.target.value)} required />
+            </label>
+            <div className="schedule-form-actions">
+              <button type="submit" disabled={rsSubmitting}>
+                {rsSubmitting ? "Saving..." : rsEditingId ? "Save changes" : "Create recurring schedule"}
+              </button>
+              {rsEditingId && (
+                <button type="button" className="btn-outline" onClick={resetRsForm}>
+                  Cancel edit
+                </button>
+              )}
+            </div>
+          </form>
+        )}
+
+        {recurringSchedules.length === 0 ? (
+          <p className="empty">No recurring schedules yet.</p>
+        ) : (
+          <ul className="post-list">
+            {recurringSchedules.map((s) => {
+              const dayLabels = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+              const days = s.days_of_week.map((d) => dayLabels[d]).join(", ");
+              return (
+                <li key={s.id} className={`post-status-${s.status === "active" ? "pending" : "failed"}`}>
+                  <div className="post-platform">
+                    {s.social_account_ids.map((id) => {
+                      const account = accounts.find((a) => a.id === id);
+                      return account ? <PlatformIcon key={id} platform={account.platform} size={14} /> : null;
+                    })}
+                  </div>
+                  <div className="post-content">{s.content}</div>
+                  <div className="post-meta">
+                    <span className={`status-badge status-${s.status === "active" ? "pending" : "failed"}`}>
+                      {s.status === "active" ? "Active" : "Paused"}
+                    </span>
+                    <span>
+                      {days} at {s.time_of_day.slice(0, 5)} ({s.timezone})
+                    </span>
+                    <button className="btn-outline" disabled={rsBusyId === s.id} onClick={() => handleTogglePauseResume(s)}>
+                      {s.status === "active" ? "Pause" : "Resume"}
+                    </button>
+                    <button className="btn-outline" disabled={rsBusyId === s.id} onClick={() => startEditingRecurringSchedule(s)}>
+                      Edit
+                    </button>
+                    <button className="btn-outline" disabled={rsBusyId === s.id} onClick={() => handleDeleteRecurringSchedule(s.id)}>
+                      Delete
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </section>
 

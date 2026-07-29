@@ -84,6 +84,31 @@ export interface Account {
   businessName: string | null;
 }
 
+export interface RecurringSchedule {
+  id: string;
+  content: string;
+  media_url: string | null;
+  social_account_ids: string[];
+  days_of_week: number[]; // ISO weekday, 1=Mon..7=Sun
+  time_of_day: string; // "HH:mm:ss"
+  timezone: string;
+  status: "active" | "paused";
+  starts_on: string;
+  ends_on: string | null;
+  created_at: string;
+}
+
+export interface RecurringScheduleInput {
+  content: string;
+  mediaUrl?: string | null;
+  socialAccountIds: string[];
+  daysOfWeek: number[];
+  timeOfDay: string; // "HH:mm"
+  timezone: string;
+  startsOn?: string;
+  endsOn?: string | null;
+}
+
 export interface ApiKey {
   id: string;
   name: string;
@@ -122,6 +147,17 @@ export const api = {
     scheduledFor: string;
   }): Promise<ScheduledPost> => authedFetch("/scheduled-posts", { method: "POST", body: JSON.stringify(input) }),
   deleteScheduledPost: (id: string): Promise<null> => authedFetch(`/scheduled-posts/${id}`, { method: "DELETE" }),
+
+  listRecurringSchedules: (): Promise<RecurringSchedule[]> => authedFetch("/recurring-schedules"),
+  createRecurringSchedule: (input: RecurringScheduleInput): Promise<RecurringSchedule> =>
+    authedFetch("/recurring-schedules", { method: "POST", body: JSON.stringify(input) }),
+  updateRecurringSchedule: (
+    id: string,
+    input: Partial<RecurringScheduleInput> & { status?: "active" | "paused" },
+  ): Promise<RecurringSchedule> =>
+    authedFetch(`/recurring-schedules/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+  deleteRecurringSchedule: (id: string, cancelUpcoming = false): Promise<null> =>
+    authedFetch(`/recurring-schedules/${id}${cancelUpcoming ? "?cancelUpcoming=true" : ""}`, { method: "DELETE" }),
 
   // Not routed through authedFetch — that helper always sets a JSON
   // Content-Type, which breaks multipart uploads (the browser needs to set

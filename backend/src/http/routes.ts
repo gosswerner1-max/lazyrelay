@@ -14,7 +14,8 @@ import { tieredRateLimit, publicRateLimit } from "./rateLimit.js";
 import { validateMediaForPlatform, type Platform } from "../mediaLimits.js";
 import { checkQuotaForNewUpload, getStorageUsage } from "../storageQuota.js";
 import { checkAccountLimit } from "../accountLimits.js";
-import { resolveTier, type Tier } from "../tier.js";
+import { resolveTier, RECURRING_SCHEDULE_SLOT_LIMITS, type Tier } from "../tier.js";
+import { cancelFuturePendingOccurrences } from "../recurringScheduler.js";
 
 // Storage add-ons — priced 2026-07-23 after researching real comparables
 // (consumer cloud storage clusters $0.005-0.02/GB/mo, the closest real B2B
@@ -554,6 +555,314 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // (another pending/posting post) still points at the same file.
     if (existing.media_url) {
       await releaseMediaIfOrphaned(existing.media_url, req.accountId!);
+    }
+    res.status(204).send();
+  });
+
+  // --- Recurring schedules ("set it up once a week") ---
+  // See docs/feature-spec-recurring-schedules.md for the full design.
+
+  const DAYS_OF_WEEK_RANGE = { min: 1, max: 7 }; // ISO weekday, 1=Mon..7=Sun
+
+  function isValidTimezone(tz: string): boolean {
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: tz });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  interface RecurringScheduleInput {
+    content?: unknown;
+    mediaUrl?: unknown;
+    socialAccountIds?: unknown;
+    daysOfWeek?: unknown;
+    timeOfDay?: unknown;
+    timezone?: unknown;
+    startsOn?: unknown;
+    endsOn?: unknown;
+  }
+
+  /** Shared validation for both create and edit — returns a customer-facing
+   *  error string, or null if everything present is valid. Fields not
+   *  present in `input` (relevant for PATCH, which may only be setting
+   *  `status`) are skipped rather than required. */
+  function validateRecurringScheduleInput(input: RecurringScheduleInput, requireAll: boolean): string | null {
+    if (requireAll || input.content !== undefined) {
+      if (typeof input.content !== "string" || input.content.trim().length === 0) {
+        return "content must be a non-empty string";
+      }
+      if (input.content.length > MAX_POST_CONTENT_LENGTH) {
+        return `content must be ${MAX_POST_CONTENT_LENGTH} characters or fewer`;
+      }
+    }
+    if (requireAll || input.socialAccountIds !== undefined) {
+      if (!Array.isArray(input.socialAccountIds) || input.socialAccountIds.length === 0) {
+        return "socialAccountIds must be a non-empty array";
+      }
+      if (!input.socialAccountIds.every((id) => typeof id === "string")) {
+        return "socialAccountIds must all be strings";
+      }
+    }
+    if (requireAll || input.daysOfWeek !== undefined) {
+      if (
+        !Array.isArray(input.daysOfWeek) ||
+        input.daysOfWeek.length === 0 ||
+        input.daysOfWeek.length > 7 ||
+        !input.daysOfWeek.every(
+          (d) => typeof d === "number" && Number.isInteger(d) && d >= DAYS_OF_WEEK_RANGE.min && d <= DAYS_OF_WEEK_RANGE.max,
+        )
+      ) {
+        return "daysOfWeek must be 1-7 integers (1=Monday..7=Sunday)";
+      }
+    }
+    if (requireAll || input.timeOfDay !== undefined) {
+      if (typeof input.timeOfDay !== "string" || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(input.timeOfDay)) {
+        return "timeOfDay must be in HH:mm format (24-hour)";
+      }
+    }
+    if (requireAll || input.timezone !== undefined) {
+      if (typeof input.timezone !== "string" || !isValidTimezone(input.timezone)) {
+        return "timezone must be a valid IANA timezone name (e.g. \"Africa/Johannesburg\")";
+      }
+    }
+    if (input.startsOn !== undefined && input.startsOn !== null) {
+      if (typeof input.startsOn !== "string" || Number.isNaN(new Date(input.startsOn).getTime())) {
+        return "startsOn must be a valid date string";
+      }
+    }
+    if (input.endsOn !== undefined && input.endsOn !== null) {
+      if (typeof input.endsOn !== "string" || Number.isNaN(new Date(input.endsOn).getTime())) {
+        return "endsOn must be a valid date string";
+      }
+    }
+    return null;
+  }
+
+  router.post("/recurring-schedules", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const input = (req.body ?? {}) as RecurringScheduleInput;
+    const validationError = validateRecurringScheduleInput(input, true);
+    if (validationError) {
+      res.status(400).json({ error: validationError });
+      return;
+    }
+
+    const tier = await resolveTier(req.accountId!);
+    const limit = RECURRING_SCHEDULE_SLOT_LIMITS[tier];
+    if (limit === 0) {
+      res.status(403).json({
+        error: "Recurring schedules are a paid-tier feature. Upgrade to Starter, Pro, or Business to set up recurring posts.",
+      });
+      return;
+    }
+    if (limit !== null) {
+      // Any status counts against the cap — a paused slot still occupies a
+      // content cadence, it hasn't been deleted.
+      const { count, error: countError } = await supabase
+        .from("recurring_schedules")
+        .select("id", { count: "exact", head: true })
+        .eq("account_id", req.accountId);
+      if (countError) {
+        dbError(res, countError, "POST /recurring-schedules slot count");
+        return;
+      }
+      if ((count ?? 0) >= limit) {
+        res.status(403).json({
+          error: `Your plan allows up to ${limit} recurring schedules. Delete one, or upgrade for more.`,
+        });
+        return;
+      }
+    }
+
+    // Confirm every target social account actually belongs to this caller —
+    // same ownership check POST /scheduled-posts already does for a single
+    // account, applied per-target here.
+    const socialAccountIds = input.socialAccountIds as string[];
+    const { data: owned, error: ownedError } = await supabase
+      .from("social_accounts")
+      .select("id")
+      .eq("account_id", req.accountId)
+      .in("id", socialAccountIds);
+    if (ownedError) {
+      dbError(res, ownedError, "POST /recurring-schedules ownership check");
+      return;
+    }
+    if ((owned ?? []).length !== socialAccountIds.length) {
+      res.status(403).json({ error: "One or more social accounts weren't found or aren't owned by this caller" });
+      return;
+    }
+
+    const { data: slot, error } = await supabase
+      .from("recurring_schedules")
+      .insert({
+        account_id: req.accountId,
+        content: input.content,
+        media_url: input.mediaUrl ?? null,
+        days_of_week: input.daysOfWeek,
+        time_of_day: `${input.timeOfDay}:00`,
+        timezone: input.timezone,
+        starts_on: input.startsOn ?? undefined,
+        ends_on: input.endsOn ?? null,
+      })
+      .select()
+      .single();
+    if (error || !slot) {
+      dbError(res, error ?? { message: "insert returned no row" }, "POST /recurring-schedules insert");
+      return;
+    }
+
+    const { error: targetsError } = await supabase
+      .from("recurring_schedule_targets")
+      .insert(socialAccountIds.map((social_account_id) => ({ recurring_schedule_id: slot.id, social_account_id })));
+    if (targetsError) {
+      // Roll back the slot rather than leaving an orphaned schedule with no
+      // targets — a slot with zero targets would never generate anything
+      // and would silently occupy the customer's tier cap for nothing.
+      await supabase.from("recurring_schedules").delete().eq("id", slot.id);
+      dbError(res, targetsError, "POST /recurring-schedules targets insert");
+      return;
+    }
+
+    res.status(201).json({ ...slot, social_account_ids: socialAccountIds });
+  });
+
+  router.get("/recurring-schedules", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data, error } = await supabase
+      .from("recurring_schedules")
+      .select("*, recurring_schedule_targets(social_account_id)")
+      .eq("account_id", req.accountId)
+      .order("created_at", { ascending: false });
+    if (error) {
+      dbError(res, error, "GET /recurring-schedules");
+      return;
+    }
+    res.json(
+      (data ?? []).map((slot) => ({
+        ...slot,
+        social_account_ids: slot.recurring_schedule_targets.map((t: { social_account_id: string }) => t.social_account_id),
+        recurring_schedule_targets: undefined,
+      })),
+    );
+  });
+
+  router.patch("/recurring-schedules/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: existing, error: fetchError } = await supabase
+      .from("recurring_schedules")
+      .select("id, status")
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .maybeSingle();
+    if (fetchError) {
+      dbError(res, fetchError, "PATCH /recurring-schedules/:id lookup");
+      return;
+    }
+    if (!existing) {
+      res.status(404).json({ error: "Not found or not owned by this caller" });
+      return;
+    }
+
+    const input = (req.body ?? {}) as RecurringScheduleInput & { status?: unknown };
+    if (input.status !== undefined && input.status !== "active" && input.status !== "paused") {
+      res.status(400).json({ error: "status must be \"active\" or \"paused\"" });
+      return;
+    }
+    const validationError = validateRecurringScheduleInput(input, false);
+    if (validationError) {
+      res.status(400).json({ error: validationError });
+      return;
+    }
+
+    // Resuming (paused -> active, nothing else changing) never needs to
+    // cancel anything — there's nothing stale to invalidate. Every other
+    // change — pausing, or editing any content/schedule field while
+    // active — cancels future not-yet-fired generated occurrences per the
+    // "no in-place update" decision: the customer's save regenerates fresh
+    // ones under the new configuration on the next generation cycle.
+    const isPureResume = input.status === "active" && existing.status === "paused" &&
+      input.content === undefined && input.mediaUrl === undefined && input.socialAccountIds === undefined &&
+      input.daysOfWeek === undefined && input.timeOfDay === undefined && input.timezone === undefined &&
+      input.startsOn === undefined && input.endsOn === undefined;
+    if (!isPureResume) {
+      await cancelFuturePendingOccurrences(req.params.id as string);
+    }
+
+    if (input.socialAccountIds !== undefined) {
+      const socialAccountIds = input.socialAccountIds as string[];
+      const { data: owned, error: ownedError } = await supabase
+        .from("social_accounts")
+        .select("id")
+        .eq("account_id", req.accountId)
+        .in("id", socialAccountIds);
+      if (ownedError) {
+        dbError(res, ownedError, "PATCH /recurring-schedules/:id ownership check");
+        return;
+      }
+      if ((owned ?? []).length !== socialAccountIds.length) {
+        res.status(403).json({ error: "One or more social accounts weren't found or aren't owned by this caller" });
+        return;
+      }
+      await supabase.from("recurring_schedule_targets").delete().eq("recurring_schedule_id", req.params.id);
+      const { error: targetsError } = await supabase
+        .from("recurring_schedule_targets")
+        .insert(socialAccountIds.map((social_account_id) => ({ recurring_schedule_id: req.params.id, social_account_id })));
+      if (targetsError) {
+        dbError(res, targetsError, "PATCH /recurring-schedules/:id targets update");
+        return;
+      }
+    }
+
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (input.content !== undefined) updates.content = input.content;
+    if (input.mediaUrl !== undefined) updates.media_url = input.mediaUrl;
+    if (input.daysOfWeek !== undefined) updates.days_of_week = input.daysOfWeek;
+    if (input.timeOfDay !== undefined) updates.time_of_day = `${input.timeOfDay}:00`;
+    if (input.timezone !== undefined) updates.timezone = input.timezone;
+    if (input.startsOn !== undefined) updates.starts_on = input.startsOn;
+    if (input.endsOn !== undefined) updates.ends_on = input.endsOn;
+    if (input.status !== undefined) updates.status = input.status;
+
+    const { data: updated, error } = await supabase
+      .from("recurring_schedules")
+      .update(updates)
+      .eq("id", req.params.id)
+      .select()
+      .single();
+    if (error || !updated) {
+      dbError(res, error ?? { message: "update returned no row" }, "PATCH /recurring-schedules/:id");
+      return;
+    }
+    res.json(updated);
+  });
+
+  // ?cancelUpcoming=true also cancels not-yet-fired generated occurrences;
+  // without it, already-generated pending posts are detached (their
+  // recurring_schedule_id set null via the FK's `on delete set null`) and
+  // left to fire normally — history is never touched either way.
+  router.delete("/recurring-schedules/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: existing, error: fetchError } = await supabase
+      .from("recurring_schedules")
+      .select("id")
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .maybeSingle();
+    if (fetchError) {
+      dbError(res, fetchError, "DELETE /recurring-schedules/:id lookup");
+      return;
+    }
+    if (!existing) {
+      res.status(404).json({ error: "Not found or not owned by this caller" });
+      return;
+    }
+
+    if (req.query.cancelUpcoming === "true") {
+      await cancelFuturePendingOccurrences(req.params.id as string);
+    }
+
+    const { error } = await supabase.from("recurring_schedules").delete().eq("id", req.params.id);
+    if (error) {
+      dbError(res, error, "DELETE /recurring-schedules/:id");
+      return;
     }
     res.status(204).send();
   });

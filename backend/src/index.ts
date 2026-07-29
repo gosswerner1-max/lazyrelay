@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { supabase } from "./supabase.js";
 import { runSchedulerCycle } from "./scheduler.js";
+import { generateDuePosts } from "./recurringScheduler.js";
 import { StubAdapter } from "./platforms/stub.js";
 import { TikTokAdapter } from "./platforms/tiktok.js";
 import { PinterestAdapter } from "./platforms/pinterest.js";
@@ -157,6 +158,17 @@ async function main() {
     runSchedulerCycle(registry).catch((err) => console.error("Scheduler cycle error:", err));
   }, POLL_INTERVAL_MS);
   await runSchedulerCycle(registry);
+
+  // Materializes due recurring-schedule occurrences into scheduled_posts —
+  // a sibling job to runSchedulerCycle(), not a replacement. Runs on a much
+  // slower cadence: it fills a 7-day rolling window, so it doesn't need
+  // scheduler.ts's 30-second responsiveness, and running it that often
+  // would just mean 7 days' worth of near-identical no-op queries.
+  const RECURRING_GENERATION_INTERVAL_MS = 15 * 60_000;
+  setInterval(() => {
+    generateDuePosts().catch((err) => console.error("Recurring schedule generation error:", err));
+  }, RECURRING_GENERATION_INTERVAL_MS);
+  await generateDuePosts();
 }
 
 main();

@@ -19,6 +19,24 @@ export const TIER_DISPLAY_NAMES: Record<Tier, string> = {
   enterprise: "Business",
 };
 
+/** Recurring-schedule slot caps, added 2026-07-29. Free has none — one-off
+ *  scheduling only. Every paid tier gets a real cap on distinct weekly
+ *  content cadences (NOT on posting volume or platform count — a single
+ *  slot can already target every connected platform at once), landed on
+ *  after considering a flat "any paid tier = unlimited" gate: a real
+ *  per-tier number gives a cleaner, more marketable upgrade ladder and
+ *  ties access to something the customer actually values (how many
+ *  distinct content cadences they run), rather than an arbitrary resource
+ *  cap. `null` = unlimited. Keyed by DB code — see the Tier type comment
+ *  above for why "pro" here means the tier that DISPLAYS as "Starter".
+ */
+export const RECURRING_SCHEDULE_SLOT_LIMITS: Record<Tier, number | null> = {
+  free: 0,
+  pro: 3, // displays as "Starter"
+  business: 5, // displays as "Pro"
+  enterprise: null, // displays as "Business" — unlimited
+};
+
 export async function resolveTier(accountId: string): Promise<Tier> {
   const { data } = await supabase.from("subscriptions").select("tier, status").eq("account_id", accountId).maybeSingle();
   const isPaidInGoodStanding = data?.tier !== "free" && (data?.status === "active" || data?.status === "trialing");
