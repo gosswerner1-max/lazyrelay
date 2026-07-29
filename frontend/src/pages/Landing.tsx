@@ -82,7 +82,7 @@ const FAQ = [
   },
   {
     q: "Which platforms are supported?",
-    a: "Meta (Facebook/Instagram), TikTok, and Pinterest. We're still in early testing while platform connections are being rolled out.",
+    a: "Meta (Facebook/Instagram), TikTok, and Pinterest.",
   },
   {
     q: "Can I set up a recurring posting schedule instead of scheduling each post one at a time?",
@@ -157,11 +157,9 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact 
       </section>
 
       <section className="landing-section landing-platforms">
-        <h2>
-          Works with <span className="badge-soon">Coming soon</span>
-        </h2>
+        <h2>Works with</h2>
         <p className="section-note">
-          Platform connections are still being rolled out during early testing — not live yet.
+          Connect your accounts and start posting today.
         </p>
         <div className="platform-row">
           <PlatformIcon platform="meta" size={28} />
