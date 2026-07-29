@@ -42,7 +42,7 @@ function PlatformGlyph({ platform, size }: { platform: string; size: number }) {
     case "tiktok":
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="2" y="2" width="20" height="20" rx="5" fill="#000000" />
+          <rect x="2" y="2" width="20" height="20" rx="5" fill="#000000" stroke="rgba(255,255,255,0.16)" />
           <path
             fill="#25F4EE"
             d="M14.4 6.2a4 4 0 0 0 2.5 1v2a5.9 5.9 0 0 1-2.5-.68v4.2a4.05 4.05 0 1 1-3.5-4.02v2.02a2 2 0 1 0 1.4 1.9V4.6h2.02c.03.4.13.78.28 1.14"
@@ -144,7 +144,7 @@ function PlatformGlyph({ platform, size }: { platform: string; size: number }) {
     case "threads":
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="1" y="1" width="22" height="22" rx="6" fill={color} />
+          <rect x="1" y="1" width="22" height="22" rx="6" fill={color} stroke="rgba(255,255,255,0.16)" />
           <path
             transform="translate(1.2 1.2) scale(0.9)"
             fill="#fff"
@@ -175,8 +175,10 @@ function PlatformGlyph({ platform, size }: { platform: string; size: number }) {
     case "x":
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="1" y="1" width="22" height="22" rx="6" fill={color} stroke="rgba(255,255,255,0.16)" />
           <path
-            fill={color}
+            transform="translate(3.5 3.5) scale(0.7)"
+            fill="#fff"
             d="M14.234 10.162 22.977 0h-2.072l-7.591 8.824L7.251 0H.258l9.168 13.343L.258 24H2.33l8.016-9.318L16.749 24h6.993zm-2.837 3.299-.929-1.329L3.076 1.56h3.182l5.965 8.532.929 1.329 7.754 11.09h-3.182z"
           />
         </svg>
