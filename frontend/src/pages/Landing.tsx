@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
-import banner from "../assets/banner.png";
+import banner from "../assets/banner.jpg";
 
 interface LandingProps {
   onSignIn: () => void;
