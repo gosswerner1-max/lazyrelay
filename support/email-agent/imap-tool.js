@@ -467,7 +467,43 @@ ${textToHtmlParagraphs(body)}
     mailOptions.references = opts.inReplyTo;
   }
   const info = await transporter.sendMail(mailOptions);
-  console.log(JSON.stringify({ sent: true, messageId: info.messageId, response: info.response }, null, 2));
+
+  // Keep a local paper trail: nodemailer only submits via SMTP, it never
+  // copies the message anywhere IMAP-visible. Without this, a sent reply
+  // exists only as a server "250 OK" in a log — unrecoverable later if
+  // someone asks "what exactly did we tell them," especially if the other
+  // side starts a fresh thread instead of replying on the same one.
+  let savedToSent = false;
+  let sentError = null;
+  try {
+    const client = await connect(mailbox);
+    try {
+      const list = await client.list();
+      const sentFolder = findFolder(list, ["Sent", "INBOX.Sent", "INBOX/Sent"]) || (await ensureFolder(client, list, "Sent"));
+      const headerLines = [
+        `From: ${creds.user}`,
+        `To: ${opts.to}`,
+        `Subject: ${opts.subject}`,
+        `Message-Id: ${info.messageId}`,
+        opts.inReplyTo ? `In-Reply-To: ${opts.inReplyTo}` : null,
+        opts.inReplyTo ? `References: ${opts.inReplyTo}` : null,
+        `Date: ${new Date().toUTCString()}`,
+        `MIME-Version: 1.0`,
+        `Content-Type: text/html; charset=utf-8`,
+      ].filter(Boolean);
+      const raw = headerLines.join("\r\n") + "\r\n\r\n" + html;
+      await client.append(sentFolder, raw, ["\\Seen"]);
+      savedToSent = true;
+    } finally {
+      await client.logout();
+    }
+  } catch (e) {
+    sentError = e.message || String(e);
+  }
+
+  console.log(
+    JSON.stringify({ sent: true, messageId: info.messageId, response: info.response, savedToSent, sentError }, null, 2),
+  );
 }
 
 async function main() {
