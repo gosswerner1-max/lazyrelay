@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "LazyRelay — Schedule with LazyRelay",
+  "version": "1.0.0",
+  "description": "Right-click any page or image and send it straight to your LazyRelay compose box.",
+  "icons": {
+    "128": "icon128.png"
+  },
+  "permissions": ["contextMenus"],
+  "host_permissions": ["https://lazyrelay.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  }
+}

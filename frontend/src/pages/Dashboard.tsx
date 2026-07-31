@@ -64,14 +64,25 @@ type Tab = (typeof TABS)[number];
 // effect that reads-then-strips the URL loses the value on the second
 // mount, since the window was already mutated by the first. Module
 // evaluation only happens once per page load regardless of StrictMode.
-function readAndClearConnectParams(): { connectError: string | null; connected: boolean } {
+function readAndClearConnectParams(): {
+  connectError: string | null;
+  connected: boolean;
+  prefillContent: string | null;
+  prefillMediaUrl: string | null;
+} {
   const params = new URLSearchParams(window.location.search);
   const connectError = params.get("connectError");
   const connected = params.get("connected") !== null;
-  if (connectError || connected) {
+  // Set by the browser extension's context-menu actions (see
+  // browser-extension/background.js) — opens lazyrelay.com with one of
+  // these params so the customer lands straight in the compose form
+  // instead of having to copy/paste the URL themselves.
+  const prefillContent = params.get("prefillContent");
+  const prefillMediaUrl = params.get("prefillMediaUrl");
+  if (connectError || connected || prefillContent || prefillMediaUrl) {
     window.history.replaceState({}, "", window.location.pathname);
   }
-  return { connectError, connected };
+  return { connectError, connected, prefillContent, prefillMediaUrl };
 }
 const connectParams = readAndClearConnectParams();
 
@@ -262,6 +273,11 @@ export function Dashboard() {
     } else if (connectParams.connected) {
       setNotice("Account connected!");
       refresh();
+    }
+    if (connectParams.prefillContent || connectParams.prefillMediaUrl) {
+      setTab("Posts");
+      if (connectParams.prefillContent) setContent(connectParams.prefillContent);
+      if (connectParams.prefillMediaUrl) setMediaUrl(connectParams.prefillMediaUrl);
     }
   }, []);
 
