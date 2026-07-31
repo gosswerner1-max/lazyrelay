@@ -15,6 +15,7 @@ import { FacebookAdapter } from "./platforms/facebook.js";
 import { InstagramAdapter } from "./platforms/instagram.js";
 import { DiscordAdapter } from "./platforms/discord.js";
 import { TumblrAdapter } from "./platforms/tumblr.js";
+import { XAdapter } from "./platforms/x.js";
 import type { PlatformAdapter } from "./platforms/types.js";
 import { StubMorAdapter } from "./billing/stub.js";
 import { PaddleMorAdapter } from "./billing/paddle.js";
@@ -106,6 +107,9 @@ async function main() {
       new TumblrAdapter(process.env.TUMBLR_CLIENT_ID, process.env.TUMBLR_CLIENT_SECRET, process.env.TUMBLR_REDIRECT_URI),
     );
   }
+  if (process.env.X_CLIENT_ID && process.env.X_CLIENT_SECRET && process.env.X_REDIRECT_URI) {
+    registry.set("x", new XAdapter(process.env.X_CLIENT_ID, process.env.X_CLIENT_SECRET, process.env.X_REDIRECT_URI));
+  }
   if (registry.size === 0) {
     // Keeps local/dev environments with no platform env vars set at all
     // working end-to-end against the stub, same as before the registry.
@@ -148,7 +152,10 @@ async function main() {
       `DISCORD_CONNECT_PAGE_URL=${process.env.DISCORD_CONNECT_PAGE_URL ? "set" : "MISSING"}; ` +
       `TUMBLR_CLIENT_ID=${process.env.TUMBLR_CLIENT_ID ? "set" : "MISSING"} ` +
       `TUMBLR_CLIENT_SECRET=${process.env.TUMBLR_CLIENT_SECRET ? "set" : "MISSING"} ` +
-      `TUMBLR_REDIRECT_URI=${process.env.TUMBLR_REDIRECT_URI ? "set" : "MISSING"}`,
+      `TUMBLR_REDIRECT_URI=${process.env.TUMBLR_REDIRECT_URI ? "set" : "MISSING"}; ` +
+      `X_CLIENT_ID=${process.env.X_CLIENT_ID ? "set" : "MISSING"} ` +
+      `X_CLIENT_SECRET=${process.env.X_CLIENT_SECRET ? "set" : "MISSING"} ` +
+      `X_REDIRECT_URI=${process.env.X_REDIRECT_URI ? "set" : "MISSING"}`,
   );
 
   const app = buildApp(morAdapter, registry);

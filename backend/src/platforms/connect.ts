@@ -43,7 +43,7 @@ export async function completeConnect(
 ): Promise<string> {
   const { data: stateRow, error: stateError } = await supabase
     .from("oauth_states")
-    .select("account_id, platform, expires_at")
+    .select("account_id, platform, expires_at, pkce_verifier")
     .eq("id", state)
     .single();
 
@@ -64,7 +64,7 @@ export async function completeConnect(
   // that every connect flow shares one callback route across all platforms.
   const adapter = resolveAdapter(registry, stateRow.platform);
 
-  const result = await adapter.exchangeCode(code);
+  const result = await adapter.exchangeCode(code, stateRow.pkce_verifier ?? undefined);
 
   const { data: accessVaultId, error: accessVaultError } = await supabase.rpc("store_social_token", {
     p_token: result.accessToken,

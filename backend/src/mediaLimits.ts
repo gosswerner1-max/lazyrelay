@@ -39,7 +39,8 @@ export type Platform =
   | "facebook"
   | "instagram"
   | "discord"
-  | "tumblr";
+  | "tumblr"
+  | "x";
 
 // Platforms without a researched, bespoke rule yet fall back to the same
 // 20MB size cap + mime allowlist LazyRelay's own /media/upload endpoint
@@ -134,6 +135,12 @@ const RULES: Record<Platform, PlatformRules> = {
   instagram: GENERIC_FALLBACK_RULES,
   discord: GENERIC_FALLBACK_RULES,
   tumblr: GENERIC_FALLBACK_RULES,
+  // X's own media help center (help.x.com/en/using-x/x-photos, .../x-videos):
+  // 5MB per image (GIF included), 512MB per video via chunked upload.
+  x: {
+    image: { maxSizeBytes: 5 * MB, allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] },
+    video: { maxSizeBytes: 512 * MB, allowedMimeTypes: ["video/mp4", "video/quicktime"] },
+  },
 };
 
 // Instagram feed image dimension/aspect-ratio range — the one platform with

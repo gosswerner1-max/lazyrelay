@@ -33,7 +33,7 @@ export interface OAuthExchangeResult {
 }
 
 export interface PlatformAdapter {
-  readonly platform: "meta" | "tiktok" | "pinterest" | "youtube" | "mastodon" | "bluesky" | "telegram" | "linkedin" | "threads" | "facebook" | "instagram" | "discord" | "tumblr";
+  readonly platform: "meta" | "tiktok" | "pinterest" | "youtube" | "mastodon" | "bluesky" | "telegram" | "linkedin" | "threads" | "facebook" | "instagram" | "discord" | "tumblr" | "x";
 
   /** The URL to send a user to in order to start connecting an account.
    *  `state` must be echoed back on the callback and checked — it's what
@@ -48,8 +48,12 @@ export interface PlatformAdapter {
   /** Exchanges the OAuth callback code for real tokens + the platform's
    *  own account id/display name. This is the one place a plaintext token
    *  is ever held in memory before being handed to Vault for encryption —
-   *  callers must not log or persist the raw result anywhere else. */
-  exchangeCode(code: string): Promise<OAuthExchangeResult>;
+   *  callers must not log or persist the raw result anywhere else.
+   *  `pkceVerifier` is optional and only used by platforms whose OAuth flow
+   *  is PKCE-only (X) — connect.ts reads it back from the oauth_states row
+   *  before deleting it and passes it through; every other adapter simply
+   *  doesn't declare the parameter. */
+  exchangeCode(code: string, pkceVerifier?: string): Promise<OAuthExchangeResult>;
 
   post(request: PostRequest): Promise<PostAttemptResult>;
   verifyPublished(platformPostId: string, accessToken: string): Promise<VerifyResult>;
