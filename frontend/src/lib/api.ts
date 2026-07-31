@@ -118,6 +118,29 @@ export interface AnalyticsSummary {
   verifiedLiveRate: number | null;
 }
 
+export interface BioLink {
+  id: string;
+  label: string;
+  url: string;
+  position: number;
+}
+
+export interface BioPage {
+  id: string;
+  slug: string;
+  title: string;
+  bio: string;
+  avatar_url: string | null;
+  links: BioLink[];
+}
+
+export interface PublicBioPage {
+  title: string;
+  bio: string;
+  avatarUrl: string | null;
+  links: Array<{ id: string; label: string; url: string }>;
+}
+
 export interface ApiKey {
   id: string;
   name: string;
@@ -172,6 +195,24 @@ export const api = {
 
   suggestHashtags: (content: string, platform?: string): Promise<{ hashtags: string[] }> =>
     authedFetch("/ai/hashtags", { method: "POST", body: JSON.stringify({ content, platform }) }),
+
+  getBioPage: (): Promise<BioPage | null> => authedFetch("/bio-page"),
+  saveBioPage: (input: { slug: string; title: string; bio: string; avatarUrl?: string | null }): Promise<BioPage> =>
+    authedFetch("/bio-page", { method: "PUT", body: JSON.stringify(input) }),
+  addBioLink: (input: { label: string; url: string }): Promise<BioLink> =>
+    authedFetch("/bio-page/links", { method: "POST", body: JSON.stringify(input) }),
+  updateBioLink: (id: string, input: Partial<{ label: string; url: string; position: number }>): Promise<BioLink> =>
+    authedFetch(`/bio-page/links/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+  deleteBioLink: (id: string): Promise<null> => authedFetch(`/bio-page/links/${id}`, { method: "DELETE" }),
+
+  // Public, unauthenticated — the actual page a customer's followers land
+  // on. Not routed through authedFetch, which requires a live session.
+  getPublicBioPage: async (slug: string): Promise<PublicBioPage> => {
+    const res = await fetch(`${API_URL}/public/bio/${encodeURIComponent(slug)}`);
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error ?? `Page not found`);
+    return body;
+  },
 
   listRecurringSchedules: (): Promise<RecurringSchedule[]> => authedFetch("/recurring-schedules"),
   createRecurringSchedule: (input: RecurringScheduleInput): Promise<RecurringSchedule> =>

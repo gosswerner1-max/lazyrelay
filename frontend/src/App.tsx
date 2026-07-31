@@ -8,6 +8,7 @@ import { TermsOfService } from "./pages/TermsOfService";
 import { DataDeletion } from "./pages/DataDeletion";
 import { Contact } from "./pages/Contact";
 import { ConnectForm } from "./pages/ConnectForm";
+import { BioPage } from "./pages/BioPage";
 import { Spinner } from "./components/Spinner";
 import { CookieConsent } from "./components/CookieConsent";
 import "./App.css";
@@ -48,6 +49,12 @@ function Root() {
     // query param a moment after landing here, before ConnectForm's own
     // render even gets a chance to read it.
     if (window.location.pathname.startsWith("/connect/")) return;
+    // Bio pages (/bio/<slug>) are the same shape of exception — they own
+    // their own URL and render entirely outside this view/path state
+    // machine, so syncing back to `view`'s resolved path (usually "/")
+    // would silently rewrite the URL out from under the page a moment
+    // after landing here.
+    if (window.location.pathname.startsWith("/bio/")) return;
     window.scrollTo(0, 0);
     const path = VIEW_TO_PATH[view] ?? "/";
     if (window.location.pathname !== path) {
@@ -78,6 +85,14 @@ function Root() {
     if (state) {
       return <ConnectForm platform={connectMatch[1] as (typeof MANUAL_CONNECT_PLATFORMS)[number]} state={state} />;
     }
+  }
+
+  // Public link-in-bio pages (/bio/<slug>) must render regardless of auth
+  // state, same reasoning as the connect-form pages above — this is a page
+  // for the CUSTOMER's OWN followers to view, not something behind a login.
+  const bioMatch = /^\/bio\/([a-z0-9-]{3,40})$/.exec(window.location.pathname);
+  if (bioMatch) {
+    return <BioPage slug={bioMatch[1]} />;
   }
 
   if (loading) {

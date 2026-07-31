@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
-import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary } from "../lib/api";
+import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage } from "../lib/api";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
 import { bestTimeFor } from "../lib/bestTimes";
 import { Spinner } from "../components/Spinner";
 
-const TABS = ["Overview", "Posts", "Calendar", "Analytics", "Accounts", "Settings"] as const;
+const TABS = ["Overview", "Posts", "Calendar", "Analytics", "Bio Page", "Accounts", "Settings"] as const;
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function localDateKey(iso: string): string {
@@ -145,6 +145,15 @@ export function Dashboard() {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [bioPage, setBioPage] = useState<BioPage | null | undefined>(undefined);
+  const [bioLoading, setBioLoading] = useState(false);
+  const [bioSaving, setBioSaving] = useState(false);
+  const [bioSlug, setBioSlug] = useState("");
+  const [bioTitle, setBioTitle] = useState("");
+  const [bioBio, setBioBio] = useState("");
+  const [bioLinkLabel, setBioLinkLabel] = useState("");
+  const [bioLinkUrl, setBioLinkUrl] = useState("");
+  const [bioLinkBusy, setBioLinkBusy] = useState(false);
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsRangeDays, setAnalyticsRangeDays] = useState(30);
@@ -207,6 +216,25 @@ export function Dashboard() {
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setAnalyticsLoading(false));
   }, [tab, analyticsRangeDays]);
+
+  // Also lazy-loaded, same reasoning as analytics — only fetched once the
+  // customer actually opens the tab.
+  useEffect(() => {
+    if (tab !== "Bio Page" || bioPage !== undefined) return;
+    setBioLoading(true);
+    api
+      .getBioPage()
+      .then((page) => {
+        setBioPage(page);
+        if (page) {
+          setBioSlug(page.slug);
+          setBioTitle(page.title);
+          setBioBio(page.bio);
+        }
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setBioLoading(false));
+  }, [tab, bioPage]);
 
   // The OAuth callback redirects here with ?connected=1 or ?connectError=...
   // (the customer's browser lands on the backend's own domain mid-flow,
@@ -508,6 +536,48 @@ export function Dashboard() {
     setMediaDragActive(false);
     const file = e.dataTransfer.files?.[0];
     if (file) handleMediaFile(file);
+  }
+
+  async function handleSaveBioPage(e: FormEvent) {
+    e.preventDefault();
+    setBioSaving(true);
+    setError(null);
+    try {
+      const saved = await api.saveBioPage({ slug: bioSlug, title: bioTitle, bio: bioBio });
+      setBioPage({ ...saved, links: bioPage?.links ?? [] });
+      setNotice("Bio page saved.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBioSaving(false);
+    }
+  }
+
+  async function handleAddBioLink(e: FormEvent) {
+    e.preventDefault();
+    if (!bioLinkLabel.trim() || !bioLinkUrl.trim()) return;
+    setBioLinkBusy(true);
+    setError(null);
+    try {
+      const link = await api.addBioLink({ label: bioLinkLabel.trim(), url: bioLinkUrl.trim() });
+      setBioPage((prev) => (prev ? { ...prev, links: [...prev.links, link] } : prev));
+      setBioLinkLabel("");
+      setBioLinkUrl("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBioLinkBusy(false);
+    }
+  }
+
+  async function handleDeleteBioLink(id: string) {
+    setError(null);
+    try {
+      await api.deleteBioLink(id);
+      setBioPage((prev) => (prev ? { ...prev, links: prev.links.filter((l) => l.id !== id) } : prev));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   }
 
   async function handleApprove(id: string) {
@@ -903,6 +973,90 @@ export function Dashboard() {
                   );
                 })}
             </div>
+          </>
+        )}
+      </section>
+      )}
+
+      {tab === "Bio Page" && (
+      <section>
+        <h2>Link-in-bio page</h2>
+        {bioLoading ? (
+          <Spinner />
+        ) : (
+          <>
+            <p className="muted">
+              A public page for your Instagram/TikTok bio link — customers land here and see the links you choose.
+            </p>
+            <form onSubmit={handleSaveBioPage} className="schedule-form">
+              <label>
+                Page URL
+                <input
+                  type="text"
+                  value={bioSlug}
+                  onChange={(e) => setBioSlug(e.target.value.toLowerCase())}
+                  placeholder="your-name"
+                  pattern="[a-z0-9-]{3,40}"
+                  required
+                />
+              </label>
+              {bioSlug && (
+                <p className="bio-page-editor-preview">
+                  lazyrelay.com/bio/{bioSlug}
+                </p>
+              )}
+              <label>
+                Title
+                <input type="text" value={bioTitle} onChange={(e) => setBioTitle(e.target.value)} maxLength={100} />
+              </label>
+              <label>
+                Bio
+                <textarea value={bioBio} onChange={(e) => setBioBio(e.target.value)} maxLength={500} />
+              </label>
+              <div className="schedule-form-actions">
+                <button type="submit" disabled={bioSaving}>
+                  {bioSaving ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </form>
+
+            {bioPage && (
+              <>
+                <h3>Links</h3>
+                {bioPage.links.length === 0 ? (
+                  <p className="empty">No links yet — add one below.</p>
+                ) : (
+                  <ul className="bio-link-list">
+                    {bioPage.links.map((link) => (
+                      <li key={link.id}>
+                        <span className="bio-link-label">{link.label}</span>
+                        <span className="bio-link-url">{link.url}</span>
+                        <button className="btn-outline" onClick={() => handleDeleteBioLink(link.id)}>
+                          Delete
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <form onSubmit={handleAddBioLink} className="bio-link-add-form">
+                  <input
+                    type="text"
+                    placeholder="Label (e.g. Shop now)"
+                    value={bioLinkLabel}
+                    onChange={(e) => setBioLinkLabel(e.target.value)}
+                  />
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={bioLinkUrl}
+                    onChange={(e) => setBioLinkUrl(e.target.value)}
+                  />
+                  <button type="submit" className="btn-outline" disabled={bioLinkBusy}>
+                    {bioLinkBusy ? "Adding..." : "Add link"}
+                  </button>
+                </form>
+              </>
+            )}
           </>
         )}
       </section>

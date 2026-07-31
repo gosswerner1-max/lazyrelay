@@ -242,6 +242,207 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
   });
 
+  // Link-in-bio page — one per account, the kind of page a customer puts
+  // in their Instagram/TikTok bio. Reads own page/links for the dashboard
+  // editor; the public rendering route is further down, not behind
+  // requireAuth (see 0027_bio_pages.sql for why RLS alone can't serve it).
+  const BIO_SLUG_PATTERN = /^[a-z0-9-]{3,40}$/;
+  router.get("/bio-page", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: page, error } = await supabase.from("bio_pages").select("*").eq("account_id", req.accountId).maybeSingle();
+    if (error) {
+      dbError(res, error, "GET /bio-page");
+      return;
+    }
+    if (!page) {
+      res.json(null);
+      return;
+    }
+    const { data: links, error: linksError } = await supabase
+      .from("bio_links")
+      .select("*")
+      .eq("bio_page_id", page.id)
+      .order("position", { ascending: true });
+    if (linksError) {
+      dbError(res, linksError, "GET /bio-page links");
+      return;
+    }
+    res.json({ ...page, links: links ?? [] });
+  });
+
+  router.put("/bio-page", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { slug, title, bio, avatarUrl } = req.body ?? {};
+    if (typeof slug !== "string" || !BIO_SLUG_PATTERN.test(slug)) {
+      res.status(400).json({ error: "slug must be 3-40 characters: lowercase letters, numbers, and hyphens only" });
+      return;
+    }
+    if (typeof title !== "string" || title.length > 100) {
+      res.status(400).json({ error: "title must be a string, 100 characters or fewer" });
+      return;
+    }
+    if (typeof bio !== "string" || bio.length > 500) {
+      res.status(400).json({ error: "bio must be a string, 500 characters or fewer" });
+      return;
+    }
+
+    const { data: slugOwner } = await supabase.from("bio_pages").select("account_id").eq("slug", slug).maybeSingle();
+    if (slugOwner && slugOwner.account_id !== req.accountId) {
+      res.status(409).json({ error: "That link name is already taken — pick another." });
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("bio_pages")
+      .upsert(
+        { account_id: req.accountId, slug, title, bio, avatar_url: avatarUrl ?? null, updated_at: new Date().toISOString() },
+        { onConflict: "account_id" },
+      )
+      .select()
+      .single();
+    if (error) {
+      dbError(res, error, "PUT /bio-page");
+      return;
+    }
+    res.json(data);
+  });
+
+  router.post("/bio-page/links", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { label, url } = req.body ?? {};
+    if (typeof label !== "string" || label.trim().length === 0 || label.length > 80) {
+      res.status(400).json({ error: "label must be a non-empty string, 80 characters or fewer" });
+      return;
+    }
+    if (typeof url !== "string" || !/^https?:\/\//.test(url)) {
+      res.status(400).json({ error: "url must start with http:// or https://" });
+      return;
+    }
+
+    const { data: page, error: pageError } = await supabase
+      .from("bio_pages")
+      .select("id")
+      .eq("account_id", req.accountId)
+      .maybeSingle();
+    if (pageError) {
+      dbError(res, pageError, "POST /bio-page/links page lookup");
+      return;
+    }
+    if (!page) {
+      res.status(404).json({ error: "Set up your bio page first (PUT /bio-page) before adding links." });
+      return;
+    }
+
+    const { count } = await supabase.from("bio_links").select("id", { count: "exact", head: true }).eq("bio_page_id", page.id);
+
+    const { data, error } = await supabase
+      .from("bio_links")
+      .insert({ bio_page_id: page.id, label: label.trim(), url, position: count ?? 0 })
+      .select()
+      .single();
+    if (error) {
+      dbError(res, error, "POST /bio-page/links insert");
+      return;
+    }
+    res.status(201).json(data);
+  });
+
+  router.patch("/bio-page/links/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { label, url, position } = req.body ?? {};
+    const updates: Record<string, unknown> = {};
+    if (label !== undefined) {
+      if (typeof label !== "string" || label.trim().length === 0 || label.length > 80) {
+        res.status(400).json({ error: "label must be a non-empty string, 80 characters or fewer" });
+        return;
+      }
+      updates.label = label.trim();
+    }
+    if (url !== undefined) {
+      if (typeof url !== "string" || !/^https?:\/\//.test(url)) {
+        res.status(400).json({ error: "url must start with http:// or https://" });
+        return;
+      }
+      updates.url = url;
+    }
+    if (position !== undefined) {
+      if (typeof position !== "number" || !Number.isInteger(position)) {
+        res.status(400).json({ error: "position must be an integer" });
+        return;
+      }
+      updates.position = position;
+    }
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "Nothing to update" });
+      return;
+    }
+
+    // A link only belongs to a page owned by this account — join through
+    // bio_pages rather than trusting the link id alone, same ownership
+    // discipline as every other per-resource route.
+    const { data: link, error: linkError } = await supabase
+      .from("bio_links")
+      .select("id, bio_pages!inner(account_id)")
+      .eq("id", req.params.id)
+      .single();
+    if (linkError || !link || (link.bio_pages as unknown as { account_id: string }).account_id !== req.accountId) {
+      res.status(404).json({ error: "Not found or not owned by this caller" });
+      return;
+    }
+
+    const { data, error } = await supabase.from("bio_links").update(updates).eq("id", req.params.id).select().single();
+    if (error) {
+      dbError(res, error, "PATCH /bio-page/links/:id");
+      return;
+    }
+    res.json(data);
+  });
+
+  router.delete("/bio-page/links/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: link, error: linkError } = await supabase
+      .from("bio_links")
+      .select("id, bio_pages!inner(account_id)")
+      .eq("id", req.params.id)
+      .single();
+    if (linkError || !link || (link.bio_pages as unknown as { account_id: string }).account_id !== req.accountId) {
+      res.status(404).json({ error: "Not found or not owned by this caller" });
+      return;
+    }
+
+    const { error } = await supabase.from("bio_links").delete().eq("id", req.params.id);
+    if (error) {
+      dbError(res, error, "DELETE /bio-page/links/:id");
+      return;
+    }
+    res.status(204).send();
+  });
+
+  // Public rendering endpoint — no auth, this is what the actual bio page
+  // (linked from a customer's Instagram/TikTok profile) fetches. Returns
+  // only what's safe to show the public: no account_id, no internal ids
+  // beyond what's needed for React keys.
+  router.get("/public/bio/:slug", publicRateLimit, async (req, res) => {
+    const { data: page, error } = await supabase
+      .from("bio_pages")
+      .select("id, slug, title, bio, avatar_url")
+      .eq("slug", req.params.slug)
+      .maybeSingle();
+    if (error) {
+      dbError(res, error, "GET /public/bio/:slug");
+      return;
+    }
+    if (!page) {
+      res.status(404).json({ error: "Page not found" });
+      return;
+    }
+    const { data: links, error: linksError } = await supabase
+      .from("bio_links")
+      .select("id, label, url")
+      .eq("bio_page_id", page.id)
+      .order("position", { ascending: true });
+    if (linksError) {
+      dbError(res, linksError, "GET /public/bio/:slug links");
+      return;
+    }
+    res.json({ title: page.title, bio: page.bio, avatarUrl: page.avatar_url, links: links ?? [] });
+  });
+
   // Starts the "connect your social account" flow — returns the URL the
   // frontend should redirect the user to. Real account identity comes from
   // the verified JWT; the callback below never has to trust anything the
