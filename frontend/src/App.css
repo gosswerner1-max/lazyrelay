@@ -332,6 +332,115 @@
   text-transform: capitalize;
 }
 
+.analytics-range {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.analytics-range button {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--wire);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.analytics-range button.tab-active {
+  border-color: var(--signal);
+  color: var(--signal);
+  background: var(--signal-bg);
+}
+
+.analytics-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.analytics-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.analytics-card-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.analytics-card-label {
+  font-size: 12px;
+  color: var(--wire);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+  font-size: 14px;
+}
+
+.analytics-table th,
+.analytics-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+.analytics-table th {
+  color: var(--wire);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.analytics-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 140px;
+  padding-top: 12px;
+  overflow-x: auto;
+}
+
+.analytics-bar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  height: 100%;
+  min-width: 22px;
+  flex-shrink: 0;
+}
+
+.analytics-bar {
+  width: 14px;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  background: var(--signal);
+}
+
+.analytics-bar-label {
+  font-size: 10px;
+  color: var(--wire);
+  white-space: nowrap;
+}
+
 .schedule-form {
   display: flex;
   flex-direction: column;

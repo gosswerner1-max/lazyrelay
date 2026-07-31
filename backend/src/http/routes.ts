@@ -512,6 +512,69 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.json(data);
   });
 
+  // Phase 1 analytics — post-level engagement (likes/shares/views) isn't
+  // available yet: that needs a per-platform metrics-fetch method this
+  // codebase doesn't have (a real, larger scope, not an oversight). This
+  // aggregates what LazyRelay already collects — Proof-of-Publish results —
+  // into the operational numbers a customer actually needs today: how many
+  // posts went out, per platform, how many actually verified live vs
+  // failed, and the daily volume trend.
+  router.get("/analytics/summary", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 90);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data, error } = await supabase
+      .from("scheduled_posts")
+      .select("id, status, scheduled_for, social_accounts(platform), post_results(verified_live, error_message)")
+      .eq("account_id", req.accountId)
+      .gte("scheduled_for", since)
+      .order("scheduled_for", { ascending: true });
+    if (error) {
+      dbError(res, error, "GET /analytics/summary");
+      return;
+    }
+
+    const byStatus: Record<string, number> = {};
+    const byPlatform: Record<string, { total: number; posted: number; failed: number; verifiedLive: number }> = {};
+    const dailyCounts: Record<string, number> = {};
+    let verifiedLiveCount = 0;
+    let postedCount = 0;
+
+    for (const row of data ?? []) {
+      byStatus[row.status] = (byStatus[row.status] ?? 0) + 1;
+
+      // social_accounts(platform) comes back as an array with the !inner
+      // shorthand unused here, so it's a single related row in practice —
+      // guard defensively rather than assuming Supabase's join shape.
+      const platform = Array.isArray(row.social_accounts) ? row.social_accounts[0]?.platform : (row.social_accounts as { platform?: string } | null)?.platform;
+      const platformKey = platform ?? "unknown";
+      byPlatform[platformKey] ??= { total: 0, posted: 0, failed: 0, verifiedLive: 0 };
+      byPlatform[platformKey].total += 1;
+      if (row.status === "posted") byPlatform[platformKey].posted += 1;
+      if (row.status === "failed") byPlatform[platformKey].failed += 1;
+
+      const results = Array.isArray(row.post_results) ? row.post_results : row.post_results ? [row.post_results] : [];
+      const verifiedLive = results.some((r: { verified_live: boolean }) => r.verified_live);
+      if (verifiedLive) {
+        byPlatform[platformKey].verifiedLive += 1;
+        verifiedLiveCount += 1;
+      }
+      if (row.status === "posted") postedCount += 1;
+
+      const day = row.scheduled_for.slice(0, 10);
+      dailyCounts[day] = (dailyCounts[day] ?? 0) + 1;
+    }
+
+    res.json({
+      rangeDays: days,
+      totalPosts: data?.length ?? 0,
+      byStatus,
+      byPlatform,
+      dailyCounts,
+      verifiedLiveRate: postedCount > 0 ? verifiedLiveCount / postedCount : null,
+    });
+  });
+
   // A pending post can be cancelled, or a posted/failed one cleared from
   // history — either way this is deleting the customer's own row. Only a
   // post mid-flight ("posting") is protected, since the scheduler is

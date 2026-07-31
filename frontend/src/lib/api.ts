@@ -109,6 +109,15 @@ export interface RecurringScheduleInput {
   endsOn?: string | null;
 }
 
+export interface AnalyticsSummary {
+  rangeDays: number;
+  totalPosts: number;
+  byStatus: Record<string, number>;
+  byPlatform: Record<string, { total: number; posted: number; failed: number; verifiedLive: number }>;
+  dailyCounts: Record<string, number>;
+  verifiedLiveRate: number | null;
+}
+
 export interface ApiKey {
   id: string;
   name: string;
@@ -147,6 +156,8 @@ export const api = {
     scheduledFor: string;
   }): Promise<ScheduledPost> => authedFetch("/scheduled-posts", { method: "POST", body: JSON.stringify(input) }),
   deleteScheduledPost: (id: string): Promise<null> => authedFetch(`/scheduled-posts/${id}`, { method: "DELETE" }),
+
+  getAnalyticsSummary: (days = 30): Promise<AnalyticsSummary> => authedFetch(`/analytics/summary?days=${days}`),
 
   listRecurringSchedules: (): Promise<RecurringSchedule[]> => authedFetch("/recurring-schedules"),
   createRecurringSchedule: (input: RecurringScheduleInput): Promise<RecurringSchedule> =>

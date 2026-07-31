@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
-import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule } from "../lib/api";
+import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary } from "../lib/api";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
 import { Spinner } from "../components/Spinner";
 
-const TABS = ["Overview", "Posts", "Accounts", "Settings"] as const;
+const TABS = ["Overview", "Posts", "Analytics", "Accounts", "Settings"] as const;
 type Tab = (typeof TABS)[number];
 
 // Read once at module scope (not inside the component) — React 18
@@ -81,6 +81,9 @@ export function Dashboard() {
   const [mediaDragActive, setMediaDragActive] = useState(false);
   const [historyShown, setHistoryShown] = useState(10);
   const [paddle, setPaddle] = useState<Paddle | undefined>(undefined);
+  const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsRangeDays, setAnalyticsRangeDays] = useState(30);
   const [finalizingUpgrade, setFinalizingUpgrade] = useState(false);
   const pendingTierRef = useRef<"pro" | "business" | "enterprise" | null>(null);
 
@@ -126,6 +129,20 @@ export function Dashboard() {
   useEffect(() => {
     refresh();
   }, []);
+
+  // Lazy-loaded, not part of refresh() — analytics isn't needed on first
+  // paint for most customers, and re-fetching it every time an unrelated
+  // action (scheduling a post, connecting an account) calls refresh() would
+  // just be wasted queries for a tab that might never be opened.
+  useEffect(() => {
+    if (tab !== "Analytics") return;
+    setAnalyticsLoading(true);
+    api
+      .getAnalyticsSummary(analyticsRangeDays)
+      .then(setAnalytics)
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setAnalyticsLoading(false));
+  }, [tab, analyticsRangeDays]);
 
   // The OAuth callback redirects here with ?connected=1 or ?connectError=...
   // (the customer's browser lands on the backend's own domain mid-flow,
@@ -602,6 +619,98 @@ export function Dashboard() {
 
       {error && <p className="error">{error}</p>}
       {notice && <p className="notice">{notice}</p>}
+
+      {tab === "Analytics" && (
+      <section>
+        <h2>Analytics</h2>
+        <div className="analytics-range">
+          {[7, 30, 90].map((d) => (
+            <button
+              key={d}
+              type="button"
+              className={d === analyticsRangeDays ? "tab-active" : ""}
+              onClick={() => setAnalyticsRangeDays(d)}
+            >
+              Last {d} days
+            </button>
+          ))}
+        </div>
+        {analyticsLoading && <Spinner />}
+        {!analyticsLoading && analytics && analytics.totalPosts === 0 && (
+          <p className="empty">No posts scheduled in this range yet — analytics fill in once posts go out.</p>
+        )}
+        {!analyticsLoading && analytics && analytics.totalPosts > 0 && (
+          <>
+            <div className="analytics-summary-cards">
+              <div className="analytics-card">
+                <span className="analytics-card-value">{analytics.totalPosts}</span>
+                <span className="analytics-card-label">Total posts</span>
+              </div>
+              <div className="analytics-card">
+                <span className="analytics-card-value">{analytics.byStatus.posted ?? 0}</span>
+                <span className="analytics-card-label">Posted</span>
+              </div>
+              <div className="analytics-card">
+                <span className="analytics-card-value">{analytics.byStatus.failed ?? 0}</span>
+                <span className="analytics-card-label">Failed</span>
+              </div>
+              <div className="analytics-card">
+                <span className="analytics-card-value">
+                  {analytics.verifiedLiveRate === null ? "—" : `${Math.round(analytics.verifiedLiveRate * 100)}%`}
+                </span>
+                <span className="analytics-card-label">Verified live</span>
+              </div>
+            </div>
+
+            <h3>By platform</h3>
+            <table className="analytics-table">
+              <thead>
+                <tr>
+                  <th>Platform</th>
+                  <th>Total</th>
+                  <th>Posted</th>
+                  <th>Failed</th>
+                  <th>Verified live</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(analytics.byPlatform)
+                  .sort((a, b) => b[1].total - a[1].total)
+                  .map(([platform, stats]) => (
+                    <tr key={platform}>
+                      <td>
+                        <span className="platform-badge">
+                          <PlatformIcon platform={platform} size={13} />
+                          {platform}
+                        </span>
+                      </td>
+                      <td>{stats.total}</td>
+                      <td>{stats.posted}</td>
+                      <td>{stats.failed}</td>
+                      <td>{stats.verifiedLive}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+
+            <h3>Daily volume</h3>
+            <div className="analytics-bars">
+              {Object.entries(analytics.dailyCounts)
+                .sort((a, b) => a[0].localeCompare(b[0]))
+                .map(([day, count]) => {
+                  const max = Math.max(...Object.values(analytics.dailyCounts), 1);
+                  return (
+                    <div key={day} className="analytics-bar-col" title={`${day}: ${count} post${count === 1 ? "" : "s"}`}>
+                      <div className="analytics-bar" style={{ height: `${(count / max) * 100}%` }} />
+                      <span className="analytics-bar-label">{day.slice(5)}</span>
+                    </div>
+                  );
+                })}
+            </div>
+          </>
+        )}
+      </section>
+      )}
 
       {(tab === "Overview" || tab === "Accounts") && (
       <section>
