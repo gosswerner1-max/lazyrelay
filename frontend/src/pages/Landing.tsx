@@ -28,6 +28,42 @@ const FEATURES = [
     title: "Proof-of-Publish",
     body: "Every post is independently verified as actually live on the platform — not just \"sent,\" but confirmed.",
   },
+  {
+    title: "Analytics Dashboard",
+    body: "See your total posts, per-platform success rates, and a daily volume trend — pulled from your own posting and Proof-of-Publish history.",
+  },
+  {
+    title: "Content Calendar",
+    body: "See everything you've got scheduled laid out on a real month grid, not just a list — spot gaps and clashes at a glance.",
+  },
+  {
+    title: "Bulk CSV Import",
+    body: "Upload a spreadsheet of posts and schedule up to 200 at once, with a per-row preview before anything goes live.",
+  },
+  {
+    title: "AI Captions & Hashtags",
+    body: "Stuck on wording? Generate a caption or relevant hashtags from your draft in one click — you still choose what actually gets posted.",
+  },
+  {
+    title: "Best-Time Suggestions",
+    body: "General, platform-by-platform posting-time guidance to help you pick a slot — not personalized to your account's own data yet.",
+  },
+  {
+    title: "Approval Workflow",
+    body: "Mark a post as needing approval before it goes out, so a second set of eyes can sign off first.",
+  },
+  {
+    title: "Link-in-Bio Page",
+    body: "A simple, hosted link page for your bio — add the links you want and share one URL across every platform.",
+  },
+  {
+    title: "Comment Tracking",
+    body: "See the comments on your own published YouTube, Mastodon, and Bluesky posts without leaving LazyRelay.",
+  },
+  {
+    title: "Browser Extension",
+    body: "Right-click any page, link, or image while you browse and send it straight to LazyRelay to schedule.",
+  },
 ];
 
 const STEPS = [
