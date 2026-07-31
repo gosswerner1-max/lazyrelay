@@ -441,6 +441,25 @@
   white-space: nowrap;
 }
 
+.ai-caption-row {
+  display: flex;
+  gap: 8px;
+}
+
+.ai-caption-row input {
+  flex: 1;
+  font: 15px/1.4 var(--font-body);
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.ai-caption-row button {
+  white-space: nowrap;
+}
+
 .bulk-import-controls {
   display: flex;
   align-items: center;

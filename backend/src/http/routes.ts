@@ -1,4 +1,5 @@
 import { Router, type Response } from "express";
+import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
 import { randomUUID, randomBytes } from "node:crypto";
 import { imageSize } from "image-size";
@@ -135,6 +136,56 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         comingSoon: COMING_SOON_PLATFORMS.has(platform),
       })),
     );
+  });
+
+  // AI caption generation — optional, only live when ANTHROPIC_API_KEY is
+  // set (mirrors every other optional integration's fall-through pattern:
+  // missing config degrades this one feature, not the whole API). The
+  // client is created per-request rather than once at module load so a
+  // missing key produces a clean 503 instead of crashing boot.
+  const MAX_CAPTION_TOPIC_LENGTH = 500;
+  router.post("/ai/caption", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      res.status(503).json({ error: "AI caption generation isn't set up on this deploy yet." });
+      return;
+    }
+    const { topic, platform, tone } = req.body ?? {};
+    if (typeof topic !== "string" || topic.trim().length === 0) {
+      res.status(400).json({ error: "topic must be a non-empty string" });
+      return;
+    }
+    if (topic.length > MAX_CAPTION_TOPIC_LENGTH) {
+      res.status(400).json({ error: `topic must be ${MAX_CAPTION_TOPIC_LENGTH} characters or fewer` });
+      return;
+    }
+    const platformLabel = typeof platform === "string" && platform.trim() ? platform.trim() : "a general social platform";
+    const toneLabel = typeof tone === "string" && tone.trim() ? tone.trim() : "friendly and direct";
+
+    try {
+      const client = new Anthropic({ apiKey });
+      const message = await client.messages.create({
+        model: "claude-opus-4-8",
+        max_tokens: 400,
+        messages: [
+          {
+            role: "user",
+            content:
+              `Write one social media post for ${platformLabel} about: ${topic}\n\n` +
+              `Tone: ${toneLabel}. Output ONLY the post text — no preamble, no quotation marks, no options to choose from, no hashtag spam (at most 2-3 relevant hashtags if the platform culture calls for them). Keep it native to how real people post, not like marketing copy.`,
+          },
+        ],
+      });
+      const textBlock = message.content.find((block) => block.type === "text");
+      if (!textBlock || textBlock.type !== "text") {
+        res.status(502).json({ error: "AI caption generation returned no usable text." });
+        return;
+      }
+      res.json({ caption: textBlock.text.trim() });
+    } catch (err) {
+      console.error("[routes] POST /ai/caption:", err instanceof Error ? err.message : err);
+      res.status(502).json({ error: "AI caption generation failed — please try again." });
+    }
   });
 
   // Starts the "connect your social account" flow — returns the URL the

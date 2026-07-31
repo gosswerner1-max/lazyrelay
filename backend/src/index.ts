@@ -155,7 +155,8 @@ async function main() {
       `TUMBLR_REDIRECT_URI=${process.env.TUMBLR_REDIRECT_URI ? "set" : "MISSING"}; ` +
       `X_CLIENT_ID=${process.env.X_CLIENT_ID ? "set" : "MISSING"} ` +
       `X_CLIENT_SECRET=${process.env.X_CLIENT_SECRET ? "set" : "MISSING"} ` +
-      `X_REDIRECT_URI=${process.env.X_REDIRECT_URI ? "set" : "MISSING"}`,
+      `X_REDIRECT_URI=${process.env.X_REDIRECT_URI ? "set" : "MISSING"}; ` +
+      `ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? "set" : "MISSING"}`,
   );
 
   const app = buildApp(morAdapter, registry);

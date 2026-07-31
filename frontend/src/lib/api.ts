@@ -164,6 +164,9 @@ export const api = {
 
   getAnalyticsSummary: (days = 30): Promise<AnalyticsSummary> => authedFetch(`/analytics/summary?days=${days}`),
 
+  generateCaption: (topic: string, platform?: string, tone?: string): Promise<{ caption: string }> =>
+    authedFetch("/ai/caption", { method: "POST", body: JSON.stringify({ topic, platform, tone }) }),
+
   listRecurringSchedules: (): Promise<RecurringSchedule[]> => authedFetch("/recurring-schedules"),
   createRecurringSchedule: (input: RecurringScheduleInput): Promise<RecurringSchedule> =>
     authedFetch("/recurring-schedules", { method: "POST", body: JSON.stringify(input) }),

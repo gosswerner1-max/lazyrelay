@@ -108,6 +108,8 @@ export function Dashboard() {
   const [cancelFeedback, setCancelFeedback] = useState("");
 
   const [content, setContent] = useState("");
+  const [aiTopic, setAiTopic] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
   const [scheduleTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
@@ -365,6 +367,24 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setRsBusyId(null);
+    }
+  }
+
+  async function handleGenerateCaption() {
+    if (!aiTopic.trim()) {
+      setError("Type what the post should be about first.");
+      return;
+    }
+    setAiGenerating(true);
+    setError(null);
+    try {
+      const firstAccount = accounts.find((a) => a.id === selectedAccountIds[0]);
+      const { caption } = await api.generateCaption(aiTopic.trim(), firstAccount?.platform);
+      setContent(caption);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAiGenerating(false);
     }
   }
 
@@ -929,6 +949,17 @@ export function Dashboard() {
                 ))}
               </div>
             </label>
+            <div className="ai-caption-row">
+              <input
+                type="text"
+                placeholder={'What\'s this post about? (e.g. "new summer sale, 20% off")'}
+                value={aiTopic}
+                onChange={(e) => setAiTopic(e.target.value)}
+              />
+              <button type="button" className="btn-outline" disabled={aiGenerating} onClick={handleGenerateCaption}>
+                {aiGenerating ? "Writing..." : "Generate with AI"}
+              </button>
+            </div>
             <label>
               Content
               <textarea value={content} onChange={(e) => setContent(e.target.value)} required />
