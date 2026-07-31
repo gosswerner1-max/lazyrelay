@@ -110,20 +110,22 @@ async function releaseMediaIfOrphaned(mediaUrl: string, accountId: string): Prom
 }
 
 // Every platform LazyRelay supports, in the shape the frontend's platform
-// picker grid needs. "reddit" is always comingSoon: true — blocked on
-// Reddit's own commercial-API approval (see
-// product/reference-social-automation-saas-venture-research memory), never
-// in the registry, so it'd otherwise just show up as "not configured" with
-// no explanation. "x" had the same gate until 2026-07-31 — its adapter is
-// now built, credentials are live on Render, and it's confirmed in the
-// registry, so it's a real, connectable platform now, not just "not
-// configured."
+// picker grid needs. "x" had a comingSoon gate until 2026-07-31 — its
+// adapter is now built, credentials are live on Render, and it's confirmed
+// in the registry, so it's a real, connectable platform now, not just "not
+// configured." Reddit was dropped from the roadmap entirely on 2026-07-30
+// in favor of Snapchat (see
+// product/reference-social-automation-saas-venture-research and
+// lazyrelay/project-snapchat-replaces-reddit-2026-07-30 memory) — removed
+// from this list rather than left as a stale "coming soon" tile pointing at
+// a platform that's no longer the plan. Snapchat isn't added here yet
+// either — its adapter isn't built and account setup is still paused; add
+// it once there's something real behind it, not as a placeholder tile.
 const ALL_PLATFORMS = [
   "tiktok", "pinterest", "youtube", "mastodon", "bluesky", "telegram",
-  "linkedin", "threads", "facebook", "instagram", "discord", "tumblr",
-  "x", "reddit",
+  "linkedin", "threads", "facebook", "instagram", "discord", "tumblr", "x",
 ] as const;
-const COMING_SOON_PLATFORMS = new Set(["reddit"]);
+const COMING_SOON_PLATFORMS = new Set<string>([]);
 
 export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: PlatformAdapterRegistry): Router {
   const router = Router();
