@@ -17,6 +17,7 @@ import { checkQuotaForNewUpload, getStorageUsage } from "../storageQuota.js";
 import { checkAccountLimit } from "../accountLimits.js";
 import { resolveTier, RECURRING_SCHEDULE_SLOT_LIMITS, type Tier } from "../tier.js";
 import { cancelFuturePendingOccurrences } from "../recurringScheduler.js";
+import { checkGenerationLimit, recordGeneration } from "../aiUsage.js";
 
 // Storage add-ons — priced 2026-07-23 after researching real comparables
 // (consumer cloud storage clusters $0.005-0.02/GB/mo, the closest real B2B
@@ -162,10 +163,16 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     const platformLabel = typeof platform === "string" && platform.trim() ? platform.trim() : "a general social platform";
     const toneLabel = typeof tone === "string" && tone.trim() ? tone.trim() : "friendly and direct";
 
+    const limitReason = await checkGenerationLimit(req.accountId!);
+    if (limitReason) {
+      res.status(429).json({ error: limitReason });
+      return;
+    }
+
     try {
       const client = new Anthropic({ apiKey });
       const message = await client.messages.create({
-        model: "claude-opus-4-8",
+        model: "claude-haiku-4-5",
         max_tokens: 400,
         messages: [
           {
@@ -181,6 +188,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         res.status(502).json({ error: "AI caption generation returned no usable text." });
         return;
       }
+      await recordGeneration(req.accountId!);
       res.json({ caption: textBlock.text.trim() });
     } catch (err) {
       console.error("[routes] POST /ai/caption:", err instanceof Error ? err.message : err);
@@ -212,10 +220,16 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
     const platformLabel = typeof platform === "string" && platform.trim() ? platform.trim() : "a general social platform";
 
+    const limitReason = await checkGenerationLimit(req.accountId!);
+    if (limitReason) {
+      res.status(429).json({ error: limitReason });
+      return;
+    }
+
     try {
       const client = new Anthropic({ apiKey });
       const message = await client.messages.create({
-        model: "claude-opus-4-8",
+        model: "claude-haiku-4-5",
         max_tokens: 200,
         messages: [
           {
@@ -235,6 +249,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         .trim()
         .split(/\s+/)
         .filter((tag) => tag.startsWith("#") && tag.length > 1);
+      await recordGeneration(req.accountId!);
       res.json({ hashtags });
     } catch (err) {
       console.error("[routes] POST /ai/hashtags:", err instanceof Error ? err.message : err);
