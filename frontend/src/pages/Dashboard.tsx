@@ -1936,7 +1936,7 @@ export function Dashboard() {
                   <div className="pricing-card">
                     <h3>Starter — 5GB storage</h3>
                     <p className="pricing-price">
-                      $24.99<span className="pricing-period">/mo</span>
+                      $29.99<span className="pricing-period">/mo</span>
                     </p>
                     <p className="pricing-note">20 accounts, unlimited posts, AI-agent access</p>
                     <button className="cta" onClick={() => handleUpgrade("pro")} disabled={billingBusy !== null}>
@@ -1946,7 +1946,7 @@ export function Dashboard() {
                   <div className="pricing-card">
                     <h3>Pro — 10GB storage</h3>
                     <p className="pricing-price">
-                      $48.99<span className="pricing-period">/mo</span>
+                      $59.99<span className="pricing-period">/mo</span>
                     </p>
                     <p className="pricing-note">40 accounts, unlimited posts, AI-agent access, priority support</p>
                     <button className="cta" onClick={() => handleUpgrade("business")} disabled={billingBusy !== null}>
@@ -1956,7 +1956,7 @@ export function Dashboard() {
                   <div className="pricing-card">
                     <h3>Business — 20GB storage</h3>
                     <p className="pricing-price">
-                      $79.99<span className="pricing-period">/mo</span>
+                      $99.99<span className="pricing-period">/mo</span>
                     </p>
                     <p className="pricing-note">100 accounts, unlimited posts, AI-agent access, priority support</p>
                     <button className="cta" onClick={() => handleUpgrade("enterprise")} disabled={billingBusy !== null}>

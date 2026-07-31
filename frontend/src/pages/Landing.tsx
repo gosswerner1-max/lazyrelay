@@ -48,7 +48,7 @@ const PRICING = [
   {
     tier: "starter" as const,
     name: "Starter",
-    price: "$24.99",
+    price: "$29.99",
     note: "For creators posting regularly",
     features: ["20 connected accounts", "Unlimited scheduled posts", "3 recurring schedules", "AI-agent / MCP access", "5GB storage", "Proof-of-Publish verification"],
     cta: "Get started",
@@ -56,7 +56,7 @@ const PRICING = [
   {
     tier: "pro" as const,
     name: "Pro",
-    price: "$48.99",
+    price: "$59.99",
     note: "For growing teams",
     features: ["40 connected accounts", "Unlimited scheduled posts", "5 recurring schedules", "AI-agent / MCP access", "10GB storage", "Priority support"],
     cta: "Get started",
@@ -65,7 +65,7 @@ const PRICING = [
   {
     tier: "business" as const,
     name: "Business",
-    price: "$79.99",
+    price: "$99.99",
     note: "For agencies at scale",
     features: ["100 connected accounts", "Unlimited scheduled posts", "Unlimited recurring schedules", "AI-agent / MCP access", "20GB storage", "Priority support"],
     cta: "Get started",
