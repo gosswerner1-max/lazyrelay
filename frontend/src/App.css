@@ -441,6 +441,35 @@
   white-space: nowrap;
 }
 
+.best-time-hints {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.best-time-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink);
+  margin: 0 0 4px;
+  text-transform: none;
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
+.best-time-disclaimer {
+  font-size: 11px;
+  color: var(--wire);
+  margin: 4px 0 0;
+  text-transform: none;
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
 .ai-caption-row {
   display: flex;
   gap: 8px;

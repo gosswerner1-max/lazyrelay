@@ -5,6 +5,7 @@ import { api, type SocialAccount, type ScheduledPost, type Subscription, type St
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
+import { bestTimeFor } from "../lib/bestTimes";
 import { Spinner } from "../components/Spinner";
 
 const TABS = ["Overview", "Posts", "Calendar", "Analytics", "Accounts", "Settings"] as const;
@@ -948,6 +949,22 @@ export function Dashboard() {
                   </label>
                 ))}
               </div>
+              {selectedAccountIds.length > 0 && (
+                <div className="best-time-hints">
+                  {[...new Set(selectedAccountIds.map((id) => accounts.find((a) => a.id === id)?.platform).filter(Boolean))].map(
+                    (platform) => {
+                      const guidance = bestTimeFor(platform as string);
+                      return (
+                        <p key={platform} className="best-time-hint">
+                          <PlatformIcon platform={platform as string} size={12} /> Best general time for {platform}:{" "}
+                          <strong>{guidance.windows}</strong> — {guidance.note}
+                        </p>
+                      );
+                    },
+                  )}
+                  <p className="best-time-disclaimer">General industry benchmark, not personalized to your account's own audience yet.</p>
+                </div>
+              )}
             </label>
             <div className="ai-caption-row">
               <input
