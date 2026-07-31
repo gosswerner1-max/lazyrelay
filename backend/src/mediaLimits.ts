@@ -40,7 +40,8 @@ export type Platform =
   | "instagram"
   | "discord"
   | "tumblr"
-  | "x";
+  | "x"
+  | "snapchat";
 
 // Platforms without a researched, bespoke rule yet fall back to the same
 // 20MB size cap + mime allowlist LazyRelay's own /media/upload endpoint
@@ -140,6 +141,16 @@ const RULES: Record<Platform, PlatformRules> = {
   x: {
     image: { maxSizeBytes: 5 * MB, allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] },
     video: { maxSizeBytes: 512 * MB, allowedMimeTypes: ["video/mp4", "video/quicktime"] },
+  },
+  // developers.snap.com Public Profile API docs (verified 2026-07-31, never
+  // tested against a real account — see platforms/snapchat.ts). Story posts
+  // require MP4 video only, 5-60s, min 540x960px — there is no documented
+  // image-post path, so the image rule here exists only so
+  // validateMediaForPlatform() returns a clear rejection rather than an
+  // undefined-rule crash if a customer tries to attach an image.
+  snapchat: {
+    image: { maxSizeBytes: 0, allowedMimeTypes: [] },
+    video: { maxSizeBytes: 1024 * MB, allowedMimeTypes: ["video/mp4"] },
   },
 };
 

@@ -46,7 +46,7 @@ export interface OAuthExchangeResult {
 }
 
 export interface PlatformAdapter {
-  readonly platform: "meta" | "tiktok" | "pinterest" | "youtube" | "mastodon" | "bluesky" | "telegram" | "linkedin" | "threads" | "facebook" | "instagram" | "discord" | "tumblr" | "x";
+  readonly platform: "meta" | "tiktok" | "pinterest" | "youtube" | "mastodon" | "bluesky" | "telegram" | "linkedin" | "threads" | "facebook" | "instagram" | "discord" | "tumblr" | "x" | "snapchat";
 
   /** The URL to send a user to in order to start connecting an account.
    *  `state` must be echoed back on the callback and checked — it's what

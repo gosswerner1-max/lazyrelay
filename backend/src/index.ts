@@ -16,6 +16,7 @@ import { InstagramAdapter } from "./platforms/instagram.js";
 import { DiscordAdapter } from "./platforms/discord.js";
 import { TumblrAdapter } from "./platforms/tumblr.js";
 import { XAdapter } from "./platforms/x.js";
+import { SnapchatAdapter } from "./platforms/snapchat.js";
 import type { PlatformAdapter } from "./platforms/types.js";
 import { StubMorAdapter } from "./billing/stub.js";
 import { PaddleMorAdapter } from "./billing/paddle.js";
@@ -110,6 +111,18 @@ async function main() {
   if (process.env.X_CLIENT_ID && process.env.X_CLIENT_SECRET && process.env.X_REDIRECT_URI) {
     registry.set("x", new XAdapter(process.env.X_CLIENT_ID, process.env.X_CLIENT_SECRET, process.env.X_REDIRECT_URI));
   }
+  // Not expected to actually activate yet — no OAuth app exists (Business
+  // Manager setup paused mid-way), and the Public Profile API is
+  // allowlist-only regardless, so even a real client ID wouldn't work until
+  // Snap manually allowlists it. Wired the same way as every other platform
+  // so it activates automatically the moment real credentials land in .env,
+  // rather than needing another code change at that point.
+  if (process.env.SNAPCHAT_CLIENT_ID && process.env.SNAPCHAT_CLIENT_SECRET && process.env.SNAPCHAT_REDIRECT_URI) {
+    registry.set(
+      "snapchat",
+      new SnapchatAdapter(process.env.SNAPCHAT_CLIENT_ID, process.env.SNAPCHAT_CLIENT_SECRET, process.env.SNAPCHAT_REDIRECT_URI),
+    );
+  }
   if (registry.size === 0) {
     // Keeps local/dev environments with no platform env vars set at all
     // working end-to-end against the stub, same as before the registry.
@@ -156,6 +169,9 @@ async function main() {
       `X_CLIENT_ID=${process.env.X_CLIENT_ID ? "set" : "MISSING"} ` +
       `X_CLIENT_SECRET=${process.env.X_CLIENT_SECRET ? "set" : "MISSING"} ` +
       `X_REDIRECT_URI=${process.env.X_REDIRECT_URI ? "set" : "MISSING"}; ` +
+      `SNAPCHAT_CLIENT_ID=${process.env.SNAPCHAT_CLIENT_ID ? "set" : "MISSING"} ` +
+      `SNAPCHAT_CLIENT_SECRET=${process.env.SNAPCHAT_CLIENT_SECRET ? "set" : "MISSING"} ` +
+      `SNAPCHAT_REDIRECT_URI=${process.env.SNAPCHAT_REDIRECT_URI ? "set" : "MISSING"}; ` +
       `ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? "set" : "MISSING"}`,
   );
 

@@ -118,14 +118,18 @@ async function releaseMediaIfOrphaned(mediaUrl: string, accountId: string): Prom
 // product/reference-social-automation-saas-venture-research and
 // lazyrelay/project-snapchat-replaces-reddit-2026-07-30 memory) — removed
 // from this list rather than left as a stale "coming soon" tile pointing at
-// a platform that's no longer the plan. Snapchat isn't added here yet
-// either — its adapter isn't built and account setup is still paused; add
-// it once there's something real behind it, not as a placeholder tile.
+// a platform that's no longer the plan. "snapchat" is comingSoon: true —
+// its adapter is code-complete (platforms/snapchat.ts) but has never been
+// tested against a real API response, no OAuth app exists yet (Business
+// Manager setup paused mid-way), and the Public Profile API is
+// allowlist-only regardless — real credentials won't be enough on their
+// own, Snap has to manually allowlist the client ID too.
 const ALL_PLATFORMS = [
   "tiktok", "pinterest", "youtube", "mastodon", "bluesky", "telegram",
   "linkedin", "threads", "facebook", "instagram", "discord", "tumblr", "x",
+  "snapchat",
 ] as const;
-const COMING_SOON_PLATFORMS = new Set<string>([]);
+const COMING_SOON_PLATFORMS = new Set<string>(["snapchat"]);
 
 export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: PlatformAdapterRegistry): Router {
   const router = Router();
