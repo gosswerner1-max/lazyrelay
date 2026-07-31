@@ -368,32 +368,34 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // from the request body — a client can't schedule a post as someone else
   // by passing a different account_id, since requireAuth already resolved
   // who's actually calling.
-  router.post("/scheduled-posts", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { socialAccountId, content, mediaUrl, scheduledFor } = req.body ?? {};
+  //
+  // Extracted from the route body so /scheduled-posts/bulk (CSV import) can
+  // run the exact same validation/limits per row instead of a parallel,
+  // easily-drifting copy. Returns an HTTP-shaped result rather than
+  // throwing, since a bulk caller needs to keep going past one bad row.
+  async function scheduleOnePost(
+    accountId: string | undefined,
+    input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; scheduledFor?: unknown },
+  ): Promise<{ status: number; body: Record<string, unknown> }> {
+    const { socialAccountId, content, mediaUrl, scheduledFor } = input;
     if (!socialAccountId || !content || !scheduledFor) {
-      res.status(400).json({ error: "socialAccountId, content, and scheduledFor are required" });
-      return;
+      return { status: 400, body: { error: "socialAccountId, content, and scheduledFor are required" } };
     }
     if (typeof socialAccountId !== "string") {
-      res.status(400).json({ error: "socialAccountId must be a string" });
-      return;
+      return { status: 400, body: { error: "socialAccountId must be a string" } };
     }
     if (typeof content !== "string" || content.trim().length === 0) {
-      res.status(400).json({ error: "content must be a non-empty string" });
-      return;
+      return { status: 400, body: { error: "content must be a non-empty string" } };
     }
     if (content.length > MAX_POST_CONTENT_LENGTH) {
-      res.status(400).json({ error: `content must be ${MAX_POST_CONTENT_LENGTH} characters or fewer` });
-      return;
+      return { status: 400, body: { error: `content must be ${MAX_POST_CONTENT_LENGTH} characters or fewer` } };
     }
     if (typeof scheduledFor !== "string") {
-      res.status(400).json({ error: "scheduledFor must be an ISO date string" });
-      return;
+      return { status: 400, body: { error: "scheduledFor must be an ISO date string" } };
     }
     const scheduledDate = new Date(scheduledFor);
     if (Number.isNaN(scheduledDate.getTime())) {
-      res.status(400).json({ error: "scheduledFor must be a valid date" });
-      return;
+      return { status: 400, body: { error: "scheduledFor must be a valid date" } };
     }
     // Allow "now" and small clock-skew/latency slack rather than a strict
     // future-only check — scheduling for immediate posting is legitimate,
@@ -402,8 +404,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // last year's date).
     const SCHEDULED_FOR_PAST_GRACE_MS = 60_000;
     if (scheduledDate.getTime() < Date.now() - SCHEDULED_FOR_PAST_GRACE_MS) {
-      res.status(400).json({ error: "scheduledFor can't be in the past" });
-      return;
+      return { status: 400, body: { error: "scheduledFor can't be in the past" } };
     }
 
     // Confirm the social account actually belongs to this caller before
@@ -415,9 +416,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       .select("id, account_id, platform")
       .eq("id", socialAccountId)
       .single();
-    if (accountError || !account || account.account_id !== req.accountId) {
-      res.status(403).json({ error: "Social account not found or not owned by this caller" });
-      return;
+    if (accountError || !account || account.account_id !== accountId) {
+      return { status: 403, body: { error: "Social account not found or not owned by this caller" } };
     }
 
     // Pre-flight check against the TARGET platform's real requirements —
@@ -445,8 +445,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
           height: media.height,
         });
         if (!result.valid) {
-          res.status(400).json({ error: result.reason });
-          return;
+          return { status: 400, body: { error: result.reason } };
         }
       }
     }
@@ -458,7 +457,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     const { data: sub } = await supabase
       .from("subscriptions")
       .select("tier, status")
-      .eq("account_id", req.accountId)
+      .eq("account_id", accountId)
       .maybeSingle();
     const isPaidInGoodStanding = sub?.tier !== "free" && (sub?.status === "active" || sub?.status === "trialing");
     if (!isPaidInGoodStanding) {
@@ -470,21 +469,23 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         .eq("social_account_id", socialAccountId)
         .gte("created_at", startOfMonth);
       if (countError) {
-        dbError(res, countError, "POST /scheduled-posts free-tier count");
-        return;
+        console.error("[routes] scheduleOnePost free-tier count:", countError.message);
+        return { status: 500, body: { error: "Something went wrong on our end. Please try again." } };
       }
       if ((count ?? 0) >= FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT) {
-        res.status(403).json({
-          error: `Free tier limit reached: ${FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT} posts per connected account per month. Upgrade to Starter for unlimited posts, or wait until next month.`,
-        });
-        return;
+        return {
+          status: 403,
+          body: {
+            error: `Free tier limit reached: ${FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT} posts per connected account per month. Upgrade to Starter for unlimited posts, or wait until next month.`,
+          },
+        };
       }
     }
 
     const { data, error } = await supabase
       .from("scheduled_posts")
       .insert({
-        account_id: req.accountId,
+        account_id: accountId,
         social_account_id: socialAccountId,
         content,
         media_url: mediaUrl ?? null,
@@ -493,10 +494,44 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       .select()
       .single();
     if (error) {
-      dbError(res, error, "POST /scheduled-posts insert");
+      console.error("[routes] scheduleOnePost insert:", error.message);
+      return { status: 500, body: { error: "Something went wrong on our end. Please try again." } };
+    }
+    return { status: 201, body: data };
+  }
+
+  router.post("/scheduled-posts", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const result = await scheduleOnePost(req.accountId, req.body ?? {});
+    res.status(result.status).json(result.body);
+  });
+
+  // Bulk/CSV import — same validation and tier limits as a single post,
+  // run per row so one bad row doesn't sink the rest of the batch. The
+  // caller (frontend) parses the CSV client-side and posts structured rows
+  // here; running rows sequentially (not Promise.all) matters for
+  // correctness, not just simplicity — two rows for the same free-tier
+  // account racing the same monthly-count check in parallel could both
+  // read "9 used" and both insert, silently exceeding the limit.
+  const MAX_BULK_POSTS = 200;
+  router.post("/scheduled-posts/bulk", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { posts } = req.body ?? {};
+    if (!Array.isArray(posts) || posts.length === 0) {
+      res.status(400).json({ error: "posts must be a non-empty array" });
       return;
     }
-    res.status(201).json(data);
+    if (posts.length > MAX_BULK_POSTS) {
+      res.status(400).json({ error: `A single bulk import is capped at ${MAX_BULK_POSTS} posts — split into smaller batches.` });
+      return;
+    }
+
+    const results: Array<{ row: number; status: number; body: Record<string, unknown> }> = [];
+    for (let i = 0; i < posts.length; i++) {
+      const result = await scheduleOnePost(req.accountId, posts[i] ?? {});
+      results.push({ row: i, status: result.status, body: result.body });
+    }
+
+    const succeeded = results.filter((r) => r.status === 201).length;
+    res.status(200).json({ succeeded, failed: results.length - succeeded, results });
   });
 
   router.get("/scheduled-posts", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {

@@ -14,6 +14,48 @@ function localDateKey(iso: string): string {
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+// Minimal RFC4180-ish CSV parser — handles quoted fields, escaped ""
+// quotes, and commas/newlines inside quotes. No external dependency for
+// something this small; a customer's exported CSV (Sheets/Excel) is the
+// realistic input shape this needs to survive, not arbitrary CSV exotica.
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"' && text[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else if (c === '"') {
+        inQuotes = false;
+      } else {
+        field += c;
+      }
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ",") {
+      row.push(field);
+      field = "";
+    } else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(field);
+      field = "";
+      if (row.some((cell) => cell.trim() !== "")) rows.push(row);
+      row = [];
+    } else {
+      field += c;
+    }
+  }
+  if (field !== "" || row.length > 0) {
+    row.push(field);
+    if (row.some((cell) => cell.trim() !== "")) rows.push(row);
+  }
+  return rows;
+}
 type Tab = (typeof TABS)[number];
 
 // Read once at module scope (not inside the component) — React 18
@@ -87,6 +129,11 @@ export function Dashboard() {
   const [mediaDragActive, setMediaDragActive] = useState(false);
   const [historyShown, setHistoryShown] = useState(10);
   const [paddle, setPaddle] = useState<Paddle | undefined>(undefined);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [csvRows, setCsvRows] = useState<
+    Array<{ platform: string; content: string; scheduledFor: string; mediaUrl: string; socialAccountId: string | null; error: string | null }>
+  >([]);
+  const [bulkImporting, setBulkImporting] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -420,6 +467,81 @@ export function Dashboard() {
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function handleCsvFile(file: File) {
+    setError(null);
+    const text = await file.text();
+    const rows = parseCsv(text);
+    if (rows.length === 0) {
+      setError("That CSV file has no rows.");
+      return;
+    }
+    const header = rows[0].map((h) => h.trim().toLowerCase());
+    const platformIdx = header.indexOf("platform");
+    const contentIdx = header.indexOf("content");
+    const scheduledForIdx = header.indexOf("scheduled_for");
+    const mediaUrlIdx = header.indexOf("media_url");
+    if (platformIdx === -1 || contentIdx === -1 || scheduledForIdx === -1) {
+      setError("CSV must have platform, content, and scheduled_for columns.");
+      return;
+    }
+
+    const parsed = rows.slice(1).map((cells) => {
+      const platform = (cells[platformIdx] ?? "").trim();
+      const content = (cells[contentIdx] ?? "").trim();
+      const scheduledFor = (cells[scheduledForIdx] ?? "").trim();
+      const mediaUrl = mediaUrlIdx !== -1 ? (cells[mediaUrlIdx] ?? "").trim() : "";
+
+      let error: string | null = null;
+      const account = accounts.find((a) => a.platform.toLowerCase() === platform.toLowerCase());
+      if (!platform) error = "Missing platform";
+      else if (!account) error = `No connected account for "${platform}"`;
+      else if (!content) error = "Missing content";
+      else if (!scheduledFor || Number.isNaN(new Date(scheduledFor).getTime())) error = "Invalid scheduled_for date";
+
+      return { platform, content, scheduledFor, mediaUrl, socialAccountId: account?.id ?? null, error };
+    });
+    setCsvRows(parsed);
+  }
+
+  async function handleBulkImport() {
+    const validRows = csvRows.filter((r) => !r.error && r.socialAccountId);
+    if (validRows.length === 0) return;
+    setBulkImporting(true);
+    setError(null);
+    try {
+      const { succeeded, failed, results } = await api.bulkCreateScheduledPosts(
+        validRows.map((r) => ({
+          socialAccountId: r.socialAccountId as string,
+          content: r.content,
+          mediaUrl: r.mediaUrl || undefined,
+          scheduledFor: new Date(r.scheduledFor).toISOString(),
+        })),
+      );
+      // Map per-row backend errors back onto the matching visible row so a
+      // partial failure (e.g. one row hit the free-tier limit) is visible
+      // per-row instead of one opaque toast for the whole batch.
+      if (failed > 0) {
+        let validIdx = 0;
+        setCsvRows((prev) =>
+          prev.map((row) => {
+            if (row.error || !row.socialAccountId) return row;
+            const result = results[validIdx];
+            validIdx++;
+            return result.status === 201 ? row : { ...row, error: result.body.error ?? "Failed" };
+          }),
+        );
+      } else {
+        setCsvRows([]);
+      }
+      setNotice(`Imported ${succeeded} post${succeeded === 1 ? "" : "s"}${failed > 0 ? `, ${failed} failed` : ""}.`);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBulkImporting(false);
     }
   }
 
@@ -888,6 +1010,64 @@ export function Dashboard() {
               </button>
             </div>
           </form>
+        )}
+      </section>
+
+      <section>
+        <h2>Bulk import (CSV)</h2>
+        <p className="muted">
+          Columns: <code>platform</code>, <code>content</code>, <code>scheduled_for</code> (ISO date/time), <code>media_url</code>{" "}
+          (optional). <code>platform</code> is matched against your connected accounts — if you have more than one account on the
+          same platform, the first one connected is used.
+        </p>
+        <div className="bulk-import-controls">
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleCsvFile(file);
+              e.target.value = "";
+            }}
+          />
+          {csvRows.length > 0 && (
+            <button type="button" className="btn-outline" onClick={() => setCsvRows([])}>
+              Clear
+            </button>
+          )}
+        </div>
+
+        {csvRows.length > 0 && (
+          <>
+            <table className="analytics-table">
+              <thead>
+                <tr>
+                  <th>Row</th>
+                  <th>Platform</th>
+                  <th>Content</th>
+                  <th>Scheduled for</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {csvRows.map((row, i) => (
+                  <tr key={i}>
+                    <td>{i + 1}</td>
+                    <td>{row.platform}</td>
+                    <td>{row.content.length > 60 ? `${row.content.slice(0, 60)}…` : row.content}</td>
+                    <td>{row.scheduledFor}</td>
+                    <td className={row.error ? "csv-row-error" : "csv-row-ok"}>{row.error ?? "Ready"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="schedule-form-actions">
+              <button type="button" disabled={bulkImporting || csvRows.every((r) => r.error)} onClick={handleBulkImport}>
+                {bulkImporting ? "Importing..." : `Import ${csvRows.filter((r) => !r.error).length} post${csvRows.filter((r) => !r.error).length === 1 ? "" : "s"}`}
+              </button>
+            </div>
+          </>
         )}
       </section>
 

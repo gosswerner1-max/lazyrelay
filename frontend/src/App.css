@@ -441,6 +441,23 @@
   white-space: nowrap;
 }
 
+.bulk-import-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.csv-row-error {
+  color: #d9534f;
+  font-weight: 600;
+}
+
+.csv-row-ok {
+  color: #2e9e5b;
+  font-weight: 600;
+}
+
 .calendar-header {
   display: flex;
   align-items: center;

@@ -157,6 +157,11 @@ export const api = {
   }): Promise<ScheduledPost> => authedFetch("/scheduled-posts", { method: "POST", body: JSON.stringify(input) }),
   deleteScheduledPost: (id: string): Promise<null> => authedFetch(`/scheduled-posts/${id}`, { method: "DELETE" }),
 
+  bulkCreateScheduledPosts: (
+    posts: Array<{ socialAccountId: string; content: string; mediaUrl?: string; scheduledFor: string }>,
+  ): Promise<{ succeeded: number; failed: number; results: Array<{ row: number; status: number; body: { error?: string } }> }> =>
+    authedFetch("/scheduled-posts/bulk", { method: "POST", body: JSON.stringify({ posts }) }),
+
   getAnalyticsSummary: (days = 30): Promise<AnalyticsSummary> => authedFetch(`/analytics/summary?days=${days}`),
 
   listRecurringSchedules: (): Promise<RecurringSchedule[]> => authedFetch("/recurring-schedules"),
