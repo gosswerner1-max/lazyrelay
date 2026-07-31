@@ -110,17 +110,20 @@ async function releaseMediaIfOrphaned(mediaUrl: string, accountId: string): Prom
 }
 
 // Every platform LazyRelay supports, in the shape the frontend's platform
-// picker grid needs. "x" and "reddit" are always comingSoon: true — X has
-// no adapter built yet, Reddit is blocked on Reddit's own commercial-API
-// approval (see product/reference-social-automation-saas-venture-research
-// memory) — neither is ever in the registry, so they'd otherwise just show
-// up as "not configured" with no explanation.
+// picker grid needs. "reddit" is always comingSoon: true — blocked on
+// Reddit's own commercial-API approval (see
+// product/reference-social-automation-saas-venture-research memory), never
+// in the registry, so it'd otherwise just show up as "not configured" with
+// no explanation. "x" had the same gate until 2026-07-31 — its adapter is
+// now built, credentials are live on Render, and it's confirmed in the
+// registry, so it's a real, connectable platform now, not just "not
+// configured."
 const ALL_PLATFORMS = [
   "tiktok", "pinterest", "youtube", "mastodon", "bluesky", "telegram",
   "linkedin", "threads", "facebook", "instagram", "discord", "tumblr",
   "x", "reddit",
 ] as const;
-const COMING_SOON_PLATFORMS = new Set(["x", "reddit"]);
+const COMING_SOON_PLATFORMS = new Set(["reddit"]);
 
 export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: PlatformAdapterRegistry): Router {
   const router = Router();
