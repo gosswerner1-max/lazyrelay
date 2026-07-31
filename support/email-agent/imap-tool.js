@@ -80,6 +80,22 @@ async function listUnread(mailbox) {
   }
 }
 
+async function deleteMessage(mailbox, folderName, uid) {
+  const client = await connect(mailbox);
+  try {
+    const folderPath = (await resolveFolder(client, folderName)) || folderName;
+    const lock = await client.getMailboxLock(folderPath);
+    try {
+      await client.messageDelete([uid], { uid: true });
+      console.log(JSON.stringify({ deleted: true, folderPath, uid }));
+    } finally {
+      lock.release();
+    }
+  } finally {
+    await client.logout();
+  }
+}
+
 async function markRead(mailbox, uids) {
   const client = await connect(mailbox);
   try {
@@ -525,7 +541,7 @@ async function main() {
   const [, , cmd, mailbox, ...rest] = process.argv;
   if (!cmd || !mailbox) {
     console.error(
-      "Usage: node imap-tool.js <list-unread|get-message|list-drafts|save-draft|sort-mailbox|list-purge-candidates|purge-folder|search-all|mark-read> <mailbox> [args]"
+      "Usage: node imap-tool.js <list-unread|get-message|list-drafts|save-draft|sort-mailbox|list-purge-candidates|purge-folder|search-all|mark-read|delete-message> <mailbox> [args]"
     );
     process.exit(1);
   }
@@ -553,6 +569,7 @@ async function main() {
   }
   if (cmd === "sort-mailbox") return sortMailbox(mailbox);
   if (cmd === "mark-read") return markRead(mailbox, rest);
+  if (cmd === "delete-message") return deleteMessage(mailbox, rest[0], rest[1]);
   if (cmd === "list-purge-candidates") return listPurgeCandidates(mailbox, rest[0], rest[1]);
   if (cmd === "purge-folder") return purgeFolder(mailbox, rest[0], rest[1]);
   console.error(`Unknown command: ${cmd}`);
