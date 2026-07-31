@@ -110,6 +110,8 @@ export function Dashboard() {
 
   const [content, setContent] = useState("");
   const [aiTopic, setAiTopic] = useState("");
+  const [requiresApproval, setRequiresApproval] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
@@ -389,7 +391,7 @@ export function Dashboard() {
     }
   }
 
-  async function submitPost(scheduledForIso: string) {
+  async function submitPost(scheduledForIso: string, requiresApprovalOverride = requiresApproval) {
     if (selectedAccountIds.length === 0) {
       setError("Select at least one connected account to post to.");
       return;
@@ -406,12 +408,14 @@ export function Dashboard() {
           content,
           mediaUrl: mediaUrl ?? undefined,
           scheduledFor: scheduledForIso,
+          requiresApproval: requiresApprovalOverride,
         });
       }
       setContent("");
       setScheduleDate("");
       setScheduleTime("");
       setMediaUrl(null);
+      setRequiresApproval(false);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -430,7 +434,11 @@ export function Dashboard() {
   }
 
   async function handlePostNow() {
-    await submitPost(new Date().toISOString());
+    // "Post Now" + an approval gate would just sit forever waiting for
+    // someone to approve a post already meant to fire immediately —
+    // ignore the checkbox for this path rather than confuse the customer
+    // with a post that silently never goes out.
+    await submitPost(new Date().toISOString(), false);
   }
 
   async function handleMediaFile(file: File) {
@@ -479,6 +487,19 @@ export function Dashboard() {
     setMediaDragActive(false);
     const file = e.dataTransfer.files?.[0];
     if (file) handleMediaFile(file);
+  }
+
+  async function handleApprove(id: string) {
+    setApprovingId(id);
+    setError(null);
+    try {
+      await api.approveScheduledPost(id);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setApprovingId(null);
+    }
   }
 
   async function handleDelete(id: string, isHistory: boolean) {
@@ -1049,6 +1070,10 @@ export function Dashboard() {
                 required
               />
             </label>
+            <label className="approval-checkbox-label">
+              <input type="checkbox" checked={requiresApproval} onChange={(e) => setRequiresApproval(e.target.checked)} />
+              Require approval before this goes out
+            </label>
             <div className="schedule-form-actions">
               <button type="submit" disabled={submitting}>
                 {submitting ? "Scheduling..." : "Schedule"}
@@ -1225,9 +1250,9 @@ export function Dashboard() {
       </section>
 
       {(() => {
-        const upcoming = posts.filter((p) => p.status === "pending" || p.status === "posting");
+        const upcoming = posts.filter((p) => p.status === "pending" || p.status === "posting" || p.status === "needs_approval");
         const history = posts
-          .filter((p) => p.status !== "pending" && p.status !== "posting")
+          .filter((p) => p.status !== "pending" && p.status !== "posting" && p.status !== "needs_approval")
           .slice()
           .sort((a, b) => new Date(b.scheduled_for).getTime() - new Date(a.scheduled_for).getTime());
         const historyToShow = history.slice(0, historyShown);
@@ -1245,7 +1270,9 @@ export function Dashboard() {
               )}
               <div className="post-content">{p.content}</div>
               <div className="post-meta">
-                <span className={`status-badge status-${p.status}`}>{p.status}</span>
+                <span className={`status-badge status-${p.status}`}>
+                  {p.status === "needs_approval" ? "Needs approval" : p.status}
+                </span>
                 <span>{new Date(p.scheduled_for).toLocaleString()}</span>
                 {result && (
                   <span className={result.verified_live ? "verified" : "not-verified"}>
@@ -1258,9 +1285,18 @@ export function Dashboard() {
                     )}
                   </span>
                 )}
+                {p.status === "needs_approval" && (
+                  <button
+                    className="btn-outline"
+                    disabled={approvingId === p.id}
+                    onClick={() => handleApprove(p.id)}
+                  >
+                    {approvingId === p.id ? "Approving..." : "Approve"}
+                  </button>
+                )}
                 {p.status !== "posting" && (
-                  <button className="btn-outline" onClick={() => handleDelete(p.id, p.status !== "pending")}>
-                    {p.status === "pending" ? "Cancel" : "Delete"}
+                  <button className="btn-outline" onClick={() => handleDelete(p.id, p.status !== "pending" && p.status !== "needs_approval")}>
+                    {p.status === "pending" || p.status === "needs_approval" ? "Cancel" : "Delete"}
                   </button>
                 )}
               </div>
@@ -1398,7 +1434,9 @@ export function Dashboard() {
                           )}
                           <div className="post-content">{p.content}</div>
                           <div className="post-meta">
-                            <span className={`status-badge status-${p.status}`}>{p.status}</span>
+                            <span className={`status-badge status-${p.status}`}>
+                              {p.status === "needs_approval" ? "Needs approval" : p.status}
+                            </span>
                             <span>{new Date(p.scheduled_for).toLocaleTimeString()}</span>
                             {result && (
                               <span className={result.verified_live ? "verified" : "not-verified"}>
@@ -1411,9 +1449,14 @@ export function Dashboard() {
                                 )}
                               </span>
                             )}
+                            {p.status === "needs_approval" && (
+                              <button className="btn-outline" disabled={approvingId === p.id} onClick={() => handleApprove(p.id)}>
+                                {approvingId === p.id ? "Approving..." : "Approve"}
+                              </button>
+                            )}
                             {p.status !== "posting" && (
-                              <button className="btn-outline" onClick={() => handleDelete(p.id, p.status !== "pending")}>
-                                {p.status === "pending" ? "Cancel" : "Delete"}
+                              <button className="btn-outline" onClick={() => handleDelete(p.id, p.status !== "pending" && p.status !== "needs_approval")}>
+                                {p.status === "pending" || p.status === "needs_approval" ? "Cancel" : "Delete"}
                               </button>
                             )}
                           </div>

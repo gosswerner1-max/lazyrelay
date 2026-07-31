@@ -36,7 +36,7 @@ export interface ScheduledPost {
   content: string;
   media_url: string | null;
   scheduled_for: string;
-  status: "pending" | "posting" | "posted" | "failed";
+  status: "pending" | "posting" | "posted" | "failed" | "needs_approval";
   post_results: Array<{ verified_live: boolean; platform_post_url: string | null; error_message: string | null }>;
 }
 
@@ -154,8 +154,11 @@ export const api = {
     content: string;
     mediaUrl?: string;
     scheduledFor: string;
+    requiresApproval?: boolean;
   }): Promise<ScheduledPost> => authedFetch("/scheduled-posts", { method: "POST", body: JSON.stringify(input) }),
   deleteScheduledPost: (id: string): Promise<null> => authedFetch(`/scheduled-posts/${id}`, { method: "DELETE" }),
+  approveScheduledPost: (id: string): Promise<ScheduledPost> =>
+    authedFetch(`/scheduled-posts/${id}/approve`, { method: "PATCH" }),
 
   bulkCreateScheduledPosts: (
     posts: Array<{ socialAccountId: string; content: string; mediaUrl?: string; scheduledFor: string }>,

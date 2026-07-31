@@ -426,9 +426,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // throwing, since a bulk caller needs to keep going past one bad row.
   async function scheduleOnePost(
     accountId: string | undefined,
-    input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; scheduledFor?: unknown },
+    input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; scheduledFor?: unknown; requiresApproval?: unknown },
   ): Promise<{ status: number; body: Record<string, unknown> }> {
-    const { socialAccountId, content, mediaUrl, scheduledFor } = input;
+    const { socialAccountId, content, mediaUrl, scheduledFor, requiresApproval } = input;
     if (!socialAccountId || !content || !scheduledFor) {
       return { status: 400, body: { error: "socialAccountId, content, and scheduledFor are required" } };
     }
@@ -541,6 +541,11 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         content,
         media_url: mediaUrl ?? null,
         scheduled_for: scheduledFor,
+        // A post created with requiresApproval sits in needs_approval —
+        // invisible to the scheduler (claimDuePosts only ever selects
+        // status='pending') — until explicitly approved via
+        // PATCH /scheduled-posts/:id/approve.
+        status: requiresApproval === true ? "needs_approval" : "pending",
       })
       .select()
       .single();
@@ -659,6 +664,30 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       dailyCounts,
       verifiedLiveRate: postedCount > 0 ? verifiedLiveCount / postedCount : null,
     });
+  });
+
+  // Flips a needs_approval post to pending, making it eligible for the
+  // scheduler. There's no separate "approver" role today (see
+  // 0026_scheduled_posts_approval.sql) — anyone authenticated as this
+  // account can approve, same as anyone can already edit/delete any post.
+  router.patch("/scheduled-posts/:id/approve", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data, error, count } = await supabase
+      .from("scheduled_posts")
+      .update({ status: "pending" }, { count: "exact" })
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .eq("status", "needs_approval")
+      .select()
+      .maybeSingle();
+    if (error) {
+      dbError(res, error, "PATCH /scheduled-posts/:id/approve");
+      return;
+    }
+    if (!count || !data) {
+      res.status(404).json({ error: "Not found, not owned by this caller, or not awaiting approval" });
+      return;
+    }
+    res.json(data);
   });
 
   // A pending post can be cancelled, or a posted/failed one cleared from

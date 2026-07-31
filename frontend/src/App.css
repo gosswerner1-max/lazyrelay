@@ -598,6 +598,10 @@
   background: #d9534f;
 }
 
+.calendar-dot-needs_approval {
+  background: #e0a02c;
+}
+
 .calendar-cell-more {
   font-size: 9px;
   color: var(--wire);
@@ -881,6 +885,20 @@
 .status-active {
   background: var(--confirm-bg);
   color: var(--confirm);
+}
+
+.status-needs_approval {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.approval-checkbox-label {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+  text-transform: none !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
 }
 
 .status-trialing {
