@@ -7,7 +7,13 @@ import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
 import { Spinner } from "../components/Spinner";
 
-const TABS = ["Overview", "Posts", "Analytics", "Accounts", "Settings"] as const;
+const TABS = ["Overview", "Posts", "Calendar", "Analytics", "Accounts", "Settings"] as const;
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function localDateKey(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 type Tab = (typeof TABS)[number];
 
 // Read once at module scope (not inside the component) — React 18
@@ -81,6 +87,11 @@ export function Dashboard() {
   const [mediaDragActive, setMediaDragActive] = useState(false);
   const [historyShown, setHistoryShown] = useState(10);
   const [paddle, setPaddle] = useState<Paddle | undefined>(undefined);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsRangeDays, setAnalyticsRangeDays] = useState(30);
@@ -1060,6 +1071,134 @@ export function Dashboard() {
       })()}
       </>
       )}
+
+      {tab === "Calendar" && (() => {
+        const year = calendarMonth.getFullYear();
+        const month = calendarMonth.getMonth();
+        const firstOfMonth = new Date(year, month, 1);
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const leadingBlanks = firstOfMonth.getDay();
+        const todayKey = localDateKey(new Date().toISOString());
+
+        const postsByDay: Record<string, ScheduledPost[]> = {};
+        for (const p of posts) {
+          const key = localDateKey(p.scheduled_for);
+          (postsByDay[key] ??= []).push(p);
+        }
+
+        const cells: { day: number | null; key: string | null }[] = [];
+        for (let i = 0; i < leadingBlanks; i++) cells.push({ day: null, key: null });
+        for (let d = 1; d <= daysInMonth; d++) {
+          cells.push({ day: d, key: `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}` });
+        }
+
+        const dayPosts = selectedDay ? (postsByDay[selectedDay] ?? []) : [];
+
+        return (
+          <section>
+            <div className="calendar-header">
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => {
+                  setCalendarMonth(new Date(year, month - 1, 1));
+                  setSelectedDay(null);
+                }}
+              >
+                &larr; Prev
+              </button>
+              <h2>{firstOfMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</h2>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => {
+                  setCalendarMonth(new Date(year, month + 1, 1));
+                  setSelectedDay(null);
+                }}
+              >
+                Next &rarr;
+              </button>
+            </div>
+
+            <div className="calendar-grid">
+              {WEEKDAY_LABELS.map((w) => (
+                <div key={w} className="calendar-weekday">
+                  {w}
+                </div>
+              ))}
+              {cells.map((c, i) =>
+                c.day === null ? (
+                  <div key={`blank-${i}`} className="calendar-cell calendar-cell-blank" />
+                ) : (
+                  <button
+                    key={c.key}
+                    type="button"
+                    className={`calendar-cell${c.key === todayKey ? " calendar-cell-today" : ""}${c.key === selectedDay ? " calendar-cell-selected" : ""}`}
+                    onClick={() => setSelectedDay(c.key === selectedDay ? null : c.key)}
+                  >
+                    <span className="calendar-cell-day">{c.day}</span>
+                    {c.key && postsByDay[c.key] && (
+                      <span className="calendar-cell-dots">
+                        {postsByDay[c.key].slice(0, 4).map((p) => (
+                          <span key={p.id} className={`calendar-dot calendar-dot-${p.status}`} />
+                        ))}
+                        {postsByDay[c.key].length > 4 && <span className="calendar-cell-more">+{postsByDay[c.key].length - 4}</span>}
+                      </span>
+                    )}
+                  </button>
+                ),
+              )}
+            </div>
+
+            {selectedDay && (
+              <div className="calendar-day-detail">
+                <h3>{new Date(`${selectedDay}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</h3>
+                {dayPosts.length === 0 ? (
+                  <p className="empty">Nothing scheduled this day.</p>
+                ) : (
+                  <ul className="post-list">
+                    {dayPosts.map((p) => {
+                      const account = accounts.find((a) => a.id === p.social_account_id);
+                      const result = p.post_results?.[0];
+                      return (
+                        <li key={p.id} className={`post-status-${p.status}`}>
+                          {account && (
+                            <div className="post-platform">
+                              <PlatformIcon platform={account.platform} size={14} />
+                              {account.display_name ?? account.platform_account_id}
+                            </div>
+                          )}
+                          <div className="post-content">{p.content}</div>
+                          <div className="post-meta">
+                            <span className={`status-badge status-${p.status}`}>{p.status}</span>
+                            <span>{new Date(p.scheduled_for).toLocaleTimeString()}</span>
+                            {result && (
+                              <span className={result.verified_live ? "verified" : "not-verified"}>
+                                {result.verified_live ? (
+                                  <>
+                                    <RelaySignal size={14} pulsing /> Confirmed live
+                                  </>
+                                ) : (
+                                  `Not confirmed — ${result.error_message ?? "couldn't verify"}`
+                                )}
+                              </span>
+                            )}
+                            {p.status !== "posting" && (
+                              <button className="btn-outline" onClick={() => handleDelete(p.id, p.status !== "pending")}>
+                                {p.status === "pending" ? "Cancel" : "Delete"}
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            )}
+          </section>
+        );
+      })()}
 
       {tab === "Settings" && (
       <section>
