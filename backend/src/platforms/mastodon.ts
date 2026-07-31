@@ -4,6 +4,7 @@ import type {
   PostAttemptResult,
   VerifyResult,
   OAuthExchangeResult,
+  CommentsResult,
 } from "./types.js";
 
 // Real, confirmed platform gotcha: Mastodon is decentralized — every
@@ -57,6 +58,17 @@ interface MastodonMedia {
 interface MastodonStatus {
   id?: string;
   url?: string | null;
+  error?: string;
+}
+
+interface MastodonContext {
+  descendants?: Array<{
+    id?: string;
+    url?: string | null;
+    content?: string;
+    created_at?: string;
+    account?: { display_name?: string; username?: string };
+  }>;
   error?: string;
 }
 
@@ -235,5 +247,32 @@ export class MastodonAdapter implements PlatformAdapter {
       platformPostUrl: json.url ?? `${DEFAULT_INSTANCE}/web/statuses/${platformPostId}`,
       errorMessage: null,
     };
+  }
+
+  // /context's "descendants" are every reply in the thread below this
+  // status, not strictly one-level-deep comments — the closest real
+  // equivalent Mastodon's API offers to "comments on this post."
+  async getComments(platformPostId: string, accessToken: string): Promise<CommentsResult> {
+    const res = await fetch(`${DEFAULT_INSTANCE}/api/v1/statuses/${platformPostId}/context`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const json = (await res.json().catch(() => ({}))) as MastodonContext;
+    if (!res.ok) {
+      return { comments: [], errorMessage: json.error ?? `Could not load replies (HTTP ${res.status})` };
+    }
+
+    const comments = (json.descendants ?? []).flatMap((reply) => {
+      if (!reply.id) return [];
+      return [
+        {
+          id: reply.id,
+          author: reply.account?.display_name || reply.account?.username || "Unknown",
+          text: (reply.content ?? "").replace(/<[^>]+>/g, "").trim(),
+          url: reply.url ?? null,
+          createdAt: reply.created_at ?? null,
+        },
+      ];
+    });
+    return { comments, errorMessage: null };
   }
 }

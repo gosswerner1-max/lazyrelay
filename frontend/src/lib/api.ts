@@ -141,6 +141,24 @@ export interface PublicBioPage {
   links: Array<{ id: string; label: string; url: string }>;
 }
 
+export interface MentionComment {
+  id: string;
+  author: string;
+  text: string;
+  url: string | null;
+  createdAt: string | null;
+}
+
+export interface MentionPost {
+  postId: string;
+  platform: string;
+  content: string;
+  platformPostUrl: string | null;
+  supported: boolean;
+  comments: MentionComment[];
+  errorMessage?: string | null;
+}
+
 export interface ApiKey {
   id: string;
   name: string;
@@ -189,6 +207,8 @@ export const api = {
     authedFetch("/scheduled-posts/bulk", { method: "POST", body: JSON.stringify({ posts }) }),
 
   getAnalyticsSummary: (days = 30): Promise<AnalyticsSummary> => authedFetch(`/analytics/summary?days=${days}`),
+
+  getMentions: (): Promise<{ posts: MentionPost[] }> => authedFetch("/mentions"),
 
   generateCaption: (topic: string, platform?: string, tone?: string): Promise<{ caption: string }> =>
     authedFetch("/ai/caption", { method: "POST", body: JSON.stringify({ topic, platform, tone }) }),

@@ -4,6 +4,7 @@ import type {
   PostAttemptResult,
   VerifyResult,
   OAuthExchangeResult,
+  CommentsResult,
 } from "./types.js";
 
 const AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -11,6 +12,7 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const CHANNELS_URL = "https://www.googleapis.com/youtube/v3/channels";
 const UPLOAD_INIT_URL = "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status";
 const VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos";
+const COMMENT_THREADS_URL = "https://www.googleapis.com/youtube/v3/commentThreads";
 
 // youtube.upload lets us post videos; youtube.readonly lets us look up the
 // authenticated channel's id/title for OAuthExchangeResult.
@@ -46,6 +48,17 @@ interface YouTubeVideoResource {
 
 interface YouTubeErrorBody {
   error?: { message?: string };
+}
+
+interface YouTubeCommentThreadListResponse {
+  items?: Array<{
+    id?: string;
+    snippet?: {
+      topLevelComment?: {
+        snippet?: { authorDisplayName?: string; textDisplay?: string; publishedAt?: string };
+      };
+    };
+  }>;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -232,5 +245,36 @@ export class YouTubeAdapter implements PlatformAdapter {
       platformPostUrl: null,
       errorMessage: "YouTube is still processing this video — verification timed out",
     };
+  }
+
+  async getComments(platformPostId: string, accessToken: string): Promise<CommentsResult> {
+    const url = new URL(COMMENT_THREADS_URL);
+    url.searchParams.set("part", "snippet");
+    url.searchParams.set("videoId", platformPostId);
+    url.searchParams.set("maxResults", "50");
+    url.searchParams.set("order", "time");
+
+    const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${accessToken}` } });
+    const json = (await res.json().catch(() => ({}))) as YouTubeCommentThreadListResponse & YouTubeErrorBody;
+    if (!res.ok) {
+      // Comments disabled on the video is a real, common, non-error case —
+      // YouTube returns 403 commentsDisabled for it, not an empty list.
+      return { comments: [], errorMessage: json.error?.message ?? `Could not load comments (HTTP ${res.status})` };
+    }
+
+    const comments = (json.items ?? []).flatMap((item) => {
+      const c = item.snippet?.topLevelComment?.snippet;
+      if (!item.id || !c) return [];
+      return [
+        {
+          id: item.id,
+          author: c.authorDisplayName ?? "Unknown",
+          text: c.textDisplay ?? "",
+          url: `https://www.youtube.com/watch?v=${platformPostId}&lc=${item.id}`,
+          createdAt: c.publishedAt ?? null,
+        },
+      ];
+    });
+    return { comments, errorMessage: null };
   }
 }

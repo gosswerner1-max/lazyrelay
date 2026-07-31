@@ -24,6 +24,19 @@ export interface VerifyResult {
   errorMessage: string | null;
 }
 
+export interface CommentItem {
+  id: string;
+  author: string;
+  text: string;
+  url: string | null;
+  createdAt: string | null;
+}
+
+export interface CommentsResult {
+  comments: CommentItem[];
+  errorMessage: string | null;
+}
+
 export interface OAuthExchangeResult {
   accessToken: string;
   refreshToken: string | null;
@@ -57,4 +70,16 @@ export interface PlatformAdapter {
 
   post(request: PostRequest): Promise<PostAttemptResult>;
   verifyPublished(platformPostId: string, accessToken: string): Promise<VerifyResult>;
+
+  /** Optional — "social listening" in the only honest sense this codebase
+   *  can currently deliver: reading comments/replies on a post LazyRelay
+   *  itself published, using the access token already on file. NOT
+   *  keyword/brand-mention search across public content platform-wide —
+   *  that needs each platform's search API, most of which are separately
+   *  gated/paid and out of scope for this pass. Only implemented for
+   *  platforms whose comment-read endpoint needs no scope beyond what's
+   *  already requested (Mastodon, Bluesky, YouTube) — every other adapter
+   *  simply doesn't declare this method, and callers must treat its
+   *  absence as "not supported," never silently empty. */
+  getComments?(platformPostId: string, accessToken: string): Promise<CommentsResult>;
 }

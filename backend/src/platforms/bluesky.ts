@@ -4,6 +4,7 @@ import type {
   PostAttemptResult,
   VerifyResult,
   OAuthExchangeResult,
+  CommentsResult,
 } from "./types.js";
 
 // Real, confirmed platform gotcha: AT Protocol's real OAuth (PAR + DPoP +
@@ -24,6 +25,7 @@ const CREATE_RECORD_URL = `${DEFAULT_PDS}/xrpc/com.atproto.repo.createRecord`;
 const GET_RECORD_URL = `${DEFAULT_PDS}/xrpc/com.atproto.repo.getRecord`;
 const UPLOAD_BLOB_URL = `${DEFAULT_PDS}/xrpc/com.atproto.repo.uploadBlob`;
 const GET_PROFILE_URL = "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile";
+const GET_POST_THREAD_URL = "https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread";
 
 const POST_COLLECTION = "app.bsky.feed.post";
 
@@ -63,6 +65,20 @@ interface BlueskyCreateRecordResponse {
 
 interface BlueskyGetRecordResponse {
   uri?: string;
+  error?: string;
+  message?: string;
+}
+
+interface BlueskyPostThreadReply {
+  post?: {
+    uri?: string;
+    record?: { text?: string; createdAt?: string };
+    author?: { displayName?: string; handle?: string };
+  };
+}
+
+interface BlueskyGetPostThreadResponse {
+  thread?: { replies?: BlueskyPostThreadReply[] };
   error?: string;
   message?: string;
 }
@@ -267,5 +283,35 @@ export class BlueskyAdapter implements PlatformAdapter {
       platformPostUrl: `https://bsky.app/profile/${did}/post/${rkey}`,
       errorMessage: null,
     };
+  }
+
+  // Public, unauthenticated read — Bluesky's own thread endpoint doesn't
+  // need the connected account's token for a public post, but this still
+  // only surfaces top-level replies (thread.replies), not the full
+  // recursive tree.
+  async getComments(platformPostId: string): Promise<CommentsResult> {
+    const atUri = platformPostId;
+    const url = `${GET_POST_THREAD_URL}?uri=${encodeURIComponent(atUri)}&depth=1`;
+    const res = await fetch(url);
+    const json = (await res.json().catch(() => ({}))) as BlueskyGetPostThreadResponse;
+    if (!res.ok) {
+      return { comments: [], errorMessage: json.message ?? json.error ?? `Could not load replies (HTTP ${res.status})` };
+    }
+
+    const comments = (json.thread?.replies ?? []).flatMap((reply) => {
+      const post = reply.post;
+      if (!post?.uri) return [];
+      const match = /^at:\/\/([^/]+)\/[^/]+\/([^/]+)$/.exec(post.uri);
+      return [
+        {
+          id: post.uri,
+          author: post.author?.displayName || post.author?.handle || "Unknown",
+          text: post.record?.text ?? "",
+          url: match ? `https://bsky.app/profile/${match[1]}/post/${match[2]}` : null,
+          createdAt: post.record?.createdAt ?? null,
+        },
+      ];
+    });
+    return { comments, errorMessage: null };
   }
 }

@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
-import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage } from "../lib/api";
+import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost } from "../lib/api";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
 import { bestTimeFor } from "../lib/bestTimes";
 import { Spinner } from "../components/Spinner";
 
-const TABS = ["Overview", "Posts", "Calendar", "Analytics", "Bio Page", "Accounts", "Settings"] as const;
+const TABS = ["Overview", "Posts", "Calendar", "Analytics", "Mentions", "Bio Page", "Accounts", "Settings"] as const;
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function localDateKey(iso: string): string {
@@ -145,6 +145,8 @@ export function Dashboard() {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [mentions, setMentions] = useState<MentionPost[] | null>(null);
+  const [mentionsLoading, setMentionsLoading] = useState(false);
   const [bioPage, setBioPage] = useState<BioPage | null | undefined>(undefined);
   const [bioLoading, setBioLoading] = useState(false);
   const [bioSaving, setBioSaving] = useState(false);
@@ -216,6 +218,19 @@ export function Dashboard() {
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setAnalyticsLoading(false));
   }, [tab, analyticsRangeDays]);
+
+  // Lazy-loaded — fetching comments hits each platform's API per post, so
+  // this should only run when the customer actually opens the tab, not on
+  // every dashboard load.
+  useEffect(() => {
+    if (tab !== "Mentions" || mentions !== null) return;
+    setMentionsLoading(true);
+    api
+      .getMentions()
+      .then((res) => setMentions(res.posts))
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setMentionsLoading(false));
+  }, [tab, mentions]);
 
   // Also lazy-loaded, same reasoning as analytics — only fetched once the
   // customer actually opens the tab.
@@ -974,6 +989,51 @@ export function Dashboard() {
                 })}
             </div>
           </>
+        )}
+      </section>
+      )}
+
+      {tab === "Mentions" && (
+      <section>
+        <h2>Mentions &amp; comments</h2>
+        <p className="muted">
+          Comments on your recent posts, pulled directly from each platform. Only Mastodon, Bluesky, and YouTube
+          support this today — every other platform's comments still live on the platform itself, not here yet.
+        </p>
+        {mentionsLoading && <Spinner />}
+        {!mentionsLoading && mentions && mentions.length === 0 && <p className="empty">No recent posted content yet.</p>}
+        {!mentionsLoading && mentions && mentions.length > 0 && (
+          <ul className="mentions-list">
+            {mentions.map((post) => (
+              <li key={post.postId} className="mentions-post">
+                <div className="post-platform">
+                  <PlatformIcon platform={post.platform} size={14} />
+                  {post.platform}
+                  {post.platformPostUrl && (
+                    <a href={post.platformPostUrl} target="_blank" rel="noopener noreferrer" className="mentions-view-link">
+                      View post
+                    </a>
+                  )}
+                </div>
+                <div className="post-content">{post.content}</div>
+                {!post.supported && <p className="mentions-unsupported">Comments aren't available for this platform yet.</p>}
+                {post.supported && post.errorMessage && <p className="mentions-unsupported">{post.errorMessage}</p>}
+                {post.supported && post.comments.length === 0 && !post.errorMessage && (
+                  <p className="mentions-empty">No comments yet.</p>
+                )}
+                {post.comments.length > 0 && (
+                  <ul className="mentions-comment-list">
+                    {post.comments.map((c) => (
+                      <li key={c.id}>
+                        <span className="mentions-comment-author">{c.author}</span>
+                        <span className="mentions-comment-text">{c.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
         )}
       </section>
       )}

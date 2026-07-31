@@ -858,6 +858,79 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.json(data);
   });
 
+  // Social listening, in the only honest sense currently buildable: reading
+  // comments/replies on posts LazyRelay itself published (via each
+  // adapter's optional getComments — see the PlatformAdapter comment for
+  // why full keyword/brand-mention search across public content isn't in
+  // scope here). Only Mastodon/Bluesky/YouTube implement it today; every
+  // other platform's posts come back with supported:false rather than a
+  // silently empty comment list, so the UI never implies broader coverage
+  // than actually exists.
+  router.get("/mentions", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: posts, error } = await supabase
+      .from("scheduled_posts")
+      .select("id, content, social_account_id, social_accounts(platform), post_results(platform_post_id, platform_post_url, verified_live)")
+      .eq("account_id", req.accountId)
+      .eq("status", "posted")
+      .order("scheduled_for", { ascending: false })
+      .limit(15);
+    if (error) {
+      dbError(res, error, "GET /mentions");
+      return;
+    }
+
+    const results = [];
+    for (const post of posts ?? []) {
+      const platform = Array.isArray(post.social_accounts) ? post.social_accounts[0]?.platform : (post.social_accounts as { platform?: string } | null)?.platform;
+      const results_ = Array.isArray(post.post_results) ? post.post_results : post.post_results ? [post.post_results] : [];
+      const result = results_.find((r: { verified_live: boolean }) => r.verified_live);
+      if (!platform || !result?.platform_post_id) continue;
+
+      const adapter = registry.get(platform);
+      if (!adapter || !adapter.getComments) {
+        results.push({ postId: post.id, platform, content: post.content, platformPostUrl: result.platform_post_url, supported: false, comments: [] });
+        continue;
+      }
+
+      try {
+        const { data: account } = await supabase
+          .from("social_accounts")
+          .select("access_token_vault_id")
+          .eq("id", post.social_account_id)
+          .single();
+        const { data: accessToken } = account
+          ? await supabase.rpc("read_social_token", { p_vault_id: account.access_token_vault_id })
+          : { data: null };
+        if (!accessToken) {
+          results.push({ postId: post.id, platform, content: post.content, platformPostUrl: result.platform_post_url, supported: true, comments: [], errorMessage: "Could not load this account's access token" });
+          continue;
+        }
+        const commentsResult = await adapter.getComments(result.platform_post_id, accessToken as string);
+        results.push({
+          postId: post.id,
+          platform,
+          content: post.content,
+          platformPostUrl: result.platform_post_url,
+          supported: true,
+          comments: commentsResult.comments,
+          errorMessage: commentsResult.errorMessage,
+        });
+      } catch (err) {
+        results.push({
+          postId: post.id,
+          platform,
+          content: post.content,
+          platformPostUrl: result.platform_post_url,
+          supported: true,
+          comments: [],
+          errorMessage: err instanceof Error ? err.message : "Could not load comments",
+        });
+      }
+    }
+
+    res.json({ posts: results });
+  });
+
   // Phase 1 analytics — post-level engagement (likes/shares/views) isn't
   // available yet: that needs a per-platform metrics-fetch method this
   // codebase doesn't have (a real, larger scope, not an oversight). This
