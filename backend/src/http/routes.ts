@@ -188,6 +188,60 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
   });
 
+  // Hashtag suggestions — same optional-integration gate as /ai/caption.
+  // Takes the post content itself (not a separate topic) so suggestions are
+  // grounded in what's actually being posted, not a guess from a short
+  // label. Instagram's 5-hashtag cap (see reference-blotato memory) isn't
+  // enforced server-side here — this returns a reasonable general count and
+  // leaves platform-specific trimming to the customer, same as content
+  // length isn't platform-validated until actual scheduling.
+  router.post("/ai/hashtags", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      res.status(503).json({ error: "AI hashtag suggestions aren't set up on this deploy yet." });
+      return;
+    }
+    const { content, platform } = req.body ?? {};
+    if (typeof content !== "string" || content.trim().length === 0) {
+      res.status(400).json({ error: "content must be a non-empty string" });
+      return;
+    }
+    if (content.length > MAX_POST_CONTENT_LENGTH) {
+      res.status(400).json({ error: `content must be ${MAX_POST_CONTENT_LENGTH} characters or fewer` });
+      return;
+    }
+    const platformLabel = typeof platform === "string" && platform.trim() ? platform.trim() : "a general social platform";
+
+    try {
+      const client = new Anthropic({ apiKey });
+      const message = await client.messages.create({
+        model: "claude-opus-4-8",
+        max_tokens: 200,
+        messages: [
+          {
+            role: "user",
+            content:
+              `Suggest 5-8 relevant hashtags for this ${platformLabel} post:\n\n${content}\n\n` +
+              `Output ONLY the hashtags, space-separated, each starting with #, no other text, no numbering, no explanation. Mix broad-reach and niche-specific tags — not all generic, not all obscure.`,
+          },
+        ],
+      });
+      const textBlock = message.content.find((block) => block.type === "text");
+      if (!textBlock || textBlock.type !== "text") {
+        res.status(502).json({ error: "AI hashtag suggestions returned no usable text." });
+        return;
+      }
+      const hashtags = textBlock.text
+        .trim()
+        .split(/\s+/)
+        .filter((tag) => tag.startsWith("#") && tag.length > 1);
+      res.json({ hashtags });
+    } catch (err) {
+      console.error("[routes] POST /ai/hashtags:", err instanceof Error ? err.message : err);
+      res.status(502).json({ error: "AI hashtag suggestions failed — please try again." });
+    }
+  });
+
   // Starts the "connect your social account" flow — returns the URL the
   // frontend should redirect the user to. Real account identity comes from
   // the verified JWT; the callback below never has to trust anything the

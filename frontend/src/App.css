@@ -470,6 +470,10 @@
   letter-spacing: normal;
 }
 
+.hashtag-suggest-row {
+  margin-top: -6px;
+}
+
 .ai-caption-row {
   display: flex;
   gap: 8px;

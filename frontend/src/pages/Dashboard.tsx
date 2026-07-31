@@ -113,6 +113,7 @@ export function Dashboard() {
   const [requiresApproval, setRequiresApproval] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [hashtagGenerating, setHashtagGenerating] = useState(false);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
   const [scheduleTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
@@ -388,6 +389,26 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setAiGenerating(false);
+    }
+  }
+
+  async function handleSuggestHashtags() {
+    if (!content.trim()) {
+      setError("Write (or generate) the post content first.");
+      return;
+    }
+    setHashtagGenerating(true);
+    setError(null);
+    try {
+      const firstAccount = accounts.find((a) => a.id === selectedAccountIds[0]);
+      const { hashtags } = await api.suggestHashtags(content.trim(), firstAccount?.platform);
+      if (hashtags.length > 0) {
+        setContent((prev) => `${prev.trim()}\n\n${hashtags.join(" ")}`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setHashtagGenerating(false);
     }
   }
 
@@ -1002,6 +1023,11 @@ export function Dashboard() {
               Content
               <textarea value={content} onChange={(e) => setContent(e.target.value)} required />
             </label>
+            <div className="hashtag-suggest-row">
+              <button type="button" className="btn-outline" disabled={hashtagGenerating} onClick={handleSuggestHashtags}>
+                {hashtagGenerating ? "Suggesting..." : "Suggest hashtags"}
+              </button>
+            </div>
             <label>
               Media (optional)
               <div

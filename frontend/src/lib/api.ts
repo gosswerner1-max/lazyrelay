@@ -170,6 +170,9 @@ export const api = {
   generateCaption: (topic: string, platform?: string, tone?: string): Promise<{ caption: string }> =>
     authedFetch("/ai/caption", { method: "POST", body: JSON.stringify({ topic, platform, tone }) }),
 
+  suggestHashtags: (content: string, platform?: string): Promise<{ hashtags: string[] }> =>
+    authedFetch("/ai/hashtags", { method: "POST", body: JSON.stringify({ content, platform }) }),
+
   listRecurringSchedules: (): Promise<RecurringSchedule[]> => authedFetch("/recurring-schedules"),
   createRecurringSchedule: (input: RecurringScheduleInput): Promise<RecurringSchedule> =>
     authedFetch("/recurring-schedules", { method: "POST", body: JSON.stringify(input) }),
