@@ -28,42 +28,18 @@ const FEATURES = [
     title: "Proof-of-Publish",
     body: "Every post is independently verified as actually live on the platform — not just \"sent,\" but confirmed.",
   },
-  {
-    title: "Analytics Dashboard",
-    body: "See your total posts, per-platform success rates, and a daily volume trend — pulled from your own posting and Proof-of-Publish history.",
-  },
-  {
-    title: "Content Calendar",
-    body: "See everything you've got scheduled laid out on a real month grid, not just a list — spot gaps and clashes at a glance.",
-  },
-  {
-    title: "Bulk CSV Import",
-    body: "Upload a spreadsheet of posts and schedule up to 200 at once, with a per-row preview before anything goes live.",
-  },
-  {
-    title: "AI Captions & Hashtags",
-    body: "Stuck on wording? Generate a caption or relevant hashtags from your draft in one click — you still choose what actually gets posted.",
-  },
-  {
-    title: "Best-Time Suggestions",
-    body: "General, platform-by-platform posting-time guidance to help you pick a slot — not personalized to your account's own data yet.",
-  },
-  {
-    title: "Approval Workflow",
-    body: "Mark a post as needing approval before it goes out, so a second set of eyes can sign off first.",
-  },
-  {
-    title: "Link-in-Bio Page",
-    body: "A simple, hosted link page for your bio — add the links you want and share one URL across every platform.",
-  },
-  {
-    title: "Comment Tracking",
-    body: "See the comments on your own published YouTube, Mastodon, and Bluesky posts without leaving LazyRelay.",
-  },
-  {
-    title: "Browser Extension",
-    body: "Right-click any page, link, or image while you browse and send it straight to LazyRelay to schedule.",
-  },
+];
+
+const MORE_FEATURES = [
+  "Analytics dashboard — total posts, per-platform success rates, and a daily volume trend",
+  "Content calendar — everything you've got scheduled on a real month grid",
+  "Bulk CSV import — schedule up to 200 posts at once, with a per-row preview first",
+  "AI captions & hashtags — generate wording or tags from your draft in one click",
+  "Best-time suggestions — general, platform-by-platform posting-time guidance",
+  "Approval workflow — mark a post as needing sign-off before it goes out",
+  "Link-in-bio page — a simple, hosted link page you can share as one URL",
+  "Comment tracking — see comments on your own YouTube, Mastodon, and Bluesky posts",
+  "Browser extension — right-click any page, link, or image to send it to LazyRelay",
 ];
 
 const STEPS = [
@@ -247,6 +223,11 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact 
             </div>
           ))}
         </div>
+        <ul className="landing-more-features">
+          {MORE_FEATURES.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
       </section>
 
       <section className="landing-section landing-platforms">
