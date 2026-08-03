@@ -35,6 +35,11 @@ interface TikTokApiEnvelope<T> {
   error?: { code: string; message: string; log_id?: string };
 }
 
+// TikTok's own single-chunk exception: files under 5MB may be uploaded as
+// one chunk (chunk_size === video_size, total_chunk_count === 1) instead of
+// being split into 5-64MB chunks.
+const SINGLE_CHUNK_MAX_BYTES = 5 * 1024 * 1024;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -106,6 +111,24 @@ export class TikTokAdapter implements PlatformAdapter {
       return { success: false, platformPostId: null, errorMessage: "TikTok posts require a video URL" };
     }
 
+    // FILE_UPLOAD instead of PULL_FROM_URL: pull-by-url requires the video's
+    // domain to be added to TikTok's "Verified domains" for the Content
+    // Posting API. Our media is served from Supabase storage
+    // (*.supabase.co) — a shared domain we don't control the DNS for and
+    // can never verify — so pull-by-url would fail for every post, not just
+    // this one. Uploading the bytes directly sidesteps domain verification
+    // entirely.
+    const videoRes = await fetch(request.mediaUrl);
+    if (!videoRes.ok) {
+      return {
+        success: false,
+        platformPostId: null,
+        errorMessage: `Failed to fetch video from storage for upload (HTTP ${videoRes.status})`,
+      };
+    }
+    const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
+    const videoSize = videoBuffer.byteLength;
+
     const res = await fetch(POST_INIT_URL, {
       method: "POST",
       headers: {
@@ -127,18 +150,48 @@ export class TikTokAdapter implements PlatformAdapter {
           disable_comment: false,
         },
         source_info: {
-          source: "PULL_FROM_URL",
-          video_url: request.mediaUrl,
+          source: "FILE_UPLOAD",
+          video_size: videoSize,
+          // Files under 5MB go up as a single chunk (TikTok's own documented
+          // exception to the normal 5-64MB chunk range) — true for every
+          // video this app generates today. A genuinely large upload would
+          // need real chunking here.
+          chunk_size: videoSize,
+          total_chunk_count: 1,
         },
       }),
     });
-    const json = (await res.json()) as TikTokApiEnvelope<{ publish_id?: string }>;
+    const json = (await res.json()) as TikTokApiEnvelope<{ publish_id?: string; upload_url?: string }>;
 
-    if (!res.ok || !json.data?.publish_id) {
+    if (!res.ok || !json.data?.publish_id || !json.data?.upload_url) {
       return {
         success: false,
         platformPostId: null,
         errorMessage: json.error?.message ?? `TikTok post init failed (HTTP ${res.status})`,
+      };
+    }
+
+    if (videoSize > SINGLE_CHUNK_MAX_BYTES) {
+      return {
+        success: false,
+        platformPostId: json.data.publish_id,
+        errorMessage: `Video is ${videoSize} bytes — single-chunk upload only supports files under ${SINGLE_CHUNK_MAX_BYTES} bytes`,
+      };
+    }
+
+    const uploadRes = await fetch(json.data.upload_url, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "video/mp4",
+        "Content-Range": `bytes 0-${videoSize - 1}/${videoSize}`,
+      },
+      body: videoBuffer,
+    });
+    if (!uploadRes.ok) {
+      return {
+        success: false,
+        platformPostId: json.data.publish_id,
+        errorMessage: `TikTok video upload failed (HTTP ${uploadRes.status})`,
       };
     }
 
