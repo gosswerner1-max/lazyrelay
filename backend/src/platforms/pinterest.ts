@@ -146,7 +146,28 @@ export class PinterestAdapter implements PlatformAdapter {
     });
     if (!res.ok) return null;
     const json = (await res.json()) as PinterestBoardsPage;
-    return json.items?.[0]?.id ?? null;
+    const existing = json.items?.[0]?.id;
+    if (existing) return existing;
+
+    // A brand-new Pinterest account has zero boards, so Pin creation would
+    // fail every single time with no path forward — confirmed live during
+    // the App Review demo recording (2026-08-03), where a freshly-connected
+    // account hit this and burned all 4 scheduler retries before a board was
+    // created by hand. Auto-create a default board rather than hard-failing.
+    const createRes = await fetch(BOARDS_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: "LazyRelay Posts",
+        description: "Default board created by LazyRelay for your scheduled Pins.",
+      }),
+    });
+    if (!createRes.ok) return null;
+    const createJson = (await createRes.json()) as PinterestBoard;
+    return createJson.id ?? null;
   }
 
   async post(request: PostRequest): Promise<PostAttemptResult> {
