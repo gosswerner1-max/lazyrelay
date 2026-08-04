@@ -22,11 +22,17 @@ const SCOPES = "https://www.googleapis.com/auth/youtube.upload https://www.googl
 // category field, so this is a fixed default rather than a per-post choice.
 const DEFAULT_CATEGORY_ID = "22";
 
-// A fresh upload's real processing time exceeded a 15s window in testing
-// (post() succeeded immediately, but verifyPublished() needed longer to see
-// "processed") — 10 attempts x 6s gives a minute of real headroom.
-const STATUS_POLL_ATTEMPTS = 10;
-const STATUS_POLL_DELAY_MS = 6000;
+// A fresh upload's real processing time exceeded even a 60s window in
+// production (confirmed 2026-08-04: a real customer-facing upload showed
+// "still processing — verification timed out" in the UI, then was
+// independently confirmed live and Public on YouTube's own side minutes
+// later — a false-negative, not an actual failure). YouTube's own docs
+// don't guarantee a processing SLA, so 30 attempts x 10s gives 5 minutes of
+// real headroom before this gives up and lets the scheduler's own
+// MAX_RETRIES=3 backoff-retry (scheduler.ts) take over for anything still
+// not done after that.
+const STATUS_POLL_ATTEMPTS = 30;
+const STATUS_POLL_DELAY_MS = 10000;
 
 interface GoogleTokenResponse {
   access_token?: string;
