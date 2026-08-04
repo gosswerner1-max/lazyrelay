@@ -1,0 +1,56 @@
+name: CI
+
+# Typecheck + build both packages on every push/PR to main. This is a
+# visibility gate, not a blocking one — Render/the frontend deploy still
+# fire on push regardless of this workflow's outcome, but a red X on the
+# commit now makes a broken push impossible to miss instead of only
+# showing up as a live production error.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+      - working-directory: backend
+        run: npm ci
+      - working-directory: backend
+        run: npm run build
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: frontend
+        run: npm ci
+      # Same VITE_* placeholders as deploy-frontend.yml's real secrets —
+      # `vite build`'s type-check step needs these env vars to exist, but
+      # their actual values don't matter for a build-only run (no deploy
+      # happens here), so dummy values keep this workflow independent of
+      # repo secrets rather than requiring them to be duplicated/kept in
+      # sync for a job that never ships anything.
+      - working-directory: frontend
+        run: |
+          cat > .env.production <<EOF
+          VITE_SUPABASE_URL=https://placeholder.supabase.co
+          VITE_SUPABASE_ANON_KEY=placeholder
+          VITE_API_URL=https://placeholder.example.com
+          VITE_PADDLE_CLIENT_TOKEN=placeholder
+          VITE_PADDLE_ENVIRONMENT=sandbox
+          EOF
+      - working-directory: frontend
+        run: npm run build
