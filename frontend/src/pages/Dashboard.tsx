@@ -1199,7 +1199,9 @@ export function Dashboard() {
                       ? "Not set up on this deploy yet"
                       : connectedCount > 0
                         ? "Connected — click to connect another account"
-                        : undefined
+                        : p.platform === "youtube"
+                          ? "Google is still reviewing our app, so you'll see an \"unverified app\" warning first — that's expected, see the note below"
+                          : undefined
                 }
                 onClick={() => handleConnect(p.platform)}
               >
@@ -1216,6 +1218,12 @@ export function Dashboard() {
             );
           })}
         </div>
+        {platforms.some((p) => p.platform === "youtube" && p.configured && !p.comingSoon) && (
+          <p className="platform-grid-note">
+            Connecting YouTube? Google is still reviewing our app, so you'll see a "Google hasn't verified this app" warning first.
+            That's expected — click <strong>Advanced</strong>, then <strong>Go to LazyRelay (unsafe)</strong>, to finish connecting.
+          </p>
+        )}
       </section>
       )}
 

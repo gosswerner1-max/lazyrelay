@@ -111,10 +111,11 @@ async function markRead(mailbox, uids) {
   }
 }
 
-async function getMessage(mailbox, uid) {
+async function getMessage(mailbox, uid, folderName) {
   const client = await connect(mailbox);
   try {
-    const lock = await client.getMailboxLock("INBOX");
+    const folderPath = folderName ? (await resolveFolder(client, folderName)) || folderName : "INBOX";
+    const lock = await client.getMailboxLock(folderPath);
     try {
       const msg = await client.fetchOne(uid, { source: true, uid: true }, { uid: true });
       const parsed = await simpleParser(msg.source);
@@ -497,6 +498,9 @@ ${textToHtmlParagraphs(body)}
     mailOptions.inReplyTo = opts.inReplyTo;
     mailOptions.references = opts.inReplyTo;
   }
+  if (opts.attach) {
+    mailOptions.attachments = opts.attach.split(",").map((p) => ({ path: p.trim() }));
+  }
   const info = await transporter.sendMail(mailOptions);
 
   // Keep a local paper trail: nodemailer only submits via SMTP, it never
@@ -553,10 +557,11 @@ async function main() {
       subject: flags.subject,
       inReplyTo: flags["in-reply-to"],
       bodyFile: flags["body-file"],
+      attach: flags.attach,
     });
   }
   if (cmd === "list-unread") return listUnread(mailbox);
-  if (cmd === "get-message") return getMessage(mailbox, rest[0]);
+  if (cmd === "get-message") return getMessage(mailbox, rest[0], rest[1]);
   if (cmd === "list-drafts") return listDrafts(mailbox);
   if (cmd === "save-draft") {
     const flags = parseFlags(rest);

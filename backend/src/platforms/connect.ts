@@ -78,17 +78,29 @@ export async function completeConnect(
     refreshVaultId = data;
   }
 
+  // Upsert, not insert: reconnecting a platform you're already connected to
+  // (same account_id + platform + platform_account_id, which is unique) is
+  // the common case, not an edge case — a token refresh, a re-auth after
+  // revoking scopes, or just clicking "Connect" again. A plain insert hits
+  // that unique constraint and fails, but the OAuth redirect back to the
+  // dashboard happens regardless, so the failure was invisible: the user
+  // sees what looks like a successful reconnect while the old, possibly
+  // expired token silently stays in place and every post keeps using it.
   const { data: socialAccount, error: insertError } = await supabase
     .from("social_accounts")
-    .insert({
-      account_id: stateRow.account_id,
-      platform: adapter.platform,
-      platform_account_id: result.platformAccountId,
-      display_name: result.displayName,
-      access_token_vault_id: accessVaultId,
-      refresh_token_vault_id: refreshVaultId,
-      token_expires_at: result.expiresAt,
-    })
+    .upsert(
+      {
+        account_id: stateRow.account_id,
+        platform: adapter.platform,
+        platform_account_id: result.platformAccountId,
+        display_name: result.displayName,
+        access_token_vault_id: accessVaultId,
+        refresh_token_vault_id: refreshVaultId,
+        token_expires_at: result.expiresAt,
+        disconnected_at: null,
+      },
+      { onConflict: "account_id,platform,platform_account_id" },
+    )
     .select("id")
     .single();
   if (insertError || !socialAccount) throw insertError;

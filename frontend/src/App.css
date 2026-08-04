@@ -894,6 +894,13 @@
   text-transform: capitalize;
 }
 
+.platform-grid-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--ink-muted, var(--ink));
+  line-height: 1.5;
+}
+
 .platform-tile-badge {
   font-size: 10px;
   font-weight: 600;
