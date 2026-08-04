@@ -204,9 +204,14 @@ export function Dashboard() {
       setPosts(pts);
       // A fresh refresh() replaces `posts` with just the first History
       // page again (see GET /scheduled-posts), discarding any additional
-      // pages a prior "Load more" had appended — reset so the button
-      // reappears rather than staying permanently hidden after one use.
-      setHistoryHasMore(true);
+      // pages a prior "Load more" had appended — recompute rather than
+      // assuming there's more: an account with fewer history posts than
+      // one page (e.g. this session's test account, 10 posts) got that
+      // entire history back in this single response, and the button
+      // shouldn't show at all in that case, not just hide itself after a
+      // wasted click.
+      const historyCount = pts.filter((p) => p.status === "posted" || p.status === "failed").length;
+      setHistoryHasMore(historyCount >= HISTORY_PAGE_SIZE);
       setSubscription(sub);
       setStorageUsage(usage);
       setMediaFiles(media);
