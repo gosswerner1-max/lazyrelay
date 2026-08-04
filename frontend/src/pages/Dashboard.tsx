@@ -89,6 +89,7 @@ const connectParams = readAndClearConnectParams();
 export function Dashboard() {
   const { signOut } = useAuth();
   const mediaInputRef = useRef<HTMLInputElement>(null);
+  const coverImageInputRef = useRef<HTMLInputElement>(null);
   // refresh() re-fetches the account on every call (including after
   // unrelated actions like scheduling a post) — only seed the business-name
   // input from the server once, so it never clobbers text the user is
@@ -144,6 +145,8 @@ export function Dashboard() {
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [mediaUploading, setMediaUploading] = useState(false);
   const [mediaDragActive, setMediaDragActive] = useState(false);
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+  const [coverImageUploading, setCoverImageUploading] = useState(false);
   const [historyShown, setHistoryShown] = useState(10);
   const [paddle, setPaddle] = useState<Paddle | undefined>(undefined);
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -487,6 +490,7 @@ export function Dashboard() {
           socialAccountId,
           content,
           mediaUrl: mediaUrl ?? undefined,
+          coverImageUrl: coverImageUrl ?? undefined,
           scheduledFor: scheduledForIso,
           requiresApproval: requiresApprovalOverride,
         });
@@ -495,6 +499,7 @@ export function Dashboard() {
       setScheduleDate("");
       setScheduleTime("");
       setMediaUrl(null);
+      setCoverImageUrl(null);
       setRequiresApproval(false);
       await refresh();
     } catch (err) {
@@ -536,6 +541,22 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setMediaUploading(false);
+    }
+  }
+
+  async function handleCoverImageFile(file: File) {
+    setError(null);
+    setCoverImageUploading(true);
+    try {
+      const { url } = await api.uploadMedia(file);
+      setCoverImageUrl(url);
+      const [usage, media] = await Promise.all([api.getStorageUsage(), api.listMedia()]);
+      setStorageUsage(usage);
+      setMediaFiles(media);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCoverImageUploading(false);
     }
   }
 
@@ -1308,6 +1329,47 @@ export function Dashboard() {
                 )}
               </div>
             </label>
+            {mediaUrl?.match(/\.(mp4|mov)$/i) &&
+              selectedAccountIds.some((id) => accounts.find((a) => a.id === id)?.platform === "pinterest") && (
+                <label>
+                  Cover image (required for Pinterest video Pins)
+                  <div
+                    className="media-dropzone"
+                    onClick={() => coverImageInputRef.current?.click()}
+                  >
+                    <input
+                      ref={coverImageInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      hidden
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleCoverImageFile(file);
+                        e.target.value = "";
+                      }}
+                    />
+                    {coverImageUploading ? (
+                      <span>Uploading...</span>
+                    ) : coverImageUrl ? (
+                      <div className="media-preview">
+                        <img src={coverImageUrl} alt="Cover image preview" />
+                        <button
+                          type="button"
+                          className="media-remove"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCoverImageUrl(null);
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <span>Click to choose a cover image for your Pinterest video Pin</span>
+                    )}
+                  </div>
+                </label>
+              )}
             <label>
               Date
               <input

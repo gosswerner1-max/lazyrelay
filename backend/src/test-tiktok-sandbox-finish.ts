@@ -39,6 +39,7 @@ async function main() {
     accessToken: accessToken as string,
     content: "LazyRelay Sandbox end-to-end test post",
     mediaUrl: TEST_VIDEO_URL,
+    coverImageUrl: null,
   });
   console.log("post() result:", postResult);
 

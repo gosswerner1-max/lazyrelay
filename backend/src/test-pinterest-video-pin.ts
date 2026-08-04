@@ -2,16 +2,15 @@ import "dotenv/config";
 import { supabase } from "./supabase.js";
 import { PinterestAdapter } from "./platforms/pinterest.js";
 
-// Real end-to-end Pinterest trial-access test, phase 2: fetch the real
-// access token for the just-connected social_accounts row, post a real
-// public image Pin, and poll verifyPublished() to confirm it actually went
-// live on Pinterest — not just that post() returned success. Mirrors
-// test-tiktok-sandbox-finish.ts.
-const TEST_IMAGE_URL = "https://lazyrelay.com/favicon.png";
+// Real end-to-end test of the new video Pin flow (register -> upload -> poll
+// -> create Pin with media_source video_id + cover_image_url) against an
+// already-connected Pinterest sandbox account.
+const TEST_VIDEO_URL = "https://filesamples.com/samples/video/mp4/sample_640x360.mp4";
+const TEST_COVER_IMAGE_URL = "https://lazyrelay.com/favicon.png";
 
 async function main() {
   const socialAccountId = process.argv[2];
-  if (!socialAccountId) throw new Error("usage: test-pinterest-sandbox-finish.ts <socialAccountId>");
+  if (!socialAccountId) throw new Error("usage: test-pinterest-video-pin.ts <socialAccountId>");
 
   const appId = process.env.PINTEREST_APP_ID!;
   const appSecret = process.env.PINTEREST_APP_SECRET!;
@@ -33,14 +32,14 @@ async function main() {
   if (readError) throw readError;
 
   console.log("Retrieved real access token from Vault (length:", (accessToken as string).length, ")");
-  console.log("\nPosting real image Pin:", TEST_IMAGE_URL);
+  console.log("\nPosting real video Pin:", TEST_VIDEO_URL, "with cover:", TEST_COVER_IMAGE_URL);
 
   const postResult = await adapter.post({
     socialAccountId,
     accessToken: accessToken as string,
-    content: "LazyRelay Pinterest trial-access end-to-end test post",
-    mediaUrl: TEST_IMAGE_URL,
-    coverImageUrl: null,
+    content: "LazyRelay Pinterest video Pin end-to-end test post",
+    mediaUrl: TEST_VIDEO_URL,
+    coverImageUrl: TEST_COVER_IMAGE_URL,
   });
   console.log("post() result:", postResult);
 
@@ -53,11 +52,11 @@ async function main() {
   const verifyResult = await adapter.verifyPublished(postResult.platformPostId, accessToken as string);
   console.log("verifyPublished() result:", verifyResult);
 
-  console.log(verifyResult.verifiedLive ? "ALL PASS — Pin is verified live on Pinterest" : "PARTIAL — post() succeeded but verifyPublished() did not confirm live");
+  console.log(verifyResult.verifiedLive ? "ALL PASS — video Pin is verified live on Pinterest" : "PARTIAL — post() succeeded but verifyPublished() did not confirm live");
   process.exit(0);
 }
 
 main().catch((err) => {
-  console.error("Finish failed:", err);
+  console.error("Video pin test failed:", err);
   process.exit(1);
 });

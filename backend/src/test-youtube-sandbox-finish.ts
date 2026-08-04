@@ -40,6 +40,7 @@ async function main() {
     accessToken: accessToken as string,
     content: "LazyRelay YouTube end-to-end test upload",
     mediaUrl: TEST_VIDEO_URL,
+    coverImageUrl: null,
   });
   console.log("post() result:", postResult);
 

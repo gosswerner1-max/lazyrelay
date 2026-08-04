@@ -23,6 +23,13 @@ const TOKEN_URL = `${API_BASE}/v5/oauth/token`;
 const USER_ACCOUNT_URL = `${API_BASE}/v5/user_account`;
 const BOARDS_URL = `${API_BASE}/v5/boards`;
 const PINS_URL = `${API_BASE}/v5/pins`;
+const MEDIA_URL = `${API_BASE}/v5/media`;
+
+// Polling knobs for the register -> upload -> processing flow below. Pinterest
+// gives no SLA for how long video processing takes; 20 * 3s is a generous
+// bound that keeps a single post attempt from hanging indefinitely.
+const MEDIA_POLL_ATTEMPTS = 20;
+const MEDIA_POLL_INTERVAL_MS = 3000;
 
 // pins:read/pins:write let us create + verify Pins; boards:read/boards:write
 // are both needed to pick a board to post to — confirmed live: requesting
@@ -60,6 +67,18 @@ interface PinterestBoardsPage {
 interface PinterestPin {
   id?: string;
   link?: string | null;
+}
+
+interface PinterestMediaRegisterResponse {
+  media_id?: string;
+  media_type?: string;
+  upload_url?: string;
+  upload_parameters?: Record<string, string>;
+}
+
+interface PinterestMediaStatusResponse {
+  media_id?: string;
+  status?: string;
 }
 
 function isVideoUrl(url: string): boolean {
@@ -170,25 +189,119 @@ export class PinterestAdapter implements PlatformAdapter {
     return createJson.id ?? null;
   }
 
+  // Video Pins can't reference a URL directly — Pinterest requires the video
+  // bytes registered and uploaded to their S3 endpoint first, then a Pin
+  // created against the resulting media_id. Three network round-trips: (1)
+  // register (declares media_type: video, returns an upload_url + one-time
+  // upload_parameters), (2) upload the file as multipart/form-data with
+  // those parameters, (3) poll media status until Pinterest finishes
+  // processing it. Confirmed against Pinterest's v5 docs (media-create,
+  // create_pin) 2026-08-03 — no sandbox video-pin test was possible this
+  // pass (see class-level note on credentials).
+  private async registerVideoUpload(
+    accessToken: string,
+  ): Promise<{ mediaId: string; uploadUrl: string; uploadParameters: Record<string, string> } | { error: string }> {
+    const res = await fetch(MEDIA_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ media_type: "video" }),
+    });
+    const json = (await res.json()) as PinterestMediaRegisterResponse & PinterestErrorBody;
+    if (!res.ok || !json.media_id || !json.upload_url || !json.upload_parameters) {
+      return { error: json.message ?? `Pinterest media registration failed (HTTP ${res.status})` };
+    }
+    return { mediaId: json.media_id, uploadUrl: json.upload_url, uploadParameters: json.upload_parameters };
+  }
+
+  private async uploadVideoToS3(
+    uploadUrl: string,
+    uploadParameters: Record<string, string>,
+    videoUrl: string,
+  ): Promise<string | null> {
+    const videoRes = await fetch(videoUrl);
+    if (!videoRes.ok) {
+      return `Failed to fetch video from ${videoUrl} (HTTP ${videoRes.status})`;
+    }
+    const videoBlob = await videoRes.blob();
+
+    const form = new FormData();
+    for (const [key, value] of Object.entries(uploadParameters)) {
+      form.append(key, value);
+    }
+    form.append("file", videoBlob, "video.mp4");
+
+    const uploadRes = await fetch(uploadUrl, { method: "POST", body: form });
+    if (!uploadRes.ok && uploadRes.status !== 204) {
+      return `Pinterest video upload to S3 failed (HTTP ${uploadRes.status})`;
+    }
+    return null;
+  }
+
+  private async waitForMediaProcessing(mediaId: string, accessToken: string): Promise<string | null> {
+    for (let attempt = 0; attempt < MEDIA_POLL_ATTEMPTS; attempt++) {
+      const res = await fetch(`${MEDIA_URL}/${mediaId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const json = (await res.json()) as PinterestMediaStatusResponse & PinterestErrorBody;
+      if (!res.ok) {
+        return json.message ?? `Pinterest media status check failed (HTTP ${res.status})`;
+      }
+      if (json.status === "succeeded") return null;
+      if (json.status === "failed") return "Pinterest video processing failed";
+      await new Promise((resolve) => setTimeout(resolve, MEDIA_POLL_INTERVAL_MS));
+    }
+    return "Pinterest video processing did not finish in time";
+  }
+
   async post(request: PostRequest): Promise<PostAttemptResult> {
     if (!request.mediaUrl) {
       return { success: false, platformPostId: null, errorMessage: "Pinterest Pins require an image URL" };
-    }
-    if (isVideoUrl(request.mediaUrl)) {
-      // Video Pins need a separate cover_image_url that PostRequest doesn't
-      // carry yet — returning a clear, honest failure rather than a broken
-      // video-pin attempt. See the class-level comment in the summary for
-      // the full endpoint shape once this is worth building out.
-      return {
-        success: false,
-        platformPostId: null,
-        errorMessage: "Pinterest video Pins are not yet supported by this adapter (needs a cover image field on PostRequest)",
-      };
     }
 
     const boardId = await this.firstBoardId(request.accessToken);
     if (!boardId) {
       return { success: false, platformPostId: null, errorMessage: "No Pinterest board found on this account" };
+    }
+
+    let mediaSource: Record<string, unknown>;
+
+    if (isVideoUrl(request.mediaUrl)) {
+      if (!request.coverImageUrl) {
+        return {
+          success: false,
+          platformPostId: null,
+          errorMessage: "Pinterest video Pins require a cover image",
+        };
+      }
+
+      const registered = await this.registerVideoUpload(request.accessToken);
+      if ("error" in registered) {
+        return { success: false, platformPostId: null, errorMessage: registered.error };
+      }
+
+      const uploadError = await this.uploadVideoToS3(registered.uploadUrl, registered.uploadParameters, request.mediaUrl);
+      if (uploadError) {
+        return { success: false, platformPostId: null, errorMessage: uploadError };
+      }
+
+      const processingError = await this.waitForMediaProcessing(registered.mediaId, request.accessToken);
+      if (processingError) {
+        return { success: false, platformPostId: null, errorMessage: processingError };
+      }
+
+      mediaSource = {
+        source_type: "video_id",
+        cover_image_url: request.coverImageUrl,
+        media_id: registered.mediaId,
+      };
+    } else {
+      mediaSource = {
+        source_type: "image_url",
+        url: request.mediaUrl,
+      };
     }
 
     const res = await fetch(PINS_URL, {
@@ -201,10 +314,7 @@ export class PinterestAdapter implements PlatformAdapter {
         board_id: boardId,
         title: request.content.slice(0, 100),
         description: request.content.slice(0, 500),
-        media_source: {
-          source_type: "image_url",
-          url: request.mediaUrl,
-        },
+        media_source: mediaSource,
       }),
     });
     const json = (await res.json()) as PinterestPin & PinterestErrorBody;

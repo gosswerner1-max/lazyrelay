@@ -83,6 +83,7 @@ async function main() {
     accessToken: accessToken as string,
     content: "LazyRelay Mastodon adapter end-to-end test post",
     mediaUrl: TEST_IMAGE_URL,
+    coverImageUrl: null,
   });
   console.log("post() result:", postResult);
 

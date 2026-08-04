@@ -1392,6 +1392,34 @@
   margin: 0;
 }
 
+.landing-more-features {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px 32px;
+  max-width: 900px;
+  margin: 32px auto 0;
+  padding: 0;
+  text-align: left;
+}
+
+.landing-more-features li {
+  position: relative;
+  padding-left: 26px;
+  color: var(--wire);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.landing-more-features li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--confirm);
+  font-weight: 700;
+}
+
 .step-number {
   display: inline-flex;
   align-items: center;

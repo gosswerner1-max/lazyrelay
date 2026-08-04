@@ -101,6 +101,7 @@ export interface RecurringSchedule {
 export interface RecurringScheduleInput {
   content: string;
   mediaUrl?: string | null;
+  coverImageUrl?: string | null;
   socialAccountIds: string[];
   daysOfWeek: number[];
   timeOfDay: string; // "HH:mm"
@@ -194,6 +195,7 @@ export const api = {
     socialAccountId: string;
     content: string;
     mediaUrl?: string;
+    coverImageUrl?: string;
     scheduledFor: string;
     requiresApproval?: boolean;
   }): Promise<ScheduledPost> => authedFetch("/scheduled-posts", { method: "POST", body: JSON.stringify(input) }),
@@ -202,7 +204,7 @@ export const api = {
     authedFetch(`/scheduled-posts/${id}/approve`, { method: "PATCH" }),
 
   bulkCreateScheduledPosts: (
-    posts: Array<{ socialAccountId: string; content: string; mediaUrl?: string; scheduledFor: string }>,
+    posts: Array<{ socialAccountId: string; content: string; mediaUrl?: string; coverImageUrl?: string; scheduledFor: string }>,
   ): Promise<{ succeeded: number; failed: number; results: Array<{ row: number; status: number; body: { error?: string } }> }> =>
     authedFetch("/scheduled-posts/bulk", { method: "POST", body: JSON.stringify({ posts }) }),
 

@@ -9,6 +9,10 @@ export interface PostRequest {
   socialAccountId: string;
   content: string;
   mediaUrl: string | null;
+  // Only consumed by adapters that need a still image alongside video media
+  // (currently Pinterest video Pins, which require cover_image_url) — every
+  // other adapter simply ignores it.
+  coverImageUrl: string | null;
   accessToken: string;
 }
 

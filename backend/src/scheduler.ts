@@ -72,6 +72,7 @@ interface DuePost {
   social_account_id: string;
   content: string;
   media_url: string | null;
+  cover_image_url: string | null;
   retry_count: number;
   platform: string;
 }
@@ -108,7 +109,7 @@ async function claimDuePosts(): Promise<DuePost[]> {
     .update({ status: "posting" })
     .in("id", ids)
     .eq("status", "pending")
-    .select("id, account_id, social_account_id, content, media_url, retry_count, social_accounts(platform)");
+    .select("id, account_id, social_account_id, content, media_url, cover_image_url, retry_count, social_accounts(platform)");
 
   if (claimError) throw claimError;
   if (!claimed || claimed.length === 0) return [];
@@ -209,6 +210,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
       socialAccountId: post.social_account_id,
       content: post.content,
       mediaUrl: post.media_url,
+      coverImageUrl: post.cover_image_url,
       accessToken,
     });
 
