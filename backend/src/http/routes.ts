@@ -542,6 +542,42 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.json(data);
   });
 
+  // Real board list for a connected account — drives the Pinterest board
+  // picker in the compose form, replacing the adapter's own provisional
+  // "whichever board comes back first" default with an actual customer
+  // choice. Returns 200 with an empty array for any platform whose adapter
+  // doesn't declare listBoards (i.e. every platform except Pinterest today)
+  // rather than a 404/400 — "nothing to pick" is a legitimate response, not
+  // an error, so the frontend doesn't need a platform allowlist of its own.
+  router.get("/social-accounts/:id/boards", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: account, error } = await supabase
+      .from("social_accounts")
+      .select("account_id, platform, access_token_vault_id")
+      .eq("id", req.params.id)
+      .single();
+    if (error || !account || account.account_id !== req.accountId) {
+      res.status(403).json({ error: "Social account not found or not owned by this caller" });
+      return;
+    }
+
+    const adapter = registry.get(account.platform);
+    if (!adapter?.listBoards) {
+      res.json([]);
+      return;
+    }
+
+    const { data: accessToken, error: tokenError } = await supabase.rpc("read_social_token", {
+      p_vault_id: account.access_token_vault_id,
+    });
+    if (tokenError || !accessToken) {
+      res.status(500).json({ error: "Could not load this account's access token" });
+      return;
+    }
+
+    const boards = await adapter.listBoards(accessToken as string);
+    res.json(boards);
+  });
+
   // Uploads a single image/video for use as a scheduled post's media_url.
   // Goes through our own service-role Supabase client, not the browser
   // directly — customers never touch storage credentials, and this is
@@ -709,11 +745,17 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // throwing, since a bulk caller needs to keep going past one bad row.
   async function scheduleOnePost(
     accountId: string | undefined,
-    input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; coverImageUrl?: unknown; scheduledFor?: unknown; requiresApproval?: unknown },
+    input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; coverImageUrl?: unknown; boardId?: unknown; scheduledFor?: unknown; requiresApproval?: unknown },
   ): Promise<{ status: number; body: Record<string, unknown> }> {
-    const { socialAccountId, content, mediaUrl, coverImageUrl, scheduledFor, requiresApproval } = input;
+    const { socialAccountId, content, mediaUrl, coverImageUrl, boardId, scheduledFor, requiresApproval } = input;
     if (coverImageUrl !== undefined && coverImageUrl !== null && typeof coverImageUrl !== "string") {
       return { status: 400, body: { error: "coverImageUrl must be a string" } };
+    }
+    // Only meaningful for Pinterest today (see PostRequest.boardId), but
+    // accepted/stored generically like coverImageUrl — every other
+    // adapter's post() simply ignores it.
+    if (boardId !== undefined && boardId !== null && typeof boardId !== "string") {
+      return { status: 400, body: { error: "boardId must be a string" } };
     }
     if (!socialAccountId || !content || !scheduledFor) {
       return { status: 400, body: { error: "socialAccountId, content, and scheduledFor are required" } };
@@ -827,6 +869,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         content,
         media_url: mediaUrl ?? null,
         cover_image_url: coverImageUrl ?? null,
+        board_id: boardId ?? null,
         scheduled_for: scheduledFor,
         // A post created with requiresApproval sits in needs_approval —
         // invisible to the scheduler (claimDuePosts only ever selects
@@ -1115,6 +1158,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     content?: unknown;
     mediaUrl?: unknown;
     coverImageUrl?: unknown;
+    boardId?: unknown;
     socialAccountIds?: unknown;
     daysOfWeek?: unknown;
     timeOfDay?: unknown;
@@ -1179,6 +1223,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (input.coverImageUrl !== undefined && input.coverImageUrl !== null && typeof input.coverImageUrl !== "string") {
       return "coverImageUrl must be a string";
     }
+    if (input.boardId !== undefined && input.boardId !== null && typeof input.boardId !== "string") {
+      return "boardId must be a string";
+    }
     return null;
   }
 
@@ -1242,6 +1289,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         content: input.content,
         media_url: input.mediaUrl ?? null,
         cover_image_url: input.coverImageUrl ?? null,
+        board_id: input.boardId ?? null,
         days_of_week: input.daysOfWeek,
         time_of_day: `${input.timeOfDay}:00`,
         timezone: input.timezone,
@@ -1324,6 +1372,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // ones under the new configuration on the next generation cycle.
     const isPureResume = input.status === "active" && existing.status === "paused" &&
       input.content === undefined && input.mediaUrl === undefined && input.coverImageUrl === undefined &&
+      input.boardId === undefined &&
       input.socialAccountIds === undefined &&
       input.daysOfWeek === undefined && input.timeOfDay === undefined && input.timezone === undefined &&
       input.startsOn === undefined && input.endsOn === undefined;
@@ -1360,6 +1409,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (input.content !== undefined) updates.content = input.content;
     if (input.mediaUrl !== undefined) updates.media_url = input.mediaUrl;
     if (input.coverImageUrl !== undefined) updates.cover_image_url = input.coverImageUrl;
+    if (input.boardId !== undefined) updates.board_id = input.boardId;
     if (input.daysOfWeek !== undefined) updates.days_of_week = input.daysOfWeek;
     if (input.timeOfDay !== undefined) updates.time_of_day = `${input.timeOfDay}:00`;
     if (input.timezone !== undefined) updates.timezone = input.timezone;

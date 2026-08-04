@@ -153,12 +153,12 @@ export class PinterestAdapter implements PlatformAdapter {
     };
   }
 
-  // Pin creation requires a board_id and PostRequest has no board-selection
-  // field yet (LazyRelay doesn't have a customer-facing board picker built —
-  // tracked as a real gap, not an oversight). Until that exists, this posts
-  // to whichever board the connected account's boards/list call returns
-  // first, matching TikTok's SELF_ONLY stopgap: a real, working choice,
-  // documented as provisional rather than silently hardcoded.
+  // Fallback used when the caller doesn't pass PostRequest.boardId (older
+  // scheduled_posts rows, or a customer who never picked a board via the
+  // GET /social-accounts/:id/boards picker) — posts to whichever board the
+  // connected account's boards/list call returns first, matching TikTok's
+  // SELF_ONLY stopgap: a real, working choice, documented as provisional
+  // rather than silently hardcoded.
   private async firstBoardId(accessToken: string): Promise<string | null> {
     const res = await fetch(`${BOARDS_URL}?page_size=1`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -187,6 +187,22 @@ export class PinterestAdapter implements PlatformAdapter {
     if (!createRes.ok) return null;
     const createJson = (await createRes.json()) as PinterestBoard;
     return createJson.id ?? null;
+  }
+
+  /** Real board list for the customer-facing board picker (see
+   *  GET /social-accounts/:id/boards in routes.ts) — lets a customer choose
+   *  which board a Pin goes to, instead of always landing on
+   *  firstBoardId()'s provisional first-or-auto-created choice. Returns an
+   *  empty array rather than throwing on a non-2xx response, matching
+   *  firstBoardId()'s own no-boards-yet handling — an empty picker is a
+   *  legitimate state for a brand-new account, not an error. */
+  async listBoards(accessToken: string): Promise<{ id: string; name: string }[]> {
+    const res = await fetch(`${BOARDS_URL}?page_size=100`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return [];
+    const json = (await res.json()) as PinterestBoardsPage;
+    return (json.items ?? []).map((b) => ({ id: b.id, name: b.name }));
   }
 
   // Video Pins can't reference a URL directly — Pinterest requires the video
@@ -261,7 +277,7 @@ export class PinterestAdapter implements PlatformAdapter {
       return { success: false, platformPostId: null, errorMessage: "Pinterest Pins require an image URL" };
     }
 
-    const boardId = await this.firstBoardId(request.accessToken);
+    const boardId = request.boardId ?? (await this.firstBoardId(request.accessToken));
     if (!boardId) {
       return { success: false, platformPostId: null, errorMessage: "No Pinterest board found on this account" };
     }

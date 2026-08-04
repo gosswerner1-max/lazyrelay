@@ -13,6 +13,12 @@ export interface PostRequest {
   // (currently Pinterest video Pins, which require cover_image_url) — every
   // other adapter simply ignores it.
   coverImageUrl: string | null;
+  // Only consumed by Pinterest — lets a customer pick which of their boards
+  // a Pin goes to. Optional/null means "use the adapter's own fallback"
+  // (currently whichever board the account's boards list returns first, or
+  // an auto-created default) — every existing caller (test scripts, older
+  // scheduled_posts rows) that doesn't set this keeps working unchanged.
+  boardId?: string | null;
   accessToken: string;
 }
 
@@ -86,4 +92,11 @@ export interface PlatformAdapter {
    *  simply doesn't declare this method, and callers must treat its
    *  absence as "not supported," never silently empty. */
   getComments?(platformPostId: string, accessToken: string): Promise<CommentsResult>;
+
+  /** Optional — real board/list selection for platforms whose post()
+   *  requires picking a destination container the customer can actually
+   *  choose (currently only Pinterest, via PostRequest.boardId). Every
+   *  other adapter simply doesn't declare this method; callers must treat
+   *  its absence as "this platform has nothing to pick," not an error. */
+  listBoards?(accessToken: string): Promise<{ id: string; name: string }[]>;
 }

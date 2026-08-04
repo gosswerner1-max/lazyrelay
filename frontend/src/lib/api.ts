@@ -196,12 +196,21 @@ export const api = {
     content: string;
     mediaUrl?: string;
     coverImageUrl?: string;
+    boardId?: string;
     scheduledFor: string;
     requiresApproval?: boolean;
   }): Promise<ScheduledPost> => authedFetch("/scheduled-posts", { method: "POST", body: JSON.stringify(input) }),
   deleteScheduledPost: (id: string): Promise<null> => authedFetch(`/scheduled-posts/${id}`, { method: "DELETE" }),
   approveScheduledPost: (id: string): Promise<ScheduledPost> =>
     authedFetch(`/scheduled-posts/${id}/approve`, { method: "PATCH" }),
+
+  // Real Pinterest board list for a connected account — empty array for any
+  // other platform (see GET /social-accounts/:id/boards). Drives the board
+  // picker shown in the compose form only when a Pinterest account is
+  // selected, rather than always posting to whichever board the API
+  // returns first.
+  getBoards: (socialAccountId: string): Promise<{ id: string; name: string }[]> =>
+    authedFetch(`/social-accounts/${socialAccountId}/boards`),
 
   bulkCreateScheduledPosts: (
     posts: Array<{ socialAccountId: string; content: string; mediaUrl?: string; coverImageUrl?: string; scheduledFor: string }>,

@@ -14,6 +14,7 @@ interface RecurringScheduleRow {
   content: string;
   media_url: string | null;
   cover_image_url: string | null;
+  board_id: string | null;
   days_of_week: number[];
   time_of_day: string; // "HH:mm:ss" from Postgres `time`
   timezone: string;
@@ -108,6 +109,7 @@ export async function generateDuePosts(): Promise<void> {
             content: slot.content,
             media_url: slot.media_url,
             cover_image_url: slot.cover_image_url,
+            board_id: slot.board_id,
             scheduled_for: occurrenceAt.toUTC().toISO(),
             recurring_schedule_id: slot.id,
           },

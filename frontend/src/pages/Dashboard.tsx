@@ -147,6 +147,9 @@ export function Dashboard() {
   const [mediaDragActive, setMediaDragActive] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [coverImageUploading, setCoverImageUploading] = useState(false);
+  const [pinterestBoards, setPinterestBoards] = useState<{ id: string; name: string }[]>([]);
+  const [boardsLoading, setBoardsLoading] = useState(false);
+  const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
   const [historyShown, setHistoryShown] = useState(10);
   const [paddle, setPaddle] = useState<Paddle | undefined>(undefined);
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -309,6 +312,33 @@ export function Dashboard() {
       },
     }).then(setPaddle);
   }, []);
+
+  // Real board list for the compose form's board picker — fetched whenever
+  // the selected Pinterest account changes, not on every render. Only one
+  // Pinterest account's boards are shown even if multiple accounts are
+  // checked (matching how the AI caption/hashtag helpers above already
+  // treat "the first selected account" as the representative one) — a
+  // customer with two connected Pinterest accounts posting to both at once
+  // is an edge case not worth a per-account picker today.
+  const selectedPinterestAccountId = selectedAccountIds.find(
+    (id) => accounts.find((a) => a.id === id)?.platform === "pinterest",
+  );
+  useEffect(() => {
+    if (!selectedPinterestAccountId) {
+      setPinterestBoards([]);
+      setSelectedBoardId(null);
+      return;
+    }
+    setBoardsLoading(true);
+    api
+      .getBoards(selectedPinterestAccountId)
+      .then((boards) => {
+        setPinterestBoards(boards);
+        setSelectedBoardId((prev) => (prev && boards.some((b) => b.id === prev) ? prev : (boards[0]?.id ?? null)));
+      })
+      .catch(() => setPinterestBoards([]))
+      .finally(() => setBoardsLoading(false));
+  }, [selectedPinterestAccountId]);
 
   async function pollUntilUpgraded() {
     const expectedTier = pendingTierRef.current;
@@ -491,6 +521,11 @@ export function Dashboard() {
           content,
           mediaUrl: mediaUrl ?? undefined,
           coverImageUrl: coverImageUrl ?? undefined,
+          // Only meaningful when this account is on Pinterest — every other
+          // adapter's post() ignores it, same as coverImageUrl above.
+          boardId: accounts.find((a) => a.id === socialAccountId)?.platform === "pinterest"
+            ? (selectedBoardId ?? undefined)
+            : undefined,
           scheduledFor: scheduledForIso,
           requiresApproval: requiresApprovalOverride,
         });
@@ -1267,6 +1302,26 @@ export function Dashboard() {
                 </div>
               )}
             </label>
+            {selectedPinterestAccountId && (
+              <label>
+                Pinterest board
+                {boardsLoading ? (
+                  <p className="muted">Loading your boards...</p>
+                ) : pinterestBoards.length === 0 ? (
+                  <p className="muted">
+                    No boards found yet — LazyRelay will create a default board the first time you post.
+                  </p>
+                ) : (
+                  <select value={selectedBoardId ?? ""} onChange={(e) => setSelectedBoardId(e.target.value)}>
+                    {pinterestBoards.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </label>
+            )}
             <div className="ai-caption-row">
               <input
                 type="text"
