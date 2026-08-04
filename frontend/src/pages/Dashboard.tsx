@@ -150,7 +150,13 @@ export function Dashboard() {
   const [pinterestBoards, setPinterestBoards] = useState<{ id: string; name: string }[]>([]);
   const [boardsLoading, setBoardsLoading] = useState(false);
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
-  const [historyShown, setHistoryShown] = useState(10);
+  // The initial /scheduled-posts fetch already caps History at the
+  // backend's page size (see routes.ts) — this just tracks whether a
+  // fetched page came back full (there's probably more to load) so the
+  // button can hide itself once a page returns short.
+  const HISTORY_PAGE_SIZE = 50;
+  const [historyHasMore, setHistoryHasMore] = useState(true);
+  const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
   const [paddle, setPaddle] = useState<Paddle | undefined>(undefined);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [csvRows, setCsvRows] = useState<
@@ -196,6 +202,11 @@ export function Dashboard() {
       ]);
       setAccounts(accs);
       setPosts(pts);
+      // A fresh refresh() replaces `posts` with just the first History
+      // page again (see GET /scheduled-posts), discarding any additional
+      // pages a prior "Load more" had appended — reset so the button
+      // reappears rather than staying permanently hidden after one use.
+      setHistoryHasMore(true);
       setSubscription(sub);
       setStorageUsage(usage);
       setMediaFiles(media);
@@ -1636,7 +1647,26 @@ export function Dashboard() {
           .filter((p) => p.status !== "pending" && p.status !== "posting" && p.status !== "needs_approval")
           .slice()
           .sort((a, b) => new Date(b.scheduled_for).getTime() - new Date(a.scheduled_for).getTime());
-        const historyToShow = history.slice(0, historyShown);
+
+        // Fetches an additional real page from the backend (see
+        // GET /scheduled-posts/history) rather than slicing an
+        // already-fully-loaded array — `posts` only ever holds what's been
+        // explicitly fetched, so this is the only way to see anything
+        // beyond the initial page.
+        async function handleLoadMoreHistory() {
+          const oldest = history[history.length - 1];
+          if (!oldest) return;
+          setHistoryLoadingMore(true);
+          try {
+            const more = await api.loadMoreHistory(oldest.scheduled_for);
+            setPosts((prev) => [...prev, ...more]);
+            setHistoryHasMore(more.length === HISTORY_PAGE_SIZE);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : String(err));
+          } finally {
+            setHistoryLoadingMore(false);
+          }
+        }
 
         const renderPost = (p: ScheduledPost) => {
           const result = p.post_results?.[0];
@@ -1702,10 +1732,10 @@ export function Dashboard() {
                 <p className="empty">No posts sent yet.</p>
               ) : (
                 <>
-                  <ul className="post-list">{historyToShow.map(renderPost)}</ul>
-                  {historyShown < history.length && (
-                    <button className="btn-outline" onClick={() => setHistoryShown((n) => n + 10)}>
-                      Load more ({history.length - historyShown} more)
+                  <ul className="post-list">{history.map(renderPost)}</ul>
+                  {historyHasMore && (
+                    <button className="btn-outline" disabled={historyLoadingMore} onClick={handleLoadMoreHistory}>
+                      {historyLoadingMore ? "Loading..." : "Load more"}
                     </button>
                   )}
                 </>
@@ -1725,6 +1755,13 @@ export function Dashboard() {
         const leadingBlanks = firstOfMonth.getDay();
         const todayKey = localDateKey(new Date().toISOString());
 
+        // Only sees whatever's currently loaded in `posts` — bounded to
+        // Upcoming plus the most recent History page (see
+        // GET /scheduled-posts) unless the customer has clicked "Load
+        // more" on the History tab. A month further back than that won't
+        // show its older posted/failed posts here; acceptable for now
+        // since Calendar is mainly used for near-term planning, not a
+        // full historical archive.
         const postsByDay: Record<string, ScheduledPost[]> = {};
         for (const p of posts) {
           const key = localDateKey(p.scheduled_for);

@@ -191,6 +191,11 @@ export const api = {
   },
 
   listScheduledPosts: (): Promise<ScheduledPost[]> => authedFetch("/scheduled-posts"),
+  // Real pagination for History — `before` is the oldest post's
+  // scheduled_for currently loaded on screen, not a page number, so it
+  // stays correct even if new posts fire in between "Load more" clicks.
+  loadMoreHistory: (before: string, limit = 50): Promise<ScheduledPost[]> =>
+    authedFetch(`/scheduled-posts/history?before=${encodeURIComponent(before)}&limit=${limit}`),
   createScheduledPost: (input: {
     socialAccountId: string;
     content: string;

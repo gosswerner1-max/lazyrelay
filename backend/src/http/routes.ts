@@ -920,23 +920,81 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.status(200).json({ succeeded, failed: results.length - succeeded, results });
   });
 
+  const HISTORY_STATUSES = ["posted", "failed"];
+  const SCHEDULED_POSTS_HISTORY_DEFAULT_LIMIT = 50;
+  const SCHEDULED_POSTS_HISTORY_MAX_LIMIT = 100;
+
+  // Bounded on purpose: this used to fetch a customer's ENTIRE post
+  // history on every dashboard load, with the frontend only ever slicing
+  // an already-fully-loaded array for "Load more" — a customer posting a
+  // handful of times a day accumulates hundreds of rows within weeks, and
+  // every page load kept getting slower forever. "Upcoming" posts
+  // (pending/posting/needs_approval) are naturally small — they only
+  // exist until they fire — so those are always returned in full. History
+  // (posted/failed) is capped here to the most recent
+  // SCHEDULED_POSTS_HISTORY_DEFAULT_LIMIT; anything older is fetched a
+  // page at a time via GET /scheduled-posts/history.
   router.get("/scheduled-posts", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data, error } = await supabase
+    const [{ data: upcoming, error: upcomingError }, { data: history, error: historyError }] = await Promise.all([
+      supabase
+        .from("scheduled_posts")
+        .select("*, post_results(*)")
+        .eq("account_id", req.accountId)
+        .in("status", ["pending", "posting", "needs_approval"])
+        .order("scheduled_for", { ascending: true })
+        // Now that every retry attempt (not just verification failures) can
+        // leave its own post_results row, the frontend's `post_results?.[0]`
+        // needs the MOST RECENT attempt first — without this, a post that
+        // failed once and later succeeded on retry could still show its
+        // stale first-attempt failure reason instead of the real outcome.
+        .order("created_at", { ascending: false, referencedTable: "post_results" }),
+      supabase
+        .from("scheduled_posts")
+        .select("*, post_results(*)")
+        .eq("account_id", req.accountId)
+        .in("status", HISTORY_STATUSES)
+        .order("scheduled_for", { ascending: false })
+        .order("created_at", { ascending: false, referencedTable: "post_results" })
+        .limit(SCHEDULED_POSTS_HISTORY_DEFAULT_LIMIT),
+    ]);
+    if (upcomingError) {
+      dbError(res, upcomingError, "GET /scheduled-posts upcoming");
+      return;
+    }
+    if (historyError) {
+      dbError(res, historyError, "GET /scheduled-posts history");
+      return;
+    }
+    res.json([...(upcoming ?? []), ...(history ?? [])]);
+  });
+
+  // Additional pages of history, older than `before` (an ISO scheduled_for
+  // timestamp — pass the oldest post currently loaded on the frontend).
+  // Kept as its own endpoint rather than a page/offset param on the main
+  // route above so "Upcoming" never has to be re-fetched just to see more
+  // History.
+  router.get("/scheduled-posts/history", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const limit = Math.min(Math.max(Number(req.query.limit) || SCHEDULED_POSTS_HISTORY_DEFAULT_LIMIT, 1), SCHEDULED_POSTS_HISTORY_MAX_LIMIT);
+    const before = typeof req.query.before === "string" ? req.query.before : undefined;
+
+    let query = supabase
       .from("scheduled_posts")
       .select("*, post_results(*)")
       .eq("account_id", req.accountId)
-      .order("scheduled_for", { ascending: true })
-      // Now that every retry attempt (not just verification failures) can
-      // leave its own post_results row, the frontend's `post_results?.[0]`
-      // needs the MOST RECENT attempt first — without this, a post that
-      // failed once and later succeeded on retry could still show its
-      // stale first-attempt failure reason instead of the real outcome.
-      .order("created_at", { ascending: false, referencedTable: "post_results" });
+      .in("status", HISTORY_STATUSES)
+      .order("scheduled_for", { ascending: false })
+      .order("created_at", { ascending: false, referencedTable: "post_results" })
+      .limit(limit);
+    if (before) {
+      query = query.lt("scheduled_for", before);
+    }
+
+    const { data, error } = await query;
     if (error) {
-      dbError(res, error, "GET /scheduled-posts");
+      dbError(res, error, "GET /scheduled-posts/history");
       return;
     }
-    res.json(data);
+    res.json(data ?? []);
   });
 
   // Social listening, in the only honest sense currently buildable: reading
