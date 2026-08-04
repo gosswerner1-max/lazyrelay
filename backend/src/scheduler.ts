@@ -218,7 +218,24 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
 
     if (!attempt.success || !attempt.platformPostId) {
       recordFailure(adapter.platform);
-      await handleFailure(post, attempt.errorMessage ?? "post attempt failed, no reason given");
+      // Persisted the same way a verification failure is below, so a
+      // pre-verification failure (bad media, missing scope, no board, etc.)
+      // shows a real reason in the customer's History tab instead of just
+      // a bare "failed" badge with nothing explaining why — this was a real
+      // gap: every prior failure here only reached console/Slack, never the
+      // database, so a customer who wasn't watching Render logs had no way
+      // to see why their own post never went out.
+      const errorMessage = attempt.errorMessage ?? "post attempt failed, no reason given";
+      await supabase.from("post_results").insert({
+        scheduled_post_id: post.id,
+        account_id: post.account_id,
+        platform_post_id: null,
+        platform_post_url: null,
+        verified_live: false,
+        verification_checked_at: new Date().toISOString(),
+        error_message: errorMessage,
+      });
+      await handleFailure(post, errorMessage);
       return;
     }
 
@@ -247,7 +264,21 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     await supabase.from("scheduled_posts").update({ status: "posted" }).eq("id", post.id);
   } catch (err) {
     recordFailure(adapter.platform);
-    await handleFailure(post, err instanceof Error ? err.message : String(err));
+    // Same reasoning as the post()-failure branch above — an unexpected
+    // throw (network error, malformed adapter response, etc.) previously
+    // vanished into console/Slack with nothing in the customer-visible
+    // History tab.
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    await supabase.from("post_results").insert({
+      scheduled_post_id: post.id,
+      account_id: post.account_id,
+      platform_post_id: null,
+      platform_post_url: null,
+      verified_live: false,
+      verification_checked_at: new Date().toISOString(),
+      error_message: errorMessage,
+    });
+    await handleFailure(post, errorMessage);
   }
 }
 

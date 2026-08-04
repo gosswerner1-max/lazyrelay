@@ -925,7 +925,13 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       .from("scheduled_posts")
       .select("*, post_results(*)")
       .eq("account_id", req.accountId)
-      .order("scheduled_for", { ascending: true });
+      .order("scheduled_for", { ascending: true })
+      // Now that every retry attempt (not just verification failures) can
+      // leave its own post_results row, the frontend's `post_results?.[0]`
+      // needs the MOST RECENT attempt first — without this, a post that
+      // failed once and later succeeded on retry could still show its
+      // stale first-attempt failure reason instead of the real outcome.
+      .order("created_at", { ascending: false, referencedTable: "post_results" });
     if (error) {
       dbError(res, error, "GET /scheduled-posts");
       return;
