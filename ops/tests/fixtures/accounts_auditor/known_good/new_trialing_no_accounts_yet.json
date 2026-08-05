@@ -1,0 +1,9 @@
+{
+  "snapshot": {
+    "accountId": "test-newtrial-1",
+    "subscriptionStatus": "trialing",
+    "connectedAccountsCount": 0,
+    "createdAt": "2026-07-20T00:00:00.000Z"
+  },
+  "expectFlagged": false
+}

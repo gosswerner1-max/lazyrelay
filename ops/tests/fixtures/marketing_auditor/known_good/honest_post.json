@@ -1,0 +1,8 @@
+{
+  "item": {
+    "platform": "linkedin",
+    "caption": "LazyRelay checks that your post is actually live, not just that the API said yes. Free while we're in early testing.",
+    "link": "https://lazyrelay.com"
+  },
+  "expectFlagged": false
+}

@@ -1,0 +1,9 @@
+Hi Kas,
+
+Thanks for the clarification request. To confirm: our legal business name is IPE PROJECTS (PTY) LTD, registration number 2021/003176/07. LazyRelay is our trading/brand name, not a separate legal entity - the document we submitted (CIPC certificate) is correct and matches this legal name exactly. I noticed our account's "Company Legal Name" field still shows "LazyRelay" rather than IPE PROJECTS (PTY) LTD - that field is locked on our end while under review, so we're unable to correct it ourselves. Could your team update it to match the submitted document?
+
+On the registry screenshot: CIPC's own public company-search tool has been retired. Their replacement (BizPortal/BizProfile) now requires logging into a personal CIPC account to search the register at all, due to South Africa's POPI Act. The only person with login access to our accountant's CIPC account is our accountant, and he's not in a position to action this request on our behalf right now.
+
+Given that constraint, would the CIPC certificate (COR14.3) we already submitted, together with our SARS VAT registration notice (VAT number 4440301986, also matching IPE PROJECTS (PTY) LTD), be sufficient in place of a live registry screenshot? Happy to provide any other document that works better on your end.
+
+Thanks for your patience with this.

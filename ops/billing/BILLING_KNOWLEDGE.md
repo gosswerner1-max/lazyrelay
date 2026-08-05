@@ -26,7 +26,13 @@ Living document for the Billing Operator/Auditor. Read every run before doing an
 
 **Real instant activation — how it actually works (no agent involved)**: `backend/src/http/webhook.ts` is mounted at `POST /api/webhooks/mor` in `app.ts`. Paddle's event hits that route directly and `syncSubscriptionFromWebhook()` runs synchronously in the same HTTP request — the `subscriptions` row updates within the request. `lazyrelay-billing-ops-daily` is NOT part of this path — it's a periodic safety net (catching a broken/missed webhook, stale sync, tier drift), not the activation mechanism. Activation must never depend on a scheduled agent — even a tight cron still means a delay window, which is the exact failure mode ("paid but not active for hours") this whole processor decision was made to avoid.
 
-**Still needed before this goes live** (real Paddle account setup, not code):
+## LIVE IN PRODUCTION (verified 2026-08-05)
+
+`getMorStatus()` returns `{live: true, environment: "production"}` — `PADDLE_ENVIRONMENT=production` is set in `backend/.env` alongside real `MOR_API_KEY`/`MOR_WEBHOOK_SECRET` and real Paddle Price IDs. The setup checklist below is therefore **done**, not pending. Consequence for every scheduled run: sandbox-vs-production gating no longer blocks sends, so `subscriptions` rows are real customers and any email sent from a billing task reaches a real person. Treat them accordingly.
+
+Price IDs present in `.env`: `STARTER`, `PRO`, `BUSINESS`, plus the three storage add-ons (`5GB`/`20GB`/`50GB`). Note `STARTER` — the pricing lineup has moved past the Free/Pro/Business trio documented under "Tier naming" below; reconcile before quoting prices anywhere customer-facing.
+
+**Still needed before this goes live** (real Paddle account setup, not code — ALL COMPLETED, retained for the record):
 1. Create the Paddle account (works directly from South Africa, confirmed).
 2. Create Pro ($24.99) and Business ($49) Prices in Paddle, set their IDs as `PADDLE_PRICE_ID_PRO`/`PADDLE_PRICE_ID_BUSINESS` in `.env`.
 3. Set `MOR_API_KEY` (Paddle API key) and `MOR_WEBHOOK_SECRET` (the notification setting's secret key, Paddle Dashboard → Developer Tools → Notifications, once `/api/webhooks/mor` is registered against the deployed backend URL). Set `PADDLE_ENVIRONMENT=production` when ready to go live (defaults to sandbox).
@@ -35,6 +41,10 @@ Living document for the Billing Operator/Auditor. Read every run before doing an
 ## Tier naming (fixed 2026-07-22)
 
 Database `subscriptions.tier` was `solo`/`pro`/`agency`, mismatched with the locked pricing decision (`memory/lazyrelay/project-launch-pricing-tiers.md`: Free/Pro $24.99/Business $49). Fixed via `backend/supabase/migrations/0006_tier_naming.sql` to `free`/`pro`/`business` — the database now matches the real decision, no permanent name-mapping layer needed.
+
+**Superseded — the live tier set is four, not three (recorded 2026-08-05).** `backend/supabase/migrations/0011_add_enterprise_tier.sql` additively widened the constraint to `free`/`pro`/`business`/`enterprise` (its own comment: the top tier is shown as "Business" but coded internally as `enterprise`). `ops/oversight/billing_auditor.js`'s `VALID_TIERS` already matches the database, so a live `enterprise` row is correct and is *not* drift — the 2026-08-05 audit found one and correctly passed it. Two follow-ups for Werner, flagged not fixed:
+1. `billing_auditor.js:17`'s flag message still reads "not in the corrected free/pro/business set" while the array it guards allows `enterprise` — the text contradicts the code and will mislead whoever reads a future flag. Cosmetic, source-code change, needs confirmation.
+2. `.env` carries a `PADDLE_PRICE_ID_STARTER` with no corresponding `starter` tier in the database constraint or `VALID_TIERS`. Either a Starter tier is being sold that the schema can't record, or the price ID is vestigial. Worth resolving before it produces a real mismatch.
 
 ## Dunning cadence
 
@@ -55,6 +65,12 @@ The user's requirement: since LazyRelay operates under a registered, VAT-registe
 **How it's populated**: `backend/src/billing/paddle.ts` now treats `transaction.completed` (a sale) and `adjustment.created` (a refund/credit) as relevant webhook events, alongside the existing subscription-lifecycle ones — confirmed against the installed `@paddle/paddle-node-sdk`'s own `.d.ts` files for the exact event names and payload shapes (`TransactionNotification`/`AdjustmentNotification`), not guessed. A sale resolves its account the same way subscriptions already do (`customData.accountEmail`, echoed back on the transaction since it was embedded at checkout). A refund's Paddle payload has no email of its own — `sync.ts::recordRefund()` resolves the account by looking up the original sale record already stored for that `transactionId`, and throws (rather than guessing) if that sale record isn't found, since Paddle retries failed webhook deliveries and an orphaned tax record is worse than a retry. `webhook.ts` dispatches to `recordBillingEvent()` for these two event kinds instead of `syncSubscriptionFromWebhook()`.
 
 Verified via `backend/src/test-paddle-adapter.ts` (10/10 pass, including the two new event kinds) — no live Paddle account needed, same self-signed-payload technique used for the subscription-lifecycle tests.
+
+## Storage margin monitoring (added 2026-08-05)
+
+Werner's concern: LazyRelay sells storage add-ons (+5GB/$2.99, +20GB/$7.99, +50GB/$14.99 — `project-storage-addons-2026-07-23`), but a customer's paid storage physically lives in the same Supabase storage pool that drives LazyRelay's own Supabase bill (100GB included on Pro, $0.021/GB overage past that). So "we sell storage" and "we pay for storage" aren't actually separate pools — the real question is whether what's charged still covers what's paid to Supabase.
+
+`billing_ops.js::checkStorageMargin(supabase)` answers this with real numbers, not the raw GB figure: sums active/trialing `storage_addons` revenue, compares against `storageUsage.js::gatherStorageUsage()`'s real overage cost. At current usage (2GB of 100GB) cost is $0, so margin is trivially fine — the check only becomes meaningful once real overage cost exists. Thresholds: `critical` if cost actually exceeds revenue (losing money), `warn` if revenue is under 2x cost (thinning margin, worth a pricing look), `ok` otherwise. This is a **pricing decision trigger for Werner, never an automated price change or a "storage full" block** — nothing in the storage pipeline itself ever breaks or throttles a customer regardless of margin (see Health & Safety's storage_overage note — Supabase auto-scales, never hard-blocks). Wired into `lazyrelay-daily-ops-digest` (Part 2 step 6).
 
 ## Standing rule
 

@@ -1,0 +1,49 @@
+{
+  "latest_run": {
+    "ranAt": "2026-08-05T15:42:25.902Z",
+    "results": [
+      {
+        "domain": "accounts",
+        "healthy": true,
+        "auditorCheck": {
+          "proven": true,
+          "reason": "ok"
+        },
+        "knowledgeFileExists": true,
+        "problems": []
+      },
+      {
+        "domain": "billing",
+        "healthy": true,
+        "auditorCheck": {
+          "proven": true,
+          "reason": "ok"
+        },
+        "knowledgeFileExists": true,
+        "problems": []
+      },
+      {
+        "domain": "marketing",
+        "healthy": true,
+        "auditorCheck": {
+          "proven": true,
+          "reason": "ok"
+        },
+        "knowledgeFileExists": true,
+        "problems": []
+      },
+      {
+        "domain": "advertising",
+        "healthy": true,
+        "auditorCheck": {
+          "proven": true,
+          "reason": "ok"
+        },
+        "knowledgeFileExists": true,
+        "problems": []
+      }
+    ],
+    "allHealthy": true,
+    "_recordedAt": "2026-08-05T15:42:25.902Z"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "item": {
+    "platform": "meta",
+    "targetAudience": "small business owners",
+    "rationale": "test",
+    "budgetUsd": 50
+  },
+  "expectFlagged": true
+}

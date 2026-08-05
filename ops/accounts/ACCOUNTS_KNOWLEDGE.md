@@ -23,13 +23,23 @@ Documented policy from `support/SUPPORT_KNOWLEDGE.md`: "accounts beyond the new 
 
 ## Stuck onboarding
 
-Signed up 7+ days ago with zero connected `social_accounts` (excluding disconnected ones) — a real candidate for a nudge. Route any nudge through the existing `support@lazyrelay.com` draft-and-hold email agent (`support/email-agent/imap-tool.js`'s `save-draft`), never a new send path — this keeps the same human-review discipline the email agent already has.
+Signed up 7+ days ago with zero connected `social_accounts` (excluding disconnected ones) — a real candidate for a nudge. **Send-authority granted 2026-08-05** (see `03 - LazyRelay/Support/feedback-email-agent-draft-and-hold.md` in the vault): `lazyrelay-accounts-ops-daily` now sends Template 11 directly from `support@lazyrelay.com` via `support/email-agent/imap-tool.js`'s `send-mail`, confirming `savedToSent: true` before counting it sent. Draft-and-hold is retired for this path — but the escalation half of that discipline stands: anything ambiguous or unusual is skipped and flagged for Werner, never sent blind.
 
 ## Review requests (built 2026-07-22)
 
 There's no public reviews/testimonials section on the site yet — real customers don't exist yet, and displaying fake or placeholder reviews would undercut the Proof-of-Publish trust positioning. But *collecting* reviews doesn't need a public section, and doesn't need to wait: `accounts_ops.js::findReviewRequestCandidates()` finds accounts with a real milestone (5+ posts confirmed actually live via `post_results.verified_live`, not just "sent" — the same trust signal the product itself is built on) and surfaces them as candidates for a review-request email. Excludes cancelled accounts. Dedup via a `StateStore` at `ops/accounts/state/review_requests.json` — `markReviewRequested(accountId)` is only called once a draft is actually saved, so a dry-run that just lists candidates never burns the mark, and no account is ever asked twice.
 
-Same draft-and-hold discipline as stuck-onboarding: candidates are never emailed directly by this code — a human (or the scheduled email agent, once approved) drafts the actual ask via `support/email-agent/imap-tool.js`'s `save-draft` into the `hello@lazyrelay.com` Drafts folder, reviews it, and sends manually. The reply (an actual quote/rating) lands back in the inbox — there's no separate storage table for it yet, since with zero reviews collected so far there's nothing to justify building a table before there's real content to put in it. Once a handful of real quotes exist, that's the trigger to (a) decide where to store them and (b) build the public-facing Reviews section — not before.
+**Send-authority granted 2026-08-05**, same as stuck-onboarding: the scheduled task now sends Template 12 directly from `hello@lazyrelay.com` via `send-mail`, confirms `savedToSent: true`, then immediately calls `markReviewRequested(accountId)`. `markReviewRequested()` is still only called once a send is *confirmed*, so a run that merely lists candidates never burns the mark. The reply (an actual quote/rating) lands back in the inbox — there's no separate storage table for it yet, since with zero reviews collected so far there's nothing to justify building a table before there's real content to put in it. Once a handful of real quotes exist, that's the trigger to (a) decide where to store them and (b) build the public-facing Reviews section — not before.
+
+## Test/internal accounts dominate both candidate lists (found on the first live send-authority run, 2026-08-05)
+
+Neither `findStuckOnboardingAccounts()` nor `findReviewRequestCandidates()` filters out non-customer rows, and in the current pre-launch database almost every candidate is one. First live run: 34 stuck-onboarding candidates, of which **31** were `@lazyrelay.invalid` and 2 were Werner's own accounts (`werner@lazyrelay.com`, `goss.werner.1@gmail.com`) — exactly **1** was a genuine external signup. Review requests: 2 candidates, **0** genuine.
+
+Exclusion rules to apply every run (manual triage — there is no code filter yet):
+- **`@lazyrelay.invalid`** — the `.invalid` TLD is reserved by RFC 2606 and undeliverable. Every sandbox/e2e/stress/migration/ui-check fixture uses it. Never email these.
+- **Werner's own addresses** — `werner@lazyrelay.com`, `goss.werner.1@gmail.com`, and `shop@lazydownloader.co.za`. The last one is The Lazy Download dogfooding LazyRelay (6 connected accounts, active subscription, 9 verified-live posts) — it trips the review-request milestone legitimately but is Werner's own business, so asking it for a review is asking Werner to review his own product. Skip and flag.
+
+Worth adding a real exclusion filter to `accounts_ops.js` before the customer base grows enough that manual triage stops being reliable — flagged for Werner rather than done unilaterally, since it changes what these functions return.
 
 ## Standing rule
 

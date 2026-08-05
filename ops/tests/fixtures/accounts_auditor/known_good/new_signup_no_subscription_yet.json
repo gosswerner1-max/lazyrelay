@@ -1,0 +1,9 @@
+{
+  "snapshot": {
+    "accountId": "test-nosub-1",
+    "subscriptionStatus": null,
+    "connectedAccountsCount": 0,
+    "createdAt": "2026-07-21T00:00:00.000Z"
+  },
+  "expectFlagged": false
+}

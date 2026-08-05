@@ -1,0 +1,32 @@
+{
+  "auditorName": "billing_auditor",
+  "moduleMtime": "2026-08-05T15:28:15.391Z",
+  "cases": [
+    {
+      "bucket": "known_bad",
+      "file": "bad_tier_value.json",
+      "pass": true,
+      "reason": "ok"
+    },
+    {
+      "bucket": "known_bad",
+      "file": "stale_active_period_expired.json",
+      "pass": true,
+      "reason": "ok"
+    },
+    {
+      "bucket": "known_good",
+      "file": "healthy_pro.json",
+      "pass": true,
+      "reason": "ok"
+    },
+    {
+      "bucket": "known_good",
+      "file": "past_due_expected.json",
+      "pass": true,
+      "reason": "ok"
+    }
+  ],
+  "overallPass": true,
+  "ranAt": "2026-08-05T15:33:44.643Z"
+}

@@ -24,8 +24,26 @@ Render's free tier, or the frontend being unreachable while the API is fine).
    (that lives only inside the running backend, not the DB) — this is a
    genuinely different, externally-observable signal.
 5. **Media storage overage** (reuses the same real query as the weekly
-   report) — the one infra cost that scales with customers; flagged here
-   too so it surfaces daily, not just on the weekly cadence.
+   report) — reported for visibility, but **excluded from `overall`
+   severity** (changed 2026-08-05): Supabase meters/auto-scales storage past
+   the included amount rather than hard-blocking (confirmed live on the
+   Supabase usage page — "Disk automatically scales up when you get close to
+   its size"), so raw GB overage is never an operational emergency. The real
+   signal — whether storage add-on revenue still covers the real Supabase
+   cost — is `billing_ops.js::checkStorageMargin()`, a pricing question, not
+   a health question.
+6. **Database disk size** (`ops_db_size_bytes()` RPC, migration 0031, added
+   2026-08-05) — direct read of the real Postgres disk size against
+   Supabase Pro's 8GB included allowance. Added after finding the original 5
+   checks were all *proxies* for capacity strain (latency, lag) rather than
+   a direct read of the actual documented cap.
+7. **Monthly Active Users** (`ops_monthly_active_users()` RPC, same
+   migration) — direct-ish read against Supabase Pro's 100k included MAU.
+   This is a conservative proxy (distinct sign-ins in the current calendar
+   month via `auth.users.last_sign_in_at`), not Supabase's exact billing
+   definition (real MAU also counts token refreshes) — it can only
+   under-count the real figure, never over-count, so it's safe to alert on
+   without risking a false "all clear."
 
 ## Thresholds (the actual "limits" — tune these as real usage teaches us more)
 
@@ -35,12 +53,23 @@ Render's free tier, or the frontend being unreachable while the API is fine).
 | Frontend reachability | 200 OK | — | non-200 or unreachable |
 | SSL days remaining | > 14 days | 7-14 days | < 7 days or invalid |
 | Overdue pending posts | 0 | 1-4 | 5+ |
-| Storage overage | 0 GB | > 0 GB | > 20 GB (meaningful $ impact) |
+| Storage overage | 0 GB | > 0 GB (informational only, never affects `overall`) | — |
+| Database disk size | < 6GB | 6-8GB | > 8GB (Pro plan included amount) |
+| Monthly Active Users | < 80k | 80k-100k | > 100k (Pro plan included amount) |
 
 Warn = worth a look this week. Critical = should trigger an immediate Slack
 ping and a real look at whether Render/Supabase need a tier upgrade, per the
 guidance already in SERVICE_PROVIDERS.md — this domain's job is to make that
-decision data-driven instead of a guess.
+decision data-driven instead of a guess. Both Render and Supabase were
+confirmed already upgraded (Starter / Pro respectively) as of 2026-08-05 —
+these thresholds reflect the real current caps, not free-tier ones.
+
+## Real infra tiers (confirmed live 2026-08-05, was previously documented wrong)
+
+Render is on **Starter** (~$7/mo, no free-tier spin-down). Supabase is on
+**Pro** ($25/mo, 8GB disk / 100k MAU included). See `SERVICE_PROVIDERS.md`
+for the full correction — this file and that one had both drifted to
+describing free-tier assumptions that were no longer true.
 
 ## cPanel disk quota — deliberately NOT automated
 

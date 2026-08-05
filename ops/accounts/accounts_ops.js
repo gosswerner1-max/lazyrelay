@@ -16,6 +16,7 @@
 
 const { getSupabaseClient } = require("../shared/supabaseClient.js");
 const { StateStore } = require("../shared/stateStore.js");
+const { isInternalTestAccount } = require("../shared/internalTestAccounts.js");
 const path = require("path");
 
 const STUCK_ONBOARDING_DAYS = 7;
@@ -39,6 +40,7 @@ async function findStuckOnboardingAccounts(supabase, daysThreshold = STUCK_ONBOA
 
   const stuck = [];
   for (const account of accounts ?? []) {
+    if (isInternalTestAccount(account.email)) continue; // never nudge our own test/internal accounts
     const { count, error: countError } = await supabase
       .from("social_accounts")
       .select("id", { count: "exact", head: true })
@@ -139,6 +141,7 @@ async function findReviewRequestCandidates(supabase, minVerifiedPosts = REVIEW_R
 
   const candidates = [];
   for (const account of accounts ?? []) {
+    if (isInternalTestAccount(account.email)) continue; // never ask our own test/internal accounts for a review
     if (store.check(account.id).ok) continue; // already requested — never ask twice
 
     const { count, error: countError } = await supabase

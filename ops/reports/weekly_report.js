@@ -305,7 +305,7 @@ async function main() {
   fs.mkdirSync(outputDir, { recursive: true });
 
   const supabase = getSupabaseClient();
-  const morStatus = getMorStatus();
+  const morStatus = await getMorStatus();
 
   const summary = await gatherAccountsAndRevenue(supabase);
   const platformActivity = await gatherPlatformActivity(supabase, summary.weekStart, summary.weekEnd);

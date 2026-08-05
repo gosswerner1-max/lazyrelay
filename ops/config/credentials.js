@@ -57,4 +57,17 @@ function getEmailAgentCredentialsPath() {
   return EMAIL_AGENT_CREDS_PATH;
 }
 
-module.exports = { getSupabaseCredentials, getMorCredentials, getEmailAgentCredentialsPath };
+/** Render API credentials — added 2026-08-05 so billing_ops.js can check
+ * what's actually DEPLOYED instead of trusting this local .env file, after
+ * a real incident where local held live Paddle creds while Render was
+ * still on sandbox for weeks with nobody noticing. Returns null, not a
+ * throw, so callers can degrade to "deployed status unknown" rather than
+ * crash if these ever go missing. */
+function getRenderCredentials() {
+  const apiKey = process.env.RENDER_API_KEY;
+  const serviceId = process.env.RENDER_SERVICE_ID;
+  if (!apiKey || !serviceId) return null;
+  return { apiKey, serviceId };
+}
+
+module.exports = { getSupabaseCredentials, getMorCredentials, getEmailAgentCredentialsPath, getRenderCredentials };

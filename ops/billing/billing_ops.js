@@ -10,35 +10,89 @@
 // This is the monitoring/follow-up layer on top of what already lands in
 // the DB via that real flow.
 
-const { getMorCredentials } = require("../config/credentials.js");
+const { getMorCredentials, getRenderCredentials } = require("../config/credentials.js");
+const { isInternalTestAccount } = require("../shared/internalTestAccounts.js");
 
 const PAST_DUE_GRACE_HOURS = 24; // money-impacting -> tight loop, same
 // reasoning as Lazy Download's vendor-issue follow-up policy (24h for
 // money-impacting issues vs 1-2 days for standard ones).
 
-/** `live` only ever meant "credentials are present," not "this is real
- * production billing" — confirmed 2026-07-28 that backend/.env still holds a
- * Paddle SANDBOX key with `PADDLE_ENVIRONMENT` unset, so the daily billing
- * task was reporting sandbox test data as if it were real customer
- * dunning/refund candidates with no way to tell from the output. `environment`
- * mirrors the exact same check `backend/src/index.ts` uses to construct the
- * real PaddleMorAdapter (`PADDLE_ENVIRONMENT === "production"` → production,
- * else sandbox) — same source of truth as the actual running adapter, not a
- * separate guess from the key's naming convention. Callers (the SKILL.md
- * report) must treat `environment !== "production"` as "don't act on these
- * candidates as real," not just log them quietly. */
-function getMorStatus() {
-  const creds = getMorCredentials();
-  if (!creds) return { live: false, environment: "none" };
-  const environment = process.env.PADDLE_ENVIRONMENT === "production" ? "production" : "sandbox";
-  return { live: true, environment };
+/** Reads Render's ACTUAL deployed env vars via the Render API — rewritten
+ * 2026-08-05 after a real incident: this function used to read only the
+ * local `backend/.env`, and on 2026-08-05 that file held live Paddle
+ * credentials while the DEPLOYED Render service was still fully on sandbox
+ * (empty `PADDLE_ENVIRONMENT`, a `pdl_sdbx_...` key) — a mismatch that had
+ * apparently existed for a while with nobody noticing, because nothing
+ * ever checked deployed reality instead of the laptop's copy. Real
+ * customers only ever hit the deployed backend, never this file, so that's
+ * the only place billing status can honestly be read from.
+ *
+ * Returns `{live, environment, source, localDisagreesWithDeployed}` —
+ * `source` is `"deployed"` when the Render check succeeded (the trustworthy
+ * case), or `"local-fallback"` if Render's API couldn't be reached (network
+ * issue, rotated key, etc.) — callers must treat a `local-fallback` result
+ * as unverified, not equivalent to a real deployed check.
+ * `localDisagreesWithDeployed` is true when the local `.env` and the
+ * deployed values differ at all (even if both resolve to the same
+ * live/environment verdict) — worth surfacing so this exact drift gets
+ * caught immediately next time instead of sitting unnoticed for weeks. */
+async function getMorStatus() {
+  const localApiKey = process.env.MOR_API_KEY;
+  const localEnvironment = process.env.PADDLE_ENVIRONMENT === "production" ? "production" : "sandbox";
+
+  const renderCreds = getRenderCredentials();
+  if (!renderCreds) {
+    // No Render credentials configured — can't verify deployed reality at
+    // all. Fall back to local, but say so honestly rather than pretending
+    // this is a verified deployed check.
+    const localCreds = getMorCredentials();
+    return {
+      live: !!localCreds,
+      environment: localEnvironment,
+      source: "local-fallback",
+      localDisagreesWithDeployed: null,
+      note: "RENDER_API_KEY/RENDER_SERVICE_ID not configured — could not verify against the deployed service, this is the local .env only.",
+    };
+  }
+
+  let deployedApiKey, deployedEnvironment;
+  try {
+    const res = await fetch(`https://api.render.com/v1/services/${renderCreds.serviceId}/env-vars?limit=100`, {
+      headers: { Authorization: `Bearer ${renderCreds.apiKey}` },
+    });
+    if (!res.ok) throw new Error(`Render API returned ${res.status}`);
+    const envVars = await res.json();
+    const byKey = Object.fromEntries(envVars.map((e) => [e.envVar.key, e.envVar.value]));
+    deployedApiKey = byKey.MOR_API_KEY;
+    deployedEnvironment = byKey.PADDLE_ENVIRONMENT === "production" ? "production" : "sandbox";
+  } catch (err) {
+    // Render API unreachable this run — same honest fallback as above,
+    // never silently substitute the local file for a real deployed check.
+    const localCreds = getMorCredentials();
+    return {
+      live: !!localCreds,
+      environment: localEnvironment,
+      source: "local-fallback",
+      localDisagreesWithDeployed: null,
+      note: `Could not reach Render's API to verify deployed status (${err.message}) — this is the local .env only, not verified against what's actually live.`,
+    };
+  }
+
+  const localDisagreesWithDeployed = localApiKey !== deployedApiKey || localEnvironment !== deployedEnvironment;
+
+  return {
+    live: !!deployedApiKey,
+    environment: deployedEnvironment,
+    source: "deployed",
+    localDisagreesWithDeployed,
+  };
 }
 
 /** Subscriptions stuck in past_due for longer than the grace period —
  * real dunning-follow-up candidates. Requires the MoR to actually be live;
  * reports that honestly rather than returning a misleading empty list. */
 async function findPastDueNeedingFollowup(supabase, graceHours = PAST_DUE_GRACE_HOURS) {
-  const { live, environment } = getMorStatus();
+  const { live, environment } = await getMorStatus();
   if (!live) {
     return { handled: false, reason: "no billing/MoR live yet — nothing to follow up on", environment, candidates: [] };
   }
@@ -49,11 +103,26 @@ async function findPastDueNeedingFollowup(supabase, graceHours = PAST_DUE_GRACE_
     .eq("status", "past_due")
     .lt("updated_at", cutoff);
   if (error) throw error;
+
+  // Exclude Werner's own test/internal accounts (added 2026-08-05 after
+  // billing went production with real leftover test subscriptions still in
+  // the DB, kept deliberately since testing is ongoing) — never send a
+  // dunning reminder to our own mailboxes.
+  const rows = data ?? [];
+  const accountIds = rows.map((r) => r.account_id);
+  let candidates = rows;
+  if (accountIds.length > 0) {
+    const { data: accounts, error: acctError } = await supabase.from("accounts").select("id, email").in("id", accountIds);
+    if (acctError) throw acctError;
+    const emailById = new Map((accounts ?? []).map((a) => [a.id, a.email]));
+    candidates = rows.filter((r) => !isInternalTestAccount(emailById.get(r.account_id)));
+  }
+
   const reason =
     environment === "production"
       ? "ok"
       : `ok, but MoR is in ${environment} mode — these are NOT real customers, do not act on them as real dunning candidates`;
-  return { handled: true, reason, environment, candidates: data ?? [] };
+  return { handled: true, reason, environment, candidates };
 }
 
 /** Refund handling per the now-published Refund Policy (lazyrelay.com/refunds,
@@ -65,7 +134,7 @@ async function findPastDueNeedingFollowup(supabase, graceHours = PAST_DUE_GRACE_
  * in the Paddle dashboard, not something ops code executes unattended.
  */
 async function planRefund(supabase, refundRequest) {
-  const { live } = getMorStatus();
+  const { live } = await getMorStatus();
   if (!live) {
     return { handled: false, reason: "no billing live yet — LazyRelay is free during testing, nothing to refund" };
   }
@@ -94,4 +163,41 @@ async function planRefund(supabase, refundRequest) {
   };
 }
 
-module.exports = { getMorStatus, findPastDueNeedingFollowup, planRefund };
+/** Storage margin check (added 2026-08-05, per Werner's ask: "so we never
+ *  lose money but rather change the price of what we sell storage at").
+ *  Real revenue (active/trialing storage_addons) vs real Supabase overage
+ *  cost — see ops/shared/storageUsage.js::computeStorageMargin for the
+ *  underlying numbers. This is a pricing-review trigger, not an outage
+ *  alert: nothing breaks at any margin level (Supabase auto-scales), the
+ *  only consequence of an eroding margin is "storage add-on prices need to
+ *  go up," which is Werner's call, not something this code does itself. */
+async function checkStorageMargin(supabase) {
+  const { gatherStorageUsage, computeStorageMargin } = require("../shared/storageUsage.js");
+  const storageUsage = await gatherStorageUsage(supabase);
+  const margin = await computeStorageMargin(supabase, storageUsage);
+
+  if (margin.monthlyCostUsd === 0) {
+    return { ...margin, status: "ok", detail: "No Supabase storage overage cost yet — margin question is moot." };
+  }
+  if (margin.marginRatio < 1) {
+    return {
+      ...margin,
+      status: "critical",
+      detail: `Storage overage cost ($${margin.monthlyCostUsd.toFixed(2)}/mo) EXCEEDS storage add-on revenue ($${margin.monthlyRevenueUsd.toFixed(2)}/mo) — actually losing money on storage. Raise add-on prices.`,
+    };
+  }
+  if (margin.marginRatio < 2) {
+    return {
+      ...margin,
+      status: "warn",
+      detail: `Storage margin is thinning — revenue ($${margin.monthlyRevenueUsd.toFixed(2)}/mo) is only ${margin.marginRatio.toFixed(1)}x cost ($${margin.monthlyCostUsd.toFixed(2)}/mo). Worth reviewing add-on pricing before it erodes further.`,
+    };
+  }
+  return {
+    ...margin,
+    status: "ok",
+    detail: `Storage margin healthy — revenue ($${margin.monthlyRevenueUsd.toFixed(2)}/mo) is ${margin.marginRatio.toFixed(1)}x cost ($${margin.monthlyCostUsd.toFixed(2)}/mo).`,
+  };
+}
+
+module.exports = { getMorStatus, findPastDueNeedingFollowup, planRefund, checkStorageMargin };

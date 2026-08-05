@@ -1,0 +1,26 @@
+{
+  "auditorName": "advertising_auditor",
+  "moduleMtime": "2026-07-22T08:52:21.779Z",
+  "cases": [
+    {
+      "bucket": "known_bad",
+      "file": "missing_rationale.json",
+      "pass": true,
+      "reason": "ok"
+    },
+    {
+      "bucket": "known_bad",
+      "file": "nonzero_budget.json",
+      "pass": true,
+      "reason": "ok"
+    },
+    {
+      "bucket": "known_good",
+      "file": "valid_recommendation.json",
+      "pass": true,
+      "reason": "ok"
+    }
+  ],
+  "overallPass": true,
+  "ranAt": "2026-07-22T08:53:21.287Z"
+}

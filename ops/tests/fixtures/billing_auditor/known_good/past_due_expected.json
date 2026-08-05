@@ -1,0 +1,8 @@
+{
+  "snapshot": {
+    "tier": "free",
+    "status": "past_due",
+    "currentPeriodEnd": "2026-06-01T00:00:00.000Z"
+  },
+  "expectFlagged": false
+}

@@ -545,7 +545,7 @@ async function main() {
   const [, , cmd, mailbox, ...rest] = process.argv;
   if (!cmd || !mailbox) {
     console.error(
-      "Usage: node imap-tool.js <list-unread|get-message|list-drafts|save-draft|sort-mailbox|list-purge-candidates|purge-folder|search-all|mark-read|delete-message> <mailbox> [args]"
+      "Usage: node imap-tool.js <list-unread|get-message|list-drafts|save-draft|send-mail|sort-mailbox|list-purge-candidates|purge-folder|search-all|mark-read|delete-message> <mailbox> [args]"
     );
     process.exit(1);
   }
