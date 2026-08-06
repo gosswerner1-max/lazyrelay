@@ -1235,27 +1235,45 @@
   flex-direction: column;
   align-items: center;
   width: 100%;
-  /* Static PCB-trace texture, matching the "circuit board" reference —
-     right-angle traces + via dots, tiled. Color is baked into the SVG
-     itself (data URIs can't reference CSS custom properties), so the
-     dark-mode override below swaps in the dark-mode --signal hex
-     directly rather than trying to interpolate it. */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='%23c82400' stroke-opacity='0.16' stroke-width='1.5'%3E%3Cpath d='M20 20 H100 V60 H180'/%3E%3Cpath d='M20 20 V90 H70 V170'/%3E%3Cpath d='M180 30 V80 H130 V150 H170'/%3E%3Cpath d='M30 180 H90 V130 H150'/%3E%3Cpath d='M110 110 H160 V190'/%3E%3C/g%3E%3Cg fill='%23c82400' fill-opacity='0.28'%3E%3Ccircle cx='20' cy='20' r='2.5'/%3E%3Ccircle cx='100' cy='20' r='2.5'/%3E%3Ccircle cx='180' cy='30' r='2.5'/%3E%3Ccircle cx='70' cy='170' r='2.5'/%3E%3Ccircle cx='150' cy='130' r='2.5'/%3E%3Ccircle cx='110' cy='110' r='2.5'/%3E%3Ccircle cx='160' cy='190' r='2.5'/%3E%3Ccircle cx='30' cy='180' r='2.5'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* "Confirmed Signal Grid" + "Quiet Board, Live Edge" combined, per
+   Werner's own design-review pass: a restrained static PCB trace grid
+   (colored with --ink, not the accent — the accent is reserved for the
+   moving signal only) that fades out toward the center of the page via
+   a mask, so the reading area stays clear and traces read as denser
+   only near the edges. A dedicated element (not .landing itself) so
+   the mask never touches real content. Color baked into the SVG data
+   URI per color-scheme since data URIs can't reference custom
+   properties — hex values match --ink's light/dark values exactly. */
+.landing-circuit-bg {
+  /* Fixed (viewport-relative), not absolute (page-relative) — .landing
+     can be thousands of pixels tall, so a mask sized against the full
+     page would only fade near the very top. Fixed keeps "clear center,
+     denser edges" true for whatever's on screen at any scroll position. */
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='%2314171f' stroke-opacity='0.4' stroke-width='1.5'%3E%3Cpath d='M20 20 H100 V60 H180'/%3E%3Cpath d='M20 20 V90 H70 V170'/%3E%3Cpath d='M180 30 V80 H130 V150 H170'/%3E%3Cpath d='M30 180 H90 V130 H150'/%3E%3Cpath d='M110 110 H160 V190'/%3E%3C/g%3E%3Cg fill='%2314171f' fill-opacity='0.5'%3E%3Ccircle cx='20' cy='20' r='2.2'/%3E%3Ccircle cx='100' cy='20' r='2.2'/%3E%3Ccircle cx='180' cy='30' r='2.2'/%3E%3Ccircle cx='70' cy='170' r='2.2'/%3E%3Ccircle cx='150' cy='130' r='2.2'/%3E%3Ccircle cx='110' cy='110' r='2.2'/%3E%3Ccircle cx='160' cy='190' r='2.2'/%3E%3Ccircle cx='30' cy='180' r='2.2'/%3E%3C/g%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 200px 200px;
+  opacity: 0.24;
+  mask-image: radial-gradient(ellipse 65% 55% at 50% 30%, transparent 20%, black 78%);
+  -webkit-mask-image: radial-gradient(ellipse 65% 55% at 50% 30%, transparent 20%, black 78%);
 }
 
 @media (prefers-color-scheme: dark) {
-  .landing {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='%23ff7452' stroke-opacity='0.16' stroke-width='1.5'%3E%3Cpath d='M20 20 H100 V60 H180'/%3E%3Cpath d='M20 20 V90 H70 V170'/%3E%3Cpath d='M180 30 V80 H130 V150 H170'/%3E%3Cpath d='M30 180 H90 V130 H150'/%3E%3Cpath d='M110 110 H160 V190'/%3E%3C/g%3E%3Cg fill='%23ff7452' fill-opacity='0.28'%3E%3Ccircle cx='20' cy='20' r='2.5'/%3E%3Ccircle cx='100' cy='20' r='2.5'/%3E%3Ccircle cx='180' cy='30' r='2.5'/%3E%3Ccircle cx='70' cy='170' r='2.5'/%3E%3Ccircle cx='150' cy='130' r='2.5'/%3E%3Ccircle cx='110' cy='110' r='2.5'/%3E%3Ccircle cx='160' cy='190' r='2.5'/%3E%3Ccircle cx='30' cy='180' r='2.5'/%3E%3C/g%3E%3C/svg%3E");
+  .landing-circuit-bg {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='%23f2f3f6' stroke-opacity='0.35' stroke-width='1.5'%3E%3Cpath d='M20 20 H100 V60 H180'/%3E%3Cpath d='M20 20 V90 H70 V170'/%3E%3Cpath d='M180 30 V80 H130 V150 H170'/%3E%3Cpath d='M30 180 H90 V130 H150'/%3E%3Cpath d='M110 110 H160 V190'/%3E%3C/g%3E%3Cg fill='%23f2f3f6' fill-opacity='0.45'%3E%3Ccircle cx='20' cy='20' r='2.2'/%3E%3Ccircle cx='100' cy='20' r='2.2'/%3E%3Ccircle cx='180' cy='30' r='2.2'/%3E%3Ccircle cx='70' cy='170' r='2.2'/%3E%3Ccircle cx='150' cy='130' r='2.2'/%3E%3Ccircle cx='110' cy='110' r='2.2'/%3E%3Ccircle cx='160' cy='190' r='2.2'/%3E%3Ccircle cx='30' cy='180' r='2.2'/%3E%3C/g%3E%3C/svg%3E");
   }
 }
 
-/* Two small glowing "current" dots that travel along a trace-shaped
-   path across the top of the page — the literal "flowing electricity"
-   from the reference. CSS-only via offset-path, no new DOM elements
-   needed (reusing the two pseudo-elements the previous background
-   approach used for its glow blobs). */
+/* Exactly two active signals at a time, each traveling a route near
+   the page edges (matching the trace grid's own edge-heavy density),
+   pausing to flash at each via it reaches, then holding still for a
+   few seconds before the next cycle — "confirmed" rather than merely
+   "sent," the same distinction the product itself makes. */
 .landing::before,
 .landing::after {
   content: "";
@@ -1263,38 +1281,44 @@
   z-index: -1;
   top: 0;
   left: 0;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--signal-solid);
-  box-shadow: 0 0 10px 3px color-mix(in srgb, var(--signal-solid) 70%, transparent);
-  offset-rotate: 0deg;
+  box-shadow: 0 0 8px 2px color-mix(in srgb, var(--signal-solid) 65%, transparent);
   pointer-events: none;
 }
 
 .landing::before {
-  offset-path: path("M40 30 H420 V75 H900 V45 H1200");
-  animation: landing-spark 9s linear infinite;
+  offset-path: path("M40 25 H380 V70 H700");
+  animation: landing-spark 15s ease-in-out infinite;
 }
 
 .landing::after {
-  offset-path: path("M100 560 H500 V610 H950 V580 H1300");
-  animation: landing-spark 11s linear infinite;
-  animation-delay: -4s;
+  offset-path: path("M1300 40 H950 V85 H600");
+  animation: landing-spark 17s ease-in-out infinite;
+  animation-delay: -8s;
 }
 
 @keyframes landing-spark {
-  0% { offset-distance: 0%; opacity: 0; }
-  8% { opacity: 1; }
-  92% { opacity: 1; }
-  100% { offset-distance: 100%; opacity: 0; }
+  0% { offset-distance: 0%; opacity: 0; transform: scale(1); filter: brightness(1); }
+  4% { opacity: 1; }
+  22% { offset-distance: 35%; transform: scale(1); filter: brightness(1); }
+  24% { transform: scale(2.2); filter: brightness(1.6); }
+  27% { transform: scale(1); filter: brightness(1); }
+  47% { offset-distance: 65%; }
+  49% { transform: scale(2.2); filter: brightness(1.6); }
+  52% { transform: scale(1); filter: brightness(1); }
+  70% { offset-distance: 100%; opacity: 1; }
+  74%, 100% { opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .landing::before,
   .landing::after {
     animation: none;
-    opacity: 0;
+    opacity: 1;
+    offset-distance: 35%;
   }
 }
 

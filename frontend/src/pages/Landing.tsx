@@ -130,6 +130,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact 
 
   return (
     <div className="landing">
+      <div className="landing-circuit-bg" aria-hidden="true" />
       <header className="landing-nav">
         <div className="wordmark">
           <BrandMark size={40} />
