@@ -238,6 +238,22 @@ export function Dashboard() {
     refresh();
   }, []);
 
+  // Post status (pending -> posted/failed) is written by the scheduler
+  // seconds after refresh() first loads the page, so without this the
+  // Posts tab shows a stale "PENDING" pill until the customer manually
+  // reloads. Poll the lightweight list endpoint (not the full refresh())
+  // every 4s while there's still a due-but-unresolved post, and stop once
+  // nothing is left pending.
+  useEffect(() => {
+    if (tab !== "Posts") return;
+    const hasPendingDue = posts.some((p) => p.status === "pending" && new Date(p.scheduled_for) <= new Date());
+    if (!hasPendingDue) return;
+    const interval = setInterval(() => {
+      api.listScheduledPosts().then(setPosts).catch(() => {});
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [tab, posts]);
+
   // Lazy-loaded, not part of refresh() — analytics isn't needed on first
   // paint for most customers, and re-fetching it every time an unrelated
   // action (scheduling a post, connecting an account) calls refresh() would
