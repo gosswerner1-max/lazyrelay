@@ -238,20 +238,29 @@ export function Dashboard() {
     refresh();
   }, []);
 
-  // Post status (pending -> posted/failed) is written by the scheduler
-  // seconds after refresh() first loads the page, so without this the
-  // Posts tab shows a stale "PENDING" pill until the customer manually
-  // reloads. Poll the lightweight list endpoint (not the full refresh())
-  // every 4s while there's still a due-but-unresolved post, and stop once
-  // nothing is left pending. Overview renders this same Upcoming/History
-  // list too (confirmed live 2026-08-06: a customer sitting on Overview,
-  // not Posts, saw a stuck PENDING pill because this check only matched
-  // "Posts" — the tab name, not what's actually on screen), so it needs
-  // the same poll.
+  // Post status (pending -> posting -> posted/failed) is written by the
+  // scheduler seconds after refresh() first loads the page, so without
+  // this the Posts tab shows a stale "PENDING" pill until the customer
+  // manually reloads. Poll the lightweight list endpoint (not the full
+  // refresh()) every 4s while there's still a due-but-unresolved post,
+  // and stop once nothing is left unresolved. Overview renders this same
+  // Upcoming/History list too (confirmed live 2026-08-06: a customer
+  // sitting on Overview, not Posts, saw a stuck PENDING pill because this
+  // check only matched "Posts" — the tab name, not what's actually on
+  // screen), so it needs the same poll. Must also count "posting" (the
+  // scheduler's claim-in-progress status, scheduler.ts:111) alongside
+  // "pending" — checking "pending" alone means the moment a poll tick
+  // observes a post mid-claim, this effect's own `posts` dependency
+  // re-fires, sees zero "pending" rows left, and tears the interval down
+  // right before the real posted/failed resolution ever lands (confirmed
+  // live 2026-08-06: a test post sat on "POSTING" indefinitely in the UI
+  // while the database already said "posted").
   useEffect(() => {
     if (tab !== "Posts" && tab !== "Overview") return;
-    const hasPendingDue = posts.some((p) => p.status === "pending" && new Date(p.scheduled_for) <= new Date());
-    if (!hasPendingDue) return;
+    const hasUnresolvedDue = posts.some(
+      (p) => (p.status === "pending" || p.status === "posting") && new Date(p.scheduled_for) <= new Date()
+    );
+    if (!hasUnresolvedDue) return;
     const interval = setInterval(() => {
       api.listScheduledPosts().then(setPosts).catch(() => {});
     }, 4000);
