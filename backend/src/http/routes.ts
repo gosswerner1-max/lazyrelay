@@ -513,18 +513,44 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // instead of ever sending the customer back to their dashboard. It now
   // redirects to the frontend either way, success or failure, with a query
   // param the dashboard reads once and clears (see Dashboard.tsx).
+  //
+  // Bluesky/Telegram/Discord have no real OAuth redirect_uri — ConnectForm
+  // hits this exact route via fetch() instead, with `?format=json`. A
+  // redirect response is wrong for that caller: fetch() follows it
+  // automatically, the hop lands on the frontend's origin, and that origin
+  // (plain static hosting) sends no CORS headers — so the browser throws
+  // "Failed to fetch" even though completeConnect() above already
+  // succeeded and the account is genuinely connected (confirmed live
+  // 2026-08-06: reproduced on Bluesky/Telegram/Discord, DB always correct,
+  // only the fetch() call itself failed). `format=json` opts into a real
+  // JSON response instead, without changing behavior for the real OAuth
+  // platforms that still navigate the browser here directly.
   const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
   router.get("/social-accounts/callback", publicRateLimit, async (req, res) => {
     const { code, state } = req.query;
+    const wantsJson = req.query.format === "json";
     if (typeof code !== "string" || typeof state !== "string") {
-      res.redirect(`${frontendUrl}/?connectError=${encodeURIComponent("Missing code or state")}`);
+      const message = "Missing code or state";
+      if (wantsJson) {
+        res.status(400).json({ error: message });
+        return;
+      }
+      res.redirect(`${frontendUrl}/?connectError=${encodeURIComponent(message)}`);
       return;
     }
     try {
-      await completeConnect(state, code, registry);
+      const socialAccountId = await completeConnect(state, code, registry);
+      if (wantsJson) {
+        res.json({ connected: true, socialAccountId });
+        return;
+      }
       res.redirect(`${frontendUrl}/?connected=1`);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      if (wantsJson) {
+        res.status(400).json({ error: message });
+        return;
+      }
       res.redirect(`${frontendUrl}/?connectError=${encodeURIComponent(message)}`);
     }
   });

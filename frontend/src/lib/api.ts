@@ -181,9 +181,17 @@ export const api = {
   // to work even if the browser's Supabase session expired mid-flow, since
   // identity comes entirely from the one-time `state` token minted when the
   // connect flow started, same as a real OAuth callback.
+  //
+  // `format=json` is required here, not optional — without it the backend
+  // redirects (the behavior real OAuth platforms need, since they navigate
+  // the browser here directly), fetch() follows that redirect onto the
+  // frontend's own origin, and that origin's plain static hosting sends no
+  // CORS headers — so the browser throws "Failed to fetch" even though the
+  // connect already succeeded server-side (confirmed live 2026-08-06 on
+  // Bluesky/Telegram/Discord).
   completeManualConnect: async (code: string, state: string): Promise<{ connected: boolean; socialAccountId: string }> => {
     const res = await fetch(
-      `${API_URL}/social-accounts/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
+      `${API_URL}/social-accounts/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}&format=json`,
     );
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error ?? `Connect failed: ${res.status}`);
