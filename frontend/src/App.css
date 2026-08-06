@@ -319,6 +319,10 @@
   color: var(--ink);
 }
 
+.account-list li button {
+  margin-left: auto;
+}
+
 .platform-badge {
   display: inline-flex;
   align-items: center;

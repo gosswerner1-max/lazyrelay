@@ -102,6 +102,7 @@ export function Dashboard() {
   const [storageUsage, setStorageUsage] = useState<StorageUsage | null>(null);
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [mediaBusyId, setMediaBusyId] = useState<string | null>(null);
+  const [disconnectingAccountId, setDisconnectingAccountId] = useState<string | null>(null);
   const [storageAddons, setStorageAddons] = useState<StorageAddon[]>([]);
   const [addonBusy, setAddonBusy] = useState<5 | 20 | 50 | string | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
@@ -418,6 +419,25 @@ export function Dashboard() {
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setConnectingPlatform(null);
+    }
+  }
+
+  async function handleDisconnectAccount(a: SocialAccount) {
+    if (
+      !window.confirm(
+        `Disconnect ${a.display_name ?? a.platform_account_id} (${a.platform})? Any scheduled posts still using this account will fail next time they're due.`,
+      )
+    )
+      return;
+    setDisconnectingAccountId(a.id);
+    setError(null);
+    try {
+      await api.disconnectSocialAccount(a.id);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDisconnectingAccountId(null);
     }
   }
 
@@ -1253,6 +1273,14 @@ export function Dashboard() {
                   {a.platform}
                 </span>
                 {a.display_name ?? a.platform_account_id}
+                <button
+                  type="button"
+                  className="btn-outline"
+                  disabled={disconnectingAccountId !== null}
+                  onClick={() => handleDisconnectAccount(a)}
+                >
+                  {disconnectingAccountId === a.id ? "Disconnecting..." : "Disconnect"}
+                </button>
               </li>
             ))}
           </ul>

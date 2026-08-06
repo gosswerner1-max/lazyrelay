@@ -171,6 +171,7 @@ export interface ApiKey {
 
 export const api = {
   listSocialAccounts: (): Promise<SocialAccount[]> => authedFetch("/social-accounts"),
+  disconnectSocialAccount: (id: string): Promise<null> => authedFetch(`/social-accounts/${id}`, { method: "DELETE" }),
   getPlatforms: (): Promise<PlatformInfo[]> => authedFetch("/platforms"),
   startConnect: (platform: string): Promise<{ authorizeUrl: string }> =>
     authedFetch(`/social-accounts/connect?platform=${encodeURIComponent(platform)}`),

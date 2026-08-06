@@ -568,6 +568,38 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.json(data);
   });
 
+  // Disconnecting was previously UI-only — there was no backend route at
+  // all, so a customer who wanted to unlink an account (wrong account
+  // connected, revoking access, switching accounts) had no way to actually
+  // do it. Soft-delete via `disconnected_at`, the same reversible pattern
+  // this table already uses everywhere else (GET /social-accounts already
+  // filters on it) — not a hard delete, consistent with how the rest of
+  // this schema treats "removed." The stored token itself is left in the
+  // vault rather than actively revoked: none of the three manual platforms
+  // (Bluesky app password, Telegram bot admin, Discord webhook) expose a
+  // programmatic revoke, and the real OAuth platforms' tokens simply
+  // become unreachable dead weight once this row stops being selectable —
+  // same as every other soft-deleted row in this system.
+  router.delete("/social-accounts/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data, error, count } = await supabase
+      .from("social_accounts")
+      .update({ disconnected_at: new Date().toISOString() }, { count: "exact" })
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .is("disconnected_at", null)
+      .select()
+      .maybeSingle();
+    if (error) {
+      dbError(res, error, "DELETE /social-accounts/:id");
+      return;
+    }
+    if (!count || !data) {
+      res.status(404).json({ error: "Not found, not owned by this caller, or already disconnected" });
+      return;
+    }
+    res.status(204).end();
+  });
+
   // Real board list for a connected account — drives the Pinterest board
   // picker in the compose form, replacing the adapter's own provisional
   // "whichever board comes back first" default with an actual customer
