@@ -1235,55 +1235,66 @@
   flex-direction: column;
   align-items: center;
   width: 100%;
+  /* Static PCB-trace texture, matching the "circuit board" reference —
+     right-angle traces + via dots, tiled. Color is baked into the SVG
+     itself (data URIs can't reference CSS custom properties), so the
+     dark-mode override below swaps in the dark-mode --signal hex
+     directly rather than trying to interpolate it. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='%23c82400' stroke-opacity='0.16' stroke-width='1.5'%3E%3Cpath d='M20 20 H100 V60 H180'/%3E%3Cpath d='M20 20 V90 H70 V170'/%3E%3Cpath d='M180 30 V80 H130 V150 H170'/%3E%3Cpath d='M30 180 H90 V130 H150'/%3E%3Cpath d='M110 110 H160 V190'/%3E%3C/g%3E%3Cg fill='%23c82400' fill-opacity='0.28'%3E%3Ccircle cx='20' cy='20' r='2.5'/%3E%3Ccircle cx='100' cy='20' r='2.5'/%3E%3Ccircle cx='180' cy='30' r='2.5'/%3E%3Ccircle cx='70' cy='170' r='2.5'/%3E%3Ccircle cx='150' cy='130' r='2.5'/%3E%3Ccircle cx='110' cy='110' r='2.5'/%3E%3Ccircle cx='160' cy='190' r='2.5'/%3E%3Ccircle cx='30' cy='180' r='2.5'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 200px 200px;
 }
 
-/* Slow-drifting ambient glow blobs, echoing the "live" signal the
-   product itself is built around (Proof-of-Publish / "Confirmed
-   live") rather than a static decorative background. Negative
-   z-index + the stacking context set on .landing keeps these behind
-   every real element without needing z-index on the content itself. */
+@media (prefers-color-scheme: dark) {
+  .landing {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='%23ff7452' stroke-opacity='0.16' stroke-width='1.5'%3E%3Cpath d='M20 20 H100 V60 H180'/%3E%3Cpath d='M20 20 V90 H70 V170'/%3E%3Cpath d='M180 30 V80 H130 V150 H170'/%3E%3Cpath d='M30 180 H90 V130 H150'/%3E%3Cpath d='M110 110 H160 V190'/%3E%3C/g%3E%3Cg fill='%23ff7452' fill-opacity='0.28'%3E%3Ccircle cx='20' cy='20' r='2.5'/%3E%3Ccircle cx='100' cy='20' r='2.5'/%3E%3Ccircle cx='180' cy='30' r='2.5'/%3E%3Ccircle cx='70' cy='170' r='2.5'/%3E%3Ccircle cx='150' cy='130' r='2.5'/%3E%3Ccircle cx='110' cy='110' r='2.5'/%3E%3Ccircle cx='160' cy='190' r='2.5'/%3E%3Ccircle cx='30' cy='180' r='2.5'/%3E%3C/g%3E%3C/svg%3E");
+  }
+}
+
+/* Two small glowing "current" dots that travel along a trace-shaped
+   path across the top of the page — the literal "flowing electricity"
+   from the reference. CSS-only via offset-path, no new DOM elements
+   needed (reusing the two pseudo-elements the previous background
+   approach used for its glow blobs). */
 .landing::before,
 .landing::after {
   content: "";
   position: absolute;
   z-index: -1;
+  top: 0;
+  left: 0;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  filter: blur(90px);
+  background: var(--signal-solid);
+  box-shadow: 0 0 10px 3px color-mix(in srgb, var(--signal-solid) 70%, transparent);
+  offset-rotate: 0deg;
   pointer-events: none;
 }
 
 .landing::before {
-  width: 640px;
-  height: 640px;
-  top: -220px;
-  left: -160px;
-  background: color-mix(in srgb, var(--signal) 24%, transparent);
-  animation: landing-blob-a 22s ease-in-out infinite;
+  offset-path: path("M40 30 H420 V75 H900 V45 H1200");
+  animation: landing-spark 9s linear infinite;
 }
 
 .landing::after {
-  width: 520px;
-  height: 520px;
-  top: 320px;
-  right: -180px;
-  background: color-mix(in srgb, var(--signal) 16%, transparent);
-  animation: landing-blob-b 26s ease-in-out infinite;
+  offset-path: path("M100 560 H500 V610 H950 V580 H1300");
+  animation: landing-spark 11s linear infinite;
+  animation-delay: -4s;
 }
 
-@keyframes landing-blob-a {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(70px, 50px) scale(1.15); }
-}
-
-@keyframes landing-blob-b {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(-60px, -40px) scale(1.1); }
+@keyframes landing-spark {
+  0% { offset-distance: 0%; opacity: 0; }
+  8% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .landing::before,
   .landing::after {
     animation: none;
+    opacity: 0;
   }
 }
 
