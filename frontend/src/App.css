@@ -1228,13 +1228,63 @@
 
 /* Landing page */
 .landing {
+  position: relative;
+  z-index: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100%;
-  background-image: radial-gradient(circle, var(--line) 1px, transparent 1px);
-  background-size: 28px 28px;
-  background-position: 0 0;
+}
+
+/* Slow-drifting ambient glow blobs, echoing the "live" signal the
+   product itself is built around (Proof-of-Publish / "Confirmed
+   live") rather than a static decorative background. Negative
+   z-index + the stacking context set on .landing keeps these behind
+   every real element without needing z-index on the content itself. */
+.landing::before,
+.landing::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  filter: blur(90px);
+  pointer-events: none;
+}
+
+.landing::before {
+  width: 640px;
+  height: 640px;
+  top: -220px;
+  left: -160px;
+  background: color-mix(in srgb, var(--signal) 24%, transparent);
+  animation: landing-blob-a 22s ease-in-out infinite;
+}
+
+.landing::after {
+  width: 520px;
+  height: 520px;
+  top: 320px;
+  right: -180px;
+  background: color-mix(in srgb, var(--signal) 16%, transparent);
+  animation: landing-blob-b 26s ease-in-out infinite;
+}
+
+@keyframes landing-blob-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(70px, 50px) scale(1.15); }
+}
+
+@keyframes landing-blob-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-60px, -40px) scale(1.1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing::before,
+  .landing::after {
+    animation: none;
+  }
 }
 
 .landing-nav {
@@ -1418,6 +1468,7 @@
 .landing-feature {
   background: var(--surface);
   border: 1px solid var(--line);
+  border-top: 3px solid var(--signal-solid);
   border-radius: 14px;
   padding: 24px;
 }
