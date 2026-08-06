@@ -194,6 +194,11 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact 
       )}
 
       <section className="landing-hero">
+        <h1 className="landing-hero-headline">Schedule everywhere. Know it's actually live.</h1>
+        <p className="landing-hero-subtext">
+          LazyRelay posts to Facebook, Instagram, TikTok, and 9 more platforms — then independently verifies
+          each one actually went live.
+        </p>
         <img src={banner} alt="LazyRelay — automate, schedule, publish, repeat" />
         <button className="cta" onClick={onGetStarted}>
           Get started free
