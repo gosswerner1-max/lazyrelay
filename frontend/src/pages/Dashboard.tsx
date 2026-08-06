@@ -243,9 +243,13 @@ export function Dashboard() {
   // Posts tab shows a stale "PENDING" pill until the customer manually
   // reloads. Poll the lightweight list endpoint (not the full refresh())
   // every 4s while there's still a due-but-unresolved post, and stop once
-  // nothing is left pending.
+  // nothing is left pending. Overview renders this same Upcoming/History
+  // list too (confirmed live 2026-08-06: a customer sitting on Overview,
+  // not Posts, saw a stuck PENDING pill because this check only matched
+  // "Posts" — the tab name, not what's actually on screen), so it needs
+  // the same poll.
   useEffect(() => {
-    if (tab !== "Posts") return;
+    if (tab !== "Posts" && tab !== "Overview") return;
     const hasPendingDue = posts.some((p) => p.status === "pending" && new Date(p.scheduled_for) <= new Date());
     if (!hasPendingDue) return;
     const interval = setInterval(() => {
