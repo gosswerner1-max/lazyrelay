@@ -99,4 +99,14 @@ export interface PlatformAdapter {
    *  other adapter simply doesn't declare this method; callers must treat
    *  its absence as "this platform has nothing to pick," not an error. */
   listBoards?(accessToken: string): Promise<{ id: string; name: string }[]>;
+
+  /** Optional — exchanges a stored refresh token for a fresh access token.
+   *  Only declared by adapters whose access tokens actually expire and
+   *  support a refresh grant (TikTok confirmed as a real, live gap — access
+   *  token dead within ~24h, refresh token captured at connect time but
+   *  never used anywhere). Callers must treat its absence as "this
+   *  platform's tokens don't expire / can't be refreshed this way," not an
+   *  error — e.g. Meta/Pinterest/Mastodon/Bluesky/Telegram tokens are
+   *  long-lived or don't use this grant shape. */
+  refresh?(refreshToken: string): Promise<OAuthExchangeResult>;
 }

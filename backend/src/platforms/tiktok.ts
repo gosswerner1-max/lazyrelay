@@ -106,6 +106,43 @@ export class TikTokAdapter implements PlatformAdapter {
     };
   }
 
+  // TikTok access tokens are short-lived (~24h) — confirmed live, not just
+  // from docs: a connection made 2026-08-03 had a dead access token by
+  // 2026-08-06 with "The access token is invalid or not found in the
+  // request." Refresh tokens are captured at connect time (exchangeCode
+  // above) but were never used anywhere until this method existed.
+  // grant_type=refresh_token is TikTok's documented rotation flow — same
+  // token endpoint, and per their docs the refresh token itself also
+  // rotates on use, so the caller must persist the new refresh_token too,
+  // not just the new access_token.
+  async refresh(refreshToken: string): Promise<OAuthExchangeResult> {
+    const body = new URLSearchParams({
+      client_key: this.clientKey,
+      client_secret: this.clientSecret,
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    });
+
+    const res = await fetch(TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    const json = (await res.json()) as TikTokTokenResponse;
+
+    if (!res.ok || !json.access_token || !json.open_id) {
+      throw new Error(json.error_description ?? json.error ?? "TikTok token refresh failed");
+    }
+
+    return {
+      accessToken: json.access_token,
+      refreshToken: json.refresh_token ?? null,
+      expiresAt: json.expires_in ? new Date(Date.now() + json.expires_in * 1000).toISOString() : null,
+      platformAccountId: json.open_id,
+      displayName: null,
+    };
+  }
+
   async post(request: PostRequest): Promise<PostAttemptResult> {
     if (!request.mediaUrl) {
       return { success: false, platformPostId: null, errorMessage: "TikTok posts require a video URL" };

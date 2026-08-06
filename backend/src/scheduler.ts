@@ -1,5 +1,6 @@
 import { supabase } from "./supabase.js";
 import type { PlatformAdapterRegistry } from "./platforms/connect.js";
+import type { PlatformAdapter } from "./platforms/types.js";
 import { notifyOps } from "./notify.js";
 
 const CLAIM_BATCH_SIZE = 10;
@@ -124,13 +125,63 @@ async function claimDuePosts(): Promise<DuePost[]> {
   });
 }
 
-async function getAccessToken(socialAccountId: string): Promise<string> {
+// A token within this many ms of its stated expiry is treated as already
+// expired — avoids a race where post() starts with a token that dies
+// mid-request instead of catching it here with time to actually refresh.
+const TOKEN_REFRESH_SKEW_MS = 5 * 60 * 1000;
+
+/** Reads the stored access token, refreshing it first via adapter.refresh()
+ *  if it's expired/near-expiry and the adapter supports refreshing (see
+ *  PlatformAdapter.refresh — TikTok confirmed as a real, live gap: access
+ *  tokens dead within ~24h with a refresh token captured at connect time
+ *  but never used anywhere). Adapters without a refresh() (long-lived or
+ *  non-expiring tokens) fall through unchanged — same behavior as before
+ *  this existed. */
+async function getAccessToken(socialAccountId: string, adapter: PlatformAdapter): Promise<string> {
   const { data: account, error } = await supabase
     .from("social_accounts")
-    .select("access_token_vault_id")
+    .select("access_token_vault_id, refresh_token_vault_id, token_expires_at")
     .eq("id", socialAccountId)
     .single();
   if (error || !account) throw error ?? new Error("social account not found");
+
+  const isExpired =
+    account.token_expires_at !== null &&
+    new Date(account.token_expires_at).getTime() - TOKEN_REFRESH_SKEW_MS < Date.now();
+
+  if (isExpired && adapter.refresh && account.refresh_token_vault_id) {
+    const { data: storedRefreshToken, error: refreshReadError } = await supabase.rpc("read_social_token", {
+      p_vault_id: account.refresh_token_vault_id,
+    });
+    if (refreshReadError) throw refreshReadError;
+
+    const refreshed = await adapter.refresh(storedRefreshToken as string);
+
+    const { error: updateAccessError } = await supabase.rpc("update_social_token", {
+      p_vault_id: account.access_token_vault_id,
+      p_new_token: refreshed.accessToken,
+    });
+    if (updateAccessError) throw updateAccessError;
+
+    // TikTok (and platforms with similar rotation) issues a new refresh
+    // token on every use — persist it too, or the NEXT refresh attempt
+    // fails with a revoked/already-used token. Falls back to keeping the
+    // existing one if the platform didn't return a new one.
+    if (refreshed.refreshToken) {
+      const { error: updateRefreshError } = await supabase.rpc("update_social_token", {
+        p_vault_id: account.refresh_token_vault_id,
+        p_new_token: refreshed.refreshToken,
+      });
+      if (updateRefreshError) throw updateRefreshError;
+    }
+
+    await supabase
+      .from("social_accounts")
+      .update({ token_expires_at: refreshed.expiresAt })
+      .eq("id", socialAccountId);
+
+    return refreshed.accessToken;
+  }
 
   const { data: token, error: readError } = await supabase.rpc("read_social_token", {
     p_vault_id: account.access_token_vault_id,
@@ -205,7 +256,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
       return;
     }
 
-    const accessToken = await getAccessToken(post.social_account_id);
+    const accessToken = await getAccessToken(post.social_account_id, adapter);
 
     const attempt = await adapter.post({
       socialAccountId: post.social_account_id,
