@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
+import { RelaySignal } from "../components/RelaySignal";
 import banner from "../assets/banner.jpg";
 
 interface LandingProps {
@@ -228,6 +229,25 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact 
             </div>
           ))}
         </div>
+        <p className="landing-proof-caption">A real post from LazyRelay's own account, exactly as it appears in your dashboard:</p>
+        <ul className="post-list landing-proof-card">
+          <li className="post-status-posted">
+            <div className="post-platform">
+              <PlatformIcon platform="pinterest" size={14} />
+              lazydownload
+            </div>
+            <div className="post-content">
+              Simplify your life with LazyRelay — schedule once, post everywhere, with real Proof-of-Publish
+              verification.
+            </div>
+            <div className="post-meta">
+              <span className="status-badge status-posted">posted</span>
+              <span className="verified">
+                <RelaySignal size={14} pulsing /> Confirmed live
+              </span>
+            </div>
+          </li>
+        </ul>
         <ul className="landing-more-features">
           {MORE_FEATURES.map((line) => (
             <li key={line}>{line}</li>
