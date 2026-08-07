@@ -9,7 +9,10 @@ import { bestTimeFor } from "../lib/bestTimes";
 import { Spinner } from "../components/Spinner";
 import { OverviewPanel } from "../components/Charts";
 
-const TABS = ["Overview", "Posts", "Calendar", "Analytics", "Mentions", "Bio Page", "Accounts", "Settings"] as const;
+const TABS = ["Overview", "Posts", "Calendar", "Analytics", "Mentions", "Bio Page", "Accounts", "Storage", "Account", "API Keys", "Billing"] as const;
+type Tab = (typeof TABS)[number];
+const MAIN_TABS: Tab[] = ["Overview", "Posts", "Calendar", "Accounts"];
+const MORE_TABS: Tab[] = ["Analytics", "Mentions", "Bio Page", "Storage", "Account", "API Keys", "Billing"];
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function localDateKey(iso: string): string {
@@ -58,7 +61,6 @@ function parseCsv(text: string): string[][] {
   }
   return rows;
 }
-type Tab = (typeof TABS)[number];
 
 // Read once at module scope (not inside the component) — React 18
 // StrictMode double-mounts components in dev, and a component-scoped
@@ -118,6 +120,8 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Overview");
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const [billingBusy, setBillingBusy] = useState<"pro" | "business" | "enterprise" | "cancel" | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelFeedback, setCancelFeedback] = useState("");
@@ -239,6 +243,17 @@ export function Dashboard() {
   useEffect(() => {
     refresh();
   }, []);
+
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setMoreMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [moreMenuOpen]);
 
   // Post status (pending -> posting -> posted/failed) is written by the
   // scheduler seconds after refresh() first loads the page, so without
@@ -1017,7 +1032,7 @@ export function Dashboard() {
             )}
           </span>
           {isFreeOrLapsed && !finalizingUpgrade && (
-            <button className="plan-banner-cta" onClick={() => setTab("Settings")}>
+            <button className="plan-banner-cta" onClick={() => setTab("Billing")}>
               {isCancelling ? "Resubscribe" : "Upgrade"}
             </button>
           )}
@@ -1035,7 +1050,7 @@ export function Dashboard() {
       </header>
 
       <nav className="tab-bar">
-        {TABS.map((t) => (
+        {MAIN_TABS.map((t) => (
           <button
             key={t}
             className={t === tab ? "tab-active" : ""}
@@ -1044,6 +1059,30 @@ export function Dashboard() {
             {t}
           </button>
         ))}
+        <div className="tab-more" ref={moreMenuRef}>
+          <button
+            className={MORE_TABS.includes(tab) ? "tab-active" : ""}
+            onClick={() => setMoreMenuOpen((v) => !v)}
+          >
+            {MORE_TABS.includes(tab) ? tab : "More"} ▾
+          </button>
+          {moreMenuOpen && (
+            <div className="tab-more-menu">
+              {MORE_TABS.map((t) => (
+                <button
+                  key={t}
+                  className={t === tab ? "tab-active" : ""}
+                  onClick={() => {
+                    setTab(t);
+                    setMoreMenuOpen(false);
+                  }}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </nav>
 
       {error && <p className="error">{error}</p>}
@@ -2055,7 +2094,7 @@ export function Dashboard() {
         );
       })()}
 
-      {tab === "Settings" && (
+      {tab === "Storage" && (
       <section>
         <h2>Storage</h2>
         {storageUsage && (() => {
@@ -2111,7 +2150,7 @@ export function Dashboard() {
       </section>
       )}
 
-      {tab === "Settings" && (
+      {tab === "Account" && (
       <section>
         <h2>Account</h2>
         <form onSubmit={handleSaveBusinessName} className="account-name-form">
@@ -2132,7 +2171,7 @@ export function Dashboard() {
       </section>
       )}
 
-      {tab === "Settings" && (
+      {tab === "API Keys" && (
       <section>
         <h2>API keys</h2>
         <p className="pricing-note">
@@ -2192,7 +2231,7 @@ export function Dashboard() {
       </section>
       )}
 
-      {tab === "Settings" && currentTier !== "free" && (
+      {tab === "Storage" && currentTier !== "free" && (
       <section>
         <h2>Buy more storage</h2>
         <p className="pricing-note">Add extra space on top of your plan's included storage — cancel any add-on separately, any time.</p>
@@ -2235,7 +2274,7 @@ export function Dashboard() {
       </section>
       )}
 
-      {tab === "Settings" && (
+      {tab === "Billing" && (
       <section>
         <h2>Billing</h2>
         {(() => {

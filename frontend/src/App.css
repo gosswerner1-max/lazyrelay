@@ -219,13 +219,15 @@
 
 .tab-bar {
   display: flex;
+  align-items: center;
   gap: 4px;
   border-bottom: 1px solid var(--line);
   margin-bottom: 24px;
-  /* On a narrow phone the 4 tabs (Overview/Posts/Accounts/Settings) need
-     more width than fits — confirmed via measurement at 375px (335px
-     available vs 362px needed). Scroll instead of silently clipping the
-     rightmost tab, since that's exactly where Settings/billing lives. */
+  /* Only the main tabs plus one "More" trigger live here now — everything
+     else that used to crowd this row (Analytics/Mentions/Bio Page/Storage/
+     Account/API Keys/Billing) lives in the .tab-more-menu dropdown instead.
+     Kept scrollable as a defensive fallback for very narrow screens, not
+     because it's expected to be needed day-to-day. */
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -255,6 +257,49 @@
 .tab-bar button.tab-active {
   color: var(--signal);
   border-bottom-color: var(--signal);
+}
+
+.tab-more {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.tab-more-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.tab-more-menu button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--wire);
+  font-weight: 600;
+  font-size: 14px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: none !important;
+  margin-bottom: 0 !important;
+}
+
+.tab-more-menu button:hover {
+  background: var(--line);
+  color: var(--ink);
+}
+
+.tab-more-menu button.tab-active {
+  color: var(--signal);
 }
 
 .dashboard section {
