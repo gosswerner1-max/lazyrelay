@@ -1,91 +1,10 @@
-import { useState } from "react";
 import { BrandMark } from "../components/BrandMark";
+import { CodeBlock } from "../components/CodeBlock";
+import { API_BASE_URL, API_ENDPOINTS, MCP_CONFIG_EXAMPLE } from "../lib/apiDocsContent";
 
 interface ApiDocsProps {
   onBack: () => void;
 }
-
-function CodeBlock({ code }: { code: string }) {
-  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
-
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(code);
-      setStatus("copied");
-    } catch {
-      // navigator.clipboard.writeText can genuinely reject (permission
-      // denied, an insecure context, the document losing focus right
-      // before the click registers) — without this catch the button did
-      // nothing at all on failure, no error, no fallback, just silence.
-      setStatus("failed");
-    } finally {
-      setTimeout(() => setStatus("idle"), 2000);
-    }
-  }
-
-  return (
-    <pre className="api-code-block">
-      <button type="button" className={`api-code-copy${status === "failed" ? " api-code-copy-failed" : ""}`} onClick={handleCopy}>
-        {status === "copied" ? "Copied!" : status === "failed" ? "Couldn't copy — select manually" : "Copy"}
-      </button>
-      <code>{code}</code>
-    </pre>
-  );
-}
-
-const ENDPOINTS = [
-  {
-    method: "GET",
-    path: "/social-accounts",
-    summary: "List your connected social accounts",
-    body: null,
-  },
-  {
-    method: "POST",
-    path: "/scheduled-posts",
-    summary: "Schedule a post to one connected account",
-    body: `{
-  "socialAccountId": "…",
-  "content": "Your post text",
-  "scheduledFor": "2026-08-10T09:00:00Z",
-  "mediaUrl": "https://example.com/image.jpg"
-}`,
-  },
-  {
-    method: "GET",
-    path: "/scheduled-posts",
-    summary: "List upcoming and recent posts, with status and Proof-of-Publish verification",
-    body: null,
-  },
-  {
-    method: "DELETE",
-    path: "/scheduled-posts/:id",
-    summary: "Cancel a pending post",
-    body: null,
-  },
-  {
-    method: "GET",
-    path: "/analytics/summary?days=30",
-    summary: "Post counts, verified-live rate, per-platform breakdown, engagement totals",
-    body: null,
-  },
-  {
-    method: "GET",
-    path: "/mentions",
-    summary: "Recent comments on your posts, where the platform supports reading them",
-    body: null,
-  },
-  {
-    method: "POST",
-    path: "/mentions/reply",
-    summary: "Reply to a comment surfaced by GET /mentions",
-    body: `{
-  "postId": "…",
-  "commentId": "…",
-  "text": "Thanks so much!"
-}`,
-  },
-];
 
 export function ApiDocs({ onBack }: ApiDocsProps) {
   return (
@@ -105,7 +24,8 @@ export function ApiDocs({ onBack }: ApiDocsProps) {
       <section className="landing-section legal-page api-docs">
         <h2>API &amp; MCP server</h2>
         <p className="section-note">
-          Everything below is real and live today — the same API LazyRelay's own dashboard runs on.
+          Everything below is real and live today — the same API LazyRelay's own dashboard runs on. Already have
+          an account? The same docs live inside your dashboard's API Keys tab, with no need to sign back in.
         </p>
 
         <div className="legal-body">
@@ -122,11 +42,11 @@ export function ApiDocs({ onBack }: ApiDocsProps) {
           </p>
 
           <h3>Base URL</h3>
-          <CodeBlock code="https://lazyrelaylazyrelay-backend.onrender.com/api" />
+          <CodeBlock code={API_BASE_URL} />
 
           <h3>Endpoints</h3>
           <div className="api-endpoint-list">
-            {ENDPOINTS.map((e) => (
+            {API_ENDPOINTS.map((e) => (
               <div className="api-endpoint" key={`${e.method} ${e.path}`}>
                 <div className="api-endpoint-header">
                   <span className={`api-method api-method-${e.method.toLowerCase()}`}>{e.method}</span>
@@ -144,17 +64,7 @@ export function ApiDocs({ onBack }: ApiDocsProps) {
             MCP) rather than writing HTTP calls by hand, use LazyRelay's own MCP server instead of calling the
             API directly — it wraps every endpoint above as a real tool the agent can call.
           </p>
-          <CodeBlock
-            code={`{
-  "mcpServers": {
-    "lazyrelay": {
-      "command": "npx",
-      "args": ["-y", "@lazyrelay/mcp-server"],
-      "env": { "LAZYRELAY_API_KEY": "lzr_live_your_key_here" }
-    }
-  }
-}`}
-          />
+          <CodeBlock code={MCP_CONFIG_EXAMPLE} />
           <p>
             This runs locally on your own machine using your own API key — there's nothing to host. See the
             package README for the full tool list.

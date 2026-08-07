@@ -98,6 +98,16 @@ function Root() {
     return <BioPage slug={bioMatch[1]} />;
   }
 
+  // Docs must also render regardless of auth state — it's linked directly
+  // from inside the authenticated dashboard's API Keys section (opened in
+  // a new tab), and Supabase's session persists across tabs of the same
+  // origin, so without this check `if (session) return <Dashboard />`
+  // below would win every time and a logged-in customer could never
+  // actually see this page short of logging out first.
+  if (window.location.pathname === "/docs") {
+    return <ApiDocs onBack={() => setView("landing")} />;
+  }
+
   if (loading) {
     return (
       <div className="loading">

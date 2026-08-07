@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "rea
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
 import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation } from "../lib/api";
+import { API_BASE_URL, API_ENDPOINTS, MCP_CONFIG_EXAMPLE } from "../lib/apiDocsContent";
+import { CodeBlock } from "../components/CodeBlock";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
@@ -2453,9 +2455,11 @@ export function Dashboard() {
         <h2>API keys</h2>
         <p className="section-note">
           Let your own AI agent post and schedule directly through LazyRelay's API, without a browser or a human
-          login. See the <a href="/docs" target="_blank" rel="noopener noreferrer">full API &amp; MCP server docs</a>{" "}
-          for every endpoint and a ready-to-paste Claude/Cursor config.
+          login. Full reference below.
         </p>
+        <a href="/docs" target="_blank" rel="noopener noreferrer" className="btn-outline api-docs-open-button">
+          Open API &amp; MCP docs as its own page (to share with a developer)
+        </a>
         <p className="security-notice">
           <span aria-hidden="true">⚠️</span>
           <span>
@@ -2513,6 +2517,37 @@ export function Dashboard() {
             ))}
           </ul>
         )}
+      </section>
+      )}
+
+      {tab === "API Keys" && (
+      <section>
+        <h2>API reference</h2>
+        <p className="section-note">
+          Send your key as a bearer token on every request:
+        </p>
+        <CodeBlock code="Authorization: Bearer lzr_live_your_key_here" />
+        <p className="section-note">Base URL:</p>
+        <CodeBlock code={API_BASE_URL} />
+        <div className="api-endpoint-list">
+          {API_ENDPOINTS.map((e) => (
+            <div className="api-endpoint" key={`${e.method} ${e.path}`}>
+              <div className="api-endpoint-header">
+                <span className={`api-method api-method-${e.method.toLowerCase()}`}>{e.method}</span>
+                <code>{e.path}</code>
+              </div>
+              <p>{e.summary}</p>
+              {e.body && <CodeBlock code={e.body} />}
+            </div>
+          ))}
+        </div>
+        <h3 className="api-mcp-heading">Using this from an AI agent — the MCP server</h3>
+        <p className="section-note">
+          Connect Claude Desktop, Claude Code, Cursor, or anything else that speaks MCP directly to your account —
+          it wraps every endpoint above as a real tool the agent can call. Runs locally on your own machine using
+          the key above; there's nothing to host.
+        </p>
+        <CodeBlock code={MCP_CONFIG_EXAMPLE} />
       </section>
       )}
 
