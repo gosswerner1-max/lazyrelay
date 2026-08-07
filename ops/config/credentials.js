@@ -66,6 +66,15 @@ function getLazyRelayApiKey() {
   return creds.lazyRelayApiKey ?? null;
 }
 
+/** The admin-tier key (lzr_admin_ prefix) — acts across every account, not
+ * just one tenant. See backend/src/http/auth.ts's requireAuth admin path
+ * and backend/src/create-admin-key.ts (the one-off script that minted it). */
+function getLazyRelayAdminApiKey() {
+  if (!fs.existsSync(OPS_CREDS_PATH)) return null;
+  const creds = JSON.parse(fs.readFileSync(OPS_CREDS_PATH, "utf8"));
+  return creds.lazyRelayAdminApiKey ?? null;
+}
+
 /** Path to the email agent's own credentials file — reused, not duplicated,
  * for any domain (e.g. Accounts nudge emails) that needs to draft through
  * the existing IMAP tool rather than open a new send path. */
@@ -92,4 +101,5 @@ module.exports = {
   getEmailAgentCredentialsPath,
   getRenderCredentials,
   getLazyRelayApiKey,
+  getLazyRelayAdminApiKey,
 };
