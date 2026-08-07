@@ -1334,6 +1334,91 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.json({ success: true });
   });
 
+  // DM automation — priority (5). CRUD only here; the actual comment
+  // watching + sending happens in the standalone dmAutomationPoller.ts
+  // script (same external-process pattern as metricsPoller.ts), not
+  // in-process, so it keeps running on its own schedule independent of
+  // the API server's lifecycle.
+  router.post("/dm-automations", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { socialAccountId, scheduledPostId, keyword, dmMessage } = req.body as {
+      socialAccountId?: string;
+      scheduledPostId?: string | null;
+      keyword?: string | null;
+      dmMessage?: string;
+    };
+    if (!socialAccountId || !dmMessage?.trim()) {
+      res.status(400).json({ error: "socialAccountId and dmMessage are required" });
+      return;
+    }
+
+    const { data: account } = await supabase
+      .from("social_accounts")
+      .select("account_id, platform")
+      .eq("id", socialAccountId)
+      .maybeSingle();
+    if (!account || account.account_id !== req.accountId) {
+      res.status(404).json({ error: "Social account not found" });
+      return;
+    }
+    const adapter = registry.get(account.platform);
+    if (!adapter?.sendPrivateReply) {
+      res.status(400).json({ error: `DM automation isn't supported on ${account.platform}` });
+      return;
+    }
+
+    if (scheduledPostId) {
+      const { data: post } = await supabase.from("scheduled_posts").select("account_id").eq("id", scheduledPostId).maybeSingle();
+      if (!post || post.account_id !== req.accountId) {
+        res.status(404).json({ error: "Post not found" });
+        return;
+      }
+    }
+
+    const { data, error } = await supabase
+      .from("dm_automations")
+      .insert({
+        account_id: req.accountId,
+        social_account_id: socialAccountId,
+        scheduled_post_id: scheduledPostId ?? null,
+        keyword: keyword?.trim() || null,
+        dm_message: dmMessage.trim(),
+      })
+      .select("id, social_account_id, scheduled_post_id, keyword, dm_message, active, created_at")
+      .single();
+    if (error) {
+      dbError(res, error, "POST /dm-automations");
+      return;
+    }
+    res.status(201).json(data);
+  });
+
+  router.get("/dm-automations", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data, error } = await supabase
+      .from("dm_automations")
+      .select("id, social_account_id, scheduled_post_id, keyword, dm_message, active, created_at, social_accounts(platform, display_name)")
+      .eq("account_id", req.accountId)
+      .order("created_at", { ascending: false });
+    if (error) {
+      dbError(res, error, "GET /dm-automations");
+      return;
+    }
+    res.json(data ?? []);
+  });
+
+  router.delete("/dm-automations/:id", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: automation } = await supabase.from("dm_automations").select("account_id").eq("id", req.params.id).maybeSingle();
+    if (!automation || automation.account_id !== req.accountId) {
+      res.status(404).json({ error: "Automation not found" });
+      return;
+    }
+    const { error } = await supabase.from("dm_automations").delete().eq("id", req.params.id);
+    if (error) {
+      dbError(res, error, "DELETE /dm-automations/:id");
+      return;
+    }
+    res.status(204).end();
+  });
+
   // Phase 1 analytics — post-level engagement (likes/shares/views) isn't
   // available yet: that needs a per-platform metrics-fetch method this
   // codebase doesn't have (a real, larger scope, not an oversight). This

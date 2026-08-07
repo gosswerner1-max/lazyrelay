@@ -208,4 +208,13 @@ export interface PlatformAdapter {
    *  from the platform, surfaced honestly via errorMessage rather than
    *  silently retried or hidden. */
   sendDirectMessage?(recipientId: string, text: string, accessToken: string): Promise<SendDMResult>;
+
+  /** Optional — DM automation, priority (5). Deliberately NOT the same as
+   *  sendDirectMessage: Meta's regular messaging window only opens once a
+   *  customer has messaged the Page/account directly, but Meta built a
+   *  separate, sanctioned mechanism — a "private reply" to a comment —
+   *  specifically so a business can DM someone who merely commented,
+   *  without that restriction. Using sendDirectMessage for this would
+   *  fail outside the 24h window; this is the actually-correct call. */
+  sendPrivateReply?(commentId: string, text: string, accessToken: string): Promise<SendDMResult>;
 }

@@ -1099,6 +1099,27 @@
   font-size: 13px;
 }
 
+.dm-automation-form {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.dm-automation-form select,
+.dm-automation-form input {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.dm-automation-form input {
+  flex: 1;
+  min-width: 180px;
+}
+
 .bio-page-shell {
   min-height: 100vh;
   display: flex;

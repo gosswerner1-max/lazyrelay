@@ -449,7 +449,7 @@ export class InstagramAdapter implements PlatformAdapter {
   // Graph API error, surfaced honestly rather than hidden.
   async sendDirectMessage(recipientId: string, text: string, accessToken: string): Promise<SendDMResult> {
     const igAccountId = await this.getInstagramAccountId(accessToken);
-    const res = await fetch(`${GRAPH_BASE}/${igAccountId}/messages`, {
+    const res = await fetch(`${GRAPH_BASE}/${igAccountId}/messages?access_token=${encodeURIComponent(accessToken)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -460,6 +460,21 @@ export class InstagramAdapter implements PlatformAdapter {
     const json = (await res.json().catch(() => ({}))) as { message_id?: string; error?: { message?: string } };
     if (!res.ok || !json.message_id) {
       return { success: false, errorMessage: json.error?.message ?? `Instagram DM send failed (HTTP ${res.status})` };
+    }
+    return { success: true, errorMessage: null };
+  }
+
+  // Same Private Reply mechanism as Facebook — DMs whoever left the
+  // comment without needing them to have messaged the account first.
+  async sendPrivateReply(commentId: string, text: string, accessToken: string): Promise<SendDMResult> {
+    const res = await fetch(`${GRAPH_BASE}/${commentId}/private_replies?access_token=${encodeURIComponent(accessToken)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { id?: string; error?: { message?: string } };
+    if (!res.ok || !json.id) {
+      return { success: false, errorMessage: json.error?.message ?? `Instagram private reply failed (HTTP ${res.status})` };
     }
     return { success: true, errorMessage: null };
   }

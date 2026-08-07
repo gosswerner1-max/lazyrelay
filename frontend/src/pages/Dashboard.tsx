@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
-import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage } from "../lib/api";
+import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation } from "../lib/api";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
@@ -186,6 +186,12 @@ export function Dashboard() {
   const [dmMessagesLoading, setDmMessagesLoading] = useState(false);
   const [dmDraft, setDmDraft] = useState("");
   const [dmSending, setDmSending] = useState(false);
+  const [dmAutomations, setDmAutomations] = useState<DMAutomation[] | null>(null);
+  const [automationSocialAccountId, setAutomationSocialAccountId] = useState("");
+  const [automationKeyword, setAutomationKeyword] = useState("");
+  const [automationMessage, setAutomationMessage] = useState("");
+  const [creatingAutomation, setCreatingAutomation] = useState(false);
+  const [deletingAutomationId, setDeletingAutomationId] = useState<string | null>(null);
   const [bioPage, setBioPage] = useState<BioPage | null | undefined>(undefined);
   const [bioLoading, setBioLoading] = useState(false);
   const [bioSaving, setBioSaving] = useState(false);
@@ -341,6 +347,14 @@ export function Dashboard() {
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setDmConversationsLoading(false));
   }, [tab, dmConversations]);
+
+  useEffect(() => {
+    if (tab !== "DMs" || dmAutomations !== null) return;
+    api
+      .listDMAutomations()
+      .then(setDmAutomations)
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+  }, [tab, dmAutomations]);
 
   // Also lazy-loaded, same reasoning as analytics — only fetched once the
   // customer actually opens the tab.
@@ -1054,6 +1068,39 @@ export function Dashboard() {
     }
   }
 
+  async function handleCreateAutomation(e: FormEvent) {
+    e.preventDefault();
+    if (!automationSocialAccountId || !automationMessage.trim()) return;
+    setCreatingAutomation(true);
+    setError(null);
+    try {
+      await api.createDMAutomation(automationSocialAccountId, automationKeyword.trim(), automationMessage.trim());
+      setAutomationKeyword("");
+      setAutomationMessage("");
+      const list = await api.listDMAutomations();
+      setDmAutomations(list);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCreatingAutomation(false);
+    }
+  }
+
+  async function handleDeleteAutomation(id: string) {
+    if (!window.confirm("Delete this automation? It will stop sending DMs immediately.")) return;
+    setDeletingAutomationId(id);
+    setError(null);
+    try {
+      await api.deleteDMAutomation(id);
+      const list = await api.listDMAutomations();
+      setDmAutomations(list);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDeletingAutomationId(null);
+    }
+  }
+
   async function handleConfirmCancelSubscription() {
     setBillingBusy("cancel");
     setError(null);
@@ -1448,6 +1495,66 @@ export function Dashboard() {
               )}
             </div>
           </div>
+        )}
+      </section>
+      )}
+
+      {tab === "DMs" && (
+      <section>
+        <h2>DM automation</h2>
+        <p className="section-note">
+          When someone comments (optionally matching a keyword), automatically send them a DM — the same
+          "comment and I'll message you" pattern popular for giveaways and product drops. Applies to every
+          post from the last 30 days on the account you pick, not just one.
+        </p>
+        <form onSubmit={handleCreateAutomation} className="dm-automation-form">
+          <select value={automationSocialAccountId} onChange={(e) => setAutomationSocialAccountId(e.target.value)}>
+            <option value="">Pick an account...</option>
+            {accounts
+              .filter((a) => a.platform === "facebook" || a.platform === "instagram")
+              .map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.platform} — {a.display_name ?? a.platform_account_id}
+                </option>
+              ))}
+          </select>
+          <input
+            type="text"
+            placeholder="Keyword (optional — blank matches every comment)"
+            value={automationKeyword}
+            onChange={(e) => setAutomationKeyword(e.target.value)}
+            maxLength={100}
+          />
+          <input
+            type="text"
+            placeholder="DM message to send"
+            value={automationMessage}
+            onChange={(e) => setAutomationMessage(e.target.value)}
+            maxLength={2000}
+          />
+          <button type="submit" disabled={creatingAutomation || !automationSocialAccountId || !automationMessage.trim()}>
+            {creatingAutomation ? "Creating..." : "Create automation"}
+          </button>
+        </form>
+        {dmAutomations && dmAutomations.length === 0 && <p className="empty">No automations yet.</p>}
+        {dmAutomations && dmAutomations.length > 0 && (
+          <ul className="media-list">
+            {dmAutomations.map((a) => (
+              <li key={a.id}>
+                <span className="media-list-meta">
+                  <strong>{a.social_accounts?.platform ?? "Unknown"}</strong>
+                  {a.keyword ? ` — keyword "${a.keyword}"` : " — every comment"} → "{a.dm_message}"
+                </span>
+                <button
+                  className="btn-outline"
+                  onClick={() => handleDeleteAutomation(a.id)}
+                  disabled={deletingAutomationId !== null}
+                >
+                  {deletingAutomationId === a.id ? "Deleting..." : "Delete"}
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
       )}

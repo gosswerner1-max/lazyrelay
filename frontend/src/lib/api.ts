@@ -188,6 +188,17 @@ export interface DMMessage {
   isOwn: boolean;
 }
 
+export interface DMAutomation {
+  id: string;
+  social_account_id: string;
+  scheduled_post_id: string | null;
+  keyword: string | null;
+  dm_message: string;
+  active: boolean;
+  created_at: string;
+  social_accounts?: { platform: string; display_name: string | null } | null;
+}
+
 export interface ApiKey {
   id: string;
   name: string;
@@ -273,6 +284,16 @@ export const api = {
 
   replyToDM: (socialAccountId: string, recipientId: string, text: string): Promise<{ success: boolean }> =>
     authedFetch("/dms/reply", { method: "POST", body: JSON.stringify({ socialAccountId, recipientId, text }) }),
+
+  listDMAutomations: (): Promise<DMAutomation[]> => authedFetch("/dm-automations"),
+
+  createDMAutomation: (socialAccountId: string, keyword: string, dmMessage: string): Promise<DMAutomation> =>
+    authedFetch("/dm-automations", {
+      method: "POST",
+      body: JSON.stringify({ socialAccountId, keyword: keyword || null, dmMessage }),
+    }),
+
+  deleteDMAutomation: (id: string): Promise<void> => authedFetch(`/dm-automations/${id}`, { method: "DELETE" }),
 
   generateCaption: (topic: string, platform?: string, tone?: string): Promise<{ caption: string }> =>
     authedFetch("/ai/caption", { method: "POST", body: JSON.stringify({ topic, platform, tone }) }),

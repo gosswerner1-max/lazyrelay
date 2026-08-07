@@ -374,7 +374,7 @@ export class FacebookAdapter implements PlatformAdapter {
   // via errorMessage exactly as returned, not hidden or retried.
   async sendDirectMessage(recipientId: string, text: string, accessToken: string): Promise<SendDMResult> {
     const pageId = await this.getPageId(accessToken);
-    const res = await fetch(`${GRAPH_BASE}/${pageId}/messages`, {
+    const res = await fetch(`${GRAPH_BASE}/${pageId}/messages?access_token=${encodeURIComponent(accessToken)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -386,6 +386,25 @@ export class FacebookAdapter implements PlatformAdapter {
     const json = (await res.json().catch(() => ({}))) as { message_id?: string; error?: { message?: string } };
     if (!res.ok || !json.message_id) {
       return { success: false, errorMessage: json.error?.message ?? `Facebook DM send failed (HTTP ${res.status})` };
+    }
+    return { success: true, errorMessage: null };
+  }
+
+  // Private Replies are Meta's own sanctioned mechanism for DMing someone
+  // who merely commented, bypassing the regular 24h-since-they-messaged-us
+  // window sendDirectMessage is bound by. Meta enforces its own eligibility
+  // window here too (comments older than ~7 days can no longer be
+  // privately replied to) — a request outside it returns a real API
+  // error, surfaced honestly rather than retried forever.
+  async sendPrivateReply(commentId: string, text: string, accessToken: string): Promise<SendDMResult> {
+    const res = await fetch(`${GRAPH_BASE}/${commentId}/private_replies?access_token=${encodeURIComponent(accessToken)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { id?: string; error?: { message?: string } };
+    if (!res.ok || !json.id) {
+      return { success: false, errorMessage: json.error?.message ?? `Facebook private reply failed (HTTP ${res.status})` };
     }
     return { success: true, errorMessage: null };
   }
