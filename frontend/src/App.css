@@ -159,7 +159,9 @@
 
 .security-notice {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   gap: 10px;
   color: var(--warn);
   background: var(--warn-bg);
