@@ -2298,6 +2298,16 @@
   margin: 4px 0 20px;
 }
 
+/* Same copy role as .pricing-note (a muted helper line under a heading),
+   but for plain white dashboard sections rather than the dark pricing
+   cards — .pricing-note's white-on-70%-opacity text was invisible here. */
+.section-note {
+  color: var(--wire);
+  font-weight: 500;
+  font-size: 13px;
+  margin: 4px 0 20px;
+}
+
 .pricing-card ul {
   list-style: none;
   padding: 0;

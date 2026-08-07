@@ -2174,7 +2174,7 @@ export function Dashboard() {
       {tab === "API Keys" && (
       <section>
         <h2>API keys</h2>
-        <p className="pricing-note">
+        <p className="section-note">
           Let your own AI agent post and schedule directly through LazyRelay's API, without a browser or a human
           login.
         </p>
@@ -2241,7 +2241,7 @@ export function Dashboard() {
       {tab === "Storage" && currentTier !== "free" && (
       <section>
         <h2>Buy more storage</h2>
-        <p className="pricing-note">Add extra space on top of your plan's included storage — cancel any add-on separately, any time.</p>
+        <p className="section-note">Add extra space on top of your plan's included storage — cancel any add-on separately, any time.</p>
         <div className="pricing-grid billing-upgrade-grid">
           {([
             { gb: 5 as const, price: "2.99" },
