@@ -52,6 +52,20 @@ function resolveColorCollisions<T extends { platform: string }>(items: T[]): T[]
   return arr;
 }
 
+// Rounds a data max up to a "clean" axis ceiling (2/4/5/10/20/25/50/100...)
+// so y-axis ticks read as round numbers, per marks-and-anatomy.md's tick
+// guidance, instead of an arbitrary top value like "7".
+function niceCeiling(value: number): number {
+  if (value <= 4) return 4;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(value)));
+  const steps = [1, 2, 2.5, 5, 10];
+  for (const step of steps) {
+    const candidate = step * magnitude;
+    if (candidate >= value) return candidate;
+  }
+  return 10 * magnitude;
+}
+
 export function formatCompact(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
@@ -198,12 +212,12 @@ export function PlatformBarChart({ data }: { data: { platform: string; total: nu
               <PlatformIcon platform={d.platform} size={14} />
               {d.platform}
             </span>
-            <span className="chart-platform-bar-track">
-              <span
+            <div className="chart-platform-bar-track">
+              <div
                 className="chart-platform-bar-fill"
                 style={{ width: `${Math.max(pct, 3)}%`, background: color }}
               />
-            </span>
+            </div>
             <span className="chart-platform-bar-value">{d.total}</span>
           </div>
         );
@@ -237,11 +251,14 @@ export function TrendLine({ data }: { data: { day: string; count: number }[] }) 
   const width = 640;
   const height = 180;
   const padY = 16;
-  const max = Math.max(...data.map((d) => d.count), 1);
-  const stepX = data.length > 1 ? width / (data.length - 1) : 0;
+  const padXLeft = 34; // reserves room for y-axis tick labels — see marks-and-anatomy.md: "keep [ticks] unless every value is labeled"
+  const plotWidth = width - padXLeft;
+  const rawMax = Math.max(...data.map((d) => d.count), 1);
+  const max = niceCeiling(rawMax);
+  const stepX = data.length > 1 ? plotWidth / (data.length - 1) : 0;
 
   const points = data.map((d, i) => ({
-    x: data.length > 1 ? i * stepX : width / 2,
+    x: padXLeft + (data.length > 1 ? i * stepX : plotWidth / 2),
     y: padY + (1 - d.count / max) * (height - padY * 2),
     ...d,
   }));
@@ -278,17 +295,20 @@ export function TrendLine({ data }: { data: { day: string; count: number }[] }) 
         role="img"
         aria-label={`Daily post volume, ${data[0].day} to ${data[data.length - 1].day}`}
       >
-        {/* recessive gridlines */}
-        {[0, 0.5, 1].map((f) => (
-          <line
-            key={f}
-            x1={0}
-            x2={width}
-            y1={padY + f * (height - padY * 2)}
-            y2={padY + f * (height - padY * 2)}
-            className="chart-trend-gridline"
-          />
-        ))}
+        {/* recessive gridlines + their y-axis value labels — a reader
+            shouldn't have to hover to know whether "the peak" means 8 or 80 */}
+        {[0, 0.5, 1].map((f) => {
+          const y = padY + f * (height - padY * 2);
+          const value = Math.round(max * (1 - f));
+          return (
+            <g key={f}>
+              <line x1={padXLeft} x2={width} y1={y} y2={y} className="chart-trend-gridline" />
+              <text x={padXLeft - 8} y={y} textAnchor="end" dominantBaseline="middle" className="chart-trend-axis-label">
+                {value}
+              </text>
+            </g>
+          );
+        })}
         <path d={areaPath} className="chart-trend-area" />
         <path d={linePath} className={`chart-trend-line-path${reduceMotion ? "" : " chart-trend-line-animated"}`} />
         {hovered && (

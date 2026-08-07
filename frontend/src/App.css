@@ -557,9 +557,11 @@
 .chart-stacked-bar-inline-label {
   font-size: 11px;
   font-weight: 700;
+  /* Confirm/error/wire are all dark/mid-tone enough for plain white to clear
+     WCAG contrast directly — no need for mix-blend-mode's difference trick,
+     which reads as a color bug (pink-on-green) rather than a clean label. */
   color: #fff;
   font-variant-numeric: tabular-nums;
-  mix-blend-mode: difference;
 }
 
 .chart-stacked-bar-legend {
@@ -657,6 +659,12 @@
 .chart-trend-gridline {
   stroke: var(--line);
   stroke-width: 1;
+}
+
+.chart-trend-axis-label {
+  fill: var(--wire);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
 }
 
 .chart-trend-area {
