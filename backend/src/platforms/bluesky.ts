@@ -6,6 +6,7 @@ import type {
   OAuthExchangeResult,
   CommentsResult,
   PostMetrics,
+  CommentPostResult,
 } from "./types.js";
 
 // Real, confirmed platform gotcha: AT Protocol's real OAuth (PAR + DPoP +
@@ -86,6 +87,25 @@ interface BlueskyThreadPost {
 
 interface BlueskyGetPostThreadResponse {
   thread?: { post?: BlueskyThreadPost; replies?: BlueskyPostThreadReply[] };
+  error?: string;
+  message?: string;
+}
+
+// Separate, minimal shape for reply resolution — only the uri/cid refs a
+// reply record needs, walked up via the recursive `parent` chain
+// getPostThread's parentHeight param returns.
+interface BlueskyThreadRef {
+  uri?: string;
+  cid?: string;
+}
+
+interface BlueskyThreadViewNode {
+  post?: BlueskyThreadRef;
+  parent?: BlueskyThreadViewNode;
+}
+
+interface BlueskyReplyThreadResponse {
+  thread?: BlueskyThreadViewNode;
   error?: string;
   message?: string;
 }
@@ -320,6 +340,69 @@ export class BlueskyAdapter implements PlatformAdapter {
       ];
     });
     return { comments, errorMessage: null };
+  }
+
+  // Bluesky replies need BOTH a root ref and a parent ref (each {uri, cid})
+  // — unlike Facebook/Instagram's flat "/{id}/comments", the AT Protocol
+  // record itself encodes the whole reply chain. commentId only carries a
+  // uri (from getComments' CommentItem.id), so cid is resolved here via
+  // getPostThread's parentHeight, walking the parent chain up to the root
+  // rather than assuming a fixed depth — correct even if Bluesky's app
+  // ever surfaces nested (not just one-level) comment threads later.
+  async replyToComment(commentId: string, text: string, accessToken: string): Promise<CommentPostResult> {
+    const threadUrl = `${GET_POST_THREAD_URL}?uri=${encodeURIComponent(commentId)}&depth=0&parentHeight=10`;
+    const threadRes = await fetch(threadUrl);
+    const threadJson = (await threadRes.json().catch(() => ({}))) as BlueskyReplyThreadResponse;
+    const commentRef = threadJson.thread?.post;
+    if (!threadRes.ok || !commentRef?.uri || !commentRef?.cid) {
+      return {
+        success: false,
+        errorMessage: threadJson.message ?? threadJson.error ?? "Could not resolve the comment being replied to",
+      };
+    }
+
+    let rootRef = commentRef;
+    let ancestor = threadJson.thread?.parent;
+    while (ancestor?.post?.uri && ancestor.post.cid) {
+      rootRef = ancestor.post;
+      ancestor = ancestor.parent;
+    }
+
+    const sessionRes = await fetch(`${DEFAULT_PDS}/xrpc/com.atproto.server.getSession`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const sessionJson = (await sessionRes.json()) as { did?: string; message?: string };
+    if (!sessionRes.ok || !sessionJson.did) {
+      return { success: false, errorMessage: sessionJson.message ?? "Bluesky session lookup failed" };
+    }
+
+    const res = await fetch(CREATE_RECORD_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        repo: sessionJson.did,
+        collection: POST_COLLECTION,
+        record: {
+          $type: POST_COLLECTION,
+          text,
+          createdAt: new Date().toISOString(),
+          langs: ["en"],
+          reply: {
+            root: { uri: rootRef.uri, cid: rootRef.cid },
+            parent: { uri: commentRef.uri, cid: commentRef.cid },
+          },
+        },
+      }),
+    });
+    const json = (await res.json()) as BlueskyCreateRecordResponse;
+    if (!res.ok || !json.uri) {
+      return { success: false, errorMessage: json.message ?? json.error ?? `Bluesky reply failed (HTTP ${res.status})` };
+    }
+
+    return { success: true, errorMessage: null };
   }
 
   // Same getPostThread endpoint as getComments — the root post's own

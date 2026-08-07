@@ -6,6 +6,7 @@ import type {
   OAuthExchangeResult,
   PostMetrics,
   CommentPostResult,
+  CommentsResult,
 } from "./types.js";
 
 // Real, deliberate simplification, same shape as TikTok's SELF_ONLY/Pinterest's
@@ -21,7 +22,7 @@ const GRAPH_BASE = "https://graph.facebook.com/v25.0";
 // pages_manage_engagement added 2026-08-07 for postComment() (first-comment
 // auto-posting) — a distinct permission from pages_manage_posts, which only
 // covers creating the post itself, not commenting on it.
-const SCOPES = "pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_engagement,business_management";
+const SCOPES = "pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_engagement,pages_read_user_content,business_management";
 
 interface FacebookTokenResponse {
   access_token?: string;
@@ -57,6 +58,11 @@ interface FacebookPostMetricsResponse {
   likes?: { summary?: { total_count?: number } };
   comments?: { summary?: { total_count?: number } };
   shares?: { count?: number };
+  error?: { message?: string };
+}
+
+interface FacebookCommentsResponse {
+  data?: { id: string; message?: string; from?: { name?: string }; created_time?: string; permalink_url?: string }[];
   error?: { message?: string };
 }
 
@@ -252,5 +258,36 @@ export class FacebookAdapter implements PlatformAdapter {
     }
 
     return { success: true, errorMessage: null };
+  }
+
+  // Requires pages_read_engagement (already granted) — comments on a Page
+  // post the connected account manages.
+  async getComments(platformPostId: string, accessToken: string): Promise<CommentsResult> {
+    const url = new URL(`${GRAPH_BASE}/${platformPostId}/comments`);
+    url.searchParams.set("fields", "id,message,from,created_time,permalink_url");
+    url.searchParams.set("access_token", accessToken);
+
+    const res = await fetch(url.toString());
+    const json = (await res.json().catch(() => ({}))) as FacebookCommentsResponse;
+    if (!res.ok) {
+      return { comments: [], errorMessage: json.error?.message ?? `Could not load comments (HTTP ${res.status})` };
+    }
+
+    const comments = (json.data ?? []).map((c) => ({
+      id: c.id,
+      author: c.from?.name ?? "Unknown",
+      text: c.message ?? "",
+      url: c.permalink_url ?? null,
+      createdAt: c.created_time ?? null,
+    }));
+    return { comments, errorMessage: null };
+  }
+
+  // Graph API's /{id}/comments endpoint works identically whether {id} is a
+  // post or an existing comment — a reply IS just a comment whose parent
+  // happens to be another comment, so this reuses postComment's exact
+  // shape rather than duplicating it under a different name.
+  async replyToComment(commentId: string, text: string, accessToken: string): Promise<CommentPostResult> {
+    return this.postComment(commentId, text, accessToken);
   }
 }

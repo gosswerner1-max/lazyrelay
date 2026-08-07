@@ -145,4 +145,15 @@ export interface PlatformAdapter {
    *  method; callers must treat its absence as "not supported," not an
    *  error. */
   postComment?(platformPostId: string, text: string, accessToken: string): Promise<CommentPostResult>;
+
+  /** Optional — replies to an EXISTING comment (from the CommentItem.id
+   *  returned by getComments), as opposed to postComment's "new top-level
+   *  comment on our own post." Only implemented for platforms where this is
+   *  unblocked with an already-requested scope (Facebook, Instagram,
+   *  Mastodon, Bluesky) — YouTube needs a new sensitive scope
+   *  (youtube.force-ssl) that would likely extend its already-pending
+   *  Google app-verification review, so it's deliberately out of this pass.
+   *  Every other adapter simply doesn't declare this method; callers must
+   *  treat its absence as "not supported," not an error. */
+  replyToComment?(commentId: string, text: string, accessToken: string): Promise<CommentPostResult>;
 }

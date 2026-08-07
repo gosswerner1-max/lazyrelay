@@ -1066,10 +1066,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // comments/replies on posts LazyRelay itself published (via each
   // adapter's optional getComments — see the PlatformAdapter comment for
   // why full keyword/brand-mention search across public content isn't in
-  // scope here). Only Mastodon/Bluesky/YouTube implement it today; every
-  // other platform's posts come back with supported:false rather than a
-  // silently empty comment list, so the UI never implies broader coverage
-  // than actually exists.
+  // scope here). Mastodon/Bluesky/YouTube/Facebook/Instagram implement it;
+  // every other platform's posts come back with supported:false rather
+  // than a silently empty comment list, so the UI never implies broader
+  // coverage than actually exists.
   router.get("/mentions", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data: posts, error } = await supabase
       .from("scheduled_posts")
@@ -1117,6 +1117,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
           scheduledFor: post.scheduled_for,
           platformPostUrl: result.platform_post_url,
           supported: true,
+          canReply: !!adapter.replyToComment,
           comments: commentsResult.comments,
           errorMessage: commentsResult.errorMessage,
         });
@@ -1135,6 +1136,62 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
 
     res.json({ posts: results });
+  });
+
+  // Reply to a comment surfaced by GET /mentions. postId is required (not
+  // just commentId) so ownership can be checked the same way every other
+  // account-scoped route does — a customer must own the post the comment
+  // is attached to, never just supply an arbitrary commentId. Only
+  // implemented for platforms whose adapter declares replyToComment
+  // (Facebook, Instagram, Mastodon, Bluesky) — YouTube needs a new,
+  // not-yet-requested scope (see PlatformAdapter's own comment).
+  router.post("/mentions/reply", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { postId, commentId, text } = req.body as { postId?: string; commentId?: string; text?: string };
+    if (!postId || !commentId || !text?.trim()) {
+      res.status(400).json({ error: "postId, commentId, and text are all required" });
+      return;
+    }
+
+    const { data: post, error: postError } = await supabase
+      .from("scheduled_posts")
+      .select("account_id, social_account_id, social_accounts(platform)")
+      .eq("id", postId)
+      .maybeSingle();
+    if (postError) {
+      dbError(res, postError, "POST /mentions/reply");
+      return;
+    }
+    if (!post || post.account_id !== req.accountId) {
+      res.status(404).json({ error: "Post not found" });
+      return;
+    }
+
+    const platform = Array.isArray(post.social_accounts) ? post.social_accounts[0]?.platform : (post.social_accounts as { platform?: string } | null)?.platform;
+    const adapter = platform ? registry.get(platform) : undefined;
+    if (!adapter?.replyToComment) {
+      res.status(400).json({ error: `Replying isn't supported on ${platform ?? "this platform"} yet` });
+      return;
+    }
+
+    const { data: account } = await supabase
+      .from("social_accounts")
+      .select("access_token_vault_id")
+      .eq("id", post.social_account_id)
+      .single();
+    const { data: accessToken } = account
+      ? await supabase.rpc("read_social_token", { p_vault_id: account.access_token_vault_id })
+      : { data: null };
+    if (!accessToken) {
+      res.status(500).json({ error: "Could not load this account's access token" });
+      return;
+    }
+
+    const result = await adapter.replyToComment(commentId, text.trim(), accessToken as string);
+    if (!result.success) {
+      res.status(502).json({ error: result.errorMessage ?? "Reply failed" });
+      return;
+    }
+    res.json({ success: true });
   });
 
   // Phase 1 analytics — post-level engagement (likes/shares/views) isn't

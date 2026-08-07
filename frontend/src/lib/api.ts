@@ -163,6 +163,7 @@ export interface MentionPost {
   scheduledFor: string;
   platformPostUrl: string | null;
   supported: boolean;
+  canReply?: boolean;
   comments: MentionComment[];
   errorMessage?: string | null;
 }
@@ -241,6 +242,9 @@ export const api = {
   getAnalyticsSummary: (days = 30): Promise<AnalyticsSummary> => authedFetch(`/analytics/summary?days=${days}`),
 
   getMentions: (): Promise<{ posts: MentionPost[] }> => authedFetch("/mentions"),
+
+  replyToMention: (postId: string, commentId: string, text: string): Promise<{ success: boolean }> =>
+    authedFetch("/mentions/reply", { method: "POST", body: JSON.stringify({ postId, commentId, text }) }),
 
   generateCaption: (topic: string, platform?: string, tone?: string): Promise<{ caption: string }> =>
     authedFetch("/ai/caption", { method: "POST", body: JSON.stringify({ topic, platform, tone }) }),

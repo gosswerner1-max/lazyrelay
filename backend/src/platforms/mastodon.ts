@@ -6,6 +6,7 @@ import type {
   OAuthExchangeResult,
   CommentsResult,
   PostMetrics,
+  CommentPostResult,
 } from "./types.js";
 
 // Real, confirmed platform gotcha: Mastodon is decentralized — every
@@ -278,6 +279,26 @@ export class MastodonAdapter implements PlatformAdapter {
       ];
     });
     return { comments, errorMessage: null };
+  }
+
+  // A reply is just a status with in_reply_to_id set — write:statuses
+  // (already granted) covers this, no new scope needed.
+  async replyToComment(commentId: string, text: string, accessToken: string): Promise<CommentPostResult> {
+    const res = await fetch(`${DEFAULT_INSTANCE}/api/v1/statuses`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status: text, in_reply_to_id: commentId, visibility: "public" }),
+    });
+    const json = (await res.json().catch(() => ({}))) as MastodonStatus;
+
+    if (!res.ok || !json.id) {
+      return { success: false, errorMessage: json.error ?? `Mastodon reply failed (HTTP ${res.status})` };
+    }
+
+    return { success: true, errorMessage: null };
   }
 
   // Same endpoint verifyPublished already uses — the status object carries

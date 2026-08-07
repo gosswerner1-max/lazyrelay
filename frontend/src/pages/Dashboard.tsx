@@ -176,6 +176,9 @@ export function Dashboard() {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [mentions, setMentions] = useState<MentionPost[] | null>(null);
   const [mentionsLoading, setMentionsLoading] = useState(false);
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [replyingCommentId, setReplyingCommentId] = useState<string | null>(null);
+  const [replySentCommentId, setReplySentCommentId] = useState<string | null>(null);
   const [bioPage, setBioPage] = useState<BioPage | null | undefined>(undefined);
   const [bioLoading, setBioLoading] = useState(false);
   const [bioSaving, setBioSaving] = useState(false);
@@ -980,6 +983,26 @@ export function Dashboard() {
     }
   }
 
+  async function handleReplyToComment(postId: string, commentId: string) {
+    const text = replyDrafts[commentId]?.trim();
+    if (!text) return;
+    setReplyingCommentId(commentId);
+    setError(null);
+    try {
+      await api.replyToMention(postId, commentId, text);
+      setReplyDrafts((prev) => {
+        const next = { ...prev };
+        delete next[commentId];
+        return next;
+      });
+      setReplySentCommentId(commentId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setReplyingCommentId(null);
+    }
+  }
+
   async function handleConfirmCancelSubscription() {
     setBillingBusy("cancel");
     setError(null);
@@ -1212,8 +1235,9 @@ export function Dashboard() {
       <section>
         <h2>Mentions &amp; comments</h2>
         <p className="muted">
-          Comments on your recent posts, pulled directly from each platform. Only Mastodon, Bluesky, and YouTube
-          support this today — every other platform's comments still live on the platform itself, not here yet.
+          Comments on your recent posts, pulled directly from each platform. Facebook, Instagram, Mastodon,
+          Bluesky, and YouTube support this today, with reply-from-here on Facebook, Instagram, Mastodon, and
+          Bluesky — every other platform's comments still live on the platform itself, not here yet.
         </p>
         {mentionsLoading && <Spinner />}
         {!mentionsLoading && mentions && mentions.length === 0 && <p className="empty">No recent posted content yet.</p>}
@@ -1268,6 +1292,30 @@ export function Dashboard() {
                             <li key={c.id}>
                               <span className="mentions-comment-author">{c.author}</span>
                               <span className="mentions-comment-text">{c.text}</span>
+                              {post.canReply && (
+                                replySentCommentId === c.id ? (
+                                  <span className="mentions-reply-sent">Reply sent</span>
+                                ) : (
+                                  <form
+                                    className="mentions-reply-form"
+                                    onSubmit={(e) => {
+                                      e.preventDefault();
+                                      handleReplyToComment(post.postId, c.id);
+                                    }}
+                                  >
+                                    <input
+                                      type="text"
+                                      placeholder="Write a reply..."
+                                      value={replyDrafts[c.id] ?? ""}
+                                      onChange={(e) => setReplyDrafts((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                                      maxLength={2000}
+                                    />
+                                    <button type="submit" disabled={replyingCommentId === c.id || !replyDrafts[c.id]?.trim()}>
+                                      {replyingCommentId === c.id ? "Sending..." : "Reply"}
+                                    </button>
+                                  </form>
+                                )
+                              )}
                             </li>
                           ))}
                         </ul>

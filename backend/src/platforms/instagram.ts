@@ -6,6 +6,7 @@ import type {
   OAuthExchangeResult,
   PostMetrics,
   CommentPostResult,
+  CommentsResult,
 } from "./types.js";
 
 // Instagram Business posting via "Instagram API with Facebook Login" — same
@@ -68,6 +69,11 @@ interface InstagramMediaMetricsResponse {
   id?: string;
   like_count?: number;
   comments_count?: number;
+  error?: { message?: string };
+}
+
+interface InstagramCommentsResponse {
+  data?: { id: string; text?: string; username?: string; timestamp?: string }[];
   error?: { message?: string };
 }
 
@@ -329,5 +335,35 @@ export class InstagramAdapter implements PlatformAdapter {
     }
 
     return { success: true, errorMessage: null };
+  }
+
+  // Requires instagram_manage_comments (already granted). Instagram's
+  // comment resource has no public permalink field the way Facebook's
+  // does — url stays null rather than a guessed/constructed link.
+  async getComments(platformPostId: string, accessToken: string): Promise<CommentsResult> {
+    const url = new URL(`${GRAPH_BASE}/${platformPostId}/comments`);
+    url.searchParams.set("fields", "id,text,username,timestamp");
+    url.searchParams.set("access_token", accessToken);
+
+    const res = await fetch(url.toString());
+    const json = (await res.json().catch(() => ({}))) as InstagramCommentsResponse;
+    if (!res.ok) {
+      return { comments: [], errorMessage: json.error?.message ?? `Could not load comments (HTTP ${res.status})` };
+    }
+
+    const comments = (json.data ?? []).map((c) => ({
+      id: c.id,
+      author: c.username ?? "Unknown",
+      text: c.text ?? "",
+      url: null,
+      createdAt: c.timestamp ?? null,
+    }));
+    return { comments, errorMessage: null };
+  }
+
+  // Same reasoning as Facebook's replyToComment — /{id}/comments works
+  // identically on a media id or an existing comment id.
+  async replyToComment(commentId: string, text: string, accessToken: string): Promise<CommentPostResult> {
+    return this.postComment(commentId, text, accessToken);
   }
 }
