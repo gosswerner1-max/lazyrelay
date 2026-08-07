@@ -75,6 +75,7 @@ interface DuePost {
   media_url: string | null;
   cover_image_url: string | null;
   board_id: string | null;
+  first_comment: string | null;
   retry_count: number;
   platform: string;
 }
@@ -111,7 +112,7 @@ async function claimDuePosts(): Promise<DuePost[]> {
     .update({ status: "posting" })
     .in("id", ids)
     .eq("status", "pending")
-    .select("id, account_id, social_account_id, content, media_url, cover_image_url, board_id, retry_count, social_accounts(platform)");
+    .select("id, account_id, social_account_id, content, media_url, cover_image_url, board_id, first_comment, retry_count, social_accounts(platform)");
 
   if (claimError) throw claimError;
   if (!claimed || claimed.length === 0) return [];
@@ -295,15 +296,23 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     // differentiator, not an optional extra step.
     const verification = await adapter.verifyPublished(attempt.platformPostId, accessToken);
 
-    await supabase.from("post_results").insert({
-      scheduled_post_id: post.id,
-      account_id: post.account_id,
-      platform_post_id: attempt.platformPostId,
-      platform_post_url: verification.platformPostUrl,
-      verified_live: verification.verifiedLive,
-      verification_checked_at: new Date().toISOString(),
-      error_message: verification.errorMessage,
-    });
+    // first_comment_posted/first_comment_error start null here (not yet
+    // attempted) and are filled in below, only once the parent post is
+    // confirmed live — a comment on a post that isn't verified would be
+    // commenting on something LazyRelay can't actually vouch for yet.
+    const { data: resultRow } = await supabase
+      .from("post_results")
+      .insert({
+        scheduled_post_id: post.id,
+        account_id: post.account_id,
+        platform_post_id: attempt.platformPostId,
+        platform_post_url: verification.platformPostUrl,
+        verified_live: verification.verifiedLive,
+        verification_checked_at: new Date().toISOString(),
+        error_message: verification.errorMessage,
+      })
+      .select("id")
+      .single();
 
     if (!verification.verifiedLive) {
       recordFailure(adapter.platform);
@@ -313,6 +322,34 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
 
     recordSuccess(adapter.platform);
     await supabase.from("scheduled_posts").update({ status: "posted" }).eq("id", post.id);
+
+    // Best-effort, non-fatal: a comment failure must never flip the parent
+    // post's own status or trigger handleFailure's retry path — the post
+    // itself is already live and verified, which is the promise that
+    // matters. Only attempted for platforms that declare postComment (see
+    // PlatformAdapter.postComment) and only when the customer set one.
+    if (post.first_comment && adapter.postComment && resultRow) {
+      try {
+        const commentResult = await adapter.postComment(attempt.platformPostId, post.first_comment, accessToken);
+        await supabase
+          .from("post_results")
+          .update({
+            first_comment_posted: commentResult.success,
+            first_comment_error: commentResult.errorMessage,
+          })
+          .eq("id", resultRow.id);
+        if (!commentResult.success) {
+          console.warn(`Post ${post.id}: first comment failed — ${commentResult.errorMessage}`);
+        }
+      } catch (commentErr) {
+        const commentErrorMessage = commentErr instanceof Error ? commentErr.message : String(commentErr);
+        await supabase
+          .from("post_results")
+          .update({ first_comment_posted: false, first_comment_error: commentErrorMessage })
+          .eq("id", resultRow.id);
+        console.warn(`Post ${post.id}: first comment threw — ${commentErrorMessage}`);
+      }
+    }
   } catch (err) {
     recordFailure(adapter.platform);
     // Same reasoning as the post()-failure branch above — an unexpected

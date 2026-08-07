@@ -5,6 +5,7 @@ import type {
   VerifyResult,
   OAuthExchangeResult,
   PostMetrics,
+  CommentPostResult,
 } from "./types.js";
 
 // Real, deliberate simplification, same shape as TikTok's SELF_ONLY/Pinterest's
@@ -17,7 +18,10 @@ const AUTHORIZE_URL = "https://www.facebook.com/v25.0/dialog/oauth";
 const TOKEN_URL = "https://graph.facebook.com/v25.0/oauth/access_token";
 const GRAPH_BASE = "https://graph.facebook.com/v25.0";
 
-const SCOPES = "pages_show_list,pages_read_engagement,pages_manage_posts,business_management";
+// pages_manage_engagement added 2026-08-07 for postComment() (first-comment
+// auto-posting) — a distinct permission from pages_manage_posts, which only
+// covers creating the post itself, not commenting on it.
+const SCOPES = "pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_engagement,business_management";
 
 interface FacebookTokenResponse {
   access_token?: string;
@@ -229,5 +233,24 @@ export class FacebookAdapter implements PlatformAdapter {
       views: null,
       errorMessage: null,
     };
+  }
+
+  async postComment(platformPostId: string, text: string, accessToken: string): Promise<CommentPostResult> {
+    const params = new URLSearchParams({ message: text, access_token: accessToken });
+    const res = await fetch(`${GRAPH_BASE}/${platformPostId}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+    });
+    const json = (await res.json().catch(() => ({}))) as { id?: string; error?: { message?: string } };
+
+    if (!res.ok || !json.id) {
+      return {
+        success: false,
+        errorMessage: json.error?.message ?? `Facebook comment failed (HTTP ${res.status})`,
+      };
+    }
+
+    return { success: true, errorMessage: null };
   }
 }

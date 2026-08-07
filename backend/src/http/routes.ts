@@ -803,9 +803,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // throwing, since a bulk caller needs to keep going past one bad row.
   async function scheduleOnePost(
     accountId: string | undefined,
-    input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; coverImageUrl?: unknown; boardId?: unknown; scheduledFor?: unknown; requiresApproval?: unknown },
+    input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; coverImageUrl?: unknown; boardId?: unknown; firstComment?: unknown; scheduledFor?: unknown; requiresApproval?: unknown },
   ): Promise<{ status: number; body: Record<string, unknown> }> {
-    const { socialAccountId, content, mediaUrl, coverImageUrl, boardId, scheduledFor, requiresApproval } = input;
+    const { socialAccountId, content, mediaUrl, coverImageUrl, boardId, firstComment, scheduledFor, requiresApproval } = input;
     if (coverImageUrl !== undefined && coverImageUrl !== null && typeof coverImageUrl !== "string") {
       return { status: 400, body: { error: "coverImageUrl must be a string" } };
     }
@@ -814,6 +814,12 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // adapter's post() simply ignores it.
     if (boardId !== undefined && boardId !== null && typeof boardId !== "string") {
       return { status: 400, body: { error: "boardId must be a string" } };
+    }
+    // Only consumed by adapters that declare postComment (Facebook,
+    // Instagram today) — every other adapter's post() simply ignores it,
+    // same generic-column pattern as boardId/coverImageUrl.
+    if (firstComment !== undefined && firstComment !== null && typeof firstComment !== "string") {
+      return { status: 400, body: { error: "firstComment must be a string" } };
     }
     if (!socialAccountId || !content || !scheduledFor) {
       return { status: 400, body: { error: "socialAccountId, content, and scheduledFor are required" } };
@@ -928,6 +934,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         media_url: mediaUrl ?? null,
         cover_image_url: coverImageUrl ?? null,
         board_id: boardId ?? null,
+        first_comment: firstComment ?? null,
         scheduled_for: scheduledFor,
         // A post created with requiresApproval sits in needs_approval —
         // invisible to the scheduler (claimDuePosts only ever selects
@@ -1314,6 +1321,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     mediaUrl?: unknown;
     coverImageUrl?: unknown;
     boardId?: unknown;
+    firstComment?: unknown;
     socialAccountIds?: unknown;
     daysOfWeek?: unknown;
     timeOfDay?: unknown;
@@ -1381,6 +1389,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (input.boardId !== undefined && input.boardId !== null && typeof input.boardId !== "string") {
       return "boardId must be a string";
     }
+    if (input.firstComment !== undefined && input.firstComment !== null && typeof input.firstComment !== "string") {
+      return "firstComment must be a string";
+    }
     return null;
   }
 
@@ -1445,6 +1456,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         media_url: input.mediaUrl ?? null,
         cover_image_url: input.coverImageUrl ?? null,
         board_id: input.boardId ?? null,
+        first_comment: input.firstComment ?? null,
         days_of_week: input.daysOfWeek,
         time_of_day: `${input.timeOfDay}:00`,
         timezone: input.timezone,
@@ -1527,7 +1539,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // ones under the new configuration on the next generation cycle.
     const isPureResume = input.status === "active" && existing.status === "paused" &&
       input.content === undefined && input.mediaUrl === undefined && input.coverImageUrl === undefined &&
-      input.boardId === undefined &&
+      input.boardId === undefined && input.firstComment === undefined &&
       input.socialAccountIds === undefined &&
       input.daysOfWeek === undefined && input.timeOfDay === undefined && input.timezone === undefined &&
       input.startsOn === undefined && input.endsOn === undefined;
@@ -1565,6 +1577,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (input.mediaUrl !== undefined) updates.media_url = input.mediaUrl;
     if (input.coverImageUrl !== undefined) updates.cover_image_url = input.coverImageUrl;
     if (input.boardId !== undefined) updates.board_id = input.boardId;
+    if (input.firstComment !== undefined) updates.first_comment = input.firstComment;
     if (input.daysOfWeek !== undefined) updates.days_of_week = input.daysOfWeek;
     if (input.timeOfDay !== undefined) updates.time_of_day = `${input.timeOfDay}:00`;
     if (input.timezone !== undefined) updates.timezone = input.timezone;

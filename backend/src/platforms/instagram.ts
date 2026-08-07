@@ -5,6 +5,7 @@ import type {
   VerifyResult,
   OAuthExchangeResult,
   PostMetrics,
+  CommentPostResult,
 } from "./types.js";
 
 // Instagram Business posting via "Instagram API with Facebook Login" — same
@@ -19,7 +20,10 @@ const AUTHORIZE_URL = "https://www.facebook.com/v25.0/dialog/oauth";
 const TOKEN_URL = "https://graph.facebook.com/v25.0/oauth/access_token";
 const GRAPH_BASE = "https://graph.facebook.com/v25.0";
 
-const SCOPES = "instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,business_management";
+// instagram_manage_comments added 2026-08-07 for postComment() (first-comment
+// auto-posting) — instagram_content_publish only covers creating the media
+// itself, not commenting on it afterward.
+const SCOPES = "instagram_basic,instagram_content_publish,instagram_manage_comments,pages_show_list,pages_read_engagement,business_management";
 
 interface FacebookTokenResponse {
   access_token?: string;
@@ -306,5 +310,24 @@ export class InstagramAdapter implements PlatformAdapter {
       views: null,
       errorMessage: null,
     };
+  }
+
+  async postComment(platformPostId: string, text: string, accessToken: string): Promise<CommentPostResult> {
+    const params = new URLSearchParams({ message: text, access_token: accessToken });
+    const res = await fetch(`${GRAPH_BASE}/${platformPostId}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+    });
+    const json = (await res.json().catch(() => ({}))) as { id?: string; error?: { message?: string } };
+
+    if (!res.ok || !json.id) {
+      return {
+        success: false,
+        errorMessage: json.error?.message ?? `Instagram comment failed (HTTP ${res.status})`,
+      };
+    }
+
+    return { success: true, errorMessage: null };
   }
 }

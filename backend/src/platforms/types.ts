@@ -55,6 +55,11 @@ export interface PostMetrics {
   errorMessage: string | null;
 }
 
+export interface CommentPostResult {
+  success: boolean;
+  errorMessage: string | null;
+}
+
 export interface OAuthExchangeResult {
   accessToken: string;
   refreshToken: string | null;
@@ -129,4 +134,15 @@ export interface PlatformAdapter {
    *  error — e.g. Meta/Pinterest/Mastodon/Bluesky/Telegram tokens are
    *  long-lived or don't use this grant shape. */
   refresh?(refreshToken: string): Promise<OAuthExchangeResult>;
+
+  /** Optional — posts a follow-up comment on a post LazyRelay itself just
+   *  published (the common "hide hashtags in the first comment" pattern).
+   *  Only called after verifyPublished() has already confirmed the parent
+   *  post is live — a comment failure must never fail or retry the parent
+   *  post. Only implemented for platforms this is validated for (Facebook,
+   *  Instagram — see project-competitor-feature-audit-2026-08-07.md for the
+   *  v1 scope decision). Every other adapter simply doesn't declare this
+   *  method; callers must treat its absence as "not supported," not an
+   *  error. */
+  postComment?(platformPostId: string, text: string, accessToken: string): Promise<CommentPostResult>;
 }
