@@ -1,7 +1,36 @@
+import { useState } from "react";
 import { BrandMark } from "../components/BrandMark";
 
 interface ApiDocsProps {
   onBack: () => void;
+}
+
+function CodeBlock({ code }: { code: string }) {
+  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setStatus("copied");
+    } catch {
+      // navigator.clipboard.writeText can genuinely reject (permission
+      // denied, an insecure context, the document losing focus right
+      // before the click registers) — without this catch the button did
+      // nothing at all on failure, no error, no fallback, just silence.
+      setStatus("failed");
+    } finally {
+      setTimeout(() => setStatus("idle"), 2000);
+    }
+  }
+
+  return (
+    <pre className="api-code-block">
+      <button type="button" className={`api-code-copy${status === "failed" ? " api-code-copy-failed" : ""}`} onClick={handleCopy}>
+        {status === "copied" ? "Copied!" : status === "failed" ? "Couldn't copy — select manually" : "Copy"}
+      </button>
+      <code>{code}</code>
+    </pre>
+  );
 }
 
 const ENDPOINTS = [
@@ -85,9 +114,7 @@ export function ApiDocs({ onBack }: ApiDocsProps) {
             Generate a key from your dashboard: <strong>Settings → More → API Keys → Create key</strong>. The raw
             key is shown once — copy it immediately. Send it as a bearer token on every request:
           </p>
-          <pre className="api-code-block">
-            <code>Authorization: Bearer lzr_live_your_key_here</code>
-          </pre>
+          <CodeBlock code="Authorization: Bearer lzr_live_your_key_here" />
           <p>
             Each key acts as your account — treat it like a password. Creating or revoking keys always requires
             signing in to the dashboard directly; a key can never be used to mint or revoke other keys, so a
@@ -95,9 +122,7 @@ export function ApiDocs({ onBack }: ApiDocsProps) {
           </p>
 
           <h3>Base URL</h3>
-          <pre className="api-code-block">
-            <code>https://lazyrelaylazyrelay-backend.onrender.com/api</code>
-          </pre>
+          <CodeBlock code="https://lazyrelaylazyrelay-backend.onrender.com/api" />
 
           <h3>Endpoints</h3>
           <div className="api-endpoint-list">
@@ -108,11 +133,7 @@ export function ApiDocs({ onBack }: ApiDocsProps) {
                   <code>{e.path}</code>
                 </div>
                 <p>{e.summary}</p>
-                {e.body && (
-                  <pre className="api-code-block">
-                    <code>{e.body}</code>
-                  </pre>
-                )}
+                {e.body && <CodeBlock code={e.body} />}
               </div>
             ))}
           </div>
@@ -123,8 +144,8 @@ export function ApiDocs({ onBack }: ApiDocsProps) {
             MCP) rather than writing HTTP calls by hand, use LazyRelay's own MCP server instead of calling the
             API directly — it wraps every endpoint above as a real tool the agent can call.
           </p>
-          <pre className="api-code-block">
-            <code>{`{
+          <CodeBlock
+            code={`{
   "mcpServers": {
     "lazyrelay": {
       "command": "npx",
@@ -132,8 +153,8 @@ export function ApiDocs({ onBack }: ApiDocsProps) {
       "env": { "LAZYRELAY_API_KEY": "lzr_live_your_key_here" }
     }
   }
-}`}</code>
-          </pre>
+}`}
+          />
           <p>
             This runs locally on your own machine using your own API key — there's nothing to host. See the
             package README for the full tool list.

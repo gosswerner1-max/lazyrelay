@@ -2453,7 +2453,8 @@ export function Dashboard() {
         <h2>API keys</h2>
         <p className="section-note">
           Let your own AI agent post and schedule directly through LazyRelay's API, without a browser or a human
-          login.
+          login. See the <a href="/docs" target="_blank" rel="noopener noreferrer">full API &amp; MCP server docs</a>{" "}
+          for every endpoint and a ready-to-paste Claude/Cursor config.
         </p>
         <p className="security-notice">
           <span aria-hidden="true">⚠️</span>

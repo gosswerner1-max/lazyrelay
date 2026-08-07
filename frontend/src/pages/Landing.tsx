@@ -233,6 +233,9 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact,
           <a href="#pricing">Pricing</a>
           <a href="#faq">FAQ</a>
           <a href="#about">About</a>
+          <button className="link" onClick={onDocs}>
+            Docs
+          </button>
           <button className="link" onClick={onContact}>
             Contact
           </button>

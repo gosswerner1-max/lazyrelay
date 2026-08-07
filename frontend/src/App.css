@@ -2471,6 +2471,11 @@
   margin: 4px 0 20px;
 }
 
+.section-note a {
+  color: var(--signal);
+  font-weight: 600;
+}
+
 .pricing-card ul {
   list-style: none;
   padding: 0;
@@ -2571,6 +2576,7 @@
 }
 
 .api-code-block {
+  position: relative;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -2639,6 +2645,31 @@
 .api-endpoint .api-code-block {
   margin-top: 10px;
   margin-bottom: 0;
+}
+
+.api-code-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--wire);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+.api-code-copy:hover {
+  color: var(--ink);
+  border-color: var(--wire);
+}
+
+.api-code-copy-failed {
+  color: var(--error);
+  border-color: var(--error);
 }
 
 /* Contact page */
