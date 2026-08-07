@@ -2176,7 +2176,14 @@ export function Dashboard() {
         <h2>API keys</h2>
         <p className="pricing-note">
           Let your own AI agent post and schedule directly through LazyRelay's API, without a browser or a human
-          login. Each key acts as this account — treat it like a password.
+          login.
+        </p>
+        <p className="security-notice">
+          <span aria-hidden="true">⚠️</span>
+          <span>
+            Treat every key like a password. Anyone who has it can post, schedule, and manage this account exactly
+            as you can — never share a key or commit one to code. Revoke it immediately if you think it's leaked.
+          </span>
         </p>
         {newlyCreatedKey && (
           <div className="api-key-reveal">

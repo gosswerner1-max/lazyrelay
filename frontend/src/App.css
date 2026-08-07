@@ -157,6 +157,19 @@
   margin: 0;
 }
 
+.security-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--warn);
+  background: var(--warn-bg);
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  margin: 12px 0 20px;
+}
+
 /* Dashboard */
 .plan-banner {
   width: 100%;
@@ -1551,6 +1564,24 @@
 
 .billing-upgrade-grid {
   max-width: 900px;
+}
+
+/* Both callers (storage add-ons, Billing tab upgrade tiers) always render
+   exactly 3 cards, unlike the marketing page's 4-tier .pricing-grid this
+   class extends. Inheriting 4 columns wasted a phantom column's worth of
+   width, leaving each card too narrow for its own price text to fit on
+   one line — it spilled past the card edge instead of wrapping. Combined
+   selector, not a second .billing-upgrade-grid rule, so it reliably beats
+   .pricing-grid's column count regardless of source order (equal-specificity
+   single-class rules resolve by whichever comes later in the file). */
+.pricing-grid.billing-upgrade-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 600px) {
+  .pricing-grid.billing-upgrade-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .verified {
