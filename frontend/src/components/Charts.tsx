@@ -106,6 +106,18 @@ export function KpiRow({ children }: { children: React.ReactNode }) {
 // Meter — a ratio against a limit (never a pie of 2 slices)
 // ---------------------------------------------------------------------------
 
+// Meter fill carries severity (brand accent -> warning -> danger) rather than
+// a single flat color — per the dataviz skill's own Meter spec. This also
+// keeps the meter visually distinct from the status stacked bar below it:
+// both used the same green before, which read as two copies of one bar when
+// everything was healthy. A high rate now uses the brand accent (--signal),
+// not --confirm, so a fully-healthy dashboard doesn't show identical greens.
+function meterTier(pct: number): "good" | "warn" | "critical" {
+  if (pct >= 90) return "good";
+  if (pct >= 70) return "warn";
+  return "critical";
+}
+
 export function Meter({
   label,
   value,
@@ -118,6 +130,7 @@ export function Meter({
   suffix?: string;
 }) {
   const pct = max <= 0 ? 0 : Math.min(100, Math.max(0, (value / max) * 100));
+  const tier = meterTier(pct);
   return (
     <div className="chart-meter">
       <div className="chart-meter-head">
@@ -127,8 +140,15 @@ export function Meter({
           {suffix}
         </span>
       </div>
-      <div className="chart-meter-track" role="meter" aria-valuenow={Math.round(value)} aria-valuemin={0} aria-valuemax={max} aria-label={label}>
-        <div className="chart-meter-fill" style={{ width: `${pct}%` }} />
+      <div
+        className={`chart-meter-track chart-meter-track-${tier}`}
+        role="meter"
+        aria-valuenow={Math.round(value)}
+        aria-valuemin={0}
+        aria-valuemax={max}
+        aria-label={label}
+      >
+        <div className={`chart-meter-fill chart-meter-fill-${tier}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );

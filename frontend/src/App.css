@@ -516,15 +516,36 @@
 .chart-meter-track {
   height: 10px;
   border-radius: 5px;
-  background: var(--confirm-bg);
   overflow: hidden;
 }
 
 .chart-meter-fill {
   height: 100%;
   border-radius: 5px;
-  background: var(--confirm);
   transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Severity tiers — good uses the brand accent (not --confirm), so a healthy
+   meter reads as visually distinct from the status stacked bar below it. */
+.chart-meter-track-good {
+  background: var(--signal-bg);
+}
+.chart-meter-fill-good {
+  background: var(--signal);
+}
+
+.chart-meter-track-warn {
+  background: var(--warn-bg);
+}
+.chart-meter-fill-warn {
+  background: var(--warn);
+}
+
+.chart-meter-track-critical {
+  background: var(--error-bg);
+}
+.chart-meter-fill-critical {
+  background: var(--error);
 }
 
 @media (prefers-reduced-motion: reduce) {
