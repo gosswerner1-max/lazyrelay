@@ -2565,6 +2565,82 @@
   color: var(--signal);
 }
 
+/* API docs page */
+.api-docs.legal-page {
+  max-width: 760px;
+}
+
+.api-code-block {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 0 0 16px;
+}
+
+.api-code-block code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink);
+  white-space: pre;
+}
+
+.api-endpoint-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.api-endpoint {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.api-endpoint-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.api-endpoint-header code {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.api-method {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 5px;
+  letter-spacing: 0.03em;
+}
+
+.api-method-get {
+  background: var(--signal-bg);
+  color: var(--signal);
+}
+
+.api-method-post {
+  background: rgba(31, 157, 104, 0.12);
+  color: var(--confirm);
+}
+
+.api-method-delete {
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.api-endpoint .api-code-block {
+  margin-top: 10px;
+  margin-bottom: 0;
+}
+
 /* Contact page */
 .contact-list {
   display: grid;

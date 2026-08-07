@@ -10,6 +10,7 @@ interface LandingProps {
   onPrivacy: () => void;
   onTerms: () => void;
   onContact: () => void;
+  onDocs: () => void;
 }
 
 const FEATURES = [
@@ -116,7 +117,7 @@ const FAQ = [
   },
 ];
 
-export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact }: LandingProps) {
+export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact, onDocs }: LandingProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -431,6 +432,9 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact 
         <p className="landing-footer-links">
           <button className="link" onClick={onContact}>
             Contact
+          </button>
+          <button className="link" onClick={onDocs}>
+            API &amp; MCP docs
           </button>
           <button className="link" onClick={onPrivacy}>
             Privacy Policy

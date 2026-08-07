@@ -7,6 +7,7 @@ import { PrivacyPolicy } from "./pages/PrivacyPolicy";
 import { TermsOfService } from "./pages/TermsOfService";
 import { DataDeletion } from "./pages/DataDeletion";
 import { Contact } from "./pages/Contact";
+import { ApiDocs } from "./pages/ApiDocs";
 import { ConnectForm } from "./pages/ConnectForm";
 import { BioPage } from "./pages/BioPage";
 import { Spinner } from "./components/Spinner";
@@ -15,13 +16,14 @@ import "./App.css";
 
 const MANUAL_CONNECT_PLATFORMS = ["bluesky", "telegram", "discord"] as const;
 
-type View = "landing" | "signin" | "signup" | "privacy" | "terms" | "data-deletion" | "contact";
+type View = "landing" | "signin" | "signup" | "privacy" | "terms" | "data-deletion" | "contact" | "docs";
 
 const PATH_TO_VIEW: Record<string, View> = {
   "/terms": "terms",
   "/privacy": "privacy",
   "/data-deletion": "data-deletion",
   "/contact": "contact",
+  "/docs": "docs",
   "/login": "signin",
   "/signup": "signup",
   "/pricing": "landing",
@@ -33,6 +35,7 @@ const VIEW_TO_PATH: Partial<Record<View, string>> = {
   privacy: "/privacy",
   "data-deletion": "/data-deletion",
   contact: "/contact",
+  docs: "/docs",
   signin: "/login",
   signup: "/signup",
 };
@@ -121,6 +124,10 @@ function Root() {
     return <Contact onBack={() => setView("landing")} />;
   }
 
+  if (view === "docs") {
+    return <ApiDocs onBack={() => setView("landing")} />;
+  }
+
   if (view === "landing") {
     return (
       <Landing
@@ -129,6 +136,7 @@ function Root() {
         onPrivacy={() => setView("privacy")}
         onTerms={() => setView("terms")}
         onContact={() => setView("contact")}
+        onDocs={() => setView("docs")}
       />
     );
   }
