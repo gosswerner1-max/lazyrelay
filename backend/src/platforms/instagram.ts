@@ -7,6 +7,9 @@ import type {
   PostMetrics,
   CommentPostResult,
   CommentsResult,
+  DMConversationsResult,
+  DMMessagesResult,
+  SendDMResult,
 } from "./types.js";
 
 // Instagram Business posting via "Instagram API with Facebook Login" — same
@@ -24,7 +27,7 @@ const GRAPH_BASE = "https://graph.facebook.com/v25.0";
 // instagram_manage_comments added 2026-08-07 for postComment() (first-comment
 // auto-posting) — instagram_content_publish only covers creating the media
 // itself, not commenting on it afterward.
-const SCOPES = "instagram_basic,instagram_content_publish,instagram_manage_comments,pages_show_list,pages_read_engagement,business_management";
+const SCOPES = "instagram_basic,instagram_content_publish,instagram_manage_comments,instagram_manage_messages,pages_show_list,pages_read_engagement,business_management";
 
 interface FacebookTokenResponse {
   access_token?: string;
@@ -74,6 +77,21 @@ interface InstagramMediaMetricsResponse {
 
 interface InstagramCommentsResponse {
   data?: { id: string; text?: string; username?: string; timestamp?: string }[];
+  error?: { message?: string };
+}
+
+interface InstagramConversationsResponse {
+  data?: {
+    id: string;
+    updated_time?: string;
+    snippet?: string;
+    participants?: { data?: { id: string; username?: string }[] };
+  }[];
+  error?: { message?: string };
+}
+
+interface InstagramMessagesResponse {
+  data?: { id: string; message?: string; from?: { id: string; username?: string }; created_time?: string }[];
   error?: { message?: string };
 }
 
@@ -365,5 +383,84 @@ export class InstagramAdapter implements PlatformAdapter {
   // identically on a media id or an existing comment id.
   async replyToComment(commentId: string, text: string, accessToken: string): Promise<CommentPostResult> {
     return this.postComment(commentId, text, accessToken);
+  }
+
+  // Requires instagram_manage_messages (added to the app 2026-08-07
+  // specifically for this). Same Conversations API shape as Facebook,
+  // scoped to Instagram via platform=instagram — Meta unified this API
+  // across both surfaces.
+  async getConversations(accessToken: string): Promise<DMConversationsResult> {
+    const igAccountId = await this.getInstagramAccountId(accessToken);
+    const url = new URL(`${GRAPH_BASE}/${igAccountId}/conversations`);
+    url.searchParams.set("platform", "instagram");
+    url.searchParams.set("fields", "participants,updated_time,snippet");
+    url.searchParams.set("access_token", accessToken);
+
+    const res = await fetch(url.toString());
+    const json = (await res.json().catch(() => ({}))) as InstagramConversationsResponse;
+    if (!res.ok) {
+      return { conversations: [], errorMessage: json.error?.message ?? `Could not load conversations (HTTP ${res.status})` };
+    }
+
+    const conversations = (json.data ?? []).flatMap((c) => {
+      if (!c.id) return [];
+      const other = c.participants?.data?.find((p) => p.id !== igAccountId);
+      return [
+        {
+          id: c.id,
+          participantId: other?.id ?? "",
+          participantName: other?.username ?? "Unknown",
+          snippet: c.snippet ?? null,
+          updatedAt: c.updated_time ?? null,
+        },
+      ];
+    });
+    return { conversations, errorMessage: null };
+  }
+
+  async getDirectMessages(conversationId: string, accessToken: string): Promise<DMMessagesResult> {
+    const url = new URL(`${GRAPH_BASE}/${conversationId}/messages`);
+    url.searchParams.set("fields", "id,message,from,created_time");
+    url.searchParams.set("access_token", accessToken);
+
+    const res = await fetch(url.toString());
+    const json = (await res.json().catch(() => ({}))) as InstagramMessagesResponse;
+    if (!res.ok) {
+      return { messages: [], errorMessage: json.error?.message ?? `Could not load messages (HTTP ${res.status})` };
+    }
+
+    const messages = (json.data ?? []).flatMap((m) => {
+      if (!m.id) return [];
+      return [
+        {
+          id: m.id,
+          fromId: m.from?.id ?? "",
+          fromName: m.from?.username ?? "Unknown",
+          text: m.message ?? "",
+          createdAt: m.created_time ?? null,
+        },
+      ];
+    });
+    return { messages, errorMessage: null };
+  }
+
+  // Same 24-hour customer-service messaging window constraint as
+  // Facebook's sendDirectMessage — a send outside it fails with a real
+  // Graph API error, surfaced honestly rather than hidden.
+  async sendDirectMessage(recipientId: string, text: string, accessToken: string): Promise<SendDMResult> {
+    const igAccountId = await this.getInstagramAccountId(accessToken);
+    const res = await fetch(`${GRAPH_BASE}/${igAccountId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message: { text },
+      }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { message_id?: string; error?: { message?: string } };
+    if (!res.ok || !json.message_id) {
+      return { success: false, errorMessage: json.error?.message ?? `Instagram DM send failed (HTTP ${res.status})` };
+    }
+    return { success: true, errorMessage: null };
   }
 }

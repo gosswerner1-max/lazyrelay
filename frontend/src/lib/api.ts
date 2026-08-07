@@ -168,6 +168,26 @@ export interface MentionPost {
   errorMessage?: string | null;
 }
 
+export interface DMConversation {
+  socialAccountId: string;
+  platform: string;
+  accountDisplayName: string | null;
+  conversationId: string;
+  participantId: string;
+  participantName: string;
+  snippet: string | null;
+  updatedAt: string | null;
+}
+
+export interface DMMessage {
+  id: string;
+  fromId: string;
+  fromName: string;
+  text: string;
+  createdAt: string | null;
+  isOwn: boolean;
+}
+
 export interface ApiKey {
   id: string;
   name: string;
@@ -245,6 +265,14 @@ export const api = {
 
   replyToMention: (postId: string, commentId: string, text: string): Promise<{ success: boolean }> =>
     authedFetch("/mentions/reply", { method: "POST", body: JSON.stringify({ postId, commentId, text }) }),
+
+  getDMs: (): Promise<{ conversations: DMConversation[] }> => authedFetch("/dms"),
+
+  getDMMessages: (socialAccountId: string, conversationId: string): Promise<{ messages: DMMessage[]; errorMessage: string | null }> =>
+    authedFetch(`/dms/messages?socialAccountId=${encodeURIComponent(socialAccountId)}&conversationId=${encodeURIComponent(conversationId)}`),
+
+  replyToDM: (socialAccountId: string, recipientId: string, text: string): Promise<{ success: boolean }> =>
+    authedFetch("/dms/reply", { method: "POST", body: JSON.stringify({ socialAccountId, recipientId, text }) }),
 
   generateCaption: (topic: string, platform?: string, tone?: string): Promise<{ caption: string }> =>
     authedFetch("/ai/caption", { method: "POST", body: JSON.stringify({ topic, platform, tone }) }),

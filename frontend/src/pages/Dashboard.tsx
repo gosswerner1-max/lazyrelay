@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
-import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost } from "../lib/api";
+import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage } from "../lib/api";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
@@ -9,10 +9,10 @@ import { bestTimeFor } from "../lib/bestTimes";
 import { Spinner } from "../components/Spinner";
 import { OverviewPanel } from "../components/Charts";
 
-const TABS = ["Overview", "Posts", "Calendar", "Analytics", "Mentions", "Bio Page", "Accounts", "Storage", "Account", "API Keys", "Billing"] as const;
+const TABS = ["Overview", "Posts", "Calendar", "Analytics", "Mentions", "DMs", "Bio Page", "Accounts", "Storage", "Account", "API Keys", "Billing"] as const;
 type Tab = (typeof TABS)[number];
 const MAIN_TABS: Tab[] = ["Overview", "Posts", "Calendar", "Accounts"];
-const MORE_TABS: Tab[] = ["Analytics", "Mentions", "Bio Page", "Storage", "Account", "API Keys", "Billing"];
+const MORE_TABS: Tab[] = ["Analytics", "Mentions", "DMs", "Bio Page", "Storage", "Account", "API Keys", "Billing"];
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function localDateKey(iso: string): string {
@@ -179,6 +179,13 @@ export function Dashboard() {
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [replyingCommentId, setReplyingCommentId] = useState<string | null>(null);
   const [replySentCommentId, setReplySentCommentId] = useState<string | null>(null);
+  const [dmConversations, setDmConversations] = useState<DMConversation[] | null>(null);
+  const [dmConversationsLoading, setDmConversationsLoading] = useState(false);
+  const [openConversation, setOpenConversation] = useState<DMConversation | null>(null);
+  const [dmMessages, setDmMessages] = useState<DMMessage[] | null>(null);
+  const [dmMessagesLoading, setDmMessagesLoading] = useState(false);
+  const [dmDraft, setDmDraft] = useState("");
+  const [dmSending, setDmSending] = useState(false);
   const [bioPage, setBioPage] = useState<BioPage | null | undefined>(undefined);
   const [bioLoading, setBioLoading] = useState(false);
   const [bioSaving, setBioSaving] = useState(false);
@@ -323,6 +330,17 @@ export function Dashboard() {
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setMentionsLoading(false));
   }, [tab, mentions]);
+
+  // Same lazy-load reasoning as Mentions.
+  useEffect(() => {
+    if (tab !== "DMs" || dmConversations !== null) return;
+    setDmConversationsLoading(true);
+    api
+      .getDMs()
+      .then((res) => setDmConversations(res.conversations))
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setDmConversationsLoading(false));
+  }, [tab, dmConversations]);
 
   // Also lazy-loaded, same reasoning as analytics — only fetched once the
   // customer actually opens the tab.
@@ -1003,6 +1021,39 @@ export function Dashboard() {
     }
   }
 
+  async function handleOpenConversation(conversation: DMConversation) {
+    setOpenConversation(conversation);
+    setDmMessages(null);
+    setDmDraft("");
+    setDmMessagesLoading(true);
+    setError(null);
+    try {
+      const res = await api.getDMMessages(conversation.socialAccountId, conversation.conversationId);
+      setDmMessages(res.messages);
+      if (res.errorMessage) setError(res.errorMessage);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDmMessagesLoading(false);
+    }
+  }
+
+  async function handleSendDM() {
+    if (!openConversation || !dmDraft.trim()) return;
+    setDmSending(true);
+    setError(null);
+    try {
+      await api.replyToDM(openConversation.socialAccountId, openConversation.participantId, dmDraft.trim());
+      const res = await api.getDMMessages(openConversation.socialAccountId, openConversation.conversationId);
+      setDmMessages(res.messages);
+      setDmDraft("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDmSending(false);
+    }
+  }
+
   async function handleConfirmCancelSubscription() {
     setBillingBusy("cancel");
     setError(null);
@@ -1327,6 +1378,77 @@ export function Dashboard() {
             );
           });
         })()}
+      </section>
+      )}
+
+      {tab === "DMs" && (
+      <section>
+        <h2>Direct messages</h2>
+        <p className="section-note">
+          DMs from your connected accounts. Facebook and Instagram support this today — sending only works
+          within each platform's own 24-hour customer-service messaging window.
+        </p>
+        {dmConversationsLoading && <Spinner />}
+        {!dmConversationsLoading && dmConversations && dmConversations.length === 0 && (
+          <p className="empty">No conversations yet.</p>
+        )}
+        {!dmConversationsLoading && dmConversations && dmConversations.length > 0 && (
+          <div className="dm-layout">
+            <ul className="dm-conversation-list">
+              {dmConversations.map((c) => (
+                <li key={`${c.socialAccountId}-${c.conversationId}`}>
+                  <button
+                    className={openConversation?.conversationId === c.conversationId ? "dm-conversation-active" : ""}
+                    onClick={() => handleOpenConversation(c)}
+                  >
+                    <PlatformIcon platform={c.platform} size={14} />
+                    <span className="dm-conversation-name">{c.participantName}</span>
+                    {c.snippet && <span className="dm-conversation-snippet">{c.snippet}</span>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="dm-thread">
+              {!openConversation && <p className="empty">Select a conversation to view it.</p>}
+              {openConversation && (
+                <>
+                  <div className="dm-thread-header">
+                    <PlatformIcon platform={openConversation.platform} size={14} />
+                    {openConversation.participantName}
+                  </div>
+                  {dmMessagesLoading && <Spinner />}
+                  {!dmMessagesLoading && dmMessages && (
+                    <ul className="dm-message-list">
+                      {dmMessages.map((m) => (
+                        <li key={m.id} className={m.isOwn ? "dm-message-own" : "dm-message-theirs"}>
+                          {m.text}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <form
+                    className="dm-reply-form"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSendDM();
+                    }}
+                  >
+                    <input
+                      type="text"
+                      placeholder="Write a message..."
+                      value={dmDraft}
+                      onChange={(e) => setDmDraft(e.target.value)}
+                      maxLength={2000}
+                    />
+                    <button type="submit" disabled={dmSending || !dmDraft.trim()}>
+                      {dmSending ? "Sending..." : "Send"}
+                    </button>
+                  </form>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </section>
       )}
 

@@ -60,6 +60,41 @@ export interface CommentPostResult {
   errorMessage: string | null;
 }
 
+export interface DMConversation {
+  id: string;
+  participantId: string;
+  participantName: string;
+  snippet: string | null;
+  updatedAt: string | null;
+}
+
+export interface DMConversationsResult {
+  conversations: DMConversation[];
+  errorMessage: string | null;
+}
+
+export interface DMMessage {
+  id: string;
+  // Raw sender identity, not a pre-computed "isOwn" boolean — the caller
+  // (the /dms route) compares fromId against the connected account's own
+  // platform_account_id, since that's the one place that actually knows
+  // which account is "us" for a given conversation.
+  fromId: string;
+  fromName: string;
+  text: string;
+  createdAt: string | null;
+}
+
+export interface DMMessagesResult {
+  messages: DMMessage[];
+  errorMessage: string | null;
+}
+
+export interface SendDMResult {
+  success: boolean;
+  errorMessage: string | null;
+}
+
 export interface OAuthExchangeResult {
   accessToken: string;
   refreshToken: string | null;
@@ -156,4 +191,21 @@ export interface PlatformAdapter {
    *  Every other adapter simply doesn't declare this method; callers must
    *  treat its absence as "not supported," not an error. */
   replyToComment?(commentId: string, text: string, accessToken: string): Promise<CommentPostResult>;
+
+  /** Optional — DM inbox, priority (4) from the 2026-08-07 competitor
+   *  audit. Only Facebook and Instagram declare these — both needed a new
+   *  permission (pages_messaging / instagram_manage_messages) added to the
+   *  Meta app on 2026-08-07 specifically for this. Every other adapter
+   *  simply doesn't declare these methods; callers must treat their
+   *  absence as "no DM support," never an error. */
+  getConversations?(accessToken: string): Promise<DMConversationsResult>;
+  getDirectMessages?(conversationId: string, accessToken: string): Promise<DMMessagesResult>;
+
+  /** Sending is genuinely gated by each platform's own customer-service
+   *  messaging window (Meta: 24 hours since the customer's last message,
+   *  outside a small set of pre-approved tags this codebase doesn't
+   *  implement) — a send outside that window fails with a real API error
+   *  from the platform, surfaced honestly via errorMessage rather than
+   *  silently retried or hidden. */
+  sendDirectMessage?(recipientId: string, text: string, accessToken: string): Promise<SendDMResult>;
 }

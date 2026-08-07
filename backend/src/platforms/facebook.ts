@@ -7,6 +7,9 @@ import type {
   PostMetrics,
   CommentPostResult,
   CommentsResult,
+  DMConversationsResult,
+  DMMessagesResult,
+  SendDMResult,
 } from "./types.js";
 
 // Real, deliberate simplification, same shape as TikTok's SELF_ONLY/Pinterest's
@@ -22,7 +25,7 @@ const GRAPH_BASE = "https://graph.facebook.com/v25.0";
 // pages_manage_engagement added 2026-08-07 for postComment() (first-comment
 // auto-posting) — a distinct permission from pages_manage_posts, which only
 // covers creating the post itself, not commenting on it.
-const SCOPES = "pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_engagement,pages_read_user_content,business_management";
+const SCOPES = "pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_engagement,pages_read_user_content,pages_messaging,business_management";
 
 interface FacebookTokenResponse {
   access_token?: string;
@@ -63,6 +66,21 @@ interface FacebookPostMetricsResponse {
 
 interface FacebookCommentsResponse {
   data?: { id: string; message?: string; from?: { name?: string }; created_time?: string; permalink_url?: string }[];
+  error?: { message?: string };
+}
+
+interface FacebookConversationsResponse {
+  data?: {
+    id: string;
+    updated_time?: string;
+    snippet?: string;
+    participants?: { data?: { id: string; name?: string }[] };
+  }[];
+  error?: { message?: string };
+}
+
+interface FacebookMessagesResponse {
+  data?: { id: string; message?: string; from?: { id: string; name?: string }; created_time?: string }[];
   error?: { message?: string };
 }
 
@@ -289,5 +307,86 @@ export class FacebookAdapter implements PlatformAdapter {
   // shape rather than duplicating it under a different name.
   async replyToComment(commentId: string, text: string, accessToken: string): Promise<CommentPostResult> {
     return this.postComment(commentId, text, accessToken);
+  }
+
+  // Requires pages_messaging (added to the app 2026-08-07 specifically for
+  // this). participants.data includes the Page itself alongside whoever
+  // messaged it — the customer is whichever participant id isn't the Page's
+  // own, resolved via the same getPageId() post() already uses.
+  async getConversations(accessToken: string): Promise<DMConversationsResult> {
+    const pageId = await this.getPageId(accessToken);
+    const url = new URL(`${GRAPH_BASE}/${pageId}/conversations`);
+    url.searchParams.set("fields", "participants,updated_time,snippet");
+    url.searchParams.set("access_token", accessToken);
+
+    const res = await fetch(url.toString());
+    const json = (await res.json().catch(() => ({}))) as FacebookConversationsResponse;
+    if (!res.ok) {
+      return { conversations: [], errorMessage: json.error?.message ?? `Could not load conversations (HTTP ${res.status})` };
+    }
+
+    const conversations = (json.data ?? []).flatMap((c) => {
+      if (!c.id) return [];
+      const other = c.participants?.data?.find((p) => p.id !== pageId);
+      return [
+        {
+          id: c.id,
+          participantId: other?.id ?? "",
+          participantName: other?.name ?? "Unknown",
+          snippet: c.snippet ?? null,
+          updatedAt: c.updated_time ?? null,
+        },
+      ];
+    });
+    return { conversations, errorMessage: null };
+  }
+
+  async getDirectMessages(conversationId: string, accessToken: string): Promise<DMMessagesResult> {
+    const url = new URL(`${GRAPH_BASE}/${conversationId}/messages`);
+    url.searchParams.set("fields", "id,message,from,created_time");
+    url.searchParams.set("access_token", accessToken);
+
+    const res = await fetch(url.toString());
+    const json = (await res.json().catch(() => ({}))) as FacebookMessagesResponse;
+    if (!res.ok) {
+      return { messages: [], errorMessage: json.error?.message ?? `Could not load messages (HTTP ${res.status})` };
+    }
+
+    const messages = (json.data ?? []).flatMap((m) => {
+      if (!m.id) return [];
+      return [
+        {
+          id: m.id,
+          fromId: m.from?.id ?? "",
+          fromName: m.from?.name ?? "Unknown",
+          text: m.message ?? "",
+          createdAt: m.created_time ?? null,
+        },
+      ];
+    });
+    return { messages, errorMessage: null };
+  }
+
+  // Meta enforces a real 24-hour customer-service messaging window here —
+  // messaging_type: "RESPONSE" only works within that window (outside a
+  // small set of pre-approved tags this codebase doesn't implement). A
+  // send outside the window fails with a real Graph API error, surfaced
+  // via errorMessage exactly as returned, not hidden or retried.
+  async sendDirectMessage(recipientId: string, text: string, accessToken: string): Promise<SendDMResult> {
+    const pageId = await this.getPageId(accessToken);
+    const res = await fetch(`${GRAPH_BASE}/${pageId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message: { text },
+        messaging_type: "RESPONSE",
+      }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { message_id?: string; error?: { message?: string } };
+    if (!res.ok || !json.message_id) {
+      return { success: false, errorMessage: json.error?.message ?? `Facebook DM send failed (HTTP ${res.status})` };
+    }
+    return { success: true, errorMessage: null };
   }
 }

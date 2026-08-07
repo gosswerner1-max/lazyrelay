@@ -1194,6 +1194,146 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.json({ success: true });
   });
 
+  // DM inbox — priority (4) from the 2026-08-07 competitor audit. Only
+  // Facebook and Instagram declare getConversations (new pages_messaging /
+  // instagram_manage_messages permissions, added 2026-08-07 for exactly
+  // this). Every other platform is silently skipped, not an error — this
+  // list is additive across every DM-capable connected account, unlike
+  // /mentions which is keyed off individual posts.
+  router.get("/dms", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: accounts, error } = await supabase
+      .from("social_accounts")
+      .select("id, platform, display_name, access_token_vault_id")
+      .eq("account_id", req.accountId)
+      .is("disconnected_at", null);
+    if (error) {
+      dbError(res, error, "GET /dms");
+      return;
+    }
+
+    const results: {
+      socialAccountId: string;
+      platform: string;
+      accountDisplayName: string | null;
+      conversationId: string;
+      participantId: string;
+      participantName: string;
+      snippet: string | null;
+      updatedAt: string | null;
+    }[] = [];
+
+    for (const account of accounts ?? []) {
+      const adapter = registry.get(account.platform);
+      if (!adapter?.getConversations) continue;
+
+      const { data: accessToken } = await supabase.rpc("read_social_token", { p_vault_id: account.access_token_vault_id });
+      if (!accessToken) continue;
+
+      try {
+        const convResult = await adapter.getConversations(accessToken as string);
+        for (const c of convResult.conversations) {
+          results.push({
+            socialAccountId: account.id,
+            platform: account.platform,
+            accountDisplayName: account.display_name,
+            conversationId: c.id,
+            participantId: c.participantId,
+            participantName: c.participantName,
+            snippet: c.snippet,
+            updatedAt: c.updatedAt,
+          });
+        }
+      } catch (err) {
+        // One platform's failure shouldn't take down the whole inbox — log
+        // and move on rather than 500ing the entire request.
+        console.error(`getConversations failed for ${account.platform}:`, err);
+      }
+    }
+
+    results.sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
+    res.json({ conversations: results });
+  });
+
+  router.get("/dms/messages", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const socialAccountId = req.query.socialAccountId as string | undefined;
+    const conversationId = req.query.conversationId as string | undefined;
+    if (!socialAccountId || !conversationId) {
+      res.status(400).json({ error: "socialAccountId and conversationId are required" });
+      return;
+    }
+
+    const { data: account, error } = await supabase
+      .from("social_accounts")
+      .select("account_id, platform, platform_account_id, access_token_vault_id")
+      .eq("id", socialAccountId)
+      .maybeSingle();
+    if (error) {
+      dbError(res, error, "GET /dms/messages");
+      return;
+    }
+    if (!account || account.account_id !== req.accountId) {
+      res.status(404).json({ error: "Social account not found" });
+      return;
+    }
+
+    const adapter = registry.get(account.platform);
+    if (!adapter?.getDirectMessages) {
+      res.status(400).json({ error: `DMs aren't supported on ${account.platform}` });
+      return;
+    }
+
+    const { data: accessToken } = await supabase.rpc("read_social_token", { p_vault_id: account.access_token_vault_id });
+    if (!accessToken) {
+      res.status(500).json({ error: "Could not load this account's access token" });
+      return;
+    }
+
+    const result = await adapter.getDirectMessages(conversationId, accessToken as string);
+    const messages = result.messages.map((m) => ({ ...m, isOwn: m.fromId === account.platform_account_id }));
+    res.json({ messages, errorMessage: result.errorMessage });
+  });
+
+  router.post("/dms/reply", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { socialAccountId, recipientId, text } = req.body as { socialAccountId?: string; recipientId?: string; text?: string };
+    if (!socialAccountId || !recipientId || !text?.trim()) {
+      res.status(400).json({ error: "socialAccountId, recipientId, and text are all required" });
+      return;
+    }
+
+    const { data: account, error } = await supabase
+      .from("social_accounts")
+      .select("account_id, platform, access_token_vault_id")
+      .eq("id", socialAccountId)
+      .maybeSingle();
+    if (error) {
+      dbError(res, error, "POST /dms/reply");
+      return;
+    }
+    if (!account || account.account_id !== req.accountId) {
+      res.status(404).json({ error: "Social account not found" });
+      return;
+    }
+
+    const adapter = registry.get(account.platform);
+    if (!adapter?.sendDirectMessage) {
+      res.status(400).json({ error: `DMs aren't supported on ${account.platform}` });
+      return;
+    }
+
+    const { data: accessToken } = await supabase.rpc("read_social_token", { p_vault_id: account.access_token_vault_id });
+    if (!accessToken) {
+      res.status(500).json({ error: "Could not load this account's access token" });
+      return;
+    }
+
+    const result = await adapter.sendDirectMessage(recipientId, text.trim(), accessToken as string);
+    if (!result.success) {
+      res.status(502).json({ error: result.errorMessage ?? "Send failed" });
+      return;
+    }
+    res.json({ success: true });
+  });
+
   // Phase 1 analytics — post-level engagement (likes/shares/views) isn't
   // available yet: that needs a per-platform metrics-fetch method this
   // codebase doesn't have (a real, larger scope, not an oversight). This

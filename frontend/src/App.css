@@ -980,6 +980,125 @@
   color: var(--confirm);
 }
 
+.dm-layout {
+  display: flex;
+  gap: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  min-height: 400px;
+}
+
+.dm-conversation-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 260px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+  max-height: 500px;
+}
+
+.dm-conversation-list button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.dm-conversation-list button:hover,
+.dm-conversation-active {
+  background: var(--paper);
+}
+
+.dm-conversation-name {
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.dm-conversation-snippet {
+  color: var(--wire);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.dm-thread {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  min-width: 0;
+}
+
+.dm-thread-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.dm-message-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.dm-message-list li {
+  max-width: 70%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.dm-message-theirs {
+  align-self: flex-start;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.dm-message-own {
+  align-self: flex-end;
+  background: var(--signal);
+  color: #fff;
+}
+
+.dm-reply-form {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.dm-reply-form input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+}
+
 .bio-page-shell {
   min-height: 100vh;
   display: flex;
