@@ -225,16 +225,11 @@
   margin-bottom: 24px;
   /* Only the main tabs plus one "More" trigger live here now — everything
      else that used to crowd this row (Analytics/Mentions/Bio Page/Storage/
-     Account/API Keys/Billing) lives in the .tab-more-menu dropdown instead.
-     Kept scrollable as a defensive fallback for very narrow screens, not
-     because it's expected to be needed day-to-day. */
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-
-.tab-bar::-webkit-scrollbar {
-  display: none;
+     Account/API Keys/Billing) lives in the .tab-more-menu dropdown instead,
+     so this row no longer needs to scroll. Deliberately NOT overflow-x:auto
+     — setting overflow-x to anything but visible forces overflow-y to
+     become auto too, which silently clipped the dropdown (it extends below
+     this bar) even though it was genuinely opening. Confirmed live 2026-08-07. */
 }
 
 .tab-bar button {
