@@ -1178,39 +1178,68 @@ export function Dashboard() {
         </p>
         {mentionsLoading && <Spinner />}
         {!mentionsLoading && mentions && mentions.length === 0 && <p className="empty">No recent posted content yet.</p>}
-        {!mentionsLoading && mentions && mentions.length > 0 && (
-          <ul className="mentions-list">
-            {mentions.map((post) => (
-              <li key={post.postId} className="mentions-post">
-                <div className="post-platform">
-                  <PlatformIcon platform={post.platform} size={14} />
-                  {post.platform}
-                  {post.platformPostUrl && (
-                    <a href={post.platformPostUrl} target="_blank" rel="noopener noreferrer" className="mentions-view-link">
-                      View post
-                    </a>
-                  )}
-                </div>
-                <div className="post-content">{post.content}</div>
-                {!post.supported && <p className="mentions-unsupported">Comments aren't available for this platform yet.</p>}
-                {post.supported && post.errorMessage && <p className="mentions-unsupported">{post.errorMessage}</p>}
-                {post.supported && post.comments.length === 0 && !post.errorMessage && (
-                  <p className="mentions-empty">No comments yet.</p>
-                )}
-                {post.comments.length > 0 && (
-                  <ul className="mentions-comment-list">
-                    {post.comments.map((c) => (
-                      <li key={c.id}>
-                        <span className="mentions-comment-author">{c.author}</span>
-                        <span className="mentions-comment-text">{c.text}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+        {!mentionsLoading && mentions && mentions.length > 0 && (() => {
+          // Same date-grouped pattern as the Posts tab's History list
+          // (2026-08-07, Werner: "must do the same here") — a flat list
+          // gets unmanageable the same way once there are more than a
+          // handful of posts.
+          const groups = new Map<string, MentionPost[]>();
+          for (const post of mentions) {
+            const key = localDateKey(post.scheduledFor);
+            (groups.get(key) ?? groups.set(key, []).get(key)!).push(post);
+          }
+          const sortedKeys = [...groups.keys()].sort((a, b) => b.localeCompare(a));
+          return sortedKeys.map((key, i) => {
+            const posts = groups.get(key)!;
+            const label = new Date(`${key}T00:00:00`).toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            });
+            return (
+              <details key={key} className="post-date-group" open={i === 0}>
+                <summary>
+                  {label}
+                  <span className="post-date-group-count">
+                    {posts.length} post{posts.length === 1 ? "" : "s"}
+                  </span>
+                </summary>
+                <ul className="mentions-list">
+                  {posts.map((post) => (
+                    <li key={post.postId} className="mentions-post">
+                      <div className="post-platform">
+                        <PlatformIcon platform={post.platform} size={14} />
+                        {post.platform}
+                        {post.platformPostUrl && (
+                          <a href={post.platformPostUrl} target="_blank" rel="noopener noreferrer" className="mentions-view-link">
+                            View post
+                          </a>
+                        )}
+                      </div>
+                      <div className="post-content">{post.content}</div>
+                      {!post.supported && <p className="mentions-unsupported">Comments aren't available for this platform yet.</p>}
+                      {post.supported && post.errorMessage && <p className="mentions-unsupported">{post.errorMessage}</p>}
+                      {post.supported && post.comments.length === 0 && !post.errorMessage && (
+                        <p className="mentions-empty">No comments yet.</p>
+                      )}
+                      {post.comments.length > 0 && (
+                        <ul className="mentions-comment-list">
+                          {post.comments.map((c) => (
+                            <li key={c.id}>
+                              <span className="mentions-comment-author">{c.author}</span>
+                              <span className="mentions-comment-text">{c.text}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            );
+          });
+        })()}
       </section>
       )}
 

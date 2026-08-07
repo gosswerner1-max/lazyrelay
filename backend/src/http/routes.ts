@@ -1066,7 +1066,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.get("/mentions", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data: posts, error } = await supabase
       .from("scheduled_posts")
-      .select("id, content, social_account_id, social_accounts(platform), post_results(platform_post_id, platform_post_url, verified_live)")
+      .select("id, content, scheduled_for, social_account_id, social_accounts(platform), post_results(platform_post_id, platform_post_url, verified_live)")
       .eq("account_id", req.accountId)
       .eq("status", "posted")
       .order("scheduled_for", { ascending: false })
@@ -1085,7 +1085,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
       const adapter = registry.get(platform);
       if (!adapter || !adapter.getComments) {
-        results.push({ postId: post.id, platform, content: post.content, platformPostUrl: result.platform_post_url, supported: false, comments: [] });
+        results.push({ postId: post.id, platform, content: post.content, scheduledFor: post.scheduled_for, platformPostUrl: result.platform_post_url, supported: false, comments: [] });
         continue;
       }
 
@@ -1099,7 +1099,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
           ? await supabase.rpc("read_social_token", { p_vault_id: account.access_token_vault_id })
           : { data: null };
         if (!accessToken) {
-          results.push({ postId: post.id, platform, content: post.content, platformPostUrl: result.platform_post_url, supported: true, comments: [], errorMessage: "Could not load this account's access token" });
+          results.push({ postId: post.id, platform, content: post.content, scheduledFor: post.scheduled_for, platformPostUrl: result.platform_post_url, supported: true, comments: [], errorMessage: "Could not load this account's access token" });
           continue;
         }
         const commentsResult = await adapter.getComments(result.platform_post_id, accessToken as string);
@@ -1107,6 +1107,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
           postId: post.id,
           platform,
           content: post.content,
+          scheduledFor: post.scheduled_for,
           platformPostUrl: result.platform_post_url,
           supported: true,
           comments: commentsResult.comments,
@@ -1117,6 +1118,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
           postId: post.id,
           platform,
           content: post.content,
+          scheduledFor: post.scheduled_for,
           platformPostUrl: result.platform_post_url,
           supported: true,
           comments: [],

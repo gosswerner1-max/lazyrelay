@@ -160,6 +160,7 @@ export interface MentionPost {
   postId: string;
   platform: string;
   content: string;
+  scheduledFor: string;
   platformPostUrl: string | null;
   supported: boolean;
   comments: MentionComment[];
