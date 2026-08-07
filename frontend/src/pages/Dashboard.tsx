@@ -7,6 +7,7 @@ import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
 import { bestTimeFor } from "../lib/bestTimes";
 import { Spinner } from "../components/Spinner";
+import { OverviewPanel } from "../components/Charts";
 
 const TABS = ["Overview", "Posts", "Calendar", "Analytics", "Mentions", "Bio Page", "Accounts", "Settings"] as const;
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -244,18 +245,21 @@ export function Dashboard() {
   // this the Posts tab shows a stale "PENDING" pill until the customer
   // manually reloads. Poll the lightweight list endpoint (not the full
   // refresh()) every 4s while there's still a due-but-unresolved post,
-  // and stop once nothing is left unresolved. Overview renders this same
-  // Upcoming/History list too (confirmed live 2026-08-06: a customer
-  // sitting on Overview, not Posts, saw a stuck PENDING pill because this
-  // check only matched "Posts" — the tab name, not what's actually on
-  // screen), so it needs the same poll. Must also count "posting" (the
-  // scheduler's claim-in-progress status, scheduler.ts:111) alongside
+  // and stop once nothing is left unresolved. Must also count "posting"
+  // (the scheduler's claim-in-progress status, scheduler.ts:111) alongside
   // "pending" — checking "pending" alone means the moment a poll tick
   // observes a post mid-claim, this effect's own `posts` dependency
   // re-fires, sees zero "pending" rows left, and tears the interval down
   // right before the real posted/failed resolution ever lands (confirmed
   // live 2026-08-06: a test post sat on "POSTING" indefinitely in the UI
   // while the database already said "posted").
+  //
+  // Overview no longer renders the Upcoming/History list (2026-08-07
+  // redesign — it has its own chart summary now), but it still needs live
+  // updates: a post resolving from pending to posted/failed should move
+  // the KPI counts and status bar without a manual reload, same bug class
+  // as the original stuck-PENDING pill. So on Overview this also re-fetches
+  // `analytics`, not just `posts`.
   useEffect(() => {
     if (tab !== "Posts" && tab !== "Overview") return;
     const hasUnresolvedDue = posts.some(
@@ -264,6 +268,9 @@ export function Dashboard() {
     if (!hasUnresolvedDue) return;
     const interval = setInterval(() => {
       api.listScheduledPosts().then(setPosts).catch(() => {});
+      if (tab === "Overview") {
+        api.getAnalyticsSummary(30).then(setAnalytics).catch(() => {});
+      }
     }, 4000);
     return () => clearInterval(interval);
   }, [tab, posts]);
@@ -271,12 +278,16 @@ export function Dashboard() {
   // Lazy-loaded, not part of refresh() — analytics isn't needed on first
   // paint for most customers, and re-fetching it every time an unrelated
   // action (scheduling a post, connecting an account) calls refresh() would
-  // just be wasted queries for a tab that might never be opened.
+  // just be wasted queries for a tab that might never be opened. Overview
+  // now renders its own chart summary built from this same data (2026-08-07
+  // redesign), so it needs the fetch too — Overview always uses the default
+  // 30-day range rather than the Analytics tab's own picker.
   useEffect(() => {
-    if (tab !== "Analytics") return;
+    if (tab !== "Analytics" && tab !== "Overview") return;
+    const days = tab === "Overview" ? 30 : analyticsRangeDays;
     setAnalyticsLoading(true);
     api
-      .getAnalyticsSummary(analyticsRangeDays)
+      .getAnalyticsSummary(days)
       .then(setAnalytics)
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setAnalyticsLoading(false));
@@ -1259,7 +1270,9 @@ export function Dashboard() {
       </section>
       )}
 
-      {(tab === "Overview" || tab === "Accounts") && (
+      {tab === "Overview" && <OverviewPanel analytics={analytics} loading={analyticsLoading} />}
+
+      {tab === "Accounts" && (
       <section>
         <h2>Connected accounts</h2>
         {accounts.length === 0 ? (
@@ -1335,7 +1348,7 @@ export function Dashboard() {
       </section>
       )}
 
-      {(tab === "Overview" || tab === "Posts") && (
+      {tab === "Posts" && (
       <>
       <section>
         <h2>Schedule a one-time post</h2>

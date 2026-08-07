@@ -8,8 +8,10 @@ interface PlatformIconProps {
 }
 
 // Each platform's real brand color, so the tile reads as that platform at a
-// glance instead of a generic monochrome outline.
-const BRAND_COLORS: Record<string, string> = {
+// glance instead of a generic monochrome outline. Exported so charts (e.g.
+// the Overview posts-by-platform bar) can reuse the same source of truth
+// instead of re-declaring their own copy that could drift out of sync.
+export const BRAND_COLORS: Record<string, string> = {
   meta: "#1877F2",
   tiktok: "#000000",
   pinterest: "#E60023",
