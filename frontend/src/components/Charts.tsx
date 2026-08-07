@@ -378,14 +378,30 @@ export function OverviewPanel({ analytics, loading }: { analytics: AnalyticsSumm
       )}
       {analytics && analytics.totalPosts > 0 && (
         <>
-          <KpiRow>
-            <StatTile label="Total posts" value={formatCompact(analytics.totalPosts)} />
-            <StatTile label="Failed" value={formatCompact(analytics.byStatus.failed ?? 0)} />
-            <StatTile
-              label="Verified live"
-              value={analytics.verifiedLiveRate === null ? "—" : `${Math.round(analytics.verifiedLiveRate * 100)}%`}
-            />
-          </KpiRow>
+          {(() => {
+            // Likes + comments + shares only — views is a different unit
+            // (reach, not interaction) and mixing it into one sum would
+            // misrepresent both numbers. "—" when the map is empty, not
+            // "0": that's "no coverage yet" (checkpoints not due, or every
+            // connected platform is one of the 7 without read support),
+            // never "confirmed zero engagement."
+            const platformsWithData = Object.values(analytics.engagement);
+            const totalEngagement = platformsWithData.reduce((sum, e) => sum + e.likes + e.comments + e.shares, 0);
+            return (
+              <KpiRow>
+                <StatTile label="Total posts" value={formatCompact(analytics.totalPosts)} />
+                <StatTile label="Failed" value={formatCompact(analytics.byStatus.failed ?? 0)} />
+                <StatTile
+                  label="Verified live"
+                  value={analytics.verifiedLiveRate === null ? "—" : `${Math.round(analytics.verifiedLiveRate * 100)}%`}
+                />
+                <StatTile
+                  label="Total engagement"
+                  value={platformsWithData.length > 0 ? formatCompact(totalEngagement) : "—"}
+                />
+              </KpiRow>
+            );
+          })()}
 
           {analytics.verifiedLiveRate !== null && (
             <div className="chart-section">

@@ -117,6 +117,12 @@ export interface AnalyticsSummary {
   byPlatform: Record<string, { total: number; posted: number; failed: number; verifiedLive: number }>;
   dailyCounts: Record<string, number>;
   verifiedLiveRate: number | null;
+  // Real engagement analytics (2026-08-07) — only present for platforms
+  // with real read support (Facebook, Instagram, Mastodon, Bluesky, X,
+  // YouTube). A platform missing from this map isn't a bug — it means
+  // LazyRelay has no metrics-read access for it yet, same "honestly
+  // absent, never a silent zero" pattern as the Mentions tab.
+  engagement: Record<string, { likes: number; comments: number; shares: number; views: number; postsWithData: number }>;
 }
 
 export interface BioLink {

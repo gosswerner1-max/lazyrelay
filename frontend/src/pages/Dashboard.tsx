@@ -1092,6 +1092,10 @@ export function Dashboard() {
             </div>
 
             <h3>By platform</h3>
+            <p className="muted">
+              Likes/comments/shares/views are only readable today on Facebook, Instagram, Mastodon, Bluesky, X, and
+              YouTube — every other platform shows "—", not a zero, since LazyRelay has no read access there yet.
+            </p>
             <table className="analytics-table">
               <thead>
                 <tr>
@@ -1100,25 +1104,46 @@ export function Dashboard() {
                   <th>Posted</th>
                   <th>Failed</th>
                   <th>Verified live</th>
+                  <th>Likes</th>
+                  <th>Comments</th>
+                  <th>Shares</th>
+                  <th>Views</th>
                 </tr>
               </thead>
               <tbody>
                 {Object.entries(analytics.byPlatform)
                   .sort((a, b) => b[1].total - a[1].total)
-                  .map(([platform, stats]) => (
-                    <tr key={platform}>
-                      <td>
-                        <span className="platform-badge">
-                          <PlatformIcon platform={platform} size={13} />
-                          {platform}
-                        </span>
-                      </td>
-                      <td>{stats.total}</td>
-                      <td>{stats.posted}</td>
-                      <td>{stats.failed}</td>
-                      <td>{stats.verifiedLive}</td>
-                    </tr>
-                  ))}
+                  .map(([platform, stats]) => {
+                    const eng = analytics.engagement[platform];
+                    // The backend sums each post's most-mature checkpoint,
+                    // collapsing "this platform never returns shares" and
+                    // "these posts genuinely got 0 shares" into the same
+                    // number — a real gap in the aggregate response, not
+                    // something to guess at from the number itself. Each
+                    // adapter's actual field support is known exactly
+                    // (written today, see backend/src/platforms/*.ts), so
+                    // that's used directly instead of inferring from data.
+                    const supportsShares = ["facebook", "mastodon", "bluesky", "x"].includes(platform);
+                    const supportsViews = ["x", "youtube"].includes(platform);
+                    return (
+                      <tr key={platform}>
+                        <td>
+                          <span className="platform-badge">
+                            <PlatformIcon platform={platform} size={13} />
+                            {platform}
+                          </span>
+                        </td>
+                        <td>{stats.total}</td>
+                        <td>{stats.posted}</td>
+                        <td>{stats.failed}</td>
+                        <td>{stats.verifiedLive}</td>
+                        <td>{eng ? eng.likes : "—"}</td>
+                        <td>{eng ? eng.comments : "—"}</td>
+                        <td>{eng && supportsShares ? eng.shares : "—"}</td>
+                        <td>{eng && supportsViews ? eng.views : "—"}</td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
 
