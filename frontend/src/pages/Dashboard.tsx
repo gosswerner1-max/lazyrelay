@@ -1096,6 +1096,7 @@ export function Dashboard() {
               Likes/comments/shares/views are only readable today on Facebook, Instagram, Mastodon, Bluesky, X, and
               YouTube — every other platform shows "—", not a zero, since LazyRelay has no read access there yet.
             </p>
+            <div className="table-scroll">
             <table className="analytics-table">
               <thead>
                 <tr>
@@ -1146,6 +1147,7 @@ export function Dashboard() {
                   })}
               </tbody>
             </table>
+            </div>
 
             <h3>Daily volume</h3>
             <div className="analytics-bars">
@@ -1155,6 +1157,7 @@ export function Dashboard() {
                   const max = Math.max(...Object.values(analytics.dailyCounts), 1);
                   return (
                     <div key={day} className="analytics-bar-col" title={`${day}: ${count} post${count === 1 ? "" : "s"}`}>
+                      <span className="analytics-bar-value">{count}</span>
                       <div className="analytics-bar" style={{ height: `${(count / max) * 100}%` }} />
                       <span className="analytics-bar-label">{day.slice(5)}</span>
                     </div>
@@ -1605,6 +1608,7 @@ export function Dashboard() {
 
         {csvRows.length > 0 && (
           <>
+            <div className="table-scroll">
             <table className="analytics-table">
               <thead>
                 <tr>
@@ -1627,6 +1631,7 @@ export function Dashboard() {
                 ))}
               </tbody>
             </table>
+            </div>
             <div className="schedule-form-actions">
               <button type="button" disabled={bulkImporting || csvRows.every((r) => r.error)} onClick={handleBulkImport}>
                 {bulkImporting ? "Importing..." : `Import ${csvRows.filter((r) => !r.error).length} post${csvRows.filter((r) => !r.error).length === 1 ? "" : "s"}`}
@@ -1832,7 +1837,39 @@ export function Dashboard() {
                 <p className="empty">No posts sent yet.</p>
               ) : (
                 <>
-                  <ul className="post-list">{history.map(renderPost)}</ul>
+                  {(() => {
+                    // Grouped by local calendar date into collapsible
+                    // sections — a flat list got unmanageably long once a
+                    // customer had more than a handful of posts (Werner
+                    // flagged this directly, 2026-08-07). Most recent date
+                    // opens expanded, everything older starts collapsed.
+                    const groups = new Map<string, ScheduledPost[]>();
+                    for (const p of history) {
+                      const key = localDateKey(p.scheduled_for);
+                      (groups.get(key) ?? groups.set(key, []).get(key)!).push(p);
+                    }
+                    const sortedKeys = [...groups.keys()].sort((a, b) => b.localeCompare(a));
+                    return sortedKeys.map((key, i) => {
+                      const posts = groups.get(key)!;
+                      const label = new Date(`${key}T00:00:00`).toLocaleDateString(undefined, {
+                        weekday: "long",
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      });
+                      return (
+                        <details key={key} className="post-date-group" open={i === 0}>
+                          <summary>
+                            {label}
+                            <span className="post-date-group-count">
+                              {posts.length} post{posts.length === 1 ? "" : "s"}
+                            </span>
+                          </summary>
+                          <ul className="post-list">{posts.map(renderPost)}</ul>
+                        </details>
+                      );
+                    });
+                  })()}
                   {historyHasMore && (
                     <button className="btn-outline" disabled={historyLoadingMore} onClick={handleLoadMoreHistory}>
                       {historyLoadingMore ? "Loading..." : "Load more"}
