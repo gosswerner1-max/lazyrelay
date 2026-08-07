@@ -5,9 +5,12 @@ import { supabase } from "../supabase.js";
 export interface AuthedRequest extends Request {
   accountId?: string;
   authMethod?: "jwt" | "apiKey";
+  isAdmin?: boolean;
+  adminKeyId?: string;
 }
 
 export const API_KEY_PREFIX = "lzr_live_";
+export const ADMIN_API_KEY_PREFIX = "lzr_admin_";
 
 export function hashApiKey(key: string): string {
   return createHash("sha256").update(key).digest("hex");
@@ -40,13 +43,52 @@ async function resolveApiKeyAccountId(key: string): Promise<string | null> {
   return data.account_id;
 }
 
-/** Verifies the caller's Supabase JWT (browser dashboard) OR a LazyRelay
- *  API key (bring-your-own-agent, headless) and attaches the account id to
- *  the request. Every route that touches customer data must use this —
- *  there is no "trust the request body" path for identifying who's
- *  calling, since that's exactly the kind of gap that turns into a real
- *  security incident (per the OAuth-token-storage research this whole
- *  schema is already built around). */
+/** Admin keys are looked up from their own table, entirely separate from
+ *  customer api_keys — a bug can never accidentally treat one as the
+ *  other, since they're never queried from the same place. Returns the
+ *  key's own id (for audit logging), not an account_id — an admin key
+ *  isn't scoped to one account. */
+async function resolveAdminKeyId(key: string): Promise<string | null> {
+  if (!key.startsWith(ADMIN_API_KEY_PREFIX)) return null;
+  const keyHash = hashApiKey(key);
+  const { data, error } = await supabase
+    .from("admin_api_keys")
+    .select("id")
+    .eq("key_hash", keyHash)
+    .is("revoked_at", null)
+    .maybeSingle();
+  if (error || !data) return null;
+  supabase
+    .from("admin_api_keys")
+    .update({ last_used_at: new Date().toISOString() })
+    .eq("id", data.id)
+    .then(({ error: updateError }) => {
+      if (updateError) console.error("Failed to update admin_api_keys.last_used_at:", updateError.message);
+    });
+  return data.id;
+}
+
+/** Best-effort audit trail for every admin-key request — never blocks or
+ *  fails the real request, same fire-and-forget pattern as the
+ *  last_used_at updates above. A key this powerful needs a real record of
+ *  what it touched, which is the whole justification for it existing. */
+function logAdminAction(adminKeyId: string, method: string, path: string, targetAccountId: string | null) {
+  supabase
+    .from("admin_audit_log")
+    .insert({ admin_key_id: adminKeyId, method, path, target_account_id: targetAccountId })
+    .then(({ error }) => {
+      if (error) console.error("Failed to write admin_audit_log:", error.message);
+    });
+}
+
+/** Verifies the caller's Supabase JWT (browser dashboard), a LazyRelay API
+ *  key (bring-your-own-agent, headless), OR an admin key (Claude/internal
+ *  ops, acts across every account) and attaches the account id to the
+ *  request. Every route that touches customer data must use this — there
+ *  is no "trust the request body" path for identifying who's calling,
+ *  since that's exactly the kind of gap that turns into a real security
+ *  incident (per the OAuth-token-storage research this whole schema is
+ *  already built around). */
 export async function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
@@ -55,6 +97,33 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
   }
 
   const token = authHeader.slice("Bearer ".length);
+
+  const adminKeyId = await resolveAdminKeyId(token);
+  if (adminKeyId) {
+    req.isAdmin = true;
+    req.adminKeyId = adminKeyId;
+    req.authMethod = "apiKey";
+
+    const targetAccountId = req.headers["x-account-id"];
+    if (typeof targetAccountId === "string" && targetAccountId) {
+      const { data: account } = await supabase.from("accounts").select("id").eq("id", targetAccountId).maybeSingle();
+      if (!account) {
+        res.status(400).json({ error: "X-Account-Id does not match a real account" });
+        return;
+      }
+      req.accountId = targetAccountId;
+    } else if (!req.path.startsWith("/admin")) {
+      // Every non-admin-only route expects req.accountId to identify whose
+      // data it's touching — an admin key must say explicitly which
+      // account it's acting as, never silently default to one.
+      res.status(400).json({ error: "This route requires an X-Account-Id header when using an admin key" });
+      return;
+    }
+
+    logAdminAction(adminKeyId, req.method, req.path, req.accountId ?? null);
+    next();
+    return;
+  }
 
   const apiKeyAccountId = await resolveApiKeyAccountId(token);
   if (apiKeyAccountId) {
@@ -72,6 +141,17 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
 
   req.accountId = data.user.id;
   req.authMethod = "jwt";
+  next();
+}
+
+/** Mount AFTER requireAuth on any route restricted to admin keys — the
+ *  cross-account routes (list every account, etc.) that no per-tenant JWT
+ *  or customer API key should ever be able to reach. */
+export function requireAdmin(req: AuthedRequest, res: Response, next: NextFunction) {
+  if (!req.isAdmin) {
+    res.status(403).json({ error: "This endpoint requires an admin key" });
+    return;
+  }
   next();
 }
 

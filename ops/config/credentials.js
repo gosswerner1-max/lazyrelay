@@ -5,10 +5,12 @@
 // directly — but adapted so nothing is duplicated: Supabase and the
 // Merchant-of-Record credentials already live in backend/.env (the real
 // backend app needs them too), so this module reads that file rather than
-// keeping a second copy that could drift out of sync. Only genuinely
-// ops-only credentials (none yet) would get their own local JSON file,
-// same as email-agent/credentials.local.json already does for IMAP.
+// keeping a second copy that could drift out of sync. Genuinely ops-only
+// credentials (e.g. the LazyRelay product API key below) get their own
+// local JSON file instead, same as email-agent/credentials.local.json
+// already does for IMAP.
 
+const fs = require("fs");
 const path = require("path");
 const dotenv = require("dotenv");
 
@@ -23,6 +25,8 @@ const EMAIL_AGENT_CREDS_PATH = path.join(
   "email-agent",
   "credentials.local.json"
 );
+
+const OPS_CREDS_PATH = path.join(__dirname, "credentials.local.json");
 
 function getSupabaseCredentials() {
   const url = process.env.SUPABASE_URL;
@@ -50,6 +54,18 @@ function getMorCredentials() {
   return { apiKey, webhookSecret };
 }
 
+/** LazyRelay's own product API key — used to call LazyRelay's customer-
+ * facing API the same way a customer's own AI agent would (bring-your-own-
+ * agent auth, see backend/src/http/auth.ts), rather than the local scripts'
+ * usual direct-Supabase-service-role access. Lives in its own local JSON
+ * file, not backend/.env, since it's an ops-only credential the running
+ * backend process itself never needs to read. */
+function getLazyRelayApiKey() {
+  if (!fs.existsSync(OPS_CREDS_PATH)) return null;
+  const creds = JSON.parse(fs.readFileSync(OPS_CREDS_PATH, "utf8"));
+  return creds.lazyRelayApiKey ?? null;
+}
+
 /** Path to the email agent's own credentials file — reused, not duplicated,
  * for any domain (e.g. Accounts nudge emails) that needs to draft through
  * the existing IMAP tool rather than open a new send path. */
@@ -70,4 +86,10 @@ function getRenderCredentials() {
   return { apiKey, serviceId };
 }
 
-module.exports = { getSupabaseCredentials, getMorCredentials, getEmailAgentCredentialsPath, getRenderCredentials };
+module.exports = {
+  getSupabaseCredentials,
+  getMorCredentials,
+  getEmailAgentCredentialsPath,
+  getRenderCredentials,
+  getLazyRelayApiKey,
+};

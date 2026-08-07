@@ -10,7 +10,7 @@ import { buildCheckoutTransaction } from "../billing/paddle.js";
 import { Environment } from "@paddle/paddle-node-sdk";
 import type { MerchantOfRecordAdapter } from "../billing/types.js";
 import { startConnect, completeConnect, type PlatformAdapterRegistry } from "../platforms/connect.js";
-import { requireAuth, requireHumanAuth, type AuthedRequest, API_KEY_PREFIX, hashApiKey } from "./auth.js";
+import { requireAuth, requireHumanAuth, requireAdmin, type AuthedRequest, API_KEY_PREFIX, hashApiKey } from "./auth.js";
 import { tieredRateLimit, publicRateLimit } from "./rateLimit.js";
 import { validateMediaForPlatform, type Platform } from "../mediaLimits.js";
 import { checkQuotaForNewUpload, getStorageUsage } from "../storageQuota.js";
@@ -1911,6 +1911,22 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
     res.status(204).end();
+  });
+
+  // Admin-only: list every account on the platform. Not scoped to req.accountId
+  // at all — the whole point of an admin key is seeing across every tenant,
+  // not acting as one. Logged via requireAuth's admin path like every other
+  // admin-key request.
+  router.get("/admin/accounts", requireAuth, requireAdmin, tieredRateLimit, async (_req: AuthedRequest, res) => {
+    const { data, error } = await supabase
+      .from("accounts")
+      .select("id, email, business_name, created_at, cancelled_at")
+      .order("created_at", { ascending: false });
+    if (error) {
+      dbError(res, error, "GET /admin/accounts");
+      return;
+    }
+    res.json(data);
   });
 
   return router;
