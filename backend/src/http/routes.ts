@@ -1141,7 +1141,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
     const { data, error } = await supabase
       .from("scheduled_posts")
-      .select("id, status, scheduled_for, social_accounts(platform), post_results(verified_live, error_message)")
+      .select(
+        "id, status, scheduled_for, social_accounts(platform), post_results(verified_live, error_message), post_metrics(checkpoint, likes, comments, shares, views)"
+      )
       .eq("account_id", req.accountId)
       .gte("scheduled_for", since)
       .order("scheduled_for", { ascending: true });
@@ -1155,6 +1157,20 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     const dailyCounts: Record<string, number> = {};
     let verifiedLiveCount = 0;
     let postedCount = 0;
+
+    // Real engagement analytics (2026-08-07) — additive to everything
+    // above, never replacing it. Per post, use the single MOST MATURE
+    // checkpoint available (30d beats 7d beats ... beats 1h) as that post's
+    // current engagement — summing every checkpoint row would count the
+    // same post's likes up to 6 times over, since checkpoints aren't
+    // independent events. `postsWithData` is the honest denominator: how
+    // many of this platform's posts actually have a number yet, since a
+    // freshly-posted item or an unsupported platform contributes zero.
+    const CHECKPOINT_MATURITY = ["30d", "7d", "3d", "24h", "6h", "1h"];
+    const engagement: Record<
+      string,
+      { likes: number; comments: number; shares: number; views: number; postsWithData: number }
+    > = {};
 
     for (const row of data ?? []) {
       byStatus[row.status] = (byStatus[row.status] ?? 0) + 1;
@@ -1179,6 +1195,20 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
       const day = row.scheduled_for.slice(0, 10);
       dailyCounts[day] = (dailyCounts[day] ?? 0) + 1;
+
+      type MetricRow = { checkpoint: string; likes: number | null; comments: number | null; shares: number | null; views: number | null };
+      const metricRows: MetricRow[] = Array.isArray(row.post_metrics) ? row.post_metrics : row.post_metrics ? [row.post_metrics] : [];
+      if (metricRows.length > 0) {
+        const best = metricRows.reduce((a, b) =>
+          CHECKPOINT_MATURITY.indexOf(a.checkpoint) <= CHECKPOINT_MATURITY.indexOf(b.checkpoint) ? a : b
+        );
+        engagement[platformKey] ??= { likes: 0, comments: 0, shares: 0, views: 0, postsWithData: 0 };
+        engagement[platformKey].likes += best.likes ?? 0;
+        engagement[platformKey].comments += best.comments ?? 0;
+        engagement[platformKey].shares += best.shares ?? 0;
+        engagement[platformKey].views += best.views ?? 0;
+        engagement[platformKey].postsWithData += 1;
+      }
     }
 
     res.json({
@@ -1188,6 +1218,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       byPlatform,
       dailyCounts,
       verifiedLiveRate: postedCount > 0 ? verifiedLiveCount / postedCount : null,
+      engagement,
     });
   });
 

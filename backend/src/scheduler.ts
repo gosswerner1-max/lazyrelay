@@ -137,7 +137,7 @@ const TOKEN_REFRESH_SKEW_MS = 5 * 60 * 1000;
  *  but never used anywhere). Adapters without a refresh() (long-lived or
  *  non-expiring tokens) fall through unchanged — same behavior as before
  *  this existed. */
-async function getAccessToken(socialAccountId: string, adapter: PlatformAdapter): Promise<string> {
+export async function getAccessToken(socialAccountId: string, adapter: PlatformAdapter): Promise<string> {
   const { data: account, error } = await supabase
     .from("social_accounts")
     .select("access_token_vault_id, refresh_token_vault_id, token_expires_at")

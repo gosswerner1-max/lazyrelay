@@ -47,6 +47,14 @@ export interface CommentsResult {
   errorMessage: string | null;
 }
 
+export interface PostMetrics {
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  views: number | null;
+  errorMessage: string | null;
+}
+
 export interface OAuthExchangeResult {
   accessToken: string;
   refreshToken: string | null;
@@ -92,6 +100,18 @@ export interface PlatformAdapter {
    *  simply doesn't declare this method, and callers must treat its
    *  absence as "not supported," never silently empty. */
   getComments?(platformPostId: string, accessToken: string): Promise<CommentsResult>;
+
+  /** Optional — real engagement metrics (likes/comments/shares/views) for a
+   *  post LazyRelay itself published, using the access token already on
+   *  file. Only implemented for platforms whose metrics-read endpoint needs
+   *  no scope beyond what's already requested (Facebook, Instagram,
+   *  Mastodon, Bluesky, X, YouTube — see reference-infra-quick-facts.md for
+   *  the scope audit). Every other adapter simply doesn't declare this
+   *  method; callers (the metrics poller) must treat its absence as "not
+   *  supported," never silently skip and pretend it was polled. Fields the
+   *  platform doesn't expose stay `null`, not `0` — a real zero and "we
+   *  don't know" must never be conflated. */
+  getPostMetrics?(platformPostId: string, accessToken: string): Promise<PostMetrics>;
 
   /** Optional — real board/list selection for platforms whose post()
    *  requires picking a destination container the customer can actually

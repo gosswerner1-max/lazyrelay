@@ -5,6 +5,7 @@ import type {
   VerifyResult,
   OAuthExchangeResult,
   CommentsResult,
+  PostMetrics,
 } from "./types.js";
 
 const AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -50,6 +51,7 @@ interface YouTubeVideoResource {
   id?: string;
   status?: { uploadStatus?: string; privacyStatus?: string };
   processingDetails?: { processingStatus?: string };
+  statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
 }
 
 interface YouTubeErrorBody {
@@ -282,5 +284,39 @@ export class YouTubeAdapter implements PlatformAdapter {
       ];
     });
     return { comments, errorMessage: null };
+  }
+
+  // Same VIDEOS_URL as verifyPublished, different `part`. YouTube returns
+  // statistics fields as strings, not numbers — parsed explicitly rather
+  // than left as-is, since a stringified count would silently break any
+  // arithmetic done on it downstream (sums, growth-curve math).
+  async getPostMetrics(platformPostId: string, accessToken: string): Promise<PostMetrics> {
+    const res = await fetch(`${VIDEOS_URL}?part=statistics&id=${platformPostId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const json = (await res.json().catch(() => ({}))) as { items?: YouTubeVideoResource[] } & YouTubeErrorBody;
+
+    if (!res.ok) {
+      return {
+        likes: null,
+        comments: null,
+        shares: null,
+        views: null,
+        errorMessage: json.error?.message ?? `Could not load metrics (HTTP ${res.status})`,
+      };
+    }
+    const stats = json.items?.[0]?.statistics;
+    if (!stats) {
+      return { likes: null, comments: null, shares: null, views: null, errorMessage: "YouTube video not found" };
+    }
+
+    const toNumber = (s: string | undefined): number | null => (s === undefined ? null : Number(s));
+    return {
+      likes: toNumber(stats.likeCount),
+      comments: toNumber(stats.commentCount),
+      shares: null, // YouTube doesn't expose a share count via the Data API
+      views: toNumber(stats.viewCount),
+      errorMessage: null,
+    };
   }
 }

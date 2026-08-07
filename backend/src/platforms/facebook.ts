@@ -4,6 +4,7 @@ import type {
   PostAttemptResult,
   VerifyResult,
   OAuthExchangeResult,
+  PostMetrics,
 } from "./types.js";
 
 // Real, deliberate simplification, same shape as TikTok's SELF_ONLY/Pinterest's
@@ -44,6 +45,14 @@ interface FacebookPostResponse {
 interface FacebookPostDetail {
   id?: string;
   permalink_url?: string;
+  error?: { message?: string };
+}
+
+interface FacebookPostMetricsResponse {
+  id?: string;
+  likes?: { summary?: { total_count?: number } };
+  comments?: { summary?: { total_count?: number } };
+  shares?: { count?: number };
   error?: { message?: string };
 }
 
@@ -189,5 +198,36 @@ export class FacebookAdapter implements PlatformAdapter {
     }
 
     return { verifiedLive: true, platformPostUrl: json.permalink_url ?? null, errorMessage: null };
+  }
+
+  // Basic post-field counts only (likes/comments/shares) — already covered
+  // by the granted pages_read_engagement scope. View/impression counts need
+  // the separate Page Insights API (a different, not-yet-requested scope),
+  // so views stays null rather than guessed or silently omitted.
+  async getPostMetrics(platformPostId: string, accessToken: string): Promise<PostMetrics> {
+    const url = new URL(`${GRAPH_BASE}/${platformPostId}`);
+    url.searchParams.set("fields", "likes.summary(true),comments.summary(true),shares");
+    url.searchParams.set("access_token", accessToken);
+
+    const res = await fetch(url.toString());
+    const json = (await res.json().catch(() => ({}))) as FacebookPostMetricsResponse;
+
+    if (!res.ok || !json.id) {
+      return {
+        likes: null,
+        comments: null,
+        shares: null,
+        views: null,
+        errorMessage: json.error?.message ?? `Could not load metrics (HTTP ${res.status})`,
+      };
+    }
+
+    return {
+      likes: json.likes?.summary?.total_count ?? null,
+      comments: json.comments?.summary?.total_count ?? null,
+      shares: json.shares?.count ?? null,
+      views: null,
+      errorMessage: null,
+    };
   }
 }

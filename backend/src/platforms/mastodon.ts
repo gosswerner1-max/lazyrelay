@@ -5,6 +5,7 @@ import type {
   VerifyResult,
   OAuthExchangeResult,
   CommentsResult,
+  PostMetrics,
 } from "./types.js";
 
 // Real, confirmed platform gotcha: Mastodon is decentralized — every
@@ -59,6 +60,9 @@ interface MastodonStatus {
   id?: string;
   url?: string | null;
   error?: string;
+  favourites_count?: number;
+  reblogs_count?: number;
+  replies_count?: number;
 }
 
 interface MastodonContext {
@@ -274,5 +278,30 @@ export class MastodonAdapter implements PlatformAdapter {
       ];
     });
     return { comments, errorMessage: null };
+  }
+
+  // Same endpoint verifyPublished already uses — the status object carries
+  // its own engagement counts directly, no separate insights call needed.
+  async getPostMetrics(platformPostId: string, accessToken: string): Promise<PostMetrics> {
+    const res = await fetch(`${DEFAULT_INSTANCE}/api/v1/statuses/${platformPostId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const json = (await res.json().catch(() => ({}))) as MastodonStatus;
+    if (!res.ok || json.id !== platformPostId) {
+      return {
+        likes: null,
+        comments: null,
+        shares: null,
+        views: null,
+        errorMessage: json.error ?? `Could not load metrics (HTTP ${res.status})`,
+      };
+    }
+    return {
+      likes: json.favourites_count ?? null,
+      comments: json.replies_count ?? null,
+      shares: json.reblogs_count ?? null,
+      views: null, // Mastodon doesn't expose view counts
+      errorMessage: null,
+    };
   }
 }

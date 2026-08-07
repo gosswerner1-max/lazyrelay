@@ -5,6 +5,7 @@ import type {
   VerifyResult,
   OAuthExchangeResult,
   CommentsResult,
+  PostMetrics,
 } from "./types.js";
 
 // Real, confirmed platform gotcha: AT Protocol's real OAuth (PAR + DPoP +
@@ -77,8 +78,14 @@ interface BlueskyPostThreadReply {
   };
 }
 
+interface BlueskyThreadPost {
+  likeCount?: number;
+  repostCount?: number;
+  replyCount?: number;
+}
+
 interface BlueskyGetPostThreadResponse {
-  thread?: { replies?: BlueskyPostThreadReply[] };
+  thread?: { post?: BlueskyThreadPost; replies?: BlueskyPostThreadReply[] };
   error?: string;
   message?: string;
 }
@@ -313,5 +320,30 @@ export class BlueskyAdapter implements PlatformAdapter {
       ];
     });
     return { comments, errorMessage: null };
+  }
+
+  // Same getPostThread endpoint as getComments — the root post's own
+  // counts ride along in the same response, public/no accessToken needed.
+  async getPostMetrics(platformPostId: string): Promise<PostMetrics> {
+    const atUri = platformPostId;
+    const url = `${GET_POST_THREAD_URL}?uri=${encodeURIComponent(atUri)}&depth=0`;
+    const res = await fetch(url);
+    const json = (await res.json().catch(() => ({}))) as BlueskyGetPostThreadResponse;
+    if (!res.ok) {
+      return {
+        likes: null,
+        comments: null,
+        shares: null,
+        views: null,
+        errorMessage: json.message ?? json.error ?? `Could not load metrics (HTTP ${res.status})`,
+      };
+    }
+    return {
+      likes: json.thread?.post?.likeCount ?? null,
+      comments: json.thread?.post?.replyCount ?? null,
+      shares: json.thread?.post?.repostCount ?? null,
+      views: null, // Bluesky doesn't expose view counts on a post
+      errorMessage: null,
+    };
   }
 }

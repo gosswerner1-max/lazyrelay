@@ -4,6 +4,7 @@ import type {
   PostAttemptResult,
   VerifyResult,
   OAuthExchangeResult,
+  PostMetrics,
 } from "./types.js";
 
 // Instagram Business posting via "Instagram API with Facebook Login" — same
@@ -56,6 +57,13 @@ interface InstagramContainerStatusResponse {
 interface InstagramMediaResponse {
   id?: string;
   permalink?: string;
+  error?: { message?: string };
+}
+
+interface InstagramMediaMetricsResponse {
+  id?: string;
+  like_count?: number;
+  comments_count?: number;
   error?: { message?: string };
 }
 
@@ -267,5 +275,36 @@ export class InstagramAdapter implements PlatformAdapter {
     }
 
     return { verifiedLive: true, platformPostUrl: json.permalink ?? null, errorMessage: null };
+  }
+
+  // like_count/comments_count are directly on the media object, covered by
+  // the already-granted instagram_basic scope. Shares aren't exposed on
+  // this field set at all; view/reach counts need the separate Insights API
+  // (a different, not-yet-requested scope) — both stay null, not guessed.
+  async getPostMetrics(platformPostId: string, accessToken: string): Promise<PostMetrics> {
+    const url = new URL(`${GRAPH_BASE}/${platformPostId}`);
+    url.searchParams.set("fields", "like_count,comments_count");
+    url.searchParams.set("access_token", accessToken);
+
+    const res = await fetch(url.toString());
+    const json = (await res.json().catch(() => ({}))) as InstagramMediaMetricsResponse;
+
+    if (!res.ok || !json.id) {
+      return {
+        likes: null,
+        comments: null,
+        shares: null,
+        views: null,
+        errorMessage: json.error?.message ?? `Could not load metrics (HTTP ${res.status})`,
+      };
+    }
+
+    return {
+      likes: json.like_count ?? null,
+      comments: json.comments_count ?? null,
+      shares: null,
+      views: null,
+      errorMessage: null,
+    };
   }
 }

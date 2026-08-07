@@ -2,22 +2,7 @@ import "dotenv/config";
 import { supabase } from "./supabase.js";
 import { runSchedulerCycle } from "./scheduler.js";
 import { generateDuePosts } from "./recurringScheduler.js";
-import { StubAdapter } from "./platforms/stub.js";
-import { TikTokAdapter } from "./platforms/tiktok.js";
-import { PinterestAdapter } from "./platforms/pinterest.js";
-import { YouTubeAdapter } from "./platforms/youtube.js";
-import { MastodonAdapter } from "./platforms/mastodon.js";
-import { BlueskyAdapter } from "./platforms/bluesky.js";
-import { TelegramAdapter } from "./platforms/telegram.js";
-import { LinkedInAdapter } from "./platforms/linkedin.js";
-import { ThreadsAdapter } from "./platforms/threads.js";
-import { FacebookAdapter } from "./platforms/facebook.js";
-import { InstagramAdapter } from "./platforms/instagram.js";
-import { DiscordAdapter } from "./platforms/discord.js";
-import { TumblrAdapter } from "./platforms/tumblr.js";
-import { XAdapter } from "./platforms/x.js";
-import { SnapchatAdapter } from "./platforms/snapchat.js";
-import type { PlatformAdapter } from "./platforms/types.js";
+import { buildPlatformRegistry } from "./platforms/registry.js";
 import { StubMorAdapter } from "./billing/stub.js";
 import { PaddleMorAdapter } from "./billing/paddle.js";
 import { Environment } from "@paddle/paddle-node-sdk";
@@ -36,98 +21,12 @@ async function main() {
   console.log("Connected to Supabase.");
 
   // Every configured platform gets its own live PlatformAdapter in the
-  // registry (Map<platform, adapter>) — replaces the old single
-  // ACTIVE_PLATFORM slot now that 12 real adapters exist and customers need
-  // to connect/post to several at once. A platform whose env vars aren't
-  // set simply isn't in the map — /api/platforms reports it as
-  // unconfigured rather than silently falling back to a stub.
-  const registry = new Map<string, PlatformAdapter>();
-  if (process.env.TIKTOK_CLIENT_KEY && process.env.TIKTOK_CLIENT_SECRET && process.env.TIKTOK_REDIRECT_URI) {
-    registry.set(
-      "tiktok",
-      new TikTokAdapter(process.env.TIKTOK_CLIENT_KEY, process.env.TIKTOK_CLIENT_SECRET, process.env.TIKTOK_REDIRECT_URI),
-    );
-  }
-  if (process.env.PINTEREST_APP_ID && process.env.PINTEREST_APP_SECRET && process.env.PINTEREST_REDIRECT_URI) {
-    registry.set(
-      "pinterest",
-      new PinterestAdapter(process.env.PINTEREST_APP_ID, process.env.PINTEREST_APP_SECRET, process.env.PINTEREST_REDIRECT_URI),
-    );
-  }
-  if (process.env.YOUTUBE_CLIENT_ID && process.env.YOUTUBE_CLIENT_SECRET && process.env.YOUTUBE_REDIRECT_URI) {
-    registry.set(
-      "youtube",
-      new YouTubeAdapter(process.env.YOUTUBE_CLIENT_ID, process.env.YOUTUBE_CLIENT_SECRET, process.env.YOUTUBE_REDIRECT_URI),
-    );
-  }
-  if (process.env.MASTODON_REDIRECT_URI) {
-    // No client id/secret env vars — Mastodon app registration is
-    // self-service and instant (POST /api/v1/apps), so the adapter
-    // registers itself against its default instance on first use rather
-    // than requiring pre-provisioned credentials like every other platform.
-    registry.set("mastodon", new MastodonAdapter(process.env.MASTODON_REDIRECT_URI));
-  }
-  if (process.env.BLUESKY_CONNECT_PAGE_URL) {
-    // No client id/secret — this adapter uses app passwords, not OAuth
-    // (see platforms/bluesky.ts), so the only real config it needs is
-    // where LazyRelay's own connect-form page lives.
-    registry.set("bluesky", new BlueskyAdapter(process.env.BLUESKY_CONNECT_PAGE_URL));
-  }
-  if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CONNECT_PAGE_URL) {
-    // No OAuth at all — TELEGRAM_BOT_TOKEN authenticates every call as the
-    // one shared @lazyrelay_bot; TELEGRAM_LOG_CHAT_ID is optional but
-    // strongly recommended (see platforms/telegram.ts) for real per-message
-    // Proof-of-Publish verification instead of a degraded channel-only check.
-    registry.set(
-      "telegram",
-      new TelegramAdapter(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CONNECT_PAGE_URL, process.env.TELEGRAM_LOG_CHAT_ID),
-    );
-  }
-  if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET && process.env.LINKEDIN_REDIRECT_URI) {
-    registry.set(
-      "linkedin",
-      new LinkedInAdapter(process.env.LINKEDIN_CLIENT_ID, process.env.LINKEDIN_CLIENT_SECRET, process.env.LINKEDIN_REDIRECT_URI),
-    );
-  }
-  if (process.env.THREADS_APP_ID && process.env.THREADS_APP_SECRET && process.env.THREADS_REDIRECT_URI) {
-    registry.set(
-      "threads",
-      new ThreadsAdapter(process.env.THREADS_APP_ID, process.env.THREADS_APP_SECRET, process.env.THREADS_REDIRECT_URI),
-    );
-  }
-  if (process.env.META_APP_ID && process.env.META_APP_SECRET && process.env.META_REDIRECT_URI) {
-    registry.set("facebook", new FacebookAdapter(process.env.META_APP_ID, process.env.META_APP_SECRET, process.env.META_REDIRECT_URI));
-    registry.set("instagram", new InstagramAdapter(process.env.META_APP_ID, process.env.META_APP_SECRET, process.env.META_REDIRECT_URI));
-  }
-  if (process.env.DISCORD_CONNECT_PAGE_URL) {
-    registry.set("discord", new DiscordAdapter(process.env.DISCORD_CONNECT_PAGE_URL));
-  }
-  if (process.env.TUMBLR_CLIENT_ID && process.env.TUMBLR_CLIENT_SECRET && process.env.TUMBLR_REDIRECT_URI) {
-    registry.set(
-      "tumblr",
-      new TumblrAdapter(process.env.TUMBLR_CLIENT_ID, process.env.TUMBLR_CLIENT_SECRET, process.env.TUMBLR_REDIRECT_URI),
-    );
-  }
-  if (process.env.X_CLIENT_ID && process.env.X_CLIENT_SECRET && process.env.X_REDIRECT_URI) {
-    registry.set("x", new XAdapter(process.env.X_CLIENT_ID, process.env.X_CLIENT_SECRET, process.env.X_REDIRECT_URI));
-  }
-  // Not expected to actually activate yet — no OAuth app exists (Business
-  // Manager setup paused mid-way), and the Public Profile API is
-  // allowlist-only regardless, so even a real client ID wouldn't work until
-  // Snap manually allowlists it. Wired the same way as every other platform
-  // so it activates automatically the moment real credentials land in .env,
-  // rather than needing another code change at that point.
-  if (process.env.SNAPCHAT_CLIENT_ID && process.env.SNAPCHAT_CLIENT_SECRET && process.env.SNAPCHAT_REDIRECT_URI) {
-    registry.set(
-      "snapchat",
-      new SnapchatAdapter(process.env.SNAPCHAT_CLIENT_ID, process.env.SNAPCHAT_CLIENT_SECRET, process.env.SNAPCHAT_REDIRECT_URI),
-    );
-  }
-  if (registry.size === 0) {
-    // Keeps local/dev environments with no platform env vars set at all
-    // working end-to-end against the stub, same as before the registry.
-    registry.set("tiktok", new StubAdapter());
-  }
+  // registry (Map<platform, adapter>). A platform whose env vars aren't set
+  // simply isn't in the map — /api/platforms reports it as unconfigured
+  // rather than silently falling back to a stub. Construction logic lives in
+  // platforms/registry.ts (extracted 2026-08-07) so the metrics poller
+  // script can build the identical registry without a second copy.
+  const registry = buildPlatformRegistry();
   const morAdapter: MerchantOfRecordAdapter =
     process.env.MOR_API_KEY && process.env.MOR_WEBHOOK_SECRET
       ? new PaddleMorAdapter(

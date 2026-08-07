@@ -6,6 +6,7 @@ import type {
   PostAttemptResult,
   VerifyResult,
   OAuthExchangeResult,
+  PostMetrics,
 } from "./types.js";
 
 // X's OAuth 2.0 Authorization Code flow is PKCE-only — even a confidential
@@ -40,6 +41,14 @@ interface XUserResponse {
 
 interface XTweetResponse {
   data?: { id?: string; text?: string };
+  errors?: { message?: string }[];
+}
+
+interface XTweetMetricsResponse {
+  data?: {
+    id?: string;
+    public_metrics?: { like_count?: number; reply_count?: number; retweet_count?: number; impression_count?: number };
+  };
   errors?: { message?: string }[];
 }
 
@@ -223,6 +232,37 @@ export class XAdapter implements PlatformAdapter {
     return {
       verifiedLive: true,
       platformPostUrl: `https://x.com/i/status/${platformPostId}`,
+      errorMessage: null,
+    };
+  }
+
+  // public_metrics is covered by the already-granted tweet.read scope —
+  // includes an impression_count, unlike most platforms, so this is the one
+  // adapter of the 6 that can report a real `views` number.
+  async getPostMetrics(platformPostId: string, accessToken: string): Promise<PostMetrics> {
+    const url = new URL(`${TWEETS_URL}/${platformPostId}`);
+    url.searchParams.set("tweet.fields", "public_metrics");
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const json = (await res.json().catch(() => ({}))) as XTweetMetricsResponse;
+
+    if (!res.ok || !json.data?.id) {
+      return {
+        likes: null,
+        comments: null,
+        shares: null,
+        views: null,
+        errorMessage: json.errors?.[0]?.message ?? `Could not load metrics (HTTP ${res.status})`,
+      };
+    }
+
+    const m = json.data.public_metrics ?? {};
+    return {
+      likes: m.like_count ?? null,
+      comments: m.reply_count ?? null,
+      shares: m.retweet_count ?? null,
+      views: m.impression_count ?? null,
       errorMessage: null,
     };
   }
