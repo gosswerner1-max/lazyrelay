@@ -82,6 +82,7 @@ export interface PlatformInfo {
 export interface Account {
   email: string;
   businessName: string | null;
+  emailFailureAlertsEnabled: boolean;
 }
 
 export interface RecurringSchedule {
@@ -377,6 +378,8 @@ export const api = {
   getAccount: (): Promise<Account> => authedFetch("/account"),
   updateAccount: (businessName: string | null): Promise<Account> =>
     authedFetch("/account", { method: "PATCH", body: JSON.stringify({ businessName }) }),
+  setEmailFailureAlerts: (enabled: boolean): Promise<Account> =>
+    authedFetch("/account", { method: "PATCH", body: JSON.stringify({ emailFailureAlertsEnabled: enabled }) }),
 
   listApiKeys: (): Promise<ApiKey[]> => authedFetch("/api-keys"),
   createApiKey: (name: string, canShareProof: boolean): Promise<ApiKey & { key: string }> =>

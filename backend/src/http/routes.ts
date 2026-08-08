@@ -2193,17 +2193,21 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // shown at signup — set once at signup via Supabase auth metadata (see
   // migration 0024), editable afterward here.
   router.get("/account", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data, error } = await supabase.from("accounts").select("email, business_name").eq("id", req.accountId).single();
+    const { data, error } = await supabase
+      .from("accounts")
+      .select("email, business_name, email_failure_alerts_enabled")
+      .eq("id", req.accountId)
+      .single();
     if (error || !data) {
       res.status(404).json({ error: "Account not found" });
       return;
     }
-    res.json({ email: data.email, businessName: data.business_name });
+    res.json({ email: data.email, businessName: data.business_name, emailFailureAlertsEnabled: data.email_failure_alerts_enabled });
   });
 
   router.patch("/account", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { businessName } = req.body ?? {};
-    if (businessName !== null && typeof businessName !== "string") {
+    const { businessName, emailFailureAlertsEnabled } = req.body ?? {};
+    if (businessName !== undefined && businessName !== null && typeof businessName !== "string") {
       res.status(400).json({ error: "businessName must be a string or null" });
       return;
     }
@@ -2211,17 +2215,24 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(400).json({ error: "businessName must be 80 characters or fewer" });
       return;
     }
+    if (emailFailureAlertsEnabled !== undefined && typeof emailFailureAlertsEnabled !== "boolean") {
+      res.status(400).json({ error: "emailFailureAlertsEnabled must be a boolean" });
+      return;
+    }
+    const update: Record<string, unknown> = {};
+    if (businessName !== undefined) update.business_name = businessName?.trim() || null;
+    if (emailFailureAlertsEnabled !== undefined) update.email_failure_alerts_enabled = emailFailureAlertsEnabled;
     const { data, error } = await supabase
       .from("accounts")
-      .update({ business_name: businessName?.trim() || null })
+      .update(update)
       .eq("id", req.accountId)
-      .select("email, business_name")
+      .select("email, business_name, email_failure_alerts_enabled")
       .single();
     if (error || !data) {
       dbError(res, error ?? { message: "update returned no row" }, "PATCH /account");
       return;
     }
-    res.json({ email: data.email, businessName: data.business_name });
+    res.json({ email: data.email, businessName: data.business_name, emailFailureAlertsEnabled: data.email_failure_alerts_enabled });
   });
 
   // API keys let a customer's own AI agent call this API directly and

@@ -121,6 +121,7 @@ export function Dashboard() {
   const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
   const [announcingAdmin, setAnnouncingAdmin] = useState(false);
   const [adminWindowExpiresAt, setAdminWindowExpiresAt] = useState<string | null>(null);
+  const [savingFailureAlerts, setSavingFailureAlerts] = useState(false);
   const [sharingProofId, setSharingProofId] = useState<string | null>(null);
   const [shareProofResult, setShareProofResult] = useState<{ postId: string; url: string; copied: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1020,6 +1021,19 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setRevokingKeyId(null);
+    }
+  }
+
+  async function handleToggleFailureAlerts(enabled: boolean) {
+    setSavingFailureAlerts(true);
+    setError(null);
+    try {
+      const updated = await api.setEmailFailureAlerts(enabled);
+      setAccount(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingFailureAlerts(false);
     }
   }
 
@@ -2506,6 +2520,26 @@ export function Dashboard() {
             {savingBusinessName ? "Saving..." : "Save"}
           </button>
         </form>
+      </section>
+      )}
+
+      {tab === "Account" && (
+      <section>
+        <h2>Failure alerts</h2>
+        <p className="section-note">
+          Off by default. If you rely on LazyRelay for real income (client work, a business that needs posts
+          to go out on time), turn this on to get an email the moment a post genuinely fails, instead of only
+          finding out when you check your dashboard.
+        </p>
+        <label className="api-key-share-proof-toggle">
+          <input
+            type="checkbox"
+            checked={account?.emailFailureAlertsEnabled ?? false}
+            disabled={savingFailureAlerts || !account}
+            onChange={(e) => handleToggleFailureAlerts(e.target.checked)}
+          />
+          Email me if a scheduled post fails
+        </label>
       </section>
       )}
 

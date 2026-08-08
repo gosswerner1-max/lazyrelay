@@ -2,6 +2,7 @@ import { supabase } from "./supabase.js";
 import type { PlatformAdapterRegistry } from "./platforms/connect.js";
 import type { PlatformAdapter } from "./platforms/types.js";
 import { notifyOps } from "./notify.js";
+import { sendFailureAlert, sendAccountPausedAlert } from "./email.js";
 
 const CLAIM_BATCH_SIZE = 10;
 
@@ -205,6 +206,29 @@ async function isAccountPaused(socialAccountId: string): Promise<boolean> {
   return data.paused_at !== null;
 }
 
+/** Looks up whether this account opted in to failure-alert emails
+ *  (project-competitor-feature-audit-2026-08-07.md item 7 — off by
+ *  default, see migration 0039_failure_alerts.sql) and fires the right
+ *  one if so. Best-effort: a lookup/send problem must never affect the
+ *  scheduler's own failure-handling path, same reasoning as notifyOps. */
+async function maybeSendFailureAlert(post: DuePost, content: string, reason: string, accountPaused: boolean): Promise<void> {
+  try {
+    const { data: account } = await supabase
+      .from("accounts")
+      .select("email, email_failure_alerts_enabled")
+      .eq("id", post.account_id)
+      .maybeSingle();
+    if (!account?.email_failure_alerts_enabled || !account.email) return;
+    if (accountPaused) {
+      sendAccountPausedAlert(account.email, content);
+    } else {
+      sendFailureAlert(account.email, content, reason);
+    }
+  } catch (err) {
+    console.error("[scheduler] maybeSendFailureAlert lookup failed:", err instanceof Error ? err.message : err);
+  }
+}
+
 /** A failure that hasn't exhausted its retries goes back to `pending` with
  *  an exponential backoff delay instead of being marked `failed` outright.
  *  Only once MAX_RETRIES is exhausted does this become a real, alerted
@@ -227,6 +251,7 @@ async function handleFailure(post: DuePost, message: string): Promise<void> {
   await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id);
   console.error(`Post ${post.id} permanently failed after ${MAX_RETRIES + 1} attempts: ${message}`);
   await notifyOps(`Post ${post.id} permanently failed after ${MAX_RETRIES + 1} attempts: ${message}`);
+  await maybeSendFailureAlert(post, post.content, message, false);
 }
 
 /** Reverts a claimed post back to pending without counting it as a retry —
@@ -254,6 +279,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
       await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id);
       console.warn(`Post ${post.id} failed: connected account is paused (plan downgrade).`);
       await notifyOps(`Post ${post.id} failed: social account ${post.social_account_id} is paused (plan downgrade past connected-account limit).`);
+      await maybeSendFailureAlert(post, post.content, "connected account is paused", true);
       return;
     }
 

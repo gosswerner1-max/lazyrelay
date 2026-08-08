@@ -22,7 +22,8 @@
     "file-type": "^22.0.1",
     "image-size": "^1.2.1",
     "luxon": "^3.7.2",
-    "multer": "^2.2.0"
+    "multer": "^2.2.0",
+    "resend": "^6.18.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
