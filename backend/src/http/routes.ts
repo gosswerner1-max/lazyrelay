@@ -294,6 +294,81 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
   });
 
+  // Content coach (2026-08-08) — item 6 from the 2026-08-07 competitor
+  // audit's "my own ideas" list: every competitor researched assumes the
+  // customer already knows what to post; this closes the actual "I don't
+  // know what to say" gap one step before /ai/caption, which needs a topic
+  // to already exist. Same optional-integration gate as the other two AI
+  // routes, and shares their daily generation quota (checkGenerationLimit) —
+  // this is still a customer-initiated "generate" action, not a background
+  // enhancement like the comment-triage classifier.
+  router.post("/ai/content-ideas", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      res.status(503).json({ error: "AI content ideas aren't set up on this deploy yet." });
+      return;
+    }
+
+    const limitReason = await checkGenerationLimit(req.accountId!);
+    if (limitReason) {
+      res.status(429).json({ error: limitReason });
+      return;
+    }
+
+    const { data: account } = await supabase.from("accounts").select("business_name").eq("id", req.accountId).maybeSingle();
+    const { data: recentPosts } = await supabase
+      .from("scheduled_posts")
+      .select("content")
+      .eq("account_id", req.accountId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    const businessLabel = account?.business_name?.trim() ? `a small business called "${account.business_name.trim()}"` : "a small business";
+    const recentTopicsBlock =
+      recentPosts && recentPosts.length > 0
+        ? `Their recent posts, so you can stay fresh and not repeat these topics:\n${recentPosts.map((p) => `- ${p.content.slice(0, 200)}`).join("\n")}\n\n`
+        : "";
+
+    try {
+      // Same timeout reasoning as /ai/caption and /ai/hashtags above.
+      const client = new Anthropic({ apiKey, timeout: 20_000 });
+      const message = await client.messages.create({
+        model: "claude-haiku-4-5",
+        max_tokens: 500,
+        messages: [
+          {
+            role: "user",
+            content:
+              `You're a social media content coach for ${businessLabel}. ${recentTopicsBlock}` +
+              `Suggest 5 fresh post ideas for what they could post next. Each idea is a short one-sentence hook or topic ` +
+              `(not a full caption) — vary the type across the 5 (e.g. behind the scenes, a tip, a customer story, a product/service highlight, a timely or seasonal angle).\n\n` +
+              `Return ONLY a JSON array of exactly 5 strings, no other text.`,
+          },
+        ],
+      });
+      const textBlock = message.content.find((block) => block.type === "text");
+      if (!textBlock || textBlock.type !== "text") {
+        res.status(502).json({ error: "AI content ideas returned no usable text." });
+        return;
+      }
+      const match = textBlock.text.match(/\[[\s\S]*\]/);
+      const parsed = match ? JSON.parse(match[0]) : null;
+      if (!Array.isArray(parsed) || parsed.some((idea) => typeof idea !== "string")) {
+        res.status(502).json({ error: "AI content ideas returned an unexpected format." });
+        return;
+      }
+      await recordGeneration(req.accountId!);
+      res.json({ ideas: parsed as string[] });
+    } catch (err) {
+      console.error("[routes] POST /ai/content-ideas:", err instanceof Error ? err.message : err);
+      if (err instanceof Anthropic.APIConnectionTimeoutError) {
+        res.status(504).json({ error: "AI content ideas took too long, please try again." });
+        return;
+      }
+      res.status(502).json({ error: "AI content ideas failed, please try again." });
+    }
+  });
+
   // Link-in-bio page — one per account, the kind of page a customer puts
   // in their Instagram/TikTok bio. Reads own page/links for the dashboard
   // editor; the public rendering route is further down, not behind

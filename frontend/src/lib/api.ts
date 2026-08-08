@@ -324,6 +324,8 @@ export const api = {
   suggestHashtags: (content: string, platform?: string): Promise<{ hashtags: string[] }> =>
     authedFetch("/ai/hashtags", { method: "POST", body: JSON.stringify({ content, platform }) }),
 
+  getContentIdeas: (): Promise<{ ideas: string[] }> => authedFetch("/ai/content-ideas", { method: "POST" }),
+
   getBioPage: (): Promise<BioPage | null> => authedFetch("/bio-page"),
   saveBioPage: (input: { slug: string; title: string; bio: string; avatarUrl?: string | null }): Promise<BioPage> =>
     authedFetch("/bio-page", { method: "PUT", body: JSON.stringify(input) }),

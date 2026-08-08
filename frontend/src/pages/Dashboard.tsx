@@ -160,6 +160,8 @@ export function Dashboard() {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [hashtagGenerating, setHashtagGenerating] = useState(false);
+  const [ideasGenerating, setIdeasGenerating] = useState(false);
+  const [contentIdeas, setContentIdeas] = useState<string[] | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
   const [scheduleTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
@@ -642,6 +644,24 @@ export function Dashboard() {
     } finally {
       setAiGenerating(false);
     }
+  }
+
+  async function handleGetContentIdeas() {
+    setIdeasGenerating(true);
+    setError(null);
+    try {
+      const { ideas } = await api.getContentIdeas();
+      setContentIdeas(ideas);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIdeasGenerating(false);
+    }
+  }
+
+  function handleUseContentIdea(idea: string) {
+    setAiTopic(idea);
+    setContentIdeas(null);
   }
 
   async function handleSuggestHashtags() {
@@ -1940,6 +1960,22 @@ export function Dashboard() {
                   </select>
                 )}
               </label>
+            )}
+            <div className="content-ideas-row">
+              <button type="button" className="btn-outline" disabled={ideasGenerating} onClick={handleGetContentIdeas}>
+                {ideasGenerating ? "Thinking..." : "Not sure what to post? Get ideas"}
+              </button>
+            </div>
+            {contentIdeas && (
+              <ul className="content-ideas-list">
+                {contentIdeas.map((idea, i) => (
+                  <li key={i}>
+                    <button type="button" onClick={() => handleUseContentIdea(idea)}>
+                      {idea}
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
             <div className="ai-caption-row">
               <input
