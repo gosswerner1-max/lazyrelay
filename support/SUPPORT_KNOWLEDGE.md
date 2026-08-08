@@ -100,6 +100,16 @@ Turnstile runs in managed/invisible mode on sign-up and sign-in — most real us
 | "Says success/nothing happened when I click login, no error" | This is very likely the browser's own native "Please fill out this field" validation on an empty email/password box, not a Turnstile failure — confirmed while testing this feature live | Have them check they actually filled in both fields before submitting |
 | "Captcha error / verification failed" at submit | Genuine Turnstile failure (stale token, ad blocker/privacy extension interfering, or the token expired from sitting on the page too long) | Refresh the page and retry; if using a strict privacy/ad-blocking extension, try disabling it for lazyrelay.com |
 
+### Comment/DM triage — "needs attention" filter (shipped 2026-08-08)
+On top of the existing Mentions and DMs tabs, each comment/conversation now gets an AI badge (Angry customer / Sales question / Question) when it looks like it genuinely needs a reply, plus a "Show only the N that need attention" checkbox above each list. Off by default (unchecked) — the full list still shows everything, exactly as before, unless the customer turns the filter on themselves.
+
+| Customer says... | Likely cause | Fix |
+|---|---|---|
+| "Why isn't every comment flagged?" | Working as intended — routine content (praise, emojis, spam, bot replies) is deliberately left unflagged so only real "needs a human" items stand out | Explain it's a filter for genuine questions/complaints/leads, not a moderation or spam tool |
+| "A comment I care about wasn't flagged" | AI classification isn't perfect, and it only ever looks at the single comment/DM text shown, not the surrounding thread | The comment still shows in the normal (unfiltered) list, nothing is hidden or deleted, only the badge/filter is a suggestion |
+| "The badge/count didn't update after I opened the tab" | Classification runs once per comment/conversation and is cached — it only re-classifies a DM conversation when a new message actually arrives (existing comment text never changes, so comments classify once for good) | Refresh the tab; if a genuinely new message still isn't reflected, escalate as a real bug |
+| "Is this reading/storing what my customers say to me?" | Only the comment/DM text itself is sent to the AI for classification (via Anthropic), and only the classification result (flag + one-line reason) is stored — not the original comment/message content | Safe, factual answer if asked about data handling here |
+
 ### Security & data
 - **"Did you post something I didn't schedule?"** — first clarify whether it's a token compromise or a password compromise (different severity), give the exact platform-side revoke path, and if it's systemic (not one account), commit to a public status update. Fast and plain-language beats hedging (this is literally why Buffer's 2013 breach response is still cited as the industry model).
 - **Disconnecting an account** — always give BOTH steps: (1) disconnect inside LazyRelay, (2) also revoke access on the platform's own app-permissions page (link directly to Meta/TikTok/Pinterest's page). Don't assume step 1 alone fully revokes access.
