@@ -299,6 +299,11 @@ export const api = {
 
   getAnalyticsSummary: (days = 30, brand?: string): Promise<AnalyticsSummary> =>
     authedFetch(`/analytics/summary?days=${days}${brand ? `&brand=${encodeURIComponent(brand)}` : ""}`),
+  getAnalyticsInsight: (
+    days: number,
+    brand?: string,
+  ): Promise<{ insight: string } | { insufficientData: true; postsWithData: number; needed: number }> =>
+    authedFetch("/analytics/insight", { method: "POST", body: JSON.stringify({ days, brand }) }),
 
   getMentions: (): Promise<{ posts: MentionPost[] }> => authedFetch("/mentions"),
 

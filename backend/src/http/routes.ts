@@ -1648,24 +1648,33 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // omitted = no filter, "__unbranded__" = accounts with no brand_label,
   // anything else = that exact label.
   const UNBRANDED_FILTER_VALUE = "__unbranded__";
+
+  // Shared by /analytics/summary and /analytics/insight — both need to
+  // resolve a "brand" filter value down to the matching social_account_ids
+  // before querying scheduled_posts. Returns undefined for "no filter".
+  async function resolveBrandFilterSocialAccountIds(accountId: string, brand: string | undefined): Promise<string[] | undefined> {
+    if (brand === undefined) return undefined;
+    let query = supabase.from("social_accounts").select("id").eq("account_id", accountId);
+    query = brand === UNBRANDED_FILTER_VALUE ? query.is("brand_label", null) : query.eq("brand_label", brand);
+    const { data, error } = await query;
+    if (error) throw error;
+    // A dummy UUID when nothing matches, rather than an empty array — .in()
+    // with an empty list isn't a reliable "match nothing" across Supabase
+    // JS versions, and this guarantees zero rows either way.
+    return data && data.length > 0 ? data.map((r) => r.id) : ["00000000-0000-0000-0000-000000000000"];
+  }
+
   router.get("/analytics/summary", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 90);
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
     const brand = typeof req.query.brand === "string" && req.query.brand.length > 0 ? req.query.brand : undefined;
 
     let matchingSocialAccountIds: string[] | undefined;
-    if (brand !== undefined) {
-      let brandQuery = supabase.from("social_accounts").select("id").eq("account_id", req.accountId);
-      brandQuery = brand === UNBRANDED_FILTER_VALUE ? brandQuery.is("brand_label", null) : brandQuery.eq("brand_label", brand);
-      const { data: matching, error: brandError } = await brandQuery;
-      if (brandError) {
-        dbError(res, brandError, "GET /analytics/summary (brand filter)");
-        return;
-      }
-      // A dummy UUID when nothing matches, rather than an empty array —
-      // .in() with an empty list isn't a reliable "match nothing" across
-      // Supabase JS versions, and this guarantees zero rows either way.
-      matchingSocialAccountIds = matching && matching.length > 0 ? matching.map((r) => r.id) : ["00000000-0000-0000-0000-000000000000"];
+    try {
+      matchingSocialAccountIds = await resolveBrandFilterSocialAccountIds(req.accountId!, brand);
+    } catch (err) {
+      dbError(res, err as { message: string }, "GET /analytics/summary (brand filter)");
+      return;
     }
 
     let scheduledPostsQuery = supabase
@@ -1753,6 +1762,123 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       verifiedLiveRate: postedCount > 0 ? verifiedLiveCount / postedCount : null,
       engagement,
     });
+  });
+
+  // "Why this worked" AI insight (2026-08-08) — item 9 from the 2026-08-07
+  // competitor audit's "my own ideas" list, explicitly scoped to depend on
+  // real engagement analytics (item 1, shipped 2026-08-07). On-demand only
+  // (a button on the Analytics tab, not automatic per post) — running this
+  // on every post would be both expensive and mostly noise on posts too
+  // fresh to have real engagement data yet. Compares the best- and
+  // worst-performing posts in the customer's selected range/brand rather
+  // than reasoning over raw totals, since a pattern only shows up in
+  // contrast, not in a single aggregate number.
+  const MIN_POSTS_WITH_DATA_FOR_INSIGHT = 4;
+  router.post("/analytics/insight", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      res.status(503).json({ error: "AI insight isn't set up on this deploy yet." });
+      return;
+    }
+
+    const { days, brand } = req.body ?? {};
+    const rangeDays = Math.min(Math.max(Number(days) || 30, 1), 90);
+    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000).toISOString();
+    const brandFilterValue = typeof brand === "string" && brand.length > 0 ? brand : undefined;
+
+    let matchingSocialAccountIds: string[] | undefined;
+    try {
+      matchingSocialAccountIds = await resolveBrandFilterSocialAccountIds(req.accountId!, brandFilterValue);
+    } catch (err) {
+      dbError(res, err as { message: string }, "POST /analytics/insight (brand filter)");
+      return;
+    }
+
+    const limitReason = await checkGenerationLimit(req.accountId!);
+    if (limitReason) {
+      res.status(429).json({ error: limitReason });
+      return;
+    }
+
+    let postsQuery = supabase
+      .from("scheduled_posts")
+      .select("id, content, post_metrics(checkpoint, likes, comments, shares, views)")
+      .eq("account_id", req.accountId)
+      .eq("status", "posted")
+      .gte("scheduled_for", since);
+    if (matchingSocialAccountIds) {
+      postsQuery = postsQuery.in("social_account_id", matchingSocialAccountIds);
+    }
+    const { data: posts, error } = await postsQuery;
+    if (error) {
+      dbError(res, error, "POST /analytics/insight");
+      return;
+    }
+
+    // Same "most mature checkpoint wins" reduction as /analytics/summary's
+    // engagement aggregation — a post's current number, not a sum across
+    // every checkpoint it's ever had.
+    const CHECKPOINT_MATURITY = ["30d", "7d", "3d", "24h", "6h", "1h"];
+    type MetricRow = { checkpoint: string; likes: number | null; comments: number | null; shares: number | null; views: number | null };
+    const scored: { content: string; likes: number; comments: number; shares: number; score: number }[] = [];
+    for (const post of posts ?? []) {
+      const metricRows: MetricRow[] = Array.isArray(post.post_metrics) ? post.post_metrics : post.post_metrics ? [post.post_metrics] : [];
+      if (metricRows.length === 0) continue;
+      const best = metricRows.reduce((a, b) => (CHECKPOINT_MATURITY.indexOf(a.checkpoint) <= CHECKPOINT_MATURITY.indexOf(b.checkpoint) ? a : b));
+      const likes = best.likes ?? 0;
+      const comments = best.comments ?? 0;
+      const shares = best.shares ?? 0;
+      // Weighted toward the more deliberate engagement types — a share
+      // signals more than a like, a comment more than neither.
+      scored.push({ content: post.content, likes, comments, shares, score: likes + comments * 2 + shares * 3 });
+    }
+
+    if (scored.length < MIN_POSTS_WITH_DATA_FOR_INSIGHT) {
+      res.json({ insufficientData: true, postsWithData: scored.length, needed: MIN_POSTS_WITH_DATA_FOR_INSIGHT });
+      return;
+    }
+
+    scored.sort((a, b) => b.score - a.score);
+    const half = Math.max(1, Math.min(3, Math.floor(scored.length / 2)));
+    const top = scored.slice(0, half);
+    const bottom = scored.slice(-half);
+    const describePost = (p: (typeof scored)[number]) => `"${p.content.slice(0, 200)}" (${p.likes} likes, ${p.comments} comments, ${p.shares} shares)`;
+
+    try {
+      // Same timeout reasoning as the other Anthropic-backed routes above.
+      const client = new Anthropic({ apiKey, timeout: 20_000 });
+      const message = await client.messages.create({
+        model: "claude-haiku-4-5",
+        max_tokens: 400,
+        messages: [
+          {
+            role: "user",
+            content:
+              `You're analyzing a small business's social media performance. Here are their best-performing posts:\n\n` +
+              `${top.map(describePost).join("\n")}\n\n` +
+              `And their worst-performing posts:\n\n${bottom.map(describePost).join("\n")}\n\n` +
+              `In 2-3 short sentences, say what pattern seems to separate the better posts from the worse ones (tone, ` +
+              `format, topic, length, whatever's actually visible in the text), then give one concrete, specific suggestion ` +
+              `for their next post. Be honest if the sample is too mixed to draw a clean conclusion, don't force a pattern that isn't there. ` +
+              `Output ONLY the insight text, no preamble, no headers.`,
+          },
+        ],
+      });
+      const textBlock = message.content.find((block) => block.type === "text");
+      if (!textBlock || textBlock.type !== "text") {
+        res.status(502).json({ error: "AI insight returned no usable text." });
+        return;
+      }
+      await recordGeneration(req.accountId!);
+      res.json({ insight: textBlock.text.trim() });
+    } catch (err) {
+      console.error("[routes] POST /analytics/insight:", err instanceof Error ? err.message : err);
+      if (err instanceof Anthropic.APIConnectionTimeoutError) {
+        res.status(504).json({ error: "AI insight took too long, please try again." });
+        return;
+      }
+      res.status(502).json({ error: "AI insight failed, please try again." });
+    }
   });
 
   // Flips a needs_approval post to pending, making it eligible for the

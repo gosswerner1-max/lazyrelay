@@ -277,6 +277,8 @@ export function Dashboard() {
   const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsRangeDays, setAnalyticsRangeDays] = useState(30);
+  const [insightLoading, setInsightLoading] = useState(false);
+  const [insightResult, setInsightResult] = useState<{ insight: string } | { insufficientData: true; postsWithData: number; needed: number } | null>(null);
   const [finalizingUpgrade, setFinalizingUpgrade] = useState(false);
   const pendingTierRef = useRef<"pro" | "business" | "enterprise" | null>(null);
 
@@ -394,6 +396,7 @@ export function Dashboard() {
     if (tab !== "Analytics" && tab !== "Overview") return;
     const days = tab === "Overview" ? 30 : analyticsRangeDays;
     setAnalyticsLoading(true);
+    setInsightResult(null);
     api
       .getAnalyticsSummary(days, brandFilter || undefined)
       .then(setAnalytics)
@@ -721,6 +724,20 @@ export function Dashboard() {
   function handleUseContentIdea(idea: string) {
     setAiTopic(idea);
     setContentIdeas(null);
+  }
+
+  async function handleGetInsight() {
+    setInsightLoading(true);
+    setInsightResult(null);
+    setError(null);
+    try {
+      const result = await api.getAnalyticsInsight(analyticsRangeDays, brandFilter || undefined);
+      setInsightResult(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setInsightLoading(false);
+    }
   }
 
   async function handleSuggestHashtags() {
@@ -1443,6 +1460,19 @@ export function Dashboard() {
         )}
         {!analyticsLoading && analytics && analytics.totalPosts > 0 && (
           <>
+            <div className="analytics-insight-row">
+              <button type="button" className="btn-outline" disabled={insightLoading} onClick={handleGetInsight}>
+                {insightLoading ? "Thinking..." : "Get AI insight: why this worked"}
+              </button>
+            </div>
+            {insightResult && "insufficientData" in insightResult && (
+              <p className="section-note">
+                Not enough engagement data yet for a real insight ({insightResult.postsWithData} post
+                {insightResult.postsWithData === 1 ? "" : "s"} with data, need at least {insightResult.needed}).
+                Check back once more posts have had time to collect engagement numbers.
+              </p>
+            )}
+            {insightResult && "insight" in insightResult && <p className="analytics-insight-card">{insightResult.insight}</p>}
             <div className="analytics-summary-cards">
               <div className="analytics-card">
                 <span className="analytics-card-value">{analytics.totalPosts}</span>
