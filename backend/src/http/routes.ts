@@ -18,6 +18,8 @@ import { checkAccountLimit } from "../accountLimits.js";
 import { resolveTier, RECURRING_SCHEDULE_SLOT_LIMITS, type Tier } from "../tier.js";
 import { cancelFuturePendingOccurrences } from "../recurringScheduler.js";
 import { checkGenerationLimit, recordGeneration } from "../aiUsage.js";
+import { triageItems, type TriageItem, type TriageResult } from "../commentTriage.js";
+import type { CommentItem } from "../platforms/types.js";
 
 // Storage add-ons — priced 2026-07-23 after researching real comparables
 // (consumer cloud storage clusters $0.005-0.02/GB/mo, the closest real B2B
@@ -1145,7 +1147,18 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const results = [];
+    const results: {
+      postId: string;
+      platform: string;
+      content: string;
+      scheduledFor: string;
+      platformPostUrl: string | null;
+      supported: boolean;
+      canReply?: boolean;
+      comments: (CommentItem & { triage?: TriageResult | null })[];
+      errorMessage?: string | null;
+    }[] = [];
+    const commentTriageItems: TriageItem[] = [];
     for (const post of posts ?? []) {
       const platform = Array.isArray(post.social_accounts) ? post.social_accounts[0]?.platform : (post.social_accounts as { platform?: string } | null)?.platform;
       const results_ = Array.isArray(post.post_results) ? post.post_results : post.post_results ? [post.post_results] : [];
@@ -1183,6 +1196,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
           comments: commentsResult.comments,
           errorMessage: commentsResult.errorMessage,
         });
+        commentTriageItems.push(
+          ...commentsResult.comments.map((c) => ({ itemId: c.id, sourceSignature: c.id, author: c.author, text: c.text }))
+        );
       } catch (err) {
         results.push({
           postId: post.id,
@@ -1195,6 +1211,15 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
           errorMessage: err instanceof Error ? err.message : "Could not load comments",
         });
       }
+    }
+
+    // One batched Anthropic call for every not-yet-cached comment across
+    // every post shown here, rather than one call per post — see
+    // commentTriage.ts. Missing from the map means unclassified (no API
+    // key configured, or the AI call failed), never treated as "routine".
+    const triageMap = await triageItems(req.accountId!, "comment", commentTriageItems);
+    for (const post of results) {
+      post.comments = post.comments.map((c) => ({ ...c, triage: triageMap.get(c.id) ?? null }));
     }
 
     res.json({ posts: results });
@@ -1282,6 +1307,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       participantName: string;
       snippet: string | null;
       updatedAt: string | null;
+      triage?: unknown;
     }[] = [];
 
     for (const account of accounts ?? []) {
@@ -1313,6 +1339,19 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
 
     results.sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
+
+    // Classified off the conversation's latest-message snippet, not the full
+    // thread — same "surface the one that needs a human" scope as /mentions.
+    // sourceSignature is updatedAt, so a new incoming message naturally
+    // invalidates the cached classification instead of the DM going stale.
+    const dmTriageItems: TriageItem[] = results
+      .filter((r) => !!r.snippet)
+      .map((r) => ({ itemId: r.conversationId, sourceSignature: r.updatedAt ?? "", author: r.participantName, text: r.snippet! }));
+    const triageMap = await triageItems(req.accountId!, "dm", dmTriageItems);
+    for (const r of results) {
+      r.triage = triageMap.get(r.conversationId) ?? null;
+    }
+
     res.json({ conversations: results });
   });
 

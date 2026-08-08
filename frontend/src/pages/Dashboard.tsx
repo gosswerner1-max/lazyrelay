@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
-import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation } from "../lib/api";
+import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation, type Triage } from "../lib/api";
 import { API_BASE_URL, API_ENDPOINTS, MCP_CONFIG_EXAMPLE } from "../lib/apiDocsContent";
 import { CodeBlock } from "../components/CodeBlock";
 import { RelaySignal } from "../components/RelaySignal";
@@ -20,6 +20,21 @@ const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 function localDateKey(iso: string): string {
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+const TRIAGE_CATEGORY_LABELS: Record<string, string> = {
+  angry_customer: "Angry customer",
+  sales_question: "Sales question",
+  question: "Question",
+};
+
+function TriageBadge({ triage }: { triage?: Triage | null }) {
+  if (!triage?.needsAttention) return null;
+  return (
+    <span className="triage-badge" title={triage.reason}>
+      {TRIAGE_CATEGORY_LABELS[triage.category] ?? "Needs attention"}
+    </span>
+  );
 }
 
 // Minimal RFC4180-ish CSV parser — handles quoted fields, escaped ""
@@ -184,11 +199,13 @@ export function Dashboard() {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [mentions, setMentions] = useState<MentionPost[] | null>(null);
   const [mentionsLoading, setMentionsLoading] = useState(false);
+  const [mentionsAttentionOnly, setMentionsAttentionOnly] = useState(false);
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [replyingCommentId, setReplyingCommentId] = useState<string | null>(null);
   const [replySentCommentId, setReplySentCommentId] = useState<string | null>(null);
   const [dmConversations, setDmConversations] = useState<DMConversation[] | null>(null);
   const [dmConversationsLoading, setDmConversationsLoading] = useState(false);
+  const [dmsAttentionOnly, setDmsAttentionOnly] = useState(false);
   const [openConversation, setOpenConversation] = useState<DMConversation | null>(null);
   const [dmMessages, setDmMessages] = useState<DMMessage[] | null>(null);
   const [dmMessagesLoading, setDmMessagesLoading] = useState(false);
@@ -1402,17 +1419,29 @@ export function Dashboard() {
         {mentionsLoading && <Spinner />}
         {!mentionsLoading && mentions && mentions.length === 0 && <p className="empty">No recent posted content yet.</p>}
         {!mentionsLoading && mentions && mentions.length > 0 && (() => {
+          const attentionCount = mentions.reduce((sum, p) => sum + p.comments.filter((c) => c.triage?.needsAttention).length, 0);
+          const visiblePosts = mentionsAttentionOnly
+            ? mentions.map((p) => ({ ...p, comments: p.comments.filter((c) => c.triage?.needsAttention) })).filter((p) => p.comments.length > 0)
+            : mentions;
+
           // Same date-grouped pattern as the Posts tab's History list
           // (2026-08-07, Werner: "must do the same here") — a flat list
           // gets unmanageable the same way once there are more than a
           // handful of posts.
           const groups = new Map<string, MentionPost[]>();
-          for (const post of mentions) {
+          for (const post of visiblePosts) {
             const key = localDateKey(post.scheduledFor);
             (groups.get(key) ?? groups.set(key, []).get(key)!).push(post);
           }
           const sortedKeys = [...groups.keys()].sort((a, b) => b.localeCompare(a));
-          return sortedKeys.map((key, i) => {
+          return (
+          <>
+            <label className="triage-filter">
+              <input type="checkbox" checked={mentionsAttentionOnly} onChange={(e) => setMentionsAttentionOnly(e.target.checked)} />
+              {attentionCount > 0 ? `Show only the ${attentionCount} that need attention` : "Show only comments that need attention"}
+            </label>
+            {mentionsAttentionOnly && visiblePosts.length === 0 && <p className="empty">Nothing needs your attention right now.</p>}
+            {sortedKeys.map((key, i) => {
             const posts = groups.get(key)!;
             const label = new Date(`${key}T00:00:00`).toLocaleDateString(undefined, {
               weekday: "long",
@@ -1452,6 +1481,7 @@ export function Dashboard() {
                             <li key={c.id}>
                               <span className="mentions-comment-author">{c.author}</span>
                               <span className="mentions-comment-text">{c.text}</span>
+                              <TriageBadge triage={c.triage} />
                               {post.canReply && (
                                 replySentCommentId === c.id ? (
                                   <span className="mentions-reply-sent">Reply sent</span>
@@ -1485,7 +1515,9 @@ export function Dashboard() {
                 </ul>
               </details>
             );
-          });
+            })}
+          </>
+          );
         })()}
       </section>
       )}
@@ -1501,10 +1533,19 @@ export function Dashboard() {
         {!dmConversationsLoading && dmConversations && dmConversations.length === 0 && (
           <p className="empty">No conversations yet.</p>
         )}
-        {!dmConversationsLoading && dmConversations && dmConversations.length > 0 && (
+        {!dmConversationsLoading && dmConversations && dmConversations.length > 0 && (() => {
+          const dmAttentionCount = dmConversations.filter((c) => c.triage?.needsAttention).length;
+          const visibleConversations = dmsAttentionOnly ? dmConversations.filter((c) => c.triage?.needsAttention) : dmConversations;
+          return (
+          <div className="dm-layout-wrap">
+            <label className="triage-filter">
+              <input type="checkbox" checked={dmsAttentionOnly} onChange={(e) => setDmsAttentionOnly(e.target.checked)} />
+              {dmAttentionCount > 0 ? `Show only the ${dmAttentionCount} that need attention` : "Show only conversations that need attention"}
+            </label>
           <div className="dm-layout">
             <ul className="dm-conversation-list">
-              {dmConversations.map((c) => (
+              {visibleConversations.length === 0 && <li className="empty">Nothing needs your attention right now.</li>}
+              {visibleConversations.map((c) => (
                 <li key={`${c.socialAccountId}-${c.conversationId}`}>
                   <button
                     className={openConversation?.conversationId === c.conversationId ? "dm-conversation-active" : ""}
@@ -1512,6 +1553,7 @@ export function Dashboard() {
                   >
                     <PlatformIcon platform={c.platform} size={14} />
                     <span className="dm-conversation-name">{c.participantName}</span>
+                    <TriageBadge triage={c.triage} />
                     {c.snippet && <span className="dm-conversation-snippet">{c.snippet}</span>}
                   </button>
                 </li>
@@ -1557,7 +1599,9 @@ export function Dashboard() {
               )}
             </div>
           </div>
-        )}
+          </div>
+          );
+        })()}
       </section>
       )}
 

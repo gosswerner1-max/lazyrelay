@@ -149,12 +149,19 @@ export interface PublicBioPage {
   links: Array<{ id: string; label: string; url: string }>;
 }
 
+export interface Triage {
+  needsAttention: boolean;
+  category: "angry_customer" | "sales_question" | "question" | "routine";
+  reason: string;
+}
+
 export interface MentionComment {
   id: string;
   author: string;
   text: string;
   url: string | null;
   createdAt: string | null;
+  triage?: Triage | null;
 }
 
 export interface MentionPost {
@@ -178,6 +185,7 @@ export interface DMConversation {
   participantName: string;
   snippet: string | null;
   updatedAt: string | null;
+  triage?: Triage | null;
 }
 
 export interface DMMessage {
