@@ -131,6 +131,17 @@ In the compose form, a "Not sure what to post? Get ideas" button (above the exis
 | "Clicking an idea didn't create a post" | Working as intended, an idea only fills the topic field, the customer still reviews/generates a caption and hits Schedule themselves | Explain the flow: idea -> topic field -> Generate with AI (optional) -> review -> schedule |
 | "Does this count against my AI generation limit?" | Yes, same daily quota as caption/hashtag generation, since it's a customer-initiated generate action | Point to the same daily-limit messaging used for captions/hashtags if they hit it |
 
+### Multi-brand support (shipped 2026-08-08)
+A customer running more than one business through LazyRelay can label each connected account with a brand name (Dashboard → Accounts → the text field next to each account, then Save). A "Brand" filter dropdown then appears on Overview, Posts, Calendar, Analytics, Mentions, and DMs to narrow each view to just one brand. This is a label and filter only, one login, one subscription, exactly as before, not a separate workspace or separate billing per brand.
+
+| Customer says... | Likely cause | Fix |
+|---|---|---|
+| "Can I get a separate login/subscription per brand?" | Not what this feature is, it's a filter on the existing single account, not multi-tenant workspaces | Explain clearly so they don't expect separate billing or separate team access per brand, that's a bigger ask, log as feedback |
+| "I don't see the brand filter dropdown" | The filter only appears once at least one connected account has a brand label set | Have them label at least one account first, in Accounts |
+| "I labeled an account but posts aren't showing up filtered" | The filter is opt-in per view; each tab has its own dropdown defaulting to "All brands" | Check the dropdown at the top of that specific tab is actually set to the brand they expect |
+| "What happens to an account I haven't labeled yet?" | It shows under the "Unbranded" option in the filter, and always shows under "All brands" | Reassure nothing is hidden or lost, just uncategorized until labeled |
+| "Does labeling an account change what it can post to / connect to?" | No, brand_label is purely organizational metadata, doesn't affect posting, connections, or permissions at all | Safe to reassure this is cosmetic/organizational only |
+
 ### Security & data
 - **"Did you post something I didn't schedule?"** — first clarify whether it's a token compromise or a password compromise (different severity), give the exact platform-side revoke path, and if it's systemic (not one account), commit to a public status update. Fast and plain-language beats hedging (this is literally why Buffer's 2013 breach response is still cited as the industry model).
 - **Disconnecting an account** — always give BOTH steps: (1) disconnect inside LazyRelay, (2) also revoke access on the platform's own app-permissions page (link directly to Meta/TikTok/Pinterest's page). Don't assume step 1 alone fully revokes access.
