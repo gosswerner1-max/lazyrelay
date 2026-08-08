@@ -121,6 +121,16 @@ A technical customer can set a webhook URL in Dashboard → Account → Webhook.
 | "Can I get more than one webhook, or webhook on failure too?" | Not currently, one webhook URL per account, success-only | Log as a feature request, don't overpromise a timeline |
 | "I lost my secret / need to rotate it" | The secret is only ever shown once at creation, by design | They can regenerate it themselves from the same Account page, no need to also change the URL |
 
+### Content coach / "Get ideas" button (shipped 2026-08-08)
+In the compose form, a "Not sure what to post? Get ideas" button (above the existing topic field) generates 5 AI post ideas, grounded in the account's business name and its own recent posts. Clicking an idea just fills the topic field, it doesn't post anything or write the final caption by itself.
+
+| Customer says... | Likely cause | Fix |
+|---|---|---|
+| "The ideas aren't relevant to my business" | Ideas are grounded only in the business name field and recent post history, there's no separate industry/niche field today | Suggest they fill in Business Name in Account settings if it's blank or vague; otherwise this is a known current limitation, log as feedback |
+| "It gave me the same ideas as before" | Ideas are freshly generated each click, not cached, but if the account has few/no recent posts there's less signal to vary against | Not a bug, more post history naturally improves variety over time |
+| "Clicking an idea didn't create a post" | Working as intended, an idea only fills the topic field, the customer still reviews/generates a caption and hits Schedule themselves | Explain the flow: idea -> topic field -> Generate with AI (optional) -> review -> schedule |
+| "Does this count against my AI generation limit?" | Yes, same daily quota as caption/hashtag generation, since it's a customer-initiated generate action | Point to the same daily-limit messaging used for captions/hashtags if they hit it |
+
 ### Security & data
 - **"Did you post something I didn't schedule?"** — first clarify whether it's a token compromise or a password compromise (different severity), give the exact platform-side revoke path, and if it's systemic (not one account), commit to a public status update. Fast and plain-language beats hedging (this is literally why Buffer's 2013 breach response is still cited as the industry model).
 - **Disconnecting an account** — always give BOTH steps: (1) disconnect inside LazyRelay, (2) also revoke access on the platform's own app-permissions page (link directly to Meta/TikTok/Pinterest's page). Don't assume step 1 alone fully revokes access.
