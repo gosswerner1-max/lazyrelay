@@ -142,6 +142,17 @@ A customer running more than one business through LazyRelay can label each conne
 | "What happens to an account I haven't labeled yet?" | It shows under the "Unbranded" option in the filter, and always shows under "All brands" | Reassure nothing is hidden or lost, just uncategorized until labeled |
 | "Does labeling an account change what it can post to / connect to?" | No, brand_label is purely organizational metadata, doesn't affect posting, connections, or permissions at all | Safe to reassure this is cosmetic/organizational only |
 
+### "Why this worked" AI insight (shipped 2026-08-08)
+On the Analytics tab, a "Get AI insight: why this worked" button compares the customer's best- and worst-performing posts in the currently selected date range/brand and generates a short note on what differs plus one concrete suggestion for the next post.
+
+| Customer says... | Likely cause | Fix |
+|---|---|---|
+| "It says not enough data yet" | Needs at least 4 posts with real engagement numbers in the selected range, posts too fresh haven't collected engagement yet | Explain the threshold, suggest widening the date range (7/30/90 day picker) or checking back after more posts have had time to collect metrics |
+| "The insight seems vague / says the pattern isn't clear" | Working as intended, the AI is instructed to be honest rather than force a pattern that isn't really there in a mixed or low-signal sample | Not a bug, this is deliberate honesty over a confident-sounding guess |
+| "Does this run automatically / will I get spammed with insights?" | No, on-demand only, click the button each time, never runs automatically per post | Reassure it's opt-in each time, not a background feature |
+| "Does this count against my AI generation limit?" | Yes, same daily quota as captions/hashtags/content ideas | Point to the same daily-limit messaging if they hit it |
+| "Does it respect my brand filter?" | Yes, whatever brand filter is set on the Analytics tab when they click the button is what the insight is generated from | Confirm the right brand is selected before generating if they expected a different result |
+
 ### Security & data
 - **"Did you post something I didn't schedule?"** — first clarify whether it's a token compromise or a password compromise (different severity), give the exact platform-side revoke path, and if it's systemic (not one account), commit to a public status update. Fast and plain-language beats hedging (this is literally why Buffer's 2013 breach response is still cited as the industry model).
 - **Disconnecting an account** — always give BOTH steps: (1) disconnect inside LazyRelay, (2) also revoke access on the platform's own app-permissions page (link directly to Meta/TikTok/Pinterest's page). Don't assume step 1 alone fully revokes access.
