@@ -110,6 +110,17 @@ On top of the existing Mentions and DMs tabs, each comment/conversation now gets
 | "The badge/count didn't update after I opened the tab" | Classification runs once per comment/conversation and is cached — it only re-classifies a DM conversation when a new message actually arrives (existing comment text never changes, so comments classify once for good) | Refresh the tab; if a genuinely new message still isn't reflected, escalate as a real bug |
 | "Is this reading/storing what my customers say to me?" | Only the comment/DM text itself is sent to the AI for classification (via Anthropic), and only the classification result (flag + one-line reason) is stored — not the original comment/message content | Safe, factual answer if asked about data handling here |
 
+### Proof-of-Publish webhook (shipped 2026-08-08)
+A technical customer can set a webhook URL in Dashboard → Account → Webhook. LazyRelay POSTs a signed event to it the moment a post's Proof-of-Publish check confirms it's genuinely live (success only, not on failure). Aimed at customers wiring LazyRelay into their own systems, or a tool like Zapier/n8n/Make.
+
+| Customer says... | Likely cause | Fix |
+|---|---|---|
+| "How do I verify the webhook is really from LazyRelay?" | Every delivery is signed (HMAC-SHA256 of the raw JSON body, in the X-LazyRelay-Signature header) using the secret shown once when the webhook was set up | Recompute the HMAC on their end with their stored secret and compare; if they lost the secret, they can generate a new one from the same Account page (this invalidates the old one) |
+| "I didn't get a webhook for a post that failed" | Working as intended, this webhook only fires on success (verified live), never on failure — failure has its own separate opt-in email alert | Point them to the Failure alerts toggle if they also want failure notifications |
+| "I didn't get a webhook even though the post succeeded" | Delivery is a single fire-and-forget attempt with no retry, so a receiving endpoint that was down/erroring at that exact moment genuinely misses it | Confirm the post is actually marked verified/live in the dashboard first; if it is and the endpoint was up, that's worth escalating as a real bug |
+| "Can I get more than one webhook, or webhook on failure too?" | Not currently, one webhook URL per account, success-only | Log as a feature request, don't overpromise a timeline |
+| "I lost my secret / need to rotate it" | The secret is only ever shown once at creation, by design | They can regenerate it themselves from the same Account page, no need to also change the URL |
+
 ### Security & data
 - **"Did you post something I didn't schedule?"** — first clarify whether it's a token compromise or a password compromise (different severity), give the exact platform-side revoke path, and if it's systemic (not one account), commit to a public status update. Fast and plain-language beats hedging (this is literally why Buffer's 2013 breach response is still cited as the industry model).
 - **Disconnecting an account** — always give BOTH steps: (1) disconnect inside LazyRelay, (2) also revoke access on the platform's own app-permissions page (link directly to Meta/TikTok/Pinterest's page). Don't assume step 1 alone fully revokes access.
