@@ -7,6 +7,10 @@ export interface AuthedRequest extends Request {
   authMethod?: "jwt" | "apiKey";
   isAdmin?: boolean;
   adminKeyId?: string;
+  /** Set only for customer (non-admin) API key requests — lets a route
+   *  check that specific key's own permissions (e.g. can_share_proof)
+   *  without re-hashing the bearer token again. */
+  apiKeyCanShareProof?: boolean;
 }
 
 export const API_KEY_PREFIX = "lzr_live_";
@@ -21,12 +25,12 @@ export function hashApiKey(key: string): string {
  *  doesn't start with API_KEY_PREFIX is never a real key, so that check
  *  lets a Supabase JWT (which never has this prefix) fall straight through
  *  to the JWT path below without wasting a DB round-trip. */
-async function resolveApiKeyAccountId(key: string): Promise<string | null> {
+async function resolveApiKey(key: string): Promise<{ accountId: string; canShareProof: boolean } | null> {
   if (!key.startsWith(API_KEY_PREFIX)) return null;
   const keyHash = hashApiKey(key);
   const { data, error } = await supabase
     .from("api_keys")
-    .select("id, account_id")
+    .select("id, account_id, can_share_proof")
     .eq("key_hash", keyHash)
     .is("revoked_at", null)
     .maybeSingle();
@@ -40,7 +44,7 @@ async function resolveApiKeyAccountId(key: string): Promise<string | null> {
     .then(({ error: updateError }) => {
       if (updateError) console.error("Failed to update api_keys.last_used_at:", updateError.message);
     });
-  return data.account_id;
+  return { accountId: data.account_id, canShareProof: data.can_share_proof };
 }
 
 /** Admin keys are looked up from their own table, entirely separate from
@@ -196,10 +200,11 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
     return;
   }
 
-  const apiKeyAccountId = await resolveApiKeyAccountId(token);
-  if (apiKeyAccountId) {
-    req.accountId = apiKeyAccountId;
+  const apiKey = await resolveApiKey(token);
+  if (apiKey) {
+    req.accountId = apiKey.accountId;
     req.authMethod = "apiKey";
+    req.apiKeyCanShareProof = apiKey.canShareProof;
     next();
     return;
   }

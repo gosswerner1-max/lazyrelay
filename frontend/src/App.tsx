@@ -10,6 +10,7 @@ import { Contact } from "./pages/Contact";
 import { ApiDocs } from "./pages/ApiDocs";
 import { ConnectForm } from "./pages/ConnectForm";
 import { BioPage } from "./pages/BioPage";
+import { VerifyPage } from "./pages/VerifyPage";
 import { Spinner } from "./components/Spinner";
 import { CookieConsent } from "./components/CookieConsent";
 import "./App.css";
@@ -58,6 +59,9 @@ function Root() {
     // would silently rewrite the URL out from under the page a moment
     // after landing here.
     if (window.location.pathname.startsWith("/bio/")) return;
+    // Proof-of-Publish share links are the same shape of exception — a
+    // public page a customer shares outside the app, owning its own URL.
+    if (window.location.pathname.startsWith("/verify/")) return;
     window.scrollTo(0, 0);
     const path = VIEW_TO_PATH[view] ?? "/";
     if (window.location.pathname !== path) {
@@ -96,6 +100,15 @@ function Root() {
   const bioMatch = /^\/bio\/([a-z0-9-]{3,40})$/.exec(window.location.pathname);
   if (bioMatch) {
     return <BioPage slug={bioMatch[1]} />;
+  }
+
+  // Public Proof-of-Publish verification pages (/verify/<post_results.id>)
+  // — same reasoning as bio pages above, must render regardless of auth
+  // state since this is a link a customer shares with someone outside
+  // LazyRelay entirely (a client, franchise, compliance need).
+  const verifyMatch = /^\/verify\/([0-9a-fA-F-]{36})$/.exec(window.location.pathname);
+  if (verifyMatch) {
+    return <VerifyPage id={verifyMatch[1]} />;
   }
 
   // Docs must also render regardless of auth state — it's linked directly

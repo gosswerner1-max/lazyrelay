@@ -71,6 +71,12 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MED
 // unbounded input before it reaches the database.
 const MAX_POST_CONTENT_LENGTH = 5000;
 
+// Used to build the public Proof-of-Publish share link returned by
+// GET /scheduled-posts/:id/proof-link (see migration
+// 0038_proof_link_sharing.sql). No env var for this today — same fixed
+// production domain every other public link in this codebase assumes.
+const PUBLIC_SITE_URL = "https://lazyrelay.com";
+
 // Postgres/Supabase error messages can name internal detail (constraint
 // names, column names, query shape) that shouldn't reach a customer. Log the
 // real message server-side for debugging, return a generic one to the
@@ -484,6 +490,47 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
     res.json({ title: page.title, bio: page.bio, avatarUrl: page.avatar_url, links: links ?? [] });
+  });
+
+  // Public Proof-of-Publish verification page — no auth, this is what
+  // renders at lazyrelay.com/verify/:id when a customer shares the link
+  // from GET /scheduled-posts/:id/proof-link. post_results.id doubles as
+  // the public identifier (already a random UUID, same safety class as a
+  // Stripe/Zoom link — no dedicated slug column needed, see migration
+  // 0038_proof_link_sharing.sql). Returns 404 for both "doesn't exist" and
+  // "exists but not verified live" — never distinguish the two, and never
+  // include account_id, platform_post_id, or error_message.
+  router.get("/public/verify/:id", publicRateLimit, async (req, res) => {
+    const { data: result, error } = await supabase
+      .from("post_results")
+      .select(
+        "verified_live, platform_post_url, verification_checked_at, scheduled_posts(content, scheduled_for, social_accounts(platform, display_name), accounts(business_name))"
+      )
+      .eq("id", req.params.id)
+      .maybeSingle();
+    if (error) {
+      dbError(res, error, "GET /public/verify/:id");
+      return;
+    }
+    const post = result?.scheduled_posts as unknown as {
+      content: string;
+      scheduled_for: string;
+      social_accounts: { platform: string; display_name: string | null } | null;
+      accounts: { business_name: string | null } | null;
+    } | null;
+    if (!result || !result.verified_live || !post) {
+      res.status(404).json({ error: "Nothing verified at this link." });
+      return;
+    }
+    res.json({
+      businessName: post.accounts?.business_name ?? null,
+      platform: post.social_accounts?.platform ?? null,
+      accountName: post.social_accounts?.display_name ?? null,
+      content: post.content,
+      scheduledFor: post.scheduled_for,
+      verifiedAt: result.verification_checked_at,
+      platformPostUrl: result.platform_post_url,
+    });
   });
 
   // Starts the "connect your social account" flow — returns the URL the
@@ -1599,6 +1646,40 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.status(204).send();
   });
 
+  // Generates the public Proof-of-Publish share link for a post. A human
+  // dashboard session (JWT) can always do this — the frontend shows a
+  // confirm dialog before calling it, since each share is a deliberate
+  // one-off decision. A customer API key can only do it if that specific
+  // key has can_share_proof set (opted in at creation, off by default) —
+  // a genuine bring-your-own-agent automation path, not a standing default
+  // power. See migration 0038_proof_link_sharing.sql.
+  router.get("/scheduled-posts/:id/proof-link", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    if (req.authMethod === "apiKey" && !req.isAdmin && !req.apiKeyCanShareProof) {
+      res.status(403).json({
+        error: "This API key isn't permitted to generate proof-sharing links. Enable it for this key in your dashboard's API Keys settings.",
+      });
+      return;
+    }
+
+    const { data: result, error } = await supabase
+      .from("post_results")
+      .select("id, verified_live")
+      .eq("scheduled_post_id", req.params.id)
+      .eq("account_id", req.accountId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      dbError(res, error, "GET /scheduled-posts/:id/proof-link");
+      return;
+    }
+    if (!result || !result.verified_live) {
+      res.status(400).json({ error: "This post hasn't been verified live yet — nothing to share." });
+      return;
+    }
+    res.json({ url: `${PUBLIC_SITE_URL}/verify/${result.id}` });
+  });
+
   // --- Recurring schedules ("set it up once a week") ---
   // See docs/feature-spec-recurring-schedules.md for the full design.
 
@@ -2151,7 +2232,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // them, so a leaked key can't be used to self-escalate into permanent
   // access if the original key is later revoked.
   router.post("/api-keys", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { name } = req.body ?? {};
+    const { name, canShareProof } = req.body ?? {};
     if (typeof name !== "string" || name.trim().length === 0) {
       res.status(400).json({ error: "name is required" });
       return;
@@ -2168,8 +2249,13 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         name: name.trim(),
         key_prefix: rawKey.slice(0, API_KEY_PREFIX.length + 6),
         key_hash: hashApiKey(rawKey),
+        // Off by default — a newly created (or later leaked) key can't
+        // generate public proof-sharing links unless the customer
+        // explicitly opted in at creation. See migration
+        // 0038_proof_link_sharing.sql for the full reasoning.
+        can_share_proof: canShareProof === true,
       })
-      .select("id, name, key_prefix, created_at")
+      .select("id, name, key_prefix, can_share_proof, created_at")
       .single();
     if (error || !data) {
       dbError(res, error ?? { message: "insert returned no row" }, "POST /api-keys");
@@ -2183,7 +2269,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.get("/api-keys", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data, error } = await supabase
       .from("api_keys")
-      .select("id, name, key_prefix, created_at, last_used_at, revoked_at")
+      .select("id, name, key_prefix, can_share_proof, created_at, last_used_at, revoked_at")
       .eq("account_id", req.accountId)
       .order("created_at", { ascending: false });
     if (error) {

@@ -115,11 +115,14 @@ export function Dashboard() {
   const [savingBusinessName, setSavingBusinessName] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [apiKeyName, setApiKeyName] = useState("");
+  const [apiKeyCanShareProof, setApiKeyCanShareProof] = useState(false);
   const [creatingKey, setCreatingKey] = useState(false);
   const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null);
   const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
   const [announcingAdmin, setAnnouncingAdmin] = useState(false);
   const [adminWindowExpiresAt, setAdminWindowExpiresAt] = useState<string | null>(null);
+  const [sharingProofId, setSharingProofId] = useState<string | null>(null);
+  const [shareProofResult, setShareProofResult] = useState<{ postId: string; url: string; copied: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -992,9 +995,10 @@ export function Dashboard() {
     setCreatingKey(true);
     setError(null);
     try {
-      const created = await api.createApiKey(apiKeyName.trim());
+      const created = await api.createApiKey(apiKeyName.trim(), apiKeyCanShareProof);
       setNewlyCreatedKey(created.key);
       setApiKeyName("");
+      setApiKeyCanShareProof(false);
       const keys = await api.listApiKeys();
       setApiKeys(keys);
     } catch (err) {
@@ -1016,6 +1020,33 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setRevokingKeyId(null);
+    }
+  }
+
+  async function handleShareProof(postId: string) {
+    if (
+      !window.confirm(
+        "This creates a public link. Anyone with it can view this post's content, even without a LazyRelay account. Continue?"
+      )
+    ) {
+      return;
+    }
+    setSharingProofId(postId);
+    setError(null);
+    try {
+      const { url } = await api.getProofLink(postId);
+      try {
+        await navigator.clipboard.writeText(url);
+        setShareProofResult({ postId, url, copied: true });
+      } catch {
+        // Same real-failure handling as CodeBlock's copy button — clipboard
+        // writes can genuinely reject, show the link instead of going silent.
+        setShareProofResult({ postId, url, copied: false });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSharingProofId(null);
     }
   }
 
@@ -2163,6 +2194,19 @@ export function Dashboard() {
                     )}
                   </span>
                 )}
+                {result?.verified_live && (
+                  <button className="btn-outline" disabled={sharingProofId === p.id} onClick={() => handleShareProof(p.id)}>
+                    {sharingProofId === p.id ? "..." : "Share proof"}
+                  </button>
+                )}
+                {shareProofResult?.postId === p.id && (
+                  <span className="section-note">
+                    {shareProofResult.copied ? "Link copied: " : "Couldn't auto-copy, here's the link: "}
+                    <a href={shareProofResult.url} target="_blank" rel="noopener noreferrer">
+                      {shareProofResult.url}
+                    </a>
+                  </span>
+                )}
                 {p.status === "needs_approval" && (
                   <button
                     className="btn-outline"
@@ -2519,6 +2563,14 @@ export function Dashboard() {
             placeholder="Key name (e.g. Posting agent)"
             maxLength={60}
           />
+          <label className="api-key-share-proof-toggle">
+            <input
+              type="checkbox"
+              checked={apiKeyCanShareProof}
+              onChange={(e) => setApiKeyCanShareProof(e.target.checked)}
+            />
+            Allow this key to generate public proof-sharing links
+          </label>
           <button type="submit" disabled={creatingKey || !apiKeyName.trim()}>
             {creatingKey ? "Creating..." : "Create key"}
           </button>
@@ -2537,6 +2589,9 @@ export function Dashboard() {
                     <span className="status-badge status-active">
                       {k.last_used_at ? `last used ${new Date(k.last_used_at).toLocaleDateString()}` : "never used"}
                     </span>
+                  )}
+                  {k.can_share_proof && !k.revoked_at && (
+                    <span className="status-badge status-active">can share proof links</span>
                   )}
                 </span>
                 {!k.revoked_at && (

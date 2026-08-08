@@ -1,0 +1,21 @@
+-- Proof-of-Publish public sharing (2026-08-08) — customers can generate a
+-- public link proving a specific post genuinely went live (independently
+-- verified, not just "sent"). See project-competitor-feature-audit-
+-- 2026-08-07.md item 1 in the vault for why: none of 13 researched
+-- competitors market anything equivalent, and it was already-built but
+-- invisible to customers before this.
+--
+-- No new table for the public link itself — post_results.id is already a
+-- random, unguessable UUID, so it's used directly as the public identifier
+-- (same safety class as a Stripe/Zoom link), same reasoning as bio_pages'
+-- dedicated slug but without needing a new column since there's exactly
+-- one shareable thing per verified post, not a customer-chosen name.
+--
+-- What DOES need a new column: an explicit, off-by-default permission on
+-- API keys, so a customer's own AI agent can be granted the ability to
+-- generate these links itself (a real, legitimate bring-your-own-agent
+-- use case) without every newly-created or leaked key getting that power
+-- by default. A human dashboard session can always generate a link
+-- (gated by a confirm dialog client-side); an API-key-authenticated
+-- request can only do it if the specific key was explicitly granted this.
+alter table api_keys add column can_share_proof boolean not null default false;

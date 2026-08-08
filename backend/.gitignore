@@ -1,3 +1,7 @@
 node_modules/
 dist/
 .env
+
+# Supabase CLI's own local cache (project ref, version info, pooler URL) —
+# regenerated automatically on `supabase link`/`db push`, not a build artifact
+supabase/.temp/

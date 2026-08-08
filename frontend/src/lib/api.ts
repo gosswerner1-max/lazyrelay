@@ -203,9 +203,20 @@ export interface ApiKey {
   id: string;
   name: string;
   key_prefix: string;
+  can_share_proof: boolean;
   created_at: string;
   last_used_at: string | null;
   revoked_at: string | null;
+}
+
+export interface PublicVerification {
+  businessName: string | null;
+  platform: string | null;
+  accountName: string | null;
+  content: string;
+  scheduledFor: string;
+  verifiedAt: string | null;
+  platformPostUrl: string | null;
 }
 
 export const api = {
@@ -368,9 +379,22 @@ export const api = {
     authedFetch("/account", { method: "PATCH", body: JSON.stringify({ businessName }) }),
 
   listApiKeys: (): Promise<ApiKey[]> => authedFetch("/api-keys"),
-  createApiKey: (name: string): Promise<ApiKey & { key: string }> =>
-    authedFetch("/api-keys", { method: "POST", body: JSON.stringify({ name }) }),
+  createApiKey: (name: string, canShareProof: boolean): Promise<ApiKey & { key: string }> =>
+    authedFetch("/api-keys", { method: "POST", body: JSON.stringify({ name, canShareProof }) }),
   revokeApiKey: (id: string): Promise<null> => authedFetch(`/api-keys/${id}`, { method: "DELETE" }),
+
+  // Generates the public Proof-of-Publish share link for a post. The
+  // dashboard shows a confirm dialog before calling this (see Dashboard.tsx).
+  getProofLink: (scheduledPostId: string): Promise<{ url: string }> =>
+    authedFetch(`/scheduled-posts/${scheduledPostId}/proof-link`),
+
+  // Public, unauthenticated — same pattern as getPublicBioPage.
+  getPublicVerification: async (id: string): Promise<PublicVerification> => {
+    const res = await fetch(`${API_URL}/public/verify/${encodeURIComponent(id)}`);
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error ?? "Nothing verified at this link.");
+    return body;
+  },
 
   // Opens a 10-minute window for the NEXT admin-key request to go through.
   // Only works signed in as yourself — never with an API key. See
