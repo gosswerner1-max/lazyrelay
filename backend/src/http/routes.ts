@@ -183,7 +183,12 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
 
     try {
-      const client = new Anthropic({ apiKey });
+      // Explicit timeout — an unbounded call here would hold the request
+      // open indefinitely if Anthropic ever hangs, and could hit a generic
+      // proxy timeout instead of this route's own clean error response.
+      // 20s is generous headroom for Haiku + max_tokens 400 (normally a
+      // couple seconds) while still failing well before that.
+      const client = new Anthropic({ apiKey, timeout: 20_000 });
       const message = await client.messages.create({
         model: "claude-haiku-4-5",
         max_tokens: 400,
@@ -205,6 +210,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.json({ caption: textBlock.text.trim() });
     } catch (err) {
       console.error("[routes] POST /ai/caption:", err instanceof Error ? err.message : err);
+      if (err instanceof Anthropic.APIConnectionTimeoutError) {
+        res.status(504).json({ error: "AI caption generation took too long — please try again." });
+        return;
+      }
       res.status(502).json({ error: "AI caption generation failed — please try again." });
     }
   });
@@ -240,7 +249,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
 
     try {
-      const client = new Anthropic({ apiKey });
+      // Same timeout reasoning as /ai/caption above — bounded failure
+      // instead of an indefinitely open request.
+      const client = new Anthropic({ apiKey, timeout: 20_000 });
       const message = await client.messages.create({
         model: "claude-haiku-4-5",
         max_tokens: 200,
@@ -266,6 +277,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.json({ hashtags });
     } catch (err) {
       console.error("[routes] POST /ai/hashtags:", err instanceof Error ? err.message : err);
+      if (err instanceof Anthropic.APIConnectionTimeoutError) {
+        res.status(504).json({ error: "AI hashtag suggestions took too long — please try again." });
+        return;
+      }
       res.status(502).json({ error: "AI hashtag suggestions failed — please try again." });
     }
   });
