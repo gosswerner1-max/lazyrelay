@@ -115,6 +115,7 @@ export function Dashboard() {
   // input from the server once, so it never clobbers text the user is
   // actively typing into the Settings field.
   const businessNameSeeded = useRef(false);
+  const webhookUrlSeeded = useRef(false);
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [platforms, setPlatforms] = useState<PlatformInfo[]>([]);
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
@@ -137,6 +138,10 @@ export function Dashboard() {
   const [announcingAdmin, setAnnouncingAdmin] = useState(false);
   const [adminWindowExpiresAt, setAdminWindowExpiresAt] = useState<string | null>(null);
   const [savingFailureAlerts, setSavingFailureAlerts] = useState(false);
+  const [webhookUrlInput, setWebhookUrlInput] = useState("");
+  const [savingWebhook, setSavingWebhook] = useState(false);
+  const [regeneratingWebhookSecret, setRegeneratingWebhookSecret] = useState(false);
+  const [revealedWebhookSecret, setRevealedWebhookSecret] = useState<string | null>(null);
   const [sharingProofId, setSharingProofId] = useState<string | null>(null);
   const [shareProofResult, setShareProofResult] = useState<{ postId: string; url: string; copied: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -269,6 +274,10 @@ export function Dashboard() {
       if (!businessNameSeeded.current) {
         setBusinessNameInput(acct.businessName ?? "");
         businessNameSeeded.current = true;
+      }
+      if (!webhookUrlSeeded.current) {
+        setWebhookUrlInput(acct.webhookUrl ?? "");
+        webhookUrlSeeded.current = true;
       }
       setApiKeys(keys);
       // Drop any selected account that disappeared (e.g. disconnected)
@@ -1051,6 +1060,51 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSavingFailureAlerts(false);
+    }
+  }
+
+  async function handleSaveWebhook(e: FormEvent) {
+    e.preventDefault();
+    setSavingWebhook(true);
+    setError(null);
+    try {
+      const updated = await api.setWebhookUrl(webhookUrlInput.trim() || null);
+      setAccount(updated);
+      if (updated.webhookSecret) setRevealedWebhookSecret(updated.webhookSecret);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingWebhook(false);
+    }
+  }
+
+  async function handleClearWebhook() {
+    if (!window.confirm("Remove this webhook? LazyRelay will stop sending post-verified events to it.")) return;
+    setSavingWebhook(true);
+    setError(null);
+    try {
+      const updated = await api.setWebhookUrl(null);
+      setAccount(updated);
+      setWebhookUrlInput("");
+      setRevealedWebhookSecret(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingWebhook(false);
+    }
+  }
+
+  async function handleRegenerateWebhookSecret() {
+    if (!window.confirm("Generate a new webhook secret? The old one will stop verifying immediately.")) return;
+    setRegeneratingWebhookSecret(true);
+    setError(null);
+    try {
+      const { webhookSecret } = await api.regenerateWebhookSecret();
+      setRevealedWebhookSecret(webhookSecret);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRegeneratingWebhookSecret(false);
     }
   }
 
@@ -2584,6 +2638,55 @@ export function Dashboard() {
           />
           Email me if a scheduled post fails
         </label>
+      </section>
+      )}
+
+      {tab === "Account" && (
+      <section>
+        <h2>Webhook</h2>
+        <p className="section-note">
+          Get an HTTPS POST the moment a scheduled post's Proof-of-Publish check confirms it went live. Useful
+          for wiring LazyRelay into your own systems, or a tool like Zapier, n8n, or Make. Each delivery is
+          signed with your secret (HMAC-SHA256, in the X-LazyRelay-Signature header) so you can verify it
+          genuinely came from LazyRelay.
+        </p>
+        <form onSubmit={handleSaveWebhook} className="dm-automation-form">
+          <input
+            type="url"
+            placeholder="https://your-endpoint.example.com/webhook"
+            value={webhookUrlInput}
+            onChange={(e) => setWebhookUrlInput(e.target.value)}
+            maxLength={2000}
+          />
+          <button type="submit" disabled={savingWebhook || !webhookUrlInput.trim()}>
+            {savingWebhook ? "Saving..." : "Save"}
+          </button>
+          {account?.webhookUrl && (
+            <button type="button" className="btn-outline" onClick={handleClearWebhook} disabled={savingWebhook}>
+              Remove
+            </button>
+          )}
+        </form>
+        {account?.webhookConfigured && (
+          <button
+            type="button"
+            className="btn-outline"
+            onClick={handleRegenerateWebhookSecret}
+            disabled={regeneratingWebhookSecret || !account.webhookUrl}
+            style={{ marginTop: 8 }}
+          >
+            {regeneratingWebhookSecret ? "Generating..." : "Regenerate secret"}
+          </button>
+        )}
+        {revealedWebhookSecret && (
+          <div className="api-key-reveal" style={{ marginTop: 12 }}>
+            <p><strong>Copy this secret now.</strong> It won't be shown again.</p>
+            <code>{revealedWebhookSecret}</code>
+            <button type="button" className="btn-outline" onClick={() => setRevealedWebhookSecret(null)}>
+              Done
+            </button>
+          </div>
+        )}
       </section>
       )}
 

@@ -3,6 +3,7 @@ import type { PlatformAdapterRegistry } from "./platforms/connect.js";
 import type { PlatformAdapter } from "./platforms/types.js";
 import { notifyOps } from "./notify.js";
 import { sendFailureAlert, sendAccountPausedAlert } from "./email.js";
+import { sendVerifiedWebhook } from "./webhook.js";
 
 const CLAIM_BATCH_SIZE = 10;
 
@@ -229,6 +230,32 @@ async function maybeSendFailureAlert(post: DuePost, content: string, reason: str
   }
 }
 
+/** Looks up whether this account has a webhook configured (item 5,
+ *  2026-08-07 competitor audit — off by default, see migration
+ *  0041_webhooks.sql) and fires it if so. Same best-effort reasoning as
+ *  maybeSendFailureAlert: a lookup/send problem must never affect the
+ *  scheduler's own success path — the post is already live and verified,
+ *  which is the promise that matters. */
+async function maybeSendWebhook(post: DuePost, platformPostUrl: string | null, verifiedAt: string): Promise<void> {
+  try {
+    const { data: account } = await supabase
+      .from("accounts")
+      .select("webhook_url, webhook_secret")
+      .eq("id", post.account_id)
+      .maybeSingle();
+    if (!account?.webhook_url || !account.webhook_secret) return;
+    sendVerifiedWebhook(account.webhook_url, account.webhook_secret, {
+      postId: post.id,
+      platform: post.platform,
+      content: post.content,
+      platformPostUrl,
+      verifiedAt,
+    });
+  } catch (err) {
+    console.error("[scheduler] maybeSendWebhook lookup failed:", err instanceof Error ? err.message : err);
+  }
+}
+
 /** A failure that hasn't exhausted its retries goes back to `pending` with
  *  an exponential backoff delay instead of being marked `failed` outright.
  *  Only once MAX_RETRIES is exhausted does this become a real, alerted
@@ -326,6 +353,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     // attempted) and are filled in below, only once the parent post is
     // confirmed live — a comment on a post that isn't verified would be
     // commenting on something LazyRelay can't actually vouch for yet.
+    const verifiedAt = new Date().toISOString();
     const { data: resultRow } = await supabase
       .from("post_results")
       .insert({
@@ -334,7 +362,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
         platform_post_id: attempt.platformPostId,
         platform_post_url: verification.platformPostUrl,
         verified_live: verification.verifiedLive,
-        verification_checked_at: new Date().toISOString(),
+        verification_checked_at: verifiedAt,
         error_message: verification.errorMessage,
       })
       .select("id")
@@ -348,6 +376,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
 
     recordSuccess(adapter.platform);
     await supabase.from("scheduled_posts").update({ status: "posted" }).eq("id", post.id);
+    await maybeSendWebhook(post, verification.platformPostUrl, verifiedAt);
 
     // Best-effort, non-fatal: a comment failure must never flip the parent
     // post's own status or trigger handleFailure's retry path — the post

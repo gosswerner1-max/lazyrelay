@@ -83,6 +83,9 @@ export interface Account {
   email: string;
   businessName: string | null;
   emailFailureAlertsEnabled: boolean;
+  webhookUrl: string | null;
+  webhookConfigured: boolean;
+  webhookSecret?: string;
 }
 
 export interface RecurringSchedule {
@@ -388,6 +391,10 @@ export const api = {
     authedFetch("/account", { method: "PATCH", body: JSON.stringify({ businessName }) }),
   setEmailFailureAlerts: (enabled: boolean): Promise<Account> =>
     authedFetch("/account", { method: "PATCH", body: JSON.stringify({ emailFailureAlertsEnabled: enabled }) }),
+  setWebhookUrl: (webhookUrl: string | null): Promise<Account> =>
+    authedFetch("/account", { method: "PATCH", body: JSON.stringify({ webhookUrl }) }),
+  regenerateWebhookSecret: (): Promise<{ webhookSecret: string }> =>
+    authedFetch("/account/webhook/regenerate-secret", { method: "POST" }),
 
   listApiKeys: (): Promise<ApiKey[]> => authedFetch("/api-keys"),
   createApiKey: (name: string, canShareProof: boolean): Promise<ApiKey & { key: string }> =>

@@ -20,6 +20,7 @@ import { cancelFuturePendingOccurrences } from "../recurringScheduler.js";
 import { checkGenerationLimit, recordGeneration } from "../aiUsage.js";
 import { triageItems, type TriageItem, type TriageResult } from "../commentTriage.js";
 import type { CommentItem } from "../platforms/types.js";
+import { generateWebhookSecret } from "../webhook.js";
 
 // Storage add-ons — priced 2026-07-23 after researching real comparables
 // (consumer cloud storage clusters $0.005-0.02/GB/mo, the closest real B2B
@@ -2234,18 +2235,27 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.get("/account", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data, error } = await supabase
       .from("accounts")
-      .select("email, business_name, email_failure_alerts_enabled")
+      .select("email, business_name, email_failure_alerts_enabled, webhook_url, webhook_secret")
       .eq("id", req.accountId)
       .single();
     if (error || !data) {
       res.status(404).json({ error: "Account not found" });
       return;
     }
-    res.json({ email: data.email, businessName: data.business_name, emailFailureAlertsEnabled: data.email_failure_alerts_enabled });
+    res.json({
+      email: data.email,
+      businessName: data.business_name,
+      emailFailureAlertsEnabled: data.email_failure_alerts_enabled,
+      webhookUrl: data.webhook_url,
+      // Never the raw secret here — only whether one exists, so it isn't
+      // repeated in every account fetch. Revealed once on the request that
+      // sets/creates it, or via POST /account/webhook/regenerate-secret.
+      webhookConfigured: !!data.webhook_secret,
+    });
   });
 
   router.patch("/account", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { businessName, emailFailureAlertsEnabled } = req.body ?? {};
+    const { businessName, emailFailureAlertsEnabled, webhookUrl } = req.body ?? {};
     if (businessName !== undefined && businessName !== null && typeof businessName !== "string") {
       res.status(400).json({ error: "businessName must be a string or null" });
       return;
@@ -2258,20 +2268,91 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(400).json({ error: "emailFailureAlertsEnabled must be a boolean" });
       return;
     }
+    if (webhookUrl !== undefined && webhookUrl !== null && typeof webhookUrl !== "string") {
+      res.status(400).json({ error: "webhookUrl must be a string or null" });
+      return;
+    }
+    // A leaked/compromised API key silently repointing the webhook would be
+    // a persistent, ongoing exfiltration channel for every future verified
+    // post — same escalation-risk shape as API key creation itself, so this
+    // is human-dashboard-only, not something an agent can do headlessly.
+    if (webhookUrl !== undefined && req.authMethod === "apiKey" && !req.isAdmin) {
+      res.status(403).json({ error: "Webhook settings can only be changed from a logged-in dashboard session, not an API key." });
+      return;
+    }
+    let newWebhookSecret: string | null = null;
+    let normalizedWebhookUrl: string | null | undefined = undefined;
+    if (typeof webhookUrl === "string") {
+      const trimmed = webhookUrl.trim();
+      if (trimmed.length === 0) {
+        res.status(400).json({ error: "webhookUrl can't be empty, pass null to remove it" });
+        return;
+      }
+      let parsed: URL;
+      try {
+        parsed = new URL(trimmed);
+      } catch {
+        res.status(400).json({ error: "webhookUrl must be a valid URL" });
+        return;
+      }
+      if (parsed.protocol !== "https:") {
+        res.status(400).json({ error: "webhookUrl must use https" });
+        return;
+      }
+      normalizedWebhookUrl = trimmed;
+      const { data: existing } = await supabase.from("accounts").select("webhook_secret").eq("id", req.accountId).maybeSingle();
+      if (!existing?.webhook_secret) newWebhookSecret = generateWebhookSecret();
+    } else if (webhookUrl === null) {
+      normalizedWebhookUrl = null;
+    }
+
     const update: Record<string, unknown> = {};
     if (businessName !== undefined) update.business_name = businessName?.trim() || null;
     if (emailFailureAlertsEnabled !== undefined) update.email_failure_alerts_enabled = emailFailureAlertsEnabled;
+    if (normalizedWebhookUrl !== undefined) {
+      update.webhook_url = normalizedWebhookUrl;
+      if (normalizedWebhookUrl === null) update.webhook_secret = null;
+      else if (newWebhookSecret) update.webhook_secret = newWebhookSecret;
+    }
     const { data, error } = await supabase
       .from("accounts")
       .update(update)
       .eq("id", req.accountId)
-      .select("email, business_name, email_failure_alerts_enabled")
+      .select("email, business_name, email_failure_alerts_enabled, webhook_url, webhook_secret")
       .single();
     if (error || !data) {
       dbError(res, error ?? { message: "update returned no row" }, "PATCH /account");
       return;
     }
-    res.json({ email: data.email, businessName: data.business_name, emailFailureAlertsEnabled: data.email_failure_alerts_enabled });
+    res.json({
+      email: data.email,
+      businessName: data.business_name,
+      emailFailureAlertsEnabled: data.email_failure_alerts_enabled,
+      webhookUrl: data.webhook_url,
+      webhookConfigured: !!data.webhook_secret,
+      // Only present the one time a secret is newly generated — same
+      // "shown once, save it now" pattern as API key creation.
+      ...(newWebhookSecret ? { webhookSecret: newWebhookSecret } : {}),
+    });
+  });
+
+  // Lets a customer rotate a compromised/leaked webhook secret without
+  // having to also change (and re-register with their own systems) the
+  // webhook URL itself. Human-dashboard-only, same reasoning as the
+  // webhookUrl check in PATCH /account above.
+  router.post("/account/webhook/regenerate-secret", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: existing } = await supabase.from("accounts").select("webhook_url").eq("id", req.accountId).maybeSingle();
+    if (!existing?.webhook_url) {
+      res.status(400).json({ error: "Set a webhook URL first before generating a secret." });
+      return;
+    }
+    const newSecret = generateWebhookSecret();
+    const { error } = await supabase.from("accounts").update({ webhook_secret: newSecret }).eq("id", req.accountId);
+    if (error) {
+      dbError(res, error, "POST /account/webhook/regenerate-secret");
+      return;
+    }
+    res.json({ webhookSecret: newSecret });
   });
 
   // API keys let a customer's own AI agent call this API directly and
