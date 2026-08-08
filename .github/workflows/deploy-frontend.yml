@@ -45,6 +45,7 @@ jobs:
           VITE_API_URL=${{ secrets.VITE_API_URL }}
           VITE_PADDLE_CLIENT_TOKEN=${{ secrets.VITE_PADDLE_CLIENT_TOKEN }}
           VITE_PADDLE_ENVIRONMENT=${{ secrets.VITE_PADDLE_ENVIRONMENT }}
+          VITE_TURNSTILE_SITE_KEY=${{ secrets.VITE_TURNSTILE_SITE_KEY }}
           EOF
 
       - name: Build

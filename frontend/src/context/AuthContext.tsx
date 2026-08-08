@@ -6,8 +6,8 @@ import { trackSignUp } from "../lib/analytics";
 interface AuthContextValue {
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, businessName?: string) => Promise<{ error: string | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, captchaToken: string, businessName?: string) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string, captchaToken: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, businessName?: string) => {
+  const signUp = async (email: string, password: string, captchaToken: string, businessName?: string) => {
     // business_name rides in Supabase's user metadata purely to get it to
     // the handle_new_user() trigger (see migration 0024) — it isn't read
     // back from here, the accounts table is the source of truth afterward.
@@ -36,14 +36,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: trimmed ? { data: { business_name: trimmed } } : undefined,
+      options: { captchaToken, ...(trimmed ? { data: { business_name: trimmed } } : {}) },
     });
     if (!error) trackSignUp();
     return { error: error?.message ?? null };
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const signIn = async (email: string, password: string, captchaToken: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } });
     return { error: error?.message ?? null };
   };
 
