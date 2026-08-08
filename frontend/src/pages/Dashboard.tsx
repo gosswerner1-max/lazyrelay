@@ -17,6 +17,12 @@ const MAIN_TABS: Tab[] = ["Overview", "Posts", "Calendar", "Accounts"];
 const MORE_TABS: Tab[] = ["Analytics", "Mentions", "DMs", "Bio Page", "Storage", "Account", "API Keys", "Billing"];
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+// Multi-brand filtering (2026-08-08) — matches the backend's
+// UNBRANDED_FILTER_VALUE sentinel in routes.ts, used wherever a customer
+// filters Overview/Posts/Calendar/Mentions/DMs/Analytics down to accounts
+// that have no brand label set yet.
+const UNBRANDED_FILTER_VALUE = "__unbranded__";
+
 function localDateKey(iso: string): string {
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -35,6 +41,38 @@ function TriageBadge({ triage }: { triage?: Triage | null }) {
       {TRIAGE_CATEGORY_LABELS[triage.category] ?? "Needs attention"}
     </span>
   );
+}
+
+// Multi-brand filtering (2026-08-08) — one shared dropdown, rendered in
+// every view a brand filter applies to (Overview, Posts, Calendar,
+// Analytics, Mentions, DMs), all bound to the same brandFilter state so
+// switching tabs doesn't lose the customer's current filter. Hidden
+// entirely when there's nothing to filter by (0-1 connected accounts, or
+// every account shares one unlabeled bucket) rather than showing a
+// single-option dropdown that does nothing.
+function BrandFilterSelect({ accounts, value, onChange }: { accounts: SocialAccount[]; value: string; onChange: (v: string) => void }) {
+  const labels = [...new Set(accounts.map((a) => a.brand_label?.trim()).filter((l): l is string => !!l))].sort();
+  const hasUnbranded = accounts.some((a) => !a.brand_label?.trim());
+  if (labels.length === 0) return null;
+  return (
+    <select className="brand-filter-select" value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">All brands</option>
+      {labels.map((l) => (
+        <option key={l} value={l}>
+          {l}
+        </option>
+      ))}
+      {hasUnbranded && <option value={UNBRANDED_FILTER_VALUE}>Unbranded</option>}
+    </select>
+  );
+}
+
+function accountMatchesBrand(account: SocialAccount | undefined, brandFilter: string): boolean {
+  if (!brandFilter) return true;
+  if (!account) return false;
+  const label = account.brand_label?.trim();
+  if (brandFilter === UNBRANDED_FILTER_VALUE) return !label;
+  return label === brandFilter;
 }
 
 // Minimal RFC4180-ish CSV parser — handles quoted fields, escaped ""
@@ -148,6 +186,9 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Overview");
+  const [brandFilter, setBrandFilter] = useState("");
+  const [brandLabelDrafts, setBrandLabelDrafts] = useState<Record<string, string>>({});
+  const [savingBrandLabelId, setSavingBrandLabelId] = useState<string | null>(null);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const [billingBusy, setBillingBusy] = useState<"pro" | "business" | "enterprise" | "cancel" | null>(null);
@@ -354,11 +395,11 @@ export function Dashboard() {
     const days = tab === "Overview" ? 30 : analyticsRangeDays;
     setAnalyticsLoading(true);
     api
-      .getAnalyticsSummary(days)
+      .getAnalyticsSummary(days, brandFilter || undefined)
       .then(setAnalytics)
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setAnalyticsLoading(false));
-  }, [tab, analyticsRangeDays]);
+  }, [tab, analyticsRangeDays, brandFilter]);
 
   // Lazy-loaded — fetching comments hits each platform's API per post, so
   // this should only run when the customer actually opens the tab, not on
@@ -535,6 +576,24 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setDisconnectingAccountId(null);
+    }
+  }
+
+  async function handleSaveBrandLabel(id: string, label: string) {
+    setSavingBrandLabelId(id);
+    setError(null);
+    try {
+      await api.setBrandLabel(id, label.trim() || null);
+      await refresh();
+      setBrandLabelDrafts((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingBrandLabelId(null);
     }
   }
 
@@ -1377,6 +1436,7 @@ export function Dashboard() {
             </button>
           ))}
         </div>
+        <BrandFilterSelect accounts={accounts} value={brandFilter} onChange={setBrandFilter} />
         {analyticsLoading && <Spinner />}
         {!analyticsLoading && analytics && analytics.totalPosts === 0 && (
           <p className="empty">No posts scheduled in this range yet — analytics fill in once posts go out.</p>
@@ -1494,9 +1554,10 @@ export function Dashboard() {
         {!mentionsLoading && mentions && mentions.length === 0 && <p className="empty">No recent posted content yet.</p>}
         {!mentionsLoading && mentions && mentions.length > 0 && (() => {
           const attentionCount = mentions.reduce((sum, p) => sum + p.comments.filter((c) => c.triage?.needsAttention).length, 0);
+          const brandFilteredMentions = mentions.filter((p) => accountMatchesBrand(accounts.find((a) => a.id === p.socialAccountId), brandFilter));
           const visiblePosts = mentionsAttentionOnly
-            ? mentions.map((p) => ({ ...p, comments: p.comments.filter((c) => c.triage?.needsAttention) })).filter((p) => p.comments.length > 0)
-            : mentions;
+            ? brandFilteredMentions.map((p) => ({ ...p, comments: p.comments.filter((c) => c.triage?.needsAttention) })).filter((p) => p.comments.length > 0)
+            : brandFilteredMentions;
 
           // Same date-grouped pattern as the Posts tab's History list
           // (2026-08-07, Werner: "must do the same here") — a flat list
@@ -1510,11 +1571,12 @@ export function Dashboard() {
           const sortedKeys = [...groups.keys()].sort((a, b) => b.localeCompare(a));
           return (
           <>
+            <BrandFilterSelect accounts={accounts} value={brandFilter} onChange={setBrandFilter} />
             <label className="triage-filter">
               <input type="checkbox" checked={mentionsAttentionOnly} onChange={(e) => setMentionsAttentionOnly(e.target.checked)} />
               {attentionCount > 0 ? `Show only the ${attentionCount} that need attention` : "Show only comments that need attention"}
             </label>
-            {mentionsAttentionOnly && visiblePosts.length === 0 && <p className="empty">Nothing needs your attention right now.</p>}
+            {visiblePosts.length === 0 && <p className="empty">Nothing to show for this filter right now.</p>}
             {sortedKeys.map((key, i) => {
             const posts = groups.get(key)!;
             const label = new Date(`${key}T00:00:00`).toLocaleDateString(undefined, {
@@ -1608,10 +1670,12 @@ export function Dashboard() {
           <p className="empty">No conversations yet.</p>
         )}
         {!dmConversationsLoading && dmConversations && dmConversations.length > 0 && (() => {
-          const dmAttentionCount = dmConversations.filter((c) => c.triage?.needsAttention).length;
-          const visibleConversations = dmsAttentionOnly ? dmConversations.filter((c) => c.triage?.needsAttention) : dmConversations;
+          const brandFilteredConversations = dmConversations.filter((c) => accountMatchesBrand(accounts.find((a) => a.id === c.socialAccountId), brandFilter));
+          const dmAttentionCount = brandFilteredConversations.filter((c) => c.triage?.needsAttention).length;
+          const visibleConversations = dmsAttentionOnly ? brandFilteredConversations.filter((c) => c.triage?.needsAttention) : brandFilteredConversations;
           return (
           <div className="dm-layout-wrap">
+            <BrandFilterSelect accounts={accounts} value={brandFilter} onChange={setBrandFilter} />
             <label className="triage-filter">
               <input type="checkbox" checked={dmsAttentionOnly} onChange={(e) => setDmsAttentionOnly(e.target.checked)} />
               {dmAttentionCount > 0 ? `Show only the ${dmAttentionCount} that need attention` : "Show only conversations that need attention"}
@@ -1823,7 +1887,12 @@ export function Dashboard() {
       </section>
       )}
 
-      {tab === "Overview" && <OverviewPanel analytics={analytics} loading={analyticsLoading} />}
+      {tab === "Overview" && (
+        <>
+          <BrandFilterSelect accounts={accounts} value={brandFilter} onChange={setBrandFilter} />
+          <OverviewPanel analytics={analytics} loading={analyticsLoading} />
+        </>
+      )}
 
       {tab === "Accounts" && (
       <section>
@@ -1832,25 +1901,51 @@ export function Dashboard() {
           <p className="empty">No accounts connected yet — connect one to start scheduling posts.</p>
         ) : (
           <ul className="account-list">
-            {accounts.map((a) => (
-              <li key={a.id}>
-                <span className="platform-badge">
-                  <PlatformIcon platform={a.platform} size={13} />
-                  {a.platform}
-                </span>
-                {a.display_name ?? a.platform_account_id}
-                <button
-                  type="button"
-                  className="btn-outline"
-                  disabled={disconnectingAccountId !== null}
-                  onClick={() => handleDisconnectAccount(a)}
-                >
-                  {disconnectingAccountId === a.id ? "Disconnecting..." : "Disconnect"}
-                </button>
-              </li>
-            ))}
+            {accounts.map((a) => {
+              const draft = brandLabelDrafts[a.id] ?? a.brand_label ?? "";
+              const dirty = draft !== (a.brand_label ?? "");
+              return (
+                <li key={a.id}>
+                  <span className="platform-badge">
+                    <PlatformIcon platform={a.platform} size={13} />
+                    {a.platform}
+                  </span>
+                  {a.display_name ?? a.platform_account_id}
+                  <input
+                    type="text"
+                    className="brand-label-input"
+                    placeholder="Brand (optional)"
+                    value={draft}
+                    maxLength={60}
+                    onChange={(e) => setBrandLabelDrafts((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                  />
+                  {dirty && (
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      disabled={savingBrandLabelId === a.id}
+                      onClick={() => handleSaveBrandLabel(a.id, draft)}
+                    >
+                      {savingBrandLabelId === a.id ? "Saving..." : "Save"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    disabled={disconnectingAccountId !== null}
+                    onClick={() => handleDisconnectAccount(a)}
+                  >
+                    {disconnectingAccountId === a.id ? "Disconnecting..." : "Disconnect"}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
+        <p className="section-note">
+          Give an account a brand name if you're running more than one business through LazyRelay. You can then
+          filter Overview, Posts, Calendar, Analytics, Mentions, and DMs down to just that brand.
+        </p>
         <h3>Connect a platform</h3>
         <div className="platform-grid">
           {platforms.map((p) => {
@@ -2288,8 +2383,9 @@ export function Dashboard() {
       </section>
 
       {(() => {
-        const upcoming = posts.filter((p) => p.status === "pending" || p.status === "posting" || p.status === "needs_approval");
-        const history = posts
+        const brandFiltered = posts.filter((p) => accountMatchesBrand(accounts.find((a) => a.id === p.social_account_id), brandFilter));
+        const upcoming = brandFiltered.filter((p) => p.status === "pending" || p.status === "posting" || p.status === "needs_approval");
+        const history = brandFiltered
           .filter((p) => p.status !== "pending" && p.status !== "posting" && p.status !== "needs_approval")
           .slice()
           .sort((a, b) => new Date(b.scheduled_for).getTime() - new Date(a.scheduled_for).getTime());
@@ -2378,6 +2474,7 @@ export function Dashboard() {
           <>
             <section>
               <h2>Upcoming</h2>
+              <BrandFilterSelect accounts={accounts} value={brandFilter} onChange={setBrandFilter} />
               {upcoming.length === 0 ? (
                 <p className="empty">Nothing scheduled yet.</p>
               ) : (
@@ -2455,6 +2552,7 @@ export function Dashboard() {
         // full historical archive.
         const postsByDay: Record<string, ScheduledPost[]> = {};
         for (const p of posts) {
+          if (!accountMatchesBrand(accounts.find((a) => a.id === p.social_account_id), brandFilter)) continue;
           const key = localDateKey(p.scheduled_for);
           (postsByDay[key] ??= []).push(p);
         }
@@ -2492,6 +2590,7 @@ export function Dashboard() {
                 Next &rarr;
               </button>
             </div>
+            <BrandFilterSelect accounts={accounts} value={brandFilter} onChange={setBrandFilter} />
 
             <div className="calendar-grid">
               {WEEKDAY_LABELS.map((w) => (

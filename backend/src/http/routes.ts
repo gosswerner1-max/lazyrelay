@@ -698,11 +698,46 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.get("/social-accounts", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data, error } = await supabase
       .from("social_accounts")
-      .select("id, platform, platform_account_id, display_name, connected_at, disconnected_at")
+      .select("id, platform, platform_account_id, display_name, connected_at, disconnected_at, brand_label")
       .eq("account_id", req.accountId)
       .is("disconnected_at", null);
     if (error) {
       dbError(res, error, "GET /social-accounts");
+      return;
+    }
+    res.json(data);
+  });
+
+  // Multi-brand support (2026-08-08, item 8 from the 2026-08-07 competitor
+  // audit) — a free-text label per connected account, not a new billing
+  // concept. Lets a solo operator running several small businesses through
+  // one LazyRelay login filter Overview/Posts/Calendar/Mentions/DMs/Analytics
+  // down to one brand at a time. See migration
+  // 0042_social_account_brand_label.sql.
+  const MAX_BRAND_LABEL_LENGTH = 60;
+  router.patch("/social-accounts/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { brandLabel } = req.body ?? {};
+    if (brandLabel !== undefined && brandLabel !== null && typeof brandLabel !== "string") {
+      res.status(400).json({ error: "brandLabel must be a string or null" });
+      return;
+    }
+    if (typeof brandLabel === "string" && brandLabel.length > MAX_BRAND_LABEL_LENGTH) {
+      res.status(400).json({ error: `brandLabel must be ${MAX_BRAND_LABEL_LENGTH} characters or fewer` });
+      return;
+    }
+    const { data, error } = await supabase
+      .from("social_accounts")
+      .update({ brand_label: brandLabel?.trim() || null })
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .select("id, platform, platform_account_id, display_name, connected_at, disconnected_at, brand_label")
+      .maybeSingle();
+    if (error) {
+      dbError(res, error, "PATCH /social-accounts/:id");
+      return;
+    }
+    if (!data) {
+      res.status(404).json({ error: "Not found or not owned by this caller" });
       return;
     }
     res.json(data);
@@ -1225,6 +1260,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
     const results: {
       postId: string;
+      socialAccountId: string;
       platform: string;
       content: string;
       scheduledFor: string;
@@ -1243,7 +1279,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
       const adapter = registry.get(platform);
       if (!adapter || !adapter.getComments) {
-        results.push({ postId: post.id, platform, content: post.content, scheduledFor: post.scheduled_for, platformPostUrl: result.platform_post_url, supported: false, comments: [] });
+        results.push({ postId: post.id, socialAccountId: post.social_account_id, platform, content: post.content, scheduledFor: post.scheduled_for, platformPostUrl: result.platform_post_url, supported: false, comments: [] });
         continue;
       }
 
@@ -1257,12 +1293,13 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
           ? await supabase.rpc("read_social_token", { p_vault_id: account.access_token_vault_id })
           : { data: null };
         if (!accessToken) {
-          results.push({ postId: post.id, platform, content: post.content, scheduledFor: post.scheduled_for, platformPostUrl: result.platform_post_url, supported: true, comments: [], errorMessage: "Could not load this account's access token" });
+          results.push({ postId: post.id, socialAccountId: post.social_account_id, platform, content: post.content, scheduledFor: post.scheduled_for, platformPostUrl: result.platform_post_url, supported: true, comments: [], errorMessage: "Could not load this account's access token" });
           continue;
         }
         const commentsResult = await adapter.getComments(result.platform_post_id, accessToken as string);
         results.push({
           postId: post.id,
+          socialAccountId: post.social_account_id,
           platform,
           content: post.content,
           scheduledFor: post.scheduled_for,
@@ -1278,6 +1315,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       } catch (err) {
         results.push({
           postId: post.id,
+          socialAccountId: post.social_account_id,
           platform,
           content: post.content,
           scheduledFor: post.scheduled_for,
@@ -1603,11 +1641,34 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // into the operational numbers a customer actually needs today: how many
   // posts went out, per platform, how many actually verified live vs
   // failed, and the daily volume trend.
+  // Multi-brand filtering (2026-08-08, item 8) — this route pre-aggregates
+  // server-side (unlike Posts/Mentions/DMs, which send raw rows the
+  // frontend can filter by social_account_id itself), so brand filtering
+  // has to happen here rather than client-side. "brand" query param:
+  // omitted = no filter, "__unbranded__" = accounts with no brand_label,
+  // anything else = that exact label.
+  const UNBRANDED_FILTER_VALUE = "__unbranded__";
   router.get("/analytics/summary", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 90);
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const brand = typeof req.query.brand === "string" && req.query.brand.length > 0 ? req.query.brand : undefined;
 
-    const { data, error } = await supabase
+    let matchingSocialAccountIds: string[] | undefined;
+    if (brand !== undefined) {
+      let brandQuery = supabase.from("social_accounts").select("id").eq("account_id", req.accountId);
+      brandQuery = brand === UNBRANDED_FILTER_VALUE ? brandQuery.is("brand_label", null) : brandQuery.eq("brand_label", brand);
+      const { data: matching, error: brandError } = await brandQuery;
+      if (brandError) {
+        dbError(res, brandError, "GET /analytics/summary (brand filter)");
+        return;
+      }
+      // A dummy UUID when nothing matches, rather than an empty array —
+      // .in() with an empty list isn't a reliable "match nothing" across
+      // Supabase JS versions, and this guarantees zero rows either way.
+      matchingSocialAccountIds = matching && matching.length > 0 ? matching.map((r) => r.id) : ["00000000-0000-0000-0000-000000000000"];
+    }
+
+    let scheduledPostsQuery = supabase
       .from("scheduled_posts")
       .select(
         "id, status, scheduled_for, social_accounts(platform), post_results(verified_live, error_message), post_metrics(checkpoint, likes, comments, shares, views)"
@@ -1615,6 +1676,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       .eq("account_id", req.accountId)
       .gte("scheduled_for", since)
       .order("scheduled_for", { ascending: true });
+    if (matchingSocialAccountIds) {
+      scheduledPostsQuery = scheduledPostsQuery.in("social_account_id", matchingSocialAccountIds);
+    }
+    const { data, error } = await scheduledPostsQuery;
     if (error) {
       dbError(res, error, "GET /analytics/summary");
       return;

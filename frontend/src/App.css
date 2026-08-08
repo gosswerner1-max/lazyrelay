@@ -414,6 +414,26 @@
   margin-left: auto;
 }
 
+.brand-label-input {
+  width: 140px;
+  font: 13px/1.4 var(--font-body);
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.brand-filter-select {
+  font: 13px/1.4 var(--font-body);
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+
 .platform-badge {
   display: inline-flex;
   align-items: center;

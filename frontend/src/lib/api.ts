@@ -28,6 +28,7 @@ export interface SocialAccount {
   platform_account_id: string;
   display_name: string | null;
   connected_at: string;
+  brand_label: string | null;
 }
 
 export interface ScheduledPost {
@@ -169,6 +170,7 @@ export interface MentionComment {
 
 export interface MentionPost {
   postId: string;
+  socialAccountId: string;
   platform: string;
   content: string;
   scheduledFor: string;
@@ -234,6 +236,8 @@ export interface PublicVerification {
 export const api = {
   listSocialAccounts: (): Promise<SocialAccount[]> => authedFetch("/social-accounts"),
   disconnectSocialAccount: (id: string): Promise<null> => authedFetch(`/social-accounts/${id}`, { method: "DELETE" }),
+  setBrandLabel: (id: string, brandLabel: string | null): Promise<SocialAccount> =>
+    authedFetch(`/social-accounts/${id}`, { method: "PATCH", body: JSON.stringify({ brandLabel }) }),
   getPlatforms: (): Promise<PlatformInfo[]> => authedFetch("/platforms"),
   startConnect: (platform: string): Promise<{ authorizeUrl: string }> =>
     authedFetch(`/social-accounts/connect?platform=${encodeURIComponent(platform)}`),
@@ -293,7 +297,8 @@ export const api = {
   ): Promise<{ succeeded: number; failed: number; results: Array<{ row: number; status: number; body: { error?: string } }> }> =>
     authedFetch("/scheduled-posts/bulk", { method: "POST", body: JSON.stringify({ posts }) }),
 
-  getAnalyticsSummary: (days = 30): Promise<AnalyticsSummary> => authedFetch(`/analytics/summary?days=${days}`),
+  getAnalyticsSummary: (days = 30, brand?: string): Promise<AnalyticsSummary> =>
+    authedFetch(`/analytics/summary?days=${days}${brand ? `&brand=${encodeURIComponent(brand)}` : ""}`),
 
   getMentions: (): Promise<{ posts: MentionPost[] }> => authedFetch("/mentions"),
 
