@@ -372,6 +372,12 @@ export const api = {
     authedFetch("/api-keys", { method: "POST", body: JSON.stringify({ name }) }),
   revokeApiKey: (id: string): Promise<null> => authedFetch(`/api-keys/${id}`, { method: "DELETE" }),
 
+  // Opens a 10-minute window for the NEXT admin-key request to go through.
+  // Only works signed in as yourself — never with an API key. See
+  // migration 0037_admin_key_guard.sql.
+  announceAdminAction: (taskLabel?: string): Promise<{ expiresAt: string; windowMinutes: number }> =>
+    authedFetch("/admin/announce", { method: "POST", body: JSON.stringify({ taskLabel: taskLabel ?? null }) }),
+
   listStorageAddons: (): Promise<StorageAddon[]> => authedFetch("/storage-addons"),
   startStorageAddonCheckout: (
     gbAmount: 5 | 20 | 50

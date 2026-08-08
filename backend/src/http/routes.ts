@@ -2211,5 +2211,25 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.json(data);
   });
 
+  // requireHumanAuth, not requireAdmin — this is the one place a real
+  // Supabase login (never an API key, never the admin key itself) opens a
+  // short window for the NEXT admin-key request to go through. See
+  // migration 0037_admin_key_guard.sql and auth.ts's authorizeAdminRequest().
+  router.post("/admin/announce", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const taskLabel = typeof req.body?.taskLabel === "string" ? req.body.taskLabel.slice(0, 500) : null;
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+    const { error } = await supabase.from("admin_key_intents").insert({
+      announced_by: req.accountId,
+      task_label: taskLabel,
+      expires_at: expiresAt,
+    });
+    if (error) {
+      dbError(res, error, "POST /admin/announce");
+      return;
+    }
+    res.json({ expiresAt, windowMinutes: 10 });
+  });
+
   return router;
 }

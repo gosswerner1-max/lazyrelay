@@ -81,6 +81,65 @@ function logAdminAction(adminKeyId: string, method: string, path: string, target
     });
 }
 
+/** Header a pre-registered recurring job sends to identify itself, e.g.
+ *  "lazyrelay-billing-ops-daily" — see admin_key_registered_jobs. */
+const ADMIN_JOB_HEADER = "x-admin-job";
+
+/** A valid, non-revoked admin key is no longer sufficient on its own to
+ *  DO anything — see migration 0037_admin_key_guard.sql for the full
+ *  reasoning. Two ways a request gets authorized:
+ *    1. It names a pre-registered recurring job via the X-Admin-Job
+ *       header (admin_key_registered_jobs) — allowed on its own schedule.
+ *    2. There's an open, unconsumed "intent" window, opened by a real
+ *       human Supabase session via POST /admin/announce (never by the
+ *       admin key itself — a leaked key alone can never open its own
+ *       window). The oldest open window is consumed by this request.
+ *  Anything matching neither returns false — the caller must then revoke
+ *  the key immediately.
+ *
+ *  *** If you're changing a scheduled task's name or adding a new one
+ *  that needs the admin key, add/update its row in
+ *  admin_key_registered_jobs FIRST, in the same change — otherwise its
+ *  calls start failing with no obvious cause. *** */
+async function authorizeAdminRequest(adminKeyId: string, jobHeader: unknown): Promise<boolean> {
+  if (typeof jobHeader === "string" && jobHeader) {
+    const { data } = await supabase
+      .from("admin_key_registered_jobs")
+      .select("job_name")
+      .eq("job_name", jobHeader)
+      .maybeSingle();
+    if (data) return true;
+  }
+
+  const { data: intent } = await supabase
+    .from("admin_key_intents")
+    .select("id")
+    .is("consumed_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .order("announced_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!intent) return false;
+
+  const { error } = await supabase
+    .from("admin_key_intents")
+    .update({ consumed_at: new Date().toISOString(), admin_key_id: adminKeyId })
+    .eq("id", intent.id)
+    .is("consumed_at", null); // race guard: if two requests hit the same open window at once, only one wins it
+  return !error;
+}
+
+/** Revokes an admin key immediately and records why — this is a hard
+ *  await, not fire-and-forget, because the caller must not let the
+ *  request through until the key is actually dead. */
+async function revokeAdminKey(adminKeyId: string, reason: string): Promise<void> {
+  const { error } = await supabase
+    .from("admin_api_keys")
+    .update({ revoked_at: new Date().toISOString(), revoked_reason: reason })
+    .eq("id", adminKeyId);
+  if (error) console.error("Failed to auto-revoke admin key:", error.message);
+}
+
 /** Verifies the caller's Supabase JWT (browser dashboard), a LazyRelay API
  *  key (bring-your-own-agent, headless), OR an admin key (Claude/internal
  *  ops, acts across every account) and attaches the account id to the
@@ -100,6 +159,18 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
 
   const adminKeyId = await resolveAdminKeyId(token);
   if (adminKeyId) {
+    const authorized = await authorizeAdminRequest(adminKeyId, req.headers[ADMIN_JOB_HEADER]);
+    if (!authorized) {
+      await revokeAdminKey(
+        adminKeyId,
+        "auto-revoked: used with no registered job header and no open human-approved intent window (possible key leak)"
+      );
+      res.status(403).json({
+        error: "This admin key use was not authorized (no registered job, no approved window) and the key has been revoked.",
+      });
+      return;
+    }
+
     req.isAdmin = true;
     req.adminKeyId = adminKeyId;
     req.authMethod = "apiKey";

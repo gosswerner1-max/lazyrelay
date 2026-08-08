@@ -118,6 +118,8 @@ export function Dashboard() {
   const [creatingKey, setCreatingKey] = useState(false);
   const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null);
   const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
+  const [announcingAdmin, setAnnouncingAdmin] = useState(false);
+  const [adminWindowExpiresAt, setAdminWindowExpiresAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -1014,6 +1016,19 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setRevokingKeyId(null);
+    }
+  }
+
+  async function handleAnnounceAdminAction() {
+    setAnnouncingAdmin(true);
+    setError(null);
+    try {
+      const result = await api.announceAdminAction();
+      setAdminWindowExpiresAt(result.expiresAt);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAnnouncingAdmin(false);
     }
   }
 
@@ -2447,6 +2462,26 @@ export function Dashboard() {
             {savingBusinessName ? "Saving..." : "Save"}
           </button>
         </form>
+      </section>
+      )}
+
+      {tab === "Account" && (
+      <section>
+        <h2>Authorize admin support access</h2>
+        <p className="section-note">
+          If someone from LazyRelay support (or an AI agent working on your behalf, e.g. Claude) needs to look
+          something up or fix something on your account using internal admin access, click below first. This opens
+          a 10-minute window — nothing works with admin access unless you open it, even with a valid admin key.
+        </p>
+        {adminWindowExpiresAt && new Date(adminWindowExpiresAt) > new Date() ? (
+          <p className="status-badge status-active">
+            Open until {new Date(adminWindowExpiresAt).toLocaleTimeString()}
+          </p>
+        ) : (
+          <button type="button" className="btn-outline" onClick={handleAnnounceAdminAction} disabled={announcingAdmin}>
+            {announcingAdmin ? "Opening..." : "Authorize next admin action (10 min)"}
+          </button>
+        )}
       </section>
       )}
 
