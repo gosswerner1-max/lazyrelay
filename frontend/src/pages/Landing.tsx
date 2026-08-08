@@ -307,6 +307,10 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact,
 
       <section className="landing-section" id="features">
         <h2>What you get</h2>
+        <p className="section-note">
+          Everything works from a real dashboard, not just an API. Comments, DMs, auto-replies, and analytics
+          are all clickable, not command-line only.
+        </p>
         <div className="landing-features">
           {FEATURES.map((f) => (
             <div className="landing-feature" key={f.title}>
@@ -344,7 +348,9 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact,
       <section className="landing-section landing-platforms">
         <h2>Works with</h2>
         <p className="section-note">
-          Connect your accounts and start posting today.
+          <strong>The scheduler for the platforms Big Social forgot.</strong> Most tools cover the big four
+          or five platforms and stop. LazyRelay covers Mastodon, Bluesky, Telegram, Discord, and Tumblr too,
+          not as an afterthought.
         </p>
         <div className="platform-row">
           <PlatformIcon platform="facebook" size={40} />
@@ -402,6 +408,15 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact,
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="landing-section" id="ai-honesty">
+        <h2>How we label AI features</h2>
+        <p className="about-text">
+          LazyRelay's AI captions and hashtag suggestions aren't personalized to your brand voice yet. We're
+          building that. Until then, treat AI suggestions as a starting draft, not a finished post, and
+          we'll say so plainly here as that changes.
+        </p>
       </section>
 
       <section className="landing-section" id="about">
