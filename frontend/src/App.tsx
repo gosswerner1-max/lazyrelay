@@ -117,8 +117,23 @@ function Root() {
   // origin, so without this check `if (session) return <Dashboard />`
   // below would win every time and a logged-in customer could never
   // actually see this page short of logging out first.
+  //
+  // Because this check re-runs on every render (not just at mount, unlike
+  // the view-state-machine branches below), "Back to home" previously only
+  // called setView("landing") -- which never changes window.location, so
+  // this same check kept matching and the button did nothing. Found live
+  // by Werner, 2026-08-10. Fix: actually update the URL first, so this
+  // check stops matching on the next render and the normal view-based
+  // logic below takes over correctly.
   if (window.location.pathname === "/docs") {
-    return <ApiDocs onBack={() => setView("landing")} />;
+    return (
+      <ApiDocs
+        onBack={() => {
+          window.history.pushState({}, "", "/");
+          setView("landing");
+        }}
+      />
+    );
   }
 
   if (loading) {
