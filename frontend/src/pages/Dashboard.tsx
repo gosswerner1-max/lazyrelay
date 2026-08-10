@@ -1041,7 +1041,7 @@ export function Dashboard() {
       // the Paddle.js note above), but it's better than nothing if Paddle.js
       // itself failed to load (e.g. VITE_PADDLE_CLIENT_TOKEN missing).
       if (!checkoutUrl) {
-        setError("Checkout couldn't start — no checkout URL was returned.");
+        setError("Checkout couldn't start. No checkout URL was returned.");
         return;
       }
       window.location.href = checkoutUrl;
@@ -1075,7 +1075,7 @@ export function Dashboard() {
         return;
       }
       if (!checkoutUrl) {
-        setError("Checkout couldn't start — no checkout URL was returned.");
+        setError("Checkout couldn't start. No checkout URL was returned.");
         return;
       }
       window.location.href = checkoutUrl;
@@ -1383,8 +1383,8 @@ export function Dashboard() {
             ) : (
               <>
                 You're on the <strong>{tierNames[currentTier]}</strong> plan
-                {isFreePlan && " — 10 posts per connected account, refillable monthly"}
-                {isCancelling && ` — cancels${periodEndDate ? ` on ${periodEndDate}` : " at the end of your billing period"}`}
+                {isFreePlan && ": 10 posts per connected account, refillable monthly"}
+                {isCancelling && `; cancels${periodEndDate ? ` on ${periodEndDate}` : " at the end of your billing period"}`}
               </>
             )}
           </span>
@@ -1466,7 +1466,7 @@ export function Dashboard() {
         <BrandFilterSelect accounts={accounts} value={brandFilter} onChange={setBrandFilter} />
         {analyticsLoading && <Spinner />}
         {!analyticsLoading && analytics && analytics.totalPosts === 0 && (
-          <p className="empty">No posts scheduled in this range yet — analytics fill in once posts go out.</p>
+          <p className="empty">No posts scheduled in this range yet. Analytics fill in once posts go out.</p>
         )}
         {!analyticsLoading && analytics && analytics.totalPosts > 0 && (
           <>
@@ -1507,7 +1507,7 @@ export function Dashboard() {
             <h3>By platform</h3>
             <p className="muted">
               Likes/comments/shares/views are only readable today on Facebook, Instagram, Mastodon, Bluesky, X, and
-              YouTube — every other platform shows "—", not a zero, since LazyRelay has no read access there yet.
+              YouTube. Every other platform shows "—", not a zero, since LazyRelay has no read access there yet.
             </p>
             <div className="table-scroll">
             <table className="analytics-table">
@@ -1588,7 +1588,7 @@ export function Dashboard() {
         <p className="muted">
           Comments on your recent posts, pulled directly from each platform. Facebook, Instagram, Mastodon,
           Bluesky, and YouTube support this today, with reply-from-here on Facebook, Instagram, Mastodon, and
-          Bluesky — every other platform's comments still live on the platform itself, not here yet.
+          Bluesky. Every other platform's comments still live on the platform itself, not here yet.
         </p>
         {mentionsLoading && <Spinner />}
         {!mentionsLoading && mentions && mentions.length === 0 && <p className="empty">No recent posted content yet.</p>}
@@ -1702,7 +1702,7 @@ export function Dashboard() {
       <section>
         <h2>Direct messages</h2>
         <p className="section-note">
-          DMs from your connected accounts. Facebook and Instagram support this today — sending only works
+          DMs from your connected accounts. Facebook and Instagram support this today. Sending only works
           within each platform's own 24-hour customer-service messaging window.
         </p>
         {dmConversationsLoading && <Spinner />}
@@ -1787,7 +1787,7 @@ export function Dashboard() {
       <section>
         <h2>DM automation</h2>
         <p className="section-note">
-          When someone comments (optionally matching a keyword), automatically send them a DM — the same
+          When someone comments (optionally matching a keyword), automatically send them a DM, the same
           "comment and I'll message you" pattern popular for giveaways and product drops. Applies to every
           post from the last 30 days on the account you pick, not just one.
         </p>
@@ -1798,13 +1798,13 @@ export function Dashboard() {
               .filter((a) => a.platform === "facebook" || a.platform === "instagram")
               .map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.platform} — {a.display_name ?? a.platform_account_id}
+                  {a.platform}: {a.display_name ?? a.platform_account_id}
                 </option>
               ))}
           </select>
           <input
             type="text"
-            placeholder="Keyword (optional — blank matches every comment)"
+            placeholder="Keyword (optional, blank matches every comment)"
             value={automationKeyword}
             onChange={(e) => setAutomationKeyword(e.target.value)}
             maxLength={100}
@@ -1827,7 +1827,7 @@ export function Dashboard() {
               <li key={a.id}>
                 <span className="media-list-meta">
                   <strong>{a.social_accounts?.platform ?? "Unknown"}</strong>
-                  {a.keyword ? ` — keyword "${a.keyword}"` : " — every comment"} → "{a.dm_message}"
+                  {a.keyword ? `: keyword "${a.keyword}"` : ": every comment"} → "{a.dm_message}"
                 </span>
                 <button
                   className="btn-outline"
@@ -1851,7 +1851,7 @@ export function Dashboard() {
         ) : (
           <>
             <p className="muted">
-              A public page for your Instagram/TikTok bio link — customers land here and see the links you choose.
+              A public page for your Instagram/TikTok bio link. Customers land here and see the links you choose.
             </p>
             <form onSubmit={handleSaveBioPage} className="schedule-form">
               <label>
@@ -1889,7 +1889,7 @@ export function Dashboard() {
               <>
                 <h3>Links</h3>
                 {bioPage.links.length === 0 ? (
-                  <p className="empty">No links yet — add one below.</p>
+                  <p className="empty">No links yet. Add one below.</p>
                 ) : (
                   <ul className="bio-link-list">
                     {bioPage.links.map((link) => (
@@ -1938,7 +1938,7 @@ export function Dashboard() {
       <section>
         <h2>Connected accounts</h2>
         {accounts.length === 0 ? (
-          <p className="empty">No accounts connected yet — connect one to start scheduling posts.</p>
+          <p className="empty">No accounts connected yet. Connect one to start scheduling posts.</p>
         ) : (
           <ul className="account-list">
             {accounts.map((a) => {
@@ -2007,9 +2007,9 @@ export function Dashboard() {
                     : !p.configured
                       ? "Not set up on this deploy yet"
                       : connectedCount > 0
-                        ? "Connected — click to connect another account"
+                        ? "Connected: click to connect another account"
                         : p.platform === "youtube"
-                          ? "Google is still reviewing our app, so you'll see an \"unverified app\" warning first — that's expected, see the note below"
+                          ? "Google is still reviewing our app, so you'll see an \"unverified app\" warning first, that's expected, see the note below"
                           : undefined
                 }
                 onClick={() => handleConnect(p.platform)}
@@ -2030,7 +2030,7 @@ export function Dashboard() {
         {platforms.some((p) => p.platform === "youtube" && p.configured && !p.comingSoon) && (
           <p className="platform-grid-note">
             Connecting YouTube? Google is still reviewing our app, so you'll see a "Google hasn't verified this app" warning first.
-            That's expected — click <strong>Advanced</strong>, then <strong>Go to LazyRelay (unsafe)</strong>, to finish connecting.
+            That's expected. Click <strong>Advanced</strong>, then <strong>Go to LazyRelay (unsafe)</strong>, to finish connecting.
           </p>
         )}
       </section>
@@ -2067,7 +2067,7 @@ export function Dashboard() {
                       return (
                         <p key={platform} className="best-time-hint">
                           <PlatformIcon platform={platform as string} size={12} /> Best general time for {platform}:{" "}
-                          <strong>{guidance.windows}</strong> — {guidance.note}
+                          <strong>{guidance.windows}</strong>: {guidance.note}
                         </p>
                       );
                     },
@@ -2083,7 +2083,7 @@ export function Dashboard() {
                   <p className="muted">Loading your boards...</p>
                 ) : pinterestBoards.length === 0 ? (
                   <p className="muted">
-                    No boards found yet — LazyRelay will create a default board the first time you post.
+                    No boards found yet. LazyRelay will create a default board the first time you post.
                   </p>
                 ) : (
                   <select value={selectedBoardId ?? ""} onChange={(e) => setSelectedBoardId(e.target.value)}>
@@ -2235,7 +2235,7 @@ export function Dashboard() {
                   onChange={(e) => setFirstComment(e.target.value)}
                   placeholder="Posted as the first comment right after this goes live"
                 />
-                <span className="section-note">Facebook and Instagram only for now — ignored on other platforms.</span>
+                <span className="section-note">Facebook and Instagram only for now, ignored on other platforms.</span>
               </label>
             )}
             <label>
@@ -2276,7 +2276,7 @@ export function Dashboard() {
         <h2>Bulk import (CSV)</h2>
         <p className="muted">
           Columns: <code>platform</code>, <code>content</code>, <code>scheduled_for</code> (ISO date/time), <code>media_url</code>{" "}
-          (optional). <code>platform</code> is matched against your connected accounts — if you have more than one account on the
+          (optional). <code>platform</code> is matched against your connected accounts. If you have more than one account on the
           same platform, the first one connected is used.
         </p>
         <div className="bulk-import-controls">
@@ -2335,7 +2335,7 @@ export function Dashboard() {
       <section>
         <h2>Recurring schedules</h2>
         <p className="muted">
-          Set up a weekly content cadence once — LazyRelay keeps posting it to your chosen platforms every week until you pause or delete it.
+          Set up a weekly content cadence once. LazyRelay keeps posting it to your chosen platforms every week until you pause or delete it.
         </p>
         {accounts.length === 0 ? (
           <p className="empty">Connect an account first.</p>
@@ -2489,7 +2489,7 @@ export function Dashboard() {
                         <RelaySignal size={14} pulsing /> Confirmed live
                       </>
                     ) : (
-                      `Not confirmed — ${result.error_message ?? "couldn't verify"}`
+                      `Not confirmed: ${result.error_message ?? "couldn't verify"}`
                     )}
                   </span>
                 )}
@@ -2708,7 +2708,7 @@ export function Dashboard() {
                                     <RelaySignal size={14} pulsing /> Confirmed live
                                   </>
                                 ) : (
-                                  `Not confirmed — ${result.error_message ?? "couldn't verify"}`
+                                  `Not confirmed: ${result.error_message ?? "couldn't verify"}`
                                 )}
                               </span>
                             )}
@@ -2752,8 +2752,8 @@ export function Dashboard() {
                 {pct >= 85 && (
                   <span>
                     {pct >= 100
-                      ? "Storage full — delete files below to upload new media."
-                      : "Getting full — delete unused files or upgrade for more space."}
+                      ? "Storage full. Delete files below to upload new media."
+                      : "Getting full. Delete unused files or upgrade for more space."}
                   </span>
                 )}
               </div>
@@ -2886,7 +2886,7 @@ export function Dashboard() {
         <p className="section-note">
           If someone from LazyRelay support (or an AI agent working on your behalf, e.g. Claude) needs to look
           something up or fix something on your account using internal admin access, click below first. This opens
-          a 10-minute window — nothing works with admin access unless you open it, even with a valid admin key.
+          a 10-minute window. Nothing works with admin access unless you open it, even with a valid admin key.
         </p>
         {adminWindowExpiresAt && new Date(adminWindowExpiresAt) > new Date() ? (
           <p className="status-badge status-active">
@@ -2914,12 +2914,12 @@ export function Dashboard() {
           <span aria-hidden="true">⚠️</span>
           <span>
             Treat every key like a password. Anyone who has it can post, schedule, and manage this account exactly
-            as you can — never share a key or commit one to code. Revoke it immediately if you think it's leaked.
+            as you can. Never share a key or commit one to code. Revoke it immediately if you think it's leaked.
           </span>
         </p>
         {newlyCreatedKey && (
           <div className="api-key-reveal">
-            <p><strong>Copy this key now</strong> — it won't be shown again.</p>
+            <p><strong>Copy this key now</strong>, it won't be shown again.</p>
             <code>{newlyCreatedKey}</code>
             <button type="button" className="btn-outline" onClick={() => setNewlyCreatedKey(null)}>
               Done
@@ -2953,7 +2953,7 @@ export function Dashboard() {
             {apiKeys.map((k) => (
               <li key={k.id}>
                 <span className="media-list-meta">
-                  <strong>{k.name}</strong> — {k.key_prefix}...
+                  <strong>{k.name}</strong>: {k.key_prefix}...
                   {k.revoked_at ? (
                     <span className="status-badge status-cancelled">revoked</span>
                   ) : (
@@ -3002,10 +3002,10 @@ export function Dashboard() {
             </div>
           ))}
         </div>
-        <h3 className="api-mcp-heading">Using this from an AI agent — the MCP server</h3>
+        <h3 className="api-mcp-heading">Using this from an AI agent: the MCP server</h3>
         <p className="section-note">
-          Connect Claude Desktop, Claude Code, Cursor, or anything else that speaks MCP directly to your account —
-          it wraps every endpoint above as a real tool the agent can call. Runs locally on your own machine using
+          Connect Claude Desktop, Claude Code, Cursor, or anything else that speaks MCP directly to your account.
+          It wraps every endpoint above as a real tool the agent can call. Runs locally on your own machine using
           the key above; there's nothing to host.
         </p>
         <CodeBlock code={MCP_CONFIG_EXAMPLE} />
@@ -3015,7 +3015,7 @@ export function Dashboard() {
       {tab === "Storage" && currentTier !== "free" && (
       <section>
         <h2>Buy more storage</h2>
-        <p className="section-note">Add extra space on top of your plan's included storage — cancel any add-on separately, any time.</p>
+        <p className="section-note">Add extra space on top of your plan's included storage. Cancel any add-on separately, any time.</p>
         <div className="pricing-grid billing-upgrade-grid">
           {([
             { gb: 5 as const, price: "2.99" },
@@ -3074,7 +3074,7 @@ export function Dashboard() {
                 Current plan: <strong>{subscription ? tierNames[subscription.tier] : "Free"}</strong>
                 {subscription?.status && (
                   <span className={`status-badge status-${subscription.status}`}>
-                    {isCancelling ? `cancelling${periodEndDate ? ` — ends ${periodEndDate}` : ""}` : subscription.status}
+                    {isCancelling ? `cancelling${periodEndDate ? `: ends ${periodEndDate}` : ""}` : subscription.status}
                   </span>
                 )}
               </p>
@@ -3082,7 +3082,7 @@ export function Dashboard() {
               {canUpgrade ? (
                 <div className="pricing-grid billing-upgrade-grid">
                   <div className="pricing-card">
-                    <h3>Starter — 5GB storage</h3>
+                    <h3>Starter: 5GB storage</h3>
                     <p className="pricing-price">
                       $29.99<span className="pricing-period">/mo</span>
                     </p>
@@ -3092,7 +3092,7 @@ export function Dashboard() {
                     </button>
                   </div>
                   <div className="pricing-card">
-                    <h3>Pro — 10GB storage</h3>
+                    <h3>Pro: 10GB storage</h3>
                     <p className="pricing-price">
                       $59.99<span className="pricing-period">/mo</span>
                     </p>
@@ -3102,7 +3102,7 @@ export function Dashboard() {
                     </button>
                   </div>
                   <div className="pricing-card">
-                    <h3>Business — 20GB storage</h3>
+                    <h3>Business: 20GB storage</h3>
                     <p className="pricing-price">
                       $99.99<span className="pricing-period">/mo</span>
                     </p>
@@ -3136,12 +3136,12 @@ export function Dashboard() {
             <p className="modal-subtitle">Before you cancel, please note:</p>
             <ul className="modal-loss-list">
               <li>
-                You'll lose <strong>{accounts.length}</strong> connected account{accounts.length === 1 ? "" : "s"} — you'll need
+                You'll lose <strong>{accounts.length}</strong> connected account{accounts.length === 1 ? "" : "s"}. You'll need
                 to reconnect them if you come back.
               </li>
               {currentTier !== "free" && <li>Your posts will drop back to the Free tier's 10-per-account monthly limit.</li>}
               <li>
-                You'll keep access until {periodEndDate ? periodEndDate : "the end of your current billing period"} — this
+                You'll keep access until {periodEndDate ? periodEndDate : "the end of your current billing period"}. This
                 doesn't cancel immediately.
               </li>
             </ul>
@@ -3151,7 +3151,7 @@ export function Dashboard() {
                 className="modal-feedback-input"
                 value={cancelFeedback}
                 onChange={(e) => setCancelFeedback(e.target.value)}
-                placeholder="Optional — helps us make LazyRelay better"
+                placeholder="Optional, helps us make LazyRelay better"
               />
             </label>
             <div className="modal-actions">

@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Does Your Scheduled Social Media Post Actually Publish? How to Verify It | LazyRelay</title>
-<meta name="description" content="Most schedulers mark a post 'sent' the moment your API call is accepted — not when it's actually live. Here's why posts silently fail, why it's a bigger risk when an AI agent is posting, and how independent publish-verification (Proof-of-Publish) catches it." />
+<meta name="description" content="Most schedulers mark a post 'sent' the moment your API call is accepted, not when it's actually live. Here's why posts silently fail, why it's a bigger risk when an AI agent is posting, and how independent publish-verification (Proof-of-Publish) catches it." />
 <link rel="canonical" href="https://lazyrelay.com/verify-post-published" />
 <link rel="icon" type="image/png" href="/favicon.png" />
 <link rel="stylesheet" href="/circuit-bg.css" />
@@ -46,7 +46,7 @@
       "name": "Does my social media scheduler tell me if a post fails silently?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Most schedulers only confirm that the platform's API accepted your request — they mark the post 'sent' at that point and stop checking. If the platform then rejects, holds, or drops the post afterward (which does happen — rate limits, moderation holds, expired tokens, partial outages), the scheduler has no way of knowing, and neither do you, unless you manually check the account."
+        "text": "Most schedulers only confirm that the platform's API accepted your request, then mark the post 'sent' and stop checking. If the platform then rejects, holds, or drops the post afterward (which does happen: rate limits, moderation holds, expired tokens, partial outages), the scheduler has no way of knowing, and neither do you, unless you manually check the account."
       }
     },
     {
@@ -54,7 +54,7 @@
       "name": "What's the difference between a post being 'accepted' and actually 'published'?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "'Accepted' means the platform's API returned a success response to your scheduling request — it's a receipt, not proof. 'Published' means the post is actually visible on the platform right now. A gap between the two is exactly how a post can be marked 'sent' in your dashboard while never actually appearing publicly."
+        "text": "'Accepted' means the platform's API returned a success response to your scheduling request. It's a receipt, not proof. 'Published' means the post is actually visible on the platform right now. A gap between the two is exactly how a post can be marked 'sent' in your dashboard while never actually appearing publicly."
       }
     },
     {
@@ -62,7 +62,7 @@
       "name": "Is this a bigger risk when an AI agent is scheduling the posts?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. When a person schedules a post, they'll often notice a gap in their feed and go check. When an AI agent is doing the scheduling autonomously — which is increasingly common as agents get MCP access to social tools — there's no one glancing at the calendar. A silent failure can go unnoticed indefinitely unless something is independently re-checking that the post actually went live."
+        "text": "Yes. When a person schedules a post, they'll often notice a gap in their feed and go check. When an AI agent is doing the scheduling autonomously (which is increasingly common as agents get MCP access to social tools), there's no one glancing at the calendar. A silent failure can go unnoticed indefinitely unless something is independently re-checking that the post actually went live."
       }
     },
     {
@@ -83,22 +83,22 @@
 <main>
 <a class="back" href="/">&larr; Back to home</a>
 <h1>Does Your Scheduled Post Actually Publish? Here's How to Know.</h1>
-<p class="subtitle">Most schedulers mark a post &ldquo;sent&rdquo; the moment an API call is accepted — not when it's actually live. Here's why that gap exists, why it matters more than ever with AI agents scheduling posts, and how to actually verify.</p>
+<p class="subtitle">Most schedulers mark a post &ldquo;sent&rdquo; the moment an API call is accepted, not when it's actually live. Here's why that gap exists, why it matters more than ever with AI agents scheduling posts, and how to actually verify.</p>
 
 <h2>&ldquo;Sent&rdquo; is not the same claim as &ldquo;published&rdquo;</h2>
-<p>When you schedule a post, your tool sends a request to Meta, TikTok, or Pinterest's API. If that API call returns a success response, most scheduling tools stop there — they mark the post as sent and move on. That response is a receipt that the platform accepted your request. It is not confirmation the post is actually visible to anyone.</p>
+<p>When you schedule a post, your tool sends a request to Meta, TikTok, or Pinterest's API. If that API call returns a success response, most scheduling tools stop there. They mark the post as sent and move on. That response is a receipt that the platform accepted your request. It is not confirmation the post is actually visible to anyone.</p>
 <p>Between acceptance and a post genuinely going live, several real things can happen:</p>
 <ul>
   <li><strong>Rate limits.</strong> A platform can accept a request and then throttle or drop it under load.</li>
   <li><strong>Moderation holds.</strong> Automated content review can quietly hold or remove a post after it was "accepted," with no follow-up notification to your scheduling tool.</li>
   <li><strong>Expired or revoked tokens.</strong> An access token can go stale between the moment you connected an account and the moment a scheduled post actually fires, especially for posts scheduled far in advance.</li>
-  <li><strong>Partial platform outages.</strong> Social platforms have partial outages more often than their status pages suggest — accepting requests while failing to actually process them.</li>
+  <li><strong>Partial platform outages.</strong> Social platforms have partial outages more often than their status pages suggest, accepting requests while failing to actually process them.</li>
 </ul>
 <p>None of these show up as an obvious error. Your dashboard says "posted." The post itself may not exist.</p>
 
 <h2>Why this is a bigger risk when an AI agent is doing the scheduling</h2>
-<p>If a person schedules a post and it silently fails, there's a decent chance they'll eventually notice — checking their own feed, seeing an odd gap in the content calendar, or a colleague asking "did that go out?" That informal safety net disappears when an AI agent is scheduling posts on its own, which is increasingly how this works as agents get direct access to social tools (for example, over MCP). Nobody is glancing at the calendar. A silent failure can sit unnoticed indefinitely — you find out only when someone asks why engagement looks quiet, or worse, not at all.</p>
-<p>The more autonomy you hand to an agent, the more that autonomy depends on the agent actually knowing whether its own actions worked — not just whether the request was accepted.</p>
+<p>If a person schedules a post and it silently fails, there's a decent chance they'll eventually notice: checking their own feed, seeing an odd gap in the content calendar, or a colleague asking "did that go out?" That informal safety net disappears when an AI agent is scheduling posts on its own, which is increasingly how this works as agents get direct access to social tools (for example, over MCP). Nobody is glancing at the calendar. A silent failure can sit unnoticed indefinitely. You find out only when someone asks why engagement looks quiet, or worse, not at all.</p>
+<p>The more autonomy you hand to an agent, the more that autonomy depends on the agent actually knowing whether its own actions worked, not just whether the request was accepted.</p>
 
 <h2>How to actually verify a post went live</h2>
 <p>If you want real confirmation rather than trusting the "sent" status, you generally need to:</p>
@@ -106,26 +106,26 @@
   <li>Capture the platform's returned post ID at send time.</li>
   <li>Separately re-query the platform's API for that post ID after a delay, not immediately (some failures only surface a few minutes later).</li>
   <li>Confirm the post is actually retrievable and public, not just that the ID exists in some pending state.</li>
-  <li>Flag anything that fails that second check — don't silently retry or silently ignore it.</li>
+  <li>Flag anything that fails that second check. Don't silently retry or silently ignore it.</li>
 </ol>
 <p>Doing this by hand for every post isn't realistic at any real posting volume. This is the specific gap independent publish-verification is meant to close.</p>
 
 <h2>How LazyRelay's Proof-of-Publish works</h2>
-<p>This is the actual problem Proof-of-Publish exists to solve. After LazyRelay sends a scheduled post, it doesn't stop at "accepted" — it separately checks the platform again to confirm the post is genuinely live. If that check fails, the post is flagged in your dashboard as unverified, not silently marked successful. You see the difference between "we tried" and "it's actually up," instead of finding out the hard way.</p>
+<p>This is the actual problem Proof-of-Publish exists to solve. After LazyRelay sends a scheduled post, it doesn't stop at "accepted." It separately checks the platform again to confirm the post is genuinely live. If that check fails, the post is flagged in your dashboard as unverified, not silently marked successful. You see the difference between "we tried" and "it's actually up," instead of finding out the hard way.</p>
 
 <div class="cta-box">
-  <p style="margin-top:0;"><strong>See it in your own dashboard.</strong> LazyRelay's free tier includes Proof-of-Publish verification on every post — no card required.</p>
+  <p style="margin-top:0;"><strong>See it in your own dashboard.</strong> LazyRelay's free tier includes Proof-of-Publish verification on every post, no card required.</p>
   <a class="button" href="/pricing">See plans and get started free</a>
 </div>
 
 <h2>Frequently asked questions</h2>
 <div class="faq-item">
   <h3>Does my social media scheduler tell me if a post fails silently?</h3>
-  <p>Most schedulers only confirm that the platform's API accepted your request — they mark the post "sent" at that point and stop checking. If the platform then rejects, holds, or drops the post afterward, the scheduler has no way of knowing, and neither do you, unless you manually check the account.</p>
+  <p>Most schedulers only confirm that the platform's API accepted your request, then mark the post "sent" and stop checking. If the platform then rejects, holds, or drops the post afterward, the scheduler has no way of knowing, and neither do you, unless you manually check the account.</p>
 </div>
 <div class="faq-item">
   <h3>What's the difference between a post being "accepted" and actually "published"?</h3>
-  <p>"Accepted" means the platform's API returned a success response to your scheduling request — it's a receipt, not proof. "Published" means the post is actually visible on the platform right now. A gap between the two is exactly how a post can be marked "sent" in your dashboard while never actually appearing publicly.</p>
+  <p>"Accepted" means the platform's API returned a success response to your scheduling request. It's a receipt, not proof. "Published" means the post is actually visible on the platform right now. A gap between the two is exactly how a post can be marked "sent" in your dashboard while never actually appearing publicly.</p>
 </div>
 <div class="faq-item">
   <h3>Is this a bigger risk when an AI agent is scheduling the posts?</h3>

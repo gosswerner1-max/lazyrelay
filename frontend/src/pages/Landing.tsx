@@ -22,11 +22,11 @@ interface LandingProps {
 const FEATURES = [
   {
     title: "Smart Scheduling",
-    body: "Queue up a one-time post for exactly when you want it to go out — set it once and move on with your day.",
+    body: "Queue up a one-time post for exactly when you want it to go out. Set it once and move on with your day.",
   },
   {
     title: "Recurring Schedules",
-    body: "Set up a weekly content cadence once — pick the days, the time, and the platforms — and LazyRelay keeps posting it every week until you pause or delete it.",
+    body: "Set up a weekly content cadence once: pick the days, the time, and the platforms, and LazyRelay keeps posting it every week until you pause or delete it.",
   },
   {
     title: "Auto Posting",
@@ -34,20 +34,20 @@ const FEATURES = [
   },
   {
     title: "Proof-of-Publish",
-    body: "Every post is independently verified as actually live on the platform — not just \"sent,\" but confirmed.",
+    body: "Every post is independently verified as actually live on the platform, not just \"sent,\" but confirmed.",
   },
 ];
 
 const MORE_FEATURES = [
-  "Analytics dashboard — total posts, per-platform success rates, and a daily volume trend",
-  "Content calendar — everything you've got scheduled on a real month grid",
-  "Bulk CSV import — schedule up to 200 posts at once, with a per-row preview first",
-  "AI captions & hashtags — generate wording or tags from your draft in one click",
-  "Best-time suggestions — general, platform-by-platform posting-time guidance",
-  "Approval workflow — mark a post as needing sign-off before it goes out",
-  "Link-in-bio page — a simple, hosted link page you can share as one URL",
-  "Comment tracking — see comments on your own YouTube, Mastodon, and Bluesky posts",
-  "Browser extension — right-click any page, link, or image to send it to LazyRelay",
+  "Analytics dashboard: total posts, per-platform success rates, and a daily volume trend",
+  "Content calendar: everything you've got scheduled on a real month grid",
+  "Bulk CSV import: schedule up to 200 posts at once, with a per-row preview first",
+  "AI captions & hashtags: generate wording or tags from your draft in one click",
+  "Best-time suggestions: general, platform-by-platform posting-time guidance",
+  "Approval workflow: mark a post as needing sign-off before it goes out",
+  "Link-in-bio page: a simple, hosted link page you can share as one URL",
+  "Comment tracking: see comments on your own Facebook, Instagram, YouTube, Mastodon, and Bluesky posts",
+  "Browser extension: right-click any page, link, or image to send it to LazyRelay",
 ];
 
 const STEPS = [
@@ -95,7 +95,7 @@ const PRICING = [
 const FAQ = [
   {
     q: "What does LazyRelay actually do?",
-    a: "You write a post, pick when it should go out, and LazyRelay publishes it to your connected accounts automatically — then confirms it's actually live.",
+    a: "You write a post, pick when it should go out, and LazyRelay publishes it to your connected accounts automatically, then confirms it's actually live.",
   },
   {
     q: "Does LazyRelay write or generate content for me?",
@@ -107,7 +107,7 @@ const FAQ = [
   },
   {
     q: "Can I set up a recurring posting schedule instead of scheduling each post one at a time?",
-    a: "Yes. Set up a recurring schedule once — content, days of the week, time, and which connected accounts it goes to — and LazyRelay keeps posting it every week automatically. You can pause it any time without losing the setup, resume whenever you're ready, or delete it outright. Free is one-time posts only; Starter gets 3 recurring schedules, Pro gets 5, and Business is unlimited.",
+    a: "Yes. Set up a recurring schedule once: content, days of the week, time, and which connected accounts it goes to, and LazyRelay keeps posting it every week automatically. You can pause it any time without losing the setup, resume whenever you're ready, or delete it outright. Free is one-time posts only; Starter gets 3 recurring schedules, Pro gets 5, and Business is unlimited.",
   },
   {
     q: "Is it free?",
@@ -115,11 +115,11 @@ const FAQ = [
   },
   {
     q: "What happens if a post fails to publish?",
-    a: "We don't mark a post as done just because it was sent — LazyRelay separately verifies it's actually live. If that check fails, you'll see it flagged in your dashboard, not silently hidden.",
+    a: "We don't mark a post as done just because it was sent. LazyRelay separately verifies it's actually live. If that check fails, you'll see it flagged in your dashboard, not silently hidden.",
   },
   {
     q: "Are there limits on post length, images, or videos?",
-    a: "LazyRelay doesn't set its own limits — we follow whatever the platform you're posting to requires and allows at the time. See the disclaimer below for details.",
+    a: "LazyRelay doesn't set its own limits. We follow whatever the platform you're posting to requires and allows at the time. See the disclaimer below for details.",
   },
 ];
 
@@ -211,6 +211,15 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact,
             className="link"
             onClick={() => {
               setMobileMenuOpen(false);
+              onDocs();
+            }}
+          >
+            Docs
+          </button>
+          <button
+            className="link"
+            onClick={() => {
+              setMobileMenuOpen(false);
               onContact();
             }}
           >
@@ -231,10 +240,10 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact,
       <section className="landing-hero">
         <h1 className="landing-hero-headline">Schedule everywhere. Know it's actually live.</h1>
         <p className="landing-hero-subtext">
-          LazyRelay posts to Facebook, Instagram, TikTok, and 9 more platforms — then independently verifies
+          LazyRelay posts to Facebook, Instagram, TikTok, and 9 more platforms, then independently verifies
           each one actually went live.
         </p>
-        <img src={banner} alt="LazyRelay — automate, schedule, publish, repeat" />
+        <img src={banner} alt="LazyRelay: automate, schedule, publish, repeat" />
         <button className="cta" onClick={onGetStarted}>
           Get started free
         </button>
@@ -275,7 +284,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact,
               lazydownload
             </div>
             <div className="post-content">
-              Simplify your life with LazyRelay — schedule once, post everywhere, with real Proof-of-Publish
+              Simplify your life with LazyRelay: schedule once, post everywhere, with real Proof-of-Publish
               verification.
             </div>
             <div className="post-meta">
@@ -372,7 +381,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact,
         <p className="about-text">
           LazyRelay started as a way to stop manually posting the same content to every platform, one at a
           time. We're a small, early-stage tool focused on doing one thing well: getting your posts
-          published reliably, with real proof they actually went live — not just a "sent" message you have
+          published reliably, with real proof they actually went live, not just a "sent" message you have
           to trust.
         </p>
       </section>
@@ -389,7 +398,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact,
             platform's own Terms of Service.
           </p>
           <p>
-            LazyRelay doesn't set its own limits on post length, images, or videos — we follow whatever
+            LazyRelay doesn't set its own limits on post length, images, or videos. We follow whatever
             each connected platform requires and allows at the time of posting. These limits can change on
             the platform's side at any time. It's your responsibility to make sure your content complies
             with each platform's own guidelines and terms.

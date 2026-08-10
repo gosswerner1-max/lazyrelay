@@ -23,7 +23,7 @@ export const BEST_TIME_GUIDANCE: Record<string, BestTimeGuidance> = {
   x: { windows: "Weekdays, 9am and 12–1pm", note: "Lunch-hour and morning-commute windows tend to spike." },
   pinterest: { windows: "Evenings and weekends, 8–11pm", note: "Saturday mornings are also a strong window." },
   youtube: { windows: "Weekday afternoons, 2–4pm", note: "Fri–Sun uploads often carry into weekend watch-time." },
-  bluesky: { windows: "Weekday mornings, 8–10am", note: "Still-forming platform — treat this as a rough starting point." },
+  bluesky: { windows: "Weekday mornings, 8–10am", note: "Still-forming platform, treat this as a rough starting point." },
   mastodon: { windows: "Weekday mornings, 8–10am", note: "Federated timelines vary a lot by instance/community." },
   telegram: { windows: "Weekday evenings, 6–9pm", note: "Channel subscribers tend to check in after work hours." },
   discord: { windows: "Evenings, 6–10pm", note: "Community activity clusters around evenings and weekends." },
@@ -32,7 +32,7 @@ export const BEST_TIME_GUIDANCE: Record<string, BestTimeGuidance> = {
 
 export const DEFAULT_BEST_TIME_GUIDANCE: BestTimeGuidance = {
   windows: "Weekday mornings, 8–10am",
-  note: "No specific benchmark for this platform yet — using a general weekday-morning default.",
+  note: "No specific benchmark for this platform yet, using a general weekday-morning default.",
 };
 
 export function bestTimeFor(platform: string): BestTimeGuidance {

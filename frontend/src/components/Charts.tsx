@@ -374,7 +374,7 @@ export function OverviewPanel({ analytics, loading }: { analytics: AnalyticsSumm
       <h2>Overview</h2>
       {loading && !analytics && <Spinner />}
       {!loading && analytics && analytics.totalPosts === 0 && (
-        <p className="empty">No posts scheduled in the last 30 days yet — your overview fills in once posts go out.</p>
+        <p className="empty">No posts scheduled in the last 30 days yet. Your overview fills in once posts go out.</p>
       )}
       {analytics && analytics.totalPosts > 0 && (
         <>

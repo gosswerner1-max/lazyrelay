@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BrandMark } from "../components/BrandMark";
 import { CircuitBackground } from "../components/CircuitBackground";
 
@@ -5,9 +6,17 @@ interface DataDeletionProps {
   onBack: () => void;
 }
 
-const LAST_UPDATED = "28 July 2026";
+const LAST_UPDATED = "10 August 2026";
 
 export function DataDeletion({ onBack }: DataDeletionProps) {
+  useEffect(() => {
+    const previous = document.title;
+    document.title = "Data Deletion | LazyRelay";
+    return () => {
+      document.title = previous;
+    };
+  }, []);
+
   return (
     <div className="landing">
       <CircuitBackground />
@@ -29,7 +38,7 @@ export function DataDeletion({ onBack }: DataDeletionProps) {
 
         <div className="about-text legal-body">
           <p>
-            This page explains how to remove your data from LazyRelay — either a single connected platform, or
+            This page explains how to remove your data from LazyRelay, either a single connected platform, or
             your entire account. See our{" "}
             <a href="/privacy">Privacy Policy</a> for what we store and why.
           </p>
@@ -39,7 +48,7 @@ export function DataDeletion({ onBack }: DataDeletionProps) {
             To remove just one connected account (Meta, TikTok, Pinterest, or any other platform you've
             connected): go to your Dashboard, find the account under your connected platforms, and click
             Disconnect. This immediately revokes LazyRelay's access token for that platform and stops any future
-            posts from being scheduled to it. Posts already published to that platform are not affected — we
+            posts from being scheduled to it. Posts already published to that platform are not affected, since we
             only control what happens going forward.
           </p>
 
@@ -47,7 +56,7 @@ export function DataDeletion({ onBack }: DataDeletionProps) {
           <p>
             Go to the Settings tab of your Dashboard and click Cancel. This stops future billing; your account
             drops to the Free plan at the end of the period you've already paid for. Cancelling does not, by
-            itself, delete your data — see below for that.
+            itself, delete your data. See below for that.
           </p>
 
           <h3>Delete your entire account and data</h3>
@@ -72,7 +81,7 @@ export function DataDeletion({ onBack }: DataDeletionProps) {
           <p>
             Platform disconnects and subscription cancellations you trigger yourself in the Dashboard take
             effect immediately. Full account-deletion requests sent by email are processed within a reasonable
-            time after we've verified the request — if it's been more than a few business days without a reply,
+            time after we've verified the request. If it's been more than a few business days without a reply,
             follow up on the same email thread.
           </p>
 

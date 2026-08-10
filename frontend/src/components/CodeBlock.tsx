@@ -21,7 +21,7 @@ export function CodeBlock({ code }: { code: string }) {
   return (
     <pre className="api-code-block">
       <button type="button" className={`api-code-copy${status === "failed" ? " api-code-copy-failed" : ""}`} onClick={handleCopy}>
-        {status === "copied" ? "Copied!" : status === "failed" ? "Couldn't copy — select manually" : "Copy"}
+        {status === "copied" ? "Copied!" : status === "failed" ? "Couldn't copy, select manually" : "Copy"}
       </button>
       <code>{code}</code>
     </pre>

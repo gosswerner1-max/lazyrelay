@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BrandMark } from "../components/BrandMark";
 import { CircuitBackground } from "../components/CircuitBackground";
 
@@ -5,9 +6,17 @@ interface TermsOfServiceProps {
   onBack: () => void;
 }
 
-const LAST_UPDATED = "23 July 2026";
+const LAST_UPDATED = "10 August 2026";
 
 export function TermsOfService({ onBack }: TermsOfServiceProps) {
+  useEffect(() => {
+    const previous = document.title;
+    document.title = "Terms of Service | LazyRelay";
+    return () => {
+      document.title = previous;
+    };
+  }, []);
+
   return (
     <div className="landing">
       <CircuitBackground />
@@ -44,14 +53,14 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
             handles payment, tax, and invoicing. Subscriptions renew automatically each month until cancelled.
           </p>
           <p>
-            A storage add-on is a separate subscription from your plan — you can buy more than one, and cancel
+            A storage add-on is a separate subscription from your plan, so you can buy more than one, and cancel
             any single add-on without affecting your plan or your other add-ons.
           </p>
 
           <h3>Cancellations and refunds</h3>
           <p>
             <strong>You can cancel your plan at any time</strong> from the Settings tab of your dashboard.
-            Cancelling stops future billing — you keep access to your current plan's features until the end
+            Cancelling stops future billing, but you keep access to your current plan's features until the end
             of the billing period you've already paid for, then your account drops to the Free plan.
           </p>
           <p>
@@ -60,8 +69,8 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
           </p>
           <p>
             <strong>Cancelling your plan also cancels any active storage add-ons.</strong> If you want to keep
-            an add-on running on its own after downgrading to Free, contact us — that isn't currently supported
-            through self-serve cancellation.
+            an add-on running on its own after downgrading to Free, contact us, since that isn't currently
+            supported through self-serve cancellation.
           </p>
           <p>
             Storage add-ons themselves follow the same rule: cancel one at any time from Settings, effective at
@@ -72,8 +81,8 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
           <p>
             You own the content you schedule through LazyRelay. We store it only to publish it at the time you
             choose, and to show you what's scheduled, posted, or failed. Uploaded media counts against your
-            plan's storage quota (shown as a gauge in Settings) plus any storage add-ons you've purchased —
-            once you're at your limit, new uploads are rejected until you delete something or add more space.
+            plan's storage quota (shown as a gauge in Settings) plus any storage add-ons you've purchased.
+            Once you're at your limit, new uploads are rejected until you delete something or add more space.
             We never delete your files ourselves; storage is only ever freed by your own action.
           </p>
           <p>
@@ -84,9 +93,9 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
 
           <h3>Platform compliance</h3>
           <p>
-            LazyRelay is not affiliated with, endorsed by, or sponsored by Meta, TikTok, or Pinterest. We
-            connect to these platforms using their official APIs. We don't set our own limits on post length,
-            image size, or video specs — we follow whatever each connected platform requires at the time of
+            LazyRelay is not affiliated with, endorsed by, or sponsored by any platform you connect to it. We
+            connect to each platform using its official APIs. We don't set our own limits on post length,
+            image size, or video specs. We follow whatever each connected platform requires at the time of
             posting, and those limits can change on the platform's side at any time. It's your responsibility
             to make sure your content complies with each platform's own rules and terms.
           </p>
@@ -115,7 +124,7 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
           <h3>Contact us</h3>
           <p>
             Questions about these terms, billing, or a refund request you'd like us to consider outside the
-            standard policy? Email <a href="mailto:accounts@lazyrelay.com">accounts@lazyrelay.com</a>.
+            standard policy? Email <a href="mailto:hello@lazyrelay.com">hello@lazyrelay.com</a>.
           </p>
         </div>
       </section>

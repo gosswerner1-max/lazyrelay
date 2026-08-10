@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BrandMark } from "../components/BrandMark";
 import { CircuitBackground } from "../components/CircuitBackground";
 
@@ -24,6 +25,19 @@ const MAILBOXES = [
 ];
 
 export function Contact({ onBack }: ContactProps) {
+  // Every React-rendered standalone view shares the same index.html shell,
+  // which never had its <title> updated per-view -- browser tab always
+  // read the homepage's title regardless of which page you were actually
+  // on. Found live via a site audit, fixed 2026-08-10 (same fix applied
+  // to ApiDocs, TermsOfService, PrivacyPolicy, DataDeletion).
+  useEffect(() => {
+    const previous = document.title;
+    document.title = "Contact | LazyRelay";
+    return () => {
+      document.title = previous;
+    };
+  }, []);
+
   return (
     <div className="landing">
       <CircuitBackground />
@@ -42,7 +56,7 @@ export function Contact({ onBack }: ContactProps) {
       <section className="landing-section legal-page">
         <h2>Contact us</h2>
         <p className="section-note">
-          Pick whichever fits best — we read all three, but the right inbox gets you a faster answer.
+          Pick whichever fits best. We read all three, but the right inbox gets you a faster answer.
         </p>
 
         <div className="contact-list">

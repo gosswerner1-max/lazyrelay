@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BrandMark } from "../components/BrandMark";
 import { CircuitBackground } from "../components/CircuitBackground";
 
@@ -5,9 +6,17 @@ interface PrivacyPolicyProps {
   onBack: () => void;
 }
 
-const LAST_UPDATED = "21 July 2026";
+const LAST_UPDATED = "10 August 2026";
 
 export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
+  useEffect(() => {
+    const previous = document.title;
+    document.title = "Privacy Policy | LazyRelay";
+    return () => {
+      document.title = previous;
+    };
+  }, []);
+
   return (
     <div className="landing">
       <CircuitBackground />
@@ -33,6 +42,10 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
             social media accounts so you can queue up posts and have them published automatically. This policy
             explains what information we collect, how we use it, and the choices you have.
           </p>
+          <p>
+            LazyRelay is operated by IPE Projects (Pty) Ltd, a company registered in South Africa (registration
+            number 2021/003176/07).
+          </p>
 
           <h3>Information we collect</h3>
           <p>
@@ -40,11 +53,11 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
             password (stored securely by our authentication provider, never in plain text).
           </p>
           <p>
-            <strong>Connected account information.</strong> When you connect a social media account (Meta,
-            TikTok, Pinterest), we receive an access token and basic profile information (account name,
-            platform, account ID) from that platform via its official OAuth process. We use this token only to
-            publish the posts you schedule and to verify they went live — we never read your private messages,
-            contacts, or unrelated account activity.
+            <strong>Connected account information.</strong> When you connect a social media account (any
+            platform you connect to LazyRelay), we receive an access token and basic profile information
+            (account name, platform, account ID) from that platform via its official OAuth process. We use
+            this token only to publish the posts you schedule and to verify they went live. We never read your
+            private messages, contacts, or unrelated account activity.
           </p>
           <p>
             <strong>Content you submit.</strong> The post text, images, and scheduling details you enter into
