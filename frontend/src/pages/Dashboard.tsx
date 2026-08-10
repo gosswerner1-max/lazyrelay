@@ -1437,7 +1437,7 @@ export function Dashboard() {
                   {t}
                 </button>
               ))}
-              <a href="/guides" target="_blank" rel="noopener noreferrer" onClick={() => setMoreMenuOpen(false)}>
+              <a href="/guides" onClick={() => setMoreMenuOpen(false)}>
                 Guides
               </a>
             </div>

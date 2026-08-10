@@ -2681,6 +2681,16 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // them, so a leaked key can't be used to self-escalate into permanent
   // access if the original key is later revoked.
   router.post("/api-keys", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    // Pricing has always advertised "AI-agent / MCP access" as a paid-tier
+    // perk, but this route had no tier check at all until now (found live
+    // by a site audit, confirmed as a real gap by Werner 2026-08-10, not
+    // just stale copy) -- same paid-tier-gate pattern already used for
+    // recurring schedules and storage add-ons above.
+    const tier = await resolveTier(req.accountId!);
+    if (tier === "free") {
+      res.status(403).json({ error: "API keys are a paid-tier feature. Upgrade to Starter, Pro, or Business for API and MCP access." });
+      return;
+    }
     const { name, canShareProof } = req.body ?? {};
     if (typeof name !== "string" || name.trim().length === 0) {
       res.status(400).json({ error: "name is required" });
