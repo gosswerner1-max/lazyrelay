@@ -12,6 +12,11 @@ interface LandingProps {
   onTerms: () => void;
   onContact: () => void;
   onDocs: () => void;
+  // Whether the visitor's ORIGINAL url (captured in App.tsx before Root's
+  // own path-sync effect rewrites it back to "/") was /pricing. Can't be
+  // recomputed from window.location.pathname inside this component -- by
+  // the time Landing mounts, that rewrite has already happened.
+  scrollToPricing: boolean;
 }
 
 const FEATURES = [
@@ -118,7 +123,7 @@ const FAQ = [
   },
 ];
 
-export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact, onDocs }: LandingProps) {
+export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact, onDocs, scrollToPricing }: LandingProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Anyone arriving at /pricing (e.g. the "See plans" links used across
@@ -132,9 +137,12 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact,
   // into place with no visible jump at all. Found live via a site audit,
   // fixed 2026-08-10.
   useLayoutEffect(() => {
-    if (window.location.pathname === "/pricing") {
+    if (scrollToPricing) {
       document.getElementById("pricing")?.scrollIntoView();
     }
+    // scrollToPricing reflects App.tsx's INITIAL_PATH, captured once at
+    // module load -- deliberately not re-checked on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

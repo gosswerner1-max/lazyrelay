@@ -17,6 +17,15 @@ import "./App.css";
 
 const MANUAL_CONNECT_PLATFORMS = ["bluesky", "telegram", "discord"] as const;
 
+// Captured once at module-evaluation time, before React (or any of its
+// effects) runs at all. Root's own path-sync effect rewrites the URL back
+// to "/" almost immediately for any path that maps to the "landing" view
+// (which /pricing does) -- reading window.location.pathname live from
+// inside a later effect/layoutEffect would already see "/", not
+// "/pricing". This constant is the only reliable way to know what the
+// visitor actually navigated to.
+const INITIAL_PATH = window.location.pathname;
+
 type View = "landing" | "signin" | "signup" | "privacy" | "terms" | "data-deletion" | "contact" | "docs";
 
 const PATH_TO_VIEW: Record<string, View> = {
@@ -167,6 +176,7 @@ function Root() {
         onTerms={() => setView("terms")}
         onContact={() => setView("contact")}
         onDocs={() => setView("docs")}
+        scrollToPricing={INITIAL_PATH === "/pricing"}
       />
     );
   }
