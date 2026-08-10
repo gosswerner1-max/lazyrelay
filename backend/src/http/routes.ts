@@ -21,6 +21,7 @@ import { checkGenerationLimit, recordGeneration } from "../aiUsage.js";
 import { triageItems, type TriageItem, type TriageResult } from "../commentTriage.js";
 import type { CommentItem } from "../platforms/types.js";
 import { generateWebhookSecret } from "../webhook.js";
+import tls from "node:tls";
 
 // Storage add-ons — priced 2026-07-23 after researching real comparables
 // (consumer cloud storage clusters $0.005-0.02/GB/mo, the closest real B2B
@@ -608,6 +609,57 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       scheduledFor: post.scheduled_for,
       verifiedAt: result.verification_checked_at,
       platformPostUrl: result.platform_post_url,
+    });
+  });
+
+  // Public status endpoint — no auth, deliberately narrow: only the signals
+  // a customer actually needs (is the scheduler running on time, is the
+  // site's certificate healthy), never business-sensitive numbers like MAU
+  // or DB size — those stay internal-ops-only (see ops/health/health_ops.js,
+  // whose real scheduler-lag query this reuses, translated to TS).
+  router.get("/public/status", publicRateLimit, async (_req, res) => {
+    const graceMinutes = 5;
+    const cutoff = new Date(Date.now() - graceMinutes * 60 * 1000).toISOString();
+    const { count, error } = await supabase
+      .from("scheduled_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending")
+      .lt("scheduled_for", cutoff);
+    if (error) {
+      dbError(res, error, "GET /public/status");
+      return;
+    }
+    const overdueCount = count ?? 0;
+    const schedulerStatus = overdueCount >= 5 ? "delayed" : overdueCount >= 1 ? "watching" : "ok";
+
+    const ssl = await new Promise<{ status: string; daysRemaining: number | null }>((resolve) => {
+      const socket = tls.connect(
+        { host: "lazyrelay.com", port: 443, servername: "lazyrelay.com", timeout: 15000 },
+        () => {
+          const cert = socket.getPeerCertificate();
+          socket.end();
+          if (!cert || !cert.valid_to) {
+            resolve({ status: "unknown", daysRemaining: null });
+            return;
+          }
+          const daysRemaining = Math.floor((new Date(cert.valid_to).getTime() - Date.now()) / (24 * 3600 * 1000));
+          resolve({ status: daysRemaining <= 7 ? "critical" : daysRemaining <= 14 ? "warn" : "ok", daysRemaining });
+        }
+      );
+      socket.on("error", () => resolve({ status: "unknown", daysRemaining: null }));
+      socket.on("timeout", () => {
+        socket.destroy();
+        resolve({ status: "unknown", daysRemaining: null });
+      });
+    });
+
+    const overall = schedulerStatus === "delayed" || ssl.status === "critical" ? "degraded" : "operational";
+
+    res.json({
+      overall,
+      checkedAt: new Date().toISOString(),
+      scheduler: { status: schedulerStatus, overdueCount },
+      ssl,
     });
   });
 
