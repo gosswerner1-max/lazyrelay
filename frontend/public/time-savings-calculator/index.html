@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Social Media Time-Savings Calculator | LazyRelay</title>
+<meta name="description" content="How much time does posting the same content to multiple platforms by hand actually cost you? A simple calculator, with the assumption shown, not a made-up stat." />
+<link rel="canonical" href="https://lazyrelay.com/time-savings-calculator" />
+<link rel="icon" type="image/png" href="/favicon.png" />
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-CNVBJ2076F"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-CNVBJ2076F');
+</script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #5b6472; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .calc-box { background: #f5f6f8; border-radius: 10px; padding: 24px; margin: 24px 0; }
+  .calc-field { margin-bottom: 18px; }
+  .calc-field label { display: block; font-weight: 600; color: #14171f; margin-bottom: 6px; font-size: 14px; }
+  .calc-field input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #d7dae0; border-radius: 6px; font-size: 15px; }
+  .calc-result { background: #fff; border-left: 3px solid #ff5630; border-radius: 4px; padding: 20px; margin-top: 20px; }
+  .calc-result .big { font-family: Georgia, serif; font-size: 28px; color: #14171f; font-weight: 700; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+</style>
+</head>
+<body>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/">&larr; Back to home</a>
+<h1>Time-Savings Calculator</h1>
+<p class="subtitle">Posting the same content to multiple platforms by hand means repeating the whole process for each one. Here's roughly what that actually costs you, with the assumption shown plainly, not hidden in a "stat."</p>
+
+<div class="calc-box">
+  <div class="calc-field">
+    <label for="posts">Posts you publish per week</label>
+    <input type="number" id="posts" value="5" min="0" />
+  </div>
+  <div class="calc-field">
+    <label for="platforms">Platforms you post the same content to</label>
+    <input type="number" id="platforms" value="4" min="1" />
+  </div>
+  <div class="calc-field">
+    <label for="minutes">Minutes to write and post to one platform, by hand</label>
+    <input type="number" id="minutes" value="6" min="0" />
+  </div>
+
+  <div class="calc-result">
+    <div id="result-text">Fill in the fields above.</div>
+  </div>
+</div>
+
+<p class="note">The assumption: you write and set up a post once, whether you're posting to one platform or several. Posting by hand means repeating the whole write-and-post process for each additional platform. Scheduling it once and sending it everywhere removes that repetition, not the first platform's worth of time, which you'd spend either way.</p>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Write it once. Schedule it everywhere.</strong></p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+<script>
+(function () {
+  var postsEl = document.getElementById("posts");
+  var platformsEl = document.getElementById("platforms");
+  var minutesEl = document.getElementById("minutes");
+  var resultEl = document.getElementById("result-text");
+
+  function recalc() {
+    var posts = Math.max(0, Number(postsEl.value) || 0);
+    var platforms = Math.max(1, Number(platformsEl.value) || 1);
+    var minutes = Math.max(0, Number(minutesEl.value) || 0);
+
+    var extraPlatforms = Math.max(0, platforms - 1);
+    var weeklyMinutesSaved = posts * minutes * extraPlatforms;
+    var monthlyHoursSaved = (weeklyMinutesSaved * 4.33) / 60;
+
+    if (weeklyMinutesSaved <= 0) {
+      resultEl.innerHTML = "With only 1 platform, there's no repeated posting to save time on. Add more platforms above to see the difference.";
+      return;
+    }
+
+    resultEl.innerHTML =
+      "<span class=\"big\">" + monthlyHoursSaved.toFixed(1) + " hours a month</span><br>" +
+      "roughly " + Math.round(weeklyMinutesSaved) + " minutes a week not spent repeating the same post across " + extraPlatforms + " extra platform" + (extraPlatforms === 1 ? "" : "s") + ".";
+  }
+
+  postsEl.addEventListener("input", recalc);
+  platformsEl.addEventListener("input", recalc);
+  minutesEl.addEventListener("input", recalc);
+  recalc();
+})();
+</script>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/status">Status</a> &middot; <a href="/changelog">Changelog</a> &middot; <a href="/platform-features">Platform Features</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>

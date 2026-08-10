@@ -461,6 +461,12 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact,
           <a className="link" href="/guides">
             Guides
           </a>
+          <a className="link" href="/status">
+            Status
+          </a>
+          <a className="link" href="/changelog">
+            Changelog
+          </a>
           <button className="link" onClick={onPrivacy}>
             Privacy Policy
           </button>
