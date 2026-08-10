@@ -3,6 +3,7 @@ import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
 import { RelaySignal } from "../components/RelaySignal";
 import { CircuitBackground } from "../components/CircuitBackground";
+import { SupportWidget } from "../components/SupportWidget";
 import banner from "../assets/banner.jpg";
 
 interface LandingProps {
@@ -436,6 +437,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact,
         </p>
         <p>&copy; {new Date().getFullYear()} LazyRelay. All rights reserved.</p>
       </footer>
+      <SupportWidget />
     </div>
   );
 }

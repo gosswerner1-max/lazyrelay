@@ -337,6 +337,21 @@ export const api = {
 
   getContentIdeas: (): Promise<{ ideas: string[] }> => authedFetch("/ai/content-ideas", { method: "POST" }),
 
+  // Not authedFetch — the support widget has to work for signed-out
+  // marketing-site visitors too, so this never attaches a session token.
+  sendSupportChatMessage: async (
+    messages: Array<{ role: "user" | "assistant"; content: string }>,
+  ): Promise<{ reply: string; escalated: "hello" | "support" | "accounts" | null }> => {
+    const res = await fetch(`${API_URL}/support/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error ?? `Request failed: ${res.status}`);
+    return body;
+  },
+
   getBioPage: (): Promise<BioPage | null> => authedFetch("/bio-page"),
   saveBioPage: (input: { slug: string; title: string; bio: string; avatarUrl?: string | null }): Promise<BioPage> =>
     authedFetch("/bio-page", { method: "PUT", body: JSON.stringify(input) }),

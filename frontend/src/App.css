@@ -3062,6 +3062,240 @@
   background: #1a73e8;
 }
 
+.support-widget {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.support-bubble {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: none;
+  background: var(--hero-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 20px -4px rgba(3, 10, 26, 0.5);
+  padding: 0;
+}
+
+.support-bubble-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid var(--hero-accent);
+  pointer-events: none;
+}
+
+.support-bubble-ring--outer {
+  inset: -8px;
+  opacity: 0.25;
+  animation: relay-ping 2.2s cubic-bezier(0.2, 0.8, 0.3, 1) infinite;
+  transform-origin: center;
+}
+
+.support-bubble-ring--inner {
+  inset: -2px;
+  opacity: 0.45;
+  animation: relay-ping 2.2s cubic-bezier(0.2, 0.8, 0.3, 1) infinite 0.3s;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .support-bubble-ring--outer,
+  .support-bubble-ring--inner {
+    animation: none;
+  }
+}
+
+.support-bubble-avatar {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+
+.support-panel {
+  width: 340px;
+  max-width: calc(100vw - 40px);
+  height: 480px;
+  max-height: calc(100vh - 120px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 12px 32px -8px rgba(3, 10, 26, 0.35);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.support-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.support-panel-header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.support-panel-avatar {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.support-panel-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.support-panel-subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: var(--wire);
+}
+
+.support-panel-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--wire);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.support-panel-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.support-panel-empty {
+  color: var(--wire);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.support-message {
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.support-message p {
+  margin: 0;
+}
+
+.support-message-user {
+  align-self: flex-end;
+  background: var(--hero-accent);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.support-message-assistant {
+  align-self: flex-start;
+  background: var(--paper);
+  color: var(--ink);
+  border-bottom-left-radius: 4px;
+}
+
+.support-message-escalated {
+  margin-top: 6px !important;
+  font-size: 11px !important;
+  font-style: italic;
+  color: var(--wire);
+}
+
+.support-thinking {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.support-thinking-video {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.support-thinking-label {
+  color: var(--wire);
+  font-size: 12px;
+}
+
+.support-panel-error {
+  color: var(--error);
+  font-size: 12px;
+  margin: 0;
+}
+
+.support-panel-input {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.support-panel-input input {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.support-panel-input button {
+  background: var(--hero-accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.support-panel-input button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 480px) {
+  .support-widget {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .support-panel {
+    width: calc(100vw - 24px);
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   .cookie-consent {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);

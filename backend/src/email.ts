@@ -74,6 +74,39 @@ export function sendFailureAlert(to: string, content: string, reason: string): v
     .catch((err) => console.error("[email] sendFailureAlert threw:", err instanceof Error ? err.message : err));
 }
 
+const ESCALATION_ADDRESSES = {
+  hello: "hello@lazyrelay.com",
+  support: "support@lazyrelay.com",
+  accounts: "accounts@lazyrelay.com",
+} as const;
+
+/** Support-widget escalation handoff (2026-08-10) — when the AI support
+ *  chat can't resolve something itself, it hands the transcript to the same
+ *  mailbox a human would route it to, so the existing autonomous email
+ *  agent picks it up exactly like any other inbound message. Fire-and-forget
+ *  for the same reason as the other senders here — a failed handoff email
+ *  must never break the chat response the customer already got. */
+export function sendSupportEscalation(mailbox: keyof typeof ESCALATION_ADDRESSES, transcript: string): void {
+  const client = getClient();
+  if (!client) return;
+  const to = ESCALATION_ADDRESSES[mailbox];
+  client.emails
+    .send({
+      from: `LazyRelay Support Widget <${FROM_ADDRESS}>`,
+      to,
+      subject: "Support widget escalation",
+      html: wrapEmailHtml(
+        "Support widget escalation",
+        `The AI support widget couldn't resolve this conversation and handed it off:<br><br>` +
+          `<pre style="white-space:pre-wrap;color:#ffffff;font-family:inherit;font-size:14px;">${escapeHtml(transcript)}</pre>`
+      ),
+    })
+    .then((result) => {
+      if (result.error) console.error("[email] sendSupportEscalation failed:", result.error.message);
+    })
+    .catch((err) => console.error("[email] sendSupportEscalation threw:", err instanceof Error ? err.message : err));
+}
+
 /** Same alert, worded for the account-paused case (retrying won't help —
  *  the customer needs to reconnect the account or upgrade, not wait). */
 export function sendAccountPausedAlert(to: string, content: string): void {

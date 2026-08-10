@@ -18,6 +18,8 @@ import { checkAccountLimit } from "../accountLimits.js";
 import { resolveTier, RECURRING_SCHEDULE_SLOT_LIMITS, type Tier } from "../tier.js";
 import { cancelFuturePendingOccurrences } from "../recurringScheduler.js";
 import { checkGenerationLimit, recordGeneration } from "../aiUsage.js";
+import { buildSupportSystemPrompt } from "../support/chatKnowledge.js";
+import { sendSupportEscalation } from "../email.js";
 import { triageItems, type TriageItem, type TriageResult } from "../commentTriage.js";
 import type { CommentItem } from "../platforms/types.js";
 import { generateWebhookSecret } from "../webhook.js";
@@ -367,6 +369,82 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         return;
       }
       res.status(502).json({ error: "AI content ideas failed, please try again." });
+    }
+  });
+
+  // AI support widget (2026-08-10) — public, no requireAuth, since it has
+  // to work for signed-out visitors on the marketing site as well as
+  // logged-in dashboard users. Not account-aware in v1: no account data,
+  // no actions, read-only Q&A grounded in chatKnowledge.ts. Reuses
+  // publicRateLimit (IP-keyed) for now; unlike the OAuth callback that
+  // limiter was built for, this route costs real Anthropic spend per call,
+  // so tighten this if real usage shows it's too generous.
+  const MAX_CHAT_MESSAGES = 20;
+  const MAX_CHAT_MESSAGE_LENGTH = 2000;
+  router.post("/support/chat", publicRateLimit, async (req, res) => {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      res.status(503).json({ error: "The support assistant isn't set up on this deploy yet." });
+      return;
+    }
+    const { messages } = req.body ?? {};
+    if (!Array.isArray(messages) || messages.length === 0 || messages.length > MAX_CHAT_MESSAGES) {
+      res.status(400).json({ error: `messages must be a non-empty array of at most ${MAX_CHAT_MESSAGES} items` });
+      return;
+    }
+    const validRoles = new Set(["user", "assistant"]);
+    for (const m of messages) {
+      if (
+        typeof m !== "object" ||
+        m === null ||
+        !validRoles.has(m.role) ||
+        typeof m.content !== "string" ||
+        m.content.length === 0 ||
+        m.content.length > MAX_CHAT_MESSAGE_LENGTH
+      ) {
+        res.status(400).json({ error: "each message needs a role of user/assistant and non-empty content" });
+        return;
+      }
+    }
+    if (messages[messages.length - 1].role !== "user") {
+      res.status(400).json({ error: "the last message must be from the user" });
+      return;
+    }
+
+    try {
+      // Longer timeout than the caption/hashtag routes — this is a real
+      // conversational reply grounded in a much bigger system prompt, not a
+      // short generation. Still bounded so a hung call fails cleanly.
+      const client = new Anthropic({ apiKey, timeout: 30_000 });
+      const message = await client.messages.create({
+        model: "claude-haiku-4-5",
+        max_tokens: 500,
+        system: buildSupportSystemPrompt(),
+        messages: messages.map((m: { role: "user" | "assistant"; content: string }) => ({ role: m.role, content: m.content })),
+      });
+      const textBlock = message.content.find((block) => block.type === "text");
+      if (!textBlock || textBlock.type !== "text") {
+        res.status(502).json({ error: "The support assistant returned no usable reply." });
+        return;
+      }
+
+      const escalateMatch = textBlock.text.match(/\[\[ESCALATE:(hello|support|accounts)\]\]/);
+      const reply = textBlock.text.replace(/\s*\[\[ESCALATE:(hello|support|accounts)\]\]\s*$/, "").trim();
+      const escalated = escalateMatch ? (escalateMatch[1] as "hello" | "support" | "accounts") : null;
+
+      if (escalated) {
+        const transcript = [...messages.map((m: { role: string; content: string }) => `${m.role}: ${m.content}`), `assistant: ${reply}`].join("\n\n");
+        sendSupportEscalation(escalated, transcript);
+      }
+
+      res.json({ reply, escalated });
+    } catch (err) {
+      console.error("[routes] POST /support/chat:", err instanceof Error ? err.message : err);
+      if (err instanceof Anthropic.APIConnectionTimeoutError) {
+        res.status(504).json({ error: "The support assistant took too long — please try again." });
+        return;
+      }
+      res.status(502).json({ error: "The support assistant failed — please try again." });
     }
   });
 
