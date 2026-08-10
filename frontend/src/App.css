@@ -1939,17 +1939,6 @@
   flex-direction: column;
   align-items: center;
   width: 100%;
-  --trace-opacity: 0.11;
-  --trace-soft-opacity: 0.065;
-  --via-opacity: 0.16;
-}
-
-@media (prefers-color-scheme: dark) {
-  .landing {
-    --trace-opacity: 0.085;
-    --trace-soft-opacity: 0.05;
-    --via-opacity: 0.15;
-  }
 }
 
 /* "Confirmed Signal Grid" + "Quiet Board, Live Edge" — ported from a
@@ -1969,6 +1958,24 @@
   overflow: hidden;
   pointer-events: none;
   isolation: isolate;
+  /* Previously defined on .landing only -- the dashboard's wrapper isn't
+     .landing, so these never resolved there and .trace/.via fell back to
+     opacity's initial value of 1 (fully opaque) instead of ~0.11. That's
+     why the dashboard's traces looked like solid dark lines instead of a
+     faint background texture. Defining them here means every page that
+     mounts CircuitBackground gets them, regardless of its own wrapper
+     class. Found live by Werner comparing the dashboard to the homepage. */
+  --trace-opacity: 0.11;
+  --trace-soft-opacity: 0.065;
+  --via-opacity: 0.16;
+}
+
+@media (prefers-color-scheme: dark) {
+  .circuit-background {
+    --trace-opacity: 0.085;
+    --trace-soft-opacity: 0.05;
+    --via-opacity: 0.15;
+  }
 }
 
 .circuit-background::before {
