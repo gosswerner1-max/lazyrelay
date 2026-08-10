@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
 import { RelaySignal } from "../components/RelaySignal";
@@ -120,6 +120,22 @@ const FAQ = [
 
 export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact, onDocs }: LandingProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Anyone arriving at /pricing (e.g. the "See plans" links used across
+  // every guide/tool page) should land ON the pricing section, not the
+  // hero. Previously this lived in App.tsx's Root, gated on the auth
+  // session check resolving (`!loading`) -- but that check can take a
+  // couple of seconds, so visitors saw the page sit at the top (or a
+  // loading spinner) and then get visibly yanked down once it resolved.
+  // Doing it here with useLayoutEffect instead fires synchronously before
+  // the browser paints Landing's first frame, so it's already scrolled
+  // into place with no visible jump at all. Found live via a site audit,
+  // fixed 2026-08-10.
+  useLayoutEffect(() => {
+    if (window.location.pathname === "/pricing") {
+      document.getElementById("pricing")?.scrollIntoView();
+    }
+  }, []);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;

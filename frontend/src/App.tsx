@@ -44,7 +44,6 @@ const VIEW_TO_PATH: Partial<Record<View, string>> = {
 function Root() {
   const { session, loading } = useAuth();
   const [view, setView] = useState<View>(() => PATH_TO_VIEW[window.location.pathname] ?? "landing");
-  const [initialPath] = useState(() => window.location.pathname);
 
   useEffect(() => {
     // Connect-form pages own their own URL (/connect/<platform>?state=...)
@@ -68,13 +67,6 @@ function Root() {
       window.history.pushState({}, "", path);
     }
   }, [view]);
-
-  useEffect(() => {
-    if (initialPath === "/pricing" && !loading && !session) {
-      document.getElementById("pricing")?.scrollIntoView();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, session]);
 
   useEffect(() => {
     const onPopState = () => setView(PATH_TO_VIEW[window.location.pathname] ?? "landing");
