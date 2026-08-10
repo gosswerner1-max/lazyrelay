@@ -2270,14 +2270,17 @@
   padding: 14px 28px;
   border: none;
   border-radius: 10px;
-  background: var(--signal-solid);
+  /* Always on --hero-bg (hero section or a .pricing-card), which is dark
+     regardless of site theme -- --hero-accent stays fixed for the same
+     reason, so this never mismatches the vibrant orange in banner.jpg. */
+  background: var(--hero-accent);
   color: #fff;
   font-weight: 600;
   font-size: 16px;
 }
 
 .cta:hover {
-  background: var(--signal-solid-hover);
+  background: var(--hero-accent-hover);
 }
 
 .landing-section {

@@ -20,13 +20,27 @@
   --confirm-bg: rgba(31, 157, 104, 0.1);
   --pulse-teal: #0d7d8c;
   --pulse-violet: #7c3aed;
+  /* Fixed, non-theme-adaptive accent for elements that always sit on
+     --hero-bg (the hero section, pricing cards) regardless of light/dark
+     mode. Matches the vibrant orange baked into banner.jpg's logo
+     (sampled live: rgb(252,55,36)) -- --signal-solid is calibrated for
+     contrast against --paper and looks visibly duller against dark navy.
+     Found live by Werner comparing the "Get started free" button to the
+     banner image right next to it, 2026-08-10. */
+  --hero-accent: #fc3724;
+  --hero-accent-hover: #e22e1a;
   --error: #d1372f;
   --error-bg: rgba(209, 55, 47, 0.09);
   --warn: #a16207;
   --warn-bg: rgba(234, 179, 8, 0.14);
   --shadow: rgba(20, 23, 31, 0.06) 0 6px 20px -6px;
   --navy: #14171f;
-  --hero-bg: #040c1c;
+  /* Matched exactly to banner.jpg's own dominant background pixel (sampled
+     live: rgb(3,10,26), by far the most common color in the image) --
+     the previous #040c1c was close but not identical, which showed as a
+     faint seam at the image's edge against the surrounding hero fill.
+     Found live by Werner, 2026-08-10. */
+  --hero-bg: #030a1a;
 
   --font-display: "League Spartan", system-ui, sans-serif;
   --font-body: "Work Sans", system-ui, sans-serif;
