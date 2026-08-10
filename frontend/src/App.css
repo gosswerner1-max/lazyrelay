@@ -289,9 +289,12 @@
   box-shadow: var(--shadow);
 }
 
-.tab-more-menu button {
+.tab-more-menu button,
+.tab-more-menu a {
   padding: 8px 12px;
   border: none;
+  text-decoration: none;
+  display: block;
   border-radius: 6px;
   background: none;
   color: var(--wire);
@@ -303,7 +306,8 @@
   margin-bottom: 0 !important;
 }
 
-.tab-more-menu button:hover {
+.tab-more-menu button:hover,
+.tab-more-menu a:hover {
   background: var(--line);
   color: var(--ink);
 }
