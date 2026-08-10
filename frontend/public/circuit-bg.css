@@ -140,9 +140,16 @@
 .circuit-svg .confirmation-dot.dot-7 { animation-delay: -7s; animation-duration: 13.2s; }
 .circuit-svg .confirmation-dot.dot-8 { animation-delay: -10s; animation-duration: 15s; }
 
-.circuit-svg .color-green { stroke: var(--cb-confirm); fill: var(--cb-confirm); }
-.circuit-svg .color-teal { stroke: var(--cb-pulse-teal); fill: var(--cb-pulse-teal); }
-.circuit-svg .color-violet { stroke: var(--cb-pulse-violet); fill: var(--cb-pulse-violet); }
+/* Only .confirmation-dot gets `fill` here -- .pulse and .confirmation-ring
+   rely on `fill: none` from their base rules above (stroked outlines, not
+   shapes); setting fill unconditionally here overrode that and turned
+   every colored pulse's sharp corners into solid filled triangles. */
+.circuit-svg .pulse.color-green, .circuit-svg .confirmation-ring.color-green { stroke: var(--cb-confirm); }
+.circuit-svg .confirmation-dot.color-green { fill: var(--cb-confirm); }
+.circuit-svg .pulse.color-teal, .circuit-svg .confirmation-ring.color-teal { stroke: var(--cb-pulse-teal); }
+.circuit-svg .confirmation-dot.color-teal { fill: var(--cb-pulse-teal); }
+.circuit-svg .pulse.color-violet, .circuit-svg .confirmation-ring.color-violet { stroke: var(--cb-pulse-violet); }
+.circuit-svg .confirmation-dot.color-violet { fill: var(--cb-pulse-violet); }
 
 @keyframes cb-signal-flow {
   0%, 8% { stroke-dashoffset: 1030; opacity: 0; }

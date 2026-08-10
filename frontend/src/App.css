@@ -2121,19 +2121,34 @@
 /* Color variants — added after the base .pulse/.confirmation-ring/
    .confirmation-dot rules above so these win on specificity-tie source
    order. Orange (the unmodified default) stays the primary color; these
-   three round out the palette so no single color dominates the page. */
-.color-green {
+   three round out the palette so no single color dominates the page.
+   IMPORTANT: only .confirmation-dot gets `fill` here — .pulse and
+   .confirmation-ring both rely on `fill: none` from their base rules
+   (they're stroked outlines, not shapes), and a bug where these classes
+   set `fill` unconditionally overrode that, turning every colored pulse's
+   sharp right-angle turns into solid filled triangles instead of a thin
+   line. Fixed 2026-08-10 — verified live before, not just assumed. */
+.pulse.color-green,
+.confirmation-ring.color-green {
   stroke: var(--confirm);
+}
+.confirmation-dot.color-green {
   fill: var(--confirm);
 }
 
-.color-teal {
+.pulse.color-teal,
+.confirmation-ring.color-teal {
   stroke: var(--pulse-teal);
+}
+.confirmation-dot.color-teal {
   fill: var(--pulse-teal);
 }
 
-.color-violet {
+.pulse.color-violet,
+.confirmation-ring.color-violet {
   stroke: var(--pulse-violet);
+}
+.confirmation-dot.color-violet {
   fill: var(--pulse-violet);
 }
 
