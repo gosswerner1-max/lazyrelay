@@ -277,6 +277,7 @@ export const api = {
     mediaUrl?: string;
     coverImageUrl?: string;
     boardId?: string;
+    firstComment?: string;
     scheduledFor: string;
     requiresApproval?: boolean;
   }): Promise<ScheduledPost> => authedFetch("/scheduled-posts", { method: "POST", body: JSON.stringify(input) }),

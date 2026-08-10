@@ -227,6 +227,7 @@ export function Dashboard() {
   const [pinterestBoards, setPinterestBoards] = useState<{ id: string; name: string }[]>([]);
   const [boardsLoading, setBoardsLoading] = useState(false);
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
+  const [firstComment, setFirstComment] = useState<string | null>(null);
   // The initial /scheduled-posts fetch already caps History at the
   // backend's page size (see routes.ts) — this just tracks whether a
   // fetched page came back full (there's probably more to load) so the
@@ -782,6 +783,9 @@ export function Dashboard() {
           boardId: accounts.find((a) => a.id === socialAccountId)?.platform === "pinterest"
             ? (selectedBoardId ?? undefined)
             : undefined,
+          // Only consumed server-side for Facebook/Instagram today — harmless
+          // no-op for every other platform, same pattern as boardId above.
+          firstComment: firstComment?.trim() ? firstComment.trim() : undefined,
           scheduledFor: scheduledForIso,
           requiresApproval: requiresApprovalOverride,
         });
@@ -791,6 +795,7 @@ export function Dashboard() {
       setScheduleTime("");
       setMediaUrl(null);
       setCoverImageUrl(null);
+      setFirstComment(null);
       setRequiresApproval(false);
       await refresh();
     } catch (err) {
@@ -2213,6 +2218,21 @@ export function Dashboard() {
                   </div>
                 </label>
               )}
+            {selectedAccountIds.some((id) => {
+              const platform = accounts.find((a) => a.id === id)?.platform;
+              return platform === "facebook" || platform === "instagram";
+            }) && (
+              <label>
+                First comment (optional)
+                <input
+                  type="text"
+                  value={firstComment ?? ""}
+                  onChange={(e) => setFirstComment(e.target.value)}
+                  placeholder="Posted as the first comment right after this goes live"
+                />
+                <span className="section-note">Facebook and Instagram only for now — ignored on other platforms.</span>
+              </label>
+            )}
             <label>
               Date
               <input
