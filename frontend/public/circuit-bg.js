@@ -1,8 +1,65 @@
 // Injects the same animated circuit background used across the React app
 // (see components/CircuitBackground.tsx) into static pages under public/.
-// Kept visually identical by hand — same paths, same 8 pulse routes, same
-// 4-color palette. Pair with /circuit-bg.css.
+// Kept in sync by hand — same static traces, same PULSE_ROUTES data, same
+// randomized-per-page-load color assignment. Pair with /circuit-bg.css.
 (function () {
+  var COLORS = ["var(--cb-signal-solid)", "var(--cb-confirm)", "var(--cb-pulse-teal)", "var(--cb-pulse-violet)"];
+
+  var PULSE_ROUTES = [
+    { d: "M0 105H145V165H250V226H355", cx: 355, cy: 226 },
+    { d: "M1600 470H1490V545H1392V618H1295", cx: 1295, cy: 618 },
+    { d: "M0 930H165V865H280V805H390", cx: 390, cy: 805 },
+    { d: "M1600 245H1510V310H1415V372H1325", cx: 1325, cy: 372, desktopOnly: true },
+    { d: "M0 320H95V260H190V195H295", cx: 295, cy: 195 },
+    { d: "M1600 320H1505V260H1410V195H1305", cx: 1305, cy: 195 },
+    { d: "M700 0V60H620V110H540", cx: 540, cy: 110 },
+    { d: "M900 1000V945H980V895H1060", cx: 1060, cy: 895, desktopOnly: true },
+    { d: "M0 210H92V278H182V338H285", cx: 285, cy: 338 },
+    { d: "M1530 0V68H1430V120H1325", cx: 1325, cy: 120 },
+    { d: "M0 455H120V530H220V610H315", cx: 315, cy: 610 },
+    { d: "M1600 655H1515V730H1435V810H1320", cx: 1320, cy: 810, desktopOnly: true },
+    { d: "M270 1000V945H405V885H520", cx: 520, cy: 885 },
+    { d: "M1335 1000V948H1205V890H1090", cx: 1090, cy: 890 },
+    { d: "M700 1000V940H620V890H540", cx: 540, cy: 890 },
+    { d: "M1265 0V80H1175V140H1080", cx: 1080, cy: 140, desktopOnly: true },
+  ].map(function (route, i) {
+    route.duration = 8.5 + i * 0.9;
+    route.delay = -(i * 1.15 + 0.4);
+    return route;
+  });
+
+  function shuffledColors(count) {
+    var perColor = Math.ceil(count / COLORS.length);
+    var pool = [];
+    for (var c = 0; c < COLORS.length; c++) {
+      for (var n = 0; n < perColor; n++) pool.push(COLORS[c]);
+    }
+    pool = pool.slice(0, count);
+    for (var i = pool.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = pool[i];
+      pool[i] = pool[j];
+      pool[j] = tmp;
+    }
+    return pool;
+  }
+
+  var colors = shuffledColors(PULSE_ROUTES.length);
+
+  var pulsesHtml = PULSE_ROUTES.map(function (route, i) {
+    var color = colors[i];
+    var groupOpen = route.desktopOnly ? '<g class="desktop-only">' : "<g>";
+    var pulseStyle = "stroke:" + color + ";animation-duration:" + route.duration + "s;animation-delay:" + route.delay + "s;";
+    var dotStyle = "fill:" + color + ";animation-duration:" + route.duration + "s;animation-delay:" + route.delay + "s;";
+    return (
+      groupOpen +
+      '<path class="pulse" pathLength="1000" d="' + route.d + '" style="' + pulseStyle + '" />' +
+      '<circle class="confirmation-ring" cx="' + route.cx + '" cy="' + route.cy + '" r="8" style="' + pulseStyle + '" />' +
+      '<circle class="confirmation-dot" cx="' + route.cx + '" cy="' + route.cy + '" r="2.4" style="' + dotStyle + '" />' +
+      "</g>"
+    );
+  }).join("");
+
   var html =
     '<div class="circuit-background" aria-hidden="true">' +
     '<svg class="circuit-svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" role="presentation">' +
@@ -69,31 +126,9 @@
     '<path class="trace soft desktop-only" d="M20 150V400H55V650H20V1000" />' +
     '<path class="trace soft desktop-only" d="M1580 150V400H1545V650H1580V1000" />' +
 
-    '<path class="pulse" pathLength="1000" d="M0 105H145V165H250V226H355" />' +
-    '<circle class="confirmation-ring" cx="355" cy="226" r="8" /><circle class="confirmation-dot" cx="355" cy="226" r="2.4" />' +
+    pulsesHtml +
 
-    '<path class="pulse pulse-2 color-green" pathLength="1000" d="M1600 470H1490V545H1392V618H1295" />' +
-    '<circle class="confirmation-ring ring-2 color-green" cx="1295" cy="618" r="8" /><circle class="confirmation-dot dot-2 color-green" cx="1295" cy="618" r="2.4" />' +
-
-    '<path class="pulse pulse-3 color-teal" pathLength="1000" d="M0 930H165V865H280V805H390" />' +
-    '<circle class="confirmation-ring ring-3 color-teal" cx="390" cy="805" r="8" /><circle class="confirmation-dot dot-3 color-teal" cx="390" cy="805" r="2.4" />' +
-
-    '<path class="pulse pulse-4 color-violet desktop-only" pathLength="1000" d="M1600 245H1510V310H1415V372H1325" />' +
-    '<circle class="confirmation-ring ring-4 color-violet desktop-only" cx="1325" cy="372" r="8" /><circle class="confirmation-dot dot-4 color-violet desktop-only" cx="1325" cy="372" r="2.4" />' +
-
-    '<path class="pulse pulse-5" pathLength="1000" d="M0 320H95V260H190V195H295" />' +
-    '<circle class="confirmation-ring ring-5" cx="295" cy="195" r="8" /><circle class="confirmation-dot dot-5" cx="295" cy="195" r="2.4" />' +
-
-    '<path class="pulse pulse-6 color-green" pathLength="1000" d="M1600 320H1505V260H1410V195H1305" />' +
-    '<circle class="confirmation-ring ring-6 color-green" cx="1305" cy="195" r="8" /><circle class="confirmation-dot dot-6 color-green" cx="1305" cy="195" r="2.4" />' +
-
-    '<path class="pulse pulse-7 color-teal" pathLength="1000" d="M700 0V60H620V110H540" />' +
-    '<circle class="confirmation-ring ring-7 color-teal" cx="540" cy="110" r="8" /><circle class="confirmation-dot dot-7 color-teal" cx="540" cy="110" r="2.4" />' +
-
-    '<path class="pulse pulse-8 color-violet desktop-only" pathLength="1000" d="M900 1000V945H980V895H1060" />' +
-    '<circle class="confirmation-ring ring-8 color-violet desktop-only" cx="1060" cy="895" r="8" /><circle class="confirmation-dot dot-8 color-violet desktop-only" cx="1060" cy="895" r="2.4" />' +
-
-    '</svg></div>';
+    "</svg></div>";
 
   document.body.insertAdjacentHTML("afterbegin", html);
 })();

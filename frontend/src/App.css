@@ -2022,6 +2022,14 @@
   opacity: calc(var(--via-opacity) * 0.7);
 }
 
+/* Color and timing (animation-delay/duration) are set per-instance via
+   inline style in CircuitBackground.tsx / circuit-bg.js, not CSS classes —
+   a prior class-based version (.color-green/-teal/-violet) hit a real bug
+   (2026-08-10): those classes set `fill` unconditionally, which won a
+   source-order specificity tiebreak against .pulse/.confirmation-ring's
+   `fill: none` below and turned every colored pulse's sharp turns into
+   solid filled triangles. Inline style can't have that ordering problem,
+   and it also means adding more pulse routes never needs new CSS. */
 .pulse {
   fill: none;
   stroke: var(--signal-solid);
@@ -2036,21 +2044,6 @@
   animation: signal-flow 8.5s linear infinite;
 }
 
-.pulse.pulse-2 {
-  animation-delay: -2.9s;
-  animation-duration: 10.8s;
-}
-
-.pulse.pulse-3 {
-  animation-delay: -6.1s;
-  animation-duration: 12.5s;
-}
-
-.pulse.pulse-4 {
-  animation-delay: -8.4s;
-  animation-duration: 14s;
-}
-
 .confirmation-ring {
   fill: none;
   stroke: var(--signal-solid);
@@ -2063,93 +2056,11 @@
   animation: confirmed 8.5s ease-out infinite;
 }
 
-.confirmation-ring.ring-2 {
-  animation-delay: -2.9s;
-  animation-duration: 10.8s;
-}
-
-.confirmation-ring.ring-3 {
-  animation-delay: -6.1s;
-  animation-duration: 12.5s;
-}
-
 .confirmation-dot {
   fill: var(--signal-solid);
   opacity: 0;
   filter: url(#signalGlow);
   animation: confirmed-dot 8.5s ease-out infinite;
-}
-
-.confirmation-dot.dot-2 {
-  animation-delay: -2.9s;
-  animation-duration: 10.8s;
-}
-
-.confirmation-dot.dot-3 {
-  animation-delay: -6.1s;
-  animation-duration: 12.5s;
-}
-
-.pulse.pulse-5,
-.confirmation-ring.ring-5,
-.confirmation-dot.dot-5 {
-  animation-delay: -1.5s;
-  animation-duration: 9.6s;
-}
-
-.pulse.pulse-6,
-.confirmation-ring.ring-6,
-.confirmation-dot.dot-6 {
-  animation-delay: -4.5s;
-  animation-duration: 11.7s;
-}
-
-.pulse.pulse-7,
-.confirmation-ring.ring-7,
-.confirmation-dot.dot-7 {
-  animation-delay: -7s;
-  animation-duration: 13.2s;
-}
-
-.pulse.pulse-8,
-.confirmation-ring.ring-8,
-.confirmation-dot.dot-8 {
-  animation-delay: -10s;
-  animation-duration: 15s;
-}
-
-/* Color variants — added after the base .pulse/.confirmation-ring/
-   .confirmation-dot rules above so these win on specificity-tie source
-   order. Orange (the unmodified default) stays the primary color; these
-   three round out the palette so no single color dominates the page.
-   IMPORTANT: only .confirmation-dot gets `fill` here — .pulse and
-   .confirmation-ring both rely on `fill: none` from their base rules
-   (they're stroked outlines, not shapes), and a bug where these classes
-   set `fill` unconditionally overrode that, turning every colored pulse's
-   sharp right-angle turns into solid filled triangles instead of a thin
-   line. Fixed 2026-08-10 — verified live before, not just assumed. */
-.pulse.color-green,
-.confirmation-ring.color-green {
-  stroke: var(--confirm);
-}
-.confirmation-dot.color-green {
-  fill: var(--confirm);
-}
-
-.pulse.color-teal,
-.confirmation-ring.color-teal {
-  stroke: var(--pulse-teal);
-}
-.confirmation-dot.color-teal {
-  fill: var(--pulse-teal);
-}
-
-.pulse.color-violet,
-.confirmation-ring.color-violet {
-  stroke: var(--pulse-violet);
-}
-.confirmation-dot.color-violet {
-  fill: var(--pulse-violet);
 }
 
 @keyframes signal-flow {

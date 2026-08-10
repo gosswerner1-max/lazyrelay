@@ -83,6 +83,9 @@
   opacity: 0.15;
 }
 
+/* Color and timing are set per-instance via inline style in circuit-bg.js
+   (mirroring CircuitBackground.tsx), not CSS classes -- see App.css for
+   why: a class-based version hit a real fill-override bug. */
 .circuit-svg .pulse {
   fill: none;
   stroke: var(--cb-signal-solid);
@@ -97,14 +100,6 @@
   animation: cb-signal-flow 8.5s linear infinite;
 }
 
-.circuit-svg .pulse.pulse-2 { animation-delay: -2.9s; animation-duration: 10.8s; }
-.circuit-svg .pulse.pulse-3 { animation-delay: -6.1s; animation-duration: 12.5s; }
-.circuit-svg .pulse.pulse-4 { animation-delay: -8.4s; animation-duration: 14s; }
-.circuit-svg .pulse.pulse-5 { animation-delay: -1.5s; animation-duration: 9.6s; }
-.circuit-svg .pulse.pulse-6 { animation-delay: -4.5s; animation-duration: 11.7s; }
-.circuit-svg .pulse.pulse-7 { animation-delay: -7s; animation-duration: 13.2s; }
-.circuit-svg .pulse.pulse-8 { animation-delay: -10s; animation-duration: 15s; }
-
 .circuit-svg .confirmation-ring {
   fill: none;
   stroke: var(--cb-signal-solid);
@@ -117,39 +112,12 @@
   animation: cb-confirmed 8.5s ease-out infinite;
 }
 
-.circuit-svg .confirmation-ring.ring-2 { animation-delay: -2.9s; animation-duration: 10.8s; }
-.circuit-svg .confirmation-ring.ring-3 { animation-delay: -6.1s; animation-duration: 12.5s; }
-.circuit-svg .confirmation-ring.ring-4 { animation-delay: -8.4s; animation-duration: 14s; }
-.circuit-svg .confirmation-ring.ring-5 { animation-delay: -1.5s; animation-duration: 9.6s; }
-.circuit-svg .confirmation-ring.ring-6 { animation-delay: -4.5s; animation-duration: 11.7s; }
-.circuit-svg .confirmation-ring.ring-7 { animation-delay: -7s; animation-duration: 13.2s; }
-.circuit-svg .confirmation-ring.ring-8 { animation-delay: -10s; animation-duration: 15s; }
-
 .circuit-svg .confirmation-dot {
   fill: var(--cb-signal-solid);
   opacity: 0;
   filter: url(#signalGlow);
   animation: cb-confirmed-dot 8.5s ease-out infinite;
 }
-
-.circuit-svg .confirmation-dot.dot-2 { animation-delay: -2.9s; animation-duration: 10.8s; }
-.circuit-svg .confirmation-dot.dot-3 { animation-delay: -6.1s; animation-duration: 12.5s; }
-.circuit-svg .confirmation-dot.dot-4 { animation-delay: -8.4s; animation-duration: 14s; }
-.circuit-svg .confirmation-dot.dot-5 { animation-delay: -1.5s; animation-duration: 9.6s; }
-.circuit-svg .confirmation-dot.dot-6 { animation-delay: -4.5s; animation-duration: 11.7s; }
-.circuit-svg .confirmation-dot.dot-7 { animation-delay: -7s; animation-duration: 13.2s; }
-.circuit-svg .confirmation-dot.dot-8 { animation-delay: -10s; animation-duration: 15s; }
-
-/* Only .confirmation-dot gets `fill` here -- .pulse and .confirmation-ring
-   rely on `fill: none` from their base rules above (stroked outlines, not
-   shapes); setting fill unconditionally here overrode that and turned
-   every colored pulse's sharp corners into solid filled triangles. */
-.circuit-svg .pulse.color-green, .circuit-svg .confirmation-ring.color-green { stroke: var(--cb-confirm); }
-.circuit-svg .confirmation-dot.color-green { fill: var(--cb-confirm); }
-.circuit-svg .pulse.color-teal, .circuit-svg .confirmation-ring.color-teal { stroke: var(--cb-pulse-teal); }
-.circuit-svg .confirmation-dot.color-teal { fill: var(--cb-pulse-teal); }
-.circuit-svg .pulse.color-violet, .circuit-svg .confirmation-ring.color-violet { stroke: var(--cb-pulse-violet); }
-.circuit-svg .confirmation-dot.color-violet { fill: var(--cb-pulse-violet); }
 
 @keyframes cb-signal-flow {
   0%, 8% { stroke-dashoffset: 1030; opacity: 0; }
