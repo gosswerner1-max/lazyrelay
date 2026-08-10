@@ -1,0 +1,189 @@
+/* Shared animated circuit background for every static page under public/.
+   Kept visually identical (by hand) to CircuitBackground.tsx / App.css /
+   index.css in the React app, so the whole site looks like one system, not
+   a marketing site bolted onto an app. Colors match exactly: orange
+   (--signal-solid, the default/primary), green (--confirm), teal, violet. */
+:root {
+  --cb-paper: #f5f6f8;
+  --cb-ink: #14171f;
+  --cb-signal-solid: #c82400;
+  --cb-confirm: #1f9d68;
+  --cb-pulse-teal: #0d7d8c;
+  --cb-pulse-violet: #7c3aed;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cb-paper: #0f1115;
+    --cb-ink: #f2f3f6;
+    --cb-signal-solid: #e32d00;
+    --cb-confirm: #3ec98a;
+    --cb-pulse-teal: #2dd4bf;
+    --cb-pulse-violet: #a78bfa;
+  }
+}
+
+.circuit-background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  isolation: isolate;
+}
+
+.circuit-background::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: var(--cb-paper);
+}
+
+.circuit-background::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: radial-gradient(ellipse 58% 55% at 50% 43%, var(--cb-paper) 0%, var(--cb-paper) 44%, transparent 78%);
+  opacity: 0.88;
+}
+
+.circuit-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  color: var(--cb-ink);
+}
+
+.circuit-svg .trace {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.35;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  opacity: 0.16;
+}
+
+.circuit-svg .trace.soft {
+  opacity: 0.09;
+}
+
+.circuit-svg .via {
+  fill: var(--cb-paper);
+  stroke: currentColor;
+  stroke-width: 1.3;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.22;
+}
+
+.circuit-svg .via-core {
+  fill: currentColor;
+  opacity: 0.15;
+}
+
+.circuit-svg .pulse {
+  fill: none;
+  stroke: var(--cb-signal-solid);
+  stroke-width: 2.25;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: miter;
+  stroke-dasharray: 30 970;
+  stroke-dashoffset: 1030;
+  opacity: 0;
+  filter: url(#signalGlow);
+  animation: cb-signal-flow 8.5s linear infinite;
+}
+
+.circuit-svg .pulse.pulse-2 { animation-delay: -2.9s; animation-duration: 10.8s; }
+.circuit-svg .pulse.pulse-3 { animation-delay: -6.1s; animation-duration: 12.5s; }
+.circuit-svg .pulse.pulse-4 { animation-delay: -8.4s; animation-duration: 14s; }
+.circuit-svg .pulse.pulse-5 { animation-delay: -1.5s; animation-duration: 9.6s; }
+.circuit-svg .pulse.pulse-6 { animation-delay: -4.5s; animation-duration: 11.7s; }
+.circuit-svg .pulse.pulse-7 { animation-delay: -7s; animation-duration: 13.2s; }
+.circuit-svg .pulse.pulse-8 { animation-delay: -10s; animation-duration: 15s; }
+
+.circuit-svg .confirmation-ring {
+  fill: none;
+  stroke: var(--cb-signal-solid);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  opacity: 0;
+  filter: url(#signalGlow);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cb-confirmed 8.5s ease-out infinite;
+}
+
+.circuit-svg .confirmation-ring.ring-2 { animation-delay: -2.9s; animation-duration: 10.8s; }
+.circuit-svg .confirmation-ring.ring-3 { animation-delay: -6.1s; animation-duration: 12.5s; }
+.circuit-svg .confirmation-ring.ring-4 { animation-delay: -8.4s; animation-duration: 14s; }
+.circuit-svg .confirmation-ring.ring-5 { animation-delay: -1.5s; animation-duration: 9.6s; }
+.circuit-svg .confirmation-ring.ring-6 { animation-delay: -4.5s; animation-duration: 11.7s; }
+.circuit-svg .confirmation-ring.ring-7 { animation-delay: -7s; animation-duration: 13.2s; }
+.circuit-svg .confirmation-ring.ring-8 { animation-delay: -10s; animation-duration: 15s; }
+
+.circuit-svg .confirmation-dot {
+  fill: var(--cb-signal-solid);
+  opacity: 0;
+  filter: url(#signalGlow);
+  animation: cb-confirmed-dot 8.5s ease-out infinite;
+}
+
+.circuit-svg .confirmation-dot.dot-2 { animation-delay: -2.9s; animation-duration: 10.8s; }
+.circuit-svg .confirmation-dot.dot-3 { animation-delay: -6.1s; animation-duration: 12.5s; }
+.circuit-svg .confirmation-dot.dot-4 { animation-delay: -8.4s; animation-duration: 14s; }
+.circuit-svg .confirmation-dot.dot-5 { animation-delay: -1.5s; animation-duration: 9.6s; }
+.circuit-svg .confirmation-dot.dot-6 { animation-delay: -4.5s; animation-duration: 11.7s; }
+.circuit-svg .confirmation-dot.dot-7 { animation-delay: -7s; animation-duration: 13.2s; }
+.circuit-svg .confirmation-dot.dot-8 { animation-delay: -10s; animation-duration: 15s; }
+
+.circuit-svg .color-green { stroke: var(--cb-confirm); fill: var(--cb-confirm); }
+.circuit-svg .color-teal { stroke: var(--cb-pulse-teal); fill: var(--cb-pulse-teal); }
+.circuit-svg .color-violet { stroke: var(--cb-pulse-violet); fill: var(--cb-pulse-violet); }
+
+@keyframes cb-signal-flow {
+  0%, 8% { stroke-dashoffset: 1030; opacity: 0; }
+  12% { opacity: 0.92; }
+  55% { opacity: 0.92; }
+  61% { stroke-dashoffset: 0; opacity: 0; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+@keyframes cb-confirmed {
+  0%, 57%, 100% { opacity: 0; transform: scale(0.55); }
+  60% { opacity: 0.85; transform: scale(0.75); }
+  64% { opacity: 0; transform: scale(1.55); }
+  68% { opacity: 0.62; transform: scale(0.78); }
+  72% { opacity: 0; transform: scale(1.35); }
+}
+
+@keyframes cb-confirmed-dot {
+  0%, 57%, 100% { opacity: 0; }
+  60%, 68% { opacity: 1; }
+  64%, 72% { opacity: 0.18; }
+}
+
+@media (max-width: 780px) {
+  .circuit-background::after {
+    background: radial-gradient(ellipse 82% 44% at 50% 42%, var(--cb-paper) 0%, var(--cb-paper) 48%, transparent 82%);
+  }
+  .circuit-svg .desktop-only {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .circuit-svg .pulse,
+  .circuit-svg .confirmation-ring,
+  .circuit-svg .confirmation-dot {
+    animation: none;
+  }
+  .circuit-svg .pulse {
+    stroke-dasharray: 22 978;
+    stroke-dashoffset: 740;
+    opacity: 0.58;
+  }
+}

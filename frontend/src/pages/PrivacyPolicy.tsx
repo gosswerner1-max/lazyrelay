@@ -1,4 +1,5 @@
 import { BrandMark } from "../components/BrandMark";
+import { CircuitBackground } from "../components/CircuitBackground";
 
 interface PrivacyPolicyProps {
   onBack: () => void;
@@ -9,6 +10,7 @@ const LAST_UPDATED = "21 July 2026";
 export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
   return (
     <div className="landing">
+      <CircuitBackground />
       <header className="landing-nav">
         <div className="wordmark">
           <BrandMark size={28} />

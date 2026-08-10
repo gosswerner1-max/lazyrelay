@@ -1,4 +1,5 @@
 import { BrandMark } from "../components/BrandMark";
+import { CircuitBackground } from "../components/CircuitBackground";
 
 interface ContactProps {
   onBack: () => void;
@@ -25,6 +26,7 @@ const MAILBOXES = [
 export function Contact({ onBack }: ContactProps) {
   return (
     <div className="landing">
+      <CircuitBackground />
       <header className="landing-nav">
         <div className="wordmark">
           <BrandMark size={28} />

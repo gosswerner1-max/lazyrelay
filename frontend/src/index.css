@@ -18,6 +18,8 @@
   --line: #dde1e6;
   --confirm: #1f9d68;
   --confirm-bg: rgba(31, 157, 104, 0.1);
+  --pulse-teal: #0d7d8c;
+  --pulse-violet: #7c3aed;
   --error: #d1372f;
   --error-bg: rgba(209, 55, 47, 0.09);
   --warn: #a16207;
@@ -51,6 +53,8 @@
     --line: #2a2f3a;
     --confirm: #3ec98a;
     --confirm-bg: rgba(62, 201, 138, 0.14);
+    --pulse-teal: #2dd4bf;
+    --pulse-violet: #a78bfa;
     --error: #ff6b61;
     --error-bg: rgba(255, 107, 97, 0.13);
     --warn: #f2b842;

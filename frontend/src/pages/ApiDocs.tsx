@@ -1,5 +1,6 @@
 import { BrandMark } from "../components/BrandMark";
 import { CodeBlock } from "../components/CodeBlock";
+import { CircuitBackground } from "../components/CircuitBackground";
 import { API_BASE_URL, API_ENDPOINTS, MCP_CONFIG_EXAMPLE } from "../lib/apiDocsContent";
 
 interface ApiDocsProps {
@@ -9,6 +10,7 @@ interface ApiDocsProps {
 export function ApiDocs({ onBack }: ApiDocsProps) {
   return (
     <div className="landing">
+      <CircuitBackground />
       <header className="landing-nav">
         <div className="wordmark">
           <BrandMark size={28} />

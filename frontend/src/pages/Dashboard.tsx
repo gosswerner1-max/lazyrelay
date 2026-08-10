@@ -10,6 +10,7 @@ import { PlatformIcon } from "../components/PlatformIcon";
 import { bestTimeFor } from "../lib/bestTimes";
 import { Spinner } from "../components/Spinner";
 import { OverviewPanel } from "../components/Charts";
+import { CircuitBackground } from "../components/CircuitBackground";
 
 const TABS = ["Overview", "Posts", "Calendar", "Analytics", "Mentions", "DMs", "Bio Page", "Accounts", "Storage", "Account", "API Keys", "Billing"] as const;
 type Tab = (typeof TABS)[number];
@@ -1373,6 +1374,7 @@ export function Dashboard() {
 
   return (
     <>
+      <CircuitBackground />
       <div className="plan-banner">
         <div className="plan-banner-inner">
           <span>

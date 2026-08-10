@@ -2090,6 +2090,53 @@
   animation-duration: 12.5s;
 }
 
+.pulse.pulse-5,
+.confirmation-ring.ring-5,
+.confirmation-dot.dot-5 {
+  animation-delay: -1.5s;
+  animation-duration: 9.6s;
+}
+
+.pulse.pulse-6,
+.confirmation-ring.ring-6,
+.confirmation-dot.dot-6 {
+  animation-delay: -4.5s;
+  animation-duration: 11.7s;
+}
+
+.pulse.pulse-7,
+.confirmation-ring.ring-7,
+.confirmation-dot.dot-7 {
+  animation-delay: -7s;
+  animation-duration: 13.2s;
+}
+
+.pulse.pulse-8,
+.confirmation-ring.ring-8,
+.confirmation-dot.dot-8 {
+  animation-delay: -10s;
+  animation-duration: 15s;
+}
+
+/* Color variants — added after the base .pulse/.confirmation-ring/
+   .confirmation-dot rules above so these win on specificity-tie source
+   order. Orange (the unmodified default) stays the primary color; these
+   three round out the palette so no single color dominates the page. */
+.color-green {
+  stroke: var(--confirm);
+  fill: var(--confirm);
+}
+
+.color-teal {
+  stroke: var(--pulse-teal);
+  fill: var(--pulse-teal);
+}
+
+.color-violet {
+  stroke: var(--pulse-violet);
+  fill: var(--pulse-violet);
+}
+
 @keyframes signal-flow {
   0%, 8% { stroke-dashoffset: 1030; opacity: 0; }
   12% { opacity: 0.92; }
