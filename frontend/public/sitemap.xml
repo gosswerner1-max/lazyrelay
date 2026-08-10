@@ -26,6 +26,11 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://lazyrelay.com/mastodon-bluesky-tumblr-scheduler</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://lazyrelay.com/terms</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
