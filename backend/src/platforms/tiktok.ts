@@ -9,6 +9,7 @@ import type {
 const AUTHORIZE_URL = "https://www.tiktok.com/v2/auth/authorize/";
 const TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/";
 const USER_INFO_URL = "https://open.tiktokapis.com/v2/user/info/";
+const CREATOR_INFO_URL = "https://open.tiktokapis.com/v2/post/publish/creator_info/query/";
 const POST_INIT_URL = "https://open.tiktokapis.com/v2/post/publish/video/init/";
 const POST_STATUS_URL = "https://open.tiktokapis.com/v2/post/publish/status/fetch/";
 
@@ -33,6 +34,10 @@ interface TikTokTokenResponse {
 interface TikTokApiEnvelope<T> {
   data?: T;
   error?: { code: string; message: string; log_id?: string };
+}
+
+interface CreatorInfo {
+  privacy_level_options?: string[];
 }
 
 // TikTok's own single-chunk exception: files under 5MB may be uploaded as
@@ -143,9 +148,56 @@ export class TikTokAdapter implements PlatformAdapter {
     };
   }
 
+  // Real TikTok accounts can have Direct Post unavailable to them entirely —
+  // confirmed via TikTok's own docs, not assumed: certain account
+  // types/regions/settings return no usable privacy_level_options at all.
+  // Checking this first turns that into one clear, honest error instead of
+  // a raw/cryptic failure from the post-init call itself. Uses the
+  // video.publish scope this adapter already requests — no new scope
+  // needed. Deliberately does NOT fall back to TikTok's draft/inbox upload
+  // (video.upload) on failure here: that would hand the customer an
+  // unfinished draft they'd have to open TikTok and complete by hand, a
+  // worse promise than "this account can't be posted to directly" — see
+  // project-platform-review-status-check-2026-08-04.md for why that
+  // fallback was deliberately rejected. This is a genuine TikTok-side
+  // restriction outside LazyRelay's control (documented for customers via
+  // the Terms of Service), not a bug to work around.
+  private async checkDirectPostEligible(accessToken: string): Promise<{ eligible: boolean; errorMessage: string | null }> {
+    const res = await fetch(CREATOR_INFO_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8",
+      },
+    });
+    const json = (await res.json()) as TikTokApiEnvelope<CreatorInfo>;
+
+    if (!res.ok || !json.data) {
+      // Can't confirm eligibility either way — fail open rather than block
+      // a post over a diagnostic call hiccup; the real post-init call below
+      // will surface any genuine problem on its own.
+      return { eligible: true, errorMessage: null };
+    }
+
+    const options = json.data.privacy_level_options ?? [];
+    if (!options.includes("SELF_ONLY")) {
+      return {
+        eligible: false,
+        errorMessage:
+          "TikTok does not allow direct posting for this account. This is a restriction TikTok applies at the account or region level, not something LazyRelay controls — see our Terms of Service.",
+      };
+    }
+    return { eligible: true, errorMessage: null };
+  }
+
   async post(request: PostRequest): Promise<PostAttemptResult> {
     if (!request.mediaUrl) {
       return { success: false, platformPostId: null, errorMessage: "TikTok posts require a video URL" };
+    }
+
+    const eligibility = await this.checkDirectPostEligible(request.accessToken);
+    if (!eligibility.eligible) {
+      return { success: false, platformPostId: null, errorMessage: eligibility.errorMessage };
     }
 
     // FILE_UPLOAD instead of PULL_FROM_URL: pull-by-url requires the video's
