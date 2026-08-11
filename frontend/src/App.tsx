@@ -5,6 +5,7 @@ import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { PrivacyPolicy } from "./pages/PrivacyPolicy";
 import { TermsOfService } from "./pages/TermsOfService";
+import { DPA } from "./pages/DPA";
 import { DataDeletion } from "./pages/DataDeletion";
 import { Contact } from "./pages/Contact";
 import { ApiDocs } from "./pages/ApiDocs";
@@ -26,11 +27,12 @@ const MANUAL_CONNECT_PLATFORMS = ["bluesky", "telegram", "discord"] as const;
 // visitor actually navigated to.
 const INITIAL_PATH = window.location.pathname;
 
-type View = "landing" | "signin" | "signup" | "privacy" | "terms" | "data-deletion" | "contact" | "docs";
+type View = "landing" | "signin" | "signup" | "privacy" | "terms" | "dpa" | "data-deletion" | "contact" | "docs";
 
 const PATH_TO_VIEW: Record<string, View> = {
   "/terms": "terms",
   "/privacy": "privacy",
+  "/dpa": "dpa",
   "/data-deletion": "data-deletion",
   "/contact": "contact",
   "/docs": "docs",
@@ -43,6 +45,7 @@ const VIEW_TO_PATH: Partial<Record<View, string>> = {
   landing: "/",
   terms: "/terms",
   privacy: "/privacy",
+  dpa: "/dpa",
   "data-deletion": "/data-deletion",
   contact: "/contact",
   docs: "/docs",
@@ -155,6 +158,10 @@ function Root() {
     return <TermsOfService onBack={() => setView("landing")} />;
   }
 
+  if (view === "dpa") {
+    return <DPA onBack={() => setView("landing")} />;
+  }
+
   if (view === "data-deletion") {
     return <DataDeletion onBack={() => setView("landing")} />;
   }
@@ -174,6 +181,7 @@ function Root() {
         onGetStarted={() => setView("signup")}
         onPrivacy={() => setView("privacy")}
         onTerms={() => setView("terms")}
+        onDpa={() => setView("dpa")}
         onContact={() => setView("contact")}
         onDocs={() => setView("docs")}
         scrollToPricing={INITIAL_PATH === "/pricing"}

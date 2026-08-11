@@ -54,7 +54,8 @@ export function DataDeletion({ onBack }: DataDeletionProps) {
 
           <h3>Cancel your subscription (self-serve)</h3>
           <p>
-            Go to the Settings tab of your Dashboard and click Cancel. This stops future billing; your account
+            Go to the Billing tab of your Dashboard (under More in the top nav) and click Cancel. This stops
+            future billing; your account
             drops to the Free plan at the end of the period you've already paid for. Cancelling does not, by
             itself, delete your data. See below for that.
           </p>

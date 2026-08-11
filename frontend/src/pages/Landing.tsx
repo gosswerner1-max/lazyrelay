@@ -11,6 +11,7 @@ interface LandingProps {
   onGetStarted: () => void;
   onPrivacy: () => void;
   onTerms: () => void;
+  onDpa: () => void;
   onContact: () => void;
   onDocs: () => void;
   // Whether the visitor's ORIGINAL url (captured in App.tsx before Root's
@@ -124,7 +125,7 @@ const FAQ = [
   },
 ];
 
-export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact, onDocs, scrollToPricing }: LandingProps) {
+export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onContact, onDocs, scrollToPricing }: LandingProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Anyone arriving at /pricing (e.g. the "See plans" links used across
@@ -426,6 +427,9 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onContact,
           </button>
           <button className="link" onClick={onTerms}>
             Terms of Service
+          </button>
+          <button className="link" onClick={onDpa}>
+            Data Processing Addendum
           </button>
           <a className="link" href="/refunds">
             Refund Policy

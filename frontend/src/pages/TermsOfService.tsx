@@ -6,7 +6,7 @@ interface TermsOfServiceProps {
   onBack: () => void;
 }
 
-const LAST_UPDATED = "10 August 2026";
+const LAST_UPDATED = "11 August 2026";
 
 export function TermsOfService({ onBack }: TermsOfServiceProps) {
   useEffect(() => {
@@ -59,7 +59,8 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
 
           <h3>Cancellations and refunds</h3>
           <p>
-            <strong>You can cancel your plan at any time</strong> from the Settings tab of your dashboard.
+            <strong>You can cancel your plan at any time</strong> from the Billing tab of your dashboard
+            (under More in the top nav).
             Cancelling stops future billing, but you keep access to your current plan's features until the end
             of the billing period you've already paid for, then your account drops to the Free plan.
           </p>
@@ -73,15 +74,16 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
             supported through self-serve cancellation.
           </p>
           <p>
-            Storage add-ons themselves follow the same rule: cancel one at any time from Settings, effective at
-            the end of its current billing period, no partial refund for time already paid.
+            Storage add-ons themselves follow the same rule: cancel one at any time from the Billing tab,
+            effective at the end of its current billing period, no partial refund for time already paid.
           </p>
 
           <h3>Your data and content</h3>
           <p>
             You own the content you schedule through LazyRelay. We store it only to publish it at the time you
             choose, and to show you what's scheduled, posted, or failed. Uploaded media counts against your
-            plan's storage quota (shown as a gauge in Settings) plus any storage add-ons you've purchased.
+            plan's storage quota (shown as a gauge on the Storage tab) plus any storage add-ons you've
+            purchased.
             Once you're at your limit, new uploads are rejected until you delete something or add more space.
             We never delete your files ourselves; storage is only ever freed by your own action.
           </p>
@@ -113,6 +115,11 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
             but platform outages, API changes, or account restrictions on the connected platform's side are
             outside our control. To the extent permitted by law, our liability for any issue is limited to the
             amount you paid us in the month the issue occurred.
+          </p>
+
+          <h3>Governing law</h3>
+          <p>
+            These terms are governed by the laws of South Africa, where IPE Projects (Pty) Ltd is registered.
           </p>
 
           <h3>Changes to these terms</h3>
