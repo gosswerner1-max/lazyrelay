@@ -95,6 +95,28 @@ function getRenderCredentials() {
   return { apiKey, serviceId };
 }
 
+/** npm Granular Access Token for the @lazyrelay org (Read/write, bypasses
+ * 2FA, 90-day expiry) — lets `npm publish` run headlessly from the mcp-server
+ * package without Werner entering a 2FA code each release. Generated
+ * 2026-08-07; will need regenerating before it expires. */
+function getNpmAccessToken() {
+  if (!fs.existsSync(OPS_CREDS_PATH)) return null;
+  const creds = JSON.parse(fs.readFileSync(OPS_CREDS_PATH, "utf8"));
+  return creds.npmAccessToken ?? null;
+}
+
+/** Supabase Personal Access Token (account-level, not project-scoped) —
+ * added 2026-08-08 so migrations can be applied directly via the Supabase
+ * CLI instead of Werner hand-pasting SQL into the dashboard each time. This
+ * is a real account credential (can manage any project on the account), not
+ * just data access like the service-role key above — keep it out of
+ * anything that isn't this gitignored file. */
+function getSupabaseAccessToken() {
+  if (!fs.existsSync(OPS_CREDS_PATH)) return null;
+  const creds = JSON.parse(fs.readFileSync(OPS_CREDS_PATH, "utf8"));
+  return creds.supabaseAccessToken ?? null;
+}
+
 module.exports = {
   getSupabaseCredentials,
   getMorCredentials,
@@ -102,4 +124,6 @@ module.exports = {
   getRenderCredentials,
   getLazyRelayApiKey,
   getLazyRelayAdminApiKey,
+  getNpmAccessToken,
+  getSupabaseAccessToken,
 };
