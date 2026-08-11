@@ -2579,6 +2579,17 @@
 .pricing-card .cta {
   width: 100%;
   margin-top: auto;
+  /* .cta's base 28px horizontal padding leaves only ~72px of content
+     width at this button's rendered size, but "Resubscribe" alone
+     measures ~96px -- wider than the box. text-align: center was already
+     correct (verified with real per-line pixel measurements live), but a
+     single word too wide to fit breaks the browser's centering math for
+     that line specifically, while shorter lines on the same button center
+     fine -- exactly what Werner spotted live 2026-08-11 comparing
+     "Resubscribe" against "to"/"Starter" on the same button. Real fix is
+     more room, not the alignment rule. */
+  padding-left: 8px;
+  padding-right: 8px;
 }
 
 .landing-footer {
