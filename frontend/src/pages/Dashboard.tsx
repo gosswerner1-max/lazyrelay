@@ -1397,11 +1397,15 @@ export function Dashboard() {
   const tierNames = { free: "Free", pro: "Starter", business: "Pro", enterprise: "Business" } as const;
   const currentTier = subscription?.tier ?? "free";
   const isFreePlan = currentTier === "free";
-  // A cancelled paid plan keeps access until the current period ends — it's
-  // not lapsed to Free yet, so the banner/CTA copy should say "resubscribe,"
-  // not "upgrade" (that read as contradictory: "You're on the Pro plan" next
-  // to an "Upgrade to Pro" button).
-  const isCancelling = !isFreePlan && subscription?.status === "cancelled";
+  // A cancellation is deferred to the end of the paid period (backend
+  // migration 0043) — `status` only flips to "cancelled" once that real
+  // period-end cancellation actually lands via webhook, so a customer who
+  // just clicked cancel is still "active"/"trialing" with cancelAtPeriodEnd
+  // true. Both that pending state and a genuinely lapsed one read as
+  // "cancelling" here — this banner's button just navigates to the Billing
+  // tab, it doesn't itself start a new checkout, so showing it (and the
+  // "resubscribe" framing) during the pending window is safe.
+  const isCancelling = !isFreePlan && (subscription?.status === "cancelled" || subscription?.cancelAtPeriodEnd === true);
   const isFreeOrLapsed = isFreePlan || isCancelling;
   const periodEndDate = subscription?.currentPeriodEnd
     ? new Date(subscription.currentPeriodEnd).toLocaleDateString(undefined, { month: "short", day: "numeric" })
@@ -3074,7 +3078,11 @@ export function Dashboard() {
               <li key={a.id}>
                 <span className="media-list-meta">
                   +{a.gb_amount}GB storage
-                  <span className={`status-badge status-${a.status}`}>{a.status}</span>
+                  <span className={`status-badge status-${a.status}`}>
+                    {a.cancel_at_period_end
+                      ? `cancelling${a.current_period_end ? `: ends ${new Date(a.current_period_end).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}`
+                      : a.status}
+                  </span>
                 </span>
                 <button
                   className="btn-outline"
@@ -3095,11 +3103,25 @@ export function Dashboard() {
         <h2>Billing</h2>
         {(() => {
           const tierNames = { free: "Free", pro: "Starter", business: "Pro", enterprise: "Business" } as const;
+          // Deferred cancellation (migration 0043): `status` only becomes
+          // "cancelled" once the real period-end cancellation lands via
+          // webhook, so this stays keyed on status alone — a customer with
+          // a pending cancellation is still genuinely on their paid plan
+          // and shouldn't see upgrade/resubscribe buttons yet.
           const canUpgrade = !subscription || subscription.tier === "free" || subscription.status === "cancelled";
-          // A cancelled paid plan keeps access until the period end — label
-          // the resume action "Resubscribe" so it doesn't read as
-          // contradictory next to "Current plan: Pro".
+          // Truly lapsed (tier already reverted) — label the resume action
+          // "Resubscribe" so it doesn't read as contradictory next to
+          // "Current plan: Pro". Distinct from isPendingCancellation below:
+          // by the time this is true, cancelAtPeriodEnd has already been
+          // reset (see syncSubscriptionFromWebhook), so the two never
+          // overlap.
           const isCancelling = subscription?.tier !== "free" && subscription?.status === "cancelled";
+          // Still on the paid plan, but a cancellation is scheduled for the
+          // end of the current period — real access continues (resolveTier
+          // still grants it server-side); this only drives the status badge
+          // text so the customer sees an accurate "cancelling: ends X"
+          // instead of nothing changing at all after they click cancel.
+          const isPendingCancellation = subscription?.tier !== "free" && subscription?.cancelAtPeriodEnd === true;
           const periodEndDate = subscription?.currentPeriodEnd
             ? new Date(subscription.currentPeriodEnd).toLocaleDateString(undefined, { month: "short", day: "numeric" })
             : null;
@@ -3109,7 +3131,9 @@ export function Dashboard() {
                 Current plan: <strong>{subscription ? tierNames[subscription.tier] : "Free"}</strong>
                 {subscription?.status && (
                   <span className={`status-badge status-${subscription.status}`}>
-                    {isCancelling ? `cancelling${periodEndDate ? `: ends ${periodEndDate}` : ""}` : subscription.status}
+                    {isCancelling || isPendingCancellation
+                      ? `cancelling${periodEndDate ? `: ends ${periodEndDate}` : ""}`
+                      : subscription.status}
                   </span>
                 )}
               </p>

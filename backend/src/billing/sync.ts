@@ -82,6 +82,12 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
         gb_amount: event.gbAmount,
         status: event.status,
         current_period_end: event.currentPeriodEnd,
+        // A real webhook always reflects Paddle's current authoritative
+        // state, which supersedes our own local "customer clicked cancel,
+        // waiting for period end" flag — clears it whether this event is a
+        // fresh resubscribe or the real end-of-period cancellation finally
+        // landing (see cancel_at_period_end migration 0043).
+        cancel_at_period_end: false,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "mor_subscription_id" },
@@ -102,6 +108,8 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
       tier: event.tier,
       status: event.status,
       current_period_end: event.currentPeriodEnd,
+      // See the matching comment on the storage_addons upsert above.
+      cancel_at_period_end: false,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "account_id" },
@@ -198,10 +206,25 @@ export async function recordBillingEvent(event: SaleRecordEvent | RefundRecordEv
 }
 
 /** The actual cancel action, called from the customer-facing cancel button.
- *  Cancels with the MoR FIRST — only marks our own record cancelled once
- *  that real cancellation succeeds, never the other way around. A cancel
- *  button that just flips a local flag while billing continues is exactly
- *  the failure mode this whole product exists to not repeat.
+ *  Cancels with the MoR FIRST — only marks our own record once that real
+ *  cancellation succeeds, never the other way around. A cancel button that
+ *  just flips a local flag while billing continues is exactly the failure
+ *  mode this whole product exists to not repeat.
+ *
+ *  Deferred to the end of the paid period (2026-08-11 — see
+ *  cancel_at_period_end migration 0043): PaddleMorAdapter.cancelSubscription
+ *  now cancels with effectiveFrom "next_billing_period", not "immediately".
+ *  Real customer-facing bug found live the same day: the cancel modal always
+ *  promised "you'll keep access until <period end>," but this used to flip
+ *  `status` to "cancelled" right here, and resolveTier() treats anything
+ *  other than active/trialing as Free immediately — so a customer lost paid
+ *  access the instant they clicked cancel, a full billing period earlier
+ *  than the UI told them. `status` now stays untouched (still active/
+ *  trialing, so resolveTier() keeps granting paid access) and only
+ *  `cancel_at_period_end` flips true; the real `status: "cancelled"` update
+ *  — and `accounts.cancelled_at` — happens later, driven by the genuine
+ *  subscription.canceled webhook when Paddle's deferred cancellation
+ *  actually takes effect (see syncSubscriptionFromWebhook above).
  *
  *  Also cancels any active/trialing storage add-ons (2026-07-23 — decided
  *  against leaving them running after the main plan cancels: a Free-tier
@@ -241,9 +264,8 @@ export async function cancelSubscription(
 
   await supabase
     .from("subscriptions")
-    .update({ status: "cancelled" })
+    .update({ cancel_at_period_end: true })
     .eq("mor_subscription_id", subscription.mor_subscription_id);
-  await supabase.from("accounts").update({ cancelled_at: new Date().toISOString() }).eq("id", accountId);
 
   const { data: addons } = await supabase
     .from("storage_addons")
@@ -253,7 +275,7 @@ export async function cancelSubscription(
   for (const addon of addons ?? []) {
     const addonResult = await adapter.cancelSubscription(addon.mor_subscription_id);
     if (addonResult.success) {
-      await supabase.from("storage_addons").update({ status: "cancelled" }).eq("id", addon.id);
+      await supabase.from("storage_addons").update({ cancel_at_period_end: true }).eq("id", addon.id);
     } else {
       console.error(`Failed to cancel storage add-on ${addon.id} alongside main plan:`, addonResult.errorMessage);
     }
@@ -265,7 +287,8 @@ export async function cancelSubscription(
 /** Cancels a single storage add-on — separate from cancelSubscription()
  *  since one add-on's cancellation must never touch the account's main
  *  tier subscription (a customer can have several add-ons active and
- *  cancel just one). Same cancel-with-the-MoR-first discipline. */
+ *  cancel just one). Same cancel-with-the-MoR-first discipline, same
+ *  deferred-to-period-end behavior as the main plan above. */
 export async function cancelStorageAddon(
   accountId: string,
   addonId: string,
@@ -283,6 +306,6 @@ export async function cancelStorageAddon(
   const result = await adapter.cancelSubscription(addon.mor_subscription_id);
   if (!result.success) return result;
 
-  await supabase.from("storage_addons").update({ status: "cancelled" }).eq("id", addon.id);
+  await supabase.from("storage_addons").update({ cancel_at_period_end: true }).eq("id", addon.id);
   return result;
 }

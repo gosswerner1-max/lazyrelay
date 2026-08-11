@@ -48,6 +48,10 @@ export interface Subscription {
   tier: "free" | "pro" | "business" | "enterprise";
   status: "trialing" | "active" | "past_due" | "cancelled" | null;
   currentPeriodEnd: string | null;
+  // True while a cancellation is scheduled for the end of the current paid
+  // period — status stays active/trialing (real paid access continues)
+  // until the real cancellation webhook lands, see backend migration 0043.
+  cancelAtPeriodEnd: boolean;
 }
 
 export interface StorageUsage {
@@ -72,6 +76,7 @@ export interface StorageAddon {
   gb_amount: number;
   status: "trialing" | "active" | "past_due" | "cancelled";
   current_period_end: string | null;
+  cancel_at_period_end: boolean;
 }
 
 export interface PlatformInfo {

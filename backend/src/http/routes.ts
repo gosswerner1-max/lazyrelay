@@ -2450,7 +2450,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.get("/subscription", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data: sub, error } = await supabase
       .from("subscriptions")
-      .select("tier, status, current_period_end")
+      .select("tier, status, current_period_end, cancel_at_period_end")
       .eq("account_id", req.accountId)
       .maybeSingle();
     if (error) {
@@ -2458,10 +2458,15 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
     if (!sub) {
-      res.json({ tier: "free", status: null, currentPeriodEnd: null });
+      res.json({ tier: "free", status: null, currentPeriodEnd: null, cancelAtPeriodEnd: false });
       return;
     }
-    res.json({ tier: sub.tier, status: sub.status, currentPeriodEnd: sub.current_period_end });
+    res.json({
+      tier: sub.tier,
+      status: sub.status,
+      currentPeriodEnd: sub.current_period_end,
+      cancelAtPeriodEnd: sub.cancel_at_period_end,
+    });
   });
 
   // Starts a real Paddle checkout transaction for upgrading to a paid tier.
@@ -2537,7 +2542,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.get("/storage-addons", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data, error } = await supabase
       .from("storage_addons")
-      .select("id, gb_amount, status, current_period_end")
+      .select("id, gb_amount, status, current_period_end, cancel_at_period_end")
       .eq("account_id", req.accountId)
       .in("status", ["active", "trialing"])
       .order("created_at", { ascending: true });

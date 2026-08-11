@@ -51,7 +51,7 @@ async function testCancelSucceeds() {
 
   const { data: sub } = await supabase
     .from("subscriptions")
-    .select("status")
+    .select("status, cancel_at_period_end")
     .eq("account_id", accountId)
     .single();
   const { data: account } = await supabase
@@ -60,8 +60,17 @@ async function testCancelSucceeds() {
     .eq("id", accountId)
     .single();
 
-  const pass = result.success && sub?.status === "cancelled" && account?.cancelled_at !== null;
-  console.log(`[succeeds case] status=${sub?.status} cancelled_at=${account?.cancelled_at} -> ${pass ? "PASS" : "FAIL"}`);
+  // Cancellation is deferred to the end of the paid period (2026-08-11 fix —
+  // effectiveFrom "next_billing_period", not "immediately"): status must
+  // stay "active" (real paid access continues) and cancelled_at must stay
+  // null right after clicking cancel. Only cancel_at_period_end flips true
+  // here; the real status flip + cancelled_at happen later, driven by the
+  // genuine subscription.canceled webhook when Paddle's deferred
+  // cancellation actually takes effect.
+  const pass = result.success && sub?.status === "active" && sub?.cancel_at_period_end === true && account?.cancelled_at === null;
+  console.log(
+    `[succeeds case] status=${sub?.status} cancel_at_period_end=${sub?.cancel_at_period_end} cancelled_at=${account?.cancelled_at} -> ${pass ? "PASS" : "FAIL"}`,
+  );
   await cleanup(accountId);
   return pass;
 }
@@ -72,7 +81,7 @@ async function testCancelFailsAtMor() {
 
   const { data: sub } = await supabase
     .from("subscriptions")
-    .select("status")
+    .select("status, cancel_at_period_end")
     .eq("account_id", accountId)
     .single();
   const { data: account } = await supabase
@@ -82,11 +91,14 @@ async function testCancelFailsAtMor() {
     .single();
 
   // The real point of this test: when the MoR call fails, our local record
-  // must NOT be marked cancelled — otherwise a customer could see "cancelled"
-  // in the UI while still being billed, the exact silent-billing failure
-  // mode this whole product exists to not repeat.
-  const pass = !result.success && sub?.status === "active" && account?.cancelled_at === null;
-  console.log(`[fails-at-mor case] status=${sub?.status} cancelled_at=${account?.cancelled_at} -> ${pass ? "PASS" : "FAIL"}`);
+  // must NOT be marked as cancelling — otherwise a customer could see a
+  // "cancelling" banner (or, on the old immediate-cancel behavior, a fully
+  // "cancelled" state) while still being billed, the exact silent-billing
+  // failure mode this whole product exists to not repeat.
+  const pass = !result.success && sub?.status === "active" && sub?.cancel_at_period_end === false && account?.cancelled_at === null;
+  console.log(
+    `[fails-at-mor case] status=${sub?.status} cancel_at_period_end=${sub?.cancel_at_period_end} cancelled_at=${account?.cancelled_at} -> ${pass ? "PASS" : "FAIL"}`,
+  );
   await cleanup(accountId);
   return pass;
 }

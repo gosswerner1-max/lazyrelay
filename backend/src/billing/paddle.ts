@@ -245,9 +245,16 @@ export class PaddleMorAdapter implements MerchantOfRecordAdapter {
     return buildEventFromCustomData(subscription, status);
   }
 
+  /** Deferred to the end of the current paid period, not "immediately"
+   *  (changed 2026-08-11) — the cancel confirmation modal always promised
+   *  the customer keeps access until then; "immediately" here directly
+   *  contradicted that live, letting a customer lose paid access on the
+   *  spot despite having already paid for the rest of the period. See the
+   *  matching cancel_at_period_end note on cancelSubscription() in sync.ts
+   *  for how the local record now stays consistent with this. */
   async cancelSubscription(morSubscriptionId: string): Promise<CancelResult> {
     try {
-      await this.paddle.subscriptions.cancel(morSubscriptionId, { effectiveFrom: "immediately" });
+      await this.paddle.subscriptions.cancel(morSubscriptionId, { effectiveFrom: "next_billing_period" });
       return { success: true, errorMessage: null };
     } catch (err) {
       return { success: false, errorMessage: err instanceof Error ? err.message : String(err) };
