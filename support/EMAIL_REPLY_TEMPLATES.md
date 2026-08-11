@@ -38,19 +38,30 @@ Thanks for the report. Before I troubleshoot — can you confirm which account y
 Once I hear back I'll dig into your account specifically.
 ```
 
-## 3. Billing/subscription question (pre-billing-launch)
+## 3. Billing/subscription question (billing live as of 2026-08-11)
 
-Use for any billing/pricing/subscription question while no billing system is live yet. Always check `SUPPORT_KNOWLEDGE.md`'s current billing status line first — this template is wrong the moment billing goes live.
+Use for general pricing/plan questions. **Billing went live 2026-08-11** — the previous version of this template told customers "nothing you're using today will result in a charge," which is now false and must never be sent. Always re-check `SUPPORT_KNOWLEDGE.md`'s Current product state line before sending, and quote the **display** tier names below, not the DB values.
+
+Prices verified live 2026-08-11: Free $0 / Starter $29.99 / Pro $59.99 / Business $99.99 per month.
 
 ```
 Hi [name],
 
-Paid plans (Pro $29.99/mo, Business $59.99/mo) are coming soon but aren't live yet — nothing you're using today will result in a charge.
+Here's how the plans break down:
 
-When paid plans do launch, existing users will get clear advance notice before anything changes — no surprise charges.
+- Free — $0, no card required (3 connected accounts, 10 posts per account)
+- Starter — $29.99/mo (20 connected accounts, unlimited scheduled posts)
+- Pro — $59.99/mo (40 connected accounts, 5 recurring schedules)
+- Business — $99.99/mo (100 connected accounts, unlimited recurring schedules)
 
-Let me know if you have any other questions in the meantime.
+[If they asked about a specific tier or limit, answer that directly here instead of listing all four.]
+
+You can start on Free and upgrade any time from your dashboard — you'll only ever be charged for a plan you pick yourself.
+
+Let me know if you want me to walk you through anything.
 ```
+
+**Do not use this template for a customer disputing an actual charge** (double-charged, unrecognised charge, refund request). That's a real billing dispute now that payments are live — no reply, escalate per the hard-case rules.
 
 ## 4. Onboarding — "I connected it but don't see it"
 
@@ -163,6 +174,46 @@ If you've got a minute, I'd genuinely love to hear what you think — just reply
 ```
 
 No public review destination exists yet (per `ACCOUNTS_KNOWLEDGE.md`'s "Review requests" section) — this collects feedback via reply-to-this-email, not a link to an external site. Update this template if/when a real public reviews section ships.
+
+## 13. Dunning — payment failed, subscription past due (billing_ops.js — added 2026-08-11)
+
+Sent from `accounts@lazyrelay.com` outbound, not a reply — for `findPastDueNeedingFollowup()` candidates (`status: past_due` for 24+ hours, per BILLING_KNOWLEDGE.md's dunning cadence: money-impacting issues get the tight 24h window, not the standard 1-2 days). Subject: `Your LazyRelay payment didn't go through`.
+
+**Gate before sending, every time:** `getMorStatus()` must return `environment: "production"` AND `source: "deployed"`. Sandbox rows are test data and must never receive a real email. `findPastDueNeedingFollowup()` already filters internal test accounts, but the environment gate is the one that matters — check it yourself, don't assume.
+
+State the fact and the fix. No threat, no urgency theatre, no dunning-escalation ladder — one plain notice that a card failed, because the overwhelmingly likely cause is an expired card, not a customer refusing to pay.
+
+```
+Hi [name],
+
+Your last LazyRelay payment didn't go through, so your [tier] subscription is currently marked past due.
+
+Usually this is just an expired or replaced card. You can update your payment details from the Billing tab in your dashboard, and that'll settle the outstanding amount automatically.
+
+Your scheduled posts are still running for now. If the payment doesn't clear, the account drops back to Free limits — so it's worth sorting out in the next few days.
+
+If you think this is a mistake, or the payment page gives you an error, reply here and I'll look into it directly.
+```
+
+Never state a specific shutoff date or dollar amount unless it's read from the real subscription row — an invented deadline or figure in a payment email is the kind of error that costs a customer permanently. Billing owns the money event only: this email never itself changes account state (`accounts_ops.js` reacts to the payment event separately, per the domain boundary in BILLING_KNOWLEDGE.md).
+
+## 14. Cancellation — confirming a cancel request or asking about cancellation status (added 2026-08-11)
+
+Use when a customer emails asking to cancel, asking how to cancel, or asking to confirm their access end date. **`lazyrelay-email-operations` has no live database access, so it can never see or quote a customer's actual `current_period_end` date — don't invent one.** Cancelling itself is self-serve (Billing tab, real-time), not something this agent does on the customer's behalf.
+
+Real mechanics to get right (`cancel_at_period_end`, migration `0043`, live 2026-08-11): cancelling does **not** cut off access immediately. It sets a pending-cancellation flag; the subscription stays fully active, and access continues, until the current paid period genuinely ends — at which point it drops to Free automatically. No further charge happens once cancelled.
+
+```
+Hi [name],
+
+[If they're asking how to cancel:] You can cancel any time from the Billing tab in your dashboard — no need to email us for it.
+
+[If they've already cancelled and are asking to confirm:] That's confirmed on our end. One thing worth knowing: cancelling doesn't cut off access right away — you'll keep everything you have now until your current billing period ends, shown live on your Billing tab, and you won't be charged again after that. Once that date passes, the account moves to the Free plan automatically; nothing else changes and nothing gets deleted.
+
+Let me know if anything looks off on your end.
+```
+
+Never say "your access ends today" or state any date yourself — the dashboard's own Billing tab is the one place with the real, current number, and that's what this reply should point to.
 
 ---
 

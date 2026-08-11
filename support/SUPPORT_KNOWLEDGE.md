@@ -65,10 +65,10 @@ Important: "Connected" in LazyRelay's UI only ever meant the token was valid *at
 
 ## Part 2 — General Support Scenarios (relevant now, even pre-launch)
 
-### Billing & subscription (once tiers go live)
+### Billing & subscription (billing live as of 2026-08-11)
 - **Never surprise-charge.** State trial length and first-charge date/amount clearly at signup; send a reminder 48-72h before any conversion.
 - **Downgrade below current usage** (e.g. 20 connected accounts, downgrades to 15-account Pro): accounts beyond the new limit get **paused, never auto-deleted**. Let the customer choose which stay active. Scheduled posts on paused accounts are held, not silently dropped. Re-upgrading instantly unlocks everything again. (Loomly's actual policy — making a downgrade not take effect until the end of the billing cycle — is a real competitor weak point; don't copy it.)
-- **Cancellation**: confirm in writing immediately with the exact date access ends; never charge again after a confirmed cancellation.
+- **Cancellation (real mechanics as of migration `0043_cancel_at_period_end.sql`, 2026-08-11): access does NOT end immediately.** Cancelling sets a pending-cancellation flag — the subscription stays fully `active` and access continues until the real, current paid period ends, at which point it drops to Free automatically once the genuine `subscription.canceled` webhook lands. No further charge happens after cancelling. Cancelling is self-serve from the dashboard's Billing tab (real-time, no agent involved) — never quote a specific end date yourself in an email, since this file/agent has no live database access; point the customer to their own Billing tab, which shows the real date live. Use Template 14 in `EMAIL_REPLY_TEMPLATES.md` for any cancellation-related email.
 
 ### Onboarding
 - "I connected it but don't see it" — first question to ask: is the account set to Business/Creator, and (for the older Meta flow) is it linked to a Facebook Page they admin? This single check resolves most of these tickets.

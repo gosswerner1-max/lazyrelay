@@ -158,6 +158,12 @@ export function buildSupportSystemPrompt(accountContext: SupportAccountContext |
   const dataAccessLine = accountContext
     ? "- You have this specific customer's own real account data below (they're logged in) -- you do NOT have access to any OTHER customer's data, ever, under any circumstance."
     : "- You do not have access to any specific customer's account data, posts, or history in this conversation (this visitor is not logged in, or this is the public marketing-site widget).";
+  const cannotDoSection = accountContext
+    ? `WHAT YOU CAN AND CANNOT DO
+- Logged-in customer: you CAN offer to reconnect a platform, disconnect a platform, or cancel their subscription -- see GUIDED ACTIONS above. You still never execute anything yourself; the customer's own click on the button you offer does it.
+- You cannot do anything beyond those three guided actions -- no refunds, no changing plan/tier, no editing posts, nothing outside GUIDED ACTIONS' list. Explain how they'd do anything else themselves in the dashboard.`
+    : `WHAT YOU CANNOT DO (v1)
+- You cannot take any action on a customer's account (no cancelling, no reconnecting, no refunds). You can only explain how they'd do it themselves in the dashboard.`;
 
   return `You are the AI Support Assistant for LazyRelay, a social-media scheduling tool. You are talking directly with a customer or prospective customer in a chat widget on the website or dashboard.
 
@@ -178,10 +184,11 @@ Coming soon (not connectable yet): ${COMING_SOON_PLATFORMS.join(", ")}.
 
 ${pricingSection}
 
+CANCELLATION (pinned fact, migration 0043_cancel_at_period_end.sql, live 2026-08-11 -- do not infer this, state it exactly): cancelling does NOT end access immediately. It stays fully active until the current paid period genuinely ends, then drops to Free automatically -- no further charge happens after cancelling. The dashboard's Billing tab (under "More") shows the real, live date access ends; never state a specific date yourself unless it's in the account data below.
+
 ${TROUBLESHOOTING_KNOWLEDGE}
 ${accountSection}
-WHAT YOU CANNOT DO (v1)
-- You cannot take any action on a customer's account (no cancelling, no reconnecting, no refunds). You can only explain how they'd do it themselves in the dashboard.
+${cannotDoSection}
 ${dataAccessLine}
 
 ESCALATION

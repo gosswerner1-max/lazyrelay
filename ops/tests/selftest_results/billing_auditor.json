@@ -1,10 +1,16 @@
 {
   "auditorName": "billing_auditor",
-  "moduleMtime": "2026-08-05T15:28:15.391Z",
+  "moduleMtime": "2026-08-11T12:25:56.816Z",
   "cases": [
     {
       "bucket": "known_bad",
       "file": "bad_tier_value.json",
+      "pass": true,
+      "reason": "ok"
+    },
+    {
+      "bucket": "known_bad",
+      "file": "pending_cancellation_webhook_not_landed.json",
       "pass": true,
       "reason": "ok"
     },
@@ -28,5 +34,5 @@
     }
   ],
   "overallPass": true,
-  "ranAt": "2026-08-05T15:33:44.643Z"
+  "ranAt": "2026-08-11T12:26:12.399Z"
 }

@@ -19,8 +19,17 @@ function evaluateSubscriptionSnapshot(snapshot) {
 
   const periodEnded = new Date(snapshot.currentPeriodEnd).getTime() < Date.now();
   if (snapshot.status === "active" && periodEnded) {
+    // Same raw shape (active + period-expired) covers two different real
+    // situations since migration 0043_cancel_at_period_end.sql: a genuinely
+    // stuck sync (the failure this check exists to catch), or an expected
+    // pending cancellation whose subscription.canceled webhook just hasn't
+    // landed yet. Still flagged either way -- a stuck cancellation webhook
+    // is real too -- but the reason text now says which case it looks like,
+    // instead of asserting "missed/delayed sync" for both indiscriminately.
     reasons.push(
-      "status=active but current_period_end has already passed — local record may be stale (missed/delayed webhook sync)"
+      snapshot.cancelAtPeriodEnd
+        ? "status=active, current_period_end has passed, AND cancel_at_period_end=true — looks like a pending cancellation whose subscription.canceled webhook hasn't landed yet, not necessarily a broken sync. Worth a look if it's been more than a few hours, but don't treat it as an active/paying customer either."
+        : "status=active but current_period_end has already passed, and cancel_at_period_end is not set — local record may be stale (missed/delayed webhook sync)"
     );
   }
 
@@ -43,12 +52,17 @@ function check(fixturePath) {
 async function runLiveAudit(supabase) {
   const { data: subs, error } = await supabase
     .from("subscriptions")
-    .select("id, account_id, tier, status, current_period_end");
+    .select("id, account_id, tier, status, current_period_end, cancel_at_period_end");
   if (error) throw error;
 
   const problems = [];
   for (const sub of subs ?? []) {
-    const snapshot = { tier: sub.tier, status: sub.status, currentPeriodEnd: sub.current_period_end };
+    const snapshot = {
+      tier: sub.tier,
+      status: sub.status,
+      currentPeriodEnd: sub.current_period_end,
+      cancelAtPeriodEnd: sub.cancel_at_period_end,
+    };
     const result = evaluateSubscriptionSnapshot(snapshot);
     if (result.flagged) problems.push({ subscriptionId: sub.id, accountId: sub.account_id, reasons: result.reasons });
   }
