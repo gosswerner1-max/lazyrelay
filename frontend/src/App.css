@@ -2566,8 +2566,15 @@
    only matches when .cta directly follows .pricing-price (true for these
    cards, never true for tier cards, which always have the <ul> in
    between) -- deliberately scoped so the already-correct tier card
-   spacing is untouched. */
-.pricing-price + .cta {
+   spacing is untouched.
+   Three classes (0,3,0), not two -- first attempt used
+   ".pricing-price + .cta" (0,2,0), the exact same specificity as
+   ".pricing-card .cta" below, which sets margin-top: auto and comes
+   later in this file, so it silently won the tie and this rule never
+   actually applied. Real lesson: verify computed style after a fix,
+   don't just trust that a plausible-looking rule exists (same class of
+   mistake as the More-menu clipping bug from 2026-08-07). */
+.pricing-card .pricing-price + .cta {
   margin-top: 20px;
 }
 
