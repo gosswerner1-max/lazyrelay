@@ -8,6 +8,41 @@ import { RECURRING_SCHEDULE_SLOT_LIMITS, TIER_DISPLAY_NAMES, type Tier } from ".
 // in the vault for the full cutover trail).
 export const BILLING_LIVE = true;
 
+// Account-aware support, Phase 1 (2026-08-11) -- read-only. Populated only
+// when /support/chat resolves a real, verified logged-in session
+// (resolveOptionalAccountId); anonymous/marketing-site visitors never see
+// this section at all, and nothing here is ever client-supplied -- every
+// field is fetched server-side from the account id a verified Supabase JWT
+// resolved to, the same trust boundary every other authenticated route
+// already relies on.
+export interface SupportAccountContext {
+  tierDisplayName: string;
+  connectedPlatforms: string[];
+  recentFailures: Array<{ platform: string; error: string }>;
+  storageUsedBytes: number;
+  storageQuotaBytes: number;
+}
+
+function formatBytes(bytes: number): string {
+  const GB = 1024 * 1024 * 1024;
+  return bytes < GB ? `${Math.round(bytes / (1024 * 1024))}MB` : `${(bytes / GB).toFixed(1)}GB`;
+}
+
+function buildAccountContextSection(ctx: SupportAccountContext): string {
+  const platforms = ctx.connectedPlatforms.length > 0 ? ctx.connectedPlatforms.join(", ") : "none connected yet";
+  const failures =
+    ctx.recentFailures.length > 0
+      ? ctx.recentFailures.map((f) => `- ${f.platform}: ${f.error}`).join("\n")
+      : "None in recent history.";
+  return `
+THIS CUSTOMER'S REAL ACCOUNT (they are logged in -- use this to answer account-specific questions directly, never guess or invent a detail beyond what's listed here; if asked something this section doesn't cover, say you don't have that specific detail rather than guessing)
+- Plan: ${ctx.tierDisplayName}
+- Connected platforms: ${platforms}
+- Recent post failures: ${failures}
+- Storage used: ${formatBytes(ctx.storageUsedBytes)} of ${formatBytes(ctx.storageQuotaBytes)}
+`.trim();
+}
+
 // Real dollar prices aren't available from a backend constant (Paddle owns
 // them) -- these must stay hand-kept in sync with frontend/src/pages/Landing.tsx's
 // PRICING array, which is itself the one place a human reviews these numbers.
@@ -94,11 +129,16 @@ SECURITY & ACCOUNT
 - LazyRelay does not set or enforce what content is allowed on any platform -- that's each platform's own rules.
 `.trim();
 
-export function buildSupportSystemPrompt(): string {
+export function buildSupportSystemPrompt(accountContext: SupportAccountContext | null = null): string {
   const allTierLines = (["free", "pro", "business", "enterprise"] as Tier[]).map((t) => `- ${tierLine(t)}`).join("\n");
   const pricingSection = BILLING_LIVE
     ? `PLANS (live, customers can subscribe today):\n${allTierLines}`
     : `PLANS (these are the real prices and limits -- use these exact numbers, never invent different ones):\n${allTierLines}\n\nOnly the Free plan is actually usable today. The three paid plans above are coming soon and NOT live yet -- there is no way for anyone to be on a paid plan or be charged right now, no exceptions, no "just launched," no "recently started." When asked about paid plans, give these exact prices/limits but state plainly nobody can subscribe yet.`;
+
+  const accountSection = accountContext ? `\n${buildAccountContextSection(accountContext)}\n` : "";
+  const dataAccessLine = accountContext
+    ? "- You have this specific customer's own real account data below (they're logged in) -- you do NOT have access to any OTHER customer's data, ever, under any circumstance."
+    : "- You do not have access to any specific customer's account data, posts, or history in this conversation (this visitor is not logged in, or this is the public marketing-site widget).";
 
   return `You are the AI Support Assistant for LazyRelay, a social-media scheduling tool. You are talking directly with a customer or prospective customer in a chat widget on the website or dashboard.
 
@@ -120,10 +160,10 @@ Coming soon (not connectable yet): ${COMING_SOON_PLATFORMS.join(", ")}.
 ${pricingSection}
 
 ${TROUBLESHOOTING_KNOWLEDGE}
-
+${accountSection}
 WHAT YOU CANNOT DO (v1)
 - You cannot take any action on a customer's account (no cancelling, no reconnecting, no refunds). You can only explain how they'd do it themselves in the dashboard.
-- You do not have access to any specific customer's account data, posts, or history in this conversation.
+${dataAccessLine}
 
 ESCALATION
 When you can't resolve something yourself -- a billing dispute, a claim of being charged, a refund request, a bug you can't explain, a security concern, or anything genuinely outside what's documented above -- do not guess, don't ask a round of clarifying questions first, and don't improvise an explanation for what might have happened (you cannot see anyone's actual billing or account data, so any guess is misleading). Escalate immediately, in this same reply.

@@ -343,13 +343,22 @@ export const api = {
   getContentIdeas: (): Promise<{ ideas: string[] }> => authedFetch("/ai/content-ideas", { method: "POST" }),
 
   // Not authedFetch — the support widget has to work for signed-out
-  // marketing-site visitors too, so this never attaches a session token.
+  // marketing-site visitors too, so a missing session never throws here
+  // (unlike authedFetch). When a real session DOES exist (dashboard,
+  // logged in), attach it anyway so the backend can answer account-aware
+  // questions (Phase 1, 2026-08-11) — the backend treats a missing/invalid
+  // token as anonymous either way, so this is purely additive.
   sendSupportChatMessage: async (
     messages: Array<{ role: "user" | "assistant"; content: string }>,
   ): Promise<{ reply: string; escalated: "hello" | "support" | "accounts" | null }> => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
     const res = await fetch(`${API_URL}/support/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({ messages }),
     });
     const body = await res.json().catch(() => ({}));

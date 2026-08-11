@@ -231,6 +231,26 @@ export function requireAdmin(req: AuthedRequest, res: Response, next: NextFuncti
   next();
 }
 
+/** Narrower than requireAuth on purpose: the AI support widget must keep
+ *  working for signed-out marketing-site visitors, so a missing/invalid
+ *  token here is a normal case, not an error worth a 401. Only ever
+ *  resolves a real Supabase JWT (a logged-in dashboard session) -- no API
+ *  key or admin key path, since a customer's own browser session is the
+ *  only case a chat widget should ever act on. Returns the verified
+ *  account id, or null for anonymous. Never throws. */
+export async function resolveOptionalAccountId(req: Request): Promise<string | null> {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return null;
+  const token = authHeader.slice("Bearer ".length);
+  try {
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data.user) return null;
+    return data.user.id;
+  } catch {
+    return null;
+  }
+}
+
 /** Mount AFTER requireAuth on any route that must never be reachable with
  *  an API key — right now that's just managing API keys themselves, so a
  *  leaked/compromised key can never be used to mint new keys or revoke the

@@ -10,15 +10,23 @@ import { buildCheckoutTransaction } from "../billing/paddle.js";
 import { Environment } from "@paddle/paddle-node-sdk";
 import type { MerchantOfRecordAdapter } from "../billing/types.js";
 import { startConnect, completeConnect, type PlatformAdapterRegistry } from "../platforms/connect.js";
-import { requireAuth, requireHumanAuth, requireAdmin, type AuthedRequest, API_KEY_PREFIX, hashApiKey } from "./auth.js";
+import {
+  requireAuth,
+  requireHumanAuth,
+  requireAdmin,
+  resolveOptionalAccountId,
+  type AuthedRequest,
+  API_KEY_PREFIX,
+  hashApiKey,
+} from "./auth.js";
 import { tieredRateLimit, publicRateLimit } from "./rateLimit.js";
 import { validateMediaForPlatform, type Platform } from "../mediaLimits.js";
 import { checkQuotaForNewUpload, getStorageUsage } from "../storageQuota.js";
 import { checkAccountLimit } from "../accountLimits.js";
-import { resolveTier, RECURRING_SCHEDULE_SLOT_LIMITS, type Tier } from "../tier.js";
+import { resolveTier, TIER_DISPLAY_NAMES, RECURRING_SCHEDULE_SLOT_LIMITS, type Tier } from "../tier.js";
 import { cancelFuturePendingOccurrences } from "../recurringScheduler.js";
 import { checkGenerationLimit, recordGeneration } from "../aiUsage.js";
-import { buildSupportSystemPrompt } from "../support/chatKnowledge.js";
+import { buildSupportSystemPrompt, type SupportAccountContext } from "../support/chatKnowledge.js";
 import { sendSupportEscalation } from "../email.js";
 import { triageItems, type TriageItem, type TriageResult } from "../commentTriage.js";
 import type { CommentItem } from "../platforms/types.js";
@@ -374,11 +382,53 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
   // AI support widget (2026-08-10) — public, no requireAuth, since it has
   // to work for signed-out visitors on the marketing site as well as
-  // logged-in dashboard users. Not account-aware in v1: no account data,
-  // no actions, read-only Q&A grounded in chatKnowledge.ts. Reuses
-  // publicRateLimit (IP-keyed) for now; unlike the OAuth callback that
-  // limiter was built for, this route costs real Anthropic spend per call,
-  // so tighten this if real usage shows it's too generous.
+  // logged-in dashboard users. Reuses publicRateLimit (IP-keyed) for now;
+  // unlike the OAuth callback that limiter was built for, this route costs
+  // real Anthropic spend per call, so tighten this if real usage shows
+  // it's too generous.
+  //
+  // Account-aware, Phase 1 (2026-08-11) — read-only. resolveOptionalAccountId
+  // is the ONLY source of truth for whose data gets fetched; it verifies a
+  // real Supabase JWT server-side, same trust boundary as requireAuth, so
+  // there is no path for a client to claim to be a different account. A
+  // missing/invalid token just means anonymous (identical to the original
+  // v1 behavior) — this never turns into a 401, since the widget must keep
+  // working for signed-out visitors.
+  async function fetchSupportAccountContext(accountId: string): Promise<SupportAccountContext | null> {
+    try {
+      // getStorageUsage already resolves tier internally (and its
+      // quotaBytes already folds in any purchased storage add-ons) — reuse
+      // its result rather than calling resolveTier a second time.
+      const [{ data: accounts }, { data: recentFailed }, storage] = await Promise.all([
+        supabase.from("social_accounts").select("platform").eq("account_id", accountId).is("disconnected_at", null),
+        supabase
+          .from("scheduled_posts")
+          .select("platform, post_results(error_message)")
+          .eq("account_id", accountId)
+          .eq("status", "failed")
+          .order("scheduled_for", { ascending: false })
+          .order("created_at", { ascending: false, referencedTable: "post_results" })
+          .limit(3),
+        getStorageUsage(accountId),
+      ]);
+      return {
+        tierDisplayName: TIER_DISPLAY_NAMES[storage.tier],
+        connectedPlatforms: (accounts ?? []).map((a) => a.platform),
+        recentFailures: (recentFailed ?? []).map((p: { platform: string; post_results: { error_message: string | null }[] }) => ({
+          platform: p.platform,
+          error: p.post_results?.[0]?.error_message ?? "unspecified error",
+        })),
+        storageUsedBytes: storage.usedBytes,
+        storageQuotaBytes: storage.quotaBytes,
+      };
+    } catch (err) {
+      // Never let an enrichment failure break the actual chat reply — same
+      // fire-and-forget-safety reasoning as the knowledge-gap logging below.
+      console.error("[routes] fetchSupportAccountContext:", err instanceof Error ? err.message : err);
+      return null;
+    }
+  }
+
   const MAX_CHAT_MESSAGES = 20;
   const MAX_CHAT_MESSAGE_LENGTH = 2000;
   router.post("/support/chat", publicRateLimit, async (req, res) => {
@@ -412,6 +462,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
 
     try {
+      const accountId = await resolveOptionalAccountId(req);
+      const accountContext = accountId ? await fetchSupportAccountContext(accountId) : null;
+
       // Longer timeout than the caption/hashtag routes — this is a real
       // conversational reply grounded in a much bigger system prompt, not a
       // short generation. Still bounded so a hung call fails cleanly.
@@ -419,7 +472,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       const message = await client.messages.create({
         model: "claude-haiku-4-5",
         max_tokens: 500,
-        system: buildSupportSystemPrompt(),
+        system: buildSupportSystemPrompt(accountContext),
         messages: messages.map((m: { role: "user" | "assistant"; content: string }) => ({ role: m.role, content: m.content })),
       });
       const textBlock = message.content.find((block) => block.type === "text");
