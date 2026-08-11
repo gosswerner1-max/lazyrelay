@@ -36,6 +36,16 @@ function tierLine(tier: Tier): string {
   return `${TIER_DISPLAY_NAMES[tier]} (${TIER_PRICES[tier]}): ${ACCOUNT_LIMITS[tier]} connected accounts, ${formatStorage(tier)} storage, ${formatRecurringLimit(tier)}`;
 }
 
+// Real dashboard tab layout (frontend/src/pages/Dashboard.tsx MAIN_TABS/
+// MORE_TABS) -- kept here as plain data, not prose, so navigation
+// instructions can't silently drift the way "reconnect in Settings" did
+// (found 2026-08-11: "Settings" hasn't existed since the 2026-08-07 nav
+// restructure, real answer is the "Accounts" tab). Re-sync this whenever
+// Dashboard.tsx's own tab arrays change -- if a tab moves, this goes stale
+// independently of the code, since nothing enforces it automatically.
+const DASHBOARD_MAIN_TABS = ["Overview", "Posts", "Calendar", "Accounts"] as const;
+const DASHBOARD_MORE_TABS = ["Analytics", "Mentions", "DMs", "Bio Page", "Storage", "Account", "API Keys", "Billing"] as const;
+
 const LIVE_PLATFORMS = [
   "Facebook",
   "Instagram",
@@ -60,7 +70,7 @@ const COMING_SOON_PLATFORMS = ["X", "Snapchat"] as const;
 // SUPPORT_KNOWLEDGE.md grows; this doesn't need to track it line for line.
 const TROUBLESHOOTING_KNOWLEDGE = `
 PLATFORM TROUBLESHOOTING
-- Facebook/Instagram "was working, now silently stopped": long-lived token likely expired, or a permission got toggled off separately from the original connect. Fix: reconnect in Settings, approving ALL requested permissions.
+- Facebook/Instagram "was working, now silently stopped": long-lived token likely expired, or a permission got toggled off separately from the original connect. Fix: reconnect from the **Accounts** tab (top nav, no menu needed), approving ALL requested permissions.
 - Instagram won't connect: must be a Business/Creator account, and (for the older connect flow) linked to a Facebook Page the user administers.
 - Instagram media fails but Facebook works: Instagram has stricter media specs (JPEG for images, 4:5-1.91:1 aspect ratio, MP4/MOV H.264 for video, under 8MB).
 - TikTok "posts privately only, followers can't find it": this is TikTok's default for unaudited integrations, not a bug on LazyRelay's side.
@@ -70,8 +80,8 @@ PLATFORM TROUBLESHOOTING
 - "Posted to the wrong account": usually caused by being logged into multiple accounts in-browser during connect. Log out of all sessions for that platform first, then reconnect.
 
 CORE FEATURES
-- Proof-of-Publish: after a post is sent, LazyRelay independently re-checks the platform to confirm it's genuinely live, not just that the send request was accepted. Verified-live posts get a public, no-login "Share proof" link (Dashboard -> post -> Share proof), useful for proving to a client/boss a post actually went out.
-- Failure alerts: opt-in email notifications (Dashboard -> Account -> "Failure alerts") when a post fails for good or an account gets auto-paused. Off by default.
+- Proof-of-Publish: after a post is sent, LazyRelay independently re-checks the platform to confirm it's genuinely live, not just that the send request was accepted. Verified-live posts get a public, no-login "Share proof" button right on that post in the **Posts** or **Calendar** tab, useful for proving to a client/boss a post actually went out.
+- Failure alerts: opt-in email notifications ("Email me if a scheduled post fails" checkbox on the **Account** tab -- click **More** in the top nav first, Account is inside that menu, not one of the always-visible tabs) when a post fails for good or an account gets auto-paused. Off by default.
 - Recurring schedules: set content, days, time, and platforms once; LazyRelay keeps posting weekly until paused or deleted. Free tier is one-time posts only.
 - Bulk CSV import: schedule up to 200 posts at once from a CSV, with a per-row preview before committing.
 - AI captions, hashtags, and content ideas: available from the compose form, count against the account's daily AI-generation quota.
@@ -95,6 +105,14 @@ export function buildSupportSystemPrompt(): string {
 IDENTITY
 - Always be clear you are an AI assistant, never imply you are a human. If asked, say so plainly.
 - Warm, direct, plain language. No corporate filler.
+
+HOW TO EXPLAIN THINGS
+- Assume the customer may not be tech-savvy. Avoid jargon (OAuth, API, token, webhook) unless they used the term first -- say "reconnect your account" not "re-authenticate the OAuth token."
+- When you tell someone where to click, be exact, not approximate -- name the specific tab, and say whether it's always visible or behind the "More" menu. Getting the general idea right but the actual location wrong (e.g. telling someone a button is at the bottom when it's at the top) is worse than not answering, because it sends a confused customer searching the wrong part of the screen.
+- The dashboard's real tab layout, ground truth (do not describe a tab that isn't listed here, and do not invent sub-menus):
+  - Always visible in the top nav: ${DASHBOARD_MAIN_TABS.join(", ")}
+  - Behind the "More" dropdown in the top nav: ${DASHBOARD_MORE_TABS.join(", ")}
+- Never say "Settings" -- there is no tab by that name. Say the real tab name from the list above instead.
 
 PLATFORMS LazyRelay posts to today: ${LIVE_PLATFORMS.join(", ")}.
 Coming soon (not connectable yet): ${COMING_SOON_PLATFORMS.join(", ")}.
