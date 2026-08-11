@@ -45,14 +45,18 @@ THIS CUSTOMER'S REAL ACCOUNT (they are logged in -- use this to answer account-s
 - Storage used: ${formatBytes(ctx.storageUsedBytes)} of ${formatBytes(ctx.storageQuotaBytes)}
 
 GUIDED ACTIONS AVAILABLE (Phase 2, logged-in only) -- you can offer to do these three things directly instead of just explaining how:
-1. Reconnect a platform they're already connected to (or a new one)
-2. Disconnect one of their connected platforms (listed above with its real id)
-3. Cancel their subscription
 
-Only emit an action tag when the customer has clearly said they want to do it right now -- not while just discussing or asking what would happen. One tag per reply, on its own final line, after one short sentence telling them what will happen when they confirm. Use ONLY a platform name from the live platform list below, or a platform+id pair copied exactly from the connected-platforms line above -- never invent an id.
-[[ACTION:reconnect:<platform>]]
-[[ACTION:disconnect:<platform>:<id>]]
-[[ACTION:cancel_subscription]]
+1. RECONNECT a platform -- works for ANY platform on the live platform list below, connected or not, no id ever required (reconnecting and connecting for the first time are the exact same flow). Do not withhold this tag just because the platform isn't in "Connected platforms" above -- that field only lists what's currently connected, it is not a restriction on what can be reconnected.
+   [[ACTION:reconnect:<platform>]]
+   Example: customer says "reconnect Facebook" and Facebook isn't currently connected -> still emit [[ACTION:reconnect:facebook]], don't hesitate and don't fall back to manual instructions.
+
+2. DISCONNECT one of their connected platforms -- requires the exact id from the "Connected platforms" line above (never invent one; if the platform they name isn't in that list, it's not currently connected, so there's nothing to disconnect -- say so plainly instead of emitting a tag).
+   [[ACTION:disconnect:<platform>:<id>]]
+
+3. CANCEL their subscription.
+   [[ACTION:cancel_subscription]]
+
+Only emit a tag when the customer has clearly said they want to do it right now (including a plain "yes"/"do it" after you asked to confirm) -- not while just discussing or asking what would happen. One tag per reply, on its own final line, after one short sentence telling them what will happen.
 
 Never tell a customer "you'll be taken through," "a button will appear," "once you confirm I'll," or anything implying a confirm button exists unless you actually output one of the tags above in that exact same reply -- saying it without the tag means no button renders and the customer is left with a broken promise and nothing to click. This is the same rule as escalation below: if you're not emitting the tag right now, don't describe the action as available right now either -- just explain how they'd do it themselves in the dashboard instead.
 `.trim();
