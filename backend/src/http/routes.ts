@@ -435,6 +435,22 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       if (escalated) {
         const transcript = [...messages.map((m: { role: string; content: string }) => `${m.role}: ${m.content}`), `assistant: ${reply}`].join("\n\n");
         sendSupportEscalation(escalated, transcript);
+
+        // Feeds the weekly knowledge-gap digest (see support_knowledge_gaps,
+        // migration 0044) — every escalation is a signal the knowledge base
+        // is missing something, not just a one-off email. Fire-and-forget,
+        // same as the email above: never let a logging failure affect the
+        // customer-visible reply.
+        supabase
+          .from("support_knowledge_gaps")
+          .insert({
+            escalation_category: escalated,
+            question_summary: messages[messages.length - 1].content.slice(0, 500),
+            transcript,
+          })
+          .then(({ error }) => {
+            if (error) console.error("[routes] support_knowledge_gaps insert:", error.message);
+          });
       }
 
       res.json({ reply, escalated });
