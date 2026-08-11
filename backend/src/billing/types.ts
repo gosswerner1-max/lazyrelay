@@ -81,6 +81,15 @@ export interface RefundRecordEvent {
 
 export type BillingEvent = SubscriptionEvent | StorageAddonEvent | SaleRecordEvent | RefundRecordEvent;
 
+/** Thrown by parseWebhookEvent specifically when the signature itself is
+ *  invalid — distinct from any other error parseWebhookEvent can throw
+ *  (unmapped status, missing customData, malformed payload), so the HTTP
+ *  handler can tell a forged/misconfigured request apart from a genuine
+ *  Paddle delivery whose data just didn't parse. Found 2026-08-11: both
+ *  cases used to surface as an identical 401 "Invalid webhook signature,"
+ *  which took real debugging time to untangle from an actual bad secret. */
+export class WebhookSignatureError extends Error {}
+
 export interface CancelResult {
   success: boolean;
   errorMessage: string | null;

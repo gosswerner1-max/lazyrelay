@@ -1,4 +1,5 @@
 import { Paddle, Environment } from "@paddle/paddle-node-sdk";
+import { WebhookSignatureError } from "./types.js";
 import type {
   MerchantOfRecordAdapter,
   BillingEvent,
@@ -203,11 +204,24 @@ export class PaddleMorAdapter implements MerchantOfRecordAdapter {
   /** ASYNC — unlike the removed Stripe adapter, Paddle's own signature
    * verification (`webhooks.unmarshal`) is a Promise, so this had to become
    * one too (MerchantOfRecordAdapter's interface is `Promise<...>` for this
-   * reason — see types.ts). Rejects/throws on invalid signature (Paddle's
-   * unmarshal itself throws, never resolves to a falsy value on failure —
-   * confirmed by reading the SDK's own .d.ts, which has no `| null` on its
-   * return type). Returns null for a verified-but-irrelevant event. */
+   * reason — see types.ts). Returns null for a verified-but-irrelevant event.
+   *
+   * Checks the signature explicitly via the SDK's own `isSignatureValid`
+   * BEFORE calling `unmarshal` — unmarshal bundles signature verification
+   * together with parsing/constructing the typed event, so a single
+   * try/catch around it can't tell a forged signature apart from a
+   * genuine, correctly-signed delivery whose payload just doesn't parse
+   * cleanly (missing fields, an unmapped status, etc.). Confirmed live
+   * 2026-08-11: a real destination secret against a minimal/incomplete
+   * payload threw from inside unmarshal, indistinguishable from an actual
+   * bad secret without this split. Only a real signature mismatch throws
+   * WebhookSignatureError; anything after that point is a genuine Paddle
+   * delivery with a data problem, not a security event. */
   async parseWebhookEvent(rawBody: string, signatureHeader: string): Promise<BillingEvent | null> {
+    const isValid = await this.paddle.webhooks.isSignatureValid(rawBody, this.webhookSecret, signatureHeader);
+    if (!isValid) {
+      throw new WebhookSignatureError("Webhook signature verification failed");
+    }
     const event = await this.paddle.webhooks.unmarshal(rawBody, this.webhookSecret, signatureHeader);
 
     if (!RELEVANT_EVENT_TYPES.has(event.eventType)) {

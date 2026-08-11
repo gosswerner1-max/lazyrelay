@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { syncSubscriptionFromWebhook, recordBillingEvent } from "../billing/sync.js";
+import { WebhookSignatureError } from "../billing/types.js";
 import type { MerchantOfRecordAdapter } from "../billing/types.js";
 
 // A prior IP-allowlist check against api.paddle.com/ips was removed
@@ -25,8 +26,19 @@ export function buildWebhookHandler(morAdapter: MerchantOfRecordAdapter) {
       // Never trust an unverified webhook — reject outright rather than
       // processing it "just in case." A forged webhook could otherwise
       // grant free access or falsely mark a real subscription cancelled.
-      console.error("Webhook signature verification failed:", err);
-      res.status(401).json({ error: "Invalid webhook signature" });
+      // Only a genuine signature mismatch gets the 401 "Invalid webhook
+      // signature" response — anything else thrown here (unmapped status,
+      // missing customData, a malformed payload) is a real, correctly-signed
+      // Paddle delivery with a data problem, not a security event, so it
+      // gets its own honest error instead of masquerading as the former
+      // (found the hard way 2026-08-11 — both used to look identical).
+      if (err instanceof WebhookSignatureError) {
+        console.error("Webhook signature verification failed:", err);
+        res.status(401).json({ error: "Invalid webhook signature" });
+        return;
+      }
+      console.error("Webhook payload could not be processed:", err);
+      res.status(400).json({ error: err instanceof Error ? err.message : "Unable to process webhook payload" });
       return;
     }
 
