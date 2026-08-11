@@ -530,6 +530,16 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
           customerLine = acct?.email
             ? `Customer: ${acct.email} (logged in, account ${accountId})`
             : `Customer: logged in, account ${accountId}, but no email on file`;
+        } else {
+          // No verified session, but the model may have asked for and been
+          // given a self-reported name/email in this same conversation (see
+          // chatKnowledge.ts's contactCaptureLine) -- surface it here too, so
+          // a human skimming just this header line doesn't miss contact info
+          // that's actually present a few lines down in the transcript.
+          const selfReportedEmail = conversationTranscript.match(/[\w.+-]+@[\w-]+\.[\w.-]+/)?.[0];
+          if (selfReportedEmail) {
+            customerLine = `Customer: anonymous visitor, no verified session, but self-reported "${selfReportedEmail}" appears in the conversation below -- read the full transcript to confirm name/email before replying.`;
+          }
         }
         const transcript = `${customerLine}\n\n${conversationTranscript}`;
         sendSupportEscalation(escalated, transcript);
