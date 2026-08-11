@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../lib/api";
+import { api, type SupportAction } from "../lib/api";
 import botHead from "../assets/support-bot-head.png";
 import thinking1 from "../assets/thinking-1.mp4";
 import thinking2 from "../assets/thinking-2.mp4";
@@ -8,6 +8,22 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   escalated?: "hello" | "support" | "accounts" | null;
+  action?: SupportAction;
+  // Once the customer clicks the button (or it fails), the action is
+  // resolved -- the button is replaced with a short result line instead of
+  // staying clickable forever or disappearing silently.
+  actionResult?: "success" | "error" | null;
+}
+
+function platformLabel(platform: string): string {
+  return platform.charAt(0).toUpperCase() + platform.slice(1);
+}
+
+function actionButtonLabel(action: SupportAction): string {
+  if (!action) return "";
+  if (action.type === "reconnect") return `Reconnect ${platformLabel(action.platform)}`;
+  if (action.type === "disconnect") return `Disconnect ${platformLabel(action.platform)}`;
+  return "Cancel my subscription";
 }
 
 const THINKING_CLIPS = [thinking1, thinking2];
@@ -25,6 +41,9 @@ export function SupportWidget() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Index of the message whose action button is currently mid-click — only
+  // ever one at a time, since each is its own confirm-then-call round trip.
+  const [runningActionIndex, setRunningActionIndex] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   // Picked once per widget mount, not per message — so the same visitor
   // doesn't see it flicker between two different clips mid-conversation.
@@ -44,12 +63,45 @@ export function SupportWidget() {
     setInput("");
     setIsLoading(true);
     try {
-      const { reply, escalated } = await api.sendSupportChatMessage(toApiMessages(nextMessages));
-      setMessages([...nextMessages, { role: "assistant", content: reply, escalated }]);
+      const { reply, escalated, action } = await api.sendSupportChatMessage(toApiMessages(nextMessages));
+      setMessages([...nextMessages, { role: "assistant", content: reply, escalated, action, actionResult: null }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong — please try again.");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  // The AI only ever suggests an action -- nothing happens until the
+  // customer clicks this button themselves, same trust boundary as if
+  // they'd clicked the equivalent button in the dashboard directly (in
+  // fact it calls the exact same api.* functions). Destructive actions get
+  // the same native confirm the dashboard's own buttons already use.
+  async function handleActionConfirm(index: number, action: SupportAction) {
+    if (!action || runningActionIndex !== null) return;
+    if (action.type === "disconnect" && !window.confirm(`Disconnect ${platformLabel(action.platform)}? Any scheduled posts still using this account will fail next time they're due.`)) {
+      return;
+    }
+    if (action.type === "cancel_subscription" && !window.confirm("Cancel your subscription? You'll keep access until the end of your current billing period.")) {
+      return;
+    }
+    setRunningActionIndex(index);
+    try {
+      if (action.type === "reconnect") {
+        const { authorizeUrl } = await api.startConnect(action.platform);
+        window.location.href = authorizeUrl;
+        return; // navigating away -- no result state to set
+      }
+      if (action.type === "disconnect") {
+        await api.disconnectSocialAccount(action.accountId);
+      } else if (action.type === "cancel_subscription") {
+        await api.cancelSubscription();
+      }
+      setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, actionResult: "success" } : m)));
+    } catch {
+      setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, actionResult: "error" } : m)));
+    } finally {
+      setRunningActionIndex(null);
     }
   }
 
@@ -82,6 +134,24 @@ export function SupportWidget() {
                 {m.escalated && (
                   <p className="support-message-escalated">
                     This has been passed to our team — you'll hear back by email.
+                  </p>
+                )}
+                {m.action && m.actionResult == null && (
+                  <button
+                    type="button"
+                    className="support-action-button"
+                    disabled={runningActionIndex === i}
+                    onClick={() => handleActionConfirm(i, m.action!)}
+                  >
+                    {runningActionIndex === i ? "Working…" : actionButtonLabel(m.action)}
+                  </button>
+                )}
+                {m.actionResult === "success" && (
+                  <p className="support-message-action-result support-message-action-success">✓ Done.</p>
+                )}
+                {m.actionResult === "error" && (
+                  <p className="support-message-action-result support-message-action-error">
+                    That didn't go through — try again from the dashboard, or ask me to pass it to the team.
                   </p>
                 )}
               </div>

@@ -22,6 +22,17 @@ async function authedFetch(path: string, options: RequestInit = {}) {
   return res.status === 204 ? null : res.json();
 }
 
+// Support-widget guided actions, Phase 2 (2026-08-11) — a structured
+// suggestion from the AI, never executed automatically. The widget renders
+// a real confirm button for whichever of these comes back; only the
+// customer's own click calls the matching authenticated endpoint below
+// (startConnect / disconnectSocialAccount / cancelSubscription).
+export type SupportAction =
+  | { type: "reconnect"; platform: string }
+  | { type: "disconnect"; platform: string; accountId: string }
+  | { type: "cancel_subscription" }
+  | null;
+
 export interface SocialAccount {
   id: string;
   platform: string;
@@ -350,7 +361,7 @@ export const api = {
   // token as anonymous either way, so this is purely additive.
   sendSupportChatMessage: async (
     messages: Array<{ role: "user" | "assistant"; content: string }>,
-  ): Promise<{ reply: string; escalated: "hello" | "support" | "accounts" | null }> => {
+  ): Promise<{ reply: string; escalated: "hello" | "support" | "accounts" | null; action: SupportAction }> => {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     const res = await fetch(`${API_URL}/support/chat`, {

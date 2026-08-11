@@ -400,7 +400,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       // quotaBytes already folds in any purchased storage add-ons) — reuse
       // its result rather than calling resolveTier a second time.
       const [{ data: accounts }, { data: recentFailed }, storage] = await Promise.all([
-        supabase.from("social_accounts").select("platform").eq("account_id", accountId).is("disconnected_at", null),
+        supabase.from("social_accounts").select("id, platform").eq("account_id", accountId).is("disconnected_at", null),
         supabase
           .from("scheduled_posts")
           .select("platform, post_results(error_message)")
@@ -413,7 +413,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       ]);
       return {
         tierDisplayName: TIER_DISPLAY_NAMES[storage.tier],
-        connectedPlatforms: (accounts ?? []).map((a) => a.platform),
+        connectedPlatforms: (accounts ?? []).map((a) => ({ id: a.id, platform: a.platform })),
         recentFailures: (recentFailed ?? []).map((p: { platform: string; post_results: { error_message: string | null }[] }) => ({
           platform: p.platform,
           error: p.post_results?.[0]?.error_message ?? "unspecified error",
@@ -482,8 +482,35 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       }
 
       const escalateMatch = textBlock.text.match(/\[\[ESCALATE:(hello|support|accounts)\]\]/);
-      const reply = textBlock.text.replace(/\s*\[\[ESCALATE:(hello|support|accounts)\]\]\s*$/, "").trim();
+      // accountContext-gated: the prompt only ever offers action tags to a
+      // verified logged-in conversation, but guard here too rather than
+      // trust the model's own restraint alone — an anonymous request must
+      // never produce an action, defense in depth on top of prompt design.
+      const actionMatch = accountContext
+        ? textBlock.text.match(/\[\[ACTION:(reconnect:[a-z]+|disconnect:[a-z]+:[0-9a-f-]+|cancel_subscription)\]\]/)
+        : null;
+      const reply = textBlock.text
+        .replace(/\s*\[\[ESCALATE:(hello|support|accounts)\]\]\s*$/, "")
+        .replace(/\s*\[\[ACTION:[^\]]+\]\]\s*$/, "")
+        .trim();
       const escalated = escalateMatch ? (escalateMatch[1] as "hello" | "support" | "accounts") : null;
+
+      let action:
+        | { type: "reconnect"; platform: string }
+        | { type: "disconnect"; platform: string; accountId: string }
+        | { type: "cancel_subscription" }
+        | null = null;
+      if (actionMatch) {
+        const raw = actionMatch[1];
+        if (raw === "cancel_subscription") {
+          action = { type: "cancel_subscription" };
+        } else if (raw.startsWith("reconnect:")) {
+          action = { type: "reconnect", platform: raw.slice("reconnect:".length) };
+        } else if (raw.startsWith("disconnect:")) {
+          const [, platform, id] = raw.split(":");
+          action = { type: "disconnect", platform, accountId: id };
+        }
+      }
 
       if (escalated) {
         const transcript = [...messages.map((m: { role: string; content: string }) => `${m.role}: ${m.content}`), `assistant: ${reply}`].join("\n\n");
@@ -506,7 +533,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
           });
       }
 
-      res.json({ reply, escalated });
+      res.json({ reply, escalated, action });
     } catch (err) {
       console.error("[routes] POST /support/chat:", err instanceof Error ? err.message : err);
       if (err instanceof Anthropic.APIConnectionTimeoutError) {

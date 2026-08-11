@@ -17,7 +17,7 @@ export const BILLING_LIVE = true;
 // already relies on.
 export interface SupportAccountContext {
   tierDisplayName: string;
-  connectedPlatforms: string[];
+  connectedPlatforms: Array<{ id: string; platform: string }>;
   recentFailures: Array<{ platform: string; error: string }>;
   storageUsedBytes: number;
   storageQuotaBytes: number;
@@ -29,7 +29,10 @@ function formatBytes(bytes: number): string {
 }
 
 function buildAccountContextSection(ctx: SupportAccountContext): string {
-  const platforms = ctx.connectedPlatforms.length > 0 ? ctx.connectedPlatforms.join(", ") : "none connected yet";
+  const platforms =
+    ctx.connectedPlatforms.length > 0
+      ? ctx.connectedPlatforms.map((p) => `${p.platform} (id: ${p.id})`).join(", ")
+      : "none connected yet";
   const failures =
     ctx.recentFailures.length > 0
       ? ctx.recentFailures.map((f) => `- ${f.platform}: ${f.error}`).join("\n")
@@ -40,6 +43,16 @@ THIS CUSTOMER'S REAL ACCOUNT (they are logged in -- use this to answer account-s
 - Connected platforms: ${platforms}
 - Recent post failures: ${failures}
 - Storage used: ${formatBytes(ctx.storageUsedBytes)} of ${formatBytes(ctx.storageQuotaBytes)}
+
+GUIDED ACTIONS AVAILABLE (Phase 2, logged-in only) -- you can offer to do these three things directly instead of just explaining how:
+1. Reconnect a platform they're already connected to (or a new one)
+2. Disconnect one of their connected platforms (listed above with its real id)
+3. Cancel their subscription
+
+Only emit an action tag when the customer has clearly said they want to do it right now -- not while just discussing or asking what would happen. One tag per reply, on its own final line, after one short sentence telling them what will happen when they confirm (a real confirm button will appear -- nothing happens until they click it, so don't also say "done" or "I've cancelled it," you haven't). Use ONLY a platform name from the live platform list below, or a platform+id pair copied exactly from the connected-platforms line above -- never invent an id.
+[[ACTION:reconnect:<platform>]]
+[[ACTION:disconnect:<platform>:<id>]]
+[[ACTION:cancel_subscription]]
 `.trim();
 }
 
