@@ -1401,12 +1401,14 @@ export function Dashboard() {
   // migration 0043) — `status` only flips to "cancelled" once that real
   // period-end cancellation actually lands via webhook, so a customer who
   // just clicked cancel is still "active"/"trialing" with cancelAtPeriodEnd
-  // true. Both that pending state and a genuinely lapsed one read as
-  // "cancelling" here — this banner's button just navigates to the Billing
-  // tab, it doesn't itself start a new checkout, so showing it (and the
-  // "resubscribe" framing) during the pending window is safe.
-  const isCancelling = !isFreePlan && (subscription?.status === "cancelled" || subscription?.cancelAtPeriodEnd === true);
-  const isFreeOrLapsed = isFreePlan || isCancelling;
+  // true. Kept as two distinct states, not one: showing "cancelling: ends
+  // <date>" for an already-fully-lapsed plan reads as a live countdown for
+  // something that's already over (found live 2026-08-11, next to
+  // "Resubscribe" buttons that only appear once truly lapsed — the two
+  // together read as contradictory).
+  const isPendingCancellation = !isFreePlan && subscription?.cancelAtPeriodEnd === true;
+  const isLapsedCancelled = !isFreePlan && subscription?.status === "cancelled";
+  const isFreeOrLapsed = isFreePlan || isLapsedCancelled || isPendingCancellation;
   const periodEndDate = subscription?.currentPeriodEnd
     ? new Date(subscription.currentPeriodEnd).toLocaleDateString(undefined, { month: "short", day: "numeric" })
     : null;
@@ -1423,13 +1425,15 @@ export function Dashboard() {
               <>
                 You're on the <strong>{tierNames[currentTier]}</strong> plan
                 {isFreePlan && ": 10 posts per connected account, refillable monthly"}
-                {isCancelling && `; cancels${periodEndDate ? ` on ${periodEndDate}` : " at the end of your billing period"}`}
+                {isPendingCancellation &&
+                  `; cancels${periodEndDate ? ` on ${periodEndDate}` : " at the end of your billing period"}`}
+                {isLapsedCancelled && "; cancelled"}
               </>
             )}
           </span>
           {isFreeOrLapsed && !finalizingUpgrade && (
             <button className="plan-banner-cta" onClick={() => setTab("Billing")}>
-              {isCancelling ? "Resubscribe" : "Upgrade"}
+              {isPendingCancellation || isLapsedCancelled ? "Resubscribe" : "Upgrade"}
             </button>
           )}
         </div>
@@ -3131,9 +3135,11 @@ export function Dashboard() {
                 Current plan: <strong>{subscription ? tierNames[subscription.tier] : "Free"}</strong>
                 {subscription?.status && (
                   <span className={`status-badge status-${subscription.status}`}>
-                    {isCancelling || isPendingCancellation
+                    {isPendingCancellation
                       ? `cancelling${periodEndDate ? `: ends ${periodEndDate}` : ""}`
-                      : subscription.status}
+                      : isCancelling
+                        ? "cancelled"
+                        : subscription.status}
                   </span>
                 )}
               </p>
