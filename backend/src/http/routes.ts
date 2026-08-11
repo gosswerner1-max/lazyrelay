@@ -513,7 +513,25 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       }
 
       if (escalated) {
-        const transcript = [...messages.map((m: { role: string; content: string }) => `${m.role}: ${m.content}`), `assistant: ${reply}`].join("\n\n");
+        const conversationTranscript = [...messages.map((m: { role: string; content: string }) => `${m.role}: ${m.content}`), `assistant: ${reply}`].join("\n\n");
+
+        // Real gap found live 2026-08-11: escalations carried no way to
+        // identify the customer, so a genuine vendor-security-review lead
+        // was undeliverable ("the team will email you back" on a channel
+        // with no address to reply to). Fixed for logged-in customers,
+        // where we already have a verified accountId -- fetched only here,
+        // never exposed to the model itself, since it has no legitimate
+        // need for a customer's email to answer a question. Anonymous
+        // visitors still have no captured address; that's a real product
+        // decision (ask for one during escalation?), not a bug this fixes.
+        let customerLine = "Customer: anonymous visitor, no email captured (not logged in).";
+        if (accountId) {
+          const { data: acct } = await supabase.from("accounts").select("email").eq("id", accountId).maybeSingle();
+          customerLine = acct?.email
+            ? `Customer: ${acct.email} (logged in, account ${accountId})`
+            : `Customer: logged in, account ${accountId}, but no email on file`;
+        }
+        const transcript = `${customerLine}\n\n${conversationTranscript}`;
         sendSupportEscalation(escalated, transcript);
 
         // Feeds the weekly knowledge-gap digest (see support_knowledge_gaps,
