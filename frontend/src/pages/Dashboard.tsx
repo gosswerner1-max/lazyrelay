@@ -284,6 +284,7 @@ export function Dashboard() {
   const [insightResult, setInsightResult] = useState<{ insight: string } | { insufficientData: true; postsWithData: number; needed: number } | null>(null);
   const [finalizingUpgrade, setFinalizingUpgrade] = useState(false);
   const pendingTierRef = useRef<"pro" | "business" | "enterprise" | null>(null);
+  const pendingStorageAddonRef = useRef<5 | 20 | 50 | null>(null);
 
   async function refresh() {
     setError(null);
@@ -496,8 +497,21 @@ export function Dashboard() {
         // which lands a few seconds later — an immediate refresh() here
         // reads the still-"free" row. Poll briefly instead of refreshing
         // once so the banner updates itself without a manual reload.
+        // Both pending refs are checked here rather than polling from
+        // inside handleUpgrade/handleBuyStorageAddon right after
+        // Checkout.open() — that used to start the poll the instant the
+        // overlay opened, racing against the customer actually entering a
+        // card and finishing checkout, so the 15s window was almost always
+        // gone before the real purchase completed (found live 2026-08-11 —
+        // the storage gauge never updated on its own after a real add-on
+        // purchase). Waiting for the real checkout.completed event fixes
+        // both paths the same way.
         if (event.name === "checkout.completed") {
-          pollUntilUpgraded();
+          if (pendingTierRef.current) {
+            pollUntilUpgraded();
+          } else if (pendingStorageAddonRef.current) {
+            pollUntilAddonAdded();
+          }
         }
       },
     }).then(setPaddle);
@@ -551,6 +565,33 @@ export function Dashboard() {
     } finally {
       setFinalizingUpgrade(false);
       pendingTierRef.current = null;
+    }
+  }
+
+  /** Same shape as pollUntilUpgraded(), for storage add-ons — kept as a
+   *  separate function since it polls a different endpoint pair and
+   *  doesn't touch the tier-upgrade banner state. */
+  async function pollUntilAddonAdded() {
+    const gbAmount = pendingStorageAddonRef.current;
+    try {
+      for (let attempt = 0; attempt < 10; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const addons = await api.listStorageAddons();
+        if (addons.some((a) => a.gb_amount === gbAmount)) {
+          setStorageAddons(addons);
+          const usage = await api.getStorageUsage();
+          setStorageUsage(usage);
+          return;
+        }
+      }
+      // Timed out waiting on the webhook — refresh once more anyway so the
+      // gauge shows whatever the real current state is rather than nothing.
+      const [addons, usage] = await Promise.all([api.listStorageAddons(), api.getStorageUsage()]);
+      setStorageAddons(addons);
+      setStorageUsage(usage);
+    } finally {
+      setAddonBusy(null);
+      pendingStorageAddonRef.current = null;
     }
   }
 
@@ -1059,30 +1100,23 @@ export function Dashboard() {
     try {
       const { transactionId, checkoutUrl } = await api.startStorageAddonCheckout(gbAmount);
       if (paddle && transactionId) {
+        // Arm the ref and open the overlay, then return — pollUntilAddonAdded()
+        // runs from the eventCallback's real checkout.completed event, not
+        // from here. Polling used to start immediately on this line, racing
+        // the customer actually entering a card; addonBusy stays true (button
+        // shows "Starting checkout...") until that poll clears it.
+        pendingStorageAddonRef.current = gbAmount;
         paddle.Checkout.open({ transactionId });
-        // Storage add-ons don't flip a tier the pricing banner cares about,
-        // just the quota gauge — poll the addon list + usage briefly instead
-        // of the tier-polling pollUntilUpgraded() above.
-        for (let attempt = 0; attempt < 10; attempt++) {
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-          const addons = await api.listStorageAddons();
-          if (addons.some((a) => a.gb_amount === gbAmount)) {
-            setStorageAddons(addons);
-            const usage = await api.getStorageUsage();
-            setStorageUsage(usage);
-            break;
-          }
-        }
         return;
       }
       if (!checkoutUrl) {
         setError("Checkout couldn't start. No checkout URL was returned.");
+        setAddonBusy(null);
         return;
       }
       window.location.href = checkoutUrl;
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-    } finally {
       setAddonBusy(null);
     }
   }
