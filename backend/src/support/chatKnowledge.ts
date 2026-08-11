@@ -49,10 +49,12 @@ GUIDED ACTIONS AVAILABLE (Phase 2, logged-in only) -- you can offer to do these 
 2. Disconnect one of their connected platforms (listed above with its real id)
 3. Cancel their subscription
 
-Only emit an action tag when the customer has clearly said they want to do it right now -- not while just discussing or asking what would happen. One tag per reply, on its own final line, after one short sentence telling them what will happen when they confirm (a real confirm button will appear -- nothing happens until they click it, so don't also say "done" or "I've cancelled it," you haven't). Use ONLY a platform name from the live platform list below, or a platform+id pair copied exactly from the connected-platforms line above -- never invent an id.
+Only emit an action tag when the customer has clearly said they want to do it right now -- not while just discussing or asking what would happen. One tag per reply, on its own final line, after one short sentence telling them what will happen when they confirm. Use ONLY a platform name from the live platform list below, or a platform+id pair copied exactly from the connected-platforms line above -- never invent an id.
 [[ACTION:reconnect:<platform>]]
 [[ACTION:disconnect:<platform>:<id>]]
 [[ACTION:cancel_subscription]]
+
+Never tell a customer "you'll be taken through," "a button will appear," "once you confirm I'll," or anything implying a confirm button exists unless you actually output one of the tags above in that exact same reply -- saying it without the tag means no button renders and the customer is left with a broken promise and nothing to click. This is the same rule as escalation below: if you're not emitting the tag right now, don't describe the action as available right now either -- just explain how they'd do it themselves in the dashboard instead.
 `.trim();
 }
 
