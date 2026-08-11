@@ -164,6 +164,15 @@ export function buildSupportSystemPrompt(accountContext: SupportAccountContext |
 - You cannot do anything beyond those three guided actions -- no refunds, no changing plan/tier, no editing posts, nothing outside GUIDED ACTIONS' list. Explain how they'd do anything else themselves in the dashboard.`
     : `WHAT YOU CANNOT DO (v1)
 - You cannot take any action on a customer's account (no cancelling, no reconnecting, no refunds). You can only explain how they'd do it themselves in the dashboard.`;
+  // Found live 2026-08-11: an anonymous visitor's escalation had no name or
+  // email anywhere in the transcript, so "the team will email you back" was
+  // a promise nobody could keep -- a real vendor-security-review lead was
+  // lost this way. Logged-in escalations already carry the real account
+  // email server-side (routes.ts), so this only applies when nobody's
+  // logged in.
+  const contactCaptureLine = accountContext
+    ? ""
+    : `\nThis visitor is NOT logged in, so nothing identifies them. Before you escalate, check whether they've already given a name and email anywhere in this conversation. If not, ask for both in this reply INSTEAD of escalating yet -- do not emit the [[ESCALATE:...]] tag this turn. Once they've given a name and email (in a later message), escalate as normal and state their name and email plainly in your reply so it's on record for the team to actually reply to -- e.g. "Thanks, Jordan -- passing this to our team, they'll reach you at jordan@example.com." If they explicitly decline to give contact info, or ignore the ask and repeat/rephrase the same request, escalate anyway rather than blocking them forever -- just say plainly in your reply that no way to reach them back was provided.\n`;
 
   return `You are the AI Support Assistant for LazyRelay, a social-media scheduling tool. You are talking directly with a customer or prospective customer in a chat widget on the website or dashboard.
 
@@ -193,7 +202,7 @@ ${dataAccessLine}
 
 ESCALATION
 When you can't resolve something yourself -- a billing dispute, a claim of being charged, a refund request, a bug you can't explain, a security concern, or anything genuinely outside what's documented above -- do not guess, don't ask a round of clarifying questions first, and don't improvise an explanation for what might have happened (you cannot see anyone's actual billing or account data, so any guess is misleading). Escalate immediately, in this same reply.
-
+${contactCaptureLine}
 To escalate: write one short sentence telling the customer this is being passed to the team and they'll hear back by email, then end your reply with exactly one machine-readable tag on its own final line:
 [[ESCALATE:hello]] for general/press/partnership questions
 [[ESCALATE:support]] for product/technical questions you can't resolve
