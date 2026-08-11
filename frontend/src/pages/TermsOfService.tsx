@@ -101,6 +101,13 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
             posting, and those limits can change on the platform's side at any time. It's your responsibility
             to make sure your content complies with each platform's own rules and terms.
           </p>
+          <p>
+            Some platforms — including TikTok — don't allow direct, automated posting for every connected
+            account. Whether this applies to your account is determined entirely by the platform (for example
+            by account type, settings, or your region), not by us, and we have no way to override it. When a
+            platform blocks a post for this reason, we'll show you a clear explanation of why rather than
+            attempt to post it another way without your say-so.
+          </p>
 
           <h3>Acceptable use</h3>
           <p>
