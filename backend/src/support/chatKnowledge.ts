@@ -2,11 +2,11 @@ import { ACCOUNT_LIMITS } from "../accountLimits.js";
 import { STORAGE_QUOTA_BYTES } from "../storageQuota.js";
 import { RECURRING_SCHEDULE_SLOT_LIMITS, TIER_DISPLAY_NAMES, type Tier } from "../tier.js";
 
-// Flip this the moment Paddle checkout is actually confirmed live (per
-// Werner, 2026-08-11 morning) -- until then the assistant must not tell
-// customers they can subscribe today. Nothing else in this file needs to
-// change when that happens, only this one flag.
-export const BILLING_LIVE = false;
+// Flipped 2026-08-11 -- Render's deployed Paddle credentials and the
+// deployed frontend's live client-side token were both confirmed live the
+// same day (see Billing/feedback-billing-environment-misread-2026-08-05.md
+// in the vault for the full cutover trail).
+export const BILLING_LIVE = true;
 
 // Real dollar prices aren't available from a backend constant (Paddle owns
 // them) -- these must stay hand-kept in sync with frontend/src/pages/Landing.tsx's
