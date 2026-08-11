@@ -2559,6 +2559,18 @@
   font-weight: 600;
 }
 
+/* Storage add-on cards have no feature <ul> between the price and the
+   button (unlike the tier cards, which get their gap from the list's own
+   margin) -- the button sat flush against the price with no breathing
+   room, "cramped" per Werner live 2026-08-11. Adjacent-sibling selector
+   only matches when .cta directly follows .pricing-price (true for these
+   cards, never true for tier cards, which always have the <ul> in
+   between) -- deliberately scoped so the already-correct tier card
+   spacing is untouched. */
+.pricing-price + .cta {
+  margin-top: 20px;
+}
+
 .pricing-card ul {
   list-style: none;
   padding: 0;
