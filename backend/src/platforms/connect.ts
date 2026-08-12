@@ -194,15 +194,25 @@ export async function getPendingSelection(
   return { platform: stateRow.platform, options: stateRow.pending_options as ConnectOption[] };
 }
 
-/** Finishes a "needs_selection" connect once the customer has picked one of
- *  the options getPendingSelection returned. One-time use like the main
- *  callback — the state row is deleted regardless of outcome. */
+/** Finishes a "needs_selection" connect once the customer has picked one OR
+ *  MORE of the options getPendingSelection returned — a customer managing
+ *  several Pages can connect all of them in one pass instead of repeating
+ *  the whole OAuth round-trip per Page. One-time use like the main
+ *  callback: the state row (and the held user token with it) is deleted
+ *  regardless of outcome, so a partial failure partway through the list
+ *  can't be silently retried against a stale token — the customer just
+ *  reconnects. Returns one social_accounts id per successfully connected
+ *  option, in the same order as selectedIds. */
 export async function finalizeConnectSelection(
   selectionToken: string,
-  selectedId: string,
+  selectedIds: string[],
   accountId: string | undefined,
   registry: PlatformAdapterRegistry,
-): Promise<string> {
+): Promise<string[]> {
+  if (selectedIds.length === 0) {
+    throw new Error("Pick at least one account to connect");
+  }
+
   const { data: stateRow, error } = await supabase
     .from("oauth_states")
     .select("account_id, platform, expires_at, pending_options, pending_token_vault_id")
@@ -223,7 +233,9 @@ export async function finalizeConnectSelection(
     throw new Error("Selection expired — please reconnect");
   }
   const options = (stateRow.pending_options ?? []) as ConnectOption[];
-  if (!options.some((o) => o.id === selectedId)) {
+  const validIds = new Set(options.map((o) => o.id));
+  const unknownId = selectedIds.find((id) => !validIds.has(id));
+  if (unknownId) {
     throw new Error("That option wasn't part of the original list — please reconnect");
   }
 
@@ -237,6 +249,11 @@ export async function finalizeConnectSelection(
   });
   if (tokenError || !userToken) throw tokenError ?? new Error("Could not retrieve the pending token");
 
-  const result = await adapter.finalizeConnectOption(userToken, selectedId);
-  return await storeConnectedAccount(stateRow.account_id, adapter.platform, result);
+  const socialAccountIds: string[] = [];
+  for (const selectedId of selectedIds) {
+    const result = await adapter.finalizeConnectOption(userToken, selectedId);
+    const socialAccountId = await storeConnectedAccount(stateRow.account_id, adapter.platform, result);
+    socialAccountIds.push(socialAccountId);
+  }
+  return socialAccountIds;
 }

@@ -984,14 +984,14 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   });
 
   router.post("/social-accounts/finalize-selection", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { token, selectedId } = req.body ?? {};
-    if (typeof token !== "string" || typeof selectedId !== "string") {
-      res.status(400).json({ error: "token and selectedId are required" });
+    const { token, selectedIds } = req.body ?? {};
+    if (typeof token !== "string" || !Array.isArray(selectedIds) || !selectedIds.every((id) => typeof id === "string")) {
+      res.status(400).json({ error: "token and selectedIds (a non-empty array of strings) are required" });
       return;
     }
     try {
-      const socialAccountId = await finalizeConnectSelection(token, selectedId, req.accountId, registry);
-      res.json({ connected: true, socialAccountId });
+      const socialAccountIds = await finalizeConnectSelection(token, selectedIds, req.accountId, registry);
+      res.json({ connected: true, socialAccountIds });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(400).json({ error: message });

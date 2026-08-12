@@ -263,8 +263,8 @@ export const api = {
   // Page has a Business Account linked) — see backend/src/platforms/connect.ts.
   getPendingSelection: (token: string): Promise<{ platform: string; options: { id: string; name: string }[] }> =>
     authedFetch(`/social-accounts/pending-selection/${encodeURIComponent(token)}`),
-  finalizeSelection: (token: string, selectedId: string): Promise<{ connected: boolean; socialAccountId: string }> =>
-    authedFetch("/social-accounts/finalize-selection", { method: "POST", body: JSON.stringify({ token, selectedId }) }),
+  finalizeSelection: (token: string, selectedIds: string[]): Promise<{ connected: boolean; socialAccountIds: string[] }> =>
+    authedFetch("/social-accounts/finalize-selection", { method: "POST", body: JSON.stringify({ token, selectedIds }) }),
 
   // For platforms without real OAuth (Bluesky, Telegram, Discord) — the
   // connect-form page collects a credential, JSON-encodes it as `code`, and

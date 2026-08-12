@@ -175,6 +175,7 @@ export function Dashboard() {
     platform: string;
     options: { id: string; name: string }[];
   } | null>(null);
+  const [checkedOptionIds, setCheckedOptionIds] = useState<string[]>([]);
   const [selectionBusy, setSelectionBusy] = useState(false);
   const [storageAddons, setStorageAddons] = useState<StorageAddon[]>([]);
   const [addonBusy, setAddonBusy] = useState<5 | 20 | 50 | string | null>(null);
@@ -486,7 +487,13 @@ export function Dashboard() {
       const token = connectParams.selectAccount;
       api
         .getPendingSelection(token)
-        .then((pending) => setPendingSelection({ token, ...pending }))
+        .then((pending) => {
+          setPendingSelection({ token, ...pending });
+          // Default to "connect all" — the common case for a customer who
+          // genuinely manages several Pages — while still letting them
+          // uncheck the ones they don't want.
+          setCheckedOptionIds(pending.options.map((o) => o.id));
+        })
         .catch((err) => setError(err instanceof Error ? err.message : String(err)));
     }
     if (connectParams.prefillContent || connectParams.prefillMediaUrl) {
@@ -496,14 +503,15 @@ export function Dashboard() {
     }
   }, []);
 
-  async function handleFinalizeSelection(selectedId: string) {
-    if (!pendingSelection) return;
+  async function handleFinalizeSelection() {
+    if (!pendingSelection || checkedOptionIds.length === 0) return;
     setSelectionBusy(true);
     setError(null);
     try {
-      await api.finalizeSelection(pendingSelection.token, selectedId);
+      await api.finalizeSelection(pendingSelection.token, checkedOptionIds);
       setPendingSelection(null);
-      setNotice("Account connected!");
+      setCheckedOptionIds([]);
+      setNotice(checkedOptionIds.length === 1 ? "Account connected!" : `${checkedOptionIds.length} accounts connected!`);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -3227,23 +3235,35 @@ export function Dashboard() {
         <div className="modal-overlay">
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Which {pendingSelection.platform === "instagram" ? "Instagram account" : "Facebook Page"} should LazyRelay use?</h2>
+              <h2>Which {pendingSelection.platform === "instagram" ? "Instagram accounts" : "Facebook Pages"} should LazyRelay use?</h2>
             </div>
             <p className="modal-subtitle">
-              Your account manages more than one — pick the one you want to connect. You can always connect the others
-              separately later.
+              Your account manages more than one — check the ones you want to connect. All are checked by default; uncheck
+              any you'd rather leave out. You can always connect the rest separately later.
             </p>
             <div className="modal-actions" style={{ flexDirection: "column", alignItems: "stretch", gap: "0.5rem" }}>
               {pendingSelection.options.map((option) => (
-                <button
-                  key={option.id}
-                  className="btn-outline"
-                  disabled={selectionBusy}
-                  onClick={() => handleFinalizeSelection(option.id)}
-                >
+                <label key={option.id} className="btn-outline" style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={checkedOptionIds.includes(option.id)}
+                    disabled={selectionBusy}
+                    onChange={(e) =>
+                      setCheckedOptionIds((prev) =>
+                        e.target.checked ? [...prev, option.id] : prev.filter((id) => id !== option.id),
+                      )
+                    }
+                  />
                   {option.name}
-                </button>
+                </label>
               ))}
+              <button className="modal-confirm-cancel" disabled={selectionBusy || checkedOptionIds.length === 0} onClick={handleFinalizeSelection}>
+                {selectionBusy
+                  ? "Connecting..."
+                  : checkedOptionIds.length === 0
+                    ? "Select at least one"
+                    : `Connect ${checkedOptionIds.length} selected`}
+              </button>
             </div>
           </div>
         </div>
