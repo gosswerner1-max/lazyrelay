@@ -258,6 +258,14 @@ export const api = {
   startConnect: (platform: string): Promise<{ authorizeUrl: string }> =>
     authedFetch(`/social-accounts/connect?platform=${encodeURIComponent(platform)}`),
 
+  // Real Page/account picker for platforms where one OAuth login can map to
+  // several destinations (Facebook: multiple Pages; Instagram: whichever
+  // Page has a Business Account linked) — see backend/src/platforms/connect.ts.
+  getPendingSelection: (token: string): Promise<{ platform: string; options: { id: string; name: string }[] }> =>
+    authedFetch(`/social-accounts/pending-selection/${encodeURIComponent(token)}`),
+  finalizeSelection: (token: string, selectedId: string): Promise<{ connected: boolean; socialAccountId: string }> =>
+    authedFetch("/social-accounts/finalize-selection", { method: "POST", body: JSON.stringify({ token, selectedId }) }),
+
   // For platforms without real OAuth (Bluesky, Telegram, Discord) — the
   // connect-form page collects a credential, JSON-encodes it as `code`, and
   // resubmits here directly. Not routed through authedFetch: this call has

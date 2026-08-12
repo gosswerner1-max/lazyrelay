@@ -103,6 +103,19 @@ export interface OAuthExchangeResult {
   displayName: string | null;
 }
 
+export interface ConnectOption {
+  id: string;
+  name: string;
+}
+
+export interface PendingConnectSelection {
+  // Long-lived platform user token, held server-side only (vault-encrypted
+  // by the caller, same as every other token this codebase stores) until
+  // the customer picks one — never sent to the frontend.
+  userToken: string;
+  options: ConnectOption[];
+}
+
 export interface PlatformAdapter {
   readonly platform: "meta" | "tiktok" | "pinterest" | "youtube" | "mastodon" | "bluesky" | "telegram" | "linkedin" | "threads" | "facebook" | "instagram" | "discord" | "tumblr" | "x" | "snapchat";
 
@@ -217,4 +230,19 @@ export interface PlatformAdapter {
    *  without that restriction. Using sendDirectMessage for this would
    *  fail outside the 24h window; this is the actually-correct call. */
   sendPrivateReply?(commentId: string, text: string, accessToken: string): Promise<SendDMResult>;
+
+  /** Optional — for platforms where a single OAuth login can map to several
+   *  destinations (a Facebook user can manage multiple Pages; Instagram
+   *  posting goes through whichever Page has a Business Account linked).
+   *  When declared, connect.ts calls this INSTEAD of exchangeCode. Exactly
+   *  one real option finalizes immediately, same UX as a plain exchangeCode
+   *  connect — more than one pauses the flow so the customer picks, rather
+   *  than silently connecting whichever the platform API happens to list
+   *  first. Every other adapter simply doesn't declare this, and connect.ts
+   *  falls back to exchangeCode as before. */
+  listConnectOptions?(code: string, pkceVerifier?: string): Promise<PendingConnectSelection>;
+
+  /** Required alongside listConnectOptions — finishes the connection once
+   *  the customer has picked one of the options it returned. */
+  finalizeConnectOption?(userToken: string, selectedId: string): Promise<OAuthExchangeResult>;
 }

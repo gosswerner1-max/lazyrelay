@@ -10,14 +10,15 @@ import type {
   DMConversationsResult,
   DMMessagesResult,
   SendDMResult,
+  ConnectOption,
+  PendingConnectSelection,
 } from "./types.js";
 
-// Real, deliberate simplification, same shape as TikTok's SELF_ONLY/Pinterest's
-// sandbox-host hardcode: a Facebook user can manage multiple Pages, but this
-// adapter connects the FIRST Page returned by /me/accounts rather than
-// building Page-selection UI — matches how every other single-target
-// adapter here works. Revisit if a customer with multiple Pages needs to
-// pick a specific one.
+// A Facebook user can manage multiple Pages. exchangeCode() below still
+// connects the FIRST Page returned by /me/accounts, kept for interface
+// compliance and any direct caller that doesn't care which Page — the real
+// connect flow (connect.ts) prefers listConnectOptions/finalizeConnectOption
+// instead, which let the customer actually pick when there's more than one.
 const AUTHORIZE_URL = "https://www.facebook.com/v25.0/dialog/oauth";
 const TOKEN_URL = "https://graph.facebook.com/v25.0/oauth/access_token";
 const GRAPH_BASE = "https://graph.facebook.com/v25.0";
@@ -119,7 +120,7 @@ export class FacebookAdapter implements PlatformAdapter {
     return json.access_token;
   }
 
-  protected async getFirstPage(longLivedUserToken: string): Promise<FacebookPage> {
+  protected async getPages(longLivedUserToken: string): Promise<FacebookPage[]> {
     const url = new URL(`${GRAPH_BASE}/me/accounts`);
     url.searchParams.set("fields", "id,name,access_token,instagram_business_account");
     url.searchParams.set("access_token", longLivedUserToken);
@@ -129,14 +130,13 @@ export class FacebookAdapter implements PlatformAdapter {
     if (!res.ok || !json.data) {
       throw new Error(json.error?.message ?? "Could not list this account's Facebook Pages");
     }
-    const page = json.data[0];
-    if (!page) {
+    if (json.data.length === 0) {
       throw new Error("No Facebook Page found — this account must manage at least one Page to connect");
     }
-    return page;
+    return json.data;
   }
 
-  async exchangeCode(code: string): Promise<OAuthExchangeResult> {
+  private async exchangeCodeForUserToken(code: string): Promise<string> {
     const codeUrl = new URL(TOKEN_URL);
     codeUrl.searchParams.set("client_id", this.clientId);
     codeUrl.searchParams.set("client_secret", this.clientSecret);
@@ -148,14 +148,43 @@ export class FacebookAdapter implements PlatformAdapter {
     if (!res.ok || !json.access_token) {
       throw new Error(json.error?.message ?? "Facebook token exchange failed");
     }
+    return await this.exchangeForLongLivedUserToken(json.access_token);
+  }
 
-    const longLivedUserToken = await this.exchangeForLongLivedUserToken(json.access_token);
-    const page = await this.getFirstPage(longLivedUserToken);
+  async exchangeCode(code: string): Promise<OAuthExchangeResult> {
+    const longLivedUserToken = await this.exchangeCodeForUserToken(code);
+    const [page] = await this.getPages(longLivedUserToken);
 
     return {
       // Page access tokens minted from a long-lived user token do not
       // expire on their own — confirmed Meta behavior, distinct from the
       // user token they're derived from.
+      accessToken: page.access_token,
+      refreshToken: null,
+      expiresAt: null,
+      platformAccountId: page.id,
+      displayName: page.name,
+    };
+  }
+
+  // Real picker path (connect.ts prefers this over exchangeCode). Returns
+  // every Page the account manages instead of silently picking the first.
+  async listConnectOptions(code: string): Promise<PendingConnectSelection> {
+    const userToken = await this.exchangeCodeForUserToken(code);
+    const pages = await this.getPages(userToken);
+    return { userToken, options: pages.map((p): ConnectOption => ({ id: p.id, name: p.name })) };
+  }
+
+  // Re-lists the account's Pages against the held user token (not trusted
+  // from the client) and finalizes with whichever id the customer actually
+  // picked.
+  async finalizeConnectOption(userToken: string, selectedId: string): Promise<OAuthExchangeResult> {
+    const pages = await this.getPages(userToken);
+    const page = pages.find((p) => p.id === selectedId);
+    if (!page) {
+      throw new Error("That Facebook Page is no longer available — please reconnect");
+    }
+    return {
       accessToken: page.access_token,
       refreshToken: null,
       expiresAt: null,

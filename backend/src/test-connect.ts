@@ -23,7 +23,11 @@ async function main() {
   if (!state) throw new Error("no state param in authorize URL");
 
   // Simulate the platform's callback with that real state + a fake code.
-  const socialAccountId = await completeConnect(state, "fake-oauth-code", registry);
+  const connectResult = await completeConnect(state, "fake-oauth-code", registry);
+  if (connectResult.status !== "connected") {
+    throw new Error(`Expected an immediate connect, got needs_selection (${connectResult.options.length} options)`);
+  }
+  const socialAccountId = connectResult.socialAccountId;
 
   const { data: socialAccount } = await supabase
     .from("social_accounts")

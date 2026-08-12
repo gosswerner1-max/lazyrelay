@@ -127,22 +127,28 @@ function parseCsv(text: string): string[][] {
 function readAndClearConnectParams(): {
   connectError: string | null;
   connected: boolean;
+  selectAccount: string | null;
   prefillContent: string | null;
   prefillMediaUrl: string | null;
 } {
   const params = new URLSearchParams(window.location.search);
   const connectError = params.get("connectError");
   const connected = params.get("connected") !== null;
+  // Set when a connect has more than one real Page/account to choose from
+  // (Facebook: multiple Pages; Instagram: whichever Page has a Business
+  // Account linked) — see backend/src/platforms/connect.ts. Holds the
+  // one-time selection token used to fetch and finalize the choice.
+  const selectAccount = params.get("selectAccount");
   // Set by the browser extension's context-menu actions (see
   // browser-extension/background.js) — opens lazyrelay.com with one of
   // these params so the customer lands straight in the compose form
   // instead of having to copy/paste the URL themselves.
   const prefillContent = params.get("prefillContent");
   const prefillMediaUrl = params.get("prefillMediaUrl");
-  if (connectError || connected || prefillContent || prefillMediaUrl) {
+  if (connectError || connected || selectAccount || prefillContent || prefillMediaUrl) {
     window.history.replaceState({}, "", window.location.pathname);
   }
-  return { connectError, connected, prefillContent, prefillMediaUrl };
+  return { connectError, connected, selectAccount, prefillContent, prefillMediaUrl };
 }
 const connectParams = readAndClearConnectParams();
 
@@ -164,6 +170,12 @@ export function Dashboard() {
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [mediaBusyId, setMediaBusyId] = useState<string | null>(null);
   const [disconnectingAccountId, setDisconnectingAccountId] = useState<string | null>(null);
+  const [pendingSelection, setPendingSelection] = useState<{
+    token: string;
+    platform: string;
+    options: { id: string; name: string }[];
+  } | null>(null);
+  const [selectionBusy, setSelectionBusy] = useState(false);
   const [storageAddons, setStorageAddons] = useState<StorageAddon[]>([]);
   const [addonBusy, setAddonBusy] = useState<5 | 20 | 50 | string | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
@@ -470,6 +482,12 @@ export function Dashboard() {
     } else if (connectParams.connected) {
       setNotice("Account connected!");
       refresh();
+    } else if (connectParams.selectAccount) {
+      const token = connectParams.selectAccount;
+      api
+        .getPendingSelection(token)
+        .then((pending) => setPendingSelection({ token, ...pending }))
+        .catch((err) => setError(err instanceof Error ? err.message : String(err)));
     }
     if (connectParams.prefillContent || connectParams.prefillMediaUrl) {
       setTab("Posts");
@@ -477,6 +495,22 @@ export function Dashboard() {
       if (connectParams.prefillMediaUrl) setMediaUrl(connectParams.prefillMediaUrl);
     }
   }, []);
+
+  async function handleFinalizeSelection(selectedId: string) {
+    if (!pendingSelection) return;
+    setSelectionBusy(true);
+    setError(null);
+    try {
+      await api.finalizeSelection(pendingSelection.token, selectedId);
+      setPendingSelection(null);
+      setNotice("Account connected!");
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSelectionBusy(false);
+    }
+  }
 
   // Paddle.js renders the real payment overlay on this page —
   // Paddle Billing has no hosted Checkout Session URL the way Stripe does,
@@ -3188,6 +3222,32 @@ export function Dashboard() {
       </section>
       )}
       </div>
+
+      {pendingSelection && (
+        <div className="modal-overlay">
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Which {pendingSelection.platform === "instagram" ? "Instagram account" : "Facebook Page"} should LazyRelay use?</h2>
+            </div>
+            <p className="modal-subtitle">
+              Your account manages more than one — pick the one you want to connect. You can always connect the others
+              separately later.
+            </p>
+            <div className="modal-actions" style={{ flexDirection: "column", alignItems: "stretch", gap: "0.5rem" }}>
+              {pendingSelection.options.map((option) => (
+                <button
+                  key={option.id}
+                  className="btn-outline"
+                  disabled={selectionBusy}
+                  onClick={() => handleFinalizeSelection(option.id)}
+                >
+                  {option.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCancelModal && (
         <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>

@@ -58,7 +58,11 @@ async function main() {
   if (!code) throw new Error("Timed out waiting for OAuth code");
 
   console.log("Got code, exchanging via completeConnect()...");
-  const socialAccountId = await completeConnect(state, code, registry);
+  const connectResult = await completeConnect(state, code, registry);
+  if (connectResult.status !== "connected") {
+    throw new Error(`Expected an immediate connect, got needs_selection (${connectResult.options.length} options)`);
+  }
+  const socialAccountId = connectResult.socialAccountId;
   console.log("social_accounts row created:", socialAccountId);
 
   const { data: account, error } = await supabase

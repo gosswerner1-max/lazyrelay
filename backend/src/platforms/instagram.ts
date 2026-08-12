@@ -10,6 +10,8 @@ import type {
   DMConversationsResult,
   DMMessagesResult,
   SendDMResult,
+  ConnectOption,
+  PendingConnectSelection,
 } from "./types.js";
 
 // Instagram Business posting via "Instagram API with Facebook Login" — same
@@ -130,10 +132,15 @@ export class InstagramAdapter implements PlatformAdapter {
     return json.access_token;
   }
 
-  // Same "first eligible match" simplification as FacebookAdapter.getFirstPage
-  // — picks the first Page that actually has an Instagram Business Account
-  // linked, rather than building Page/IG-account selection UI.
-  private async getFirstPageWithInstagram(longLivedUserToken: string): Promise<FacebookPage & { instagram_business_account: { id: string } }> {
+  // Picks every Page that actually has an Instagram Business Account linked
+  // (a Facebook user can manage several Pages, only some of which have an
+  // IG account attached) — exchangeCode() below still uses only the first
+  // for interface compliance; the real connect flow (connect.ts) prefers
+  // listConnectOptions/finalizeConnectOption, which let the customer pick
+  // when there's more than one.
+  private async getPagesWithInstagram(
+    longLivedUserToken: string,
+  ): Promise<(FacebookPage & { instagram_business_account: { id: string } })[]> {
     const url = new URL(`${GRAPH_BASE}/me/accounts`);
     url.searchParams.set("fields", "id,name,access_token,instagram_business_account");
     url.searchParams.set("access_token", longLivedUserToken);
@@ -143,14 +150,16 @@ export class InstagramAdapter implements PlatformAdapter {
     if (!res.ok || !json.data) {
       throw new Error(json.error?.message ?? "Could not list this account's Facebook Pages");
     }
-    const page = json.data.find((p) => p.instagram_business_account?.id);
-    if (!page?.instagram_business_account) {
+    const pages = json.data.filter(
+      (p): p is FacebookPage & { instagram_business_account: { id: string } } => !!p.instagram_business_account?.id,
+    );
+    if (pages.length === 0) {
       throw new Error("No Instagram Business Account linked to any Facebook Page on this account");
     }
-    return page as FacebookPage & { instagram_business_account: { id: string } };
+    return pages;
   }
 
-  async exchangeCode(code: string): Promise<OAuthExchangeResult> {
+  private async exchangeCodeForUserToken(code: string): Promise<string> {
     const codeUrl = new URL(TOKEN_URL);
     codeUrl.searchParams.set("client_id", this.clientId);
     codeUrl.searchParams.set("client_secret", this.clientSecret);
@@ -162,16 +171,23 @@ export class InstagramAdapter implements PlatformAdapter {
     if (!res.ok || !json.access_token) {
       throw new Error(json.error?.message ?? "Facebook token exchange failed");
     }
+    return await this.exchangeForLongLivedUserToken(json.access_token);
+  }
 
-    const longLivedUserToken = await this.exchangeForLongLivedUserToken(json.access_token);
-    const page = await this.getFirstPageWithInstagram(longLivedUserToken);
-    const igId = page.instagram_business_account.id;
-
+  private async fetchInstagramUsername(igId: string, pageAccessToken: string): Promise<string | null> {
     const userInfoUrl = new URL(`${GRAPH_BASE}/${igId}`);
     userInfoUrl.searchParams.set("fields", "username");
-    userInfoUrl.searchParams.set("access_token", page.access_token);
+    userInfoUrl.searchParams.set("access_token", pageAccessToken);
     const userRes = await fetch(userInfoUrl.toString());
-    const userJson = (await userRes.json()) as InstagramUserInfo;
+    const userJson = (await userRes.json().catch(() => ({}))) as InstagramUserInfo;
+    return userJson.username ?? null;
+  }
+
+  async exchangeCode(code: string): Promise<OAuthExchangeResult> {
+    const longLivedUserToken = await this.exchangeCodeForUserToken(code);
+    const [page] = await this.getPagesWithInstagram(longLivedUserToken);
+    const igId = page.instagram_business_account.id;
+    const username = await this.fetchInstagramUsername(igId, page.access_token);
 
     return {
       // The linked Page's access token is what authorizes calls against its
@@ -182,7 +198,42 @@ export class InstagramAdapter implements PlatformAdapter {
       refreshToken: null,
       expiresAt: null,
       platformAccountId: igId,
-      displayName: userJson.username ?? page.name,
+      displayName: username ?? page.name,
+    };
+  }
+
+  // Real picker path (connect.ts prefers this over exchangeCode). Labels
+  // each option with the actual @username so the customer picks a real
+  // account, not an opaque Page name.
+  async listConnectOptions(code: string): Promise<PendingConnectSelection> {
+    const userToken = await this.exchangeCodeForUserToken(code);
+    const pages = await this.getPagesWithInstagram(userToken);
+    const options = await Promise.all(
+      pages.map(async (p): Promise<ConnectOption> => {
+        const username = await this.fetchInstagramUsername(p.instagram_business_account.id, p.access_token);
+        return { id: p.id, name: username ? `@${username}` : p.name };
+      }),
+    );
+    return { userToken, options };
+  }
+
+  // Re-lists the account's IG-linked Pages against the held user token (not
+  // trusted from the client) and finalizes with whichever id the customer
+  // actually picked.
+  async finalizeConnectOption(userToken: string, selectedId: string): Promise<OAuthExchangeResult> {
+    const pages = await this.getPagesWithInstagram(userToken);
+    const page = pages.find((p) => p.id === selectedId);
+    if (!page) {
+      throw new Error("That Instagram account is no longer available — please reconnect");
+    }
+    const igId = page.instagram_business_account.id;
+    const username = await this.fetchInstagramUsername(igId, page.access_token);
+    return {
+      accessToken: page.access_token,
+      refreshToken: null,
+      expiresAt: null,
+      platformAccountId: igId,
+      displayName: username ?? page.name,
     };
   }
 

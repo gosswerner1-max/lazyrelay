@@ -9,7 +9,13 @@ import { cancelSubscription, cancelStorageAddon } from "../billing/sync.js";
 import { buildCheckoutTransaction } from "../billing/paddle.js";
 import { Environment } from "@paddle/paddle-node-sdk";
 import type { MerchantOfRecordAdapter } from "../billing/types.js";
-import { startConnect, completeConnect, type PlatformAdapterRegistry } from "../platforms/connect.js";
+import {
+  startConnect,
+  completeConnect,
+  getPendingSelection,
+  finalizeConnectSelection,
+  type PlatformAdapterRegistry,
+} from "../platforms/connect.js";
 import {
   requireAuth,
   requireHumanAuth,
@@ -933,9 +939,17 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
     try {
-      const socialAccountId = await completeConnect(state, code, registry);
+      const result = await completeConnect(state, code, registry);
+      if (result.status === "needs_selection") {
+        if (wantsJson) {
+          res.json({ connected: false, needsSelection: true, selectionToken: result.selectionToken });
+          return;
+        }
+        res.redirect(`${frontendUrl}/?selectAccount=${encodeURIComponent(result.selectionToken)}`);
+        return;
+      }
       if (wantsJson) {
-        res.json({ connected: true, socialAccountId });
+        res.json({ connected: true, socialAccountId: result.socialAccountId });
         return;
       }
       res.redirect(`${frontendUrl}/?connected=1`);
@@ -946,6 +960,41 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         return;
       }
       res.redirect(`${frontendUrl}/?connectError=${encodeURIComponent(message)}`);
+    }
+  });
+
+  // Real Page/account picker, for adapters where one OAuth login can map to
+  // several destinations (Facebook: multiple Pages; Instagram: whichever
+  // Page has a Business Account linked) — see connect.ts. requireAuth here
+  // is real defense-in-depth on top of getPendingSelection's own
+  // account-ownership check, not the only thing enforcing it.
+  router.get("/social-accounts/pending-selection/:token", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { token } = req.params;
+    if (typeof token !== "string") {
+      res.status(400).json({ error: "token is required" });
+      return;
+    }
+    try {
+      const pending = await getPendingSelection(token, req.accountId);
+      res.json(pending);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(400).json({ error: message });
+    }
+  });
+
+  router.post("/social-accounts/finalize-selection", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { token, selectedId } = req.body ?? {};
+    if (typeof token !== "string" || typeof selectedId !== "string") {
+      res.status(400).json({ error: "token and selectedId are required" });
+      return;
+    }
+    try {
+      const socialAccountId = await finalizeConnectSelection(token, selectedId, req.accountId, registry);
+      res.json({ connected: true, socialAccountId });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(400).json({ error: message });
     }
   });
 
