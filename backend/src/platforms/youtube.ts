@@ -6,6 +6,7 @@ import type {
   OAuthExchangeResult,
   CommentsResult,
   PostMetrics,
+  PendingConnectSelection,
 } from "./types.js";
 
 const AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -58,6 +59,12 @@ interface YouTubeErrorBody {
   error?: { message?: string };
 }
 
+interface GoogleTokenData {
+  accessToken: string;
+  refreshToken: string | null;
+  expiresAt: string | null;
+}
+
 interface YouTubeCommentThreadListResponse {
   items?: Array<{
     id?: string;
@@ -95,7 +102,7 @@ export class YouTubeAdapter implements PlatformAdapter {
     return `${AUTHORIZE_URL}?${params.toString()}`;
   }
 
-  async exchangeCode(code: string): Promise<OAuthExchangeResult> {
+  private async exchangeTokens(code: string): Promise<GoogleTokenData> {
     const body = new URLSearchParams({
       client_id: this.clientId,
       client_secret: this.clientSecret,
@@ -103,42 +110,96 @@ export class YouTubeAdapter implements PlatformAdapter {
       grant_type: "authorization_code",
       redirect_uri: this.redirectUri,
     });
-
     const res = await fetch(TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: body.toString(),
     });
     const json = (await res.json()) as GoogleTokenResponse;
-
     if (!res.ok || !json.access_token) {
       throw new Error(json.error_description ?? json.error ?? "Google token exchange failed");
     }
+    return {
+      accessToken: json.access_token,
+      refreshToken: json.refresh_token ?? null,
+      expiresAt: json.expires_in ? new Date(Date.now() + json.expires_in * 1000).toISOString() : null,
+    };
+  }
+
+  private async fetchChannels(accessToken: string): Promise<Array<{ id: string; name: string }>> {
+    const res = await fetch(`${CHANNELS_URL}?part=snippet&mine=true`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const json = (await res.json()) as YouTubeChannelListResponse;
+    return (json.items ?? []).flatMap((ch) => {
+      if (!ch.id) return [];
+      return [{ id: ch.id, name: ch.snippet?.title ?? ch.id }];
+    });
+  }
+
+  async exchangeCode(code: string): Promise<OAuthExchangeResult> {
+    const tokens = await this.exchangeTokens(code);
 
     // Best-effort channel lookup — a failure here shouldn't block the
     // connect flow (mirrors TikTokAdapter's non-fatal display-name lookup).
     let displayName: string | null = null;
     let platformAccountId = "unknown";
     try {
-      const channelRes = await fetch(`${CHANNELS_URL}?part=snippet&mine=true`, {
-        headers: { Authorization: `Bearer ${json.access_token}` },
-      });
-      const channelJson = (await channelRes.json()) as YouTubeChannelListResponse;
-      const channel = channelJson.items?.[0];
-      if (channel?.id) {
+      const channels = await this.fetchChannels(tokens.accessToken);
+      const channel = channels[0];
+      if (channel) {
         platformAccountId = channel.id;
-        displayName = channel.snippet?.title ?? null;
+        displayName = channel.name;
       }
     } catch {
       // Non-fatal — see comment above.
     }
 
     return {
-      accessToken: json.access_token,
-      refreshToken: json.refresh_token ?? null,
-      expiresAt: json.expires_in ? new Date(Date.now() + json.expires_in * 1000).toISOString() : null,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresAt: tokens.expiresAt,
       platformAccountId,
       displayName,
+    };
+  }
+
+  // A single Google account can manage multiple YouTube channels (brand
+  // accounts). The token pair is the same for all channels — unlike Facebook
+  // where each Page has its own token, YouTube uses one token and the
+  // platformAccountId distinguishes which channel is being used. So the
+  // serialized token JSON is the "user token" held while the picker is open,
+  // and finalizeConnectOption just reads it back and stamps the chosen channel.
+  async listConnectOptions(code: string): Promise<PendingConnectSelection> {
+    const tokens = await this.exchangeTokens(code);
+    const channels = await this.fetchChannels(tokens.accessToken);
+    if (channels.length === 0) {
+      throw new Error("No YouTube channels found on this Google account — create one at youtube.com first");
+    }
+    return {
+      userToken: JSON.stringify(tokens),
+      options: channels.map((ch) => ({ id: ch.id, name: ch.name })),
+    };
+  }
+
+  async finalizeConnectOption(userToken: string, selectedId: string): Promise<OAuthExchangeResult> {
+    const tokens = JSON.parse(userToken) as GoogleTokenData;
+    // Re-fetch the selected channel to verify it still exists — don't trust
+    // the id from the client even though it came from our own picker.
+    const res = await fetch(`${CHANNELS_URL}?part=snippet&id=${selectedId}`, {
+      headers: { Authorization: `Bearer ${tokens.accessToken}` },
+    });
+    const json = (await res.json()) as YouTubeChannelListResponse;
+    const channel = json.items?.[0];
+    if (!channel?.id) {
+      throw new Error("That YouTube channel is no longer available — please reconnect");
+    }
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresAt: tokens.expiresAt,
+      platformAccountId: channel.id,
+      displayName: channel.snippet?.title ?? null,
     };
   }
 

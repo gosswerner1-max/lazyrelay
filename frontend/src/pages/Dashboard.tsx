@@ -3235,7 +3235,11 @@ export function Dashboard() {
         <div className="modal-overlay">
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Which {pendingSelection.platform === "instagram" ? "Instagram accounts" : "Facebook Pages"} should LazyRelay use?</h2>
+              <h2>Which {
+                pendingSelection.platform === "instagram" ? "Instagram accounts" :
+                pendingSelection.platform === "youtube" ? "YouTube channels" :
+                "Facebook Pages"
+              } should LazyRelay use?</h2>
             </div>
             <p className="modal-subtitle">
               Your account manages more than one — check the ones you want to connect. All are checked by default; uncheck
