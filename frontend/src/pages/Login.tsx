@@ -6,11 +6,12 @@ import { BrandMark } from "../components/BrandMark";
 interface LoginProps {
   initialMode?: "signin" | "signup";
   onBack: () => void;
+  onForgotPassword?: () => void;
 }
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
 
-export function Login({ initialMode = "signin", onBack }: LoginProps) {
+export function Login({ initialMode = "signin", onBack, onForgotPassword }: LoginProps) {
   const { signIn, signUp } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -88,6 +89,11 @@ export function Login({ initialMode = "signin", onBack }: LoginProps) {
                 required
               />
             </label>
+            {mode === "signin" && onForgotPassword && (
+              <button type="button" className="link" style={{ fontSize: "0.82em", textAlign: "right", marginTop: "-0.25rem" }} onClick={onForgotPassword}>
+                Forgot password?
+              </button>
+            )}
             {TURNSTILE_SITE_KEY && (
               <Turnstile
                 key={widgetKey}

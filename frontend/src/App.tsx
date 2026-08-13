@@ -12,6 +12,8 @@ import { ApiDocs } from "./pages/ApiDocs";
 import { ConnectForm } from "./pages/ConnectForm";
 import { BioPage } from "./pages/BioPage";
 import { VerifyPage } from "./pages/VerifyPage";
+import { ForgotPassword } from "./pages/ForgotPassword";
+import { ResetPassword } from "./pages/ResetPassword";
 import { Spinner } from "./components/Spinner";
 import { CookieConsent } from "./components/CookieConsent";
 import "./App.css";
@@ -27,7 +29,7 @@ const MANUAL_CONNECT_PLATFORMS = ["bluesky", "telegram", "discord"] as const;
 // visitor actually navigated to.
 const INITIAL_PATH = window.location.pathname;
 
-type View = "landing" | "signin" | "signup" | "privacy" | "terms" | "dpa" | "data-deletion" | "contact" | "docs";
+type View = "landing" | "signin" | "signup" | "privacy" | "terms" | "dpa" | "data-deletion" | "contact" | "docs" | "forgot-password";
 
 const PATH_TO_VIEW: Record<string, View> = {
   "/terms": "terms",
@@ -39,6 +41,7 @@ const PATH_TO_VIEW: Record<string, View> = {
   "/login": "signin",
   "/signup": "signup",
   "/pricing": "landing",
+  "/forgot-password": "forgot-password",
 };
 
 const VIEW_TO_PATH: Partial<Record<View, string>> = {
@@ -115,6 +118,14 @@ function Root() {
     return <VerifyPage id={verifyMatch[1]} />;
   }
 
+  // Reset-password page must render before the session check — the recovery
+  // link from the email lands here and establishes its own session from the
+  // URL hash; if session wins first the customer gets silently redirected to
+  // the dashboard instead of seeing the new-password form.
+  if (window.location.pathname === "/reset-password") {
+    return <ResetPassword />;
+  }
+
   // Docs must also render regardless of auth state — it's linked directly
   // from inside the authenticated dashboard's API Keys section (opened in
   // a new tab), and Supabase's session persists across tabs of the same
@@ -174,6 +185,10 @@ function Root() {
     return <ApiDocs onBack={() => setView("landing")} />;
   }
 
+  if (view === "forgot-password") {
+    return <ForgotPassword onBack={() => setView("signin")} />;
+  }
+
   if (view === "landing") {
     return (
       <Landing
@@ -189,7 +204,7 @@ function Root() {
     );
   }
 
-  return <Login initialMode={view} onBack={() => setView("landing")} />;
+  return <Login initialMode={view} onBack={() => setView("landing")} onForgotPassword={() => setView("forgot-password")} />;
 }
 
 function App() {
