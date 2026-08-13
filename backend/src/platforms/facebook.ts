@@ -208,12 +208,19 @@ export class FacebookAdapter implements PlatformAdapter {
   async post(request: PostRequest): Promise<PostAttemptResult> {
     const pageId = await this.getPageId(request.accessToken);
 
-    const endpoint = request.mediaUrl ? `${GRAPH_BASE}/${pageId}/photos` : `${GRAPH_BASE}/${pageId}/feed`;
+    const isVideo = request.mediaUrl ? /\.(mp4|mov|avi|mkv|webm|m4v|3gp|ogv|flv|wmv)(\?|#|$)/i.test(request.mediaUrl) : false;
     const params = new URLSearchParams({ access_token: request.accessToken });
-    if (request.mediaUrl) {
+    let endpoint: string;
+    if (isVideo) {
+      endpoint = `${GRAPH_BASE}/${pageId}/videos`;
+      params.set("file_url", request.mediaUrl!);
+      params.set("description", request.content);
+    } else if (request.mediaUrl) {
+      endpoint = `${GRAPH_BASE}/${pageId}/photos`;
       params.set("url", request.mediaUrl);
       params.set("caption", request.content);
     } else {
+      endpoint = `${GRAPH_BASE}/${pageId}/feed`;
       params.set("message", request.content);
     }
 
@@ -224,8 +231,8 @@ export class FacebookAdapter implements PlatformAdapter {
     });
     const json = (await res.json()) as FacebookPostResponse;
 
-    // A photo post's response id is the photo object, not the feed post —
-    // post_id is the actual Page post id needed for verifyPublished().
+    // Photo posts return { id, post_id } where post_id is the Page post id.
+    // Video posts return { id } only — the video id IS the Page post id.
     const postId = json.post_id ?? json.id;
     if (!res.ok || !postId) {
       return {
