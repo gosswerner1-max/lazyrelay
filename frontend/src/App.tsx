@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { supabase } from "./lib/supabase";
 import { Landing } from "./pages/Landing";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
@@ -59,6 +60,22 @@ const VIEW_TO_PATH: Partial<Record<View, string>> = {
 function Root() {
   const { session, loading } = useAuth();
   const [view, setView] = useState<View>(() => PATH_TO_VIEW[window.location.pathname] ?? "landing");
+  // Catches the case where the recovery email link lands on the site root
+  // instead of /reset-password (Supabase may redirect to Site URL when the
+  // email template doesn't preserve the redirectTo path). Listening for the
+  // PASSWORD_RECOVERY auth event is the only reliable signal regardless of
+  // where the link actually lands.
+  const [resetMode, setResetMode] = useState(window.location.pathname === "/reset-password");
+
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setResetMode(true);
+        window.history.pushState({}, "", "/reset-password");
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     // Connect-form pages own their own URL (/connect/<platform>?state=...)
@@ -118,11 +135,10 @@ function Root() {
     return <VerifyPage id={verifyMatch[1]} />;
   }
 
-  // Reset-password page must render before the session check — the recovery
-  // link from the email lands here and establishes its own session from the
-  // URL hash; if session wins first the customer gets silently redirected to
-  // the dashboard instead of seeing the new-password form.
-  if (window.location.pathname === "/reset-password") {
+  // Reset-password page must render before the session check. resetMode is
+  // set either by the URL path (direct navigation) or by the PASSWORD_RECOVERY
+  // auth event (recovery email landed on site root instead of /reset-password).
+  if (resetMode) {
     return <ResetPassword />;
   }
 
