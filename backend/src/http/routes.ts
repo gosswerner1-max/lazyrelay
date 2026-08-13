@@ -1991,11 +1991,29 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (matchingSocialAccountIds) {
       scheduledPostsQuery = scheduledPostsQuery.in("social_account_id", matchingSocialAccountIds);
     }
-    const { data, error } = await scheduledPostsQuery;
+    const [
+      { data, error },
+      { data: dmAutomationRows },
+      { count: accountsConnectedCount },
+    ] = await Promise.all([
+      scheduledPostsQuery,
+      supabase.from("dm_automations").select("id").eq("account_id", req.accountId),
+      supabase.from("social_accounts").select("id", { count: "exact", head: true }).eq("account_id", req.accountId).is("disconnected_at", null),
+    ]);
     if (error) {
       dbError(res, error, "GET /analytics/summary");
       return;
     }
+    const automationIds = (dmAutomationRows ?? []).map((a: { id: string }) => a.id);
+    let dmCount = 0;
+    if (automationIds.length > 0) {
+      const { count } = await supabase
+        .from("dm_automation_log")
+        .select("automation_id", { count: "exact", head: true })
+        .in("automation_id", automationIds);
+      dmCount = count ?? 0;
+    }
+    const accountsConnected = accountsConnectedCount ?? 0;
 
     const byStatus: Record<string, number> = {};
     const byPlatform: Record<string, { total: number; posted: number; failed: number; verifiedLive: number }> = {};
@@ -2064,6 +2082,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       dailyCounts,
       verifiedLiveRate: postedCount > 0 ? verifiedLiveCount / postedCount : null,
       engagement,
+      dmCount,
+      accountsConnected,
     });
   });
 

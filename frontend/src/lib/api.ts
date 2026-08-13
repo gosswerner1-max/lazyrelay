@@ -138,6 +138,8 @@ export interface AnalyticsSummary {
   byPlatform: Record<string, { total: number; posted: number; failed: number; verifiedLive: number }>;
   dailyCounts: Record<string, number>;
   verifiedLiveRate: number | null;
+  dmCount?: number;
+  accountsConnected?: number;
   // Real engagement analytics (2026-08-07) — only present for platforms
   // with real read support (Facebook, Instagram, Mastodon, Bluesky, X,
   // YouTube). A platform missing from this map isn't a bug — it means

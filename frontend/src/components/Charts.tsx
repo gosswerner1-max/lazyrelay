@@ -156,11 +156,13 @@ export function Meter({
 }
 
 // ---------------------------------------------------------------------------
-// Status stacked bar — 4 segments, each a distinct color:
+// Status stacked bar — 6 segments, each a distinct color:
 //   Verified live (confirmed by metrics poller) — green
 //   Posted (sent but not yet checked) — blue
 //   Failed — orange-red
 //   Pending — neutral gray
+//   DMs sent (via DM automations) — purple
+//   Accounts connected — teal
 // ---------------------------------------------------------------------------
 
 export function StatusStackedBar({
@@ -168,20 +170,26 @@ export function StatusStackedBar({
   verifiedLive = 0,
   failed,
   pending,
+  dmCount = 0,
+  accountsConnected = 0,
 }: {
   posted: number;
   verifiedLive?: number;
   failed: number;
   pending: number;
+  dmCount?: number;
+  accountsConnected?: number;
 }) {
   const postedOnly = Math.max(0, posted - verifiedLive);
-  const total = verifiedLive + postedOnly + failed + pending;
+  const total = verifiedLive + postedOnly + failed + pending + dmCount + accountsConnected;
   if (total === 0) return null;
   const segments = [
     { key: "verified", label: "Verified live", count: verifiedLive, color: "#16a34a" },
     { key: "posted", label: "Posted", count: postedOnly, color: "#3b82f6" },
     { key: "failed", label: "Failed", count: failed, color: "#f97316" },
     { key: "pending", label: "Pending", count: pending, color: "#9ca3af" },
+    { key: "dm", label: "DMs sent", count: dmCount, color: "#8b5cf6" },
+    { key: "accounts", label: "Accounts connected", count: accountsConnected, color: "#0d9488" },
   ].filter((s) => s.count > 0);
 
   return (
@@ -429,6 +437,8 @@ export function OverviewPanel({ analytics, loading }: { analytics: AnalyticsSumm
               verifiedLive={Object.values(analytics.byPlatform).reduce((sum, s) => sum + s.verifiedLive, 0)}
               failed={analytics.byStatus.failed ?? 0}
               pending={(analytics.byStatus.pending ?? 0) + (analytics.byStatus.posting ?? 0) + (analytics.byStatus.needs_approval ?? 0)}
+              dmCount={analytics.dmCount ?? 0}
+              accountsConnected={analytics.accountsConnected ?? 0}
             />
           </div>
 
