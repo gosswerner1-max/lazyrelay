@@ -418,23 +418,37 @@ export const api = {
 
   // Not routed through authedFetch — that helper always sets a JSON
   // Content-Type, which breaks multipart uploads (the browser needs to set
-  // its own Content-Type with the multipart boundary for FormData).
-  uploadMedia: async (file: File): Promise<{ url: string }> => {
+  // its own Content-Type with the multipart boundary for FormData). Uses XHR
+  // instead of fetch so callers can pass onProgress and show a real percentage.
+  uploadMedia: async (file: File, onProgress?: (pct: number) => void): Promise<{ url: string }> => {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     if (!token) throw new Error("Not signed in");
     const formData = new FormData();
     formData.append("file", file);
-    const res = await fetch(`${API_URL}/media/upload`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      if (onProgress) {
+        xhr.upload.addEventListener("progress", (e) => {
+          if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+        });
+      }
+      xhr.addEventListener("load", () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try { resolve(JSON.parse(xhr.responseText) as { url: string }); }
+          catch { reject(new Error("Invalid response from server")); }
+        } else {
+          try {
+            const body = JSON.parse(xhr.responseText) as { error?: string };
+            reject(new Error(body.error ?? `Upload failed: ${xhr.status}`));
+          } catch { reject(new Error(`Upload failed: ${xhr.status}`)); }
+        }
+      });
+      xhr.addEventListener("error", () => reject(new Error("Upload failed: network error")));
+      xhr.open("POST", `${API_URL}/media/upload`);
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      xhr.send(formData);
     });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.error ?? `Upload failed: ${res.status}`);
-    }
-    return res.json();
   },
 
   getStorageUsage: (): Promise<StorageUsage> => authedFetch("/media/usage"),

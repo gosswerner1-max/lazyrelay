@@ -236,9 +236,11 @@ export function Dashboard() {
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [mediaUploading, setMediaUploading] = useState(false);
+  const [mediaUploadProgress, setMediaUploadProgress] = useState(0);
   const [mediaDragActive, setMediaDragActive] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [coverImageUploading, setCoverImageUploading] = useState(false);
+  const [coverImageUploadProgress, setCoverImageUploadProgress] = useState(0);
   const [pinterestBoards, setPinterestBoards] = useState<{ id: string; name: string }[]>([]);
   const [boardsLoading, setBoardsLoading] = useState(false);
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
@@ -910,8 +912,9 @@ export function Dashboard() {
   async function handleMediaFile(file: File) {
     setError(null);
     setMediaUploading(true);
+    setMediaUploadProgress(0);
     try {
-      const { url } = await api.uploadMedia(file);
+      const { url } = await api.uploadMedia(file, setMediaUploadProgress);
       setMediaUrl(url);
       // Usage/quota just changed — refresh the gauge and file list so
       // they're never stale relative to what was just uploaded.
@@ -922,14 +925,16 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setMediaUploading(false);
+      setMediaUploadProgress(0);
     }
   }
 
   async function handleCoverImageFile(file: File) {
     setError(null);
     setCoverImageUploading(true);
+    setCoverImageUploadProgress(0);
     try {
-      const { url } = await api.uploadMedia(file);
+      const { url } = await api.uploadMedia(file, setCoverImageUploadProgress);
       setCoverImageUrl(url);
       const [usage, media] = await Promise.all([api.getStorageUsage(), api.listMedia()]);
       setStorageUsage(usage);
@@ -938,6 +943,7 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setCoverImageUploading(false);
+      setCoverImageUploadProgress(0);
     }
   }
 
@@ -2241,7 +2247,7 @@ export function Dashboard() {
                   }}
                 />
                 {mediaUploading ? (
-                  <span>Uploading...</span>
+                  <span>Uploading... {mediaUploadProgress}%</span>
                 ) : mediaUrl ? (
                   <div className="media-preview">
                     {mediaUrl.match(/\.(mp4|mov)$/i) ? (
@@ -2287,7 +2293,7 @@ export function Dashboard() {
                       }}
                     />
                     {coverImageUploading ? (
-                      <span>Uploading...</span>
+                      <span>Uploading... {coverImageUploadProgress}%</span>
                     ) : coverImageUrl ? (
                       <div className="media-preview">
                         <img src={coverImageUrl} alt="Cover image preview" />
