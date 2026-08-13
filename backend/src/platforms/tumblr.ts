@@ -101,6 +101,33 @@ export class TumblrAdapter implements PlatformAdapter {
     };
   }
 
+  // Tumblr OAuth 2.0 access tokens expire in ~1 hour; offline_access scope
+  // provides a refresh token that rotates on each use (valid 1 year or until
+  // consumed). Same grant_type=refresh_token pattern as TikTok.
+  async refresh(refreshToken: string): Promise<OAuthExchangeResult> {
+    const res = await fetch(TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        client_id: this.clientId,
+        client_secret: this.clientSecret,
+      }),
+    });
+    const json = (await res.json()) as TumblrTokenResponse;
+    if (!res.ok || !json.access_token) {
+      throw new Error(json.error_description ?? json.error ?? "Tumblr token refresh failed");
+    }
+    return {
+      accessToken: json.access_token,
+      refreshToken: json.refresh_token ?? null,
+      expiresAt: json.expires_in ? new Date(Date.now() + json.expires_in * 1000).toISOString() : null,
+      platformAccountId: "",
+      displayName: "",
+    };
+  }
+
   // platformAccountId (the blog name) isn't passed through PostRequest, so
   // it's re-derived from the access token here — same pattern as every
   // other adapter that needs a platform-native id at post time.
