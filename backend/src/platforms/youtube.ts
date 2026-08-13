@@ -203,6 +203,31 @@ export class YouTubeAdapter implements PlatformAdapter {
     };
   }
 
+  async refresh(refreshToken: string): Promise<OAuthExchangeResult> {
+    const body = new URLSearchParams({
+      client_id: this.clientId,
+      client_secret: this.clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    });
+    const res = await fetch(TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    const json = (await res.json()) as GoogleTokenResponse;
+    if (!res.ok || !json.access_token) {
+      throw new Error(json.error_description ?? json.error ?? "Google token refresh failed");
+    }
+    return {
+      accessToken: json.access_token,
+      refreshToken: json.refresh_token ?? null,
+      expiresAt: json.expires_in ? new Date(Date.now() + json.expires_in * 1000).toISOString() : null,
+      platformAccountId: "",
+      displayName: "",
+    };
+  }
+
   // YouTube's resumable upload is a two-step, client-driven transfer (not a
   // pull_by_url like TikTok's) — LazyRelay must fetch the video bytes itself
   // and push them to the session URL Google hands back.
