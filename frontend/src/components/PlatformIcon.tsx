@@ -24,7 +24,7 @@ export const BRAND_COLORS: Record<string, string> = {
   bluesky: "#1185FE",
   threads: "#000000",
   discord: "#5865F2",
-  tumblr: "#1C578C",
+  tumblr: "#35465C",
   x: "#000000",
   reddit: "#FF4500",
   snapchat: "#FFFC00",
@@ -167,9 +167,8 @@ function PlatformGlyph({ platform, size }: { platform: string; size: number }) {
     case "tumblr":
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="1" y="1" width="22" height="22" rx="6" fill={color} />
+          <rect x="0" y="0" width="24" height="24" rx="4" fill={color} />
           <path
-            transform="translate(4.2 0) scale(0.82)"
             fill="#fff"
             d="M14.563 24c-5.093 0-7.031-3.756-7.031-6.411V9.747H5.116V6.648c3.63-1.313 4.512-4.596 4.71-6.469C9.84.051 9.941 0 9.999 0h3.517v6.114h4.801v3.633h-4.82v7.47c.016 1.001.375 2.371 2.207 2.371h.09c.631-.02 1.486-.205 1.936-.419l1.156 3.425c-.436.636-2.4 1.374-4.156 1.404h-.178l.011.002z"
           />
