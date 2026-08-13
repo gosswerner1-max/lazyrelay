@@ -106,17 +106,11 @@ export function KpiRow({ children }: { children: React.ReactNode }) {
 // Meter — a ratio against a limit (never a pie of 2 slices)
 // ---------------------------------------------------------------------------
 
-// Meter fill carries severity (brand accent -> warning -> danger) rather than
-// a single flat color — per the dataviz skill's own Meter spec. This also
-// keeps the meter visually distinct from the status stacked bar below it:
-// both used the same green before, which read as two copies of one bar when
-// everything was healthy. A high rate now uses the brand accent (--signal),
-// not --confirm, so a fully-healthy dashboard doesn't show identical greens.
-function meterTier(pct: number): "good" | "warn" | "critical" {
-  if (pct >= 90) return "good";
-  if (pct >= 70) return "warn";
-  return "critical";
-}
+// Gradient from red (0%) → yellow (50%) → green (100%).
+// background-size scales the gradient so it always spans the full track width
+// regardless of how wide the fill div is — at 50% fill you see red→yellow,
+// at 100% you see the full red→yellow→green arc.
+const METER_GRADIENT = "linear-gradient(to right, #dc2626, #f59e0b 50%, #16a34a)";
 
 export function Meter({
   label,
@@ -130,7 +124,6 @@ export function Meter({
   suffix?: string;
 }) {
   const pct = max <= 0 ? 0 : Math.min(100, Math.max(0, (value / max) * 100));
-  const tier = meterTier(pct);
   return (
     <div className="chart-meter">
       <div className="chart-meter-head">
@@ -141,34 +134,54 @@ export function Meter({
         </span>
       </div>
       <div
-        className={`chart-meter-track chart-meter-track-${tier}`}
+        className="chart-meter-track"
         role="meter"
         aria-valuenow={Math.round(value)}
         aria-valuemin={0}
         aria-valuemax={max}
         aria-label={label}
+        style={{ background: "rgba(0,0,0,0.08)" }}
       >
-        <div className={`chart-meter-fill chart-meter-fill-${tier}`} style={{ width: `${pct}%` }} />
+        <div
+          className="chart-meter-fill"
+          style={{
+            width: `${pct}%`,
+            background: METER_GRADIENT,
+            backgroundSize: pct > 0 ? `${(100 / pct) * 100}% 100%` : "100% 100%",
+          }}
+        />
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Status stacked bar — Posted / Failed / Pending, LazyRelay's own status
-// colors (--confirm / --error), with a genuinely neutral gray (--wire) for
-// "pending" rather than the brand accent (--signal) — validated: --signal
-// and --error are both red-family and nearly indistinguishable even for
-// normal color vision when placed adjacent to each other.
+// Status stacked bar — 4 segments, each a distinct color:
+//   Verified live (confirmed by metrics poller) — green
+//   Posted (sent but not yet checked) — blue
+//   Failed — orange-red
+//   Pending — neutral gray
 // ---------------------------------------------------------------------------
 
-export function StatusStackedBar({ posted, failed, pending }: { posted: number; failed: number; pending: number }) {
-  const total = posted + failed + pending;
+export function StatusStackedBar({
+  posted,
+  verifiedLive = 0,
+  failed,
+  pending,
+}: {
+  posted: number;
+  verifiedLive?: number;
+  failed: number;
+  pending: number;
+}) {
+  const postedOnly = Math.max(0, posted - verifiedLive);
+  const total = verifiedLive + postedOnly + failed + pending;
   if (total === 0) return null;
   const segments = [
-    { key: "posted", label: "Posted", count: posted, colorVar: "var(--confirm)" },
-    { key: "failed", label: "Failed", count: failed, colorVar: "var(--error)" },
-    { key: "pending", label: "Pending", count: pending, colorVar: "var(--wire)" },
+    { key: "verified", label: "Verified live", count: verifiedLive, color: "#16a34a" },
+    { key: "posted", label: "Posted", count: postedOnly, color: "#3b82f6" },
+    { key: "failed", label: "Failed", count: failed, color: "#f97316" },
+    { key: "pending", label: "Pending", count: pending, color: "#9ca3af" },
   ].filter((s) => s.count > 0);
 
   return (
@@ -181,7 +194,7 @@ export function StatusStackedBar({ posted, failed, pending }: { posted: number; 
             <div
               key={s.key}
               className="chart-stacked-bar-segment"
-              style={{ width: `${pct}%`, background: s.colorVar }}
+              style={{ width: `${pct}%`, background: s.color }}
               title={`${s.label}: ${s.count} (${Math.round(pct)}%)`}
               tabIndex={0}
               aria-label={`${s.label}: ${s.count}, ${Math.round(pct)}% of total`}
@@ -194,7 +207,7 @@ export function StatusStackedBar({ posted, failed, pending }: { posted: number; 
       <div className="chart-stacked-bar-legend">
         {segments.map((s) => (
           <span key={s.key} className="chart-stacked-bar-legend-item">
-            <span className="chart-legend-swatch" style={{ background: s.colorVar }} />
+            <span className="chart-legend-swatch" style={{ background: s.color }} />
             {s.label} <strong>{s.count}</strong>
           </span>
         ))}
@@ -413,6 +426,7 @@ export function OverviewPanel({ analytics, loading }: { analytics: AnalyticsSumm
             <h3>Post status</h3>
             <StatusStackedBar
               posted={analytics.byStatus.posted ?? 0}
+              verifiedLive={Object.values(analytics.byPlatform).reduce((sum, s) => sum + s.verifiedLive, 0)}
               failed={analytics.byStatus.failed ?? 0}
               pending={(analytics.byStatus.pending ?? 0) + (analytics.byStatus.posting ?? 0) + (analytics.byStatus.needs_approval ?? 0)}
             />
