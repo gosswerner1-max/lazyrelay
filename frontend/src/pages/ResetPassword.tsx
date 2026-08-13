@@ -39,7 +39,8 @@ export function ResetPassword() {
       setError(error.message);
     } else {
       setDone(true);
-      setTimeout(() => {
+      setTimeout(async () => {
+        await supabase.auth.signOut();
         window.history.pushState({}, "", "/");
         window.location.reload();
       }, 1500);
@@ -54,7 +55,7 @@ export function ResetPassword() {
           <span style={{ fontSize: 22 }}>LazyRelay</span>
         </div>
         {done ? (
-          <p className="subtitle">Password updated — signing you in...</p>
+          <p className="subtitle">Password updated — redirecting to sign in...</p>
         ) : !ready ? (
           <p className="subtitle">Verifying your reset link...</p>
         ) : (
