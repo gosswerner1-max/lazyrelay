@@ -2721,10 +2721,20 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // with the Merchant of Record first; only then does the local record
   // get marked cancelled. See billing/sync.ts for the full reasoning.
   router.post("/subscription/cancel", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { feedback } = req.body ?? {};
-    const result = await cancelSubscription(req.accountId!, morAdapter, typeof feedback === "string" ? feedback : undefined);
+    const { feedback, acknowledgedDataDeletion } = req.body ?? {};
+    const result = await cancelSubscription(
+      req.accountId!,
+      morAdapter,
+      typeof feedback === "string" ? feedback : undefined,
+      acknowledgedDataDeletion === true,
+    );
     if (!result.success) {
-      res.status(502).json({ error: result.errorMessage ?? "Cancellation failed at the payment provider" });
+      // Missing acknowledgement is a caller error, not a payment-provider
+      // failure -- keep it distinguishable from the 502 case below so the
+      // frontend can tell "you forgot to check the box" apart from "Paddle
+      // itself rejected this."
+      const status = result.errorMessage?.startsWith("You must acknowledge") ? 400 : 502;
+      res.status(status).json({ error: result.errorMessage ?? "Cancellation failed at the payment provider" });
       return;
     }
     res.json({ cancelled: true });

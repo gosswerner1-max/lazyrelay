@@ -55,9 +55,12 @@ export function DataDeletion({ onBack }: DataDeletionProps) {
           <h3>Cancel your subscription (self-serve)</h3>
           <p>
             Go to the Billing tab of your Dashboard (under More in the top nav) and click Cancel. This stops
-            future billing; your account
-            drops to the Free plan at the end of the period you've already paid for. Cancelling does not, by
-            itself, delete your data. See below for that.
+            future billing; your account drops to the Free plan at the end of the period you've already paid
+            for. Your data is <strong>not</strong> deleted at that point — but <strong>30 days after your access
+            ends, your posts and uploaded media are permanently deleted</strong>, since we can't provide storage
+            for an account that isn't a paying customer. You'll confirm this when you cancel, and we'll email you
+            a reminder about a week before it happens. Download anything you want to keep before then, or
+            resubscribe before the 30 days are up to cancel the deletion.
           </p>
 
           <h3>Delete your entire account and data</h3>

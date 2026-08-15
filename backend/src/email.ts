@@ -20,7 +20,11 @@ function getClient(): Resend | null {
 // Same visual language as the existing Supabase auth-email templates
 // (dark background, orange LazyRelay logo block) — see the mailer_templates_*
 // content in Supabase's Auth config for the original.
-function wrapEmailHtml(heading: string, bodyHtml: string): string {
+function wrapEmailHtml(
+  heading: string,
+  bodyHtml: string,
+  footerHtml: string = "You're getting this because you turned on failure alerts in your LazyRelay dashboard's Account settings. Turn it off there any time.",
+): string {
   return `<body style="margin:0;padding:0;background-color:#0b0c10;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#0b0c10;padding:40px 0;">
   <tr><td align="center">
@@ -36,7 +40,7 @@ function wrapEmailHtml(heading: string, bodyHtml: string): string {
   <tr><td style="padding:28px 40px 8px 40px;color:#ffffff;font-size:22px;font-weight:700;">${heading}</td></tr>
   <tr><td style="padding:0 40px 32px 40px;color:#a3a7b0;font-size:15px;line-height:1.6;">${bodyHtml}</td></tr>
   <tr><td style="padding:0 40px 32px 40px;border-top:1px solid #2a2d35;padding-top:20px;color:#6b6f78;font-size:13px;line-height:1.5;">
-  You're getting this because you turned on failure alerts in your LazyRelay dashboard's Account settings. Turn it off there any time.
+  ${footerHtml}
   </td></tr>
   </table>
   </td></tr>
@@ -105,6 +109,38 @@ export function sendSupportEscalation(mailbox: keyof typeof ESCALATION_ADDRESSES
       if (result.error) console.error("[email] sendSupportEscalation failed:", result.error.message);
     })
     .catch((err) => console.error("[email] sendSupportEscalation threw:", err instanceof Error ? err.message : err));
+}
+
+/** Sent once, 23 days into the 30-day post-cancellation grace period
+ *  (2026-08-15 data-deletion policy) — gives a real week's notice before
+ *  permanent deletion, not just the one checkbox ticked a month earlier at
+ *  cancel time. This is NOT gated on the opt-in "failure alerts" setting
+ *  used by the other senders in this file (that toggle is about post
+ *  failures, unrelated) — it always sends, since it's a real notice a
+ *  customer needs regardless of any other preference. Fire-and-forget same
+ *  as the rest of this file; a failed send must never block the reaper
+ *  job's own run. */
+export function sendDataDeletionReminder(to: string, deletionDate: string): void {
+  const client = getClient();
+  if (!client) return;
+  client.emails
+    .send({
+      from: `LazyRelay <${FROM_ADDRESS}>`,
+      to,
+      subject: "Your LazyRelay data will be deleted in 7 days",
+      html: wrapEmailHtml(
+        "Your data will be deleted soon",
+        `You cancelled your LazyRelay subscription, and your posts and stored media are scheduled to be permanently deleted on ` +
+          `<span style="color:#ffffff;">${escapeHtml(deletionDate)}</span>.<br><br>` +
+          `If you want to keep anything, download it before then — this can't be undone once it happens.<br><br>` +
+          `If you'd rather keep your account, resubscribing before that date cancels the deletion.`,
+        "This is a required notice about your account's stored data, sent to everyone whose data is scheduled for deletion — it isn't tied to any notification preference."
+      ),
+    })
+    .then((result) => {
+      if (result.error) console.error("[email] sendDataDeletionReminder failed:", result.error.message);
+    })
+    .catch((err) => console.error("[email] sendDataDeletionReminder threw:", err instanceof Error ? err.message : err));
 }
 
 /** Same alert, worded for the account-paused case (retrying won't help —

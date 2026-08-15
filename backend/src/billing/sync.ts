@@ -122,6 +122,18 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
       .update({ cancelled_at: new Date().toISOString() })
       .eq("id", account.id);
   } else if (event.status === "active") {
+    // Resubscribe safety (2026-08-15): if this account was previously
+    // cancelled and is now genuinely active again, the pending data-deletion
+    // clock must be cleared -- otherwise a customer who cancels and comes
+    // back within the 30-day grace period would still have their data
+    // silently deleted on schedule by the reaper job, since cancelled_at
+    // would still be set from the old cancellation. data_deleted_at is left
+    // untouched -- if deletion already actually ran, that's a permanent fact,
+    // not something a resubscribe can undo.
+    await supabase
+      .from("accounts")
+      .update({ cancelled_at: null, data_deletion_ack_at: null, data_deletion_reminder_sent_at: null })
+      .eq("id", account.id);
     await unpausePausedAccountsUpToLimit(account.id, event.tier as Tier);
   }
 }
@@ -237,7 +249,17 @@ export async function cancelSubscription(
   accountId: string,
   adapter: MerchantOfRecordAdapter,
   feedback?: string,
+  acknowledgedDataDeletion?: boolean,
 ): Promise<CancelResult> {
+  // Enforced server-side, not just a disabled button in the UI (2026-08-15) --
+  // a customer's posts and media now genuinely get deleted 30 days after this
+  // cancellation takes effect, so the acknowledgement is a real precondition,
+  // the same way webhook signature checks are a real precondition and not
+  // just client-side politeness.
+  if (!acknowledgedDataDeletion) {
+    return { success: false, errorMessage: "You must acknowledge the data-deletion notice before cancelling." };
+  }
+
   const { data: subscription, error } = await supabase
     .from("subscriptions")
     .select("mor_subscription_id, tier")
@@ -249,6 +271,8 @@ export async function cancelSubscription(
 
   const result = await adapter.cancelSubscription(subscription.mor_subscription_id);
   if (!result.success) return result;
+
+  await supabase.from("accounts").update({ data_deletion_ack_at: new Date().toISOString() }).eq("id", accountId);
 
   // Best-effort — a feedback-insert failure must never block the actual
   // cancellation from completing, same principle as the storage-addon

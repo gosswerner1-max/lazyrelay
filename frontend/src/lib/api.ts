@@ -460,8 +460,8 @@ export const api = {
     tier: "pro" | "business" | "enterprise"
   ): Promise<{ transactionId: string; checkoutUrl: string | null }> =>
     authedFetch("/subscription/checkout", { method: "POST", body: JSON.stringify({ tier }) }),
-  cancelSubscription: (feedback?: string): Promise<{ cancelled: boolean }> =>
-    authedFetch("/subscription/cancel", { method: "POST", body: JSON.stringify({ feedback }) }),
+  cancelSubscription: (feedback: string | undefined, acknowledgedDataDeletion: boolean): Promise<{ cancelled: boolean }> =>
+    authedFetch("/subscription/cancel", { method: "POST", body: JSON.stringify({ feedback, acknowledgedDataDeletion }) }),
 
   getAccount: (): Promise<Account> => authedFetch("/account"),
   updateAccount: (businessName: string | null): Promise<Account> =>

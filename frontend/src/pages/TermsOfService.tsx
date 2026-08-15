@@ -77,6 +77,13 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
             Storage add-ons themselves follow the same rule: cancel one at any time from the Billing tab,
             effective at the end of its current billing period, no partial refund for time already paid.
           </p>
+          <p>
+            <strong>Once your plan actually ends, your posts and uploaded media are permanently deleted 30 days
+            later.</strong> We can't provide storage for an account that isn't a paying customer. You'll see this
+            notice again and have to confirm it when you cancel, and we'll email you a reminder about a week
+            before deletion happens. Download anything you want to keep before then — resubscribing before the
+            30 days are up cancels the deletion.
+          </p>
 
           <h3>Your data and content</h3>
           <p>
@@ -85,7 +92,8 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
             plan's storage quota (shown as a gauge on the Storage tab) plus any storage add-ons you've
             purchased.
             Once you're at your limit, new uploads are rejected until you delete something or add more space.
-            We never delete your files ourselves; storage is only ever freed by your own action.
+            We never delete your files ourselves for going over your quota while subscribed — storage is only
+            ever freed by your own action or the 30-day post-cancellation deletion described above.
           </p>
           <p>
             When you delete your account, we remove your stored content and connected-platform access tokens

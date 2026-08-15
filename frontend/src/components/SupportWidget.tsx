@@ -82,7 +82,13 @@ export function SupportWidget() {
     if (action.type === "disconnect" && !window.confirm(`Disconnect ${platformLabel(action.platform)}? Any scheduled posts still using this account will fail next time they're due.`)) {
       return;
     }
-    if (action.type === "cancel_subscription" && !window.confirm("Cancel your subscription? You'll keep access until the end of your current billing period.")) {
+    if (
+      action.type === "cancel_subscription" &&
+      !window.confirm(
+        "Cancel your subscription? You'll keep access until the end of your current billing period. " +
+          "30 days after that, your posts and stored media will be permanently deleted — we'll email you a reminder first."
+      )
+    ) {
       return;
     }
     setRunningActionIndex(index);
@@ -95,7 +101,10 @@ export function SupportWidget() {
       if (action.type === "disconnect") {
         await api.disconnectSocialAccount(action.accountId);
       } else if (action.type === "cancel_subscription") {
-        await api.cancelSubscription();
+        // The window.confirm above now states the data-deletion terms
+        // explicitly, same substance as the dashboard modal's checkbox --
+        // confirming it IS the acknowledgement for this path.
+        await api.cancelSubscription(undefined, true);
       }
       setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, actionResult: "success" } : m)));
     } catch {

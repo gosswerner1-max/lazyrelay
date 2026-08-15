@@ -209,6 +209,7 @@ export function Dashboard() {
   const [billingBusy, setBillingBusy] = useState<"pro" | "business" | "enterprise" | "cancel" | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelFeedback, setCancelFeedback] = useState("");
+  const [cancelDataDeletionAck, setCancelDataDeletionAck] = useState(false);
 
   const [content, setContent] = useState("");
   const [aiTopic, setAiTopic] = useState("");
@@ -1420,12 +1421,14 @@ export function Dashboard() {
   }
 
   async function handleConfirmCancelSubscription() {
+    if (!cancelDataDeletionAck) return;
     setBillingBusy("cancel");
     setError(null);
     try {
-      await api.cancelSubscription(cancelFeedback);
+      await api.cancelSubscription(cancelFeedback, cancelDataDeletionAck);
       setShowCancelModal(false);
       setCancelFeedback("");
+      setCancelDataDeletionAck(false);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -3299,6 +3302,10 @@ export function Dashboard() {
                 You'll keep access until {periodEndDate ? periodEndDate : "the end of your current billing period"}. This
                 doesn't cancel immediately.
               </li>
+              <li>
+                <strong>30 days after your access ends</strong>, your posts and stored media are permanently deleted. We'll
+                email you a reminder before that happens — download anything you want to keep before then.
+              </li>
             </ul>
             <label className="modal-feedback-label">
               What's missing? What could we improve?
@@ -3309,11 +3316,23 @@ export function Dashboard() {
                 placeholder="Optional, helps us make LazyRelay better"
               />
             </label>
+            <label className="modal-ack-label">
+              <input
+                type="checkbox"
+                checked={cancelDataDeletionAck}
+                onChange={(e) => setCancelDataDeletionAck(e.target.checked)}
+              />
+              I understand my posts and stored media will be permanently deleted 30 days after my access ends.
+            </label>
             <div className="modal-actions">
               <button className="btn-outline" onClick={() => setShowCancelModal(false)}>
                 Keep my plan
               </button>
-              <button className="modal-confirm-cancel" onClick={handleConfirmCancelSubscription} disabled={billingBusy !== null}>
+              <button
+                className="modal-confirm-cancel"
+                onClick={handleConfirmCancelSubscription}
+                disabled={billingBusy !== null || !cancelDataDeletionAck}
+              >
                 {billingBusy === "cancel" ? "Cancelling..." : "Submit & Continue to Cancel"}
               </button>
             </div>

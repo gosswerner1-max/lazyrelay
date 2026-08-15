@@ -2916,6 +2916,21 @@
   resize: vertical;
 }
 
+.modal-ack-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink);
+  margin-top: 14px;
+  line-height: 1.4;
+}
+
+.modal-ack-label input[type="checkbox"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
 .modal-actions {
   display: flex;
   flex-direction: column;

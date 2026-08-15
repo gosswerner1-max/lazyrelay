@@ -117,6 +117,18 @@ function getSupabaseAccessToken() {
   return creds.supabaseAccessToken ?? null;
 }
 
+/** Resend credentials, already in backend/.env for the deployed app's own
+ * transactional emails (backend/src/email.ts) — reused here, not duplicated,
+ * for the data-retention reaper's reminder email (2026-08-15). Returns
+ * null, not a throw, so a missing key degrades to "skip sending, still run
+ * the sweep" rather than crash the whole ops task. */
+function getResendCredentials() {
+  const apiKey = process.env.RESEND_API_KEY;
+  const fromAddress = process.env.RESEND_FROM_ADDRESS ?? "noreply@mail.lazyrelay.com";
+  if (!apiKey) return null;
+  return { apiKey, fromAddress };
+}
+
 module.exports = {
   getSupabaseCredentials,
   getMorCredentials,
@@ -126,4 +138,5 @@ module.exports = {
   getLazyRelayAdminApiKey,
   getNpmAccessToken,
   getSupabaseAccessToken,
+  getResendCredentials,
 };
