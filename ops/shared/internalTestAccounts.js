@@ -15,7 +15,11 @@ const INTERNAL_TEST_EMAIL_PATTERNS = [/@lazyrelay\.invalid$/i, /@lazydownloader\
 // Confirmed with Werner: only these two exist right now. Add here, never
 // widen the domain patterns above, if another personal test address shows
 // up later.
-const INTERNAL_TEST_EMAILS_EXACT = new Set(["goss.werner.1@gmail.com", "jacobsluzaan@gmail.com"]);
+const INTERNAL_TEST_EMAILS_EXACT = new Set([
+  "goss.werner.1@gmail.com",
+  "jacobsluzaan@gmail.com",
+  "lazyrelay+reviewer@gmail.com", // Google OAuth reviewer test account, confirmed 2026-08-15
+]);
 
 function isInternalTestAccount(email) {
   const normalized = (email ?? "").toLowerCase();
