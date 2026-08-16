@@ -39,7 +39,17 @@ export interface SocialAccount {
   platform_account_id: string;
   display_name: string | null;
   connected_at: string;
+  // brand_label is a denormalized mirror of the assigned brand's name, kept
+  // in sync by the backend so existing brand filters keep working. brand_id
+  // is the real, capped brand entity (migration 0047).
   brand_label: string | null;
+  brand_id: string | null;
+}
+
+export interface Brand {
+  id: string;
+  name: string;
+  created_at: string;
 }
 
 export interface ScheduledPost {
@@ -254,8 +264,17 @@ export interface PublicVerification {
 export const api = {
   listSocialAccounts: (): Promise<SocialAccount[]> => authedFetch("/social-accounts"),
   disconnectSocialAccount: (id: string): Promise<null> => authedFetch(`/social-accounts/${id}`, { method: "DELETE" }),
-  setBrandLabel: (id: string, brandLabel: string | null): Promise<SocialAccount> =>
-    authedFetch(`/social-accounts/${id}`, { method: "PATCH", body: JSON.stringify({ brandLabel }) }),
+  // Brands are real, per-tier-capped entities (migration 0047). Create is
+  // where the cap bites (POST /brands returns a friendly 403 at the limit);
+  // assignment just points an account at an owned brand.
+  getBrands: (): Promise<Brand[]> => authedFetch("/brands"),
+  createBrand: (name: string): Promise<Brand> =>
+    authedFetch("/brands", { method: "POST", body: JSON.stringify({ name }) }),
+  updateBrand: (id: string, name: string): Promise<Brand> =>
+    authedFetch(`/brands/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+  deleteBrand: (id: string): Promise<null> => authedFetch(`/brands/${id}`, { method: "DELETE" }),
+  setAccountBrand: (id: string, brandId: string | null): Promise<SocialAccount> =>
+    authedFetch(`/social-accounts/${id}`, { method: "PATCH", body: JSON.stringify({ brandId }) }),
   getPlatforms: (): Promise<PlatformInfo[]> => authedFetch("/platforms"),
   startConnect: (platform: string): Promise<{ authorizeUrl: string }> =>
     authedFetch(`/social-accounts/connect?platform=${encodeURIComponent(platform)}`),

@@ -29,6 +29,7 @@ import { tieredRateLimit, publicRateLimit } from "./rateLimit.js";
 import { validateMediaForPlatform, type Platform } from "../mediaLimits.js";
 import { checkQuotaForNewUpload, getStorageUsage } from "../storageQuota.js";
 import { checkAccountLimit } from "../accountLimits.js";
+import { checkBrandLimit } from "../brandLimits.js";
 import { resolveTier, TIER_DISPLAY_NAMES, RECURRING_SCHEDULE_SLOT_LIMITS, type Tier } from "../tier.js";
 import { cancelFuturePendingOccurrences } from "../recurringScheduler.js";
 import { checkGenerationLimit, recordGeneration } from "../aiUsage.js";
@@ -1001,7 +1002,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.get("/social-accounts", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data, error } = await supabase
       .from("social_accounts")
-      .select("id, platform, platform_account_id, display_name, connected_at, disconnected_at, brand_label")
+      .select("id, platform, platform_account_id, display_name, connected_at, disconnected_at, brand_label, brand_id")
       .eq("account_id", req.accountId)
       .is("disconnected_at", null);
     if (error) {
@@ -1011,29 +1012,173 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.json(data);
   });
 
-  // Multi-brand support (2026-08-08, item 8 from the 2026-08-07 competitor
-  // audit) — a free-text label per connected account, not a new billing
-  // concept. Lets a solo operator running several small businesses through
-  // one LazyRelay login filter Overview/Posts/Calendar/Mentions/DMs/Analytics
-  // down to one brand at a time. See migration
-  // 0042_social_account_brand_label.sql.
-  const MAX_BRAND_LABEL_LENGTH = 60;
-  router.patch("/social-accounts/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { brandLabel } = req.body ?? {};
-    if (brandLabel !== undefined && brandLabel !== null && typeof brandLabel !== "string") {
-      res.status(400).json({ error: "brandLabel must be a string or null" });
+  // Multi-brand support. Started 2026-08-08 as a free-text label per account
+  // (migration 0042); promoted 2026-08-16 to a real `brands` entity
+  // (migration 0047) so brands can be COUNTED and CAPPED per tier — closing
+  // the leak where unlimited brands let one login run an agency's worth of
+  // client businesses for a flat fee. Still one login / one subscription, NOT
+  // multi-tenant workspaces. Per-tier caps live in brandLimits.ts.
+  //
+  // Transition note: social_accounts.brand_label is KEPT as a denormalized
+  // mirror of the assigned brand's name, so every existing filter (frontend
+  // BrandFilterSelect + backend resolveBrandFilterSocialAccountIds, both of
+  // which read brand_label) keeps working unchanged. brand_id is the capped
+  // source of truth; brand_label is written in lockstep and dropped in a
+  // later cleanup once filtering is migrated to brand_id.
+  const MAX_BRAND_NAME_LENGTH = 60;
+
+  router.get("/brands", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data, error } = await supabase
+      .from("brands")
+      .select("id, name, created_at")
+      .eq("account_id", req.accountId)
+      .order("name");
+    if (error) {
+      dbError(res, error, "GET /brands");
       return;
     }
-    if (typeof brandLabel === "string" && brandLabel.length > MAX_BRAND_LABEL_LENGTH) {
-      res.status(400).json({ error: `brandLabel must be ${MAX_BRAND_LABEL_LENGTH} characters or fewer` });
+    res.json(data);
+  });
+
+  router.post("/brands", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+    if (!name) {
+      res.status(400).json({ error: "Brand name is required" });
+      return;
+    }
+    if (name.length > MAX_BRAND_NAME_LENGTH) {
+      res.status(400).json({ error: `Brand name must be ${MAX_BRAND_NAME_LENGTH} characters or fewer` });
+      return;
+    }
+    // Real per-tier cap, not just marketing copy — see brandLimits.ts.
+    const limitError = await checkBrandLimit(req.accountId!);
+    if (limitError) {
+      res.status(403).json({ error: limitError });
       return;
     }
     const { data, error } = await supabase
-      .from("social_accounts")
-      .update({ brand_label: brandLabel?.trim() || null })
+      .from("brands")
+      .insert({ account_id: req.accountId, name })
+      .select("id, name, created_at")
+      .maybeSingle();
+    if (error) {
+      // 23505 = the case-insensitive unique index on (account_id, lower(name)).
+      if ((error as { code?: string }).code === "23505") {
+        res.status(409).json({ error: "You already have a brand with that name." });
+        return;
+      }
+      dbError(res, error, "POST /brands");
+      return;
+    }
+    res.status(201).json(data);
+  });
+
+  router.patch("/brands/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+    if (!name) {
+      res.status(400).json({ error: "Brand name is required" });
+      return;
+    }
+    if (name.length > MAX_BRAND_NAME_LENGTH) {
+      res.status(400).json({ error: `Brand name must be ${MAX_BRAND_NAME_LENGTH} characters or fewer` });
+      return;
+    }
+    const { data, error } = await supabase
+      .from("brands")
+      .update({ name })
       .eq("id", req.params.id)
       .eq("account_id", req.accountId)
-      .select("id, platform, platform_account_id, display_name, connected_at, disconnected_at, brand_label")
+      .select("id, name, created_at")
+      .maybeSingle();
+    if (error) {
+      if ((error as { code?: string }).code === "23505") {
+        res.status(409).json({ error: "You already have a brand with that name." });
+        return;
+      }
+      dbError(res, error, "PATCH /brands/:id");
+      return;
+    }
+    if (!data) {
+      res.status(404).json({ error: "Not found or not owned by this caller" });
+      return;
+    }
+    // Keep the brand_label mirror in sync on this brand's accounts.
+    const { error: mirrorError } = await supabase
+      .from("social_accounts")
+      .update({ brand_label: name })
+      .eq("account_id", req.accountId)
+      .eq("brand_id", req.params.id);
+    if (mirrorError) {
+      dbError(res, mirrorError, "PATCH /brands/:id mirror");
+      return;
+    }
+    res.json(data);
+  });
+
+  router.delete("/brands/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    // Clear the brand_label mirror on this brand's accounts first. brand_id
+    // auto-nulls via the FK's `on delete set null`, but the denormalized
+    // mirror must be cleared explicitly.
+    const { error: mirrorError } = await supabase
+      .from("social_accounts")
+      .update({ brand_label: null })
+      .eq("account_id", req.accountId)
+      .eq("brand_id", req.params.id);
+    if (mirrorError) {
+      dbError(res, mirrorError, "DELETE /brands/:id mirror");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("brands")
+      .delete()
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .select("id")
+      .maybeSingle();
+    if (error) {
+      dbError(res, error, "DELETE /brands/:id");
+      return;
+    }
+    if (!data) {
+      res.status(404).json({ error: "Not found or not owned by this caller" });
+      return;
+    }
+    res.status(204).end();
+  });
+
+  // Assign (or clear) a connected account's brand. brandId must reference a
+  // brand owned by this caller, or be null to unbrand. Also writes the
+  // brand_label mirror (see the transition note above).
+  router.patch("/social-accounts/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { brandId } = req.body ?? {};
+    if (brandId !== undefined && brandId !== null && typeof brandId !== "string") {
+      res.status(400).json({ error: "brandId must be a string or null" });
+      return;
+    }
+    let brandName: string | null = null;
+    if (brandId) {
+      const { data: brand, error: brandError } = await supabase
+        .from("brands")
+        .select("id, name")
+        .eq("id", brandId)
+        .eq("account_id", req.accountId)
+        .maybeSingle();
+      if (brandError) {
+        dbError(res, brandError, "PATCH /social-accounts/:id brand lookup");
+        return;
+      }
+      if (!brand) {
+        res.status(404).json({ error: "Brand not found or not owned by this caller" });
+        return;
+      }
+      brandName = brand.name;
+    }
+    const { data, error } = await supabase
+      .from("social_accounts")
+      .update({ brand_id: brandId ?? null, brand_label: brandName })
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .select("id, platform, platform_account_id, display_name, connected_at, disconnected_at, brand_label, brand_id")
       .maybeSingle();
     if (error) {
       dbError(res, error, "PATCH /social-accounts/:id");

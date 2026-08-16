@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
-import { api, type SocialAccount, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation, type Triage } from "../lib/api";
+import { api, type SocialAccount, type Brand, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation, type Triage } from "../lib/api";
 import { API_BASE_URL, API_ENDPOINTS, MCP_CONFIG_EXAMPLE } from "../lib/apiDocsContent";
 import { CodeBlock } from "../components/CodeBlock";
 import { RelaySignal } from "../components/RelaySignal";
@@ -24,6 +24,14 @@ const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 // filters Overview/Posts/Calendar/Mentions/DMs/Analytics down to accounts
 // that have no brand label set yet.
 const UNBRANDED_FILTER_VALUE = "__unbranded__";
+
+// Display-only mirror of the backend's BRAND_LIMITS (brandLimits.ts), which is
+// the real enforcer. Used to show "N/cap" and pre-disable the create control;
+// the server still rejects an over-cap create regardless of this.
+const BRAND_LIMITS_DISPLAY: Record<string, number> = { free: 1, pro: 2, business: 4, enterprise: 7 };
+function brandCapFor(tier: string | undefined): number {
+  return BRAND_LIMITS_DISPLAY[tier ?? "free"] ?? 1;
+}
 
 function localDateKey(iso: string): string {
   const d = new Date(iso);
@@ -202,8 +210,10 @@ export function Dashboard() {
   const [notice, setNotice] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Overview");
   const [brandFilter, setBrandFilter] = useState("");
-  const [brandLabelDrafts, setBrandLabelDrafts] = useState<Record<string, string>>({});
-  const [savingBrandLabelId, setSavingBrandLabelId] = useState<string | null>(null);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [newBrandName, setNewBrandName] = useState("");
+  const [brandBusy, setBrandBusy] = useState(false);
+  const [assigningAccountId, setAssigningAccountId] = useState<string | null>(null);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const [billingBusy, setBillingBusy] = useState<"pro" | "business" | "enterprise" | "cancel" | null>(null);
@@ -305,7 +315,7 @@ export function Dashboard() {
   async function refresh() {
     setError(null);
     try {
-      const [accs, pts, sub, usage, media, addons, plats, acct, keys, recurring] = await Promise.all([
+      const [accs, pts, sub, usage, media, addons, plats, acct, keys, recurring, brandList] = await Promise.all([
         api.listSocialAccounts(),
         api.listScheduledPosts(),
         api.getSubscription(),
@@ -316,8 +326,10 @@ export function Dashboard() {
         api.getAccount(),
         api.listApiKeys(),
         api.listRecurringSchedules(),
+        api.getBrands(),
       ]);
       setAccounts(accs);
+      setBrands(brandList);
       setPosts(pts);
       // A fresh refresh() replaces `posts` with just the first History
       // page again (see GET /scheduled-posts), discarding any additional
@@ -671,21 +683,46 @@ export function Dashboard() {
     }
   }
 
-  async function handleSaveBrandLabel(id: string, label: string) {
-    setSavingBrandLabelId(id);
+  async function handleCreateBrand() {
+    const name = newBrandName.trim();
+    if (!name) return;
+    setBrandBusy(true);
     setError(null);
     try {
-      await api.setBrandLabel(id, label.trim() || null);
-      await refresh();
-      setBrandLabelDrafts((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
+      const brand = await api.createBrand(name);
+      setBrands((prev) => [...prev, brand].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewBrandName("");
+    } catch (err) {
+      // Surfaces the backend's friendly cap-reached / duplicate-name messages.
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBrandBusy(false);
+    }
+  }
+
+  async function handleDeleteBrand(id: string) {
+    setBrandBusy(true);
+    setError(null);
+    try {
+      await api.deleteBrand(id);
+      await refresh(); // reloads brands + accounts (any account on it is now unbranded)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setSavingBrandLabelId(null);
+      setBrandBusy(false);
+    }
+  }
+
+  async function handleAssignBrand(accountId: string, brandId: string | null) {
+    setAssigningAccountId(accountId);
+    setError(null);
+    try {
+      const updated = await api.setAccountBrand(accountId, brandId);
+      setAccounts((prev) => prev.map((a) => (a.id === accountId ? updated : a)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAssigningAccountId(null);
     }
   }
 
@@ -2035,34 +2072,25 @@ export function Dashboard() {
           <p className="empty">No accounts connected yet. Connect one to start scheduling posts.</p>
         ) : (
           <ul className="account-list">
-            {accounts.map((a) => {
-              const draft = brandLabelDrafts[a.id] ?? a.brand_label ?? "";
-              const dirty = draft !== (a.brand_label ?? "");
-              return (
+            {accounts.map((a) => (
                 <li key={a.id}>
                   <span className="platform-badge">
                     <PlatformIcon platform={a.platform} size={13} />
                     {a.platform}
                   </span>
                   {a.display_name ?? a.platform_account_id}
-                  <input
-                    type="text"
+                  <select
                     className="brand-label-input"
-                    placeholder="Brand (optional)"
-                    value={draft}
-                    maxLength={60}
-                    onChange={(e) => setBrandLabelDrafts((prev) => ({ ...prev, [a.id]: e.target.value }))}
-                  />
-                  {dirty && (
-                    <button
-                      type="button"
-                      className="btn-outline"
-                      disabled={savingBrandLabelId === a.id}
-                      onClick={() => handleSaveBrandLabel(a.id, draft)}
-                    >
-                      {savingBrandLabelId === a.id ? "Saving..." : "Save"}
-                    </button>
-                  )}
+                    value={a.brand_id ?? ""}
+                    disabled={assigningAccountId === a.id || brands.length === 0}
+                    onChange={(e) => handleAssignBrand(a.id, e.target.value || null)}
+                    aria-label="Assign brand"
+                  >
+                    <option value="">{brands.length === 0 ? "No brands yet" : "No brand"}</option>
+                    {brands.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
                   <button
                     type="button"
                     className="btn-outline"
@@ -2072,13 +2100,53 @@ export function Dashboard() {
                     {disconnectingAccountId === a.id ? "Disconnecting..." : "Disconnect"}
                   </button>
                 </li>
-              );
-            })}
+              ))}
           </ul>
         )}
+        <div className="brands-manager">
+          <p className="brands-manager-header">
+            Brands ({brands.length}/{brandCapFor(subscription?.tier)})
+          </p>
+          {brands.length > 0 && (
+            <ul className="brands-list">
+              {brands.map((b) => (
+                <li key={b.id}>
+                  {b.name}
+                  <button
+                    type="button"
+                    className="btn-outline"
+                    disabled={brandBusy}
+                    onClick={() => handleDeleteBrand(b.id)}
+                  >
+                    Delete
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="brands-new">
+            <input
+              type="text"
+              className="brand-label-input"
+              placeholder="New brand name"
+              value={newBrandName}
+              maxLength={60}
+              disabled={brandBusy || brands.length >= brandCapFor(subscription?.tier)}
+              onChange={(e) => setNewBrandName(e.target.value)}
+            />
+            <button
+              type="button"
+              className="btn-outline"
+              disabled={brandBusy || !newBrandName.trim() || brands.length >= brandCapFor(subscription?.tier)}
+              onClick={handleCreateBrand}
+            >
+              {brandBusy ? "Saving..." : "Add brand"}
+            </button>
+          </div>
+        </div>
         <p className="section-note">
-          Give an account a brand name if you're running more than one business through LazyRelay. You can then
-          filter Overview, Posts, Calendar, Analytics, Mentions, and DMs down to just that brand.
+          Create a brand for each business you run through LazyRelay, then assign your connected accounts to it.
+          You can then filter Overview, Posts, Calendar, Analytics, Mentions, and DMs down to a single brand.
         </p>
         <h3>Connect a platform</h3>
         <div className="platform-grid">

@@ -16,8 +16,8 @@ import { resolveTier, type Tier } from "./tier.js";
 export const ACCOUNT_LIMITS: Record<Tier, number> = {
   free: 3,
   pro: 20, // displays as "Starter"
-  business: 40, // displays as "Pro"
-  enterprise: 100, // displays as "Business"
+  business: 30, // displays as "Pro" (trimmed from 40, 2026-08-16 — still beats every competitor at this price)
+  enterprise: 50, // displays as "Business" (trimmed from 100, 2026-08-16 — 100 was excessive vs the shared API quota; 50 still leads the market)
 };
 
 /** Checked before starting a new connect flow — returns a customer-facing

@@ -1,4 +1,5 @@
 import { ACCOUNT_LIMITS } from "../accountLimits.js";
+import { BRAND_LIMITS } from "../brandLimits.js";
 import { STORAGE_QUOTA_BYTES } from "../storageQuota.js";
 import { RECURRING_SCHEDULE_SLOT_LIMITS, TIER_DISPLAY_NAMES, type Tier } from "../tier.js";
 
@@ -87,7 +88,8 @@ function formatRecurringLimit(tier: Tier): string {
 }
 
 function tierLine(tier: Tier): string {
-  return `${TIER_DISPLAY_NAMES[tier]} (${TIER_PRICES[tier]}): ${ACCOUNT_LIMITS[tier]} connected accounts, ${formatStorage(tier)} storage, ${formatRecurringLimit(tier)}`;
+  const brandCap = BRAND_LIMITS[tier];
+  return `${TIER_DISPLAY_NAMES[tier]} (${TIER_PRICES[tier]}): ${ACCOUNT_LIMITS[tier]} connected accounts, ${brandCap} brand${brandCap === 1 ? "" : "s"}, ${formatStorage(tier)} storage, ${formatRecurringLimit(tier)}`;
 }
 
 // Real dashboard tab layout (frontend/src/pages/Dashboard.tsx MAIN_TABS/
@@ -139,7 +141,7 @@ CORE FEATURES
 - Recurring schedules: set content, days, time, and platforms once; LazyRelay keeps posting weekly until paused or deleted. Free tier is one-time posts only.
 - Bulk CSV import: schedule up to 200 posts at once from a CSV, with a per-row preview before committing.
 - AI captions, hashtags, and content ideas: available from the compose form, count against the account's daily AI-generation quota.
-- Multi-brand labels: label connected accounts with a brand name to filter Overview/Posts/Calendar/Analytics/Mentions/DMs by brand. One login, one subscription -- this is a filter, not separate workspaces or separate billing.
+- Brands: group connected accounts under a brand to filter Overview/Posts/Calendar/Analytics/Mentions/DMs by brand. Each plan includes a set number of brands (Free 1, Starter 2, Pro 4, Business 7); still one login and one subscription -- brands are a grouping/filter within your account, not separate workspaces or separate billing.
 - API keys and MCP server: available on paid tiers, let a customer or their AI agent (Claude Desktop, Cursor, etc.) interact with their account programmatically. Free tier does not include API/MCP access.
 - Turnstile on sign-up/sign-in runs invisibly for most users -- not seeing a visible checkbox is normal, not broken.
 
