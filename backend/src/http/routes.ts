@@ -5,7 +5,7 @@ import { randomUUID, randomBytes } from "node:crypto";
 import { imageSize } from "image-size";
 import { fileTypeFromBuffer } from "file-type";
 import { supabase } from "../supabase.js";
-import { cancelSubscription, cancelStorageAddon } from "../billing/sync.js";
+import { cancelSubscription, cancelStorageAddon, cancelBrandAddon } from "../billing/sync.js";
 import { buildCheckoutTransaction } from "../billing/paddle.js";
 import { Environment } from "@paddle/paddle-node-sdk";
 import type { MerchantOfRecordAdapter } from "../billing/types.js";
@@ -29,7 +29,7 @@ import { tieredRateLimit, publicRateLimit } from "./rateLimit.js";
 import { validateMediaForPlatform, type Platform } from "../mediaLimits.js";
 import { checkQuotaForNewUpload, getStorageUsage } from "../storageQuota.js";
 import { checkAccountLimit } from "../accountLimits.js";
-import { checkBrandLimit } from "../brandLimits.js";
+import { checkBrandLimit, getBrandCapacity } from "../brandLimits.js";
 import { resolveTier, TIER_DISPLAY_NAMES, RECURRING_SCHEDULE_SLOT_LIMITS, type Tier } from "../tier.js";
 import { cancelFuturePendingOccurrences } from "../recurringScheduler.js";
 import { checkGenerationLimit, recordGeneration } from "../aiUsage.js";
@@ -64,6 +64,13 @@ const ADDON_PRICE_ID_ENV_VAR: Record<StorageAddonGb, string> = {
   20: "PADDLE_PRICE_ID_STORAGE_20GB",
   50: "PADDLE_PRICE_ID_STORAGE_50GB",
 };
+
+// Brand add-ons (Phase 1b, 2026-08-16) — one flat price, +1 brand slot each,
+// ~$10/mo. Same abuse-prevention reasoning as MAX_ACTIVE_STORAGE_ADDONS: a
+// customer legitimately running an agency-scale operation belongs on the
+// future Agency tier, not stacking 50 add-ons on a self-serve plan.
+const MAX_ACTIVE_BRAND_ADDONS = 10;
+const BRAND_ADDON_PRICE_ID_ENV_VAR = "PADDLE_PRICE_ID_BRAND_ADDON";
 
 // Free tier: 10 posts per connected social account, refilling every
 // calendar month (decided 2026-07-22 — matches the pricing page's "10 posts
@@ -1263,12 +1270,26 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // Goes through our own service-role Supabase client, not the browser
   // directly — customers never touch storage credentials, and this is
   // where mime-type/size validation actually gets enforced server-side.
+  // Alt text (2026-08-16) — an optional accessibility description attached
+  // to the file itself, independent of which post(s) it ends up in.
+  const MAX_ALT_TEXT_LENGTH = 1000; // matches Mastodon's own limit, the one adapter that consumes it today
   router.post("/media/upload", requireAuth, tieredRateLimit, upload.single("file"), async (req: AuthedRequest, res) => {
     const file = req.file;
     if (!file) {
       res.status(400).json({ error: "No file uploaded (expected multipart field \"file\")" });
       return;
     }
+    // multer puts non-file multipart fields onto req.body as strings.
+    const altTextInput = req.body?.altText;
+    if (altTextInput !== undefined && typeof altTextInput !== "string") {
+      res.status(400).json({ error: "altText must be a string" });
+      return;
+    }
+    if (typeof altTextInput === "string" && altTextInput.length > MAX_ALT_TEXT_LENGTH) {
+      res.status(400).json({ error: `altText must be ${MAX_ALT_TEXT_LENGTH} characters or fewer` });
+      return;
+    }
+    const altText = altTextInput?.trim() || null;
     // The client-supplied mimetype/filename (file.mimetype, file.originalname)
     // are just headers the caller chose to send — trusting them is how a file
     // named "photo.png.exe" with a spoofed image/png Content-Type would sail
@@ -1324,21 +1345,59 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       }
     }
 
-    const { error: metaError } = await supabase.from("media_uploads").insert({
-      account_id: req.accountId,
-      url: data.publicUrl,
-      storage_path: path,
-      mime_type: detected.mime,
-      size_bytes: file.buffer.length,
-      width,
-      height,
-    });
+    const { data: mediaRow, error: metaError } = await supabase
+      .from("media_uploads")
+      .insert({
+        account_id: req.accountId,
+        url: data.publicUrl,
+        storage_path: path,
+        mime_type: detected.mime,
+        size_bytes: file.buffer.length,
+        width,
+        height,
+        alt_text: altText,
+      })
+      .select("id, url, alt_text")
+      .single();
     if (metaError) {
       dbError(res, metaError, "POST /media/upload media_uploads.insert");
       return;
     }
 
-    res.status(201).json({ url: data.publicUrl });
+    // id included alongside the historical `url`-only shape so a caller can
+    // later PATCH /media/:id to add/edit alt text without a separate lookup.
+    res.status(201).json({ id: mediaRow.id, url: mediaRow.url, altText: mediaRow.alt_text });
+  });
+
+  // Edits a media item's alt text after upload (2026-08-16) — the one field
+  // on media_uploads a customer can revise later; everything else about an
+  // uploaded file is immutable (re-upload to change the file itself).
+  router.patch("/media/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const altTextInput = req.body?.altText;
+    if (altTextInput !== undefined && altTextInput !== null && typeof altTextInput !== "string") {
+      res.status(400).json({ error: "altText must be a string or null" });
+      return;
+    }
+    if (typeof altTextInput === "string" && altTextInput.length > MAX_ALT_TEXT_LENGTH) {
+      res.status(400).json({ error: `altText must be ${MAX_ALT_TEXT_LENGTH} characters or fewer` });
+      return;
+    }
+    const { data: updated, error } = await supabase
+      .from("media_uploads")
+      .update({ alt_text: altTextInput?.trim() || null })
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .select("id, url, alt_text")
+      .maybeSingle();
+    if (error) {
+      dbError(res, error, "PATCH /media/:id");
+      return;
+    }
+    if (!updated) {
+      res.status(404).json({ error: "Not found or not owned by this caller" });
+      return;
+    }
+    res.json({ id: updated.id, url: updated.url, altText: updated.alt_text });
   });
 
   // Storage gauge — used/quota bytes for the caller's account, same model
@@ -1358,7 +1417,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.get("/media", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data, error } = await supabase
       .from("media_uploads")
-      .select("id, url, mime_type, size_bytes, width, height, created_at")
+      .select("id, url, mime_type, size_bytes, width, height, alt_text, created_at")
       .eq("account_id", req.accountId)
       .order("created_at", { ascending: false });
     if (error) {
@@ -1424,11 +1483,33 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // run the exact same validation/limits per row instead of a parallel,
   // easily-drifting copy. Returns an HTTP-shaped result rather than
   // throwing, since a bulk caller needs to keep going past one bad row.
-  async function scheduleOnePost(
+  type PostFieldsError = { status: number; body: Record<string, unknown> };
+  type PostFieldsOk = {
+    account: { id: string; account_id: string; platform: string };
+    socialAccountId: string;
+    content: string;
+    mediaUrl: string | null;
+    coverImageUrl: string | null;
+    boardId: string | null;
+    firstComment: string | null;
+    mediaAltText: string | null;
+    scheduledFor: string;
+  };
+
+  /** Shared validation for "a real post about to become live-scheduled" —
+   *  used by scheduleOnePost's insert path AND (2026-08-16) the
+   *  draft-promotion path below, which needs the exact same checks (account
+   *  ownership, media-vs-platform compatibility, a real future-ish date)
+   *  before flipping a draft to 'pending'. Extracted rather than duplicated
+   *  when Drafts was added — this function used to be the entire body of
+   *  scheduleOnePost. Does NOT do the free-tier monthly-count check (see
+   *  checkFreeTierPostLimit below) since a draft promotion and a fresh post
+   *  both need it, but at slightly different points in their callers. */
+  async function validatePostFields(
     accountId: string | undefined,
-    input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; coverImageUrl?: unknown; boardId?: unknown; firstComment?: unknown; scheduledFor?: unknown; requiresApproval?: unknown },
-  ): Promise<{ status: number; body: Record<string, unknown> }> {
-    const { socialAccountId, content, mediaUrl, coverImageUrl, boardId, firstComment, scheduledFor, requiresApproval } = input;
+    input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; coverImageUrl?: unknown; boardId?: unknown; firstComment?: unknown; mediaAltText?: unknown; scheduledFor?: unknown },
+  ): Promise<PostFieldsError | PostFieldsOk> {
+    const { socialAccountId, content, mediaUrl, coverImageUrl, boardId, firstComment, mediaAltText, scheduledFor } = input;
     if (coverImageUrl !== undefined && coverImageUrl !== null && typeof coverImageUrl !== "string") {
       return { status: 400, body: { error: "coverImageUrl must be a string" } };
     }
@@ -1443,6 +1524,11 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // same generic-column pattern as boardId/coverImageUrl.
     if (firstComment !== undefined && firstComment !== null && typeof firstComment !== "string") {
       return { status: 400, body: { error: "firstComment must be a string" } };
+    }
+    // Only consumed by Mastodon today (see PostRequest.mediaAltText) — every
+    // other adapter simply ignores it, same generic-column pattern as above.
+    if (mediaAltText !== undefined && mediaAltText !== null && typeof mediaAltText !== "string") {
+      return { status: 400, body: { error: "mediaAltText must be a string" } };
     }
     if (!socialAccountId || !content || !scheduledFor) {
       return { status: 400, body: { error: "socialAccountId, content, and scheduledFor are required" } };
@@ -1516,37 +1602,67 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       }
     }
 
-    // Free tier: 10 posts per connected account per calendar month. Paid
-    // tiers (Pro/Business) in good standing (active or trialing) are
-    // unlimited; past_due/cancelled/no-subscription all fall back to the
-    // free limit — a lapsed payment shouldn't keep unlimited posting.
+    return {
+      account,
+      socialAccountId,
+      content,
+      mediaUrl: (mediaUrl as string | undefined) ?? null,
+      coverImageUrl: (coverImageUrl as string | undefined) ?? null,
+      boardId: (boardId as string | undefined) ?? null,
+      firstComment: (firstComment as string | undefined) ?? null,
+      mediaAltText: (mediaAltText as string | undefined) ?? null,
+      scheduledFor,
+    };
+  }
+
+  /** Free tier: 10 posts per connected account per calendar month. Paid
+   *  tiers (Pro/Business) in good standing (active or trialing) are
+   *  unlimited; past_due/cancelled/no-subscription all fall back to the free
+   *  limit — a lapsed payment shouldn't keep unlimited posting. Extracted
+   *  2026-08-16 alongside validatePostFields above, same reuse reason: a
+   *  promoted draft is a real new post for this count exactly like a fresh
+   *  one. Returns an error object, or null if there's room. */
+  async function checkFreeTierPostLimit(accountId: string | undefined, socialAccountId: string): Promise<PostFieldsError | null> {
     const { data: sub } = await supabase
       .from("subscriptions")
       .select("tier, status")
       .eq("account_id", accountId)
       .maybeSingle();
     const isPaidInGoodStanding = sub?.tier !== "free" && (sub?.status === "active" || sub?.status === "trialing");
-    if (!isPaidInGoodStanding) {
-      const now = new Date();
-      const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-      const { count, error: countError } = await supabase
-        .from("scheduled_posts")
-        .select("id", { count: "exact", head: true })
-        .eq("social_account_id", socialAccountId)
-        .gte("created_at", startOfMonth);
-      if (countError) {
-        console.error("[routes] scheduleOnePost free-tier count:", countError.message);
-        return { status: 500, body: { error: "Something went wrong on our end. Please try again." } };
-      }
-      if ((count ?? 0) >= FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT) {
-        return {
-          status: 403,
-          body: {
-            error: `Free tier limit reached: ${FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT} posts per connected account per month. Upgrade to Starter for unlimited posts, or wait until next month.`,
-          },
-        };
-      }
+    if (isPaidInGoodStanding) return null;
+
+    const now = new Date();
+    const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+    const { count, error: countError } = await supabase
+      .from("scheduled_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("social_account_id", socialAccountId)
+      .gte("created_at", startOfMonth);
+    if (countError) {
+      console.error("[routes] checkFreeTierPostLimit:", countError.message);
+      return { status: 500, body: { error: "Something went wrong on our end. Please try again." } };
     }
+    if ((count ?? 0) >= FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT) {
+      return {
+        status: 403,
+        body: {
+          error: `Free tier limit reached: ${FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT} posts per connected account per month. Upgrade to Starter for unlimited posts, or wait until next month.`,
+        },
+      };
+    }
+    return null;
+  }
+
+  async function scheduleOnePost(
+    accountId: string | undefined,
+    input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; coverImageUrl?: unknown; boardId?: unknown; firstComment?: unknown; scheduledFor?: unknown; requiresApproval?: unknown },
+  ): Promise<{ status: number; body: Record<string, unknown> }> {
+    const validated = await validatePostFields(accountId, input);
+    if ("status" in validated) return validated;
+    const { socialAccountId, content, mediaUrl, coverImageUrl, boardId, firstComment, mediaAltText, scheduledFor } = validated;
+
+    const limitError = await checkFreeTierPostLimit(accountId, socialAccountId);
+    if (limitError) return limitError;
 
     const { data, error } = await supabase
       .from("scheduled_posts")
@@ -1554,16 +1670,17 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         account_id: accountId,
         social_account_id: socialAccountId,
         content,
-        media_url: mediaUrl ?? null,
-        cover_image_url: coverImageUrl ?? null,
-        board_id: boardId ?? null,
-        first_comment: firstComment ?? null,
+        media_url: mediaUrl,
+        cover_image_url: coverImageUrl,
+        board_id: boardId,
+        first_comment: firstComment,
+        media_alt_text: mediaAltText,
         scheduled_for: scheduledFor,
         // A post created with requiresApproval sits in needs_approval —
         // invisible to the scheduler (claimDuePosts only ever selects
         // status='pending') — until explicitly approved via
         // PATCH /scheduled-posts/:id/approve.
-        status: requiresApproval === true ? "needs_approval" : "pending",
+        status: input.requiresApproval === true ? "needs_approval" : "pending",
       })
       .select()
       .single();
@@ -1608,6 +1725,184 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.status(200).json({ succeeded, failed: results.length - succeeded, results });
   });
 
+  // Drafts (2026-08-16) — a scheduled_posts row with no committed account or
+  // time yet (both nullable as of migration 0049), invisible to the
+  // scheduler (claimDuePosts only ever selects status='pending'). Content is
+  // the only required field; media/cover/board/first-comment are all
+  // optional, same fields a real post accepts, just none of the
+  // account/timing validation validatePostFields does — there's nothing to
+  // validate against yet.
+  router.post("/scheduled-posts/draft", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { content, mediaUrl, coverImageUrl, boardId, firstComment, mediaAltText } = req.body ?? {};
+    if (typeof content !== "string" || content.trim().length === 0) {
+      res.status(400).json({ error: "content must be a non-empty string" });
+      return;
+    }
+    if (content.length > MAX_POST_CONTENT_LENGTH) {
+      res.status(400).json({ error: `content must be ${MAX_POST_CONTENT_LENGTH} characters or fewer` });
+      return;
+    }
+    for (const [name, value] of [["coverImageUrl", coverImageUrl], ["boardId", boardId], ["firstComment", firstComment], ["mediaAltText", mediaAltText]] as const) {
+      if (value !== undefined && value !== null && typeof value !== "string") {
+        res.status(400).json({ error: `${name} must be a string` });
+        return;
+      }
+    }
+    const { data, error } = await supabase
+      .from("scheduled_posts")
+      .insert({
+        account_id: req.accountId,
+        social_account_id: null,
+        content,
+        media_url: mediaUrl ?? null,
+        cover_image_url: coverImageUrl ?? null,
+        board_id: boardId ?? null,
+        first_comment: firstComment ?? null,
+        media_alt_text: mediaAltText ?? null,
+        scheduled_for: null,
+        status: "draft",
+      })
+      .select()
+      .single();
+    if (error) {
+      dbError(res, error, "POST /scheduled-posts/draft");
+      return;
+    }
+    res.status(201).json(data);
+  });
+
+  // Edits a draft in place — only while it's still a draft (status check
+  // below). Editing a live pending post's content isn't supported anywhere
+  // in this app today (the existing pattern for that is delete + recreate);
+  // this route deliberately doesn't change that, it only ever touches rows
+  // that are still status='draft'.
+  router.patch("/scheduled-posts/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: existing, error: fetchError } = await supabase
+      .from("scheduled_posts")
+      .select("id, status")
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .maybeSingle();
+    if (fetchError) {
+      dbError(res, fetchError, "PATCH /scheduled-posts/:id lookup");
+      return;
+    }
+    if (!existing) {
+      res.status(404).json({ error: "Not found or not owned by this caller" });
+      return;
+    }
+    if (existing.status !== "draft") {
+      res.status(409).json({ error: "Only drafts can be edited this way — use /schedule to turn a draft into a real scheduled post." });
+      return;
+    }
+
+    const { content, mediaUrl, coverImageUrl, boardId, firstComment, mediaAltText } = req.body ?? {};
+    const update: Record<string, unknown> = {};
+    if (content !== undefined) {
+      if (typeof content !== "string" || content.trim().length === 0) {
+        res.status(400).json({ error: "content must be a non-empty string" });
+        return;
+      }
+      if (content.length > MAX_POST_CONTENT_LENGTH) {
+        res.status(400).json({ error: `content must be ${MAX_POST_CONTENT_LENGTH} characters or fewer` });
+        return;
+      }
+      update.content = content;
+    }
+    for (const [key, name, value] of [
+      ["media_url", "mediaUrl", mediaUrl],
+      ["cover_image_url", "coverImageUrl", coverImageUrl],
+      ["board_id", "boardId", boardId],
+      ["first_comment", "firstComment", firstComment],
+      ["media_alt_text", "mediaAltText", mediaAltText],
+    ] as const) {
+      if (value !== undefined) {
+        if (value !== null && typeof value !== "string") {
+          res.status(400).json({ error: `${name} must be a string` });
+          return;
+        }
+        update[key] = value;
+      }
+    }
+
+    const { data, error } = await supabase
+      .from("scheduled_posts")
+      .update(update)
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .select()
+      .single();
+    if (error) {
+      dbError(res, error, "PATCH /scheduled-posts/:id");
+      return;
+    }
+    res.json(data);
+  });
+
+  // Promotes a draft into a real scheduled post — the same
+  // socialAccountId/scheduledFor (and the same validation) a fresh
+  // POST /scheduled-posts would need, applied to the existing draft row via
+  // UPDATE instead of a new INSERT. Reuses validatePostFields and
+  // checkFreeTierPostLimit so a promoted draft counts against the free-tier
+  // monthly cap exactly like a brand-new post — it's the same real post,
+  // just created a bit earlier.
+  router.patch("/scheduled-posts/:id/schedule", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: existing, error: fetchError } = await supabase
+      .from("scheduled_posts")
+      .select("id, status")
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .maybeSingle();
+    if (fetchError) {
+      dbError(res, fetchError, "PATCH /scheduled-posts/:id/schedule lookup");
+      return;
+    }
+    if (!existing) {
+      res.status(404).json({ error: "Not found or not owned by this caller" });
+      return;
+    }
+    if (existing.status !== "draft") {
+      res.status(409).json({ error: "This post has already been scheduled." });
+      return;
+    }
+
+    const validated = await validatePostFields(req.accountId, req.body ?? {});
+    if ("status" in validated) {
+      res.status(validated.status).json(validated.body);
+      return;
+    }
+    const { socialAccountId, content, mediaUrl, coverImageUrl, boardId, firstComment, mediaAltText, scheduledFor } = validated;
+
+    const limitError = await checkFreeTierPostLimit(req.accountId, socialAccountId);
+    if (limitError) {
+      res.status(limitError.status).json(limitError.body);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("scheduled_posts")
+      .update({
+        social_account_id: socialAccountId,
+        content,
+        media_url: mediaUrl,
+        cover_image_url: coverImageUrl,
+        board_id: boardId,
+        first_comment: firstComment,
+        media_alt_text: mediaAltText,
+        scheduled_for: scheduledFor,
+        status: req.body?.requiresApproval === true ? "needs_approval" : "pending",
+      })
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .select()
+      .single();
+    if (error) {
+      dbError(res, error, "PATCH /scheduled-posts/:id/schedule");
+      return;
+    }
+    res.json(data);
+  });
+
   const HISTORY_STATUSES = ["posted", "failed"];
   const SCHEDULED_POSTS_HISTORY_DEFAULT_LIMIT = 50;
   const SCHEDULED_POSTS_HISTORY_MAX_LIMIT = 100;
@@ -1617,18 +1912,22 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // an already-fully-loaded array for "Load more" — a customer posting a
   // handful of times a day accumulates hundreds of rows within weeks, and
   // every page load kept getting slower forever. "Upcoming" posts
-  // (pending/posting/needs_approval) are naturally small — they only
-  // exist until they fire — so those are always returned in full. History
+  // (pending/posting/needs_approval, and — 2026-08-16 — draft) are
+  // naturally small — they only exist until they fire (or, for a draft,
+  // until scheduled/deleted) — so those are always returned in full. History
   // (posted/failed) is capped here to the most recent
   // SCHEDULED_POSTS_HISTORY_DEFAULT_LIMIT; anything older is fetched a
-  // page at a time via GET /scheduled-posts/history.
+  // page at a time via GET /scheduled-posts/history. Drafts have
+  // scheduled_for = null, which Postgres sorts last in ascending order —
+  // they naturally land at the end of the upcoming list, after every real
+  // scheduled post.
   router.get("/scheduled-posts", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const [{ data: upcoming, error: upcomingError }, { data: history, error: historyError }] = await Promise.all([
       supabase
         .from("scheduled_posts")
         .select("*, post_results(*)")
         .eq("account_id", req.accountId)
-        .in("status", ["pending", "posting", "needs_approval"])
+        .in("status", ["pending", "posting", "needs_approval", "draft"])
         .order("scheduled_for", { ascending: true })
         // Now that every retry attempt (not just verification failures) can
         // leave its own post_results row, the frontend's `post_results?.[0]`
@@ -2971,6 +3270,96 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // tier subscription. See billing/sync.ts's cancelStorageAddon.
   router.post("/storage-addons/:id/cancel", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const result = await cancelStorageAddon(req.accountId!, String(req.params.id), morAdapter);
+    if (!result.success) {
+      res.status(502).json({ error: result.errorMessage ?? "Cancellation failed at the payment provider" });
+      return;
+    }
+    res.json({ cancelled: true });
+  });
+
+  // Brand add-ons (Phase 1b, 2026-08-16) — same three-route shape as storage
+  // add-ons above (list / checkout / cancel), but the list response also
+  // carries the account's real effective brand capacity (base tier limit +
+  // active add-on slots) so the frontend can show "N/cap" honestly without a
+  // second round trip.
+  router.get("/brand-addons", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const [{ data, error }, capacity] = await Promise.all([
+      supabase
+        .from("brand_addons")
+        .select("id, status, current_period_end, cancel_at_period_end")
+        .eq("account_id", req.accountId)
+        .in("status", ["active", "trialing"])
+        .order("created_at", { ascending: true }),
+      getBrandCapacity(req.accountId!),
+    ]);
+    if (error) {
+      dbError(res, error, "GET /brand-addons");
+      return;
+    }
+    res.json({ addons: data, baseLimit: capacity.baseLimit, addonSlots: capacity.addonSlots, totalLimit: capacity.totalLimit });
+  });
+
+  // Starts a real Paddle checkout transaction for one brand add-on (+1 brand
+  // slot). Same free-tier exclusion and pattern as /storage-addons/checkout —
+  // a customer already on a paid tier who wants MORE brands than their
+  // tier's base allowance.
+  router.post("/brand-addons/checkout", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const tier = await resolveTier(req.accountId!);
+    if (tier === "free") {
+      res.status(403).json({ error: "Brand add-ons aren't available on the Free tier — upgrade to a paid plan first." });
+      return;
+    }
+
+    const { count: activeAddonCount, error: countError } = await supabase
+      .from("brand_addons")
+      .select("id", { count: "exact", head: true })
+      .eq("account_id", req.accountId)
+      .in("status", ["active", "trialing"]);
+    if (countError) {
+      dbError(res, countError, "POST /brand-addons/checkout active-count");
+      return;
+    }
+    if ((activeAddonCount ?? 0) >= MAX_ACTIVE_BRAND_ADDONS) {
+      res.status(403).json({
+        error: `You already have ${MAX_ACTIVE_BRAND_ADDONS} brand add-ons — cancel one before adding another, or talk to us about an Agency plan.`,
+      });
+      return;
+    }
+
+    const apiKey = process.env.MOR_API_KEY;
+    const priceId = process.env[BRAND_ADDON_PRICE_ID_ENV_VAR];
+    if (!apiKey || !priceId) {
+      res.status(503).json({ error: "Billing isn't live yet — no Paddle price configured for this add-on." });
+      return;
+    }
+
+    const { data: account, error: accountError } = await supabase
+      .from("accounts")
+      .select("email")
+      .eq("id", req.accountId)
+      .single();
+    if (accountError || !account) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+
+    const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
+    try {
+      const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
+        kind: "brand_addon",
+        accountEmail: account.email,
+        priceId,
+      });
+      res.json({ transactionId, checkoutUrl });
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // Cancels a single brand add-on — does not touch the account's main tier
+  // subscription. See billing/sync.ts's cancelBrandAddon.
+  router.post("/brand-addons/:id/cancel", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const result = await cancelBrandAddon(req.accountId!, String(req.params.id), morAdapter);
     if (!result.success) {
       res.status(502).json({ error: result.errorMessage ?? "Cancellation failed at the payment provider" });
       return;

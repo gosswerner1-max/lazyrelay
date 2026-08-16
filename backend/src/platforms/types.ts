@@ -19,6 +19,11 @@ export interface PostRequest {
   // an auto-created default) — every existing caller (test scripts, older
   // scheduled_posts rows) that doesn't set this keeps working unchanged.
   boardId?: string | null;
+  // Accessibility description of the attached media (2026-08-16). Only
+  // consumed by adapters whose platform API supports it on media upload —
+  // currently Mastodon. Every other adapter simply ignores it, same
+  // accepted-but-unused pattern as coverImageUrl/boardId above.
+  mediaAltText?: string | null;
   accessToken: string;
 }
 

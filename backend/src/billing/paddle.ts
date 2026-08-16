@@ -9,6 +9,10 @@ import type {
   CancelResult,
 } from "./types.js";
 
+// 2026-08-16: extended again for brand add-ons (Phase 1b, see brand_addons
+// migration 0048) — same customData.kind-branching pattern as storage
+// add-ons below, just with no size field (a brand add-on is always +1).
+
 // Real Paddle Billing adapter — see BILLING_KNOWLEDGE.md for why Paddle was
 // chosen over Stripe Managed Payments (Stripe doesn't support South Africa
 // as an account home country without a foreign entity) and over PayPal (no
@@ -86,6 +90,10 @@ function buildEventFromCustomData(sub: SubscriptionLike, status: SubscriptionEve
       throw new Error(`Subscription ${sub.id} has invalid/missing customData.gbAmount "${String(gbAmount)}"`);
     }
     return { kind: "storage_addon", morSubscriptionId: sub.id, accountEmail, gbAmount, status, currentPeriodEnd };
+  }
+
+  if (customData.kind === "brand_addon") {
+    return { kind: "brand_addon", morSubscriptionId: sub.id, accountEmail, status, currentPeriodEnd };
   }
 
   const tier = customData.tier;
@@ -274,7 +282,8 @@ async function getOrCreateCustomerId(paddle: Paddle, email: string): Promise<str
 
 type CheckoutParams =
   | { kind: "tier"; accountEmail: string; tier: "pro" | "business" | "enterprise"; priceId: string }
-  | { kind: "storage_addon"; accountEmail: string; gbAmount: number; priceId: string };
+  | { kind: "storage_addon"; accountEmail: string; gbAmount: number; priceId: string }
+  | { kind: "brand_addon"; accountEmail: string; priceId: string };
 
 /** Creates a Paddle transaction to check out. Returns the transactionId,
  * which the frontend passes to Paddle.js's `Paddle.Checkout.open({
@@ -299,7 +308,9 @@ export async function buildCheckoutTransaction(
   const customData =
     params.kind === "storage_addon"
       ? { accountEmail: params.accountEmail, kind: "storage_addon", gbAmount: params.gbAmount }
-      : { accountEmail: params.accountEmail, kind: "tier", tier: params.tier };
+      : params.kind === "brand_addon"
+        ? { accountEmail: params.accountEmail, kind: "brand_addon" }
+        : { accountEmail: params.accountEmail, kind: "tier", tier: params.tier };
   const transaction = await paddle.transactions.create({
     items: [{ priceId: params.priceId, quantity: 1 }],
     customerId,

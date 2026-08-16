@@ -4,6 +4,7 @@ import type { Tier } from "../tier.js";
 import type {
   SubscriptionEvent,
   StorageAddonEvent,
+  BrandAddonEvent,
   MerchantOfRecordAdapter,
   CancelResult,
   SaleRecordEvent,
@@ -61,7 +62,7 @@ async function unpausePausedAccountsUpToLimit(accountId: string, tier: Tier): Pr
  *  exactly the "silent trial-to-paid conversion" pattern in Blotato's
  *  billing complaints). Branches to the storage-addons sync path for
  *  add-on subscriptions (2026-07-23) — see BillingEvent's `kind` field. */
-export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | StorageAddonEvent): Promise<void> {
+export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | StorageAddonEvent | BrandAddonEvent): Promise<void> {
   const { data: account, error: accountError } = await supabase
     .from("accounts")
     .select("id")
@@ -87,6 +88,24 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
         // waiting for period end" flag — clears it whether this event is a
         // fresh resubscribe or the real end-of-period cancellation finally
         // landing (see cancel_at_period_end migration 0043).
+        cancel_at_period_end: false,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "mor_subscription_id" },
+    );
+    if (error) throw error;
+    return;
+  }
+
+  if (event.kind === "brand_addon") {
+    // Same upsert-on-mor_subscription_id reasoning as storage_addons above —
+    // a customer can stack several active brand add-ons at once.
+    const { error } = await supabase.from("brand_addons").upsert(
+      {
+        account_id: account.id,
+        mor_subscription_id: event.morSubscriptionId,
+        status: event.status,
+        current_period_end: event.currentPeriodEnd,
         cancel_at_period_end: false,
         updated_at: new Date().toISOString(),
       },
@@ -305,6 +324,23 @@ export async function cancelSubscription(
     }
   }
 
+  // Brand add-ons (Phase 1b, 2026-08-16) get the same treatment as storage
+  // add-ons above, same reasoning: a Free-tier account silently still paying
+  // for extra brand slots is a confusing state nobody asked for.
+  const { data: brandAddons } = await supabase
+    .from("brand_addons")
+    .select("id, mor_subscription_id")
+    .eq("account_id", accountId)
+    .in("status", ["active", "trialing"]);
+  for (const addon of brandAddons ?? []) {
+    const addonResult = await adapter.cancelSubscription(addon.mor_subscription_id);
+    if (addonResult.success) {
+      await supabase.from("brand_addons").update({ cancel_at_period_end: true }).eq("id", addon.id);
+    } else {
+      console.error(`Failed to cancel brand add-on ${addon.id} alongside main plan:`, addonResult.errorMessage);
+    }
+  }
+
   return result;
 }
 
@@ -331,5 +367,32 @@ export async function cancelStorageAddon(
   if (!result.success) return result;
 
   await supabase.from("storage_addons").update({ cancel_at_period_end: true }).eq("id", addon.id);
+  return result;
+}
+
+/** Cancels a single brand add-on — same isolation/deferred-cancel discipline
+ *  as cancelStorageAddon above. Does not free up the brand it may have been
+ *  covering; a customer over their base cap who cancels an add-on will see
+ *  the standard "reached your plan's limit" error on their next brand-create
+ *  once the cancellation actually takes effect (checkBrandLimit counts only
+ *  active/trialing add-ons, see brandLimits.ts). */
+export async function cancelBrandAddon(
+  accountId: string,
+  addonId: string,
+  adapter: MerchantOfRecordAdapter,
+): Promise<CancelResult> {
+  const { data: addon, error } = await supabase
+    .from("brand_addons")
+    .select("id, account_id, mor_subscription_id")
+    .eq("id", addonId)
+    .single();
+  if (error || !addon || addon.account_id !== accountId) {
+    return { success: false, errorMessage: "Brand add-on not found or not owned by this caller." };
+  }
+
+  const result = await adapter.cancelSubscription(addon.mor_subscription_id);
+  if (!result.success) return result;
+
+  await supabase.from("brand_addons").update({ cancel_at_period_end: true }).eq("id", addon.id);
   return result;
 }

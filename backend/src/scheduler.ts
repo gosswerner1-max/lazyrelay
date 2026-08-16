@@ -78,6 +78,7 @@ interface DuePost {
   cover_image_url: string | null;
   board_id: string | null;
   first_comment: string | null;
+  media_alt_text: string | null;
   retry_count: number;
   platform: string;
 }
@@ -114,7 +115,7 @@ async function claimDuePosts(): Promise<DuePost[]> {
     .update({ status: "posting" })
     .in("id", ids)
     .eq("status", "pending")
-    .select("id, account_id, social_account_id, content, media_url, cover_image_url, board_id, first_comment, retry_count, social_accounts(platform)");
+    .select("id, account_id, social_account_id, content, media_url, cover_image_url, board_id, first_comment, media_alt_text, retry_count, social_accounts(platform)");
 
   if (claimError) throw claimError;
   if (!claimed || claimed.length === 0) return [];
@@ -318,6 +319,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
       mediaUrl: post.media_url,
       coverImageUrl: post.cover_image_url,
       boardId: post.board_id,
+      mediaAltText: post.media_alt_text,
       accessToken,
     });
 

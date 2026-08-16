@@ -175,7 +175,12 @@ export class MastodonAdapter implements PlatformAdapter {
     };
   }
 
-  private async uploadMedia(mediaUrl: string, accessToken: string): Promise<string | null> {
+  // altText (2026-08-16): Mastodon's media-upload endpoint accepts an
+  // optional "description" field for exactly this — the value it returns
+  // via the API/renders to users as the image's alt text. Omitted entirely
+  // when null, same as not passing it at all — no behavior change for
+  // uploads that don't have one.
+  private async uploadMedia(mediaUrl: string, accessToken: string, altText: string | null): Promise<string | null> {
     const mediaRes = await fetch(mediaUrl);
     if (!mediaRes.ok || !mediaRes.body) return null;
     const buffer = Buffer.from(await mediaRes.arrayBuffer());
@@ -183,6 +188,7 @@ export class MastodonAdapter implements PlatformAdapter {
 
     const form = new FormData();
     form.append("file", new Blob([buffer], { type: contentType }), "media");
+    if (altText) form.append("description", altText);
 
     const res = await fetch(`${DEFAULT_INSTANCE}/api/v2/media`, {
       method: "POST",
@@ -197,7 +203,7 @@ export class MastodonAdapter implements PlatformAdapter {
   async post(request: PostRequest): Promise<PostAttemptResult> {
     let mediaIds: string[] | undefined;
     if (request.mediaUrl) {
-      const mediaId = await this.uploadMedia(request.mediaUrl, request.accessToken);
+      const mediaId = await this.uploadMedia(request.mediaUrl, request.accessToken, request.mediaAltText ?? null);
       if (!mediaId) {
         return { success: false, platformPostId: null, errorMessage: `Could not upload media from ${request.mediaUrl}` };
       }

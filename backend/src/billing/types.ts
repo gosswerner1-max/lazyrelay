@@ -79,7 +79,18 @@ export interface RefundRecordEvent {
   occurredAt: string; // ISO timestamp — Paddle's createdAt
 }
 
-export type BillingEvent = SubscriptionEvent | StorageAddonEvent | SaleRecordEvent | RefundRecordEvent;
+/** A brand add-on (Phase 1b, 2026-08-16) — same "own Paddle subscription"
+ *  reasoning as StorageAddonEvent above, but flat: each add-on is exactly
+ *  +1 brand slot, no size field. See brand_addons migration 0048. */
+export interface BrandAddonEvent {
+  kind: "brand_addon";
+  morSubscriptionId: string;
+  accountEmail: string;
+  status: "trialing" | "active" | "past_due" | "cancelled";
+  currentPeriodEnd: string; // ISO timestamp
+}
+
+export type BillingEvent = SubscriptionEvent | StorageAddonEvent | BrandAddonEvent | SaleRecordEvent | RefundRecordEvent;
 
 /** Thrown by parseWebhookEvent specifically when the signature itself is
  *  invalid — distinct from any other error parseWebhookEvent can throw

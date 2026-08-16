@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
-import { api, type SocialAccount, type Brand, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation, type Triage } from "../lib/api";
+import { api, type SocialAccount, type Brand, type BrandCapacity, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation, type Triage } from "../lib/api";
 import { API_BASE_URL, API_ENDPOINTS, MCP_CONFIG_EXAMPLE } from "../lib/apiDocsContent";
 import { CodeBlock } from "../components/CodeBlock";
 import { RelaySignal } from "../components/RelaySignal";
@@ -214,6 +214,11 @@ export function Dashboard() {
   const [newBrandName, setNewBrandName] = useState("");
   const [brandBusy, setBrandBusy] = useState(false);
   const [assigningAccountId, setAssigningAccountId] = useState<string | null>(null);
+  // Phase 1b (2026-08-16) — real effective brand capacity (base tier limit +
+  // purchased add-on slots) and the add-ons themselves, from GET /brand-addons.
+  const [brandCapacity, setBrandCapacity] = useState<BrandCapacity | null>(null);
+  const [brandAddonBusy, setBrandAddonBusy] = useState<"checkout" | string | null>(null);
+  const pendingBrandAddonRef = useRef(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const [billingBusy, setBillingBusy] = useState<"pro" | "business" | "enterprise" | "cancel" | null>(null);
@@ -224,6 +229,26 @@ export function Dashboard() {
   const [content, setContent] = useState("");
   const [aiTopic, setAiTopic] = useState("");
   const [requiresApproval, setRequiresApproval] = useState(false);
+  // Drafts (2026-08-16) — set while the compose form is editing an existing
+  // draft rather than starting a fresh post; submitPost/handleSaveDraft both
+  // branch on it. Cleared on save/schedule/cancel-edit.
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [draftBusy, setDraftBusy] = useState(false);
+  // Alt text (2026-08-16) — accessibility description for the attached
+  // media; only reaches the platform on adapters that support it
+  // (Mastodon today), harmless to set regardless.
+  const [mediaAltText, setMediaAltText] = useState<string | null>(null);
+  // Per-file alt-text edits in the media library (Storage tab) — same
+  // draft-until-Save pattern the brand-label input used before it became a
+  // real picker; a file's own alt text is edited independently of whatever
+  // was typed for it at compose time.
+  const [mediaAltTextDrafts, setMediaAltTextDrafts] = useState<Record<string, string>>({});
+  // Per-platform tailoring (2026-08-16) — when posting to several accounts
+  // at once, an entry here overrides the shared `content` for that specific
+  // account. An account with no entry uses the shared content, same as
+  // before this feature existed — nothing changes for the common
+  // one-caption-fits-all case.
+  const [perAccountContent, setPerAccountContent] = useState<Record<string, string>>({});
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [hashtagGenerating, setHashtagGenerating] = useState(false);
@@ -315,7 +340,7 @@ export function Dashboard() {
   async function refresh() {
     setError(null);
     try {
-      const [accs, pts, sub, usage, media, addons, plats, acct, keys, recurring, brandList] = await Promise.all([
+      const [accs, pts, sub, usage, media, addons, plats, acct, keys, recurring, brandList, brandCap] = await Promise.all([
         api.listSocialAccounts(),
         api.listScheduledPosts(),
         api.getSubscription(),
@@ -327,9 +352,11 @@ export function Dashboard() {
         api.listApiKeys(),
         api.listRecurringSchedules(),
         api.getBrands(),
+        api.getBrandAddons(),
       ]);
       setAccounts(accs);
       setBrands(brandList);
+      setBrandCapacity(brandCap);
       setPosts(pts);
       // A fresh refresh() replaces `posts` with just the first History
       // page again (see GET /scheduled-posts), discarding any additional
@@ -568,6 +595,8 @@ export function Dashboard() {
             pollUntilUpgraded();
           } else if (pendingStorageAddonRef.current) {
             pollUntilAddonAdded();
+          } else if (pendingBrandAddonRef.current) {
+            pollUntilBrandAddonAdded();
           }
         }
       },
@@ -652,6 +681,29 @@ export function Dashboard() {
     }
   }
 
+  /** Same shape as pollUntilAddonAdded(), for brand add-ons. Matches on total
+   *  add-on count increasing rather than a specific size (every brand add-on
+   *  is identical — just +1 slot), unlike the gb_amount match above. */
+  async function pollUntilBrandAddonAdded() {
+    const countBefore = brandCapacity?.addonSlots ?? 0;
+    try {
+      for (let attempt = 0; attempt < 10; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const cap = await api.getBrandAddons();
+        if (cap.addonSlots > countBefore) {
+          setBrandCapacity(cap);
+          return;
+        }
+      }
+      // Timed out waiting on the webhook — refresh once more anyway so the
+      // capacity shown is whatever the real current state is, not stale.
+      setBrandCapacity(await api.getBrandAddons());
+    } finally {
+      setBrandAddonBusy(null);
+      pendingBrandAddonRef.current = false;
+    }
+  }
+
   async function handleConnect(platform: string) {
     setConnectingPlatform(platform);
     setError(null);
@@ -728,6 +780,15 @@ export function Dashboard() {
 
   function toggleSelectedAccount(id: string) {
     setSelectedAccountIds((prev) => (prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]));
+    // Deselecting an account drops any per-platform override for it too —
+    // otherwise a stale override could silently resurface if the same
+    // account gets reselected later in the same compose session.
+    setPerAccountContent((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }
 
   function toggleRsAccount(id: string) {
@@ -894,13 +955,20 @@ export function Dashboard() {
     setSubmitting(true);
     setError(null);
     try {
-      // One scheduled_posts row per selected account — same content/media/time
-      // fanned out to every platform the customer checked, via the existing
-      // single-post endpoint rather than a new batch one.
-      for (const socialAccountId of selectedAccountIds) {
-        await api.createScheduledPost({
+      // One scheduled_posts row per selected account — same media/time fanned
+      // out to every platform the customer checked, via the existing
+      // single-post endpoint rather than a new batch one. Content is the
+      // shared caption UNLESS this account has a per-platform override
+      // (2026-08-16, see perAccountContent). If a draft is being edited
+      // (2026-08-16), its row is PROMOTED in place for the first selected
+      // account (via PATCH .../schedule) rather than left orphaned while a
+      // brand-new row is created — any additional selected accounts still
+      // get their own fresh rows, same as the normal multi-account flow.
+      for (let i = 0; i < selectedAccountIds.length; i++) {
+        const socialAccountId = selectedAccountIds[i];
+        const fields = {
           socialAccountId,
-          content,
+          content: perAccountContent[socialAccountId] ?? content,
           mediaUrl: mediaUrl ?? undefined,
           coverImageUrl: coverImageUrl ?? undefined,
           // Only meaningful when this account is on Pinterest — every other
@@ -911,9 +979,17 @@ export function Dashboard() {
           // Only consumed server-side for Facebook/Instagram today — harmless
           // no-op for every other platform, same pattern as boardId above.
           firstComment: firstComment?.trim() ? firstComment.trim() : undefined,
+          // Only consumed by Mastodon today (see PostRequest.mediaAltText) —
+          // every other adapter simply ignores it, same pattern as above.
+          mediaAltText: mediaAltText?.trim() ? mediaAltText.trim() : undefined,
           scheduledFor: scheduledForIso,
           requiresApproval: requiresApprovalOverride,
-        });
+        };
+        if (i === 0 && editingDraftId) {
+          await api.scheduleDraft(editingDraftId, fields);
+        } else {
+          await api.createScheduledPost(fields);
+        }
       }
       setContent("");
       setScheduleDate("");
@@ -921,13 +997,79 @@ export function Dashboard() {
       setMediaUrl(null);
       setCoverImageUrl(null);
       setFirstComment(null);
+      setMediaAltText(null);
+      setPerAccountContent({});
       setRequiresApproval(false);
+      setEditingDraftId(null);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  /** Saves whatever's currently in the compose form as a draft — no account
+   *  or time required, unlike a real scheduled post. Updates the existing
+   *  draft row in place if one's being edited (editingDraftId set),
+   *  otherwise creates a new one. Deliberately does NOT touch
+   *  selectedAccountIds/scheduleDate/scheduleTime — those aren't draft
+   *  fields, and clearing them would lose a customer's in-progress account
+   *  picks for no reason. */
+  async function handleSaveDraft() {
+    if (!content.trim()) {
+      setError("Write something before saving it as a draft.");
+      return;
+    }
+    setDraftBusy(true);
+    setError(null);
+    try {
+      const fields = {
+        content,
+        mediaUrl: mediaUrl ?? undefined,
+        coverImageUrl: coverImageUrl ?? undefined,
+        firstComment: firstComment?.trim() ? firstComment.trim() : undefined,
+        mediaAltText: mediaAltText?.trim() ? mediaAltText.trim() : undefined,
+      };
+      if (editingDraftId) {
+        await api.updateDraft(editingDraftId, fields);
+      } else {
+        await api.saveDraft(fields);
+      }
+      setContent("");
+      setMediaUrl(null);
+      setCoverImageUrl(null);
+      setFirstComment(null);
+      setMediaAltText(null);
+      setEditingDraftId(null);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDraftBusy(false);
+    }
+  }
+
+  /** Loads a draft back into the compose form for editing. Account/time are
+   *  deliberately left for the customer to fill in fresh — a draft by
+   *  definition never had them. */
+  function handleEditDraft(p: ScheduledPost) {
+    setContent(p.content);
+    setMediaUrl(p.media_url);
+    setCoverImageUrl(p.cover_image_url);
+    setFirstComment(p.first_comment);
+    setMediaAltText(p.media_alt_text);
+    setEditingDraftId(p.id);
+    setError(null);
+  }
+
+  function handleCancelEditDraft() {
+    setContent("");
+    setMediaUrl(null);
+    setCoverImageUrl(null);
+    setFirstComment(null);
+    setMediaAltText(null);
+    setEditingDraftId(null);
   }
 
   async function handleSchedule(e: FormEvent) {
@@ -954,6 +1096,7 @@ export function Dashboard() {
     try {
       const { url } = await api.uploadMedia(file, setMediaUploadProgress);
       setMediaUrl(url);
+      setMediaAltText(null); // fresh file, no description yet
       // Usage/quota just changed — refresh the gauge and file list so
       // they're never stale relative to what was just uploaded.
       const [usage, media] = await Promise.all([api.getStorageUsage(), api.listMedia()]);
@@ -994,6 +1137,24 @@ export function Dashboard() {
       const [usage, media] = await Promise.all([api.getStorageUsage(), api.listMedia()]);
       setStorageUsage(usage);
       setMediaFiles(media);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setMediaBusyId(null);
+    }
+  }
+
+  async function handleSaveMediaAltText(id: string, altText: string) {
+    setMediaBusyId(id);
+    setError(null);
+    try {
+      await api.updateMediaAltText(id, altText.trim() || null);
+      setMediaFiles(await api.listMedia());
+      setMediaAltTextDrafts((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -1222,6 +1383,47 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setAddonBusy(null);
+    }
+  }
+
+  async function handleBuyBrandAddon() {
+    setBrandAddonBusy("checkout");
+    setError(null);
+    try {
+      const { transactionId, checkoutUrl } = await api.startBrandAddonCheckout();
+      if (paddle && transactionId) {
+        // Same real-checkout.completed-event pattern as handleBuyStorageAddon
+        // — polling starts from the eventCallback, not here, so it doesn't
+        // race the customer actually entering a card.
+        pendingBrandAddonRef.current = true;
+        paddle.Checkout.open({ transactionId });
+        return;
+      }
+      if (!checkoutUrl) {
+        setError("Checkout couldn't start. No checkout URL was returned.");
+        setBrandAddonBusy(null);
+        return;
+      }
+      window.location.href = checkoutUrl;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setBrandAddonBusy(null);
+    }
+  }
+
+  async function handleCancelBrandAddon(id: string) {
+    if (!window.confirm("Cancel this brand add-on? You'll lose the extra brand slot at the end of the billing period.")) {
+      return;
+    }
+    setBrandAddonBusy(id);
+    setError(null);
+    try {
+      await api.cancelBrandAddon(id);
+      setBrandCapacity(await api.getBrandAddons());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBrandAddonBusy(null);
     }
   }
 
@@ -2104,45 +2306,90 @@ export function Dashboard() {
           </ul>
         )}
         <div className="brands-manager">
-          <p className="brands-manager-header">
-            Brands ({brands.length}/{brandCapFor(subscription?.tier)})
-          </p>
-          {brands.length > 0 && (
-            <ul className="brands-list">
-              {brands.map((b) => (
-                <li key={b.id}>
-                  {b.name}
+          {(() => {
+            // Real effective cap once loaded (base tier limit + purchased
+            // add-on slots); falls back to the static tier mirror only for
+            // the brief window before GET /brand-addons has returned.
+            const totalLimit = brandCapacity?.totalLimit ?? brandCapFor(subscription?.tier);
+            const atCap = brands.length >= totalLimit;
+            const canBuyAddon = subscription?.tier && subscription.tier !== "free";
+            return (
+              <>
+                <p className="brands-manager-header">
+                  Brands ({brands.length}/{totalLimit})
+                  {!!brandCapacity?.addonSlots && ` — includes ${brandCapacity.addonSlots} purchased add-on${brandCapacity.addonSlots === 1 ? "" : "s"}`}
+                </p>
+                {brands.length > 0 && (
+                  <ul className="brands-list">
+                    {brands.map((b) => (
+                      <li key={b.id}>
+                        {b.name}
+                        <button
+                          type="button"
+                          className="btn-outline"
+                          disabled={brandBusy}
+                          onClick={() => handleDeleteBrand(b.id)}
+                        >
+                          Delete
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="brands-new">
+                  <input
+                    type="text"
+                    className="brand-label-input"
+                    placeholder="New brand name"
+                    value={newBrandName}
+                    maxLength={60}
+                    disabled={brandBusy || atCap}
+                    onChange={(e) => setNewBrandName(e.target.value)}
+                  />
                   <button
                     type="button"
                     className="btn-outline"
-                    disabled={brandBusy}
-                    onClick={() => handleDeleteBrand(b.id)}
+                    disabled={brandBusy || !newBrandName.trim() || atCap}
+                    onClick={handleCreateBrand}
                   >
-                    Delete
+                    {brandBusy ? "Saving..." : "Add brand"}
                   </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="brands-new">
-            <input
-              type="text"
-              className="brand-label-input"
-              placeholder="New brand name"
-              value={newBrandName}
-              maxLength={60}
-              disabled={brandBusy || brands.length >= brandCapFor(subscription?.tier)}
-              onChange={(e) => setNewBrandName(e.target.value)}
-            />
-            <button
-              type="button"
-              className="btn-outline"
-              disabled={brandBusy || !newBrandName.trim() || brands.length >= brandCapFor(subscription?.tier)}
-              onClick={handleCreateBrand}
-            >
-              {brandBusy ? "Saving..." : "Add brand"}
-            </button>
-          </div>
+                </div>
+                {atCap && canBuyAddon && (
+                  <p className="section-note">
+                    At your plan's brand limit.{" "}
+                    <button type="button" className="btn-outline" disabled={brandAddonBusy !== null} onClick={handleBuyBrandAddon}>
+                      {brandAddonBusy === "checkout" ? "Starting checkout..." : "Buy another brand slot — $10/mo"}
+                    </button>
+                  </p>
+                )}
+                {brandCapacity && brandCapacity.addons.length > 0 && (
+                  <ul className="media-list">
+                    {brandCapacity.addons.map((a) => (
+                      <li key={a.id}>
+                        <span className="media-list-meta">
+                          +1 brand slot
+                          <span className={`status-badge status-${a.status}`}>
+                            {a.cancel_at_period_end
+                              ? `cancelling${a.current_period_end ? `: ends ${new Date(a.current_period_end).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}`
+                              : a.status}
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          className="btn-outline"
+                          disabled={brandAddonBusy !== null}
+                          onClick={() => handleCancelBrandAddon(a.id)}
+                        >
+                          {brandAddonBusy === a.id ? "Cancelling..." : "Cancel"}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            );
+          })()}
         </div>
         <p className="section-note">
           Create a brand for each business you run through LazyRelay, then assign your connected accounts to it.
@@ -2230,6 +2477,51 @@ export function Dashboard() {
                 </div>
               )}
             </label>
+            {selectedAccountIds.length > 1 && (
+              <div className="per-platform-tailoring">
+                <p className="section-note">
+                  Posting the same caption everywhere by default. Customize it for a specific platform below if you want
+                  different wording, length, or hashtags there.
+                </p>
+                {selectedAccountIds.map((id) => {
+                  const account = accounts.find((a) => a.id === id);
+                  if (!account) return null;
+                  const isCustomized = id in perAccountContent;
+                  return (
+                    <div key={id} className="per-platform-row">
+                      <label className="account-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={isCustomized}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              // Seed the override from the shared caption so
+                              // customizing starts from what's already
+                              // written, not a blank field.
+                              setPerAccountContent((prev) => ({ ...prev, [id]: content }));
+                            } else {
+                              setPerAccountContent((prev) => {
+                                const next = { ...prev };
+                                delete next[id];
+                                return next;
+                              });
+                            }
+                          }}
+                        />
+                        <PlatformIcon platform={account.platform} size={14} />
+                        Customize caption for {account.display_name ?? account.platform_account_id}
+                      </label>
+                      {isCustomized && (
+                        <textarea
+                          value={perAccountContent[id]}
+                          onChange={(e) => setPerAccountContent((prev) => ({ ...prev, [id]: e.target.value }))}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             {selectedPinterestAccountId && (
               <label>
                 Pinterest board
@@ -2324,6 +2616,7 @@ export function Dashboard() {
                       onClick={(e) => {
                         e.stopPropagation();
                         setMediaUrl(null);
+                        setMediaAltText(null);
                       }}
                     >
                       Remove
@@ -2336,6 +2629,19 @@ export function Dashboard() {
                 )}
               </div>
             </label>
+            {mediaUrl && !mediaUrl.match(/\.(mp4|mov)$/i) && (
+              <label>
+                Image description (alt text, optional)
+                <input
+                  type="text"
+                  value={mediaAltText ?? ""}
+                  onChange={(e) => setMediaAltText(e.target.value)}
+                  placeholder="Describe the image for screen-reader users"
+                  maxLength={1000}
+                />
+                <span className="section-note">Used by platforms that support it (Mastodon today) — ignored elsewhere.</span>
+              </label>
+            )}
             {mediaUrl?.match(/\.(mp4|mov)$/i) &&
               selectedAccountIds.some((id) => accounts.find((a) => a.id === id)?.platform === "pinterest") && (
                 <label>
@@ -2414,12 +2720,24 @@ export function Dashboard() {
               <input type="checkbox" checked={requiresApproval} onChange={(e) => setRequiresApproval(e.target.checked)} />
               Require approval before this goes out
             </label>
+            {editingDraftId && (
+              <p className="section-note">
+                Editing a draft. Save it as a draft again, or pick accounts + a time above and Schedule/Post Now to
+                turn it into a real post.{" "}
+                <button type="button" className="btn-outline" onClick={handleCancelEditDraft}>
+                  Cancel edit
+                </button>
+              </p>
+            )}
             <div className="schedule-form-actions">
               <button type="submit" disabled={submitting}>
                 {submitting ? "Scheduling..." : "Schedule"}
               </button>
               <button type="button" className="post-now-btn" disabled={submitting} onClick={handlePostNow}>
                 {submitting ? "Posting..." : "Post Now"}
+              </button>
+              <button type="button" className="btn-outline" disabled={draftBusy || submitting} onClick={handleSaveDraft}>
+                {draftBusy ? "Saving..." : editingDraftId ? "Update draft" : "Save as draft"}
               </button>
             </div>
           </form>
@@ -2635,7 +2953,14 @@ export function Dashboard() {
                 <span className={`status-badge status-${p.status}`}>
                   {p.status === "needs_approval" ? "Needs approval" : p.status}
                 </span>
-                <span>{new Date(p.scheduled_for).toLocaleString()}</span>
+                {/* A draft has no scheduled_for yet (nullable, migration 0049) —
+                    show nothing rather than a bogus epoch date. */}
+                {p.status !== "draft" && p.scheduled_for && <span>{new Date(p.scheduled_for).toLocaleString()}</span>}
+                {p.status === "draft" && (
+                  <button className="btn-outline" onClick={() => handleEditDraft(p)}>
+                    Edit
+                  </button>
+                )}
                 {result && (
                   <span className={result.verified_live ? "verified" : "not-verified"}>
                     {result.verified_live ? (
@@ -2761,6 +3086,10 @@ export function Dashboard() {
         // full historical archive.
         const postsByDay: Record<string, ScheduledPost[]> = {};
         for (const p of posts) {
+          // Drafts have no scheduled_for (nullable, migration 0049) — they
+          // don't belong to any calendar day, so they're managed from the
+          // Posts tab's Upcoming list instead, not shown here.
+          if (p.status === "draft" || !p.scheduled_for) continue;
           if (!accountMatchesBrand(accounts.find((a) => a.id === p.social_account_id), brandFilter)) continue;
           const key = localDateKey(p.scheduled_for);
           (postsByDay[key] ??= []).push(p);
@@ -2918,27 +3247,51 @@ export function Dashboard() {
           <p className="empty">No uploaded media yet.</p>
         ) : (
           <ul className="media-list">
-            {mediaFiles.map((m) => (
-              <li key={m.id}>
-                {m.mime_type.startsWith("image/") ? (
-                  <img className="media-list-thumb" src={m.url} alt="" />
-                ) : (
-                  <div className="media-list-thumb" />
-                )}
-                <span className="media-list-meta">
-                  {formatBytes(m.size_bytes)}
-                  {m.width && m.height ? ` · ${m.width}×${m.height}` : ""} ·{" "}
-                  {new Date(m.created_at).toLocaleDateString()}
-                </span>
-                <button
-                  className="btn-outline"
-                  onClick={() => handleDeleteMedia(m.id)}
-                  disabled={mediaBusyId !== null}
-                >
-                  {mediaBusyId === m.id ? "Deleting..." : "Delete"}
-                </button>
-              </li>
-            ))}
+            {mediaFiles.map((m) => {
+              const altDraft = mediaAltTextDrafts[m.id] ?? m.alt_text ?? "";
+              const altDirty = altDraft !== (m.alt_text ?? "");
+              return (
+                <li key={m.id}>
+                  {m.mime_type.startsWith("image/") ? (
+                    <img className="media-list-thumb" src={m.url} alt="" />
+                  ) : (
+                    <div className="media-list-thumb" />
+                  )}
+                  <span className="media-list-meta">
+                    {formatBytes(m.size_bytes)}
+                    {m.width && m.height ? ` · ${m.width}×${m.height}` : ""} ·{" "}
+                    {new Date(m.created_at).toLocaleDateString()}
+                  </span>
+                  {m.mime_type.startsWith("image/") && (
+                    <input
+                      type="text"
+                      className="brand-label-input"
+                      placeholder="Alt text (optional)"
+                      value={altDraft}
+                      maxLength={1000}
+                      disabled={mediaBusyId === m.id}
+                      onChange={(e) => setMediaAltTextDrafts((prev) => ({ ...prev, [m.id]: e.target.value }))}
+                    />
+                  )}
+                  {altDirty && (
+                    <button
+                      className="btn-outline"
+                      disabled={mediaBusyId !== null}
+                      onClick={() => handleSaveMediaAltText(m.id, altDraft)}
+                    >
+                      {mediaBusyId === m.id ? "Saving..." : "Save"}
+                    </button>
+                  )}
+                  <button
+                    className="btn-outline"
+                    onClick={() => handleDeleteMedia(m.id)}
+                    disabled={mediaBusyId !== null}
+                  >
+                    {mediaBusyId === m.id ? "Deleting..." : "Delete"}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

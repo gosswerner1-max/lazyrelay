@@ -52,14 +52,48 @@ export interface Brand {
   created_at: string;
 }
 
+// Phase 1b (2026-08-16) — a paid customer can buy extra brand slots beyond
+// their plan's included count, one flat +1-slot price each, ~$10/mo. Same
+// shape/pattern as StorageAddon, just no size field.
+export interface BrandAddon {
+  id: string;
+  status: "trialing" | "active" | "past_due" | "cancelled";
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+}
+
+export interface BrandCapacity {
+  addons: BrandAddon[];
+  baseLimit: number;
+  addonSlots: number;
+  totalLimit: number;
+}
+
 export interface ScheduledPost {
   id: string;
-  social_account_id: string;
+  // Drafts (2026-08-16) have neither an account nor a time committed yet —
+  // both nullable, and 'draft' is a real status alongside the rest.
+  social_account_id: string | null;
   content: string;
   media_url: string | null;
-  scheduled_for: string;
-  status: "pending" | "posting" | "posted" | "failed" | "needs_approval";
+  cover_image_url: string | null;
+  board_id: string | null;
+  first_comment: string | null;
+  media_alt_text: string | null;
+  scheduled_for: string | null;
+  status: "draft" | "pending" | "posting" | "posted" | "failed" | "needs_approval";
   post_results: Array<{ verified_live: boolean; platform_post_url: string | null; error_message: string | null }>;
+}
+
+/** Fields a draft can be created/edited with — the subset of a real post's
+ *  fields that make sense before an account or time is chosen. */
+export interface DraftFields {
+  content: string;
+  mediaUrl?: string | null;
+  coverImageUrl?: string | null;
+  boardId?: string | null;
+  firstComment?: string | null;
+  mediaAltText?: string | null;
 }
 
 // Internal tier codes are stable across the Starter/Pro/Business rename
@@ -89,6 +123,10 @@ export interface MediaFile {
   size_bytes: number;
   width: number | null;
   height: number | null;
+  // Accessibility description (2026-08-16) — editable after upload via
+  // PATCH /media/:id. Only reaches the platform on adapters that support
+  // it (Mastodon today); harmless to set regardless.
+  alt_text: string | null;
   created_at: string;
 }
 
@@ -323,10 +361,22 @@ export const api = {
     coverImageUrl?: string;
     boardId?: string;
     firstComment?: string;
+    mediaAltText?: string;
     scheduledFor: string;
     requiresApproval?: boolean;
   }): Promise<ScheduledPost> => authedFetch("/scheduled-posts", { method: "POST", body: JSON.stringify(input) }),
   deleteScheduledPost: (id: string): Promise<null> => authedFetch(`/scheduled-posts/${id}`, { method: "DELETE" }),
+
+  // Drafts (2026-08-16). deleteScheduledPost above already deletes a draft
+  // too (the backend's DELETE route works for any non-"posting" status).
+  saveDraft: (input: DraftFields): Promise<ScheduledPost> =>
+    authedFetch("/scheduled-posts/draft", { method: "POST", body: JSON.stringify(input) }),
+  updateDraft: (id: string, input: Partial<DraftFields>): Promise<ScheduledPost> =>
+    authedFetch(`/scheduled-posts/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+  scheduleDraft: (
+    id: string,
+    input: { socialAccountId: string; content: string; mediaUrl?: string; coverImageUrl?: string; boardId?: string; firstComment?: string; mediaAltText?: string; scheduledFor: string; requiresApproval?: boolean },
+  ): Promise<ScheduledPost> => authedFetch(`/scheduled-posts/${id}/schedule`, { method: "PATCH", body: JSON.stringify(input) }),
   approveScheduledPost: (id: string): Promise<ScheduledPost> =>
     authedFetch(`/scheduled-posts/${id}/approve`, { method: "PATCH" }),
 
@@ -439,12 +489,17 @@ export const api = {
   // Content-Type, which breaks multipart uploads (the browser needs to set
   // its own Content-Type with the multipart boundary for FormData). Uses XHR
   // instead of fetch so callers can pass onProgress and show a real percentage.
-  uploadMedia: async (file: File, onProgress?: (pct: number) => void): Promise<{ url: string }> => {
+  uploadMedia: async (
+    file: File,
+    onProgress?: (pct: number) => void,
+    altText?: string,
+  ): Promise<{ id: string; url: string; altText: string | null }> => {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     if (!token) throw new Error("Not signed in");
     const formData = new FormData();
     formData.append("file", file);
+    if (altText?.trim()) formData.append("altText", altText.trim());
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       if (onProgress) {
@@ -454,7 +509,7 @@ export const api = {
       }
       xhr.addEventListener("load", () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          try { resolve(JSON.parse(xhr.responseText) as { url: string }); }
+          try { resolve(JSON.parse(xhr.responseText) as { id: string; url: string; altText: string | null }); }
           catch { reject(new Error("Invalid response from server")); }
         } else {
           try {
@@ -473,6 +528,8 @@ export const api = {
   getStorageUsage: (): Promise<StorageUsage> => authedFetch("/media/usage"),
   listMedia: (): Promise<MediaFile[]> => authedFetch("/media"),
   deleteMedia: (id: string): Promise<null> => authedFetch(`/media/${id}`, { method: "DELETE" }),
+  updateMediaAltText: (id: string, altText: string | null): Promise<{ id: string; url: string; altText: string | null }> =>
+    authedFetch(`/media/${id}`, { method: "PATCH", body: JSON.stringify({ altText }) }),
 
   getSubscription: (): Promise<Subscription> => authedFetch("/subscription"),
   startCheckout: (
@@ -523,4 +580,10 @@ export const api = {
     authedFetch("/storage-addons/checkout", { method: "POST", body: JSON.stringify({ gbAmount }) }),
   cancelStorageAddon: (id: string): Promise<{ cancelled: boolean }> =>
     authedFetch(`/storage-addons/${id}/cancel`, { method: "POST" }),
+
+  getBrandAddons: (): Promise<BrandCapacity> => authedFetch("/brand-addons"),
+  startBrandAddonCheckout: (): Promise<{ transactionId: string; checkoutUrl: string | null }> =>
+    authedFetch("/brand-addons/checkout", { method: "POST" }),
+  cancelBrandAddon: (id: string): Promise<{ cancelled: boolean }> =>
+    authedFetch(`/brand-addons/${id}/cancel`, { method: "POST" }),
 };
