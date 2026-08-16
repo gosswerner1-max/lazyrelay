@@ -432,7 +432,7 @@ export function Dashboard() {
   useEffect(() => {
     if (tab !== "Posts" && tab !== "Overview") return;
     const hasUnresolvedDue = posts.some(
-      (p) => (p.status === "pending" || p.status === "posting") && new Date(p.scheduled_for) <= new Date()
+      (p) => (p.status === "pending" || p.status === "posting") && !!p.scheduled_for && new Date(p.scheduled_for) <= new Date()
     );
     if (!hasUnresolvedDue) return;
     const interval = setInterval(() => {
@@ -2912,8 +2912,13 @@ export function Dashboard() {
       {(() => {
         const brandFiltered = posts.filter((p) => accountMatchesBrand(accounts.find((a) => a.id === p.social_account_id), brandFilter));
         const upcoming = brandFiltered.filter((p) => p.status === "pending" || p.status === "posting" || p.status === "needs_approval");
+        // Drafts have no scheduled_for (nullable, migration 0049) and must
+        // never land in History — explicit posted/failed match (not a
+        // negative "isn't pending/posting/needs_approval" filter, which
+        // would silently catch drafts too) plus a type predicate narrows
+        // scheduled_for to non-null for every use below.
         const history = brandFiltered
-          .filter((p) => p.status !== "pending" && p.status !== "posting" && p.status !== "needs_approval")
+          .filter((p): p is ScheduledPost & { scheduled_for: string } => (p.status === "posted" || p.status === "failed") && p.scheduled_for !== null)
           .slice()
           .sort((a, b) => new Date(b.scheduled_for).getTime() - new Date(a.scheduled_for).getTime());
 
@@ -3183,7 +3188,12 @@ export function Dashboard() {
                             <span className={`status-badge status-${p.status}`}>
                               {p.status === "needs_approval" ? "Needs approval" : p.status}
                             </span>
-                            <span>{new Date(p.scheduled_for).toLocaleTimeString()}</span>
+                            {/* Guaranteed non-null: postsByDay (built above) already
+                                skips any post with status='draft' or a null
+                                scheduled_for, so every item reaching this render
+                                genuinely has one — TS just can't see that guarantee
+                                across the two separate loops. */}
+                            {p.scheduled_for && <span>{new Date(p.scheduled_for).toLocaleTimeString()}</span>}
                             {result && (
                               <span className={result.verified_live ? "verified" : "not-verified"}>
                                 {result.verified_live ? (
