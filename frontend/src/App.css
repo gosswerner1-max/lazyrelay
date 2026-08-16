@@ -1693,6 +1693,26 @@
   border: none;
 }
 
+/* Site-wide primary-button sizing (2026-08-16) — most <button type="submit">
+   elements had no explicit padding/radius/font-size of their own, so they
+   rendered as raw unstyled browser buttons (1px 6px padding, 0 radius, 16px
+   font) instead of matching .btn-outline's already-established look
+   (Werner flagged this live: "Save as draft" looked like a different button
+   family from "Schedule"/"Post Now" right next to it — turned out to be the
+   reverse of what it looked like: the outline button was styled correctly
+   and the solid ones weren't). :not(.btn-outline) so a submit button that
+   already opted into the outline look (e.g. the bio-link save button) is
+   untouched; same specificity as .schedule-form's own rule above, and they
+   set different properties (color vs sizing), so both apply together with
+   no conflict. */
+button[type="submit"]:not(.btn-outline),
+.post-now-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .schedule-form-actions {
   display: flex;
   gap: 10px;
