@@ -162,12 +162,19 @@ async function releaseMediaIfOrphaned(mediaUrl: string, accountId: string): Prom
 // X's API is pay-per-use (Basic tier $200/mo just for write access), and
 // the user decided 2026-08-04 to hold off funding it until there's real
 // customer demand, rather than pay for an untested, unused integration.
+// "google-business" is also comingSoon: true, added 2026-08-17 — the
+// adapter is code-complete (platforms/googleBusiness.ts) but has never been
+// tested against a real API response, and Google Business Profile APIs are
+// fully gated: the API isn't even visible in the Cloud Console until Google
+// approves a separate access-request form, a stricter gate than a standard
+// OAuth-scope review. Real credentials + the access-request approval are
+// both required before this can go live for any customer.
 const ALL_PLATFORMS = [
   "tiktok", "pinterest", "youtube", "mastodon", "bluesky", "telegram",
   "linkedin", "threads", "facebook", "instagram", "discord", "tumblr", "x",
-  "snapchat",
+  "snapchat", "google-business",
 ] as const;
-const COMING_SOON_PLATFORMS = new Set<string>(["snapchat", "x"]);
+const COMING_SOON_PLATFORMS = new Set<string>(["snapchat", "x", "google-business"]);
 
 export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: PlatformAdapterRegistry): Router {
   const router = Router();

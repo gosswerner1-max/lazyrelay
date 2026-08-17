@@ -28,6 +28,7 @@ export const BRAND_COLORS: Record<string, string> = {
   x: "#000000",
   reddit: "#FF4500",
   snapchat: "#FFFC00",
+  "google-business": "#4285F4",
 };
 
 function PlatformGlyph({ platform, size }: { platform: string; size: number }) {
@@ -201,6 +202,17 @@ function PlatformGlyph({ platform, size }: { platform: string; size: number }) {
           <path
             fill="#fff"
             d="M12 4.2c2.6 0 4.3 2.1 4.2 4.5-.1 1.2-.1 2.1.1 2.6.2.5.9.9 1.7 1.1.3.1.5.4.3.7-.3.6-1.2 1-1.9 1.2-.2.1-.3.2-.3.4 0 .3.1.6.1.9 0 .2-.1.3-.4.3h-1c-.4 0-.6.1-.9.4-.5.5-1.1 1.1-2 1.1s-1.5-.6-2-1.1c-.3-.3-.5-.4-.9-.4h-1c-.3 0-.4-.1-.4-.3 0-.3.1-.6.1-.9 0-.2-.1-.3-.3-.4-.7-.2-1.6-.6-1.9-1.2-.1-.3.1-.6.3-.7.8-.2 1.5-.6 1.7-1.1.2-.5.2-1.4.1-2.6-.1-2.4 1.6-4.5 4.2-4.5Z"
+          />
+        </svg>
+      );
+    case "google-business":
+      // A map pin, not Google's own "G" logomark — avoids any trademark
+      // ambiguity while still reading as "business location" at a glance.
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            fill={color}
+            d="M12 1.5c-4.28 0-7.75 3.47-7.75 7.75 0 5.81 7.75 13.25 7.75 13.25s7.75-7.44 7.75-13.25c0-4.28-3.47-7.75-7.75-7.75Zm0 10.5a2.75 2.75 0 1 1 0-5.5 2.75 2.75 0 0 1 0 5.5Z"
           />
         </svg>
       );
