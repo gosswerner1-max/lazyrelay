@@ -54,6 +54,7 @@ const PROOF_POSTS = [
   { platform: "tumblr", handle: "lazyrelay", content: "Simplify your social media: schedule your posts once with LazyRelay and publish everywhere, with real Proof-of-Publish verification confirming they actually went live." },
   { platform: "youtube", handle: "LazyRelay", content: "LazyRelay: schedule once, publish everywhere. Real Proof-of-Publish verification confirms every post actually went live." },
   { platform: "tiktok", handle: "LazyRelay", content: "Schedule once. Publish everywhere. LazyRelay." },
+  { platform: "threads", handle: "thelazydownload", content: "Schedule once. Publish everywhere. LazyRelay confirms every post actually went live with real Proof-of-Publish verification." },
 ];
 
 const MORE_FEATURES = [
