@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
+import { supabase } from "../lib/supabase";
+import type { OAuthGrant } from "@supabase/supabase-js";
+import { describeScopes } from "../lib/oauthScopes";
 import { api, type SocialAccount, type Brand, type BrandCapacity, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation, type Triage } from "../lib/api";
 import { API_BASE_URL, API_ENDPOINTS, MCP_CONFIG_EXAMPLE, HOSTED_MCP_URL, HOSTED_MCP_REMOTE_CONFIG_EXAMPLE, MCP_TOOLS } from "../lib/apiDocsContent";
 import { CodeBlock } from "../components/CodeBlock";
@@ -197,6 +200,9 @@ export function Dashboard() {
   const [creatingKey, setCreatingKey] = useState(false);
   const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null);
   const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
+  const [oauthGrants, setOauthGrants] = useState<OAuthGrant[]>([]);
+  const [oauthGrantsLoading, setOauthGrantsLoading] = useState(true);
+  const [revokingGrantClientId, setRevokingGrantClientId] = useState<string | null>(null);
   const [announcingAdmin, setAnnouncingAdmin] = useState(false);
   const [adminWindowExpiresAt, setAdminWindowExpiresAt] = useState<string | null>(null);
   const [savingFailureAlerts, setSavingFailureAlerts] = useState(false);
@@ -397,6 +403,23 @@ export function Dashboard() {
 
   useEffect(() => {
     refresh();
+  }, []);
+
+  // OAuth grants (third-party apps authorized via the hosted MCP server's
+  // consent screen) live entirely on Supabase's side, not LazyRelay's own
+  // API -- loaded separately from refresh()'s Promise.all, which only
+  // covers api.* calls against LazyRelay's backend.
+  useEffect(() => {
+    supabase.auth.oauth
+      .listGrants()
+      .then(({ data, error: err }) => {
+        if (err) {
+          setError(err.message);
+          return;
+        }
+        setOauthGrants(data ?? []);
+      })
+      .finally(() => setOauthGrantsLoading(false));
   }, []);
 
   useEffect(() => {
@@ -1473,6 +1496,23 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setRevokingKeyId(null);
+    }
+  }
+
+  async function handleRevokeGrant(clientId: string, clientName: string) {
+    if (!window.confirm(`Disconnect ${clientName}? It will immediately lose access to your LazyRelay account.`)) return;
+    setRevokingGrantClientId(clientId);
+    setError(null);
+    try {
+      const { error: err } = await supabase.auth.oauth.revokeGrant({ clientId });
+      if (err) throw err;
+      const { data, error: listErr } = await supabase.auth.oauth.listGrants();
+      if (listErr) throw listErr;
+      setOauthGrants(data ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRevokingGrantClientId(null);
     }
   }
 
@@ -3560,6 +3600,42 @@ export function Dashboard() {
                     {revokingKeyId === k.id ? "Revoking..." : "Revoke"}
                   </button>
                 )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      )}
+
+      {tab === "API Keys" && (
+      <section>
+        <h2>Connected apps</h2>
+        <p className="section-note">
+          Apps you've signed in and given access to via the hosted MCP server, like Claude connecting through{" "}
+          <code>{HOSTED_MCP_URL}</code>. Unlike an API key above, these don't use a key you generate, they use your
+          LazyRelay login directly.
+        </p>
+        {oauthGrantsLoading ? (
+          <p className="empty">Loading…</p>
+        ) : oauthGrants.length === 0 ? (
+          <p className="empty">No connected apps yet.</p>
+        ) : (
+          <ul className="media-list">
+            {oauthGrants.map((g) => (
+              <li key={g.client.id}>
+                <span className="media-list-meta">
+                  <strong>{g.client.name}</strong>: connected {new Date(g.granted_at).toLocaleDateString()}
+                  <span style={{ display: "block", fontSize: 12, color: "var(--wire)" }}>
+                    Can: {describeScopes(g.scopes).join(", ")}
+                  </span>
+                </span>
+                <button
+                  className="btn-outline"
+                  onClick={() => handleRevokeGrant(g.client.id, g.client.name)}
+                  disabled={revokingGrantClientId !== null}
+                >
+                  {revokingGrantClientId === g.client.id ? "Disconnecting..." : "Disconnect"}
+                </button>
               </li>
             ))}
           </ul>

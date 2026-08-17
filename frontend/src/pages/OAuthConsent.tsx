@@ -4,23 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { Login } from "./Login";
 import { Spinner } from "../components/Spinner";
 import { BrandMark } from "../components/BrandMark";
-
-/** Human-readable labels for the OIDC scopes Supabase's OAuth server
- *  issues. Falls back to the raw scope string for anything unlisted, so an
- *  unrecognised future scope still shows something rather than nothing. */
-const SCOPE_LABELS: Record<string, string> = {
-  openid: "Confirm it's really you",
-  profile: "Your name",
-  email: "Your email address",
-  offline_access: "Stay connected when you're not using it (refresh access automatically)",
-};
-
-function describeScopes(scope: string): string[] {
-  return scope
-    .split(" ")
-    .filter(Boolean)
-    .map((s) => SCOPE_LABELS[s] ?? s);
-}
+import { describeScopes } from "../lib/oauthScopes";
 
 type Details = {
   authorization_id: string;
