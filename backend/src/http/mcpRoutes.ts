@@ -35,8 +35,26 @@ export function mountMcp(app: Express, oauthMetadata: OAuthMetadata) {
   // Serves /.well-known/oauth-protected-resource (and mirrors the
   // authorization-server metadata), so a client that got a 401 can discover
   // Supabase without anything hardcoded on its side.
+  //
+  // mcpCors is gated to /.well-known paths by hand rather than passed
+  // straight to app.use() -- found live 2026-08-17: app.use(mcpCors, router)
+  // with no path argument makes Express run mcpCors on EVERY request, not
+  // just the well-known ones, and mcpCors's own methods list has no PATCH.
+  // For a browser CORS preflight (OPTIONS) to any other route -- e.g. the
+  // dashboard's own PATCH /account -- the cors package answers the
+  // preflight itself and never calls next(), so it silently ate PATCH
+  // support for the whole API. mcpAuthMetadataRouter's routes are registered
+  // as full /.well-known/... paths (expects to be mounted at root), so the
+  // fix is gating mcpCors itself, not adding a mount-path prefix that would
+  // double up the segment and break the router's own matching.
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/.well-known")) {
+      mcpCors(req, res, next);
+      return;
+    }
+    next();
+  });
   app.use(
-    mcpCors,
     mcpAuthMetadataRouter({
       oauthMetadata,
       resourceServerUrl: MCP_RESOURCE_URL,
