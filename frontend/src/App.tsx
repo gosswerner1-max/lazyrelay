@@ -14,6 +14,7 @@ import { ConnectForm } from "./pages/ConnectForm";
 import { BioPage } from "./pages/BioPage";
 import { VerifyPage } from "./pages/VerifyPage";
 import { OAuthConsentPage } from "./pages/OAuthConsent";
+import { TeamAcceptInvitePage } from "./pages/TeamAcceptInvite";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { Spinner } from "./components/Spinner";
@@ -103,6 +104,9 @@ function Root() {
     // then re-evaluates the path check against the now-rewritten URL,
     // silently swapping the whole page back to Landing.
     if (window.location.pathname === "/oauth/consent") return;
+    // Same exception, same reason — /team/accept?token=... owns its own URL
+    // and needs the token query param to survive past the first render.
+    if (window.location.pathname === "/team/accept") return;
     window.scrollTo(0, 0);
     const path = VIEW_TO_PATH[view] ?? "/";
     if (window.location.pathname !== path) {
@@ -156,6 +160,15 @@ function Root() {
   if (window.location.pathname === "/oauth/consent") {
     const authorizationId = new URLSearchParams(window.location.search).get("authorization_id");
     return <OAuthConsentPage authorizationId={authorizationId} />;
+  }
+
+  // Team invite acceptance (/team/accept?token=...) — same shape of
+  // exception as OAuth consent above, and for the same reason: it needs the
+  // normal auth state (sign in first if needed) rather than the plain
+  // session gate below, since "not signed in yet" is expected here too.
+  if (window.location.pathname === "/team/accept") {
+    const token = new URLSearchParams(window.location.search).get("token");
+    return <TeamAcceptInvitePage token={token} />;
   }
 
   // Reset-password page must render before the session check. resetMode is

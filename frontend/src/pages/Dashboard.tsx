@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import type { OAuthGrant } from "@supabase/supabase-js";
 import { describeScopes } from "../lib/oauthScopes";
-import { api, type SocialAccount, type Brand, type BrandCapacity, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation, type Triage } from "../lib/api";
+import { api, type SocialAccount, type Brand, type BrandCapacity, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation, type Triage, type TeamMember } from "../lib/api";
 import { API_BASE_URL, API_ENDPOINTS, MCP_CONFIG_EXAMPLE, HOSTED_MCP_URL, HOSTED_MCP_REMOTE_CONFIG_EXAMPLE, MCP_TOOLS } from "../lib/apiDocsContent";
 import { CodeBlock } from "../components/CodeBlock";
 import { RelaySignal } from "../components/RelaySignal";
@@ -165,7 +165,7 @@ function readAndClearConnectParams(): {
 const connectParams = readAndClearConnectParams();
 
 export function Dashboard() {
-  const { signOut } = useAuth();
+  const { signOut, session } = useAuth();
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const coverImageInputRef = useRef<HTMLInputElement>(null);
   // refresh() re-fetches the account on every call (including after
@@ -202,6 +202,10 @@ export function Dashboard() {
   const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
   const [oauthGrants, setOauthGrants] = useState<OAuthGrant[]>([]);
   const [oauthGrantsLoading, setOauthGrantsLoading] = useState(true);
+  const [team, setTeam] = useState<TeamMember[]>([]);
+  const [teamInviteEmail, setTeamInviteEmail] = useState("");
+  const [invitingTeamMember, setInvitingTeamMember] = useState(false);
+  const [removingTeamMemberId, setRemovingTeamMemberId] = useState<string | null>(null);
   const [revokingGrantClientId, setRevokingGrantClientId] = useState<string | null>(null);
   const [announcingAdmin, setAnnouncingAdmin] = useState(false);
   const [adminWindowExpiresAt, setAdminWindowExpiresAt] = useState<string | null>(null);
@@ -347,7 +351,7 @@ export function Dashboard() {
   async function refresh() {
     setError(null);
     try {
-      const [accs, pts, sub, usage, media, addons, plats, acct, keys, recurring, brandList, brandCap] = await Promise.all([
+      const [accs, pts, sub, usage, media, addons, plats, acct, keys, recurring, brandList, brandCap, teamList] = await Promise.all([
         api.listSocialAccounts(),
         api.listScheduledPosts(),
         api.getSubscription(),
@@ -360,6 +364,7 @@ export function Dashboard() {
         api.listRecurringSchedules(),
         api.getBrands(),
         api.getBrandAddons(),
+        api.listTeam(),
       ]);
       setAccounts(accs);
       setBrands(brandList);
@@ -391,6 +396,7 @@ export function Dashboard() {
         webhookUrlSeeded.current = true;
       }
       setApiKeys(keys);
+      setTeam(teamList);
       // Drop any selected account that disappeared (e.g. disconnected)
       // since the last refresh, rather than silently submitting for it.
       setSelectedAccountIds((prev) => prev.filter((id) => accs.some((a) => a.id === id)));
@@ -1496,6 +1502,38 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setRevokingKeyId(null);
+    }
+  }
+
+  async function handleInviteTeamMember(e: FormEvent) {
+    e.preventDefault();
+    if (!teamInviteEmail.trim()) return;
+    setInvitingTeamMember(true);
+    setError(null);
+    try {
+      await api.inviteTeamMember(teamInviteEmail.trim());
+      setTeamInviteEmail("");
+      const list = await api.listTeam();
+      setTeam(list);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setInvitingTeamMember(false);
+    }
+  }
+
+  async function handleRemoveTeamMember(id: string, label: string) {
+    if (!window.confirm(`Remove ${label} from your team?`)) return;
+    setRemovingTeamMemberId(id);
+    setError(null);
+    try {
+      await api.removeTeamMember(id);
+      const list = await api.listTeam();
+      setTeam(list);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRemovingTeamMemberId(null);
     }
   }
 
@@ -3505,6 +3543,56 @@ export function Dashboard() {
         )}
       </section>
       )}
+
+      {tab === "Account" && (() => {
+        const myMembership = team.find((m) => m.user_id === session?.user.id);
+        const isOwner = !myMembership || myMembership.role === "owner";
+        return (
+      <section>
+        <h2>Team</h2>
+        <p className="section-note">
+          Invite teammates to work in this account alongside you. Everyone on the team can post, schedule, and
+          manage connected platforms; only the owner can change billing, webhooks, API keys, and the team itself.
+        </p>
+        {isOwner && (
+          <form onSubmit={handleInviteTeamMember} className="dm-automation-form">
+            <input
+              type="email"
+              placeholder="teammate@example.com"
+              value={teamInviteEmail}
+              onChange={(e) => setTeamInviteEmail(e.target.value)}
+              maxLength={254}
+            />
+            <button type="submit" disabled={invitingTeamMember || !teamInviteEmail.trim()}>
+              {invitingTeamMember ? "Inviting..." : "Invite"}
+            </button>
+          </form>
+        )}
+        <ul className="media-list">
+          {team.map((m) => (
+            <li key={m.id}>
+              <span className="media-list-meta">
+                <strong>{m.invited_email ?? (m.user_id === session?.user.id ? session?.user.email : m.user_id)}</strong>
+                {" ("}
+                {m.role}
+                {")"}
+                {!m.accepted_at && <span className="status-badge status-pending">invited, not yet accepted</span>}
+              </span>
+              {isOwner && m.role !== "owner" && (
+                <button
+                  className="btn-outline"
+                  onClick={() => handleRemoveTeamMember(m.id, m.invited_email ?? "this member")}
+                  disabled={removingTeamMemberId !== null}
+                >
+                  {removingTeamMemberId === m.id ? "Removing..." : "Remove"}
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+        );
+      })()}
 
       {tab === "Account" && (
       <section>

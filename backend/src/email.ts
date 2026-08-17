@@ -143,6 +143,33 @@ export function sendDataDeletionReminder(to: string, deletionDate: string): void
     .catch((err) => console.error("[email] sendDataDeletionReminder threw:", err instanceof Error ? err.message : err));
 }
 
+/** Agency tier v1 team invite (migration 0053, account_members). Sent when
+ *  an account owner invites a teammate — the link carries the invite token
+ *  from account_members.invite_token, consumed by POST /team/accept-invite
+ *  once the invited person is signed in. Fire-and-forget, same as the rest
+ *  of this file. */
+export function sendTeamInviteEmail(to: string, inviterLabel: string, acceptUrl: string): void {
+  const client = getClient();
+  if (!client) return;
+  client.emails
+    .send({
+      from: `LazyRelay <${FROM_ADDRESS}>`,
+      to,
+      subject: `${inviterLabel} invited you to their LazyRelay team`,
+      html: wrapEmailHtml(
+        "You've been invited to a LazyRelay team",
+        `<span style="color:#ffffff;">${escapeHtml(inviterLabel)}</span> invited you to join their LazyRelay account as a team member.<br><br>` +
+          `<a href="${acceptUrl}" style="color:#ff5a1f;">Accept the invite</a><br><br>` +
+          `If you don't have a LazyRelay login yet, you'll be asked to create one first. Use this same email address.`,
+        "You're getting this because someone entered your email address as a LazyRelay team invite. If this wasn't expected, you can ignore it."
+      ),
+    })
+    .then((result) => {
+      if (result.error) console.error("[email] sendTeamInviteEmail failed:", result.error.message);
+    })
+    .catch((err) => console.error("[email] sendTeamInviteEmail threw:", err instanceof Error ? err.message : err));
+}
+
 /** Same alert, worded for the account-paused case (retrying won't help —
  *  the customer needs to reconnect the account or upgrade, not wait). */
 export function sendAccountPausedAlert(to: string, content: string): void {

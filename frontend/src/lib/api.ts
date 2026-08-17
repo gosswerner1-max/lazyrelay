@@ -295,6 +295,18 @@ export interface ApiKey {
   revoked_at: string | null;
 }
 
+// Agency tier v1 (migration 0053, account_members) — a pending row has
+// user_id null and accepted_at null; an accepted row has both set. The
+// owner's own self-row is always present and always accepted.
+export interface TeamMember {
+  id: string;
+  user_id: string | null;
+  invited_email: string | null;
+  role: "owner" | "member";
+  invited_at: string;
+  accepted_at: string | null;
+}
+
 export interface PublicVerification {
   businessName: string | null;
   platform: string | null;
@@ -559,6 +571,12 @@ export const api = {
   createApiKey: (name: string, canShareProof: boolean): Promise<ApiKey & { key: string }> =>
     authedFetch("/api-keys", { method: "POST", body: JSON.stringify({ name, canShareProof }) }),
   revokeApiKey: (id: string): Promise<null> => authedFetch(`/api-keys/${id}`, { method: "DELETE" }),
+  listTeam: (): Promise<TeamMember[]> => authedFetch("/team"),
+  inviteTeamMember: (email: string): Promise<{ id: string; email: string; role: "member" }> =>
+    authedFetch("/team/invite", { method: "POST", body: JSON.stringify({ email }) }),
+  removeTeamMember: (id: string): Promise<null> => authedFetch(`/team/${id}`, { method: "DELETE" }),
+  acceptTeamInvite: (token: string): Promise<{ accountId: string }> =>
+    authedFetch("/team/accept-invite", { method: "POST", body: JSON.stringify({ token }) }),
 
   // Generates the public Proof-of-Publish share link for a post. The
   // dashboard shows a confirm dialog before calling this (see Dashboard.tsx).

@@ -20,6 +20,8 @@ import {
   requireAuth,
   requireHumanAuth,
   requireAdmin,
+  requireOwner,
+  requireJwtUser,
   resolveOptionalAccountId,
   type AuthedRequest,
   API_KEY_PREFIX,
@@ -34,7 +36,7 @@ import { resolveTier, TIER_DISPLAY_NAMES, RECURRING_SCHEDULE_SLOT_LIMITS, type T
 import { cancelFuturePendingOccurrences } from "../recurringScheduler.js";
 import { checkGenerationLimit, recordGeneration } from "../aiUsage.js";
 import { buildSupportSystemPrompt, type SupportAccountContext } from "../support/chatKnowledge.js";
-import { sendSupportEscalation } from "../email.js";
+import { sendSupportEscalation, sendTeamInviteEmail } from "../email.js";
 import { triageItems, type TriageItem, type TriageResult } from "../commentTriage.js";
 import type { CommentItem } from "../platforms/types.js";
 import { generateWebhookSecret } from "../webhook.js";
@@ -3211,7 +3213,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // Only meaningful once MOR_API_KEY + the tier's price ID env vars exist
   // (see BILLING_KNOWLEDGE.md) — reports a clear error rather than a
   // confusing Paddle SDK exception if they don't.
-  router.post("/subscription/checkout", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.post("/subscription/checkout", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { tier } = req.body ?? {};
     if (tier !== "pro" && tier !== "business" && tier !== "enterprise") {
       res.status(400).json({
@@ -3265,7 +3267,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // The cancellation flow — this is THE trust-critical endpoint. Cancels
   // with the Merchant of Record first; only then does the local record
   // get marked cancelled. See billing/sync.ts for the full reasoning.
-  router.post("/subscription/cancel", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.post("/subscription/cancel", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { feedback, acknowledgedDataDeletion } = req.body ?? {};
     const result = await cancelSubscription(
       req.accountId!,
@@ -3369,7 +3371,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
   // Cancels a single storage add-on — does not touch the account's main
   // tier subscription. See billing/sync.ts's cancelStorageAddon.
-  router.post("/storage-addons/:id/cancel", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.post("/storage-addons/:id/cancel", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const result = await cancelStorageAddon(req.accountId!, String(req.params.id), morAdapter);
     if (!result.success) {
       res.status(502).json({ error: result.errorMessage ?? "Cancellation failed at the payment provider" });
@@ -3404,7 +3406,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // slot). Same free-tier exclusion and pattern as /storage-addons/checkout —
   // a customer already on a paid tier who wants MORE brands than their
   // tier's base allowance.
-  router.post("/brand-addons/checkout", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.post("/brand-addons/checkout", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const tier = await resolveTier(req.accountId!);
     if (tier === "free") {
       res.status(403).json({ error: "Brand add-ons aren't available on the Free tier — upgrade to a paid plan first." });
@@ -3459,7 +3461,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
   // Cancels a single brand add-on — does not touch the account's main tier
   // subscription. See billing/sync.ts's cancelBrandAddon.
-  router.post("/brand-addons/:id/cancel", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.post("/brand-addons/:id/cancel", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const result = await cancelBrandAddon(req.accountId!, String(req.params.id), morAdapter);
     if (!result.success) {
       res.status(502).json({ error: result.errorMessage ?? "Cancellation failed at the payment provider" });
@@ -3517,6 +3519,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // is human-dashboard-only, not something an agent can do headlessly.
     if (webhookUrl !== undefined && req.authMethod === "apiKey" && !req.isAdmin) {
       res.status(403).json({ error: "Webhook settings can only be changed from a logged-in dashboard session, not an API key." });
+      return;
+    }
+    if (webhookUrl !== undefined && req.authMethod === "jwt" && req.role !== "owner") {
+      res.status(403).json({ error: "Only the account owner can change webhook settings." });
       return;
     }
     let newWebhookSecret: string | null = null;
@@ -3579,7 +3585,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // having to also change (and re-register with their own systems) the
   // webhook URL itself. Human-dashboard-only, same reasoning as the
   // webhookUrl check in PATCH /account above.
-  router.post("/account/webhook/regenerate-secret", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.post("/account/webhook/regenerate-secret", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data: existing } = await supabase.from("accounts").select("webhook_url").eq("id", req.accountId).maybeSingle();
     if (!existing?.webhook_url) {
       res.status(400).json({ error: "Set a webhook URL first before generating a secret." });
@@ -3601,7 +3607,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // list keys — an agent authenticating WITH an API key can't mint more of
   // them, so a leaked key can't be used to self-escalate into permanent
   // access if the original key is later revoked.
-  router.post("/api-keys", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.post("/api-keys", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     // Pricing has always advertised "AI-agent / MCP access" as a paid-tier
     // perk, but this route had no tier check at all until now (found live
     // by a site audit, confirmed as a real gap by Werner 2026-08-10, not
@@ -3674,6 +3680,139 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
     res.status(204).end();
+  });
+
+  // Agency tier v1 (migration 0053, account_members). Deliberately not
+  // tier-gated yet -- Werner hasn't set Agency-tier pricing/seat limits, so
+  // gating this on a specific paid tier now would mean inventing a pricing
+  // rule rather than following one. Any account can use it today; adding a
+  // tier check here is the natural place once that pricing decision exists.
+  router.get("/team", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data, error } = await supabase
+      .from("account_members")
+      .select("id, user_id, invited_email, role, invited_at, accepted_at")
+      .eq("account_id", req.accountId)
+      .order("invited_at", { ascending: true });
+    if (error) {
+      dbError(res, error, "GET /team");
+      return;
+    }
+    res.json(data);
+  });
+
+  router.post("/team/invite", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { email } = req.body ?? {};
+    if (typeof email !== "string" || !/^[\w.+-]+@[\w-]+(?:\.[\w-]+)+$/.test(email.trim())) {
+      res.status(400).json({ error: "A valid email is required" });
+      return;
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const { data: account } = await supabase.from("accounts").select("email, business_name").eq("id", req.accountId).maybeSingle();
+    if (account?.email && account.email.toLowerCase() === normalizedEmail) {
+      res.status(400).json({ error: "That's your own email address" });
+      return;
+    }
+
+    const { data: existing } = await supabase
+      .from("account_members")
+      .select("id, accepted_at")
+      .eq("account_id", req.accountId)
+      .ilike("invited_email", normalizedEmail)
+      .maybeSingle();
+    if (existing) {
+      res.status(409).json({ error: existing.accepted_at ? "Already a team member" : "Already invited, waiting on acceptance" });
+      return;
+    }
+
+    const { data: invite, error } = await supabase
+      .from("account_members")
+      .insert({ account_id: req.accountId, invited_email: normalizedEmail, role: "member" })
+      .select("id, invite_token")
+      .single();
+    if (error || !invite) {
+      dbError(res, error ?? { message: "insert returned no row" }, "POST /team/invite");
+      return;
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
+    const acceptUrl = `${frontendUrl}/team/accept?token=${invite.invite_token}`;
+    sendTeamInviteEmail(normalizedEmail, account?.business_name || account?.email || "A LazyRelay account", acceptUrl);
+
+    res.status(201).json({ id: invite.id, email: normalizedEmail, role: "member" });
+  });
+
+  router.delete("/team/:id", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: member } = await supabase
+      .from("account_members")
+      .select("id, account_id, role")
+      .eq("id", req.params.id)
+      .maybeSingle();
+    if (!member || member.account_id !== req.accountId) {
+      res.status(404).json({ error: "Team member not found" });
+      return;
+    }
+    if (member.role === "owner") {
+      res.status(400).json({ error: "The account owner can't be removed" });
+      return;
+    }
+    const { error } = await supabase.from("account_members").delete().eq("id", req.params.id);
+    if (error) {
+      dbError(res, error, "DELETE /team/:id");
+      return;
+    }
+    res.status(204).end();
+  });
+
+  // requireJwtUser, not requireAuth -- see its doc comment in auth.ts. This
+  // is the one route where "who is calling" must be resolved independently
+  // of account-membership lookup, since accepting is the act that creates
+  // that membership in the first place.
+  router.post("/team/accept-invite", requireJwtUser, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { token } = req.body ?? {};
+    if (typeof token !== "string" || token.trim().length === 0) {
+      res.status(400).json({ error: "token is required" });
+      return;
+    }
+    const { data: invite } = await supabase
+      .from("account_members")
+      .select("id, account_id, invited_email, user_id, accepted_at")
+      .eq("invite_token", token.trim())
+      .maybeSingle();
+    if (!invite || invite.user_id || invite.accepted_at) {
+      res.status(404).json({ error: "This invite is invalid or has already been used" });
+      return;
+    }
+    if (!invite.invited_email || invite.invited_email.toLowerCase() !== req.jwtUser!.email.toLowerCase()) {
+      res.status(403).json({ error: "This invite was sent to a different email address" });
+      return;
+    }
+
+    // v1's stated limit: at most one OTHER account beyond your own -- see
+    // resolveAccountForUser() in auth.ts. Checked here, at the one moment
+    // the conflict can actually be created, rather than guessed at invite time.
+    const { data: existingMembership } = await supabase
+      .from("account_members")
+      .select("id")
+      .eq("user_id", req.jwtUser!.id)
+      .eq("role", "member")
+      .not("accepted_at", "is", null)
+      .maybeSingle();
+    if (existingMembership) {
+      res.status(409).json({ error: "You're already a member of another team. Leave that one first." });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("account_members")
+      .update({ user_id: req.jwtUser!.id, accepted_at: new Date().toISOString() })
+      .eq("id", invite.id)
+      .is("user_id", null); // race guard, same pattern as admin_key_intents
+    if (error) {
+      dbError(res, error, "POST /team/accept-invite");
+      return;
+    }
+    res.json({ accountId: invite.account_id });
   });
 
   // Admin-only: list every account on the platform. Not scoped to req.accountId

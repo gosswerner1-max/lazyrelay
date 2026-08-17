@@ -11,6 +11,13 @@ export interface AuthedRequest extends Request {
    *  check that specific key's own permissions (e.g. can_share_proof)
    *  without re-hashing the bearer token again. */
   apiKeyCanShareProof?: boolean;
+  /** Set only on the JWT (browser dashboard) auth path — see
+   *  resolveAccountForUser(). API keys and admin keys act as the account
+   *  itself and never carry a role; requireRole() treats their absence of
+   *  a role as "fully trusted", unchanged from pre-team-accounts behavior. */
+  role?: "owner" | "member";
+  /** Set only by requireJwtUser — see its own doc comment. */
+  jwtUser?: { id: string; email: string };
 }
 
 export const API_KEY_PREFIX = "lzr_live_";
@@ -144,6 +151,26 @@ async function revokeAdminKey(adminKeyId: string, reason: string): Promise<void>
   if (error) console.error("Failed to auto-revoke admin key:", error.message);
 }
 
+/** Agency tier v1 (see account_members, migration 0053): a person can be an
+ *  accepted member of at most one account beyond their own — no
+ *  account-switcher UI in v1. If they were invited into someone else's
+ *  account, that membership wins over their own (auto-created, likely
+ *  unused) self-owned account; solo customers who were never invited
+ *  anywhere just resolve to themselves, identical to pre-v1 behavior.
+ *  Returns null only if the user has literally no membership row, which
+ *  should not happen post-migration (every account/signup gets one) but is
+ *  handled as a hard failure rather than silently guessed at. */
+async function resolveAccountForUser(userId: string): Promise<{ accountId: string; role: "owner" | "member" } | null> {
+  const { data, error } = await supabase
+    .from("account_members")
+    .select("account_id, role")
+    .eq("user_id", userId)
+    .not("accepted_at", "is", null);
+  if (error || !data || data.length === 0) return null;
+  const preferred = data.find((m) => m.role === "member") ?? data[0];
+  return { accountId: preferred.account_id, role: preferred.role as "owner" | "member" };
+}
+
 /** Verifies the caller's Supabase JWT (browser dashboard), a LazyRelay API
  *  key (bring-your-own-agent, headless), OR an admin key (Claude/internal
  *  ops, acts across every account) and attaches the account id to the
@@ -215,7 +242,14 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
     return;
   }
 
-  req.accountId = data.user.id;
+  const membership = await resolveAccountForUser(data.user.id);
+  if (!membership) {
+    res.status(403).json({ error: "This account has no active membership. Contact support." });
+    return;
+  }
+
+  req.accountId = membership.accountId;
+  req.role = membership.role;
   req.authMethod = "jwt";
   next();
 }
@@ -249,6 +283,47 @@ export async function resolveOptionalAccountId(req: Request): Promise<string | n
   } catch {
     return null;
   }
+}
+
+/** Used only by POST /team/accept-invite. That route can't use requireAuth's
+ *  normal resolution: a person accepting their FIRST invite has no
+ *  account_members row for it yet, and accepting is the very act that
+ *  creates one — resolveAccountForUser would either 404 (no membership at
+ *  all is impossible post-migration, but illustrates the chicken-and-egg
+ *  problem) or, worse, silently resolve to an unrelated existing
+ *  membership. This bypasses account resolution entirely and returns the
+ *  raw Supabase auth identity, which is what "who is accepting" actually
+ *  means here. Human/browser session only, same as resolveOptionalAccountId,
+ *  and for the same reason (no API key or admin key should ever accept a
+ *  team invite on someone's behalf). */
+export async function requireJwtUser(req: AuthedRequest, res: Response, next: NextFunction): Promise<void> {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Missing bearer token" });
+    return;
+  }
+  const token = authHeader.slice("Bearer ".length);
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user || !data.user.email) {
+    res.status(401).json({ error: "Invalid or expired token" });
+    return;
+  }
+  req.jwtUser = { id: data.user.id, email: data.user.email };
+  next();
+}
+
+/** Mount AFTER requireAuth on routes that only the account owner should
+ *  reach — billing, webhook secrets, API key minting, team management
+ *  itself. API keys and admin keys never carry req.role (they act as the
+ *  account itself, same as before agency accounts existed) so they pass
+ *  through unchanged; only a JWT-authed team member without the owner
+ *  role is actually blocked here. Mount AFTER requireAuth. */
+export function requireOwner(req: AuthedRequest, res: Response, next: NextFunction) {
+  if (req.authMethod === "jwt" && req.role !== "owner") {
+    res.status(403).json({ error: "Only the account owner can do this." });
+    return;
+  }
+  next();
 }
 
 /** Mount AFTER requireAuth on any route that must never be reachable with
