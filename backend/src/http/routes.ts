@@ -76,6 +76,10 @@ const ADDON_PRICE_ID_ENV_VAR: Record<StorageAddonGb, string> = {
 const MAX_ACTIVE_BRAND_ADDONS = 10;
 const BRAND_ADDON_PRICE_ID_ENV_VAR = "PADDLE_PRICE_ID_BRAND_ADDON";
 const SEAT_ADDON_PRICE_ID_ENV_VAR = "PADDLE_PRICE_ID_SEAT_ADDON";
+// Team invites (2026-08-17) -- no separate expires_at column; invited_at
+// already exists and resend (POST /team/:id/resend) resets it, so the same
+// timestamp doubles as "clock start" for both display and this check.
+const TEAM_INVITE_EXPIRY_MS = 72 * 60 * 60 * 1000;
 
 // Free tier: 10 posts per connected social account, refilling every
 // calendar month (decided 2026-07-22 — matches the pricing page's "10 posts
@@ -3866,6 +3870,45 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.status(204).end();
   });
 
+  // Resends a still-pending invite -- same email, same invite_token (no
+  // reason to rotate it; an old copy of the email still working alongside
+  // the new one is harmless, not a security concern), just a fresh
+  // invited_at so it's good for another 72 hours (see TEAM_INVITE_EXPIRY_MS
+  // in POST /team/accept-invite above). Real gap Werner asked to close,
+  // 2026-08-17: without this, a missed/expired invite email meant deleting
+  // the row and starting over instead of one click.
+  router.post("/team/:id/resend", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: member } = await supabase
+      .from("account_members")
+      .select("id, account_id, invited_email, user_id, accepted_at, invite_token")
+      .eq("id", req.params.id)
+      .maybeSingle();
+    if (!member || member.account_id !== req.accountId) {
+      res.status(404).json({ error: "Team member not found" });
+      return;
+    }
+    if (member.user_id || member.accepted_at) {
+      res.status(400).json({ error: "This invite has already been accepted, there's nothing to resend" });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("account_members")
+      .update({ invited_at: new Date().toISOString() })
+      .eq("id", member.id);
+    if (error) {
+      dbError(res, error, "POST /team/:id/resend");
+      return;
+    }
+
+    const { data: account } = await supabase.from("accounts").select("email, business_name").eq("id", req.accountId).maybeSingle();
+    const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
+    const acceptUrl = `${frontendUrl}/team/accept?token=${member.invite_token}`;
+    sendTeamInviteEmail(member.invited_email!, account?.business_name || account?.email || "A LazyRelay account", acceptUrl);
+
+    res.json({ resent: true });
+  });
+
   // requireJwtUser, not requireAuth -- see its doc comment in auth.ts. This
   // is the one route where "who is calling" must be resolved independently
   // of account-membership lookup, since accepting is the act that creates
@@ -3878,11 +3921,15 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
     const { data: invite } = await supabase
       .from("account_members")
-      .select("id, account_id, invited_email, user_id, accepted_at")
+      .select("id, account_id, invited_email, user_id, accepted_at, invited_at")
       .eq("invite_token", token.trim())
       .maybeSingle();
     if (!invite || invite.user_id || invite.accepted_at) {
       res.status(404).json({ error: "This invite is invalid or has already been used" });
+      return;
+    }
+    if (Date.now() - new Date(invite.invited_at).getTime() > TEAM_INVITE_EXPIRY_MS) {
+      res.status(410).json({ error: "This invite has expired. Ask the account owner to resend it." });
       return;
     }
     if (!invite.invited_email || invite.invited_email.toLowerCase() !== req.jwtUser!.email.toLowerCase()) {

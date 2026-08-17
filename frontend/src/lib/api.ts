@@ -591,6 +591,7 @@ export const api = {
   inviteTeamMember: (email: string): Promise<{ id: string; email: string; role: "member" }> =>
     authedFetch("/team/invite", { method: "POST", body: JSON.stringify({ email }) }),
   removeTeamMember: (id: string): Promise<null> => authedFetch(`/team/${id}`, { method: "DELETE" }),
+  resendTeamInvite: (id: string): Promise<{ resent: boolean }> => authedFetch(`/team/${id}/resend`, { method: "POST" }),
   acceptTeamInvite: (token: string): Promise<{ accountId: string }> =>
     authedFetch("/team/accept-invite", { method: "POST", body: JSON.stringify({ token }) }),
 

@@ -206,6 +206,7 @@ export function Dashboard() {
   const [teamInviteEmail, setTeamInviteEmail] = useState("");
   const [invitingTeamMember, setInvitingTeamMember] = useState(false);
   const [removingTeamMemberId, setRemovingTeamMemberId] = useState<string | null>(null);
+  const [resendingTeamInviteId, setResendingTeamInviteId] = useState<string | null>(null);
   const [revokingGrantClientId, setRevokingGrantClientId] = useState<string | null>(null);
   const [announcingAdmin, setAnnouncingAdmin] = useState(false);
   const [adminWindowExpiresAt, setAdminWindowExpiresAt] = useState<string | null>(null);
@@ -1603,6 +1604,20 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setRemovingTeamMemberId(null);
+    }
+  }
+
+  async function handleResendTeamInvite(id: string) {
+    setResendingTeamInviteId(id);
+    setError(null);
+    try {
+      await api.resendTeamInvite(id);
+      const list = await api.listTeam();
+      setTeam(list);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setResendingTeamInviteId(null);
     }
   }
 
@@ -3670,15 +3685,33 @@ export function Dashboard() {
           <p className="section-note">At your plan's seat limit. Upgrade to Business, Agency, or Agency Plus for more seats.</p>
         )}
         <ul className="media-list">
-          {team.map((m) => (
+          {team.map((m) => {
+            // Mirrors TEAM_INVITE_EXPIRY_MS / the invited_at check in
+            // POST /team/accept-invite (backend/src/http/routes.ts) --
+            // purely a display hint here, the real enforcement is server-side.
+            const isExpired = !m.accepted_at && Date.now() - new Date(m.invited_at).getTime() > 72 * 60 * 60 * 1000;
+            return (
             <li key={m.id}>
               <span className="media-list-meta">
                 <strong>{m.invited_email ?? (m.user_id === session?.user.id ? session?.user.email : m.user_id)}</strong>
                 {" ("}
                 {m.role}
                 {")"}
-                {!m.accepted_at && <span className="status-badge status-pending">invited, not yet accepted</span>}
+                {!m.accepted_at && (
+                  <span className={`status-badge ${isExpired ? "status-cancelled" : "status-pending"}`}>
+                    {isExpired ? "invite expired" : "invited, not yet accepted"}
+                  </span>
+                )}
               </span>
+              {isOwner && !m.accepted_at && m.role !== "owner" && (
+                <button
+                  className="btn-outline"
+                  onClick={() => handleResendTeamInvite(m.id)}
+                  disabled={resendingTeamInviteId !== null}
+                >
+                  {resendingTeamInviteId === m.id ? "Resending..." : "Resend"}
+                </button>
+              )}
               {isOwner && m.role !== "owner" && (
                 <button
                   className="btn-outline"
@@ -3689,7 +3722,8 @@ export function Dashboard() {
                 </button>
               )}
             </li>
-          ))}
+            );
+          })}
         </ul>
         {isOwner && seatCapacity && seatCapacity.addons.length > 0 && (
           <ul className="media-list">

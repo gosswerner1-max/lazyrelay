@@ -331,6 +331,119 @@ async function main() {
     );
   }
 
+  // 15. Resend: same email, same token, refreshed invited_at -- and it's
+  //     owner-only, same gate as invite/remove.
+  {
+    const resendOwner = await createTestUser("resend-owner");
+    await seedSubscription(resendOwner.id, "enterprise");
+    const resendInvitee = await createTestUser("resend-invitee");
+
+    await fetch(`${base}/api/team/invite`, {
+      method: "POST",
+      headers: { ...authed(resendOwner.token), "Content-Type": "application/json" },
+      body: JSON.stringify({ email: resendInvitee.email }),
+    });
+    const { data: before } = await supabase
+      .from("account_members")
+      .select("id, invite_token, invited_at")
+      .eq("account_id", resendOwner.id)
+      .eq("invited_email", resendInvitee.email.toLowerCase())
+      .single();
+
+    // Backdate invited_at so the resend's refresh is actually observable,
+    // not just "later than a moment ago" by coincidence of timing.
+    await supabase.from("account_members").update({ invited_at: new Date(Date.now() - 60_000).toISOString() }).eq("id", before!.id);
+
+    const resendRes = await fetch(`${base}/api/team/${before!.id}/resend`, {
+      method: "POST",
+      headers: authed(resendOwner.token),
+    });
+    const { data: after } = await supabase
+      .from("account_members")
+      .select("invite_token, invited_at")
+      .eq("id", before!.id)
+      .single();
+    check(
+      "resend succeeds, keeps the same token, refreshes invited_at",
+      resendRes.status === 200 &&
+        after?.invite_token === before?.invite_token &&
+        new Date(after!.invited_at).getTime() > new Date(before!.invited_at).getTime(),
+      `HTTP ${resendRes.status} before=${before?.invited_at} after=${after?.invited_at}`
+    );
+
+    // Non-owner can't resend.
+    const acceptRes = await fetch(`${base}/api/team/accept-invite`, {
+      method: "POST",
+      headers: { ...authed(resendInvitee.token), "Content-Type": "application/json" },
+      body: JSON.stringify({ token: before!.invite_token }),
+    });
+    check("invitee accepted for the next check", acceptRes.status === 200, `HTTP ${acceptRes.status}`);
+
+    const resendAfterAccept = await fetch(`${base}/api/team/${before!.id}/resend`, {
+      method: "POST",
+      headers: authed(resendOwner.token),
+    });
+    check(
+      "resending an already-accepted invite is rejected",
+      resendAfterAccept.status === 400,
+      `HTTP ${resendAfterAccept.status}`
+    );
+  }
+
+  // 16. Expiration: an invite older than 72h is rejected at accept time,
+  //     even with a genuinely valid token.
+  {
+    const expiryOwner = await createTestUser("expiry-owner");
+    await seedSubscription(expiryOwner.id, "enterprise");
+    const expiryInvitee = await createTestUser("expiry-invitee");
+
+    await fetch(`${base}/api/team/invite`, {
+      method: "POST",
+      headers: { ...authed(expiryOwner.token), "Content-Type": "application/json" },
+      body: JSON.stringify({ email: expiryInvitee.email }),
+    });
+    const { data: inviteRow } = await supabase
+      .from("account_members")
+      .select("id, invite_token")
+      .eq("account_id", expiryOwner.id)
+      .eq("invited_email", expiryInvitee.email.toLowerCase())
+      .single();
+
+    // 73 hours old -- just past the 72h window.
+    await supabase
+      .from("account_members")
+      .update({ invited_at: new Date(Date.now() - 73 * 60 * 60 * 1000).toISOString() })
+      .eq("id", inviteRow!.id);
+
+    const acceptRes = await fetch(`${base}/api/team/accept-invite`, {
+      method: "POST",
+      headers: { ...authed(expiryInvitee.token), "Content-Type": "application/json" },
+      body: JSON.stringify({ token: inviteRow!.invite_token }),
+    });
+    const acceptBody = await acceptRes.json();
+    check(
+      "a 73-hour-old invite is rejected as expired",
+      acceptRes.status === 410 && /expired/i.test(acceptBody.error ?? ""),
+      `HTTP ${acceptRes.status} ${JSON.stringify(acceptBody)}`
+    );
+
+    // Resend should un-expire it (refreshes invited_at back to now).
+    await fetch(`${base}/api/team/${inviteRow!.id}/resend`, {
+      method: "POST",
+      headers: authed(expiryOwner.token),
+    });
+    const acceptAfterResend = await fetch(`${base}/api/team/accept-invite`, {
+      method: "POST",
+      headers: { ...authed(expiryInvitee.token), "Content-Type": "application/json" },
+      body: JSON.stringify({ token: inviteRow!.invite_token }),
+    });
+    check(
+      "after resend, the same token works again",
+      acceptAfterResend.status === 200,
+      `HTTP ${acceptAfterResend.status}`
+    );
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`);
   server.close();
   for (const id of createdUserIds) {
