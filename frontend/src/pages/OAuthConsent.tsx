@@ -180,8 +180,8 @@ export function OAuthConsentPage({ authorizationId }: { authorizationId: string 
 
         <p className="section-note">
           {details.client.name} will be able to act on your LazyRelay account through the API, for example scheduling
-          posts and reading analytics, depending on what it asks to do. You can revoke this at any time from your
-          account settings.
+          posts and reading analytics, depending on what it asks to do. To stop it, remove the connection from
+          wherever you connected it (for example, your AI tool's connector settings).
         </p>
 
         <div className="oauth-consent-actions">

@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { BrandMark } from "../components/BrandMark";
 import { CodeBlock } from "../components/CodeBlock";
 import { CircuitBackground } from "../components/CircuitBackground";
-import { API_BASE_URL, API_ENDPOINTS, MCP_CONFIG_EXAMPLE } from "../lib/apiDocsContent";
+import { API_BASE_URL, API_ENDPOINTS, MCP_CONFIG_EXAMPLE, HOSTED_MCP_URL, HOSTED_MCP_REMOTE_CONFIG_EXAMPLE, MCP_TOOLS } from "../lib/apiDocsContent";
 
 interface ApiDocsProps {
   onBack: () => void;
@@ -80,6 +80,34 @@ export function ApiDocs({ onBack }: ApiDocsProps) {
             This runs locally on your own machine using your own API key, there's nothing to host. See the
             package README for the full tool list.
           </p>
+
+          <h3 className="api-mcp-heading">No install: the hosted MCP server</h3>
+          <p>
+            Prefer not to install anything, or connecting from claude.ai rather than a desktop app? LazyRelay also
+            runs a hosted MCP server. Instead of an API key, you sign in with your LazyRelay account the first
+            time you connect. Same 6 tools, same account, nothing to run locally.
+          </p>
+          <CodeBlock code={HOSTED_MCP_URL} />
+          <p>
+            In Claude, go to <strong>Settings → Connectors → Add connector</strong>, choose <strong>Remote</strong>,
+            and paste the URL above. You'll be asked to sign in and approve access, the same way you'd approve any
+            other app. For MCP clients that use a config file instead:
+          </p>
+          <CodeBlock code={HOSTED_MCP_REMOTE_CONFIG_EXAMPLE} />
+          <p>
+            To stop a connected app from accessing your account, remove it from wherever you connected it (for
+            example, your AI tool's connector settings).
+          </p>
+          <div className="api-endpoint-list">
+            {MCP_TOOLS.map((t) => (
+              <div className="api-endpoint" key={t.name}>
+                <div className="api-endpoint-header">
+                  <code>{t.name}</code>
+                </div>
+                <p>{t.summary}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
