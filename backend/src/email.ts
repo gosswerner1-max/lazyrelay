@@ -17,13 +17,28 @@ function getClient(): Resend | null {
   return new Resend(apiKey);
 }
 
+/** The opt-in failure-alerts toggle on the dashboard's Account tab governs
+ *  exactly two senders — a terminal post failure and an account pause. Shared
+ *  so those two can't drift apart in wording. */
+const FAILURE_ALERT_FOOTER =
+  "You're getting this because you turned on failure alerts in your LazyRelay dashboard's Account settings. Turn it off there any time.";
+
 // Same visual language as the existing Supabase auth-email templates
 // (dark background, orange LazyRelay logo block) — see the mailer_templates_*
 // content in Supabase's Auth config for the original.
+//
+// footerHtml is REQUIRED on purpose. It used to default to
+// FAILURE_ALERT_FOOTER, which was right for the two senders gated on that
+// toggle and quietly wrong for everything else: the support-widget
+// escalation inherited it and told an internal handoff mail that the
+// *recipient* had turned on failure alerts. Twelve-plus of those went to our
+// own mailboxes before it was fixed (2026-08-17). A default that is only
+// correct for some callers is worse than no default -- every caller now has
+// to say who is getting this and why.
 function wrapEmailHtml(
   heading: string,
   bodyHtml: string,
-  footerHtml: string = "You're getting this because you turned on failure alerts in your LazyRelay dashboard's Account settings. Turn it off there any time.",
+  footerHtml: string,
 ): string {
   return `<body style="margin:0;padding:0;background-color:#0b0c10;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#0b0c10;padding:40px 0;">
@@ -69,7 +84,8 @@ export function sendFailureAlert(to: string, content: string, reason: string): v
         `We tried repeatedly to publish this post and couldn't confirm it went live:<br><br>` +
           `<span style="color:#ffffff;">&quot;${escapeHtml(snippet)}&quot;</span><br><br>` +
           `Reason: ${escapeHtml(reason)}<br><br>` +
-          `Check your dashboard to retry or fix the connected account.`
+          `Check your dashboard to retry or fix the connected account.`,
+        FAILURE_ALERT_FOOTER
       ),
     })
     .then((result) => {
@@ -102,7 +118,9 @@ export function sendSupportEscalation(mailbox: keyof typeof ESCALATION_ADDRESSES
       html: wrapEmailHtml(
         "Support widget escalation",
         `The AI support widget couldn't resolve this conversation and handed it off:<br><br>` +
-          `<pre style="white-space:pre-wrap;color:#ffffff;font-family:inherit;font-size:14px;">${escapeHtml(transcript)}</pre>`
+          `<pre style="white-space:pre-wrap;color:#ffffff;font-family:inherit;font-size:14px;">${escapeHtml(transcript)}</pre>`,
+        "Internal handoff from the LazyRelay support widget — not a customer notification, and the customer isn't copied on it. " +
+          "Reply to them directly using the address in the Customer line above, if one was captured."
       ),
     })
     .then((result) => {
@@ -185,7 +203,8 @@ export function sendAccountPausedAlert(to: string, content: string): void {
         "A post was skipped",
         `This post was skipped because the connected account is paused (usually a plan downgrade or a disconnected account):<br><br>` +
           `<span style="color:#ffffff;">&quot;${escapeHtml(snippet)}&quot;</span><br><br>` +
-          `Reconnect the account or check your plan in your dashboard to resume posting.`
+          `Reconnect the account or check your plan in your dashboard to resume posting.`,
+        FAILURE_ALERT_FOOTER
       ),
     })
     .then((result) => {
