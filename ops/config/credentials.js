@@ -95,10 +95,23 @@ function getRenderCredentials() {
   return { apiKey, serviceId };
 }
 
-/** npm Granular Access Token for the @lazyrelay org (Read/write, bypasses
- * 2FA, 90-day expiry) — lets `npm publish` run headlessly from the mcp-server
- * package without Werner entering a 2FA code each release. Generated
- * 2026-08-07; will need regenerating before it expires. */
+/** LEGACY -- do not use this for new work. See mcp-server/PUBLISHING.md.
+ *
+ * npm Granular Access Token for the @lazyrelay org (Read/write, bypasses
+ * 2FA, 90-day expiry) -- used to publish 0.1.0 (2026-08-07) and 0.1.1
+ * (2026-08-17) headlessly. As of 2026-08-17, publishing goes through
+ * .github/workflows/publish-mcp-server.yml instead (npm trusted
+ * publishing / OIDC, no stored token at all) -- proven working with a
+ * real release (0.1.2), and preferred because npm is actively
+ * restricting this exact "bypass 2FA" token class: account-management
+ * actions (including revoking a token, even itself) were already
+ * blocked 2026-07-31 -- confirmed live, this token got a real 403
+ * trying to revoke itself -- and direct publishing goes away entirely
+ * around January 2027.
+ *
+ * May return null if Werner has since revoked this token now that the
+ * replacement is proven. That is expected, not a bug -- don't
+ * regenerate a replacement token, use the GitHub Actions path above. */
 function getNpmAccessToken() {
   if (!fs.existsSync(OPS_CREDS_PATH)) return null;
   const creds = JSON.parse(fs.readFileSync(OPS_CREDS_PATH, "utf8"));
