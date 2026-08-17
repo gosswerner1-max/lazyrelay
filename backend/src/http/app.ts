@@ -2,10 +2,19 @@ import express from "express";
 import cors from "cors";
 import { buildRouter } from "./routes.js";
 import { buildWebhookHandler } from "./webhook.js";
+import { mountMcp } from "./mcpRoutes.js";
 import type { MerchantOfRecordAdapter } from "../billing/types.js";
 import type { PlatformAdapterRegistry } from "../platforms/connect.js";
+import type { OAuthMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
 
-export function buildApp(morAdapter: MerchantOfRecordAdapter, registry: PlatformAdapterRegistry) {
+export function buildApp(
+  morAdapter: MerchantOfRecordAdapter,
+  registry: PlatformAdapterRegistry,
+  /** Supabase's OAuth authorization-server metadata. When absent (the
+   *  OAuth server is switched off on the project) the hosted MCP endpoint
+   *  is simply not mounted — see fetchSupabaseOAuthMetadata. */
+  mcpOAuthMetadata?: OAuthMetadata | null,
+) {
   const app = express();
 
   // Render sits in front of the app behind exactly one reverse proxy hop,
@@ -16,6 +25,13 @@ export function buildApp(morAdapter: MerchantOfRecordAdapter, registry: Platform
   // Webhook route needs the raw body for signature verification — mounted
   // BEFORE express.json() so the JSON parser never touches it.
   app.post("/api/webhooks/mor", express.raw({ type: "application/json" }), buildWebhookHandler(morAdapter));
+
+  // Hosted MCP is mounted BEFORE the frontend CORS policy below on purpose.
+  // That policy allows only the LazyRelay web origins, which is right for
+  // the dashboard API and wrong here — an MCP client is an AI agent, not a
+  // browser on our own domain, and would be CORS-rejected by it. MCP brings
+  // its own origin policy (see mcpRoutes.ts).
+  if (mcpOAuthMetadata) mountMcp(app, mcpOAuthMetadata);
 
   // The site is reachable at both the bare domain and the www subdomain
   // (DNS/hosting serves both rather than redirecting one to the other), so

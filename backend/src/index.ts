@@ -7,6 +7,7 @@ import { StubMorAdapter } from "./billing/stub.js";
 import { PaddleMorAdapter } from "./billing/paddle.js";
 import { Environment } from "@paddle/paddle-node-sdk";
 import { buildApp } from "./http/app.js";
+import { fetchSupabaseOAuthMetadata } from "./http/mcpAuth.js";
 import type { MerchantOfRecordAdapter } from "./billing/types.js";
 
 const POLL_INTERVAL_MS = 30_000;
@@ -74,7 +75,13 @@ async function main() {
       `ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? "set" : "MISSING"}`,
   );
 
-  const app = buildApp(morAdapter, registry);
+  // Hosted MCP needs Supabase's OAuth 2.1 server to be enabled on the
+  // project (Authentication -> OAuth Server). If it isn't, this returns
+  // null with a loud warning and MCP is simply not mounted — the rest of
+  // the API is unaffected.
+  const mcpOAuthMetadata = await fetchSupabaseOAuthMetadata();
+
+  const app = buildApp(morAdapter, registry, mcpOAuthMetadata);
   app.listen(PORT, () => console.log(`HTTP API listening on :${PORT}`));
 
   setInterval(() => {

@@ -13,6 +13,7 @@ import { ApiDocs } from "./pages/ApiDocs";
 import { ConnectForm } from "./pages/ConnectForm";
 import { BioPage } from "./pages/BioPage";
 import { VerifyPage } from "./pages/VerifyPage";
+import { OAuthConsentPage } from "./pages/OAuthConsent";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { Spinner } from "./components/Spinner";
@@ -93,6 +94,15 @@ function Root() {
     // Proof-of-Publish share links are the same shape of exception — a
     // public page a customer shares outside the app, owning its own URL.
     if (window.location.pathname.startsWith("/verify/")) return;
+    // The OAuth consent screen is the same shape of exception too — it owns
+    // its own URL (with an authorization_id query param this effect would
+    // otherwise strip). Missing this exclusion was caught live: without it,
+    // this effect rewrites the URL to "/" via pushState before the page
+    // ever settles (view defaults to "landing" since /oauth/consent isn't
+    // in PATH_TO_VIEW), and React 18 StrictMode's dev-only double-render
+    // then re-evaluates the path check against the now-rewritten URL,
+    // silently swapping the whole page back to Landing.
+    if (window.location.pathname === "/oauth/consent") return;
     window.scrollTo(0, 0);
     const path = VIEW_TO_PATH[view] ?? "/";
     if (window.location.pathname !== path) {
@@ -133,6 +143,19 @@ function Root() {
   const verifyMatch = /^\/verify\/([0-9a-fA-F-]{36})$/.exec(window.location.pathname);
   if (verifyMatch) {
     return <VerifyPage id={verifyMatch[1]} />;
+  }
+
+  // OAuth consent screen (/oauth/consent?authorization_id=...) — configured
+  // in the Supabase dashboard as this project's OAuth Server Authorization
+  // Path. Reached mid-flow when an AI agent asks to connect to a customer's
+  // LazyRelay account via the hosted MCP server. Same shape of exception as
+  // /connect/, /bio/ and /verify/ above: it owns its own URL and (unlike
+  // those three) does need the normal auth state, which OAuthConsentPage
+  // handles internally via useAuth() rather than the session gate below,
+  // since "not signed in yet" is itself a real, expected state here.
+  if (window.location.pathname === "/oauth/consent") {
+    const authorizationId = new URLSearchParams(window.location.search).get("authorization_id");
+    return <OAuthConsentPage authorizationId={authorizationId} />;
   }
 
   // Reset-password page must render before the session check. resetMode is

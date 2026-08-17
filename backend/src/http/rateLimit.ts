@@ -49,6 +49,29 @@ export const tieredRateLimit = rateLimit({
   message: { error: "Too many requests — please slow down and try again shortly." },
 });
 
+/** Request-rate limit for the hosted MCP endpoint. Same tier ladder and
+ *  cache as tieredRateLimit, but it reads the account id from the verified
+ *  OAuth token (req.auth.extra.accountId, set by requireBearerAuth via
+ *  mcpAuth.ts) rather than req.accountId, which only requireAuth sets and
+ *  the MCP path never calls. Must be mounted AFTER requireBearerAuth —
+ *  before it, every request would fall to the shared IP key, which for an
+ *  agent host is one key for many customers. */
+export const mcpRateLimit = rateLimit({
+  windowMs: 60_000,
+  max: async (req: Request) => {
+    const accountId = req.auth?.extra?.accountId;
+    if (typeof accountId !== "string" || !accountId) return 30;
+    return TIER_LIMITS[await resolveTier(accountId)];
+  },
+  keyGenerator: (req: Request) => {
+    const accountId = req.auth?.extra?.accountId;
+    return typeof accountId === "string" && accountId ? accountId : (req.ip ?? "unknown");
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests — please slow down and try again shortly." },
+});
+
 /** Coarse IP-based limiter for the one route that runs before/without
  *  requireAuth (the OAuth callback — the platform redirects the browser
  *  here directly, so there's no JWT to key on). Not tier-aware; it's a
