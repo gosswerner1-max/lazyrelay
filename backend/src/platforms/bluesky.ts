@@ -44,6 +44,7 @@ interface BlueskySession {
 interface BlueskyProfile {
   displayName?: string;
   handle?: string;
+  followersCount?: number;
 }
 
 interface BlueskyBlobRef {
@@ -455,5 +456,21 @@ export class BlueskyAdapter implements PlatformAdapter {
       views: null, // Bluesky doesn't expose view counts on a post
       errorMessage: null,
     };
+  }
+
+  // Audience growth (2026-08-17) — same getSession-then-getProfile lookup
+  // post() already does to resolve the token's own did, needs no scope
+  // beyond what app-password sign-in already grants.
+  async getFollowerCount(accessToken: string): Promise<number | null> {
+    const sessionRes = await fetch(`${DEFAULT_PDS}/xrpc/com.atproto.server.getSession`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const sessionJson = (await sessionRes.json().catch(() => ({}))) as { did?: string };
+    if (!sessionRes.ok || !sessionJson.did) return null;
+
+    const profileRes = await fetch(`${GET_PROFILE_URL}?actor=${encodeURIComponent(sessionJson.did)}`);
+    if (!profileRes.ok) return null;
+    const profileJson = (await profileRes.json().catch(() => ({}))) as BlueskyProfile;
+    return profileJson.followersCount ?? null;
   }
 }

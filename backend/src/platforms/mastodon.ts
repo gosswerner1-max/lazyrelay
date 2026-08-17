@@ -50,6 +50,7 @@ interface MastodonAccount {
   id?: string;
   username?: string;
   display_name?: string;
+  followers_count?: number;
 }
 
 interface MastodonMedia {
@@ -330,5 +331,17 @@ export class MastodonAdapter implements PlatformAdapter {
       views: null, // Mastodon doesn't expose view counts
       errorMessage: null,
     };
+  }
+
+  // Audience growth (2026-08-17) — same endpoint already used for the
+  // connect-time display-name lookup above, needs no additional scope
+  // beyond the read:accounts already granted.
+  async getFollowerCount(accessToken: string): Promise<number | null> {
+    const res = await fetch(`${DEFAULT_INSTANCE}/api/v1/accounts/verify_credentials`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return null;
+    const json = (await res.json().catch(() => ({}))) as MastodonAccount;
+    return json.followers_count ?? null;
   }
 }

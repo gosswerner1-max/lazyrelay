@@ -250,4 +250,17 @@ export interface PlatformAdapter {
   /** Required alongside listConnectOptions — finishes the connection once
    *  the customer has picked one of the options it returned. */
   finalizeConnectOption?(userToken: string, selectedId: string): Promise<OAuthExchangeResult>;
+
+  /** Optional — the audience-growth half of "advanced analytics" (2026-08-17,
+   *  see project-lazyrelay-vs-socialbee-feature-roadmap-2026-08-16). Only
+   *  declared by adapters that can read a follower/subscriber count with a
+   *  scope LazyRelay already has approved — Mastodon, Bluesky, YouTube.
+   *  Deliberately NOT built for Facebook/Instagram (real follower insights
+   *  need read_insights, a permission outside the set currently under Meta
+   *  review — must not touch that app while its review is open) or
+   *  TikTok/Pinterest (their audience-insight endpoints need elevated scopes
+   *  LazyRelay doesn't have). Every other adapter simply doesn't declare
+   *  this; callers (the audience snapshot poller) must treat its absence as
+   *  "not supported," never silently skip and pretend it was polled. */
+  getFollowerCount?(accessToken: string): Promise<number | null>;
 }

@@ -1910,6 +1910,62 @@ export function Dashboard() {
                   );
                 })}
             </div>
+
+            <h3>Audience growth</h3>
+            {(!analytics.audienceGrowth || Object.keys(analytics.audienceGrowth).length === 0) ? (
+              <p className="muted">
+                No follower-count history yet — this fills in daily once your Mastodon, Bluesky, or YouTube
+                accounts have been connected a day or more. Other platforms don't support this yet.
+              </p>
+            ) : (
+              <>
+                <p className="muted">
+                  Follower count over time. Only readable today on Mastodon, Bluesky, and YouTube — every other
+                  platform is absent from this table, not shown as zero, since LazyRelay has no read access
+                  there yet.
+                </p>
+                <div className="table-scroll">
+                  <table className="analytics-table">
+                    <thead>
+                      <tr>
+                        <th>Platform</th>
+                        <th>Current followers</th>
+                        <th>Change over range</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(analytics.audienceGrowth)
+                        .sort((a, b) => {
+                          const aLatest = a[1].trend[a[1].trend.length - 1]?.followerCount ?? 0;
+                          const bLatest = b[1].trend[b[1].trend.length - 1]?.followerCount ?? 0;
+                          return bLatest - aLatest;
+                        })
+                        .map(([platform, growth]) => {
+                          const latest = growth.trend[growth.trend.length - 1]?.followerCount;
+                          return (
+                            <tr key={platform}>
+                              <td>
+                                <span className="platform-badge">
+                                  <PlatformIcon platform={platform} size={13} />
+                                  {platform}
+                                </span>
+                              </td>
+                              <td>{latest ?? "—"}</td>
+                              <td>
+                                {growth.netChange === null
+                                  ? "—"
+                                  : growth.netChange > 0
+                                    ? `+${growth.netChange}`
+                                    : growth.netChange}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </>
         )}
       </section>

@@ -445,4 +445,16 @@ export class YouTubeAdapter implements PlatformAdapter {
       errorMessage: null,
     };
   }
+
+  // Audience growth (2026-08-17) — channels.list's own `statistics` part
+  // already has this; needs no additional scope beyond youtube.readonly.
+  async getFollowerCount(accessToken: string): Promise<number | null> {
+    const res = await fetch(`${CHANNELS_URL}?part=statistics&mine=true`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return null;
+    const json = (await res.json().catch(() => ({}))) as { items?: { statistics?: { subscriberCount?: string } }[] };
+    const raw = json.items?.[0]?.statistics?.subscriberCount;
+    return raw === undefined ? null : Number(raw);
+  }
 }

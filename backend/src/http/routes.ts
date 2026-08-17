@@ -2481,20 +2481,67 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (matchingSocialAccountIds) {
       scheduledPostsQuery = scheduledPostsQuery.in("social_account_id", matchingSocialAccountIds);
     }
+    // Audience growth (2026-08-17) — same brand-filter scoping as the posts
+    // query above, just against audience_snapshots instead of
+    // scheduled_posts. social_accounts(platform) joined in so the frontend
+    // can group by platform without a second round trip.
+    let audienceSnapshotsQuery = supabase
+      .from("audience_snapshots")
+      .select("social_account_id, follower_count, snapshot_date, social_accounts(platform)")
+      .eq("account_id", req.accountId)
+      .gte("snapshot_date", since.slice(0, 10))
+      .order("snapshot_date", { ascending: true });
+    if (matchingSocialAccountIds) {
+      audienceSnapshotsQuery = audienceSnapshotsQuery.in("social_account_id", matchingSocialAccountIds);
+    }
+
     const [
       { data, error },
       { data: dmAutomationRows },
       { count: accountsConnectedCount },
+      { data: audienceSnapshotRows, error: audienceError },
     ] = await Promise.all([
       scheduledPostsQuery,
       supabase.from("dm_automations").select("id").eq("account_id", req.accountId),
       supabase.from("social_accounts").select("id", { count: "exact", head: true }).eq("account_id", req.accountId).is("disconnected_at", null),
+      audienceSnapshotsQuery,
     ]);
     if (error) {
       dbError(res, error, "GET /analytics/summary");
       return;
     }
+    if (audienceError) {
+      dbError(res, audienceError, "GET /analytics/summary (audience growth)");
+      return;
+    }
     const automationIds = (dmAutomationRows ?? []).map((a: { id: string }) => a.id);
+
+    // Per platform: the trend as [{date, followerCount}] (summed across every
+    // connected account on that platform, in case there's more than one),
+    // plus the simple net change over the whole range so the UI doesn't have
+    // to recompute it. A platform absent from this map means no connected
+    // account there supports follower-count reads yet (see
+    // PlatformAdapter.getFollowerCount) — honestly absent, not a silent zero.
+    const audienceGrowth: Record<string, { trend: { date: string; followerCount: number }[]; netChange: number | null }> = {};
+    {
+      const byPlatformAndDate: Record<string, Record<string, number>> = {};
+      for (const row of audienceSnapshotRows ?? []) {
+        const platform = Array.isArray(row.social_accounts)
+          ? (row.social_accounts[0] as { platform?: string } | undefined)?.platform
+          : (row.social_accounts as { platform?: string } | null)?.platform;
+        const platformKey = platform ?? "unknown";
+        byPlatformAndDate[platformKey] ??= {};
+        byPlatformAndDate[platformKey][row.snapshot_date] =
+          (byPlatformAndDate[platformKey][row.snapshot_date] ?? 0) + row.follower_count;
+      }
+      for (const [platformKey, byDate] of Object.entries(byPlatformAndDate)) {
+        const trend = Object.entries(byDate)
+          .map(([date, followerCount]) => ({ date, followerCount }))
+          .sort((a, b) => a.date.localeCompare(b.date));
+        const netChange = trend.length >= 2 ? trend[trend.length - 1].followerCount - trend[0].followerCount : null;
+        audienceGrowth[platformKey] = { trend, netChange };
+      }
+    }
     let dmCount = 0;
     if (automationIds.length > 0) {
       const { count } = await supabase
@@ -2574,6 +2621,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       engagement,
       dmCount,
       accountsConnected,
+      audienceGrowth,
     });
   });
 

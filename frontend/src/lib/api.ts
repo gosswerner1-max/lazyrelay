@@ -194,6 +194,12 @@ export interface AnalyticsSummary {
   // LazyRelay has no metrics-read access for it yet, same "honestly
   // absent, never a silent zero" pattern as the Mentions tab.
   engagement: Record<string, { likes: number; comments: number; shares: number; views: number; postsWithData: number }>;
+  // Audience growth (2026-08-17) — follower-count trend per platform, only
+  // present for platforms where a connected account supports it (Mastodon,
+  // Bluesky, YouTube today). A platform missing from this map means no
+  // connected account there can report a follower count yet, same "honestly
+  // absent, never a silent zero" convention as `engagement` above.
+  audienceGrowth?: Record<string, { trend: { date: string; followerCount: number }[]; netChange: number | null }>;
 }
 
 export interface BioLink {
