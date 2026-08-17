@@ -23,6 +23,7 @@ import type {
 // project-platform-app-registration memory for the tradeoff discussion.
 const DEFAULT_PDS = "https://bsky.social";
 const CREATE_SESSION_URL = `${DEFAULT_PDS}/xrpc/com.atproto.server.createSession`;
+const REFRESH_SESSION_URL = `${DEFAULT_PDS}/xrpc/com.atproto.server.refreshSession`;
 const CREATE_RECORD_URL = `${DEFAULT_PDS}/xrpc/com.atproto.repo.createRecord`;
 const GET_RECORD_URL = `${DEFAULT_PDS}/xrpc/com.atproto.repo.getRecord`;
 const UPLOAD_BLOB_URL = `${DEFAULT_PDS}/xrpc/com.atproto.repo.uploadBlob`;
@@ -178,13 +179,39 @@ export class BlueskyAdapter implements PlatformAdapter {
     return {
       accessToken: json.accessJwt,
       refreshToken: json.refreshJwt ?? null,
-      // Access JWTs are short-lived (real AT Protocol behavior, not
-      // configurable here) but PostRequest/verifyPublished have no
-      // refresh-on-demand path today, matching every other adapter's
-      // current scope — a real limitation, not an oversight.
-      expiresAt: null,
+      // Access JWTs are short-lived (real AT Protocol behavior) — confirmed
+      // live 2026-08-17: a freshly-connected token failed with "Token has
+      // expired" on its very next scheduled post. Conservative 90-minute
+      // estimate (bsky.social doesn't publish an exact TTL) so
+      // getAccessToken()'s proactive refresh in scheduler.ts fires well
+      // before the real expiry rather than relying on this ever being null.
+      expiresAt: new Date(Date.now() + 90 * 60 * 1000).toISOString(),
       platformAccountId: json.did,
       displayName,
+    };
+  }
+
+  // Confirmed live 2026-08-17 as a real, reproducible gap (not theoretical):
+  // access JWTs expire and every post after that fails until reconnected,
+  // since refreshJwt was captured at connect time but never used anywhere.
+  // com.atproto.server.refreshSession takes the refresh token itself as the
+  // Bearer credential, not in the body — the one real deviation from every
+  // other adapter's refresh() shape here.
+  async refresh(refreshToken: string): Promise<OAuthExchangeResult> {
+    const res = await fetch(REFRESH_SESSION_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${refreshToken}` },
+    });
+    const json = (await res.json()) as BlueskySession;
+    if (!res.ok || !json.accessJwt) {
+      throw new Error(json.message ?? json.error ?? "Bluesky session refresh failed");
+    }
+    return {
+      accessToken: json.accessJwt,
+      refreshToken: json.refreshJwt ?? refreshToken,
+      expiresAt: new Date(Date.now() + 90 * 60 * 1000).toISOString(),
+      platformAccountId: "",
+      displayName: "",
     };
   }
 
