@@ -17,9 +17,9 @@ import { CircuitBackground } from "../components/CircuitBackground";
 import { SupportWidget } from "../components/SupportWidget";
 import { PostErrorDetail } from "../components/PostErrorDetail";
 
-const TABS = ["Overview", "Posts", "Calendar", "Analytics", "Mentions", "DMs", "Bio Page", "Accounts", "Storage", "Account", "API Keys", "Billing"] as const;
+const TABS = ["Overview", "Posts", "Calendar", "Analytics", "Mentions", "DMs", "Bio Page", "Social Platforms", "Storage", "Account", "API Keys", "Billing"] as const;
 type Tab = (typeof TABS)[number];
-const MAIN_TABS: Tab[] = ["Overview", "Posts", "Calendar", "Accounts"];
+const MAIN_TABS: Tab[] = ["Overview", "Posts", "Calendar", "Social Platforms"];
 const MORE_TABS: Tab[] = ["Analytics", "Mentions", "DMs", "Bio Page", "Storage", "Account", "API Keys", "Billing"];
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -2493,9 +2493,9 @@ export function Dashboard() {
         </>
       )}
 
-      {tab === "Accounts" && (
+      {tab === "Social Platforms" && (
       <section>
-        <h2>Connected accounts</h2>
+        <h2>Connected social platforms</h2>
         {accounts.length === 0 ? (
           <p className="empty">No accounts connected yet. Connect one to start scheduling posts.</p>
         ) : (

@@ -104,7 +104,7 @@ function tierLine(tier: Tier): string {
 // restructure, real answer is the "Accounts" tab). Re-sync this whenever
 // Dashboard.tsx's own tab arrays change -- if a tab moves, this goes stale
 // independently of the code, since nothing enforces it automatically.
-const DASHBOARD_MAIN_TABS = ["Overview", "Posts", "Calendar", "Accounts"] as const;
+const DASHBOARD_MAIN_TABS = ["Overview", "Posts", "Calendar", "Social Platforms"] as const;
 const DASHBOARD_MORE_TABS = ["Analytics", "Mentions", "DMs", "Bio Page", "Storage", "Account", "API Keys", "Billing"] as const;
 
 const LIVE_PLATFORMS = [
@@ -131,7 +131,7 @@ const COMING_SOON_PLATFORMS = ["X", "Snapchat"] as const;
 // SUPPORT_KNOWLEDGE.md grows; this doesn't need to track it line for line.
 const TROUBLESHOOTING_KNOWLEDGE = `
 PLATFORM TROUBLESHOOTING
-- Facebook/Instagram "was working, now silently stopped": long-lived token likely expired, or a permission got toggled off separately from the original connect. Fix: reconnect from the **Accounts** tab (top nav, no menu needed), approving ALL requested permissions.
+- Facebook/Instagram "was working, now silently stopped": long-lived token likely expired, or a permission got toggled off separately from the original connect. Fix: reconnect from the **Social Platforms** tab (top nav, no menu needed), approving ALL requested permissions.
 - Instagram won't connect: must be a Business/Creator account, and (for the older connect flow) linked to a Facebook Page the user administers.
 - Instagram media fails but Facebook works: Instagram has stricter media specs (JPEG for images, 4:5-1.91:1 aspect ratio, MP4/MOV H.264 for video, under 8MB).
 - TikTok "posts privately only, followers can't find it": this is TikTok's default for unaudited integrations, not a bug on LazyRelay's side.
