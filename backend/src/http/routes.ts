@@ -37,6 +37,7 @@ import { resolveTier, TIER_DISPLAY_NAMES, RECURRING_SCHEDULE_SLOT_LIMITS, type T
 import { cancelFuturePendingOccurrences } from "../recurringScheduler.js";
 import { checkGenerationLimit, recordGeneration } from "../aiUsage.js";
 import { buildSupportSystemPrompt, type SupportAccountContext } from "../support/chatKnowledge.js";
+import { extractSelfReportedEmail, SELF_REPORTED_EMAIL } from "../support/escalationIdentity.js";
 import { sendSupportEscalation, sendTeamInviteEmail } from "../email.js";
 import { triageItems, type TriageItem, type TriageResult } from "../commentTriage.js";
 import type { CommentItem } from "../platforms/types.js";
@@ -456,11 +457,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
   const MAX_CHAT_MESSAGES = 20;
   const MAX_CHAT_MESSAGE_LENGTH = 2000;
-  // Domain labels matched one at a time so a sentence-ending period can't be
-  // swallowed into the address ("...@example.com." must yield "@example.com").
-  // Used twice below -- to surface a self-reported address on an escalation,
-  // and to recognise the contact-details turn when picking question_summary.
-  const SELF_REPORTED_EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
+  // SELF_REPORTED_EMAIL and extractSelfReportedEmail live in
+  // support/escalationIdentity.ts -- pure, and covered by test-support-chat.ts.
+
   // Recognises OUR OWN contact ask (chatKnowledge.ts:177 tells the model to ask
   // for both a name and an email), so a customer's reply to it -- handover or
   // refusal -- isn't mistaken for their question. Deliberately requires the two
@@ -572,7 +571,11 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
           // chatKnowledge.ts's contactCaptureLine) -- surface it here too, so
           // a human skimming just this header line doesn't miss contact info
           // that's actually present a few lines down in the transcript.
-          const selfReportedEmail = conversationTranscript.match(SELF_REPORTED_EMAIL)?.[0];
+          //
+          // USER turns only, and never our own address: scanning the whole
+          // transcript reported the assistant's own "email support@lazyrelay.com"
+          // back as the customer's address (found live 2026-08-17, support@ uid 33).
+          const selfReportedEmail = extractSelfReportedEmail(messages);
           if (selfReportedEmail) {
             customerLine = `Customer: anonymous visitor, no verified session, but self-reported "${selfReportedEmail}" appears in the conversation below -- read the full transcript to confirm name/email before replying.`;
           }
