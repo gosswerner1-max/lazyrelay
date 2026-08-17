@@ -1,0 +1,77 @@
+name: Publish mcp-server to npm
+
+# Trusted publishing (OIDC) -- no stored npm token, nothing that can leak
+# or expire. Configured on npmjs.com: @lazyrelay/mcp-server package ->
+# Settings -> Trusted Publisher -> GitHub Actions, pointing at exactly
+# this workflow filename. Replaces the granular access token in
+# ops/config/credentials.local.json used for the 2026-08-17 0.1.1
+# release -- npm is restricting 2FA-bypass tokens (already lost
+# account-management actions 2026-07-31; loses direct publish entirely
+# ~January 2027: github.blog/changelog/2026-07-08-npm-install-time-
+# security-and-gat-bypass2fa-deprecation).
+#
+# Fires on every push touching mcp-server/**, but only actually
+# publishes if package.json's version differs from what's already live
+# on npm -- so bumping the version and pushing IS the whole release
+# process, same as the frontend's own auto-deploy. A push that doesn't
+# bump the version is a harmless no-op, not a failure, so this can't
+# accidentally spam-publish just from unrelated edits.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mcp-server/**"
+      - ".github/workflows/publish-mcp-server.yml"
+  workflow_dispatch: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # id-token: write is what lets GitHub mint the OIDC token npm's
+    # trusted-publisher exchange needs -- the whole point of this setup.
+    permissions:
+      id-token: write
+      contents: read
+    defaults:
+      run:
+        working-directory: mcp-server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # npm trusted publishing needs npm CLI 11.5.1+ / Node 22.14+;
+          # 24 comfortably clears both and matches what's already
+          # proven working for this package locally.
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          cache: "npm"
+          cache-dependency-path: mcp-server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Check whether this version is already published
+        id: version_check
+        run: |
+          LOCAL_VERSION=$(node -p "require('./package.json').version")
+          PUBLISHED_VERSION=$(npm view @lazyrelay/mcp-server version 2>/dev/null || echo "none")
+          echo "Local version:     $LOCAL_VERSION"
+          echo "Published version: $PUBLISHED_VERSION"
+          if [ "$LOCAL_VERSION" = "$PUBLISHED_VERSION" ]; then
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # No token anywhere here -- npm's CLI detects the GitHub Actions
+      # OIDC environment automatically once the trusted publisher is
+      # configured on npmjs.com, and provenance is attached by default.
+      - name: Publish to npm
+        if: steps.version_check.outputs.should_publish == 'true'
+        run: npm publish --access public
