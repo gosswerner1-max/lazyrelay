@@ -46,6 +46,18 @@ npm run build
 LAZYRELAY_API_KEY=lzr_live_... npm start
 ```
 
-## Scope note
+## Prefer not to install anything?
 
-This is a stdio server — it runs on your machine, not a hosted endpoint. A remote/hosted MCP server (connect without installing anything) is a separate, larger project, not yet built.
+LazyRelay also runs a hosted MCP server at `https://lazyrelaylazyrelay-backend.onrender.com/mcp`. Same 6 tools, but you sign in with your LazyRelay account instead of using an API key, nothing to run locally. In Claude, that's **Settings → Connectors → Add connector → Remote**, then paste the URL. For MCP clients that use a config file instead:
+
+```json
+{
+  "mcpServers": {
+    "lazyrelay": {
+      "url": "https://lazyrelaylazyrelay-backend.onrender.com/mcp"
+    }
+  }
+}
+```
+
+Full docs, including how to revoke access to a connected app later, are at [lazyrelay.com/docs](https://lazyrelay.com/docs).
