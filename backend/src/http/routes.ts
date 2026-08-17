@@ -445,6 +445,17 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
   const MAX_CHAT_MESSAGES = 20;
   const MAX_CHAT_MESSAGE_LENGTH = 2000;
+  // Domain labels matched one at a time so a sentence-ending period can't be
+  // swallowed into the address ("...@example.com." must yield "@example.com").
+  // Used twice below -- to surface a self-reported address on an escalation,
+  // and to recognise the contact-details turn when picking question_summary.
+  const SELF_REPORTED_EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
+  // Recognises OUR OWN contact ask (chatKnowledge.ts:177 tells the model to ask
+  // for both a name and an email), so a customer's reply to it -- handover or
+  // refusal -- isn't mistaken for their question. Deliberately requires the two
+  // words together: a reply that merely mentions email (failure alerts, say)
+  // must not match, or a real question would get skipped.
+  const ASKED_FOR_CONTACT = /name and (?:an? )?email|email and (?:your )?name/i;
   router.post("/support/chat", publicRateLimit, async (req, res) => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
@@ -550,7 +561,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
           // chatKnowledge.ts's contactCaptureLine) -- surface it here too, so
           // a human skimming just this header line doesn't miss contact info
           // that's actually present a few lines down in the transcript.
-          const selfReportedEmail = conversationTranscript.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/)?.[0];
+          const selfReportedEmail = conversationTranscript.match(SELF_REPORTED_EMAIL)?.[0];
           if (selfReportedEmail) {
             customerLine = `Customer: anonymous visitor, no verified session, but self-reported "${selfReportedEmail}" appears in the conversation below -- read the full transcript to confirm name/email before replying.`;
           }
@@ -571,10 +582,32 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         // contact-details reply, so walk back one turn to the real question;
         // logged-in customers never hit the forced contact turn, so their
         // last message already is the question.
+        //
+        // Walking back is gated on evidence that the last turn really IS the
+        // contact-details turn, not on position alone: chatKnowledge.ts:177
+        // also tells the model to escalate WITHOUT capturing contact when a
+        // visitor declines or just repeats themselves, and it can simply not
+        // ask. There the last turn is the real question, and an unconditional
+        // walk-back would store an earlier, unrelated one -- swapping a loud
+        // failure (obvious contact details in the column) for a quiet one (a
+        // plausible-looking wrong question nobody would catch).
+        //
+        // Two signals, because the customer's reply to the contact ask can be
+        // either a handover ("Sam, sam@x.com") or a refusal ("no thanks") and
+        // only the first carries an email. The refusal is caught by looking at
+        // what WE asked on the preceding turn instead -- our own generated
+        // text, a far more reliable thing to match on than the customer's.
         const userMessages = messages.filter((m: { role: string; content: string }) => m.role === "user");
-        const questionSummary = !accountId && userMessages.length > 1
-          ? userMessages[userMessages.length - 2].content
-          : userMessages[userMessages.length - 1]?.content ?? "";
+        const lastUserMessage = userMessages[userMessages.length - 1]?.content ?? "";
+        const previousTurn = messages[messages.length - 2];
+        const askedForContact =
+          previousTurn?.role === "assistant" && ASKED_FOR_CONTACT.test(previousTurn.content);
+        const questionSummary =
+          !accountId &&
+          userMessages.length > 1 &&
+          (SELF_REPORTED_EMAIL.test(lastUserMessage) || askedForContact)
+            ? userMessages[userMessages.length - 2].content
+            : lastUserMessage;
 
         supabase
           .from("support_knowledge_gaps")
