@@ -2643,46 +2643,62 @@ export function Dashboard() {
               </label>
             )}
             {mediaUrl?.match(/\.(mp4|mov)$/i) &&
-              selectedAccountIds.some((id) => accounts.find((a) => a.id === id)?.platform === "pinterest") && (
-                <label>
-                  Cover image (required for Pinterest video Pins)
-                  <div
-                    className="media-dropzone"
-                    onClick={() => coverImageInputRef.current?.click()}
-                  >
-                    <input
-                      ref={coverImageInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      hidden
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleCoverImageFile(file);
-                        e.target.value = "";
-                      }}
-                    />
-                    {coverImageUploading ? (
-                      <span>Uploading... {coverImageUploadProgress}%</span>
-                    ) : coverImageUrl ? (
-                      <div className="media-preview">
-                        <img src={coverImageUrl} alt="Cover image preview" />
-                        <button
-                          type="button"
-                          className="media-remove"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setCoverImageUrl(null);
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ) : (
-                      <span>Click to choose a cover image for your Pinterest video Pin</span>
-                    )}
-                  </div>
-                </label>
-              )}
+              (() => {
+                const selectedPlatforms = selectedAccountIds.map((id) => accounts.find((a) => a.id === id)?.platform);
+                const hasPinterest = selectedPlatforms.includes("pinterest");
+                const hasYoutube = selectedPlatforms.includes("youtube");
+                if (!hasPinterest && !hasYoutube) return null;
+                // Pinterest requires this for video Pins; YouTube treats it as an
+                // optional custom thumbnail (falls back to its own auto-generated
+                // one if not set) -- same coverImageUrl field either way, adapters
+                // that don't need it just ignore it.
+                const label = hasPinterest
+                  ? "Cover image (required for Pinterest video Pins)"
+                  : "Custom thumbnail (optional — YouTube auto-generates one otherwise)";
+                const placeholder = hasPinterest
+                  ? "Click to choose a cover image for your Pinterest video Pin"
+                  : "Click to choose a custom thumbnail for your YouTube video";
+                return (
+                  <label>
+                    {label}
+                    <div
+                      className="media-dropzone"
+                      onClick={() => coverImageInputRef.current?.click()}
+                    >
+                      <input
+                        ref={coverImageInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        hidden
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleCoverImageFile(file);
+                          e.target.value = "";
+                        }}
+                      />
+                      {coverImageUploading ? (
+                        <span>Uploading... {coverImageUploadProgress}%</span>
+                      ) : coverImageUrl ? (
+                        <div className="media-preview">
+                          <img src={coverImageUrl} alt="Cover image preview" />
+                          <button
+                            type="button"
+                            className="media-remove"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCoverImageUrl(null);
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <span>{placeholder}</span>
+                      )}
+                    </div>
+                  </label>
+                );
+              })()}
             {selectedAccountIds.some((id) => {
               const platform = accounts.find((a) => a.id === id)?.platform;
               return platform === "facebook" || platform === "instagram";

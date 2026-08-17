@@ -14,6 +14,7 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const CHANNELS_URL = "https://www.googleapis.com/youtube/v3/channels";
 const UPLOAD_INIT_URL = "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status";
 const VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos";
+const THUMBNAILS_SET_URL = "https://www.googleapis.com/upload/youtube/v3/thumbnails/set";
 const COMMENT_THREADS_URL = "https://www.googleapis.com/youtube/v3/commentThreads";
 
 // youtube.upload lets us post videos; youtube.readonly lets us look up the
@@ -291,6 +292,45 @@ export class YouTubeAdapter implements PlatformAdapter {
         platformPostId: null,
         errorMessage: uploadJson.error?.message ?? `YouTube video upload failed (HTTP ${uploadRes.status})`,
       };
+    }
+
+    // Custom thumbnail, added 2026-08-17 — reuses coverImageUrl, the same
+    // generic pass-through field Pinterest's video Pins already use for
+    // their cover image (accepted-but-ignored by every adapter that
+    // doesn't need it, same pattern as boardId/firstComment). Best-effort:
+    // a thumbnail failure shouldn't fail a video that otherwise uploaded
+    // fine — YouTube's own auto-generated thumbnail is the fallback.
+    if (request.coverImageUrl) {
+      try {
+        const thumbRes = await fetch(request.coverImageUrl);
+        if (thumbRes.ok && thumbRes.body) {
+          const thumbBuffer = Buffer.from(await thumbRes.arrayBuffer());
+          const thumbContentType = thumbRes.headers.get("content-type")?.startsWith("image/")
+            ? thumbRes.headers.get("content-type")!
+            : "image/jpeg";
+          const setRes = await fetch(
+            `${THUMBNAILS_SET_URL}?videoId=${encodeURIComponent(uploadJson.id)}`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${request.accessToken}`,
+                "Content-Type": thumbContentType,
+                "Content-Length": String(thumbBuffer.byteLength),
+              },
+              body: thumbBuffer,
+            },
+          );
+          if (!setRes.ok) {
+            const errJson = (await setRes.json().catch(() => ({}))) as YouTubeErrorBody;
+            console.error(
+              `[youtube] thumbnail set failed for ${uploadJson.id}:`,
+              errJson.error?.message ?? `HTTP ${setRes.status}`,
+            );
+          }
+        }
+      } catch (err) {
+        console.error(`[youtube] thumbnail set threw for ${uploadJson.id}:`, err instanceof Error ? err.message : err);
+      }
     }
 
     return { success: true, platformPostId: uploadJson.id, errorMessage: null };
