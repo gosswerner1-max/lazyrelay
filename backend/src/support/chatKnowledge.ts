@@ -1,5 +1,6 @@
 import { ACCOUNT_LIMITS } from "../accountLimits.js";
 import { BRAND_LIMITS } from "../brandLimits.js";
+import { SEAT_LIMITS } from "../seatLimits.js";
 import { STORAGE_QUOTA_BYTES } from "../storageQuota.js";
 import { RECURRING_SCHEDULE_SLOT_LIMITS, TIER_DISPLAY_NAMES, type Tier } from "../tier.js";
 
@@ -71,6 +72,8 @@ const TIER_PRICES: Record<Tier, string> = {
   pro: "$29.99/mo", // "Starter"
   business: "$59.99/mo", // "Pro"
   enterprise: "$99.99/mo", // "Business"
+  agency: "$149.99/mo",
+  agency_plus: "$199.99/mo",
 };
 
 const GB = 1024 * 1024 * 1024;
@@ -89,7 +92,9 @@ function formatRecurringLimit(tier: Tier): string {
 
 function tierLine(tier: Tier): string {
   const brandCap = BRAND_LIMITS[tier];
-  return `${TIER_DISPLAY_NAMES[tier]} (${TIER_PRICES[tier]}): ${ACCOUNT_LIMITS[tier]} connected accounts, ${brandCap} brand${brandCap === 1 ? "" : "s"}, ${formatStorage(tier)} storage, ${formatRecurringLimit(tier)}`;
+  const seatCap = SEAT_LIMITS[tier];
+  const seatsPart = seatCap > 0 ? `, ${seatCap} team seat${seatCap === 1 ? "" : "s"} included (+2 more available as paid add-ons)` : "";
+  return `${TIER_DISPLAY_NAMES[tier]} (${TIER_PRICES[tier]}): ${ACCOUNT_LIMITS[tier]} connected accounts, ${brandCap} brand${brandCap === 1 ? "" : "s"}, ${formatStorage(tier)} storage, ${formatRecurringLimit(tier)}${seatsPart}`;
 }
 
 // Real dashboard tab layout (frontend/src/pages/Dashboard.tsx MAIN_TABS/
@@ -141,7 +146,8 @@ CORE FEATURES
 - Recurring schedules: set content, days, time, and platforms once; LazyRelay keeps posting weekly until paused or deleted. Free tier is one-time posts only.
 - Bulk CSV import: schedule up to 200 posts at once from a CSV, with a per-row preview before committing.
 - AI captions, hashtags, and content ideas: available from the compose form, count against the account's daily AI-generation quota.
-- Brands: group connected accounts under a brand to filter Overview/Posts/Calendar/Analytics/Mentions/DMs by brand. Each plan includes a set number of brands (Free 1, Starter 2, Pro 4, Business 7); still one login and one subscription -- brands are a grouping/filter within your account, not separate workspaces or separate billing.
+- Brands: group connected accounts under a brand to filter Overview/Posts/Calendar/Analytics/Mentions/DMs by brand. Each plan includes a set number of brands (Free 1, Starter 2, Pro 4, Business 7, Agency 12, Agency Plus 20); still one login and one subscription -- brands are a grouping/filter within your account, not separate workspaces or separate billing.
+- Team seats: on Business, Agency, or Agency Plus, the account owner can invite teammates to work in the same account (Account tab -- click **More** in the top nav first). Everyone invited can post, schedule, and manage connected platforms; only the owner can change billing, webhooks, API keys, and the team itself. Included seats vary by plan (Business 2, Agency 3, Agency Plus 6), plus up to 2 extra seats available as a paid add-on on any of those three plans. Not available on Free, Starter, or Pro.
 - API keys and MCP server: available on paid tiers, let a customer or their AI agent (Claude Desktop, Cursor, etc.) interact with their account programmatically. Free tier does not include API/MCP access.
 - Turnstile on sign-up/sign-in runs invisibly for most users -- not seeing a visible checkbox is normal, not broken.
 
@@ -151,7 +157,7 @@ SECURITY & ACCOUNT
 `.trim();
 
 export function buildSupportSystemPrompt(accountContext: SupportAccountContext | null = null): string {
-  const allTierLines = (["free", "pro", "business", "enterprise"] as Tier[]).map((t) => `- ${tierLine(t)}`).join("\n");
+  const allTierLines = (["free", "pro", "business", "enterprise", "agency", "agency_plus"] as Tier[]).map((t) => `- ${tierLine(t)}`).join("\n");
   const pricingSection = BILLING_LIVE
     ? `PLANS (live, customers can subscribe today):\n${allTierLines}`
     : `PLANS (these are the real prices and limits -- use these exact numbers, never invent different ones):\n${allTierLines}\n\nOnly the Free plan is actually usable today. The three paid plans above are coming soon and NOT live yet -- there is no way for anyone to be on a paid plan or be charged right now, no exceptions, no "just launched," no "recently started." When asked about paid plans, give these exact prices/limits but state plainly nobody can subscribe yet.`;

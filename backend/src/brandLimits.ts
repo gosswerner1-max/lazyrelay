@@ -16,6 +16,8 @@ export const BRAND_LIMITS: Record<Tier, number> = {
   pro: 2, // displays as "Starter"
   business: 4, // displays as "Pro"
   enterprise: 7, // displays as "Business"
+  agency: 12, // Agency tier (2026-08-17)
+  agency_plus: 20, // Agency Plus
 };
 
 /** Phase 1b (2026-08-16) — a paid customer can exceed their base brand cap by

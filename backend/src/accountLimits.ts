@@ -18,6 +18,8 @@ export const ACCOUNT_LIMITS: Record<Tier, number> = {
   pro: 20, // displays as "Starter"
   business: 30, // displays as "Pro" (trimmed from 40, 2026-08-16 — still beats every competitor at this price)
   enterprise: 50, // displays as "Business" (trimmed from 100, 2026-08-16 — 100 was excessive vs the shared API quota; 50 still leads the market)
+  agency: 100, // Agency tier (2026-08-17) — deliberately below the trimmed enterprise rationale's old 100 ceiling isn't reused casually; this is a fresh, considered number for a genuinely higher-priced tier, not a reversal of the 2026-08-16 trim
+  agency_plus: 150, // Agency Plus — a real step up from Agency, still short of the 200 first proposed, to stay closer to the shared-API-quota reasoning above
 };
 
 /** Checked before starting a new connect flow — returns a customer-facing

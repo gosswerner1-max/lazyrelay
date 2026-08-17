@@ -106,7 +106,29 @@ const PRICING = [
     name: "Business",
     price: "$99.99",
     note: "For running several brands solo",
-    features: ["50 connected accounts", "7 brands", "Unlimited scheduled posts", "Unlimited recurring schedules", "AI-agent / MCP access", "20GB storage", "Priority support", "Proof-of-Publish verification"],
+    features: ["50 connected accounts", "7 brands", "2 team seats included", "Unlimited scheduled posts", "Unlimited recurring schedules", "AI-agent / MCP access", "20GB storage", "Priority support", "Proof-of-Publish verification"],
+    cta: "Get started",
+  },
+];
+
+// Kept separate from PRICING, revealed via the "See Agency plans" button
+// below rather than appended inline -- 6 cards in one row doesn't fit the
+// home screen (Werner, 2026-08-17).
+const AGENCY_PRICING = [
+  {
+    tier: "agency" as const,
+    name: "Agency",
+    price: "$149.99",
+    note: "For agencies running client work with a small team",
+    features: ["100 connected accounts", "12 brands", "3 team seats included (+2 more available)", "Unlimited scheduled posts", "Unlimited recurring schedules", "AI-agent / MCP access", "20GB storage", "Priority support", "Proof-of-Publish verification"],
+    cta: "Get started",
+  },
+  {
+    tier: "agency_plus" as const,
+    name: "Agency Plus",
+    price: "$199.99",
+    note: "For larger agencies that have outgrown Agency",
+    features: ["150 connected accounts", "20 brands", "6 team seats included (+2 more available)", "Unlimited scheduled posts", "Unlimited recurring schedules", "AI-agent / MCP access", "20GB storage", "Priority support", "Proof-of-Publish verification"],
     cta: "Get started",
   },
 ];
@@ -144,6 +166,7 @@ const FAQ = [
 
 export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onContact, onDocs, scrollToPricing }: LandingProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showAgencyPricing, setShowAgencyPricing] = useState(false);
 
   // Anyone arriving at /pricing (e.g. the "See plans" links used across
   // every guide/tool page) should land ON the pricing section, not the
@@ -371,8 +394,39 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           ))}
         </div>
         <p className="section-note pricing-footnote">
-          Start on Free, upgrade to Starter, Pro, or Business any time from your dashboard.
+          Start on Free, upgrade to Starter, Pro, Business, Agency, or Agency Plus any time from your dashboard.
         </p>
+
+        {!showAgencyPricing && (
+          <button type="button" className="btn-outline pricing-agency-toggle" onClick={() => setShowAgencyPricing(true)}>
+            Running an agency? See Agency plans &rarr;
+          </button>
+        )}
+
+        {showAgencyPricing && (
+          <div className="pricing-grid pricing-grid-agency">
+            {AGENCY_PRICING.map((plan) => (
+              <div className="pricing-card-wrap pricing-card-wrap-plain" key={plan.tier}>
+                <div className="pricing-card">
+                  <h3>{plan.name}</h3>
+                  <p className="pricing-price">
+                    {plan.price}
+                    <span className="pricing-period">/mo</span>
+                  </p>
+                  <p className="pricing-note">{plan.note}</p>
+                  <ul>
+                    {plan.features.map((f) => (
+                      <li key={f}>{f}</li>
+                    ))}
+                  </ul>
+                  <button className="cta" onClick={onGetStarted}>
+                    {plan.cta}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="landing-section" id="faq">

@@ -16,6 +16,8 @@ const TIER_LIMITS: Record<Tier, number> = {
   pro: 300, // "Starter"
   business: 450, // "Pro"
   enterprise: 600, // "Business"
+  agency: 600, // mirrors enterprise — not part of the 2026-08-17 Agency pricing decision
+  agency_plus: 600, // mirrors enterprise, same reasoning
 };
 
 // Cached per account for a short window so every request doesn't cost a

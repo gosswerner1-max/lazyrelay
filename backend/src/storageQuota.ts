@@ -17,6 +17,8 @@ export const STORAGE_QUOTA_BYTES: Record<Tier, number> = {
   pro: 5 * GB, // "Starter"
   business: 10 * GB, // "Pro"
   enterprise: 20 * GB, // "Business"
+  agency: 20 * GB, // mirrors enterprise — not part of the 2026-08-17 Agency pricing decision
+  agency_plus: 20 * GB, // mirrors enterprise, same reasoning
 };
 
 export interface StorageUsage {

@@ -64,7 +64,7 @@ const RELEVANT_EVENT_TYPES = new Set([
   "adjustment.created",
 ]);
 
-export const VALID_TIERS = ["free", "pro", "business", "enterprise"] as const;
+export const VALID_TIERS = ["free", "pro", "business", "enterprise", "agency", "agency_plus"] as const;
 
 interface SubscriptionLike {
   id: string;
@@ -94,6 +94,10 @@ function buildEventFromCustomData(sub: SubscriptionLike, status: SubscriptionEve
 
   if (customData.kind === "brand_addon") {
     return { kind: "brand_addon", morSubscriptionId: sub.id, accountEmail, status, currentPeriodEnd };
+  }
+
+  if (customData.kind === "seat_addon") {
+    return { kind: "seat_addon", morSubscriptionId: sub.id, accountEmail, status, currentPeriodEnd };
   }
 
   const tier = customData.tier;
@@ -281,9 +285,10 @@ async function getOrCreateCustomerId(paddle: Paddle, email: string): Promise<str
 }
 
 type CheckoutParams =
-  | { kind: "tier"; accountEmail: string; tier: "pro" | "business" | "enterprise"; priceId: string }
+  | { kind: "tier"; accountEmail: string; tier: "pro" | "business" | "enterprise" | "agency" | "agency_plus"; priceId: string }
   | { kind: "storage_addon"; accountEmail: string; gbAmount: number; priceId: string }
-  | { kind: "brand_addon"; accountEmail: string; priceId: string };
+  | { kind: "brand_addon"; accountEmail: string; priceId: string }
+  | { kind: "seat_addon"; accountEmail: string; priceId: string };
 
 /** Creates a Paddle transaction to check out. Returns the transactionId,
  * which the frontend passes to Paddle.js's `Paddle.Checkout.open({
@@ -310,7 +315,9 @@ export async function buildCheckoutTransaction(
       ? { accountEmail: params.accountEmail, kind: "storage_addon", gbAmount: params.gbAmount }
       : params.kind === "brand_addon"
         ? { accountEmail: params.accountEmail, kind: "brand_addon" }
-        : { accountEmail: params.accountEmail, kind: "tier", tier: params.tier };
+        : params.kind === "seat_addon"
+          ? { accountEmail: params.accountEmail, kind: "seat_addon" }
+          : { accountEmail: params.accountEmail, kind: "tier", tier: params.tier };
   const transaction = await paddle.transactions.create({
     items: [{ priceId: params.priceId, quantity: 1 }],
     customerId,

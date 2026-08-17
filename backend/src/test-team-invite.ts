@@ -67,16 +67,58 @@ function authed(token: string) {
   return { Authorization: `Bearer ${token}` };
 }
 
+// Agency pricing pass (2026-08-17) gated /team/invite behind a real tier
+// (see checkSeatLimit in seatLimits.ts) -- every test user here defaults to
+// Free, which now has zero seats, so any account that INVITES needs a real
+// subscription seeded first. Bypasses real Paddle, same pattern
+// test-cancel-cascades-addons.ts already uses to seed billing state.
+async function seedSubscription(accountId: string, tier: string): Promise<void> {
+  const { error } = await supabase.from("subscriptions").upsert(
+    {
+      account_id: accountId,
+      mor_subscription_id: `sub_team_test_${accountId}`,
+      tier,
+      status: "active",
+      current_period_end: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "account_id" },
+  );
+  if (error) throw error;
+}
+
 async function main() {
   const owner = await createTestUser("owner");
   const invitee = await createTestUser("invitee");
   const stranger = await createTestUser("stranger");
+  // Both owner and stranger invite someone in this suite -- both need a real
+  // seat-bearing tier now that /team/invite is gated. "enterprise" (Business)
+  // gives 2 included seats, enough for the single invite each sends here.
+  await seedSubscription(owner.id, "enterprise");
+  await seedSubscription(stranger.id, "enterprise");
 
   // 1. Solo baseline: brand-new user with zero invites resolves to
   //    themselves exactly like pre-v1 behavior, on an ordinary existing route.
   {
     const res = await fetch(`${base}/api/social-accounts`, { headers: authed(owner.token) });
     check("solo user's ordinary route still works (no regression)", res.status === 200, `HTTP ${res.status}`);
+  }
+
+  // 1b. A Free-tier account (a fresh user, never seeded a subscription) gets
+  //     the plan-specific message, not the generic "reached your limit of 0".
+  {
+    const freeUser = await createTestUser("free-tier");
+    const res = await fetch(`${base}/api/team/invite`, {
+      method: "POST",
+      headers: { ...authed(freeUser.token), "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "someone@lazyrelay.invalid" }),
+    });
+    const body = await res.json();
+    check(
+      "Free tier gets a real 'not available on your plan' message, not a 0-limit message",
+      res.status === 403 && /aren't available on your plan/i.test(body.error ?? ""),
+      `HTTP ${res.status} ${JSON.stringify(body)}`
+    );
   }
 
   // 2. Owner sees exactly their own self-row on GET /team.
@@ -252,6 +294,41 @@ async function main() {
       headers: authed(owner.token),
     });
     check("the owner row can't be removed", res.status === 400, `HTTP ${res.status}`);
+  }
+
+  // 14. Seat cap is actually enforced -- a Business (enterprise) account has
+  //     2 included seats; the 3rd invite must be rejected once both are used.
+  {
+    const capOwner = await createTestUser("cap-owner");
+    await seedSubscription(capOwner.id, "enterprise");
+    const capInvitee1 = await createTestUser("cap-invitee-1");
+    const capInvitee2 = await createTestUser("cap-invitee-2");
+
+    const invite1 = await fetch(`${base}/api/team/invite`, {
+      method: "POST",
+      headers: { ...authed(capOwner.token), "Content-Type": "application/json" },
+      body: JSON.stringify({ email: capInvitee1.email }),
+    });
+    check("seat 1 of 2 accepted", invite1.status === 201, `HTTP ${invite1.status}`);
+
+    const invite2 = await fetch(`${base}/api/team/invite`, {
+      method: "POST",
+      headers: { ...authed(capOwner.token), "Content-Type": "application/json" },
+      body: JSON.stringify({ email: capInvitee2.email }),
+    });
+    check("seat 2 of 2 accepted", invite2.status === 201, `HTTP ${invite2.status}`);
+
+    const invite3 = await fetch(`${base}/api/team/invite`, {
+      method: "POST",
+      headers: { ...authed(capOwner.token), "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "cap-invitee-3@lazyrelay.invalid" }),
+    });
+    const invite3Body = await invite3.json();
+    check(
+      "3rd invite rejected once Business's 2 included seats are used (pending invites count too)",
+      invite3.status === 403 && /reached your plan's limit of 2 team seats/i.test(invite3Body.error ?? ""),
+      `HTTP ${invite3.status} ${JSON.stringify(invite3Body)}`
+    );
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);

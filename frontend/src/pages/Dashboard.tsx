@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import type { OAuthGrant } from "@supabase/supabase-js";
 import { describeScopes } from "../lib/oauthScopes";
-import { api, type SocialAccount, type Brand, type BrandCapacity, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation, type Triage, type TeamMember } from "../lib/api";
+import { api, type SocialAccount, type Brand, type BrandCapacity, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation, type Triage, type TeamMember, type SeatCapacity } from "../lib/api";
 import { API_BASE_URL, API_ENDPOINTS, MCP_CONFIG_EXAMPLE, HOSTED_MCP_URL, HOSTED_MCP_REMOTE_CONFIG_EXAMPLE, MCP_TOOLS } from "../lib/apiDocsContent";
 import { CodeBlock } from "../components/CodeBlock";
 import { RelaySignal } from "../components/RelaySignal";
@@ -228,8 +228,11 @@ export function Dashboard() {
   // Phase 1b (2026-08-16) — real effective brand capacity (base tier limit +
   // purchased add-on slots) and the add-ons themselves, from GET /brand-addons.
   const [brandCapacity, setBrandCapacity] = useState<BrandCapacity | null>(null);
+  const [seatCapacity, setSeatCapacity] = useState<SeatCapacity | null>(null);
   const [brandAddonBusy, setBrandAddonBusy] = useState<"checkout" | string | null>(null);
   const pendingBrandAddonRef = useRef(false);
+  const [seatAddonBusy, setSeatAddonBusy] = useState<"checkout" | string | null>(null);
+  const pendingSeatAddonRef = useRef(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const [billingBusy, setBillingBusy] = useState<"pro" | "business" | "enterprise" | "cancel" | null>(null);
@@ -351,7 +354,7 @@ export function Dashboard() {
   async function refresh() {
     setError(null);
     try {
-      const [accs, pts, sub, usage, media, addons, plats, acct, keys, recurring, brandList, brandCap, teamList] = await Promise.all([
+      const [accs, pts, sub, usage, media, addons, plats, acct, keys, recurring, brandList, brandCap, teamList, seatCap] = await Promise.all([
         api.listSocialAccounts(),
         api.listScheduledPosts(),
         api.getSubscription(),
@@ -365,10 +368,12 @@ export function Dashboard() {
         api.getBrands(),
         api.getBrandAddons(),
         api.listTeam(),
+        api.getSeatAddons(),
       ]);
       setAccounts(accs);
       setBrands(brandList);
       setBrandCapacity(brandCap);
+      setSeatCapacity(seatCap);
       setPosts(pts);
       // A fresh refresh() replaces `posts` with just the first History
       // page again (see GET /scheduled-posts), discarding any additional
@@ -627,6 +632,8 @@ export function Dashboard() {
             pollUntilAddonAdded();
           } else if (pendingBrandAddonRef.current) {
             pollUntilBrandAddonAdded();
+          } else if (pendingSeatAddonRef.current) {
+            pollUntilSeatAddonAdded();
           }
         }
       },
@@ -731,6 +738,27 @@ export function Dashboard() {
     } finally {
       setBrandAddonBusy(null);
       pendingBrandAddonRef.current = false;
+    }
+  }
+
+  /** Same shape as pollUntilBrandAddonAdded(), for seat add-ons. */
+  async function pollUntilSeatAddonAdded() {
+    const countBefore = seatCapacity?.addonSlots ?? 0;
+    try {
+      for (let attempt = 0; attempt < 10; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const cap = await api.getSeatAddons();
+        if (cap.addonSlots > countBefore) {
+          setSeatCapacity(cap);
+          return;
+        }
+      }
+      // Timed out waiting on the webhook — refresh once more anyway so the
+      // capacity shown is whatever the real current state is, not stale.
+      setSeatCapacity(await api.getSeatAddons());
+    } finally {
+      setSeatAddonBusy(null);
+      pendingSeatAddonRef.current = false;
     }
   }
 
@@ -1457,6 +1485,47 @@ export function Dashboard() {
     }
   }
 
+  async function handleBuySeatAddon() {
+    setSeatAddonBusy("checkout");
+    setError(null);
+    try {
+      const { transactionId, checkoutUrl } = await api.startSeatAddonCheckout();
+      if (paddle && transactionId) {
+        // Same real-checkout.completed-event pattern as handleBuyBrandAddon
+        // — polling starts from the eventCallback, not here, so it doesn't
+        // race the customer actually entering a card.
+        pendingSeatAddonRef.current = true;
+        paddle.Checkout.open({ transactionId });
+        return;
+      }
+      if (!checkoutUrl) {
+        setError("Checkout couldn't start. No checkout URL was returned.");
+        setSeatAddonBusy(null);
+        return;
+      }
+      window.location.href = checkoutUrl;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setSeatAddonBusy(null);
+    }
+  }
+
+  async function handleCancelSeatAddon(id: string) {
+    if (!window.confirm("Cancel this seat add-on? You'll lose the extra team seat at the end of the billing period.")) {
+      return;
+    }
+    setSeatAddonBusy(id);
+    setError(null);
+    try {
+      await api.cancelSeatAddon(id);
+      setSeatCapacity(await api.getSeatAddons());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSeatAddonBusy(null);
+    }
+  }
+
   async function handleSaveBusinessName(e: FormEvent) {
     e.preventDefault();
     setSavingBusinessName(true);
@@ -1763,7 +1832,14 @@ export function Dashboard() {
     );
   }
 
-  const tierNames = { free: "Free", pro: "Starter", business: "Pro", enterprise: "Business" } as const;
+  const tierNames = {
+    free: "Free",
+    pro: "Starter",
+    business: "Pro",
+    enterprise: "Business",
+    agency: "Agency",
+    agency_plus: "Agency Plus",
+  } as const;
   const currentTier = subscription?.tier ?? "free";
   const isFreePlan = currentTier === "free";
   // A cancellation is deferred to the end of the paid period (backend
@@ -3547,6 +3623,13 @@ export function Dashboard() {
       {tab === "Account" && (() => {
         const myMembership = team.find((m) => m.user_id === session?.user.id);
         const isOwner = !myMembership || myMembership.role === "owner";
+        // Mirrors checkSeatLimit's own counting rule (seatLimits.ts): every
+        // non-owner row counts, pending invites included, since an unaccepted
+        // invite still reserves a seat.
+        const seatsUsed = team.filter((m) => m.role !== "owner").length;
+        const seatTotalLimit = seatCapacity?.totalLimit ?? 0;
+        const atSeatCap = seatTotalLimit > 0 && seatsUsed >= seatTotalLimit;
+        const canBuySeatAddon = subscription?.tier === "enterprise" || subscription?.tier === "agency" || subscription?.tier === "agency_plus";
         return (
       <section>
         <h2>Team</h2>
@@ -3554,6 +3637,12 @@ export function Dashboard() {
           Invite teammates to work in this account alongside you. Everyone on the team can post, schedule, and
           manage connected platforms; only the owner can change billing, webhooks, API keys, and the team itself.
         </p>
+        {seatTotalLimit > 0 && (
+          <p className="brands-manager-header">
+            Seats ({seatsUsed}/{seatTotalLimit})
+            {!!seatCapacity?.addonSlots && ` (includes ${seatCapacity.addonSlots} purchased add-on${seatCapacity.addonSlots === 1 ? "" : "s"})`}
+          </p>
+        )}
         {isOwner && (
           <form onSubmit={handleInviteTeamMember} className="dm-automation-form">
             <input
@@ -3562,11 +3651,23 @@ export function Dashboard() {
               value={teamInviteEmail}
               onChange={(e) => setTeamInviteEmail(e.target.value)}
               maxLength={254}
+              disabled={atSeatCap}
             />
-            <button type="submit" disabled={invitingTeamMember || !teamInviteEmail.trim()}>
+            <button type="submit" disabled={invitingTeamMember || !teamInviteEmail.trim() || atSeatCap}>
               {invitingTeamMember ? "Inviting..." : "Invite"}
             </button>
           </form>
+        )}
+        {isOwner && atSeatCap && canBuySeatAddon && (
+          <p className="section-note">
+            At your plan's seat limit.{" "}
+            <button type="button" className="btn-outline" disabled={seatAddonBusy !== null} onClick={handleBuySeatAddon}>
+              {seatAddonBusy === "checkout" ? "Starting checkout..." : "Buy another seat ($10/mo)"}
+            </button>
+          </p>
+        )}
+        {isOwner && atSeatCap && !canBuySeatAddon && (
+          <p className="section-note">At your plan's seat limit. Upgrade to Business, Agency, or Agency Plus for more seats.</p>
         )}
         <ul className="media-list">
           {team.map((m) => (
@@ -3590,6 +3691,30 @@ export function Dashboard() {
             </li>
           ))}
         </ul>
+        {isOwner && seatCapacity && seatCapacity.addons.length > 0 && (
+          <ul className="media-list">
+            {seatCapacity.addons.map((a) => (
+              <li key={a.id}>
+                <span className="media-list-meta">
+                  +1 seat
+                  <span className={`status-badge status-${a.status}`}>
+                    {a.cancel_at_period_end
+                      ? `cancelling${a.current_period_end ? `: ends ${new Date(a.current_period_end).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}`
+                      : a.status}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className="btn-outline"
+                  disabled={seatAddonBusy !== null}
+                  onClick={() => handleCancelSeatAddon(a.id)}
+                >
+                  {seatAddonBusy === a.id ? "Cancelling..." : "Cancel"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
         );
       })()}
@@ -3840,7 +3965,14 @@ export function Dashboard() {
       <section>
         <h2>Billing</h2>
         {(() => {
-          const tierNames = { free: "Free", pro: "Starter", business: "Pro", enterprise: "Business" } as const;
+          const tierNames = {
+    free: "Free",
+    pro: "Starter",
+    business: "Pro",
+    enterprise: "Business",
+    agency: "Agency",
+    agency_plus: "Agency Plus",
+  } as const;
           // Deferred cancellation (migration 0043): `status` only becomes
           // "cancelled" once the real period-end cancellation lands via
           // webhook, so this stays keyed on status alone — a customer with

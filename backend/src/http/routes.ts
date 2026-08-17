@@ -5,7 +5,7 @@ import { randomUUID, randomBytes } from "node:crypto";
 import { imageSize } from "image-size";
 import { fileTypeFromBuffer } from "file-type";
 import { supabase } from "../supabase.js";
-import { cancelSubscription, cancelStorageAddon, cancelBrandAddon } from "../billing/sync.js";
+import { cancelSubscription, cancelStorageAddon, cancelBrandAddon, cancelSeatAddon } from "../billing/sync.js";
 import { buildCheckoutTransaction } from "../billing/paddle.js";
 import { Environment } from "@paddle/paddle-node-sdk";
 import type { MerchantOfRecordAdapter } from "../billing/types.js";
@@ -32,6 +32,7 @@ import { validateMediaForPlatform, type Platform } from "../mediaLimits.js";
 import { checkQuotaForNewUpload, getStorageUsage } from "../storageQuota.js";
 import { checkAccountLimit } from "../accountLimits.js";
 import { checkBrandLimit, getBrandCapacity } from "../brandLimits.js";
+import { checkSeatLimit, getSeatCapacity, MAX_SEAT_ADDONS_PER_ACCOUNT } from "../seatLimits.js";
 import { resolveTier, TIER_DISPLAY_NAMES, RECURRING_SCHEDULE_SLOT_LIMITS, type Tier } from "../tier.js";
 import { cancelFuturePendingOccurrences } from "../recurringScheduler.js";
 import { checkGenerationLimit, recordGeneration } from "../aiUsage.js";
@@ -73,6 +74,7 @@ const ADDON_PRICE_ID_ENV_VAR: Record<StorageAddonGb, string> = {
 // future Agency tier, not stacking 50 add-ons on a self-serve plan.
 const MAX_ACTIVE_BRAND_ADDONS = 10;
 const BRAND_ADDON_PRICE_ID_ENV_VAR = "PADDLE_PRICE_ID_BRAND_ADDON";
+const SEAT_ADDON_PRICE_ID_ENV_VAR = "PADDLE_PRICE_ID_SEAT_ADDON";
 
 // Free tier: 10 posts per connected social account, refilling every
 // calendar month (decided 2026-07-22 — matches the pricing page's "10 posts
@@ -3215,9 +3217,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // confusing Paddle SDK exception if they don't.
   router.post("/subscription/checkout", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { tier } = req.body ?? {};
-    if (tier !== "pro" && tier !== "business" && tier !== "enterprise") {
+    if (tier !== "pro" && tier !== "business" && tier !== "enterprise" && tier !== "agency" && tier !== "agency_plus") {
       res.status(400).json({
-        error: 'tier must be "pro" (Starter), "business" (Pro), or "enterprise" (Business) — use the Free tier by just not upgrading',
+        error:
+          'tier must be "pro" (Starter), "business" (Pro), "enterprise" (Business), "agency" (Agency), or "agency_plus" (Agency Plus) — use the Free tier by just not upgrading',
       });
       return;
     }
@@ -3232,7 +3235,11 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         ? process.env.PADDLE_PRICE_ID_STARTER
         : tier === "business"
           ? process.env.PADDLE_PRICE_ID_PRO
-          : process.env.PADDLE_PRICE_ID_BUSINESS;
+          : tier === "enterprise"
+            ? process.env.PADDLE_PRICE_ID_BUSINESS
+            : tier === "agency"
+              ? process.env.PADDLE_PRICE_ID_AGENCY
+              : process.env.PADDLE_PRICE_ID_AGENCY_PLUS;
     if (!apiKey || !priceId) {
       res.status(503).json({
         error: "Billing isn't live yet — no Paddle account/price configured. See BILLING_KNOWLEDGE.md.",
@@ -3463,6 +3470,92 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // subscription. See billing/sync.ts's cancelBrandAddon.
   router.post("/brand-addons/:id/cancel", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const result = await cancelBrandAddon(req.accountId!, String(req.params.id), morAdapter);
+    if (!result.success) {
+      res.status(502).json({ error: result.errorMessage ?? "Cancellation failed at the payment provider" });
+      return;
+    }
+    res.json({ cancelled: true });
+  });
+
+  // Seat add-ons (Agency pricing pass, 2026-08-17) — same three-route shape
+  // as brand add-ons above, but with a stricter tier gate: brand add-ons are
+  // buyable on any paid tier, while seats only exist on Business/Agency/
+  // Agency Plus (see SEAT_LIMITS in seatLimits.ts) — so this excludes "pro"
+  // and "business" (internal codes; Starter/Pro displayed), not just "free".
+  router.get("/seat-addons", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const [{ data, error }, capacity] = await Promise.all([
+      supabase
+        .from("seat_addons")
+        .select("id, status, current_period_end, cancel_at_period_end")
+        .eq("account_id", req.accountId)
+        .in("status", ["active", "trialing"])
+        .order("created_at", { ascending: true }),
+      getSeatCapacity(req.accountId!),
+    ]);
+    if (error) {
+      dbError(res, error, "GET /seat-addons");
+      return;
+    }
+    res.json({ addons: data, baseLimit: capacity.baseLimit, addonSlots: capacity.addonSlots, totalLimit: capacity.totalLimit });
+  });
+
+  router.post("/seat-addons/checkout", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const tier = await resolveTier(req.accountId!);
+    if (tier !== "enterprise" && tier !== "agency" && tier !== "agency_plus") {
+      res.status(403).json({ error: "Seat add-ons are only available on Business, Agency, or Agency Plus — upgrade first." });
+      return;
+    }
+
+    const { count: activeAddonCount, error: countError } = await supabase
+      .from("seat_addons")
+      .select("id", { count: "exact", head: true })
+      .eq("account_id", req.accountId)
+      .in("status", ["active", "trialing"]);
+    if (countError) {
+      dbError(res, countError, "POST /seat-addons/checkout active-count");
+      return;
+    }
+    if ((activeAddonCount ?? 0) >= MAX_SEAT_ADDONS_PER_ACCOUNT) {
+      res.status(403).json({
+        error: `You already have ${MAX_SEAT_ADDONS_PER_ACCOUNT} seat add-ons — cancel one before adding another.`,
+      });
+      return;
+    }
+
+    const apiKey = process.env.MOR_API_KEY;
+    const priceId = process.env[SEAT_ADDON_PRICE_ID_ENV_VAR];
+    if (!apiKey || !priceId) {
+      res.status(503).json({ error: "Billing isn't live yet — no Paddle price configured for this add-on." });
+      return;
+    }
+
+    const { data: account, error: accountError } = await supabase
+      .from("accounts")
+      .select("email")
+      .eq("id", req.accountId)
+      .single();
+    if (accountError || !account) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+
+    const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
+    try {
+      const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
+        kind: "seat_addon",
+        accountEmail: account.email,
+        priceId,
+      });
+      res.json({ transactionId, checkoutUrl });
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // Cancels a single seat add-on — does not touch the account's main tier
+  // subscription. See billing/sync.ts's cancelSeatAddon.
+  router.post("/seat-addons/:id/cancel", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const result = await cancelSeatAddon(req.accountId!, String(req.params.id), morAdapter);
     if (!result.success) {
       res.status(502).json({ error: result.errorMessage ?? "Cancellation failed at the payment provider" });
       return;
@@ -3701,6 +3794,12 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   });
 
   router.post("/team/invite", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const seatLimitError = await checkSeatLimit(req.accountId!);
+    if (seatLimitError) {
+      res.status(403).json({ error: seatLimitError });
+      return;
+    }
+
     const { email } = req.body ?? {};
     if (typeof email !== "string" || !/^[\w.+-]+@[\w-]+(?:\.[\w-]+)+$/.test(email.trim())) {
       res.status(400).json({ error: "A valid email is required" });

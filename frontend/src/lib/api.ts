@@ -69,6 +69,22 @@ export interface BrandCapacity {
   totalLimit: number;
 }
 
+// Agency pricing pass (2026-08-17) — same shape/pattern as BrandAddon, a
+// flat +1 team seat per add-on, ~$10/mo, capped at 2 active per account.
+export interface SeatAddon {
+  id: string;
+  status: "trialing" | "active" | "past_due" | "cancelled";
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+}
+
+export interface SeatCapacity {
+  addons: SeatAddon[];
+  baseLimit: number;
+  addonSlots: number;
+  totalLimit: number;
+}
+
 export interface ScheduledPost {
   id: string;
   // Drafts (2026-08-16) have neither an account nor a time committed yet —
@@ -100,7 +116,7 @@ export interface DraftFields {
 // (2026-07-23) — "pro" displays as "Starter", "business" displays as "Pro",
 // "enterprise" is the genuinely new top tier, displaying as "Business".
 export interface Subscription {
-  tier: "free" | "pro" | "business" | "enterprise";
+  tier: "free" | "pro" | "business" | "enterprise" | "agency" | "agency_plus";
   status: "trialing" | "active" | "past_due" | "cancelled" | null;
   currentPeriodEnd: string | null;
   // True while a cancellation is scheduled for the end of the current paid
@@ -110,7 +126,7 @@ export interface Subscription {
 }
 
 export interface StorageUsage {
-  tier: "free" | "pro" | "business" | "enterprise";
+  tier: "free" | "pro" | "business" | "enterprise" | "agency" | "agency_plus";
   usedBytes: number;
   quotaBytes: number;
   addonBytes: number;
@@ -551,7 +567,7 @@ export const api = {
 
   getSubscription: (): Promise<Subscription> => authedFetch("/subscription"),
   startCheckout: (
-    tier: "pro" | "business" | "enterprise"
+    tier: "pro" | "business" | "enterprise" | "agency" | "agency_plus"
   ): Promise<{ transactionId: string; checkoutUrl: string | null }> =>
     authedFetch("/subscription/checkout", { method: "POST", body: JSON.stringify({ tier }) }),
   cancelSubscription: (feedback: string | undefined, acknowledgedDataDeletion: boolean): Promise<{ cancelled: boolean }> =>
@@ -610,4 +626,10 @@ export const api = {
     authedFetch("/brand-addons/checkout", { method: "POST" }),
   cancelBrandAddon: (id: string): Promise<{ cancelled: boolean }> =>
     authedFetch(`/brand-addons/${id}/cancel`, { method: "POST" }),
+
+  getSeatAddons: (): Promise<SeatCapacity> => authedFetch("/seat-addons"),
+  startSeatAddonCheckout: (): Promise<{ transactionId: string; checkoutUrl: string | null }> =>
+    authedFetch("/seat-addons/checkout", { method: "POST" }),
+  cancelSeatAddon: (id: string): Promise<{ cancelled: boolean }> =>
+    authedFetch(`/seat-addons/${id}/cancel`, { method: "POST" }),
 };

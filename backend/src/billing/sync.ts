@@ -5,6 +5,7 @@ import type {
   SubscriptionEvent,
   StorageAddonEvent,
   BrandAddonEvent,
+  SeatAddonEvent,
   MerchantOfRecordAdapter,
   CancelResult,
   SaleRecordEvent,
@@ -62,7 +63,7 @@ async function unpausePausedAccountsUpToLimit(accountId: string, tier: Tier): Pr
  *  exactly the "silent trial-to-paid conversion" pattern in Blotato's
  *  billing complaints). Branches to the storage-addons sync path for
  *  add-on subscriptions (2026-07-23) — see BillingEvent's `kind` field. */
-export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | StorageAddonEvent | BrandAddonEvent): Promise<void> {
+export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | StorageAddonEvent | BrandAddonEvent | SeatAddonEvent): Promise<void> {
   const { data: account, error: accountError } = await supabase
     .from("accounts")
     .select("id")
@@ -101,6 +102,25 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
     // Same upsert-on-mor_subscription_id reasoning as storage_addons above —
     // a customer can stack several active brand add-ons at once.
     const { error } = await supabase.from("brand_addons").upsert(
+      {
+        account_id: account.id,
+        mor_subscription_id: event.morSubscriptionId,
+        status: event.status,
+        current_period_end: event.currentPeriodEnd,
+        cancel_at_period_end: false,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "mor_subscription_id" },
+    );
+    if (error) throw error;
+    return;
+  }
+
+  if (event.kind === "seat_addon") {
+    // Same upsert-on-mor_subscription_id reasoning as brand_addons above —
+    // a customer can stack up to MAX_SEAT_ADDONS_PER_ACCOUNT active seat
+    // add-ons at once (see seatLimits.ts).
+    const { error } = await supabase.from("seat_addons").upsert(
       {
         account_id: account.id,
         mor_subscription_id: event.morSubscriptionId,
@@ -341,6 +361,22 @@ export async function cancelSubscription(
     }
   }
 
+  // Seat add-ons (Agency pricing pass, 2026-08-17) — same treatment as
+  // storage/brand add-ons above.
+  const { data: seatAddons } = await supabase
+    .from("seat_addons")
+    .select("id, mor_subscription_id")
+    .eq("account_id", accountId)
+    .in("status", ["active", "trialing"]);
+  for (const addon of seatAddons ?? []) {
+    const addonResult = await adapter.cancelSubscription(addon.mor_subscription_id);
+    if (addonResult.success) {
+      await supabase.from("seat_addons").update({ cancel_at_period_end: true }).eq("id", addon.id);
+    } else {
+      console.error(`Failed to cancel seat add-on ${addon.id} alongside main plan:`, addonResult.errorMessage);
+    }
+  }
+
   return result;
 }
 
@@ -394,5 +430,32 @@ export async function cancelBrandAddon(
   if (!result.success) return result;
 
   await supabase.from("brand_addons").update({ cancel_at_period_end: true }).eq("id", addon.id);
+  return result;
+}
+
+/** Cancels a single seat add-on — same isolation/deferred-cancel discipline
+ *  as cancelBrandAddon above. Does not remove any team member; an account
+ *  over its base cap who cancels an add-on will see the standard "reached
+ *  your plan's limit" error on the next invite once the cancellation
+ *  actually takes effect (checkSeatLimit counts only active/trialing
+ *  add-ons, see seatLimits.ts). */
+export async function cancelSeatAddon(
+  accountId: string,
+  addonId: string,
+  adapter: MerchantOfRecordAdapter,
+): Promise<CancelResult> {
+  const { data: addon, error } = await supabase
+    .from("seat_addons")
+    .select("id, account_id, mor_subscription_id")
+    .eq("id", addonId)
+    .single();
+  if (error || !addon || addon.account_id !== accountId) {
+    return { success: false, errorMessage: "Seat add-on not found or not owned by this caller." };
+  }
+
+  const result = await adapter.cancelSubscription(addon.mor_subscription_id);
+  if (!result.success) return result;
+
+  await supabase.from("seat_addons").update({ cancel_at_period_end: true }).eq("id", addon.id);
   return result;
 }

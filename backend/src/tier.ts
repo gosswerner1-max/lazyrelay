@@ -10,13 +10,15 @@ import { supabase } from "./supabase.js";
  *  needed to change at all, unlike the earlier 0006 tier-rename migration
  *  that caused a real production incident when it wasn't actually applied.
  */
-export type Tier = "free" | "pro" | "business" | "enterprise";
+export type Tier = "free" | "pro" | "business" | "enterprise" | "agency" | "agency_plus";
 
 export const TIER_DISPLAY_NAMES: Record<Tier, string> = {
   free: "Free",
   pro: "Starter",
   business: "Pro",
   enterprise: "Business",
+  agency: "Agency",
+  agency_plus: "Agency Plus",
 };
 
 /** Recurring-schedule slot caps, added 2026-07-29. Free has none — one-off
@@ -35,6 +37,8 @@ export const RECURRING_SCHEDULE_SLOT_LIMITS: Record<Tier, number | null> = {
   pro: 3, // displays as "Starter"
   business: 5, // displays as "Pro"
   enterprise: null, // displays as "Business" — unlimited
+  agency: null, // unlimited, mirrors enterprise
+  agency_plus: null, // unlimited, mirrors enterprise
 };
 
 export async function resolveTier(accountId: string): Promise<Tier> {

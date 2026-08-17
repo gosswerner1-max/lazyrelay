@@ -20,7 +20,7 @@ export interface SubscriptionEvent {
   kind: "tier";
   morSubscriptionId: string;
   accountEmail: string;
-  tier: "free" | "pro" | "business" | "enterprise";
+  tier: "free" | "pro" | "business" | "enterprise" | "agency" | "agency_plus";
   status: "trialing" | "active" | "past_due" | "cancelled";
   currentPeriodEnd: string; // ISO timestamp
 }
@@ -90,7 +90,18 @@ export interface BrandAddonEvent {
   currentPeriodEnd: string; // ISO timestamp
 }
 
-export type BillingEvent = SubscriptionEvent | StorageAddonEvent | BrandAddonEvent | SaleRecordEvent | RefundRecordEvent;
+/** A seat add-on (Agency pricing pass, 2026-08-17) — same "own Paddle
+ *  subscription" reasoning as BrandAddonEvent above: each add-on is exactly
+ *  +1 team seat, no size field. See seat_addons migration 0054. */
+export interface SeatAddonEvent {
+  kind: "seat_addon";
+  morSubscriptionId: string;
+  accountEmail: string;
+  status: "trialing" | "active" | "past_due" | "cancelled";
+  currentPeriodEnd: string; // ISO timestamp
+}
+
+export type BillingEvent = SubscriptionEvent | StorageAddonEvent | BrandAddonEvent | SeatAddonEvent | SaleRecordEvent | RefundRecordEvent;
 
 /** Thrown by parseWebhookEvent specifically when the signature itself is
  *  invalid — distinct from any other error parseWebhookEvent can throw
