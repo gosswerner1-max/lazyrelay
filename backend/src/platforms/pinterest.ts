@@ -153,6 +153,38 @@ export class PinterestAdapter implements PlatformAdapter {
     };
   }
 
+  // Found 2026-08-17 during a sweep for the same bug class already fixed on
+  // TikTok/Tumblr/YouTube/Bluesky: exchangeCode() above captures a real
+  // refresh_token and a real expiresAt, but nothing ever used the refresh
+  // token — every Pinterest connection would silently die once its access
+  // token expired. Same grant shape as exchangeCode (Basic auth, form body).
+  async refresh(refreshToken: string): Promise<OAuthExchangeResult> {
+    const basicAuth = Buffer.from(`${this.appId}:${this.appSecret}`).toString("base64");
+    const body = new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    });
+    const res = await fetch(TOKEN_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${basicAuth}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: body.toString(),
+    });
+    const json = (await res.json()) as PinterestTokenResponse & PinterestErrorBody;
+    if (!res.ok || !json.access_token) {
+      throw new Error(json.message ?? "Pinterest token refresh failed");
+    }
+    return {
+      accessToken: json.access_token,
+      refreshToken: json.refresh_token ?? refreshToken,
+      expiresAt: json.expires_in ? new Date(Date.now() + json.expires_in * 1000).toISOString() : null,
+      platformAccountId: "",
+      displayName: "",
+    };
+  }
+
   // Fallback used when the caller doesn't pass PostRequest.boardId (older
   // scheduled_posts rows, or a customer who never picked a board via the
   // GET /social-accounts/:id/boards picker) — posts to whichever board the
