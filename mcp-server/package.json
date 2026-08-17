@@ -1,6 +1,6 @@
 {
   "name": "@lazyrelay/mcp-server",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": false,
   "description": "MCP server for LazyRelay: schedule posts, check analytics, and read mentions from any MCP-compatible AI agent. Local (stdio, API key) or hosted (OAuth, no install).",
   "type": "module",
