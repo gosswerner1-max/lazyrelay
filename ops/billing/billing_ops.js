@@ -36,6 +36,28 @@ const PAST_DUE_GRACE_HOURS = 24; // money-impacting -> tight loop, same
  * deployed values differ at all (even if both resolve to the same
  * live/environment verdict) — worth surfacing so this exact drift gets
  * caught immediately next time instead of sitting unnoticed for weeks. */
+// Every config key this check compares local vs deployed. Widened
+// 2026-08-17 — the original version only ever compared MOR_API_KEY and
+// PADDLE_ENVIRONMENT, and `localDisagreesWithDeployed: false` sat there
+// reporting "all clear" throughout all three real MOR_WEBHOOK_SECRET
+// mismatch incidents (2026-08-04/05/11) and never once caught any of them.
+// This function already fetches Render's full env-var list, so comparing
+// more keys costs nothing extra. Keep this list in sync with new Paddle
+// price IDs as they're added (PADDLE_PRICE_ID_BRAND_ADDON was the most
+// recent, 2026-08-16).
+const COMPARED_KEYS = [
+  "MOR_API_KEY",
+  "PADDLE_ENVIRONMENT",
+  "MOR_WEBHOOK_SECRET",
+  "PADDLE_PRICE_ID_STARTER",
+  "PADDLE_PRICE_ID_PRO",
+  "PADDLE_PRICE_ID_BUSINESS",
+  "PADDLE_PRICE_ID_STORAGE_5GB",
+  "PADDLE_PRICE_ID_STORAGE_20GB",
+  "PADDLE_PRICE_ID_STORAGE_50GB",
+  "PADDLE_PRICE_ID_BRAND_ADDON",
+];
+
 async function getMorStatus() {
   const localApiKey = process.env.MOR_API_KEY;
   const localEnvironment = process.env.PADDLE_ENVIRONMENT === "production" ? "production" : "sandbox";
@@ -55,14 +77,14 @@ async function getMorStatus() {
     };
   }
 
-  let deployedApiKey, deployedEnvironment;
+  let deployedApiKey, deployedEnvironment, byKey;
   try {
     const res = await fetch(`https://api.render.com/v1/services/${renderCreds.serviceId}/env-vars?limit=100`, {
       headers: { Authorization: `Bearer ${renderCreds.apiKey}` },
     });
     if (!res.ok) throw new Error(`Render API returned ${res.status}`);
     const envVars = await res.json();
-    const byKey = Object.fromEntries(envVars.map((e) => [e.envVar.key, e.envVar.value]));
+    byKey = Object.fromEntries(envVars.map((e) => [e.envVar.key, e.envVar.value]));
     deployedApiKey = byKey.MOR_API_KEY;
     deployedEnvironment = byKey.PADDLE_ENVIRONMENT === "production" ? "production" : "sandbox";
   } catch (err) {
@@ -78,13 +100,18 @@ async function getMorStatus() {
     };
   }
 
-  const localDisagreesWithDeployed = localApiKey !== deployedApiKey || localEnvironment !== deployedEnvironment;
+  // Per-key comparison across the full list, not just the original two —
+  // `mismatchedKeys` names exactly which ones disagree so a future incident
+  // is diagnosable from this report alone, not just "something's off".
+  const mismatchedKeys = COMPARED_KEYS.filter((key) => (process.env[key] ?? null) !== (byKey[key] ?? null));
+  const localDisagreesWithDeployed = mismatchedKeys.length > 0;
 
   return {
     live: !!deployedApiKey,
     environment: deployedEnvironment,
     source: "deployed",
     localDisagreesWithDeployed,
+    mismatchedKeys,
   };
 }
 
