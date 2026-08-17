@@ -40,6 +40,22 @@ const FEATURES = [
   },
 ];
 
+// Real posts from LazyRelay's own connected accounts, each independently
+// confirmed live (Proof-of-Publish) before being added here. Not a mockup —
+// see project-lazyrelay-vs-socialbee-feature-roadmap-2026-08-16 in the vault
+// for why this exists (deliberate cross-platform credibility, not just one
+// example). Refresh this list if any of these accounts is ever disconnected.
+const PROOF_POSTS = [
+  { platform: "pinterest", handle: "lazydownload", content: "Simplify your life with LazyRelay: schedule once, post everywhere, with real Proof-of-Publish verification." },
+  { platform: "mastodon", handle: "lazyrelay", content: "Real talk: scheduling posts across 13+ platforms should not mean logging into 13+ dashboards. LazyRelay handles it from one place, with Proof-of-Publish confirming every post actually went live." },
+  { platform: "bluesky", handle: "lazyrelay.bsky.social", content: "Schedule once, publish everywhere. LazyRelay verifies every post actually went live, not just accepted." },
+  { platform: "telegram", handle: "LazyRelay", content: "LazyRelay update: schedule your content once and publish it across every platform your business runs on, with real Proof-of-Publish verification confirming it actually went live." },
+  { platform: "discord", handle: "LazyRelay", content: "New from LazyRelay: schedule a post once, publish it everywhere, and know for certain it went live with real Proof-of-Publish verification." },
+  { platform: "tumblr", handle: "lazyrelay", content: "Simplify your social media: schedule your posts once with LazyRelay and publish everywhere, with real Proof-of-Publish verification confirming they actually went live." },
+  { platform: "youtube", handle: "LazyRelay", content: "LazyRelay: schedule once, publish everywhere. Real Proof-of-Publish verification confirms every post actually went live." },
+  { platform: "tiktok", handle: "LazyRelay", content: "Schedule once. Publish everywhere. LazyRelay." },
+];
+
 const MORE_FEATURES = [
   "Analytics dashboard: total posts, per-platform success rates, and a daily volume trend",
   "Content calendar: everything you've got scheduled on a real month grid",
@@ -278,25 +294,26 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
             </div>
           ))}
         </div>
-        <p className="landing-proof-caption">A real post from LazyRelay's own account, exactly as it appears in your dashboard:</p>
-        <ul className="post-list landing-proof-card">
-          <li className="post-status-posted">
-            <div className="post-platform">
-              <PlatformIcon platform="pinterest" size={14} />
-              lazydownload
-            </div>
-            <div className="post-content">
-              Simplify your life with LazyRelay: schedule once, post everywhere, with real Proof-of-Publish
-              verification.
-            </div>
-            <div className="post-meta">
-              <span className="status-badge status-posted">posted</span>
-              <span className="verified">
-                <RelaySignal size={14} pulsing /> Confirmed live
-              </span>
-            </div>
-          </li>
-        </ul>
+        <p className="landing-proof-caption">Real posts from LazyRelay's own connected accounts, exactly as they appear in the dashboard:</p>
+        <div className="landing-proof-marquee">
+          <ul className="landing-proof-track">
+            {[...PROOF_POSTS, ...PROOF_POSTS].map((post, i) => (
+              <li key={`${post.platform}-${i}`} className="post-status-posted landing-proof-item">
+                <div className="post-platform">
+                  <PlatformIcon platform={post.platform} size={14} />
+                  {post.handle}
+                </div>
+                <div className="post-content">{post.content}</div>
+                <div className="post-meta">
+                  <span className="status-badge status-posted">posted</span>
+                  <span className="verified">
+                    <RelaySignal size={14} pulsing /> Confirmed live
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
         <ul className="landing-more-features">
           {MORE_FEATURES.map((line) => (
             <li key={line}>{line}</li>

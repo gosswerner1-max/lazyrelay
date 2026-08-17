@@ -2361,13 +2361,48 @@ button[type="submit"]:not(.btn-outline),
   margin: 8px auto 0;
 }
 
-.landing-proof-card {
-  max-width: 460px;
-  margin: 8px auto 0;
+.landing-proof-marquee {
+  margin: 16px auto 0;
+  max-width: 1100px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
 }
 
-.landing-proof-card li {
+.landing-proof-track {
+  display: flex;
+  gap: 16px;
+  width: max-content;
+  animation: landing-proof-scroll 42s linear infinite;
+}
+
+.landing-proof-marquee:hover .landing-proof-track {
+  animation-play-state: paused;
+}
+
+@keyframes landing-proof-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    /* Track holds two copies of the list back to back, so scrolling exactly
+       half its width loops seamlessly into the duplicate copy. */
+    transform: translateX(-50%);
+  }
+}
+
+.landing-proof-item {
+  flex: 0 0 300px;
   text-align: left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-proof-track {
+    animation: none;
+  }
+  .landing-proof-marquee {
+    overflow-x: auto;
+  }
 }
 
 .landing-more-features {
