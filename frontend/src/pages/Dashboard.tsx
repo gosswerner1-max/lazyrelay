@@ -17,10 +17,16 @@ import { CircuitBackground } from "../components/CircuitBackground";
 import { SupportWidget } from "../components/SupportWidget";
 import { PostErrorDetail } from "../components/PostErrorDetail";
 
-const TABS = ["Overview", "Posts", "Calendar", "Analytics", "Mentions", "DMs", "Bio Page", "Social Platforms", "Storage", "Account", "API Keys", "Billing"] as const;
+// Settings (2026-08-17, Werner) consolidates the three former separate tabs
+// "Storage"/"Account"/"Billing" into one -- all three sections still exist
+// unchanged, they just all render together under tab === "Settings" now
+// instead of three separate dropdown entries. Settings and API Keys both
+// promoted to the always-visible top bar, leaving only the four
+// content/engagement tabs behind "More".
+const TABS = ["Overview", "Posts", "Calendar", "Analytics", "Mentions", "DMs", "Bio Page", "Social Platforms", "Settings", "API Keys"] as const;
 type Tab = (typeof TABS)[number];
-const MAIN_TABS: Tab[] = ["Overview", "Posts", "Calendar", "Social Platforms"];
-const MORE_TABS: Tab[] = ["Analytics", "Mentions", "DMs", "Bio Page", "Storage", "Account", "API Keys", "Billing"];
+const MAIN_TABS: Tab[] = ["Overview", "Posts", "Calendar", "Social Platforms", "API Keys", "Settings"];
+const MORE_TABS: Tab[] = ["Analytics", "Mentions", "DMs", "Bio Page"];
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // Multi-brand filtering (2026-08-08) — matches the backend's
@@ -1892,7 +1898,7 @@ export function Dashboard() {
             )}
           </span>
           {isFreeOrLapsed && !finalizingUpgrade && (
-            <button className="plan-banner-cta" onClick={() => setTab("Billing")}>
+            <button className="plan-banner-cta" onClick={() => setTab("Settings")}>
               {isPendingCancellation || isLapsedCancelled ? "Resubscribe" : "Upgrade"}
             </button>
           )}
@@ -1904,6 +1910,9 @@ export function Dashboard() {
           <BrandMark size={30} />
           <span>{account?.businessName ? `Welcome, ${account.businessName}` : "LazyRelay"}</span>
         </div>
+        <a href="/guides" className="link">
+          Guides
+        </a>
         <button className="link" onClick={signOut}>
           Sign out
         </button>
@@ -1940,9 +1949,6 @@ export function Dashboard() {
                   {t}
                 </button>
               ))}
-              <a href="/guides" onClick={() => setMoreMenuOpen(false)}>
-                Guides
-              </a>
             </div>
           )}
         </div>
@@ -3465,7 +3471,7 @@ export function Dashboard() {
         );
       })()}
 
-      {tab === "Storage" && (
+      {tab === "Settings" && (
       <section>
         <h2>Storage</h2>
         {storageUsage && (() => {
@@ -3545,7 +3551,7 @@ export function Dashboard() {
       </section>
       )}
 
-      {tab === "Account" && (
+      {tab === "Settings" && (
       <section>
         <h2>Account</h2>
         <form onSubmit={handleSaveBusinessName} className="account-name-form">
@@ -3566,7 +3572,7 @@ export function Dashboard() {
       </section>
       )}
 
-      {tab === "Account" && (
+      {tab === "Settings" && (
       <section>
         <h2>Failure alerts</h2>
         <p className="section-note">
@@ -3586,7 +3592,7 @@ export function Dashboard() {
       </section>
       )}
 
-      {tab === "Account" && (
+      {tab === "Settings" && (
       <section>
         <h2>Webhook</h2>
         <p className="section-note">
@@ -3635,7 +3641,7 @@ export function Dashboard() {
       </section>
       )}
 
-      {tab === "Account" && (() => {
+      {tab === "Settings" && (() => {
         const myMembership = team.find((m) => m.user_id === session?.user.id);
         const isOwner = !myMembership || myMembership.role === "owner";
         // Mirrors checkSeatLimit's own counting rule (seatLimits.ts): every
@@ -3753,7 +3759,7 @@ export function Dashboard() {
         );
       })()}
 
-      {tab === "Account" && (
+      {tab === "Settings" && (
       <section>
         <h2>Authorize admin support access</h2>
         <p className="section-note">
@@ -3948,7 +3954,7 @@ export function Dashboard() {
       </section>
       )}
 
-      {tab === "Storage" && currentTier !== "free" && (
+      {tab === "Settings" && currentTier !== "free" && (
       <section>
         <h2>Buy more storage</h2>
         <p className="section-note">Add extra space on top of your plan's included storage. Cancel any add-on separately, any time.</p>
@@ -3995,7 +4001,7 @@ export function Dashboard() {
       </section>
       )}
 
-      {tab === "Billing" && (
+      {tab === "Settings" && (
       <section>
         <h2>Billing</h2>
         {(() => {

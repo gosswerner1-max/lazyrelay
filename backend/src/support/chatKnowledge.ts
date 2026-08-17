@@ -104,8 +104,8 @@ function tierLine(tier: Tier): string {
 // restructure, real answer is the "Accounts" tab). Re-sync this whenever
 // Dashboard.tsx's own tab arrays change -- if a tab moves, this goes stale
 // independently of the code, since nothing enforces it automatically.
-const DASHBOARD_MAIN_TABS = ["Overview", "Posts", "Calendar", "Social Platforms"] as const;
-const DASHBOARD_MORE_TABS = ["Analytics", "Mentions", "DMs", "Bio Page", "Storage", "Account", "API Keys", "Billing"] as const;
+const DASHBOARD_MAIN_TABS = ["Overview", "Posts", "Calendar", "Social Platforms", "API Keys", "Settings"] as const;
+const DASHBOARD_MORE_TABS = ["Analytics", "Mentions", "DMs", "Bio Page"] as const;
 
 const LIVE_PLATFORMS = [
   "Facebook",
@@ -142,12 +142,12 @@ PLATFORM TROUBLESHOOTING
 
 CORE FEATURES
 - Proof-of-Publish: after a post is sent, LazyRelay independently re-checks the platform to confirm it's genuinely live, not just that the send request was accepted. Verified-live posts get a public, no-login "Share proof" button right on that post in the **Posts** or **Calendar** tab, useful for proving to a client/boss a post actually went out.
-- Failure alerts: opt-in email notifications ("Email me if a scheduled post fails" checkbox on the **Account** tab -- click **More** in the top nav first, Account is inside that menu, not one of the always-visible tabs) when a post fails for good or an account gets auto-paused. Off by default.
+- Failure alerts: opt-in email notifications ("Email me if a scheduled post fails" checkbox on the **Settings** tab, top nav) when a post fails for good or an account gets auto-paused. Off by default.
 - Recurring schedules: set content, days, time, and platforms once; LazyRelay keeps posting weekly until paused or deleted. Free tier is one-time posts only.
 - Bulk CSV import: schedule up to 200 posts at once from a CSV, with a per-row preview before committing.
 - AI captions, hashtags, and content ideas: available from the compose form, count against the account's daily AI-generation quota.
 - Brands: group connected accounts under a brand to filter Overview/Posts/Calendar/Analytics/Mentions/DMs by brand. Each plan includes a set number of brands (Free 1, Starter 2, Pro 4, Business 7, Agency 12, Agency Plus 20); still one login and one subscription -- brands are a grouping/filter within your account, not separate workspaces or separate billing.
-- Team seats: on Business, Agency, or Agency Plus, the account owner can invite teammates to work in the same account (Account tab -- click **More** in the top nav first). Everyone invited can post, schedule, and manage connected platforms; only the owner can change billing, webhooks, API keys, and the team itself. Included seats vary by plan (Business 2, Agency 3, Agency Plus 6), plus up to 2 extra seats available as a paid add-on on any of those three plans. Not available on Free, Starter, or Pro.
+- Team seats: on Business, Agency, or Agency Plus, the account owner can invite teammates to work in the same account (Settings tab, top nav). Everyone invited can post, schedule, and manage connected platforms; only the owner can change billing, webhooks, API keys, and the team itself. Included seats vary by plan (Business 2, Agency 3, Agency Plus 6), plus up to 2 extra seats available as a paid add-on on any of those three plans. Not available on Free, Starter, or Pro.
 - API keys and MCP server: available on paid tiers, let a customer or their AI agent (Claude Desktop, Cursor, etc.) interact with their account programmatically. Free tier does not include API/MCP access.
 - Turnstile on sign-up/sign-in runs invisibly for most users -- not seeing a visible checkbox is normal, not broken.
 
@@ -201,7 +201,7 @@ Coming soon (not connectable yet): ${COMING_SOON_PLATFORMS.join(", ")}.
 
 ${pricingSection}
 
-CANCELLATION (pinned fact, migration 0043_cancel_at_period_end.sql, live 2026-08-11 -- do not infer this, state it exactly): cancelling does NOT end access immediately. It stays fully active until the current paid period genuinely ends, then drops to Free automatically -- no further charge happens after cancelling. The dashboard's Billing tab (under "More") shows the real, live date access ends; never state a specific date yourself unless it's in the account data below.
+CANCELLATION (pinned fact, migration 0043_cancel_at_period_end.sql, live 2026-08-11 -- do not infer this, state it exactly): cancelling does NOT end access immediately. It stays fully active until the current paid period genuinely ends, then drops to Free automatically -- no further charge happens after cancelling. The dashboard's Settings tab (top nav) shows the real, live date access ends; never state a specific date yourself unless it's in the account data below.
 
 ${TROUBLESHOOTING_KNOWLEDGE}
 ${accountSection}
