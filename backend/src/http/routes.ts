@@ -550,7 +550,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
           // chatKnowledge.ts's contactCaptureLine) -- surface it here too, so
           // a human skimming just this header line doesn't miss contact info
           // that's actually present a few lines down in the transcript.
-          const selfReportedEmail = conversationTranscript.match(/[\w.+-]+@[\w-]+\.[\w.-]+/)?.[0];
+          const selfReportedEmail = conversationTranscript.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/)?.[0];
           if (selfReportedEmail) {
             customerLine = `Customer: anonymous visitor, no verified session, but self-reported "${selfReportedEmail}" appears in the conversation below -- read the full transcript to confirm name/email before replying.`;
           }
@@ -563,11 +563,24 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         // is missing something, not just a one-off email. Fire-and-forget,
         // same as the email above: never let a logging failure affect the
         // customer-visible reply.
+        //
+        // question_summary must be the customer's actual question, not the
+        // forced name/email reply an anonymous visitor gives right before
+        // escalation (chatKnowledge.ts:177) -- found live 2026-08-17. For an
+        // anonymous, multi-turn escalation the last user turn is that
+        // contact-details reply, so walk back one turn to the real question;
+        // logged-in customers never hit the forced contact turn, so their
+        // last message already is the question.
+        const userMessages = messages.filter((m: { role: string; content: string }) => m.role === "user");
+        const questionSummary = !accountId && userMessages.length > 1
+          ? userMessages[userMessages.length - 2].content
+          : userMessages[userMessages.length - 1]?.content ?? "";
+
         supabase
           .from("support_knowledge_gaps")
           .insert({
             escalation_category: escalated,
-            question_summary: messages[messages.length - 1].content.slice(0, 500),
+            question_summary: questionSummary.slice(0, 500),
             transcript,
           })
           .then(({ error }) => {
