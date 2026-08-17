@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "rea
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
 import { api, type SocialAccount, type Brand, type BrandCapacity, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation, type Triage } from "../lib/api";
-import { API_BASE_URL, API_ENDPOINTS, MCP_CONFIG_EXAMPLE } from "../lib/apiDocsContent";
+import { API_BASE_URL, API_ENDPOINTS, MCP_CONFIG_EXAMPLE, HOSTED_MCP_URL, HOSTED_MCP_REMOTE_CONFIG_EXAMPLE, MCP_TOOLS } from "../lib/apiDocsContent";
 import { CodeBlock } from "../components/CodeBlock";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
@@ -12,6 +12,7 @@ import { Spinner } from "../components/Spinner";
 import { OverviewPanel } from "../components/Charts";
 import { CircuitBackground } from "../components/CircuitBackground";
 import { SupportWidget } from "../components/SupportWidget";
+import { PostErrorDetail } from "../components/PostErrorDetail";
 
 const TABS = ["Overview", "Posts", "Calendar", "Analytics", "Mentions", "DMs", "Bio Page", "Accounts", "Storage", "Account", "API Keys", "Billing"] as const;
 type Tab = (typeof TABS)[number];
@@ -3039,15 +3040,13 @@ export function Dashboard() {
                   </button>
                 )}
                 {result && (
-                  <span className={result.verified_live ? "verified" : "not-verified"}>
-                    {result.verified_live ? (
-                      <>
-                        <RelaySignal size={14} pulsing /> Confirmed live
-                      </>
-                    ) : (
-                      `Not confirmed: ${result.error_message ?? "couldn't verify"}`
-                    )}
-                  </span>
+                  result.verified_live ? (
+                    <span className="verified">
+                      <RelaySignal size={14} pulsing /> Confirmed live
+                    </span>
+                  ) : (
+                    <PostErrorDetail errorMessage={result.error_message} platform={account?.platform} />
+                  )
                 )}
                 {result?.verified_live && (
                   <button className="btn-outline" disabled={sharingProofId === p.id} onClick={() => handleShareProof(p.id)}>
@@ -3267,15 +3266,13 @@ export function Dashboard() {
                                 across the two separate loops. */}
                             {p.scheduled_for && <span>{new Date(p.scheduled_for).toLocaleTimeString()}</span>}
                             {result && (
-                              <span className={result.verified_live ? "verified" : "not-verified"}>
-                                {result.verified_live ? (
-                                  <>
-                                    <RelaySignal size={14} pulsing /> Confirmed live
-                                  </>
-                                ) : (
-                                  `Not confirmed: ${result.error_message ?? "couldn't verify"}`
-                                )}
-                              </span>
+                              result.verified_live ? (
+                                <span className="verified">
+                                  <RelaySignal size={14} pulsing /> Confirmed live
+                                </span>
+                              ) : (
+                                <PostErrorDetail errorMessage={result.error_message} platform={account?.platform} />
+                              )
                             )}
                             {p.status === "needs_approval" && (
                               <button className="btn-outline" disabled={approvingId === p.id} onClick={() => handleApprove(p.id)}>
@@ -3598,6 +3595,33 @@ export function Dashboard() {
           the key above; there's nothing to host.
         </p>
         <CodeBlock code={MCP_CONFIG_EXAMPLE} />
+
+        <h3 className="api-mcp-heading">No install: the hosted MCP server</h3>
+        <p className="section-note">
+          Prefer not to install anything, or connecting from claude.ai rather than a desktop app? Same 6 tools,
+          same account, but you sign in with this LazyRelay account the first time you connect instead of using
+          an API key.
+        </p>
+        <CodeBlock code={HOSTED_MCP_URL} />
+        <p className="section-note">
+          In Claude: <strong>Settings → Connectors → Add connector → Remote</strong>, then paste the URL above.
+          For MCP clients that use a config file instead:
+        </p>
+        <CodeBlock code={HOSTED_MCP_REMOTE_CONFIG_EXAMPLE} />
+        <p className="section-note">
+          To stop a connected app from accessing your account, remove it from wherever you connected it (for
+          example, your AI tool's connector settings).
+        </p>
+        <div className="api-endpoint-list">
+          {MCP_TOOLS.map((t) => (
+            <div className="api-endpoint" key={t.name}>
+              <div className="api-endpoint-header">
+                <code>{t.name}</code>
+              </div>
+              <p>{t.summary}</p>
+            </div>
+          ))}
+        </div>
       </section>
       )}
 

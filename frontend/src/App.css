@@ -1875,6 +1875,25 @@ button[type="submit"]:not(.btn-outline),
   color: var(--error);
 }
 
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--wire);
+  text-decoration: underline;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.post-error-technical {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-muted, var(--ink));
+  opacity: 0.75;
+}
+
 .post-meta button {
   margin-left: auto;
   padding: 4px 10px;
