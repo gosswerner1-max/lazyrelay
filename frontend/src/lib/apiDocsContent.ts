@@ -78,3 +78,40 @@ export const MCP_CONFIG_EXAMPLE = `{
     }
   }
 }`;
+
+/** URL of the hosted MCP server (Streamable HTTP transport). Must match
+ *  MCP_RESOURCE_URL in backend/src/http/mcpAuth.ts exactly — that's the
+ *  token audience the server validates against, so drift here would
+ *  produce a working-looking connector that always fails to authenticate. */
+export const HOSTED_MCP_URL = "https://lazyrelaylazyrelay-backend.onrender.com/mcp";
+
+/** Config for MCP clients that connect via a config file (Claude Code,
+ *  Cursor, etc.) rather than a UI-driven "add connector" flow. A "url"
+ *  field, not "command"/"args" — the client handles the OAuth flow itself
+ *  the first time it connects, same as clicking through it in claude.ai. */
+export const HOSTED_MCP_REMOTE_CONFIG_EXAMPLE = `{
+  "mcpServers": {
+    "lazyrelay": {
+      "url": "${HOSTED_MCP_URL}"
+    }
+  }
+}`;
+
+/** Same 6 tools as the local/stdio server, kept as its own hand-maintained
+ *  list rather than importing from the backend (this is frontend-only
+ *  code) — same pattern already used for API_ENDPOINTS above. Descriptions
+ *  copied verbatim from backend/src/http/mcpServer.ts; update both places
+ *  together if a tool changes. */
+export interface McpToolDoc {
+  name: string;
+  summary: string;
+}
+
+export const MCP_TOOLS: McpToolDoc[] = [
+  { name: "list_connected_accounts", summary: "List your connected social accounts and their ids" },
+  { name: "schedule_post", summary: "Schedule a post to one connected account" },
+  { name: "list_scheduled_posts", summary: "See upcoming and recent posts, with status and Proof-of-Publish verification" },
+  { name: "delete_scheduled_post", summary: "Cancel a pending post" },
+  { name: "get_analytics_summary", summary: "Post counts, verified-live rate, per-platform breakdown, engagement totals" },
+  { name: "get_mentions", summary: "Recent comments on your posts, where the platform supports reading them" },
+];
