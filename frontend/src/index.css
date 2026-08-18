@@ -36,11 +36,12 @@
   --shadow: rgba(20, 23, 31, 0.06) 0 6px 20px -6px;
   --navy: #14171f;
   /* Matched exactly to banner.jpg's own dominant background pixel (sampled
-     live: rgb(3,10,26), by far the most common color in the image) --
-     the previous #040c1c was close but not identical, which showed as a
-     faint seam at the image's edge against the surrounding hero fill.
-     Found live by Werner, 2026-08-10. */
-  --hero-bg: #030a1a;
+     live: rgb(4,11,29), by far the most common color in the image) --
+     the banner was regenerated 2026-08-18 (X logo swapped for YouTube) with
+     a very slightly different navy than before, which showed as a faint
+     seam at the image's edge against the surrounding hero fill again.
+     Found live by Werner, 2026-08-10, recurred and re-fixed 2026-08-18. */
+  --hero-bg: #040b1d;
 
   --font-display: "League Spartan", system-ui, sans-serif;
   --font-body: "Work Sans", system-ui, sans-serif;
