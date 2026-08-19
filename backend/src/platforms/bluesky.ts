@@ -256,7 +256,11 @@ export class BlueskyAdapter implements PlatformAdapter {
       }
       embed = {
         $type: "app.bsky.embed.images",
-        images: [{ alt: "", image: blob }],
+        // Was hardcoded to "" (found in a 2026-08-19 security review) —
+        // PostRequest.mediaAltText already existed and worked for Mastodon,
+        // but this adapter never read it, so a customer's alt text silently
+        // never reached Bluesky with no error telling them it didn't work.
+        images: [{ alt: request.mediaAltText ?? "", image: blob }],
       };
     }
 

@@ -363,6 +363,7 @@ export class PinterestAdapter implements PlatformAdapter {
         title: request.content.slice(0, 100),
         description: request.content.slice(0, 500),
         media_source: mediaSource,
+        ...(request.destinationLink ? { link: request.destinationLink } : {}),
       }),
     });
     const json = (await res.json()) as PinterestPin & PinterestErrorBody;

@@ -1623,6 +1623,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     mediaUrl: string | null;
     coverImageUrl: string | null;
     boardId: string | null;
+    destinationLink: string | null;
     firstComment: string | null;
     mediaAltText: string | null;
     scheduledFor: string;
@@ -1639,9 +1640,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
    *  both need it, but at slightly different points in their callers. */
   async function validatePostFields(
     accountId: string | undefined,
-    input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; coverImageUrl?: unknown; boardId?: unknown; firstComment?: unknown; mediaAltText?: unknown; scheduledFor?: unknown },
+    input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; coverImageUrl?: unknown; boardId?: unknown; destinationLink?: unknown; firstComment?: unknown; mediaAltText?: unknown; scheduledFor?: unknown },
   ): Promise<PostFieldsError | PostFieldsOk> {
-    const { socialAccountId, content, mediaUrl, coverImageUrl, boardId, firstComment, mediaAltText, scheduledFor } = input;
+    const { socialAccountId, content, mediaUrl, coverImageUrl, boardId, destinationLink, firstComment, mediaAltText, scheduledFor } = input;
     if (coverImageUrl !== undefined && coverImageUrl !== null && typeof coverImageUrl !== "string") {
       return { status: 400, body: { error: "coverImageUrl must be a string" } };
     }
@@ -1650,6 +1651,11 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // adapter's post() simply ignores it.
     if (boardId !== undefined && boardId !== null && typeof boardId !== "string") {
       return { status: 400, body: { error: "boardId must be a string" } };
+    }
+    // Only meaningful for Pinterest today (see PostRequest.destinationLink) —
+    // same generic-column pattern as boardId.
+    if (destinationLink !== undefined && destinationLink !== null && typeof destinationLink !== "string") {
+      return { status: 400, body: { error: "destinationLink must be a string" } };
     }
     // Only consumed by adapters that declare postComment (Facebook,
     // Instagram today) — every other adapter's post() simply ignores it,
@@ -1761,6 +1767,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       mediaUrl: (mediaUrl as string | undefined) ?? null,
       coverImageUrl: (coverImageUrl as string | undefined) ?? null,
       boardId: (boardId as string | undefined) ?? null,
+      destinationLink: (destinationLink as string | undefined) ?? null,
       firstComment: (firstComment as string | undefined) ?? null,
       mediaAltText: (mediaAltText as string | undefined) ?? null,
       scheduledFor,
@@ -1807,11 +1814,11 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
   async function scheduleOnePost(
     accountId: string | undefined,
-    input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; coverImageUrl?: unknown; boardId?: unknown; firstComment?: unknown; scheduledFor?: unknown; requiresApproval?: unknown },
+    input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; coverImageUrl?: unknown; boardId?: unknown; destinationLink?: unknown; firstComment?: unknown; scheduledFor?: unknown; requiresApproval?: unknown },
   ): Promise<{ status: number; body: Record<string, unknown> }> {
     const validated = await validatePostFields(accountId, input);
     if ("status" in validated) return validated;
-    const { socialAccountId, content, mediaUrl, coverImageUrl, boardId, firstComment, mediaAltText, scheduledFor } = validated;
+    const { socialAccountId, content, mediaUrl, coverImageUrl, boardId, destinationLink, firstComment, mediaAltText, scheduledFor } = validated;
 
     const limitError = await checkFreeTierPostLimit(accountId, socialAccountId);
     if (limitError) return limitError;
@@ -1825,6 +1832,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         media_url: mediaUrl,
         cover_image_url: coverImageUrl,
         board_id: boardId,
+        destination_link: destinationLink,
         first_comment: firstComment,
         media_alt_text: mediaAltText,
         scheduled_for: scheduledFor,
@@ -1885,7 +1893,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // account/timing validation validatePostFields does — there's nothing to
   // validate against yet.
   router.post("/scheduled-posts/draft", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { content, mediaUrl, coverImageUrl, boardId, firstComment, mediaAltText } = req.body ?? {};
+    const { content, mediaUrl, coverImageUrl, boardId, destinationLink, firstComment, mediaAltText } = req.body ?? {};
     if (typeof content !== "string" || content.trim().length === 0) {
       res.status(400).json({ error: "content must be a non-empty string" });
       return;
@@ -1894,7 +1902,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(400).json({ error: `content must be ${MAX_POST_CONTENT_LENGTH} characters or fewer` });
       return;
     }
-    for (const [name, value] of [["coverImageUrl", coverImageUrl], ["boardId", boardId], ["firstComment", firstComment], ["mediaAltText", mediaAltText]] as const) {
+    for (const [name, value] of [["coverImageUrl", coverImageUrl], ["boardId", boardId], ["destinationLink", destinationLink], ["firstComment", firstComment], ["mediaAltText", mediaAltText]] as const) {
       if (value !== undefined && value !== null && typeof value !== "string") {
         res.status(400).json({ error: `${name} must be a string` });
         return;
@@ -1909,6 +1917,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         media_url: mediaUrl ?? null,
         cover_image_url: coverImageUrl ?? null,
         board_id: boardId ?? null,
+        destination_link: destinationLink ?? null,
         first_comment: firstComment ?? null,
         media_alt_text: mediaAltText ?? null,
         scheduled_for: null,
@@ -1948,7 +1957,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { content, mediaUrl, coverImageUrl, boardId, firstComment, mediaAltText } = req.body ?? {};
+    const { content, mediaUrl, coverImageUrl, boardId, destinationLink, firstComment, mediaAltText } = req.body ?? {};
     const update: Record<string, unknown> = {};
     if (content !== undefined) {
       if (typeof content !== "string" || content.trim().length === 0) {
@@ -1965,6 +1974,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       ["media_url", "mediaUrl", mediaUrl],
       ["cover_image_url", "coverImageUrl", coverImageUrl],
       ["board_id", "boardId", boardId],
+      ["destination_link", "destinationLink", destinationLink],
       ["first_comment", "firstComment", firstComment],
       ["media_alt_text", "mediaAltText", mediaAltText],
     ] as const) {
@@ -2023,7 +2033,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(validated.status).json(validated.body);
       return;
     }
-    const { socialAccountId, content, mediaUrl, coverImageUrl, boardId, firstComment, mediaAltText, scheduledFor } = validated;
+    const { socialAccountId, content, mediaUrl, coverImageUrl, boardId, destinationLink, firstComment, mediaAltText, scheduledFor } = validated;
 
     const limitError = await checkFreeTierPostLimit(req.accountId, socialAccountId);
     if (limitError) {
@@ -2039,6 +2049,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         media_url: mediaUrl,
         cover_image_url: coverImageUrl,
         board_id: boardId,
+        destination_link: destinationLink,
         first_comment: firstComment,
         media_alt_text: mediaAltText,
         scheduled_for: scheduledFor,
@@ -2972,6 +2983,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     mediaUrl?: unknown;
     coverImageUrl?: unknown;
     boardId?: unknown;
+    destinationLink?: unknown;
     firstComment?: unknown;
     socialAccountIds?: unknown;
     daysOfWeek?: unknown;
@@ -3055,6 +3067,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (input.boardId !== undefined && input.boardId !== null && typeof input.boardId !== "string") {
       return "boardId must be a string";
     }
+    if (input.destinationLink !== undefined && input.destinationLink !== null && typeof input.destinationLink !== "string") {
+      return "destinationLink must be a string";
+    }
     if (input.firstComment !== undefined && input.firstComment !== null && typeof input.firstComment !== "string") {
       return "firstComment must be a string";
     }
@@ -3122,6 +3137,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         media_url: input.mediaUrl ?? null,
         cover_image_url: input.coverImageUrl ?? null,
         board_id: input.boardId ?? null,
+        destination_link: input.destinationLink ?? null,
         first_comment: input.firstComment ?? null,
         days_of_week: input.daysOfWeek,
         time_of_day: `${input.timeOfDay}:00`,
@@ -3205,7 +3221,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // ones under the new configuration on the next generation cycle.
     const isPureResume = input.status === "active" && existing.status === "paused" &&
       input.content === undefined && input.mediaUrl === undefined && input.coverImageUrl === undefined &&
-      input.boardId === undefined && input.firstComment === undefined &&
+      input.boardId === undefined && input.destinationLink === undefined && input.firstComment === undefined &&
       input.socialAccountIds === undefined &&
       input.daysOfWeek === undefined && input.timeOfDay === undefined && input.timezone === undefined &&
       input.startsOn === undefined && input.endsOn === undefined;
@@ -3243,6 +3259,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (input.mediaUrl !== undefined) updates.media_url = input.mediaUrl;
     if (input.coverImageUrl !== undefined) updates.cover_image_url = input.coverImageUrl;
     if (input.boardId !== undefined) updates.board_id = input.boardId;
+    if (input.destinationLink !== undefined) updates.destination_link = input.destinationLink;
     if (input.firstComment !== undefined) updates.first_comment = input.firstComment;
     if (input.daysOfWeek !== undefined) updates.days_of_week = input.daysOfWeek;
     if (input.timeOfDay !== undefined) updates.time_of_day = `${input.timeOfDay}:00`;

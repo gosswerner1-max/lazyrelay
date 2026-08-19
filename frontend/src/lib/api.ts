@@ -100,6 +100,7 @@ export interface ScheduledPost {
   media_url: string | null;
   cover_image_url: string | null;
   board_id: string | null;
+  destination_link: string | null;
   first_comment: string | null;
   media_alt_text: string | null;
   scheduled_for: string | null;
@@ -114,6 +115,7 @@ export interface DraftFields {
   mediaUrl?: string | null;
   coverImageUrl?: string | null;
   boardId?: string | null;
+  destinationLink?: string | null;
   firstComment?: string | null;
   mediaAltText?: string | null;
 }
@@ -404,6 +406,7 @@ export const api = {
     mediaUrl?: string;
     coverImageUrl?: string;
     boardId?: string;
+    destinationLink?: string;
     firstComment?: string;
     mediaAltText?: string;
     scheduledFor: string;
@@ -419,7 +422,7 @@ export const api = {
     authedFetch(`/scheduled-posts/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   scheduleDraft: (
     id: string,
-    input: { socialAccountId: string; content: string; mediaUrl?: string; coverImageUrl?: string; boardId?: string; firstComment?: string; mediaAltText?: string; scheduledFor: string; requiresApproval?: boolean },
+    input: { socialAccountId: string; content: string; mediaUrl?: string; coverImageUrl?: string; boardId?: string; destinationLink?: string; firstComment?: string; mediaAltText?: string; scheduledFor: string; requiresApproval?: boolean },
   ): Promise<ScheduledPost> => authedFetch(`/scheduled-posts/${id}/schedule`, { method: "PATCH", body: JSON.stringify(input) }),
   approveScheduledPost: (id: string): Promise<ScheduledPost> =>
     authedFetch(`/scheduled-posts/${id}/approve`, { method: "PATCH" }),

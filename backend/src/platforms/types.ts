@@ -19,6 +19,13 @@ export interface PostRequest {
   // an auto-created default) — every existing caller (test scripts, older
   // scheduled_posts rows) that doesn't set this keeps working unchanged.
   boardId?: string | null;
+  // Only consumed by Pinterest -- the Pin's own "Destination Link" (where a
+  // click on the Pin takes someone), distinct from mediaUrl (the image/video
+  // itself). Found missing entirely in a 2026-08-19 security review: Pin
+  // creation never sent Pinterest's `link` field at all, so every Pin's
+  // destination link was silently blank. Every other adapter ignores it,
+  // same accepted-but-unused pattern as boardId/coverImageUrl.
+  destinationLink?: string | null;
   // Accessibility description of the attached media (2026-08-16). Only
   // consumed by adapters whose platform API supports it on media upload —
   // currently Mastodon. Every other adapter simply ignores it, same

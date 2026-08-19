@@ -301,6 +301,11 @@ export function Dashboard() {
   const [pinterestBoards, setPinterestBoards] = useState<{ id: string; name: string }[]>([]);
   const [boardsLoading, setBoardsLoading] = useState(false);
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
+  // Pinterest's own "Destination Link" -- where a click on the Pin takes
+  // someone, distinct from the image/video itself. Found completely missing
+  // in a 2026-08-19 security review: the compose form never had a field for
+  // it at all, so every Pin's destination link was silently blank.
+  const [destinationLink, setDestinationLink] = useState<string | null>(null);
   const [firstComment, setFirstComment] = useState<string | null>(null);
   // The initial /scheduled-posts fetch already caps History at the
   // backend's page size (see routes.ts) — this just tracks whether a
@@ -1041,6 +1046,10 @@ export function Dashboard() {
           boardId: accounts.find((a) => a.id === socialAccountId)?.platform === "pinterest"
             ? (selectedBoardId ?? undefined)
             : undefined,
+          // Same Pinterest-only gate as boardId above.
+          destinationLink: accounts.find((a) => a.id === socialAccountId)?.platform === "pinterest"
+            ? (destinationLink?.trim() ? destinationLink.trim() : undefined)
+            : undefined,
           // Only consumed server-side for Facebook/Instagram today — harmless
           // no-op for every other platform, same pattern as boardId above.
           firstComment: firstComment?.trim() ? firstComment.trim() : undefined,
@@ -1061,6 +1070,7 @@ export function Dashboard() {
       setScheduleTime("");
       setMediaUrl(null);
       setCoverImageUrl(null);
+      setDestinationLink(null);
       setFirstComment(null);
       setMediaAltText(null);
       setPerAccountContent({});
@@ -1122,6 +1132,7 @@ export function Dashboard() {
     setContent(p.content);
     setMediaUrl(p.media_url);
     setCoverImageUrl(p.cover_image_url);
+    setDestinationLink(p.destination_link);
     setFirstComment(p.first_comment);
     setMediaAltText(p.media_alt_text);
     setEditingDraftId(p.id);
@@ -1132,6 +1143,7 @@ export function Dashboard() {
     setContent("");
     setMediaUrl(null);
     setCoverImageUrl(null);
+    setDestinationLink(null);
     setFirstComment(null);
     setMediaAltText(null);
     setEditingDraftId(null);
@@ -2776,6 +2788,18 @@ export function Dashboard() {
                 )}
               </label>
             )}
+            {selectedPinterestAccountId && (
+              <label>
+                Destination link (optional)
+                <input
+                  type="text"
+                  value={destinationLink ?? ""}
+                  onChange={(e) => setDestinationLink(e.target.value)}
+                  placeholder="Where does this Pin take people when clicked?"
+                />
+                <span className="section-note">Pinterest-only — where a click on the Pin leads to, separate from the image itself.</span>
+              </label>
+            )}
             <div className="content-ideas-row">
               <button type="button" className="btn-outline" disabled={ideasGenerating} onClick={handleGetContentIdeas}>
                 {ideasGenerating ? "Thinking..." : "Not sure what to post? Get ideas"}
@@ -2873,7 +2897,7 @@ export function Dashboard() {
                   placeholder="Describe the image for screen-reader users"
                   maxLength={1000}
                 />
-                <span className="section-note">Used by platforms that support it (Mastodon today) — ignored elsewhere.</span>
+                <span className="section-note">Used by platforms that support it (Mastodon and Bluesky today) — ignored elsewhere.</span>
               </label>
             )}
             {mediaUrl?.match(/\.(mp4|mov)$/i) &&
