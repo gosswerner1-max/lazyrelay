@@ -943,49 +943,6 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     });
   });
 
-  // Public growth-stats endpoint — the numbers behind the homepage's
-  // Proof-of-Publish counter. Deliberately narrow, same rule as
-  // /public/status: only real, defensible mechanism stats, never vanity
-  // metrics like customer/account counts.
-  //
-  // verificationAccuracy is scoped to posts LazyRelay actually submitted
-  // to the platform (post_results.platform_post_id is not null) so a
-  // customer's own pre-submission error (wrong file format/size, missing
-  // scope, no board selected, etc. -- caught before the platform is ever
-  // called, see scheduler.ts's `!attempt.success` branch) never counts
-  // against LazyRelay's own verification reliability. Decided explicitly
-  // 2026-08-18 so this stat can never overstate what it measures.
-  router.get("/public/growth-stats", publicRateLimit, async (_req, res) => {
-    const { count: verifiedCount, error: verifiedError } = await supabase
-      .from("post_results")
-      .select("id", { count: "exact", head: true })
-      .eq("verified_live", true);
-    if (verifiedError) {
-      dbError(res, verifiedError, "GET /public/growth-stats (verified)");
-      return;
-    }
-
-    const { count: submittedCount, error: submittedError } = await supabase
-      .from("post_results")
-      .select("id", { count: "exact", head: true })
-      .not("platform_post_id", "is", null);
-    if (submittedError) {
-      dbError(res, submittedError, "GET /public/growth-stats (submitted)");
-      return;
-    }
-
-    const postsVerifiedLive = verifiedCount ?? 0;
-    const postsSubmitted = submittedCount ?? 0;
-    const verificationAccuracy = postsSubmitted > 0 ? Math.round((postsVerifiedLive / postsSubmitted) * 1000) / 10 : null;
-
-    res.json({
-      checkedAt: new Date().toISOString(),
-      postsVerifiedLive,
-      verificationAccuracy,
-      verificationIntervalSeconds: 30,
-    });
-  });
-
   // Starts the "connect your social account" flow — returns the URL the
   // frontend should redirect the user to. Real account identity comes from
   // the verified JWT; the callback below never has to trust anything the

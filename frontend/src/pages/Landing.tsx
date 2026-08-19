@@ -4,7 +4,6 @@ import { PlatformIcon } from "../components/PlatformIcon";
 import { RelaySignal } from "../components/RelaySignal";
 import { CircuitBackground } from "../components/CircuitBackground";
 import { SupportWidget } from "../components/SupportWidget";
-import GrowthStatsCounter from "../components/GrowthStatsCounter";
 import banner from "../assets/banner.jpg";
 
 interface LandingProps {
@@ -290,7 +289,6 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
         <button className="cta" onClick={onGetStarted}>
           Get started free
         </button>
-        <GrowthStatsCounter />
       </section>
 
       <section className="landing-section">
