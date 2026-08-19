@@ -3107,7 +3107,27 @@ button[type="submit"]:not(.btn-outline),
 .api-key-form-submit-row {
   flex-basis: 100%;
   text-align: center;
-  margin-top: 4px;
+  margin: 8px 0 24px;
+}
+
+/* Checkbox + label text as a tight, aligned pair on their own line --
+   previously an unstyled label inside the flex-wrap row, which let the
+   browser space the checkbox and text far apart and wrap "links" onto
+   its own line under the checkbox instead of under the text
+   (Werner, 2026-08-19). */
+.api-key-share-proof-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-basis: 100%;
+  font-size: 14px;
+  color: var(--wire);
+  cursor: pointer;
+}
+
+.api-key-share-proof-toggle input[type="checkbox"] {
+  margin-top: 3px;
+  flex-shrink: 0;
 }
 
 .account-name-form label {
