@@ -43,8 +43,17 @@ const PAST_DUE_GRACE_HOURS = 24; // money-impacting -> tight loop, same
 // mismatch incidents (2026-08-04/05/11) and never once caught any of them.
 // This function already fetches Render's full env-var list, so comparing
 // more keys costs nothing extra. Keep this list in sync with new Paddle
-// price IDs as they're added (PADDLE_PRICE_ID_BRAND_ADDON was the most
-// recent, 2026-08-16).
+// price IDs as they're added.
+//
+// 2026-08-19 — that "keep this list in sync" instruction failed on its very
+// first test. The three Agency price IDs were created 2026-08-18 and added
+// to Render but not here, and not to backend/.env either -- so a real
+// Render-vs-local divergence existed for a day while this function reported
+// mismatchedKeys: [] the whole time. Exactly the blind spot the 08-17
+// widening was written to end, one day later, for the same reason: a list a
+// human has to remember to update. If a fourth price ID is ever added, this
+// will happen again -- the durable fix is to derive the compared set from
+// Render's own PADDLE_* keys rather than hand-maintaining it here.
 const COMPARED_KEYS = [
   "MOR_API_KEY",
   "PADDLE_ENVIRONMENT",
@@ -56,6 +65,9 @@ const COMPARED_KEYS = [
   "PADDLE_PRICE_ID_STORAGE_20GB",
   "PADDLE_PRICE_ID_STORAGE_50GB",
   "PADDLE_PRICE_ID_BRAND_ADDON",
+  "PADDLE_PRICE_ID_AGENCY",
+  "PADDLE_PRICE_ID_AGENCY_PLUS",
+  "PADDLE_PRICE_ID_SEAT_ADDON",
 ];
 
 async function getMorStatus() {
