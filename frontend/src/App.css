@@ -2542,6 +2542,30 @@ button[type="submit"]:not(.btn-outline),
   color: var(--signal);
 }
 
+.zapier-callout {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px auto 0;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: var(--signal-bg);
+  border: 1px solid var(--signal);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.zapier-callout strong {
+  color: var(--signal);
+}
+
+.zapier-callout a {
+  color: var(--signal);
+  text-decoration: underline;
+  font-weight: 700;
+}
+
 .pricing-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
