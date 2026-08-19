@@ -357,6 +357,28 @@
   color: #fff;
 }
 
+/* Same solid-signal treatment as .auth-card button[type="submit"] --
+   for a primary action button outside the auth forms (unstyled default
+   buttons render as plain grey, easy to miss -- Werner, 2026-08-19). */
+.btn-primary {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background: var(--signal-solid);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.btn-primary:hover {
+  background: var(--signal-solid-hover);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .account-list,
 .post-list {
   list-style: none;
@@ -3080,6 +3102,12 @@ button[type="submit"]:not(.btn-outline),
   gap: 12px;
   align-items: flex-end;
   flex-wrap: wrap;
+}
+
+.api-key-form-submit-row {
+  flex-basis: 100%;
+  text-align: center;
+  margin-top: 4px;
 }
 
 .account-name-form label {

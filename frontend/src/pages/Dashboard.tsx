@@ -3821,9 +3821,11 @@ export function Dashboard() {
             />
             Allow this key to generate public proof-sharing links
           </label>
-          <button type="submit" disabled={creatingKey || !apiKeyName.trim()}>
-            {creatingKey ? "Creating..." : "Create key"}
-          </button>
+          <div className="api-key-form-submit-row">
+            <button type="submit" className="btn-primary" disabled={creatingKey || !apiKeyName.trim()}>
+              {creatingKey ? "Creating..." : "Create key"}
+            </button>
+          </div>
         </form>
         {apiKeys.length === 0 ? (
           <p className="empty">No API keys yet.</p>
