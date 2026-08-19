@@ -67,12 +67,18 @@ async function storeConnectedAccount(
  *  this account + platform, returns the URL to redirect the user to. The
  *  adapter is resolved from the registry by `platform` — this is what lets
  *  several platforms be connectable at once instead of just one globally
- *  injected adapter. */
+ *  injected adapter.
+ *
+ *  Also returns the raw state id so the route handler can bind it to the
+ *  initiating browser via a cookie (see routes.ts) — the state row alone
+ *  proves which ACCOUNT started the flow, but not which BROWSER, which is
+ *  what let one customer's authorize link be handed to a victim and linked
+ *  into the attacker's account instead of the state row's real owner. */
 export async function startConnect(
   accountId: string,
   platform: string,
   registry: PlatformAdapterRegistry,
-): Promise<string> {
+): Promise<{ url: string; stateId: string }> {
   const adapter = resolveAdapter(registry, platform);
   const { data, error } = await supabase
     .from("oauth_states")
@@ -81,7 +87,8 @@ export async function startConnect(
     .single();
   if (error || !data) throw error ?? new Error("failed to create oauth state");
 
-  return await adapter.getAuthorizeUrl(data.id);
+  const url = await adapter.getAuthorizeUrl(data.id);
+  return { url, stateId: data.id };
 }
 
 /** Handles the OAuth callback: validates the state token (exists, not

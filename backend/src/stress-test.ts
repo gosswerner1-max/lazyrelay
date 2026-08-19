@@ -118,8 +118,8 @@ async function testConcurrentConnects(): Promise<string> {
   // 20 concurrent startConnect calls for the same account/platform —
   // each should mint its own independent one-time state token with no
   // cross-contamination.
-  const urls = await Promise.all(Array.from({ length: 20 }, () => startConnect(accountId, stub.platform, registry)));
-  const states = urls.map((u) => new URL(u).searchParams.get("state"));
+  const connectResults = await Promise.all(Array.from({ length: 20 }, () => startConnect(accountId, stub.platform, registry)));
+  const states = connectResults.map((r) => new URL(r.url).searchParams.get("state"));
   const uniqueStates = new Set(states);
   report("concurrent startConnect mints unique state tokens", uniqueStates.size === 20, `${uniqueStates.size}/20 unique`);
 

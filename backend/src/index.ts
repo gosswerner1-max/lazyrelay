@@ -28,14 +28,27 @@ async function main() {
   // platforms/registry.ts (extracted 2026-08-07) so the metrics poller
   // script can build the identical registry without a second copy.
   const registry = buildPlatformRegistry();
-  const morAdapter: MerchantOfRecordAdapter =
-    process.env.MOR_API_KEY && process.env.MOR_WEBHOOK_SECRET
-      ? new PaddleMorAdapter(
-          process.env.MOR_API_KEY,
-          process.env.MOR_WEBHOOK_SECRET,
-          process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox
-        )
-      : new StubMorAdapter();
+  const hasRealMorCredentials = Boolean(process.env.MOR_API_KEY && process.env.MOR_WEBHOOK_SECRET);
+  // StubMorAdapter.parseWebhookEvent() does no signature verification at
+  // all — it trusts every field in the raw body, including `tier`. Falling
+  // back to it silently is fine in sandbox/dev (nothing there grants real
+  // access), but in production it would turn POST /api/webhooks/mor into a
+  // fully unauthenticated "grant this account any tier" endpoint if the
+  // real credentials are ever missing (e.g. dropped during a redeploy or
+  // secret rotation) — refuse to boot instead of serving that silently.
+  if (process.env.PADDLE_ENVIRONMENT === "production" && !hasRealMorCredentials) {
+    console.error(
+      "PADDLE_ENVIRONMENT is production but MOR_API_KEY/MOR_WEBHOOK_SECRET are missing — refusing to boot with an unauthenticated billing webhook. Set both, or unset PADDLE_ENVIRONMENT if this is intentionally a non-production deploy.",
+    );
+    process.exit(1);
+  }
+  const morAdapter: MerchantOfRecordAdapter = hasRealMorCredentials
+    ? new PaddleMorAdapter(
+        process.env.MOR_API_KEY!,
+        process.env.MOR_WEBHOOK_SECRET!,
+        process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox
+      )
+    : new StubMorAdapter();
   console.log(`Billing adapter: ${morAdapter.constructor.name}`);
   console.log(
     `Platform registry: ${Array.from(registry.keys()).join(", ") || "(none — using stub)"}; ` +

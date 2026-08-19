@@ -16,6 +16,7 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@paddle/paddle-node-sdk": "^3.8.0",
     "@supabase/supabase-js": "^2.45.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^16.4.0",
     "express": "^5.2.1",
@@ -28,6 +29,7 @@
     "resend": "^6.18.1"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/luxon": "^3.7.2",

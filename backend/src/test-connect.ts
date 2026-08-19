@@ -17,7 +17,7 @@ async function main() {
   const registry = new Map([[adapter.platform, adapter]]);
 
   // Start the flow — should return a real authorize URL containing a state token.
-  const authorizeUrl = await startConnect(accountId, adapter.platform, registry);
+  const { url: authorizeUrl } = await startConnect(accountId, adapter.platform, registry);
   console.log("Authorize URL:", authorizeUrl);
   const state = new URL(authorizeUrl).searchParams.get("state");
   if (!state) throw new Error("no state param in authorize URL");

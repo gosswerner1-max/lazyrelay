@@ -39,7 +39,7 @@ async function main() {
 
   const adapter = new MastodonAdapter(redirectUri);
   const registry = new Map([[adapter.platform, adapter]]);
-  const authorizeUrl = await startConnect(accountId, adapter.platform, registry);
+  const { url: authorizeUrl } = await startConnect(accountId, adapter.platform, registry);
   const state = new URL(authorizeUrl).searchParams.get("state")!;
 
   console.log("\nOpen this URL, log in, and approve:\n");

@@ -24,7 +24,7 @@ async function main() {
   await supabase.from("accounts").insert({ id: accountId, email });
 
   const adapter = new TikTokAdapter(clientKey, clientSecret, redirectUri);
-  const authorizeUrl = await startConnect(accountId, adapter.platform, new Map([[adapter.platform, adapter]]));
+  const { url: authorizeUrl } = await startConnect(accountId, adapter.platform, new Map([[adapter.platform, adapter]]));
 
   writeFileSync(
     "tiktok-sandbox-test-state.json",

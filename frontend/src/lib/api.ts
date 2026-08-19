@@ -9,6 +9,12 @@ async function authedFetch(path: string, options: RequestInit = {}) {
 
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
+    // Needed so the browser stores/sends the short-lived lr_oauth_state
+    // cookie the backend sets on /social-accounts/connect (see routes.ts)
+    // — without it, that cookie never reaches the backend on the later
+    // callback and every connect attempt would fail the new browser-binding
+    // check. Harmless for every other call, which doesn't set or read it.
+    credentials: "include",
     headers: {
       ...options.headers,
       Authorization: `Bearer ${token}`,
@@ -376,6 +382,10 @@ export const api = {
   completeManualConnect: async (code: string, state: string): Promise<{ connected: boolean; socialAccountId: string }> => {
     const res = await fetch(
       `${API_URL}/social-accounts/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}&format=json`,
+      // Same lr_oauth_state cookie requirement as every other connect path
+      // — this platform never navigates away to a real OAuth provider, but
+      // still goes through the same browser-binding check on the callback.
+      { credentials: "include" },
     );
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error ?? `Connect failed: ${res.status}`);

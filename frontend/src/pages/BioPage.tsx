@@ -42,11 +42,22 @@ export function BioPage({ slug }: { slug: string }) {
           {page.links.length === 0 ? (
             <p className="bio-page-empty">No links yet.</p>
           ) : (
-            page.links.map((link) => (
-              <a key={link.id} href={link.url} target="_blank" rel="noopener noreferrer" className="bio-page-link">
-                {link.label}
-              </a>
-            ))
+            page.links.map((link) =>
+              /^https?:\/\//i.test(link.url) ? (
+                <a key={link.id} href={link.url} target="_blank" rel="noopener noreferrer" className="bio-page-link">
+                  {link.label}
+                </a>
+              ) : (
+                // The backend already rejects non-http(s) URLs on write, but a
+                // link is never rendered as a clickable href without this same
+                // check passing again here — belt-and-suspenders against a
+                // javascript: URI ever reaching a customer's browser, from any
+                // future write path or direct data edit that might skip it.
+                <span key={link.id} className="bio-page-link bio-page-link-unsafe">
+                  {link.label}
+                </span>
+              ),
+            )
           )}
         </div>
         <a href="https://lazyrelay.com" className="bio-page-footer-link">

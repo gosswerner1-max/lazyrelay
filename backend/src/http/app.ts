@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { buildRouter } from "./routes.js";
 import { buildWebhookHandler } from "./webhook.js";
 import { mountMcp } from "./mcpRoutes.js";
@@ -58,8 +59,15 @@ export function buildApp(
         }
         callback(new Error("Not allowed by CORS"));
       },
+      // Needed so the browser will store and re-send the short-lived
+      // lr_oauth_state cookie (see routes.ts's /social-accounts/connect
+      // and /social-accounts/callback) across the cross-origin fetch calls
+      // the frontend makes here — without this, Set-Cookie on the
+      // connect-initiate response is silently dropped by the browser.
+      credentials: true,
     }),
   );
+  app.use(cookieParser());
   app.use(express.json());
   app.use("/api", buildRouter(morAdapter, registry));
 

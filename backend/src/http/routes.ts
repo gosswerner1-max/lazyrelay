@@ -42,6 +42,7 @@ import { sendSupportEscalation, sendTeamInviteEmail } from "../email.js";
 import { triageItems, type TriageItem, type TriageResult } from "../commentTriage.js";
 import type { CommentItem } from "../platforms/types.js";
 import { generateWebhookSecret } from "../webhook.js";
+import { isSafeMediaUrl } from "../urlSafety.js";
 import tls from "node:tls";
 
 // Storage add-ons — priced 2026-07-23 after researching real comparables
@@ -965,7 +966,29 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         res.status(403).json({ error: limitError });
         return;
       }
-      const url = await startConnect(req.accountId!, platform, registry);
+      const { url, stateId } = await startConnect(req.accountId!, platform, registry);
+      // Binds this specific browser to this specific state token — without
+      // it, the state row alone only proves which ACCOUNT started the
+      // flow, not which browser, so an attacker could mint this URL for
+      // themselves and hand it to a victim: the victim clicks "Allow" on
+      // the real platform, and completeConnect() would otherwise happily
+      // link the victim's real social account into the attacker's
+      // LazyRelay account. The callback below requires this same cookie
+      // to be present and match. 15 minutes, matching oauth_states'
+      // own expiry (see migration 0004).
+      res.cookie("lr_oauth_state", stateId, {
+        httpOnly: true,
+        secure: true,
+        // "none", not "lax": the frontend and backend are different origins
+        // (see app.ts's allowedOrigins), so this cookie is set via a
+        // cross-origin fetch() and — for Bluesky/Telegram/Discord, which
+        // never leave the page — read back via another cross-origin
+        // fetch() too, not a top-level navigation. Lax would only survive
+        // the real-OAuth-platform redirect path and silently break those
+        // three. Requires Secure, already set above.
+        sameSite: "none",
+        maxAge: 15 * 60_000,
+      });
       res.json({ authorizeUrl: url });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
@@ -1005,6 +1028,23 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       const message = "Missing code or state";
       if (wantsJson) {
         res.status(400).json({ error: message });
+        return;
+      }
+      res.redirect(`${frontendUrl}/?connectError=${encodeURIComponent(message)}`);
+      return;
+    }
+    // Requires the same browser that started the connect flow (and got
+    // handed the lr_oauth_state cookie in the /social-accounts/connect
+    // response) to be the one completing it — the state row alone proves
+    // which account started the flow, not which browser, which is what a
+    // forged/shared authorize link could otherwise exploit. Cleared either
+    // way, since this cookie is one-time-use just like the state row.
+    const cookieState = req.cookies?.lr_oauth_state;
+    res.clearCookie("lr_oauth_state", { httpOnly: true, secure: true, sameSite: "none" });
+    if (cookieState !== state) {
+      const message = "This connect link wasn't opened in the same browser it was started in — please try connecting again.";
+      if (wantsJson) {
+        res.status(403).json({ error: message });
         return;
       }
       res.redirect(`${frontendUrl}/?connectError=${encodeURIComponent(message)}`);
@@ -1634,6 +1674,26 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       .single();
     if (accountError || !account || account.account_id !== accountId) {
       return { status: 403, body: { error: "Social account not found or not owned by this caller" } };
+    }
+
+    // Both mediaUrl and coverImageUrl get fetched server-side by whichever
+    // platform adapter ends up posting this (scheduler.ts -> adapter.post())
+    // — without this check, a customer could point either at an internal
+    // address (e.g. cloud metadata) and have LazyRelay's own backend fetch
+    // it on their behalf, then read the result back off their own post.
+    // Checked here, at write time, so an unsafe URL never even gets
+    // scheduled — not deferred to whichever adapter happens to run it.
+    if (typeof mediaUrl === "string") {
+      const result = await isSafeMediaUrl(mediaUrl);
+      if (!result.safe) {
+        return { status: 400, body: { error: `mediaUrl ${result.reason}` } };
+      }
+    }
+    if (typeof coverImageUrl === "string") {
+      const result = await isSafeMediaUrl(coverImageUrl);
+      if (!result.safe) {
+        return { status: 400, body: { error: `coverImageUrl ${result.reason}` } };
+      }
     }
 
     // Pre-flight check against the TARGET platform's real requirements —
@@ -2896,8 +2956,23 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   /** Shared validation for both create and edit — returns a customer-facing
    *  error string, or null if everything present is valid. Fields not
    *  present in `input` (relevant for PATCH, which may only be setting
-   *  `status`) are skipped rather than required. */
-  function validateRecurringScheduleInput(input: RecurringScheduleInput, requireAll: boolean): string | null {
+   *  `status`) are skipped rather than required.
+   *
+   *  Async because mediaUrl/coverImageUrl need the same SSRF check as
+   *  validatePostFields above — a recurring schedule's media_url is stored
+   *  once here and then fetched server-side on every future occurrence
+   *  without going through validatePostFields again, so an unsafe URL has
+   *  to be caught at this write instead. */
+  async function validateRecurringScheduleInput(input: RecurringScheduleInput, requireAll: boolean): Promise<string | null> {
+    if (input.mediaUrl !== undefined && input.mediaUrl !== null) {
+      if (typeof input.mediaUrl !== "string") return "mediaUrl must be a string";
+      const result = await isSafeMediaUrl(input.mediaUrl);
+      if (!result.safe) return `mediaUrl ${result.reason}`;
+    }
+    if (input.coverImageUrl !== undefined && input.coverImageUrl !== null && typeof input.coverImageUrl === "string") {
+      const result = await isSafeMediaUrl(input.coverImageUrl);
+      if (!result.safe) return `coverImageUrl ${result.reason}`;
+    }
     if (requireAll || input.content !== undefined) {
       if (typeof input.content !== "string" || input.content.trim().length === 0) {
         return "content must be a non-empty string";
@@ -2960,7 +3035,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
   router.post("/recurring-schedules", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const input = (req.body ?? {}) as RecurringScheduleInput;
-    const validationError = validateRecurringScheduleInput(input, true);
+    const validationError = await validateRecurringScheduleInput(input, true);
     if (validationError) {
       res.status(400).json({ error: validationError });
       return;
@@ -3088,7 +3163,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(400).json({ error: "status must be \"active\" or \"paused\"" });
       return;
     }
-    const validationError = validateRecurringScheduleInput(input, false);
+    const validationError = await validateRecurringScheduleInput(input, false);
     if (validationError) {
       res.status(400).json({ error: validationError });
       return;
@@ -3765,7 +3840,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.json(data);
   });
 
-  router.delete("/api-keys/:id", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.delete("/api-keys/:id", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data: key } = await supabase.from("api_keys").select("account_id").eq("id", req.params.id).maybeSingle();
     if (!key || key.account_id !== req.accountId) {
       res.status(404).json({ error: "API key not found" });

@@ -25,7 +25,7 @@ async function main() {
   await supabase.from("accounts").insert({ id: accountId, email });
 
   const adapter = new PinterestAdapter(appId, appSecret, redirectUri);
-  const authorizeUrl = await startConnect(accountId, adapter.platform, new Map([[adapter.platform, adapter]]));
+  const { url: authorizeUrl } = await startConnect(accountId, adapter.platform, new Map([[adapter.platform, adapter]]));
 
   writeFileSync(
     "pinterest-sandbox-test-state.json",
