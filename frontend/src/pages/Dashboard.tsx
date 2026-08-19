@@ -2629,7 +2629,9 @@ export function Dashboard() {
         </p>
         <h3>Connect a platform</h3>
         <div className="platform-grid">
-          {platforms.map((p) => {
+          {platforms
+            .filter((p) => !p.comingSoon || p.platform === "x")
+            .map((p) => {
             // A platform not yet configured on this deploy (missing env
             // vars) is just as unclickable as a genuine "coming soon" one —
             // dim both the same way rather than only handling the X/Reddit
