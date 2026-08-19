@@ -3398,7 +3398,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // their tier's base amount. Same checkout-overlay pattern as
   // /subscription/checkout, just a different customData shape (see
   // buildCheckoutTransaction in billing/paddle.ts).
-  router.post("/storage-addons/checkout", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.post("/storage-addons/checkout", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { gbAmount } = req.body ?? {};
     if (!STORAGE_ADDON_GB_OPTIONS.includes(gbAmount)) {
       res.status(400).json({ error: `gbAmount must be one of ${STORAGE_ADDON_GB_OPTIONS.join(", ")}` });
@@ -3680,6 +3680,15 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(400).json({ error: "businessName must be 80 characters or fewer" });
       return;
     }
+    // businessName becomes the inviter label in a team-invite email subject
+    // (email.ts's sendTeamInviteEmail) — stripping newlines here is cheap
+    // defense-in-depth against header injection if the Resend API ever
+    // passes a subject through to a raw SMTP header without folding it,
+    // rather than depending entirely on a third party's own sanitization.
+    if (typeof businessName === "string" && /[\r\n]/.test(businessName)) {
+      res.status(400).json({ error: "businessName can't contain line breaks" });
+      return;
+    }
     if (emailFailureAlertsEnabled !== undefined && typeof emailFailureAlertsEnabled !== "boolean") {
       res.status(400).json({ error: "emailFailureAlertsEnabled must be a boolean" });
       return;
@@ -3708,15 +3717,13 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         res.status(400).json({ error: "webhookUrl can't be empty, pass null to remove it" });
         return;
       }
-      let parsed: URL;
-      try {
-        parsed = new URL(trimmed);
-      } catch {
-        res.status(400).json({ error: "webhookUrl must be a valid URL" });
-        return;
-      }
-      if (parsed.protocol !== "https:") {
-        res.status(400).json({ error: "webhookUrl must use https" });
+      // scheduler.ts fetches this URL server-side every time a post is
+      // confirmed live — same class of SSRF as mediaUrl/coverImageUrl
+      // (routes.ts's validatePostFields), so it gets the same guard. This
+      // was the one place that class of check had been missed.
+      const safety = await isSafeMediaUrl(trimmed);
+      if (!safety.safe) {
+        res.status(400).json({ error: `webhookUrl ${safety.reason}` });
         return;
       }
       normalizedWebhookUrl = trimmed;

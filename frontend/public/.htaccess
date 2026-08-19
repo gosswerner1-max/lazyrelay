@@ -1,0 +1,31 @@
+# Security headers for the static site (Apache/cPanel hosting) — added
+# after a security review found the live site had none of these. CSP is
+# deliberately NOT included here: the site loads Paddle.js (checkout),
+# Cloudflare Turnstile, Supabase, Google Fonts, and social-platform preview
+# images, and a wrong CSP could silently break checkout. Needs its own pass
+# with real testing against a live checkout before being added, rather than
+# guessing an allow-list here.
+<IfModule mod_headers.c>
+  # Forces HTTPS on every future visit, including the very first navigation
+  # typed as http://. 1 year, includeSubDomains — the site has no non-HTTPS
+  # subdomains that need to stay reachable over plain http.
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+  # Blocks the page from being framed by another site — no legitimate
+  # reason for LazyRelay's dashboard or marketing pages to be embedded in
+  # someone else's iframe, so this closes off clickjacking.
+  Header always set X-Frame-Options "SAMEORIGIN"
+
+  # Stops the browser from guessing a different content-type than what's
+  # declared, which is what makes some XSS/MIME-confusion tricks work.
+  Header always set X-Content-Type-Options "nosniff"
+
+  # Sends the full referrer only to LazyRelay's own origin; cross-origin
+  # requests (e.g. an outbound link) get just the origin, not the full
+  # path/query — a reasonable default that doesn't break analytics.
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+  # The dashboard never asks for camera/mic/location access, so there's no
+  # reason any embedded content should be able to either.
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+</IfModule>

@@ -242,6 +242,22 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
     return;
   }
 
+  // Rejects any Supabase JWT that isn't a real dashboard-login session —
+  // most importantly, the MCP OAuth access tokens minted for the hosted
+  // MCP server (see mcpAuth.ts), which carry aud=<the MCP resource URL>
+  // instead of Supabase's default "authenticated". Those tokens are a
+  // valid, signature-checked Supabase JWT for the real customer, so
+  // without this check they'd resolve here exactly like a real login and
+  // reach every requireAuth route — including ones requireHumanAuth alone
+  // doesn't stop, since requireHumanAuth only blocks authMethod==="apiKey",
+  // not a JWT of the wrong kind. mcpAuth.ts already enforces the mirror
+  // image of this check (rejecting aud="authenticated" on the MCP side);
+  // this is what makes it symmetric.
+  if (data.user.aud !== "authenticated") {
+    res.status(401).json({ error: "This token isn't a valid dashboard session." });
+    return;
+  }
+
   const membership = await resolveAccountForUser(data.user.id);
   if (!membership) {
     res.status(403).json({ error: "This account has no active membership. Contact support." });

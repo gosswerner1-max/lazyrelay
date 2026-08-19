@@ -9,9 +9,11 @@ const API_URL = "https://lazyrelaylazyrelay-backend.onrender.com/api";
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 // Public anon key (safe to embed — same value as frontend/.env.production's
 // VITE_SUPABASE_ANON_KEY), needed here only to mint a real user session via
-// signInWithPassword rather than the service-role key this script otherwise uses.
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFibWVqbm15cW9nb3Rkenp6eXZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1NjEzOTEsImV4cCI6MjEwMDEzNzM5MX0.T4eZr5JMhmb78UXQ-WlcZtNYB59fGw9ob05B-6TI7AI";
+// signInWithPassword rather than the service-role key this script otherwise
+// uses. Read from env rather than hardcoded, so this file has no reason to
+// be flagged by a future secrets scan just for containing a key-shaped string.
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY!;
+if (!SUPABASE_ANON_KEY) throw new Error("SUPABASE_ANON_KEY is required in backend/.env to run this script");
 
 async function main() {
   const email = `free-tier-test-${Date.now()}@lazyrelay.invalid`;

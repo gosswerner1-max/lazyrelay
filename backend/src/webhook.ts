@@ -38,8 +38,19 @@ export function sendVerifiedWebhook(url: string, secret: string, payload: Omit<V
     },
     body: json,
     signal: AbortSignal.timeout(10_000),
+    // `url` already passed isSafeMediaUrl at the time it was saved (PATCH
+    // /account, routes.ts), but that only checked the URL itself, not
+    // wherever it might redirect to — the default "follow" would happily
+    // chase a 3xx into a private/internal address the initial check never
+    // saw. Refusing to follow closes that gap without needing to re-resolve
+    // and re-validate every hop.
+    redirect: "manual",
   })
     .then((res) => {
+      if (res.status >= 300 && res.status < 400) {
+        console.error(`[webhook] delivery to ${url} was refused because it returned a redirect (${res.status}) — redirects are not followed`);
+        return;
+      }
       if (!res.ok) console.error(`[webhook] delivery to ${url} returned ${res.status}`);
     })
     .catch((err) => console.error("[webhook] delivery failed:", err instanceof Error ? err.message : err));

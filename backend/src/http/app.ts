@@ -18,6 +18,11 @@ export function buildApp(
 ) {
   const app = express();
 
+  // Found in a security review: this leaked "runs Express" to every
+  // response for free, telling an attacker which framework-specific
+  // vulnerabilities to try first.
+  app.disable("x-powered-by");
+
   // Render sits in front of the app behind exactly one reverse proxy hop,
   // which sets X-Forwarded-For. Without this, express-rate-limit can't
   // tell real client IPs from the proxy's and throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
