@@ -368,6 +368,10 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           <PlatformIcon platform="discord" size={40} />
           <PlatformIcon platform="tumblr" size={40} />
         </div>
+        <p className="section-note" style={{ marginTop: 20 }}>
+          Plus connects to 9,000+ other apps via{" "}
+          <a href="/connect-zapier">Zapier</a> — Google Sheets, Slack, Shopify, WordPress, and more.
+        </p>
       </section>
 
       <section className="landing-section landing-pricing" id="pricing">
