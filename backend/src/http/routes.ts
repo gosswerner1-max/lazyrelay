@@ -460,7 +460,19 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
   }
 
-  const MAX_CHAT_MESSAGES = 20;
+  // Tightened from 20 (2026-08-19, security review) — Werner's own bar for
+  // this bot: if it can't resolve something in 5-8 replies, something's
+  // wrong with the bot, not the customer. 16 messages = 8 user turns + 8
+  // replies, matching the top of that range rather than the more generous
+  // original limit.
+  const MAX_CHAT_MESSAGES = 16;
+  // Global backstop across EVERY conversation combined, not per-visitor —
+  // this route costs real Anthropic spend per call and has no daily total
+  // otherwise (publicRateLimit is per-IP-per-minute only, easily multiplied
+  // across many source IPs). At today's near-zero real traffic this should
+  // never actually trigger; it exists purely to cap a scripted abuse
+  // attempt. See increment_support_chat_usage in migration 0056.
+  const SUPPORT_CHAT_DAILY_CAP = 500;
   const MAX_CHAT_MESSAGE_LENGTH = 2000;
   // SELF_REPORTED_EMAIL and extractSelfReportedEmail live in
   // support/escalationIdentity.ts -- pure, and covered by test-support-chat.ts.
@@ -498,6 +510,22 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
     if (messages[messages.length - 1].role !== "user") {
       res.status(400).json({ error: "the last message must be from the user" });
+      return;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: withinDailyCap, error: usageError } = await supabase.rpc("check_and_increment_support_chat_usage", {
+      p_usage_date: today,
+      p_daily_cap: SUPPORT_CHAT_DAILY_CAP,
+    });
+    if (usageError) {
+      dbError(res, usageError, "POST /support/chat daily cap check");
+      return;
+    }
+    if (!withinDailyCap) {
+      res.status(429).json({
+        error: "The support assistant has hit its limit for today — please email support instead, or try again tomorrow.",
+      });
       return;
     }
 
