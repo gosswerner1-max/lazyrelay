@@ -36,39 +36,21 @@ const PAST_DUE_GRACE_HOURS = 24; // money-impacting -> tight loop, same
  * deployed values differ at all (even if both resolve to the same
  * live/environment verdict) — worth surfacing so this exact drift gets
  * caught immediately next time instead of sitting unnoticed for weeks. */
-// Every config key this check compares local vs deployed. Widened
-// 2026-08-17 — the original version only ever compared MOR_API_KEY and
-// PADDLE_ENVIRONMENT, and `localDisagreesWithDeployed: false` sat there
-// reporting "all clear" throughout all three real MOR_WEBHOOK_SECRET
-// mismatch incidents (2026-08-04/05/11) and never once caught any of them.
-// This function already fetches Render's full env-var list, so comparing
-// more keys costs nothing extra. Keep this list in sync with new Paddle
-// price IDs as they're added.
+// Fixed keys this check always compares local vs deployed, widened
+// 2026-08-17 after `localDisagreesWithDeployed: false` sat reporting "all
+// clear" throughout three real MOR_WEBHOOK_SECRET mismatch incidents
+// (2026-08-04/05/11) and never once caught any of them.
 //
-// 2026-08-19 — that "keep this list in sync" instruction failed on its very
-// first test. The three Agency price IDs were created 2026-08-18 and added
-// to Render but not here, and not to backend/.env either -- so a real
-// Render-vs-local divergence existed for a day while this function reported
-// mismatchedKeys: [] the whole time. Exactly the blind spot the 08-17
-// widening was written to end, one day later, for the same reason: a list a
-// human has to remember to update. If a fourth price ID is ever added, this
-// will happen again -- the durable fix is to derive the compared set from
-// Render's own PADDLE_* keys rather than hand-maintaining it here.
-const COMPARED_KEYS = [
-  "MOR_API_KEY",
-  "PADDLE_ENVIRONMENT",
-  "MOR_WEBHOOK_SECRET",
-  "PADDLE_PRICE_ID_STARTER",
-  "PADDLE_PRICE_ID_PRO",
-  "PADDLE_PRICE_ID_BUSINESS",
-  "PADDLE_PRICE_ID_STORAGE_5GB",
-  "PADDLE_PRICE_ID_STORAGE_20GB",
-  "PADDLE_PRICE_ID_STORAGE_50GB",
-  "PADDLE_PRICE_ID_BRAND_ADDON",
-  "PADDLE_PRICE_ID_AGENCY",
-  "PADDLE_PRICE_ID_AGENCY_PLUS",
-  "PADDLE_PRICE_ID_SEAT_ADDON",
-];
+// 2026-08-19 — the price-ID half of this list (originally hand-maintained
+// here too) went blind again one day later: three Agency price IDs were
+// added to Render on 2026-08-18 but never added to this list or to
+// backend/.env, so mismatchedKeys: [] reported all-clear over a real
+// divergence. That's the second time a "remember to update this list"
+// instruction has failed the same way. Fixed below by deriving every
+// PADDLE_PRICE_ID_* key straight from what's actually deployed (and what's
+// actually local), instead of hand-maintaining a list that always lags
+// behind the moment a price is created — see getMorStatus().
+const BASE_COMPARED_KEYS = ["MOR_API_KEY", "PADDLE_ENVIRONMENT", "MOR_WEBHOOK_SECRET"];
 
 async function getMorStatus() {
   const localApiKey = process.env.MOR_API_KEY;
@@ -112,10 +94,23 @@ async function getMorStatus() {
     };
   }
 
-  // Per-key comparison across the full list, not just the original two —
-  // `mismatchedKeys` names exactly which ones disagree so a future incident
-  // is diagnosable from this report alone, not just "something's off".
-  const mismatchedKeys = COMPARED_KEYS.filter((key) => (process.env[key] ?? null) !== (byKey[key] ?? null));
+  // Compared set = the fixed base keys + every PADDLE_PRICE_ID_* key found
+  // on EITHER side (deployed or local) — union, not just Render's side, so
+  // a price ID that only exists locally still gets caught too. This is the
+  // self-maintaining replacement for the old hand-typed list: a new price
+  // ID is picked up automatically the moment it exists anywhere, with
+  // nothing for a human or agent to remember to update.
+  const isPaddlePriceKey = (key) => key.startsWith("PADDLE_PRICE_ID_");
+  const paddlePriceKeys = new Set([
+    ...Object.keys(byKey).filter(isPaddlePriceKey),
+    ...Object.keys(process.env).filter(isPaddlePriceKey),
+  ]);
+  const comparedKeys = [...BASE_COMPARED_KEYS, ...paddlePriceKeys];
+
+  // Per-key comparison across the full derived list — `mismatchedKeys`
+  // names exactly which ones disagree so a future incident is diagnosable
+  // from this report alone, not just "something's off".
+  const mismatchedKeys = comparedKeys.filter((key) => (process.env[key] ?? null) !== (byKey[key] ?? null));
   const localDisagreesWithDeployed = mismatchedKeys.length > 0;
 
   return {
