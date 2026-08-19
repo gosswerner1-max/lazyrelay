@@ -11,7 +11,7 @@
     "npm": ">=9.0.0"
   },
   "dependencies": {
-    "form-data": "^4.0.0",
+    "form-data": "^4.0.6",
     "zapier-platform-core": "19.1.0"
   },
   "devDependencies": {
@@ -20,7 +20,9 @@
     "should": "^13.2.3"
   },
   "overrides": {
-    "serialize-javascript": "^7.1.0"
+    "serialize-javascript": "^7.1.0",
+    "form-data": "$form-data",
+    "diff": "^8.0.3"
   },
   "private": true
 }
