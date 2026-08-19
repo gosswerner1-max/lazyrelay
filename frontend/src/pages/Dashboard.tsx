@@ -3632,7 +3632,7 @@ export function Dashboard() {
         {revealedWebhookSecret && (
           <div className="api-key-reveal" style={{ marginTop: 12 }}>
             <p><strong>Copy this secret now.</strong> It won't be shown again.</p>
-            <code>{revealedWebhookSecret}</code>
+            <CodeBlock code={revealedWebhookSecret} />
             <button type="button" className="btn-outline" onClick={() => setRevealedWebhookSecret(null)}>
               Done
             </button>
@@ -3799,7 +3799,7 @@ export function Dashboard() {
         {newlyCreatedKey && (
           <div className="api-key-reveal">
             <p><strong>Copy this key now</strong>, it won't be shown again.</p>
-            <code>{newlyCreatedKey}</code>
+            <CodeBlock code={newlyCreatedKey} />
             <button type="button" className="btn-outline" onClick={() => setNewlyCreatedKey(null)}>
               Done
             </button>
