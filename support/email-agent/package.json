@@ -14,5 +14,8 @@
     "imapflow": "^1.4.8",
     "mailparser": "^3.9.14",
     "nodemailer": "^9.0.3"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.0"
   }
 }
