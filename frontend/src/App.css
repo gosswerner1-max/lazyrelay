@@ -3126,8 +3126,10 @@ button[type="submit"]:not(.btn-outline),
 }
 
 .api-key-share-proof-toggle input[type="checkbox"] {
-  margin-top: 3px;
-  flex-shrink: 0;
+  margin: 3px 0 0;
+  flex: none;
+  width: 16px;
+  height: 16px;
 }
 
 .account-name-form label {
@@ -3139,15 +3141,15 @@ button[type="submit"]:not(.btn-outline),
   min-width: 220px;
 }
 
-.account-name-form input,
-.api-key-form input {
+.account-name-form input[type="text"],
+.api-key-form input[type="text"] {
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   font: inherit;
 }
 
-.api-key-form input {
+.api-key-form input[type="text"] {
   flex: 1;
   min-width: 220px;
 }
