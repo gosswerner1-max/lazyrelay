@@ -6,7 +6,7 @@ This is a **local server** — it runs on your own machine and talks to LazyRela
 
 ## Setup
 
-1. Get an API key from your LazyRelay dashboard: **Settings → More → API Keys → Create key**. Copy it immediately — it's shown once.
+1. Get an API key from your LazyRelay dashboard: **API Keys** tab (always visible in the top nav) → **Create key**. Copy it immediately — it's shown once.
 2. Add this to your MCP client's config (for Claude Desktop, that's `claude_desktop_config.json`):
 
 ```json
