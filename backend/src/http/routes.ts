@@ -4066,7 +4066,24 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // Supabase login (never an API key, never the admin key itself) opens a
   // short window for the NEXT admin-key request to go through. See
   // migration 0037_admin_key_guard.sql and auth.ts's authorizeAdminRequest().
+  // Real bug found in a security review, 2026-08-19: this route was
+  // reachable by ANY signed-up customer, not just Werner — requireHumanAuth
+  // only excludes API-key/admin-key auth, it says nothing about WHICH human.
+  // That defeated the entire point of migration 0037's admin-key guard: any
+  // customer (a free $0 signup is enough) could open the 10-minute approval
+  // window that lets a leaked lzr_admin_ key bypass its own auto-revoke.
+  // OPERATOR_ACCOUNT_IDS is a comma-separated allowlist of Werner's own
+  // known account ids (set in .env/Render, never customer-editable) — the
+  // simplest fix that doesn't require inventing a new schema concept for
+  // something only one person needs today.
+  const operatorAccountIds = new Set(
+    (process.env.OPERATOR_ACCOUNT_IDS ?? "").split(",").map((id) => id.trim()).filter(Boolean),
+  );
   router.post("/admin/announce", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    if (!req.accountId || !operatorAccountIds.has(req.accountId)) {
+      res.status(403).json({ error: "This endpoint is restricted." });
+      return;
+    }
     const taskLabel = typeof req.body?.taskLabel === "string" ? req.body.taskLabel.slice(0, 500) : null;
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
