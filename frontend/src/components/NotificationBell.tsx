@@ -67,11 +67,10 @@ export function NotificationBell({ onOpenTab }: NotificationBellProps) {
         onClick={() => setOpen((o) => !o)}
         aria-label={total > 0 ? `${total} new notification${total === 1 ? "" : "s"}` : "Notifications"}
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            fill="currentColor"
-            d="M12 2a6 6 0 0 0-6 6v3.09c0 .5-.16.98-.46 1.38L4 15v1h16v-1l-1.54-2.53a2.5 2.5 0 0 1-.46-1.38V8a6 6 0 0 0-6-6Zm0 20a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Z"
-          />
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2z" fill="currentColor" stroke="none" />
+          <path d="M18 16v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1z" />
+          <path d="M18.6 5.2a7 7 0 0 1 2 4.9M5.4 5.2a7 7 0 0 0-2 4.9" />
         </svg>
         {total > 0 && <span className="notification-bell-badge">{total > 9 ? "9+" : total}</span>}
       </button>
