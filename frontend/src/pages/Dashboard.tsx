@@ -13,6 +13,7 @@ import { PlatformIcon } from "../components/PlatformIcon";
 import { AccountPicker, AccountGroupList } from "../components/AccountPicker";
 import { MediaStorageList } from "../components/MediaStorageList";
 import { NotificationBell } from "../components/NotificationBell";
+import { DateTimePicker } from "../components/DateTimePicker";
 import { formatBytes } from "../lib/format";
 import { bestTimeFor } from "../lib/bestTimes";
 import { Spinner } from "../components/Spinner";
@@ -3048,21 +3049,15 @@ export function Dashboard() {
               </label>
             )}
             <label>
-              Date
-              <input
-                type="date"
-                value={scheduleDate}
-                onChange={(e) => setScheduleDate(e.target.value)}
-                required
-              />
-            </label>
-            <label>
-              Time ({scheduleTimezone})
-              <input
-                type="time"
-                value={scheduleTime}
-                onChange={(e) => setScheduleTime(e.target.value)}
-                required
+              When to post
+              <DateTimePicker
+                date={scheduleDate}
+                time={scheduleTime}
+                timezoneLabel={scheduleTimezone}
+                onApply={(d, t) => {
+                  setScheduleDate(d);
+                  setScheduleTime(t);
+                }}
               />
             </label>
             <label className="approval-checkbox-label">
