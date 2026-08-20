@@ -1545,18 +1545,77 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
   // Lists the caller's own uploaded media, newest first — the "manage your
   // files" view a customer uses to find something to delete once they're
-  // near quota.
+  // near quota. Each file also carries `platforms`: which platform(s) it's
+  // actually been posted to, so the frontend can group storage by platform
+  // (2026-08-20). A file isn't tied to a platform at upload time and the
+  // same file can be posted to several platforms at once, so this is a
+  // many-to-many map, not a single owner — built from the account's FULL
+  // post history (not just the recent slice /scheduled-posts keeps in
+  // memory for the dashboard) so the breakdown stays accurate for accounts
+  // with a long posting history.
   router.get("/media", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data, error } = await supabase
-      .from("media_uploads")
-      .select("id, url, mime_type, size_bytes, width, height, alt_text, created_at")
-      .eq("account_id", req.accountId)
-      .order("created_at", { ascending: false });
+    const [
+      { data: media, error },
+      { data: postRows, error: postsError },
+      { data: scheduleRows, error: scheduleError },
+    ] = await Promise.all([
+      supabase
+        .from("media_uploads")
+        .select("id, url, mime_type, size_bytes, width, height, alt_text, created_at")
+        .eq("account_id", req.accountId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("scheduled_posts")
+        .select("media_url, social_accounts(platform)")
+        .eq("account_id", req.accountId)
+        .not("media_url", "is", null),
+      supabase
+        .from("recurring_schedule_targets")
+        .select("social_accounts(platform), recurring_schedules!inner(media_url, account_id)")
+        .eq("recurring_schedules.account_id", req.accountId),
+    ]);
     if (error) {
       dbError(res, error, "GET /media");
       return;
     }
-    res.json(data);
+    if (postsError) {
+      dbError(res, postsError, "GET /media scheduled_posts lookup");
+      return;
+    }
+    if (scheduleError) {
+      dbError(res, scheduleError, "GET /media recurring_schedule_targets lookup");
+      return;
+    }
+
+    // Supabase's embed comes back as an object or a single-element array
+    // depending on how it infers the relationship's cardinality — normalize
+    // both shapes rather than assuming one (same defensive pattern used for
+    // social_accounts(platform) elsewhere in this file).
+    function embedOne<T>(x: T | T[] | null | undefined): T | null {
+      return Array.isArray(x) ? (x[0] ?? null) : (x ?? null);
+    }
+
+    const platformsByUrl = new Map<string, Set<string>>();
+    function addUsage(url: string | null | undefined, platform: string | null | undefined) {
+      if (!url || !platform) return;
+      const set = platformsByUrl.get(url) ?? new Set<string>();
+      set.add(platform);
+      platformsByUrl.set(url, set);
+    }
+    for (const row of postRows ?? []) {
+      addUsage(row.media_url, embedOne(row.social_accounts as { platform: string } | { platform: string }[] | null)?.platform);
+    }
+    for (const row of scheduleRows ?? []) {
+      const schedule = embedOne(row.recurring_schedules as { media_url: string | null } | { media_url: string | null }[] | null);
+      addUsage(schedule?.media_url, embedOne(row.social_accounts as { platform: string } | { platform: string }[] | null)?.platform);
+    }
+
+    res.json(
+      (media ?? []).map((m) => ({
+        ...m,
+        platforms: [...(platformsByUrl.get(m.url) ?? new Set<string>())].sort(),
+      })),
+    );
   });
 
   // Deletes a customer's own uploaded media — this is the ONLY way media

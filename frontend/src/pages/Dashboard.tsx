@@ -10,7 +10,9 @@ import { CodeBlock } from "../components/CodeBlock";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
-import { AccountPicker } from "../components/AccountPicker";
+import { AccountPicker, AccountGroupList } from "../components/AccountPicker";
+import { MediaStorageList } from "../components/MediaStorageList";
+import { formatBytes } from "../lib/format";
 import { bestTimeFor } from "../lib/bestTimes";
 import { Spinner } from "../components/Spinner";
 import { OverviewPanel } from "../components/Charts";
@@ -1238,13 +1240,6 @@ export function Dashboard() {
     } finally {
       setMediaBusyId(null);
     }
-  }
-
-  function formatBytes(bytes: number): string {
-    const MB = 1024 * 1024;
-    const GB = MB * 1024;
-    if (bytes >= GB) return `${(bytes / GB).toFixed(2)}GB`;
-    return `${(bytes / MB).toFixed(1)}MB`;
   }
 
   function handleMediaDrop(e: DragEvent<HTMLDivElement>) {
@@ -2518,37 +2513,42 @@ export function Dashboard() {
         {accounts.length === 0 ? (
           <p className="empty">No accounts connected yet. Connect one to start scheduling posts.</p>
         ) : (
-          <ul className="account-list">
-            {accounts.map((a) => (
-                <li key={a.id}>
-                  <span className="platform-badge">
-                    <PlatformIcon platform={a.platform} size={13} />
-                    {a.platform}
-                  </span>
-                  {a.display_name ?? a.platform_account_id}
-                  <select
-                    className="brand-label-input"
-                    value={a.brand_id ?? ""}
-                    disabled={assigningAccountId === a.id || brands.length === 0}
-                    onChange={(e) => handleAssignBrand(a.id, e.target.value || null)}
-                    aria-label="Assign brand"
-                  >
-                    <option value="">{brands.length === 0 ? "No brands yet" : "No brand"}</option>
-                    {brands.map((b) => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    className="btn-outline"
-                    disabled={disconnectingAccountId !== null}
-                    onClick={() => handleDisconnectAccount(a)}
-                  >
-                    {disconnectingAccountId === a.id ? "Disconnecting..." : "Disconnect"}
-                  </button>
-                </li>
-              ))}
-          </ul>
+          <AccountGroupList
+            accounts={accounts}
+            renderGroupBody={(list) => (
+              <ul className="account-list account-picker-group-list">
+                {list.map((a) => (
+                  <li key={a.id}>
+                    <span className="platform-badge">
+                      <PlatformIcon platform={a.platform} size={13} />
+                      {a.platform}
+                    </span>
+                    {a.display_name ?? a.platform_account_id}
+                    <select
+                      className="brand-label-input"
+                      value={a.brand_id ?? ""}
+                      disabled={assigningAccountId === a.id || brands.length === 0}
+                      onChange={(e) => handleAssignBrand(a.id, e.target.value || null)}
+                      aria-label="Assign brand"
+                    >
+                      <option value="">{brands.length === 0 ? "No brands yet" : "No brand"}</option>
+                      {brands.map((b) => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      disabled={disconnectingAccountId !== null}
+                      onClick={() => handleDisconnectAccount(a)}
+                    >
+                      {disconnectingAccountId === a.id ? "Disconnecting..." : "Disconnect"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          />
         )}
         <div className="brands-manager">
           {(() => {
@@ -3503,8 +3503,9 @@ export function Dashboard() {
         {mediaFiles.length === 0 ? (
           <p className="empty">No uploaded media yet.</p>
         ) : (
-          <ul className="media-list">
-            {mediaFiles.map((m) => {
+          <MediaStorageList
+            mediaFiles={mediaFiles}
+            renderItem={(m) => {
               const altDraft = mediaAltTextDrafts[m.id] ?? m.alt_text ?? "";
               const altDirty = altDraft !== (m.alt_text ?? "");
               return (
@@ -3548,8 +3549,8 @@ export function Dashboard() {
                   </button>
                 </li>
               );
-            })}
-          </ul>
+            }}
+          />
         )}
       </section>
       )}

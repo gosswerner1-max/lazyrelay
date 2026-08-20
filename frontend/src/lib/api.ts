@@ -152,6 +152,11 @@ export interface MediaFile {
   // it (Mastodon today); harmless to set regardless.
   alt_text: string | null;
   created_at: string;
+  // Which platform(s) this file has actually been posted to (2026-08-20) —
+  // a file isn't tied to a platform at upload time and the same file can be
+  // posted to several platforms at once, so this can hold more than one
+  // entry, or be empty for an upload never attached to a post yet.
+  platforms: string[];
 }
 
 export interface StorageAddon {
