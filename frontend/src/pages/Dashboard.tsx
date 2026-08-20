@@ -388,6 +388,13 @@ export function Dashboard() {
   const [planMediaUrl, setPlanMediaUrl] = useState<string | null>(null);
   const [planMediaUploading, setPlanMediaUploading] = useState(false);
   const [planBusy, setPlanBusy] = useState(false);
+  // Pre-selected platform(s) + time for a plan item (2026-08-20) — both
+  // optional, unlike the Posts tab's compose form. Left empty, a plan item
+  // stays a pure idea exactly as before; filled in, "Add to scheduler"
+  // can promote it directly with no second round of data entry.
+  const [planAccountIds, setPlanAccountIds] = useState<string[]>([]);
+  const [planTime, setPlanTime] = useState("");
+  const [promotingPlanId, setPromotingPlanId] = useState<string | null>(null);
   const [mentions, setMentions] = useState<MentionPost[] | null>(null);
   const [mentionsLoading, setMentionsLoading] = useState(false);
   const [mentionsAttentionOnly, setMentionsAttentionOnly] = useState(false);
@@ -1380,9 +1387,15 @@ export function Dashboard() {
     }
   }
 
+  function togglePlanAccount(id: string) {
+    setPlanAccountIds((prev) => (prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]));
+  }
+
   /** Saves a note/idea for a specific calendar day — a draft anchored to
-   *  that day (migration 0059), not yet a real scheduled post. "Add to
-   *  scheduler" (below) is what turns it into one. */
+   *  that day (migration 0059), not yet a real scheduled post. If a
+   *  platform and time were also picked (migration 0060), those are stored
+   *  on the same draft row so "Add to scheduler" (below) can promote it
+   *  directly later with no further data entry. */
   async function handleAddPlanItem(day: string) {
     if (!planContent.trim()) {
       setError("Write something before adding it to the planner.");
@@ -1391,9 +1404,18 @@ export function Dashboard() {
     setPlanBusy(true);
     setError(null);
     try {
-      await api.saveDraft({ content: planContent, mediaUrl: planMediaUrl ?? undefined, plannedDate: day });
+      const scheduledFor = planAccountIds.length > 0 && planTime ? new Date(`${day}T${planTime}`).toISOString() : undefined;
+      await api.saveDraft({
+        content: planContent,
+        mediaUrl: planMediaUrl ?? undefined,
+        plannedDate: day,
+        plannedAccountIds: planAccountIds.length > 0 ? planAccountIds : undefined,
+        scheduledFor,
+      });
       setPlanContent("");
       setPlanMediaUrl(null);
+      setPlanAccountIds([]);
+      setPlanTime("");
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -1402,14 +1424,50 @@ export function Dashboard() {
     }
   }
 
-  /** "Add to scheduler" for a planned item — loads it into the Posts tab's
-   *  normal compose form (same path a customer already uses to finish any
-   *  draft) and switches there, so picking the account and exact time still
-   *  goes through the one, already-tested promotion flow rather than a
-   *  second one built just for the Calendar. */
-  function handlePromotePlanItem(p: ScheduledPost) {
-    handleEditDraft(p);
-    setTab("Posts");
+  /** "Add to scheduler" for a planned item. If a platform (or several) and
+   *  a time were already picked when the idea was written (migration 0060,
+   *  `planned_account_ids` + `scheduled_for`), promotes it directly — one
+   *  real post per planned platform, the exact same fan-out submitPost()
+   *  uses for a real multi-account post, just triggered from the calendar
+   *  instead of the Posts tab form, no re-entry. Otherwise (an older plan
+   *  item, or one where a platform was never picked) falls back to loading
+   *  it into the Posts tab's compose form so the customer can finish it
+   *  there, same as before this feature existed. */
+  async function handlePromotePlanItem(p: ScheduledPost) {
+    if (!p.planned_account_ids || p.planned_account_ids.length === 0 || !p.scheduled_for) {
+      handleEditDraft(p);
+      setTab("Posts");
+      return;
+    }
+    setPromotingPlanId(p.id);
+    setError(null);
+    try {
+      for (let i = 0; i < p.planned_account_ids.length; i++) {
+        const socialAccountId = p.planned_account_ids[i];
+        const platform = accounts.find((a) => a.id === socialAccountId)?.platform;
+        const fields = {
+          socialAccountId,
+          content: p.content,
+          mediaUrl: p.media_url ?? undefined,
+          coverImageUrl: p.cover_image_url ?? undefined,
+          boardId: platform === "pinterest" ? (p.board_id ?? undefined) : undefined,
+          destinationLink: platform === "pinterest" ? (p.destination_link ?? undefined) : undefined,
+          firstComment: p.first_comment ?? undefined,
+          mediaAltText: p.media_alt_text ?? undefined,
+          scheduledFor: p.scheduled_for,
+        };
+        if (i === 0) {
+          await api.scheduleDraft(p.id, fields);
+        } else {
+          await api.createScheduledPost(fields);
+        }
+      }
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPromotingPlanId(null);
+    }
   }
 
   async function handleDelete(id: string, isHistory: boolean) {
@@ -3689,21 +3747,39 @@ export function Dashboard() {
                   <p className="empty">No planned ideas yet.</p>
                 ) : (
                   <ul className="post-list">
-                    {dayPlans.map((p) => (
-                      <li key={p.id} className="post-status-draft">
-                        {p.media_url && <img className="media-list-thumb" src={p.media_url} alt="" />}
-                        <div className="post-content">{p.content}</div>
-                        <div className="post-meta">
-                          <label className="account-checkbox">
-                            <input type="checkbox" onChange={() => handlePromotePlanItem(p)} />
-                            Add to scheduler
-                          </label>
-                          <button className="btn-outline" onClick={() => handleDelete(p.id, false)}>
-                            Delete
-                          </button>
-                        </div>
-                      </li>
-                    ))}
+                    {dayPlans.map((p) => {
+                      const plannedAccounts = (p.planned_account_ids ?? [])
+                        .map((id) => accounts.find((a) => a.id === id))
+                        .filter((a): a is SocialAccount => !!a);
+                      const isPromoting = promotingPlanId === p.id;
+                      return (
+                        <li key={p.id} className="post-status-draft">
+                          {p.media_url && <img className="media-list-thumb" src={p.media_url} alt="" />}
+                          <div className="post-content">{p.content}</div>
+                          {plannedAccounts.length > 0 && (
+                            <div className="post-platform">
+                              {plannedAccounts.map((a) => (
+                                <PlatformIcon key={a.id} platform={a.platform} size={14} />
+                              ))}
+                              {p.scheduled_for && (
+                                <span className="calendar-plan-time">
+                                  {new Date(p.scheduled_for).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          <div className="post-meta">
+                            <label className="account-checkbox">
+                              <input type="checkbox" disabled={isPromoting} onChange={() => handlePromotePlanItem(p)} />
+                              {isPromoting ? "Adding to scheduler..." : "Add to scheduler"}
+                            </label>
+                            <button className="btn-outline" disabled={isPromoting} onClick={() => handleDelete(p.id, false)}>
+                              Delete
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
                 <form
@@ -3718,6 +3794,13 @@ export function Dashboard() {
                     value={planContent}
                     onChange={(e) => setPlanContent(e.target.value)}
                   />
+                  <label className="calendar-plan-platform-label">
+                    Platform(s) — optional, pick now to schedule with one tick later
+                    <AccountPicker accounts={accounts} selectedIds={planAccountIds} onToggle={togglePlanAccount} />
+                  </label>
+                  {planAccountIds.length > 0 && (
+                    <TimeOfDayPicker time={planTime} onChange={setPlanTime} timezoneLabel={scheduleTimezone} />
+                  )}
                   <div className="calendar-plan-form-actions">
                     <label className="btn-outline calendar-plan-file-label">
                       {planMediaUploading ? "Uploading..." : planMediaUrl ? "File attached" : "Attach a file"}
@@ -3731,7 +3814,10 @@ export function Dashboard() {
                         }}
                       />
                     </label>
-                    <button type="submit" disabled={planBusy || planMediaUploading || !planContent.trim()}>
+                    <button
+                      type="submit"
+                      disabled={planBusy || planMediaUploading || !planContent.trim() || (planAccountIds.length > 0 && !planTime)}
+                    >
                       {planBusy ? "Adding..." : "Add to planner"}
                     </button>
                   </div>

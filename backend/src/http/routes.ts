@@ -1952,7 +1952,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // account/timing validation validatePostFields does — there's nothing to
   // validate against yet.
   router.post("/scheduled-posts/draft", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { content, mediaUrl, coverImageUrl, boardId, destinationLink, firstComment, mediaAltText, plannedDate } = req.body ?? {};
+    const { content, mediaUrl, coverImageUrl, boardId, destinationLink, firstComment, mediaAltText, plannedDate, plannedAccountIds, scheduledFor } = req.body ?? {};
     if (typeof content !== "string" || content.trim().length === 0) {
       res.status(400).json({ error: "content must be a non-empty string" });
       return;
@@ -1971,6 +1971,41 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(400).json({ error: "plannedDate must be a YYYY-MM-DD string" });
       return;
     }
+    if (scheduledFor !== undefined && scheduledFor !== null) {
+      if (typeof scheduledFor !== "string" || Number.isNaN(new Date(scheduledFor).getTime())) {
+        res.status(400).json({ error: "scheduledFor must be a valid ISO date string" });
+        return;
+      }
+    }
+    // Pre-selected platform(s) for this plan item (2026-08-20) — advisory
+    // only while status stays 'draft'; ownership is verified here so a
+    // customer can't stash an id they don't own, but the real safety check
+    // that matters (can this actually be posted) happens again at
+    // promotion time via the existing /schedule and POST routes, same as
+    // any other post.
+    let validatedPlannedAccountIds: string[] | null = null;
+    if (plannedAccountIds !== undefined && plannedAccountIds !== null) {
+      if (!Array.isArray(plannedAccountIds) || plannedAccountIds.some((id) => typeof id !== "string")) {
+        res.status(400).json({ error: "plannedAccountIds must be an array of strings" });
+        return;
+      }
+      if (plannedAccountIds.length > 0) {
+        const { data: owned, error: ownedError } = await supabase
+          .from("social_accounts")
+          .select("id")
+          .in("id", plannedAccountIds)
+          .eq("account_id", req.accountId);
+        if (ownedError) {
+          dbError(res, ownedError, "POST /scheduled-posts/draft (plannedAccountIds ownership)");
+          return;
+        }
+        if ((owned ?? []).length !== new Set(plannedAccountIds).size) {
+          res.status(403).json({ error: "One or more plannedAccountIds are not owned by this caller" });
+          return;
+        }
+      }
+      validatedPlannedAccountIds = plannedAccountIds.length > 0 ? plannedAccountIds : null;
+    }
     const { data, error } = await supabase
       .from("scheduled_posts")
       .insert({
@@ -1984,7 +2019,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         first_comment: firstComment ?? null,
         media_alt_text: mediaAltText ?? null,
         planned_date: plannedDate ?? null,
-        scheduled_for: null,
+        planned_account_ids: validatedPlannedAccountIds,
+        scheduled_for: scheduledFor ?? null,
         status: "draft",
       })
       .select()

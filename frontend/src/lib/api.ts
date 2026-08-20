@@ -108,6 +108,11 @@ export interface ScheduledPost {
   // meaningful while status is still "draft"; a real scheduled post uses
   // scheduled_for instead. "YYYY-MM-DD", no time component.
   planned_date: string | null;
+  // Pre-selected platform(s) for a calendar plan item (migration 0060) —
+  // advisory only while status is still "draft"; promoting the item fans
+  // out one real post per id here, same as picking several accounts in the
+  // Posts tab compose form. Never meaningful once status leaves "draft".
+  planned_account_ids: string[] | null;
   status: "draft" | "pending" | "posting" | "posted" | "failed" | "needs_approval";
   post_results: Array<{ verified_live: boolean; platform_post_url: string | null; error_message: string | null }>;
 }
@@ -123,6 +128,8 @@ export interface DraftFields {
   destinationLink?: string | null;
   firstComment?: string | null;
   mediaAltText?: string | null;
+  plannedAccountIds?: string[] | null;
+  scheduledFor?: string | null;
 }
 
 // Internal tier codes are stable across the Starter/Pro/Business rename

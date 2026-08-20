@@ -1,0 +1,12 @@
+-- Calendar planner: pre-select platforms + time on a plan item (2026-08-20)
+-- — a draft row can now optionally carry which platform(s) it's INTENDED
+-- for while still status='draft', so "Add to scheduler" can promote it
+-- directly (fan out one row per platform, same pattern submitPost() already
+-- uses for a real multi-account post) instead of sending the customer back
+-- to the Posts tab to re-pick everything. Purely additive: only meaningful
+-- while status='draft' — every other status still gets social_account_id
+-- set the normal way at promotion time, this column plays no further part
+-- after that. scheduled_for already allows null (migration 0049) and
+-- already has no constraint tying it to status, so a draft carrying an
+-- early "intended" scheduled_for value needs no further schema change.
+alter table scheduled_posts add column planned_account_ids uuid[] null;

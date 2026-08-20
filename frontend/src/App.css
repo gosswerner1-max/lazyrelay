@@ -2029,6 +2029,24 @@
   cursor: pointer;
 }
 
+.calendar-plan-platform-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wire);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.calendar-plan-time {
+  text-transform: none;
+  font-weight: 400;
+  letter-spacing: normal;
+  color: var(--wire);
+}
+
 .schedule-form {
   display: flex;
   flex-direction: column;
