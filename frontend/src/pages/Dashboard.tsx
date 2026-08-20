@@ -3633,58 +3633,13 @@ export function Dashboard() {
             {selectedDay && (
               <div className="calendar-day-detail" ref={dayDetailRef}>
                 <h3>{new Date(`${selectedDay}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</h3>
-                {dayPosts.length === 0 ? (
-                  <p className="empty">Nothing scheduled this day.</p>
-                ) : (
-                  <ul className="post-list">
-                    {dayPosts.map((p) => {
-                      const account = accounts.find((a) => a.id === p.social_account_id);
-                      const result = p.post_results?.[0];
-                      return (
-                        <li key={p.id} className={`post-status-${p.status}`}>
-                          {account && (
-                            <div className="post-platform">
-                              <PlatformIcon platform={account.platform} size={14} />
-                              {account.display_name ?? account.platform_account_id}
-                            </div>
-                          )}
-                          <div className="post-content">{p.content}</div>
-                          <div className="post-meta">
-                            <span className={`status-badge status-${p.status}`}>
-                              {p.status === "needs_approval" ? "Needs approval" : p.status}
-                            </span>
-                            {/* Guaranteed non-null: postsByDay (built above) already
-                                skips any post with status='draft' or a null
-                                scheduled_for, so every item reaching this render
-                                genuinely has one — TS just can't see that guarantee
-                                across the two separate loops. */}
-                            {p.scheduled_for && <span>{new Date(p.scheduled_for).toLocaleTimeString()}</span>}
-                            {result && (
-                              result.verified_live ? (
-                                <span className="verified">
-                                  <RelaySignal size={14} pulsing /> Confirmed live
-                                </span>
-                              ) : (
-                                <PostErrorDetail errorMessage={result.error_message} platform={account?.platform} />
-                              )
-                            )}
-                            {p.status === "needs_approval" && (
-                              <button className="btn-outline" disabled={approvingId === p.id} onClick={() => handleApprove(p.id)}>
-                                {approvingId === p.id ? "Approving..." : "Approve"}
-                              </button>
-                            )}
-                            {p.status !== "posting" && (
-                              <button className="btn-outline" onClick={() => handleDelete(p.id, p.status !== "pending" && p.status !== "needs_approval")}>
-                                {p.status === "pending" || p.status === "needs_approval" ? "Cancel" : "Delete"}
-                              </button>
-                            )}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
 
+                {/* Planned section (add-form + existing plan items) comes
+                    FIRST, before the scheduled-posts list — Werner's own
+                    catch: on a busy day with many scheduled posts, the
+                    add-a-note form used to sit below all of them, so
+                    adding a new idea meant scrolling past everything
+                    already scheduled just to reach it every time. */}
                 <h4 className="calendar-plans-heading">Planned</h4>
                 {dayPlans.length === 0 ? (
                   <p className="empty">No planned ideas yet.</p>
@@ -3737,6 +3692,59 @@ export function Dashboard() {
                     </button>
                   </div>
                 </form>
+
+                <h4 className="calendar-plans-heading">Scheduled</h4>
+                {dayPosts.length === 0 ? (
+                  <p className="empty">Nothing scheduled this day.</p>
+                ) : (
+                  <ul className="post-list">
+                    {dayPosts.map((p) => {
+                      const account = accounts.find((a) => a.id === p.social_account_id);
+                      const result = p.post_results?.[0];
+                      return (
+                        <li key={p.id} className={`post-status-${p.status}`}>
+                          {account && (
+                            <div className="post-platform">
+                              <PlatformIcon platform={account.platform} size={14} />
+                              {account.display_name ?? account.platform_account_id}
+                            </div>
+                          )}
+                          <div className="post-content">{p.content}</div>
+                          <div className="post-meta">
+                            <span className={`status-badge status-${p.status}`}>
+                              {p.status === "needs_approval" ? "Needs approval" : p.status}
+                            </span>
+                            {/* Guaranteed non-null: postsByDay (built above) already
+                                skips any post with status='draft' or a null
+                                scheduled_for, so every item reaching this render
+                                genuinely has one — TS just can't see that guarantee
+                                across the two separate loops. */}
+                            {p.scheduled_for && <span>{new Date(p.scheduled_for).toLocaleTimeString()}</span>}
+                            {result && (
+                              result.verified_live ? (
+                                <span className="verified">
+                                  <RelaySignal size={14} pulsing /> Confirmed live
+                                </span>
+                              ) : (
+                                <PostErrorDetail errorMessage={result.error_message} platform={account?.platform} />
+                              )
+                            )}
+                            {p.status === "needs_approval" && (
+                              <button className="btn-outline" disabled={approvingId === p.id} onClick={() => handleApprove(p.id)}>
+                                {approvingId === p.id ? "Approving..." : "Approve"}
+                              </button>
+                            )}
+                            {p.status !== "posting" && (
+                              <button className="btn-outline" onClick={() => handleDelete(p.id, p.status !== "pending" && p.status !== "needs_approval")}>
+                                {p.status === "pending" || p.status === "needs_approval" ? "Cancel" : "Delete"}
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </div>
             )}
             </>
