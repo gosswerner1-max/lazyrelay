@@ -66,26 +66,72 @@ function niceCeiling(value: number): number {
   return 10 * magnitude;
 }
 
-// Catmull-Rom → cubic-Bezier smoothing (tension 1/6, the standard value) —
-// turns a straight-segment polyline into a smooth curve through the same
-// points, no external charting library needed for it.
+// Monotone cubic Hermite interpolation (Fritsch-Carlson) — a smooth curve
+// through the same points, but unlike a plain Catmull-Rom spline (the
+// previous approach here) it's mathematically guaranteed to never overshoot
+// past the local min/max between two consecutive points. Real, visible bug
+// Werner caught live 2026-08-20: a Catmull-Rom curve between two low values
+// straddling a near-zero point can dip below the chart's own 0 baseline.
 function smoothPath(points: { x: number; y: number }[]): string {
-  if (points.length < 3) {
+  const n = points.length;
+  if (n < 3) {
     return points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
   }
+
+  const dx: number[] = [];
+  const secant: number[] = []; // slope between consecutive points
+  for (let i = 0; i < n - 1; i++) {
+    dx[i] = points[i + 1].x - points[i].x;
+    secant[i] = dx[i] === 0 ? 0 : (points[i + 1].y - points[i].y) / dx[i];
+  }
+
+  const tangent: number[] = new Array(n);
+  tangent[0] = secant[0];
+  tangent[n - 1] = secant[n - 2];
+  for (let i = 1; i < n - 1; i++) {
+    tangent[i] = secant[i - 1] === 0 || secant[i] === 0 || secant[i - 1] > 0 !== secant[i] > 0 ? 0 : (secant[i - 1] + secant[i]) / 2;
+  }
+  // Fritsch-Carlson limiter: clamp each segment's pair of tangents so the
+  // Hermite curve can't bulge past this segment's own two endpoint values.
+  for (let i = 0; i < n - 1; i++) {
+    if (secant[i] === 0) {
+      tangent[i] = 0;
+      tangent[i + 1] = 0;
+      continue;
+    }
+    const a = tangent[i] / secant[i];
+    const b = tangent[i + 1] / secant[i];
+    const s = a * a + b * b;
+    if (s > 9) {
+      const tau = 3 / Math.sqrt(s);
+      tangent[i] = tau * a * secant[i];
+      tangent[i + 1] = tau * b * secant[i];
+    }
+  }
+
   let d = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = points[i - 1] ?? points[i];
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const p3 = points[i + 2] ?? p2;
-    const cp1x = p1.x + (p2.x - p0.x) / 6;
-    const cp1y = p1.y + (p2.y - p0.y) / 6;
-    const cp2x = p2.x - (p3.x - p1.x) / 6;
-    const cp2y = p2.y - (p3.y - p1.y) / 6;
-    d += ` C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${cp2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = points[i];
+    const p1 = points[i + 1];
+    const cp1x = p0.x + dx[i] / 3;
+    const cp1y = p0.y + (tangent[i] * dx[i]) / 3;
+    const cp2x = p1.x - dx[i] / 3;
+    const cp2y = p1.y - (tangent[i + 1] * dx[i]) / 3;
+    d += ` C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${cp2y.toFixed(2)}, ${p1.x.toFixed(2)} ${p1.y.toFixed(2)}`;
   }
   return d;
+}
+
+// Picks up to maxTicks evenly-spread indices into a length-n sequence,
+// always including the first and last — for x-axis date labels so a reader
+// isn't stuck interpolating between just two endpoint dates.
+function pickTickIndices(n: number, maxTicks = 6): number[] {
+  if (n <= maxTicks) return Array.from({ length: n }, (_, i) => i);
+  const ticks: number[] = [];
+  for (let i = 0; i < maxTicks; i++) {
+    ticks.push(Math.round((i * (n - 1)) / (maxTicks - 1)));
+  }
+  return [...new Set(ticks)];
 }
 
 export function formatCompact(n: number): string {
@@ -463,8 +509,18 @@ export function TrendLine({ data }: { data: { day: string; count: number }[] }) 
         )}
       </svg>
       <div className="chart-trend-labels">
-        <span>{data[0].day.slice(5)}</span>
-        <span>{data[data.length - 1].day.slice(5)}</span>
+        {pickTickIndices(points.length).map((i) => (
+          <span
+            key={i}
+            className="chart-trend-tick-label"
+            style={{
+              left: `${(points[i].x / width) * 100}%`,
+              transform: i === 0 ? "translateX(0%)" : i === points.length - 1 ? "translateX(-100%)" : "translateX(-50%)",
+            }}
+          >
+            {points[i].day.slice(5)}
+          </span>
+        ))}
       </div>
       {hovered && (
         <div
@@ -594,8 +650,18 @@ export function MultiTrendLine({ countsByPlatform }: { countsByPlatform: Record<
         })}
       </svg>
       <div className="chart-trend-labels">
-        <span>{allDays[0].slice(5)}</span>
-        <span>{allDays[allDays.length - 1].slice(5)}</span>
+        {pickTickIndices(allDays.length).map((i) => (
+          <span
+            key={i}
+            className="chart-trend-tick-label"
+            style={{
+              left: `${(xAt(i) / width) * 100}%`,
+              transform: i === 0 ? "translateX(0%)" : i === allDays.length - 1 ? "translateX(-100%)" : "translateX(-50%)",
+            }}
+          >
+            {allDays[i].slice(5)}
+          </span>
+        ))}
       </div>
       <div className="chart-multitrend-legend">
         {series.map((s) => (

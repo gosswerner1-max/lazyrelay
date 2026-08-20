@@ -1111,11 +1111,17 @@
 }
 
 .chart-trend-labels {
-  display: flex;
-  justify-content: space-between;
+  position: relative;
+  height: 14px;
   font-size: 11px;
   color: var(--wire);
   margin-top: 4px;
+}
+
+.chart-trend-tick-label {
+  position: absolute;
+  top: 0;
+  white-space: nowrap;
 }
 
 .chart-trend-tooltip {
