@@ -460,6 +460,10 @@ export const api = {
 
   getDMs: (): Promise<{ conversations: DMConversation[] }> => authedFetch("/dms"),
 
+  // Powers the header bell — cheap, reads a cache table, never calls a
+  // platform live. See backend migration 0058_mentions_dms_cache.sql.
+  getNotificationSummary: (): Promise<{ newMentions: number; newDms: number }> => authedFetch("/notifications/summary"),
+
   getDMMessages: (socialAccountId: string, conversationId: string): Promise<{ messages: DMMessage[]; errorMessage: string | null }> =>
     authedFetch(`/dms/messages?socialAccountId=${encodeURIComponent(socialAccountId)}&conversationId=${encodeURIComponent(conversationId)}`),
 

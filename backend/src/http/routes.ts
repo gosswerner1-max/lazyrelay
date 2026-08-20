@@ -2214,6 +2214,11 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // every other platform's posts come back with supported:false rather
   // than a silently empty comment list, so the UI never implies broader
   // coverage than actually exists.
+  // Reads from mention_comments_cache (kept fresh by
+  // mentionsAndDmsPoller.ts) rather than calling each platform live — see
+  // migration 0058_mentions_dms_cache.sql. Post-level metadata
+  // (content/scheduledFor/platformPostUrl) still comes straight from
+  // scheduled_posts/post_results since the cache only stores comments.
   router.get("/mentions", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data: posts, error } = await supabase
       .from("scheduled_posts")
@@ -2225,6 +2230,25 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (error) {
       dbError(res, error, "GET /mentions");
       return;
+    }
+
+    const postIds = (posts ?? []).map((p) => p.id);
+    const { data: cachedComments, error: cacheError } = postIds.length
+      ? await supabase
+          .from("mention_comments_cache")
+          .select("scheduled_post_id, platform_comment_id, author, text, url, comment_created_at")
+          .in("scheduled_post_id", postIds)
+          .order("comment_created_at", { ascending: true })
+      : { data: [] as never[], error: null };
+    if (cacheError) {
+      dbError(res, cacheError, "GET /mentions cache lookup");
+      return;
+    }
+    const commentsByPost = new Map<string, (CommentItem & { triage?: TriageResult | null })[]>();
+    for (const c of cachedComments ?? []) {
+      const list = commentsByPost.get(c.scheduled_post_id) ?? [];
+      list.push({ id: c.platform_comment_id, author: c.author, text: c.text, url: c.url, createdAt: c.comment_created_at });
+      commentsByPost.set(c.scheduled_post_id, list);
     }
 
     const results: {
@@ -2247,63 +2271,40 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       if (!platform || !result?.platform_post_id) continue;
 
       const adapter = registry.get(platform);
-      if (!adapter || !adapter.getComments) {
-        results.push({ postId: post.id, socialAccountId: post.social_account_id, platform, content: post.content, scheduledFor: post.scheduled_for, platformPostUrl: result.platform_post_url, supported: false, comments: [] });
-        continue;
-      }
-
-      try {
-        const { data: account } = await supabase
-          .from("social_accounts")
-          .select("access_token_vault_id")
-          .eq("id", post.social_account_id)
-          .single();
-        const { data: accessToken } = account
-          ? await supabase.rpc("read_social_token", { p_vault_id: account.access_token_vault_id })
-          : { data: null };
-        if (!accessToken) {
-          results.push({ postId: post.id, socialAccountId: post.social_account_id, platform, content: post.content, scheduledFor: post.scheduled_for, platformPostUrl: result.platform_post_url, supported: true, comments: [], errorMessage: "Could not load this account's access token" });
-          continue;
-        }
-        const commentsResult = await adapter.getComments(result.platform_post_id, accessToken as string);
-        results.push({
-          postId: post.id,
-          socialAccountId: post.social_account_id,
-          platform,
-          content: post.content,
-          scheduledFor: post.scheduled_for,
-          platformPostUrl: result.platform_post_url,
-          supported: true,
-          canReply: !!adapter.replyToComment,
-          comments: commentsResult.comments,
-          errorMessage: commentsResult.errorMessage,
-        });
-        commentTriageItems.push(
-          ...commentsResult.comments.map((c) => ({ itemId: c.id, sourceSignature: c.id, author: c.author, text: c.text }))
-        );
-      } catch (err) {
-        results.push({
-          postId: post.id,
-          socialAccountId: post.social_account_id,
-          platform,
-          content: post.content,
-          scheduledFor: post.scheduled_for,
-          platformPostUrl: result.platform_post_url,
-          supported: true,
-          comments: [],
-          errorMessage: err instanceof Error ? err.message : "Could not load comments",
-        });
-      }
+      const comments = commentsByPost.get(post.id) ?? [];
+      results.push({
+        postId: post.id,
+        socialAccountId: post.social_account_id,
+        platform,
+        content: post.content,
+        scheduledFor: post.scheduled_for,
+        platformPostUrl: result.platform_post_url,
+        supported: !!adapter?.getComments,
+        canReply: !!adapter?.replyToComment,
+        comments,
+      });
+      commentTriageItems.push(...comments.map((c) => ({ itemId: c.id, sourceSignature: c.id, author: c.author, text: c.text })));
     }
 
     // One batched Anthropic call for every not-yet-cached comment across
     // every post shown here, rather than one call per post — see
     // commentTriage.ts. Missing from the map means unclassified (no API
     // key configured, or the AI call failed), never treated as "routine".
+    // In practice this is nearly always a cache hit now, since the poller
+    // already ran triageItems() over these same comments when it cached
+    // them.
     const triageMap = await triageItems(req.accountId!, "comment", commentTriageItems);
     for (const post of results) {
       post.comments = post.comments.map((c) => ({ ...c, triage: triageMap.get(c.id) ?? null }));
     }
+
+    // Marks these as viewed AFTER the read that produced them, same
+    // ordering dmAutomationPoller uses for its own side effects — a
+    // comment that lands between this read and the next poll simply shows
+    // up as new next time, not lost.
+    await supabase
+      .from("notification_view_state")
+      .upsert({ account_id: req.accountId, mentions_last_viewed_at: new Date().toISOString() }, { onConflict: "account_id" });
 
     res.json({ posts: results });
   });
@@ -2370,14 +2371,30 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // this). Every other platform is silently skipped, not an error — this
   // list is additive across every DM-capable connected account, unlike
   // /mentions which is keyed off individual posts.
+  // Reads from dm_conversations_cache (kept fresh by
+  // mentionsAndDmsPoller.ts) rather than calling each connected account's
+  // platform live — see migration 0058_mentions_dms_cache.sql.
   router.get("/dms", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data: accounts, error } = await supabase
       .from("social_accounts")
-      .select("id, platform, display_name, access_token_vault_id")
+      .select("id, platform, display_name")
       .eq("account_id", req.accountId)
       .is("disconnected_at", null);
     if (error) {
       dbError(res, error, "GET /dms");
+      return;
+    }
+    const accountById = new Map((accounts ?? []).map((a) => [a.id, a]));
+    const socialAccountIds = (accounts ?? []).map((a) => a.id);
+
+    const { data: cached, error: cacheError } = socialAccountIds.length
+      ? await supabase
+          .from("dm_conversations_cache")
+          .select("social_account_id, conversation_id, participant_id, participant_name, snippet, conversation_updated_at")
+          .in("social_account_id", socialAccountIds)
+      : { data: [] as never[], error: null };
+    if (cacheError) {
+      dbError(res, cacheError, "GET /dms cache lookup");
       return;
     }
 
@@ -2392,33 +2409,19 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       updatedAt: string | null;
       triage?: unknown;
     }[] = [];
-
-    for (const account of accounts ?? []) {
-      const adapter = registry.get(account.platform);
-      if (!adapter?.getConversations) continue;
-
-      const { data: accessToken } = await supabase.rpc("read_social_token", { p_vault_id: account.access_token_vault_id });
-      if (!accessToken) continue;
-
-      try {
-        const convResult = await adapter.getConversations(accessToken as string);
-        for (const c of convResult.conversations) {
-          results.push({
-            socialAccountId: account.id,
-            platform: account.platform,
-            accountDisplayName: account.display_name,
-            conversationId: c.id,
-            participantId: c.participantId,
-            participantName: c.participantName,
-            snippet: c.snippet,
-            updatedAt: c.updatedAt,
-          });
-        }
-      } catch (err) {
-        // One platform's failure shouldn't take down the whole inbox — log
-        // and move on rather than 500ing the entire request.
-        console.error(`getConversations failed for ${account.platform}:`, err);
-      }
+    for (const c of cached ?? []) {
+      const account = accountById.get(c.social_account_id);
+      if (!account) continue; // stale row for a since-disconnected account
+      results.push({
+        socialAccountId: c.social_account_id,
+        platform: account.platform,
+        accountDisplayName: account.display_name,
+        conversationId: c.conversation_id,
+        participantId: c.participant_id,
+        participantName: c.participant_name,
+        snippet: c.snippet,
+        updatedAt: c.conversation_updated_at,
+      });
     }
 
     results.sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
@@ -2435,7 +2438,54 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       r.triage = triageMap.get(r.conversationId) ?? null;
     }
 
+    await supabase
+      .from("notification_view_state")
+      .upsert({ account_id: req.accountId, dms_last_viewed_at: new Date().toISOString() }, { onConflict: "account_id" });
+
     res.json({ conversations: results });
+  });
+
+  // Powers the dashboard's notification bell — a cheap read of the two
+  // cache tables (see migration 0058_mentions_dms_cache.sql), never a live
+  // platform call. "New" means discovered/updated after the customer last
+  // actually loaded that tab (notification_view_state, bumped by GET
+  // /mentions and GET /dms themselves). Falls back to first_seen_at when a
+  // platform doesn't supply its own timestamp (comment_created_at /
+  // conversation_updated_at can both be null).
+  router.get("/notifications/summary", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: viewState, error: viewStateError } = await supabase
+      .from("notification_view_state")
+      .select("mentions_last_viewed_at, dms_last_viewed_at")
+      .eq("account_id", req.accountId)
+      .maybeSingle();
+    if (viewStateError) {
+      dbError(res, viewStateError, "GET /notifications/summary view state");
+      return;
+    }
+    const mentionsSinceMs = new Date(viewState?.mentions_last_viewed_at ?? "1970-01-01T00:00:00Z").getTime();
+    const dmsSinceMs = new Date(viewState?.dms_last_viewed_at ?? "1970-01-01T00:00:00Z").getTime();
+
+    const [{ data: mentionRows, error: mentionsError }, { data: dmRows, error: dmsError }] = await Promise.all([
+      supabase.from("mention_comments_cache").select("comment_created_at, first_seen_at").eq("account_id", req.accountId),
+      supabase.from("dm_conversations_cache").select("conversation_updated_at, first_seen_at").eq("account_id", req.accountId),
+    ]);
+    if (mentionsError) {
+      dbError(res, mentionsError, "GET /notifications/summary mentions");
+      return;
+    }
+    if (dmsError) {
+      dbError(res, dmsError, "GET /notifications/summary dms");
+      return;
+    }
+
+    const newMentions = (mentionRows ?? []).filter(
+      (r) => new Date(r.comment_created_at ?? r.first_seen_at).getTime() > mentionsSinceMs,
+    ).length;
+    const newDms = (dmRows ?? []).filter(
+      (r) => new Date(r.conversation_updated_at ?? r.first_seen_at).getTime() > dmsSinceMs,
+    ).length;
+
+    res.json({ newMentions, newDms });
   });
 
   router.get("/dms/messages", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {

@@ -12,6 +12,7 @@ import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
 import { AccountPicker, AccountGroupList } from "../components/AccountPicker";
 import { MediaStorageList } from "../components/MediaStorageList";
+import { NotificationBell } from "../components/NotificationBell";
 import { formatBytes } from "../lib/format";
 import { bestTimeFor } from "../lib/bestTimes";
 import { Spinner } from "../components/Spinner";
@@ -1918,12 +1919,15 @@ export function Dashboard() {
           <BrandMark size={30} />
           <span>{account?.businessName ? `Welcome, ${account.businessName}` : "LazyRelay"}</span>
         </div>
-        <a href="/guides" className="link">
-          Guides
-        </a>
-        <button className="link" onClick={signOut}>
-          Sign out
-        </button>
+        <div className="header-actions">
+          <NotificationBell onOpenTab={setTab} />
+          <a href="/guides" className="link">
+            Guides
+          </a>
+          <button className="link" onClick={signOut}>
+            Sign out
+          </button>
+        </div>
       </header>
 
       <nav className="tab-bar">
