@@ -329,6 +329,17 @@ export function Dashboard() {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  // "Compact view" (the week-row list) vs "Calendar view" (a time-block
+  // week grid, hour rows only where something's scheduled) — Werner's own
+  // reference, a competitor's toggle of the same name. Calendar view
+  // navigates by week, not month, so it gets its own anchor date rather
+  // than reusing calendarMonth.
+  const [calendarViewMode, setCalendarViewMode] = useState<"compact" | "calendar">("compact");
+  const [calendarWeekStart, setCalendarWeekStart] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - d.getDay());
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  });
   // The Calendar tab's own "add a plan for this day" mini-form — deliberately
   // separate from the big Posts-tab compose state (content/mediaUrl etc.),
   // since a planned idea isn't the same thing as a post being composed.
@@ -3441,6 +3452,35 @@ export function Dashboard() {
           return [time, account?.platform].filter(Boolean).join(" ") + ` — ${snippet}`;
         }
 
+        function dayKey(d: Date): string {
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        }
+
+        // Calendar view (time-block week grid) — a real week, not a month,
+        // and only real scheduled posts can be placed on an hour axis (a
+        // planned idea has no time yet, so it stays Compact-view-only until
+        // promoted). Rows exist only for hours that actually have something
+        // this week — Werner's own reference draws a full 24-row grid as
+        // wasted space, so this doesn't.
+        const weekDays: { date: Date; key: string }[] = [];
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(calendarWeekStart.getFullYear(), calendarWeekStart.getMonth(), calendarWeekStart.getDate() + i);
+          weekDays.push({ date: d, key: dayKey(d) });
+        }
+        const activeHours = new Set<number>();
+        for (const { key } of weekDays) {
+          for (const p of postsByDay[key] ?? []) {
+            if (p.scheduled_for) activeHours.add(new Date(p.scheduled_for).getHours());
+          }
+        }
+        const sortedHours = [...activeHours].sort((a, b) => a - b);
+
+        const weekEnd = weekDays[6].date;
+        const weekRangeLabel =
+          weekDays[0].date.getMonth() === weekEnd.getMonth()
+            ? `${weekDays[0].date.toLocaleDateString(undefined, { month: "long", day: "numeric" })} – ${weekEnd.toLocaleDateString(undefined, { day: "numeric", year: "numeric" })}`
+            : `${weekDays[0].date.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${weekEnd.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+
         return (
           <section>
             <div className="calendar-header">
@@ -3448,26 +3488,87 @@ export function Dashboard() {
                 type="button"
                 className="btn-outline"
                 onClick={() => {
-                  setCalendarMonth(new Date(year, month - 1, 1));
+                  if (calendarViewMode === "compact") {
+                    setCalendarMonth(new Date(year, month - 1, 1));
+                  } else {
+                    setCalendarWeekStart(new Date(calendarWeekStart.getFullYear(), calendarWeekStart.getMonth(), calendarWeekStart.getDate() - 7));
+                  }
                   setSelectedDay(null);
                 }}
               >
                 &larr; Prev
               </button>
-              <h2>{firstOfMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</h2>
+              <h2>{calendarViewMode === "compact" ? firstOfMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" }) : weekRangeLabel}</h2>
               <button
                 type="button"
                 className="btn-outline"
                 onClick={() => {
-                  setCalendarMonth(new Date(year, month + 1, 1));
+                  if (calendarViewMode === "compact") {
+                    setCalendarMonth(new Date(year, month + 1, 1));
+                  } else {
+                    setCalendarWeekStart(new Date(calendarWeekStart.getFullYear(), calendarWeekStart.getMonth(), calendarWeekStart.getDate() + 7));
+                  }
                   setSelectedDay(null);
                 }}
               >
                 Next &rarr;
               </button>
             </div>
+            <div className="calendar-view-toggle">
+              <button
+                type="button"
+                className={calendarViewMode === "compact" ? "calendar-view-toggle-active" : ""}
+                onClick={() => setCalendarViewMode("compact")}
+              >
+                Compact view
+              </button>
+              <button
+                type="button"
+                className={calendarViewMode === "calendar" ? "calendar-view-toggle-active" : ""}
+                onClick={() => setCalendarViewMode("calendar")}
+              >
+                Calendar view
+              </button>
+            </div>
             <BrandFilterSelect accounts={accounts} value={brandFilter} onChange={setBrandFilter} />
 
+            {calendarViewMode === "calendar" ? (
+              <div className="calendar-timeblock">
+                <div className="calendar-timeblock-header">
+                  <div className="calendar-timeblock-time-col" />
+                  {weekDays.map(({ date, key }) => (
+                    <div key={key} className={`calendar-timeblock-day-header${key === todayKey ? " calendar-timeblock-day-header-today" : ""}`}>
+                      <span className="calendar-timeblock-day-name">{date.toLocaleDateString(undefined, { weekday: "short" })}</span>
+                      <span className="calendar-timeblock-day-num">{date.getDate()}</span>
+                    </div>
+                  ))}
+                </div>
+                {sortedHours.length === 0 ? (
+                  <p className="empty">Nothing scheduled this week.</p>
+                ) : (
+                  sortedHours.map((hour) => (
+                    <div key={hour} className="calendar-timeblock-row">
+                      <div className="calendar-timeblock-time-col">
+                        {new Date(2000, 0, 1, hour).toLocaleTimeString(undefined, { hour: "numeric" })}
+                      </div>
+                      {weekDays.map(({ key }) => {
+                        const items = (postsByDay[key] ?? []).filter((p) => p.scheduled_for && new Date(p.scheduled_for).getHours() === hour);
+                        return (
+                          <div key={key} className="calendar-timeblock-cell">
+                            {items.map((p) => (
+                              <span key={p.id} className={`calendar-event-row calendar-event-row-${p.status}`}>
+                                {eventLineLabel(p)}
+                              </span>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : (
+            <>
             <div className="calendar-grid">
               {WEEKDAY_LABELS.map((w) => (
                 <div key={w} className="calendar-weekday">
@@ -3616,6 +3717,8 @@ export function Dashboard() {
                   </div>
                 </form>
               </div>
+            )}
+            </>
             )}
           </section>
         );

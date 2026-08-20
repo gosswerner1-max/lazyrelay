@@ -1516,8 +1516,92 @@
 
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  /* minmax(0, 1fr), not plain 1fr — a plain 1fr column can't shrink below
+     its content's min-content width, and .calendar-event-row's
+     white-space: nowrap means that min-content is the full unwrapped
+     line. Without the 0 floor, long event text pushes the whole grid
+     wider than the page instead of being clipped by its own
+     overflow/ellipsis. Confirmed live 2026-08-20 (Werner caught real
+     horizontal overflow on lazyrelay.com) — this is the fix. */
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
+}
+
+.calendar-view-toggle {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0 14px;
+}
+
+.calendar-view-toggle button {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-muted, var(--ink));
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.calendar-view-toggle-active {
+  background: var(--signal-bg) !important;
+  color: var(--signal) !important;
+  border-color: var(--signal) !important;
+}
+
+/* Calendar view — a real time-block week grid. Same minmax(0, 1fr) overflow
+   guard as .calendar-grid above, and for the same reason (the nowrap event
+   rows placed inside it). Header and each hour row are separate grids
+   sharing the same column template, rather than one grid spanning
+   everything, so the JSX can nest a labeled row per active hour. */
+.calendar-timeblock-header,
+.calendar-timeblock-row {
+  display: grid;
+  grid-template-columns: 56px repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.calendar-timeblock-row {
+  border-top: 1px solid var(--line);
+}
+
+.calendar-timeblock-time-col {
+  font-size: 11px;
+  color: var(--wire);
+  padding: 6px 4px 6px 0;
+  text-align: right;
+}
+
+.calendar-timeblock-day-header {
+  text-align: center;
+  padding-bottom: 6px;
+}
+
+.calendar-timeblock-day-name {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--wire);
+}
+
+.calendar-timeblock-day-num {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.calendar-timeblock-day-header-today .calendar-timeblock-day-num {
+  color: var(--signal);
+}
+
+.calendar-timeblock-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0;
+  min-width: 0;
 }
 
 .calendar-weekday {
