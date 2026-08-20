@@ -53,6 +53,24 @@ function localDateKey(iso: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// A real phone-width check (2026-08-20) — the calendar's grid layouts
+// (7 day columns, event text inline in cells) genuinely don't fit a real
+// mobile screen: checked at 375px and the content was structurally
+// present but visually unreadable (cells/columns 26-44px wide). Worth its
+// own hook since two calendar sections need to branch on it (the month
+// grid's cell content, and Week view's day count), not just CSS.
+function useIsMobile(breakpoint = 700): boolean {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < breakpoint);
+  useEffect(() => {
+    function onResize() {
+      setIsMobile(window.innerWidth < breakpoint);
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 const TRIAGE_CATEGORY_LABELS: Record<string, string> = {
   angry_customer: "Angry customer",
   sales_question: "Sales question",
@@ -357,6 +375,10 @@ export function Dashboard() {
     d.setDate(d.getDate() - d.getDay());
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   });
+  // Called unconditionally here (not inside the `tab === "Calendar"` block
+  // below) — that block is a conditional IIFE, and a hook called inside it
+  // would only run some renders, breaking React's rules of hooks.
+  const isMobile = useIsMobile();
   // The Calendar tab's own "add a plan for this day" mini-form — deliberately
   // separate from the big Posts-tab compose state (content/mediaUrl etc.),
   // since a planned idea isn't the same thing as a post being composed.
@@ -3471,14 +3493,20 @@ export function Dashboard() {
           return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
         }
 
-        // Calendar view (time-block week grid) — a real week, not a month,
-        // and only real scheduled posts can be placed on an hour axis (a
-        // planned idea has no time yet, so it stays Compact-view-only until
-        // promoted). Rows exist only for hours that actually have something
-        // this week — Werner's own reference draws a full 24-row grid as
-        // wasted space, so this doesn't.
+        // Calendar view (time-block grid) — a real week on desktop, but a
+        // 7-column hour grid genuinely doesn't fit a real phone (checked at
+        // 375px, 2026-08-20: columns render 26-31px wide, present in the
+        // DOM but visually unreadable). Mobile shows one day at a time
+        // instead — the same pattern real calendar apps use at this width
+        // — rather than a shrunk, unreadable version of the week grid.
+        // Only real scheduled posts can be placed on an hour axis (a
+        // planned idea has no time yet, so it stays Compact-view-only
+        // until promoted). Rows exist only for hours that actually have
+        // something in the visible range — Werner's own reference draws a
+        // full 24-row grid as wasted space, so this doesn't either.
+        const timeblockDayCount = isMobile ? 1 : 7;
         const weekDays: { date: Date; key: string }[] = [];
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < timeblockDayCount; i++) {
           const d = new Date(calendarWeekStart.getFullYear(), calendarWeekStart.getMonth(), calendarWeekStart.getDate() + i);
           weekDays.push({ date: d, key: dayKey(d) });
         }
@@ -3490,11 +3518,13 @@ export function Dashboard() {
         }
         const sortedHours = [...activeHours].sort((a, b) => a - b);
 
-        const weekEnd = weekDays[6].date;
-        const weekRangeLabel =
-          weekDays[0].date.getMonth() === weekEnd.getMonth()
+        const weekEnd = weekDays[weekDays.length - 1].date;
+        const weekRangeLabel = isMobile
+          ? weekDays[0].date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })
+          : weekDays[0].date.getMonth() === weekEnd.getMonth()
             ? `${weekDays[0].date.toLocaleDateString(undefined, { month: "long", day: "numeric" })} – ${weekEnd.toLocaleDateString(undefined, { day: "numeric", year: "numeric" })}`
             : `${weekDays[0].date.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${weekEnd.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+        const timeblockColumns = `64px repeat(${weekDays.length}, minmax(0, 1fr))`;
 
         return (
           <section>
@@ -3506,7 +3536,11 @@ export function Dashboard() {
                   if (calendarViewMode === "compact") {
                     setCalendarMonth(new Date(year, month - 1, 1));
                   } else {
-                    setCalendarWeekStart(new Date(calendarWeekStart.getFullYear(), calendarWeekStart.getMonth(), calendarWeekStart.getDate() - 7));
+                    // Mobile Week view shows one day, so Prev/Next steps by
+                    // a day instead of a full week — same anchor state,
+                    // just a different step size.
+                    const step = isMobile ? 1 : 7;
+                    setCalendarWeekStart(new Date(calendarWeekStart.getFullYear(), calendarWeekStart.getMonth(), calendarWeekStart.getDate() - step));
                   }
                   setSelectedDay(null);
                 }}
@@ -3521,7 +3555,8 @@ export function Dashboard() {
                   if (calendarViewMode === "compact") {
                     setCalendarMonth(new Date(year, month + 1, 1));
                   } else {
-                    setCalendarWeekStart(new Date(calendarWeekStart.getFullYear(), calendarWeekStart.getMonth(), calendarWeekStart.getDate() + 7));
+                    const step = isMobile ? 1 : 7;
+                    setCalendarWeekStart(new Date(calendarWeekStart.getFullYear(), calendarWeekStart.getMonth(), calendarWeekStart.getDate() + step));
                   }
                   setSelectedDay(null);
                 }}
@@ -3555,7 +3590,7 @@ export function Dashboard() {
 
             {calendarViewMode === "calendar" ? (
               <div className="calendar-timeblock">
-                <div className="calendar-timeblock-header">
+                <div className="calendar-timeblock-header" style={{ gridTemplateColumns: timeblockColumns }}>
                   <div className="calendar-timeblock-time-col" />
                   {weekDays.map(({ date, key }) => (
                     <div key={key} className={`calendar-timeblock-day-header${key === todayKey ? " calendar-timeblock-day-header-today" : ""}`}>
@@ -3568,7 +3603,7 @@ export function Dashboard() {
                   <p className="empty">Nothing scheduled this week.</p>
                 ) : (
                   sortedHours.map((hour) => (
-                    <div key={hour} className="calendar-timeblock-row">
+                    <div key={hour} className="calendar-timeblock-row" style={{ gridTemplateColumns: timeblockColumns }}>
                       <div className="calendar-timeblock-time-col">
                         {new Date(2000, 0, 1, hour).toLocaleTimeString(undefined, { hour: "numeric" })}
                       </div>
@@ -3611,6 +3646,25 @@ export function Dashboard() {
                       (() => {
                         const dayItems = [...(postsByDay[c.key] ?? []), ...(plansByDay[c.key] ?? [])];
                         if (dayItems.length === 0) return null;
+                        // Phones can't fit a full text line per post at
+                        // this cell width (measured 26-44px on a real
+                        // device — the text is just unreadable), so mobile
+                        // gets a row of status-colored dots instead; tap
+                        // the day to read the actual list in the detail
+                        // panel below.
+                        if (isMobile) {
+                          const shown = dayItems.slice(0, 4);
+                          return (
+                            <span className="calendar-cell-dots">
+                              {shown.map((p) => (
+                                <span key={p.id} className={`calendar-cell-dot calendar-cell-dot-${p.status}`} />
+                              ))}
+                              {dayItems.length > shown.length && (
+                                <span className="calendar-cell-dot-more">+{dayItems.length - shown.length}</span>
+                              )}
+                            </span>
+                          );
+                        }
                         const shown = dayItems.slice(0, 5);
                         return (
                           <span className="calendar-cell-events">

@@ -1859,6 +1859,85 @@
   text-align: left;
 }
 
+/* Mobile substitute for .calendar-cell-events (2026-08-20) — real device
+   testing at 375px showed month-grid cells only ~26-44px wide, too narrow
+   for even a truncated text line, so phones get a row of small
+   status-colored dots instead; the full list is still one tap away in the
+   day-detail panel. */
+.calendar-cell-dots {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+}
+
+.calendar-cell-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--line);
+  flex-shrink: 0;
+}
+
+.calendar-cell-dot-pending,
+.calendar-cell-dot-posting {
+  background: var(--signal);
+}
+
+.calendar-cell-dot-posted {
+  background: #2e9e5b;
+}
+
+.calendar-cell-dot-failed {
+  background: #d9534f;
+}
+
+.calendar-cell-dot-needs_approval {
+  background: #e0a02c;
+}
+
+.calendar-cell-dot-draft {
+  background: var(--wire);
+}
+
+.calendar-cell-dot-more {
+  font-size: 9px;
+  color: var(--wire);
+}
+
+/* Matches the useIsMobile(700) breakpoint in Dashboard.tsx — the JS switch
+   to single-day Week view and dot-mode Calendar view happens at the same
+   width these tighten up at, so the two stay in step. */
+@media (max-width: 700px) {
+  .calendar-grid {
+    gap: 3px;
+  }
+
+  .calendar-cell {
+    min-height: 40px;
+    padding: 6px;
+    font-size: 12px;
+  }
+
+  .calendar-weekday {
+    font-size: 10px;
+  }
+
+  .calendar-timeblock-time-col {
+    font-size: 10px;
+    padding: 8px 2px 8px 0;
+  }
+
+  .calendar-timeblock-day-name {
+    font-size: 10px;
+  }
+
+  .calendar-timeblock-day-num {
+    font-size: 14px;
+  }
+}
+
 .calendar-day-detail {
   margin-top: 24px;
   padding-top: 20px;
