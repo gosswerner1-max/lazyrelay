@@ -59,7 +59,8 @@ const PROOF_POSTS = [
 
 const MORE_FEATURES = [
   "Analytics dashboard: total posts, per-platform success rates, and a daily volume trend",
-  "Content calendar: everything you've got scheduled on a real month grid",
+  "Content calendar: plan by day, pick the platform(s) and add media, then schedule it with one tick — no re-entry",
+  "Notification bell: a header alert for new mentions and DMs, so nothing sits unread in a tab you never opened",
   "Bulk CSV import: schedule up to 200 posts at once, with a per-row preview first",
   "AI captions & hashtags: generate wording or tags from your draft in one click",
   "Best-time suggestions: general, platform-by-platform posting-time guidance",
