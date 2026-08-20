@@ -67,7 +67,7 @@ export function NotificationBell({ onOpenTab }: NotificationBellProps) {
         onClick={() => setOpen((o) => !o)}
         aria-label={total > 0 ? `${total} new notification${total === 1 ? "" : "s"}` : "Notifications"}
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2z" fill="currentColor" stroke="none" />
           <path d="M18 16v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1z" />
           <path d="M18.6 5.2a7 7 0 0 1 2 4.9M5.4 5.2a7 7 0 0 0-2 4.9" />
