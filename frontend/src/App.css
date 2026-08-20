@@ -1649,6 +1649,105 @@
   cursor: pointer;
 }
 
+.account-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-transform: none;
+  font-weight: 400;
+}
+
+.account-picker-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.account-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 10px;
+  border: 1px solid var(--signal);
+  border-radius: 999px;
+  background: var(--signal-bg);
+  color: var(--signal);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.account-chip-remove {
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.account-chip:hover .account-chip-remove {
+  opacity: 1;
+}
+
+.account-picker-search {
+  width: 100%;
+}
+
+.account-picker-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.account-picker-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 6px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font: 14px/1 var(--font-body);
+  font-weight: 500;
+  color: var(--ink);
+  text-align: left;
+}
+
+.account-picker-group-header:hover {
+  background: var(--paper);
+}
+
+.account-picker-chevron {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--ink-muted, var(--ink));
+  transition: transform 0.15s ease;
+}
+
+.account-picker-chevron-open {
+  transform: rotate(90deg);
+}
+
+.account-picker-group-name {
+  text-transform: capitalize;
+}
+
+.account-picker-group-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--signal);
+  font-weight: 600;
+}
+
+.account-picker-group-list {
+  padding: 0 6px 6px 28px;
+}
+
 .media-dropzone {
   display: flex;
   align-items: center;

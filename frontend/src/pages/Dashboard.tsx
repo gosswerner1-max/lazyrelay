@@ -10,6 +10,7 @@ import { CodeBlock } from "../components/CodeBlock";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
+import { AccountPicker } from "../components/AccountPicker";
 import { bestTimeFor } from "../lib/bestTimes";
 import { Spinner } from "../components/Spinner";
 import { OverviewPanel } from "../components/Charts";
@@ -2693,19 +2694,7 @@ export function Dashboard() {
           <form onSubmit={handleSchedule} className="schedule-form">
             <label>
               Post to
-              <div className="account-checkbox-list">
-                {accounts.map((a) => (
-                  <label key={a.id} className="account-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={selectedAccountIds.includes(a.id)}
-                      onChange={() => toggleSelectedAccount(a.id)}
-                    />
-                    <PlatformIcon platform={a.platform} size={14} />
-                    {a.display_name ?? a.platform_account_id}
-                  </label>
-                ))}
-              </div>
+              <AccountPicker accounts={accounts} selectedIds={selectedAccountIds} onToggle={toggleSelectedAccount} />
               {selectedAccountIds.length > 0 && (
                 <div className="best-time-hints">
                   {[...new Set(selectedAccountIds.map((id) => accounts.find((a) => a.id === id)?.platform).filter(Boolean))].map(
@@ -3089,19 +3078,7 @@ export function Dashboard() {
           <form onSubmit={submitRecurringSchedule} className="schedule-form">
             <label>
               Post to
-              <div className="account-checkbox-list">
-                {accounts.map((a) => (
-                  <label key={a.id} className="account-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={rsSelectedAccountIds.includes(a.id)}
-                      onChange={() => toggleRsAccount(a.id)}
-                    />
-                    <PlatformIcon platform={a.platform} size={14} />
-                    {a.display_name ?? a.platform_account_id}
-                  </label>
-                ))}
-              </div>
+              <AccountPicker accounts={accounts} selectedIds={rsSelectedAccountIds} onToggle={toggleRsAccount} />
             </label>
             <label>
               Content
