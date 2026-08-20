@@ -79,6 +79,10 @@ export function MediaStorageList({ mediaFiles, renderItem }: MediaStorageListPro
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
+      <p className="section-note">
+        A file posted to more than one platform counts toward each of them, so these totals can add up to more than
+        your overall storage used above.
+      </p>
       <div className="account-picker-groups">
         {groups.length === 0 && <p className="muted">No files match "{query}".</p>}
         {groups.map(([key, list]) => {
