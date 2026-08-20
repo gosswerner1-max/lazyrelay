@@ -329,6 +329,22 @@ export function Dashboard() {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  // The day-detail panel renders below the calendar grid, off-screen on a
+  // normal-height viewport — clicking a day with no visible reaction reads
+  // as "this doesn't work" (Werner's own catch, 2026-08-20). Scrolling it
+  // into view is the fix; the panel itself already existed and worked.
+  const dayDetailRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selectedDay && dayDetailRef.current) {
+      // behavior: "auto" (instant), not "smooth" — confirmed by direct
+      // testing that smooth scrolling silently doesn't move the page in at
+      // least one real browser context, which would have made this fix
+      // itself invisible some of the time. Instant scroll has no such
+      // failure mode and the requirement here is just "become visible,"
+      // not a polished animation.
+      dayDetailRef.current.scrollIntoView({ behavior: "auto", block: "start" });
+    }
+  }, [selectedDay]);
   // "Compact view" (the week-row list) vs "Calendar view" (a time-block
   // week grid, hour rows only where something's scheduled) — Werner's own
   // reference, a competitor's toggle of the same name. Calendar view
@@ -3620,7 +3636,7 @@ export function Dashboard() {
             </div>
 
             {selectedDay && (
-              <div className="calendar-day-detail">
+              <div className="calendar-day-detail" ref={dayDetailRef}>
                 <h3>{new Date(`${selectedDay}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</h3>
                 {dayPosts.length === 0 ? (
                   <p className="empty">Nothing scheduled this day.</p>
