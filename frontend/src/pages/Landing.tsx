@@ -451,9 +451,10 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
       <section className="landing-section" id="ai-honesty">
         <h2>How we label AI features</h2>
         <p className="about-text">
-          LazyRelay's AI captions and hashtag suggestions aren't personalized to your brand voice yet. We're
-          building that. Until then, treat AI suggestions as a starting draft, not a finished post, and
-          we'll say so plainly here as that changes.
+          LazyRelay's AI captions and hashtag suggestions can now be personalized to your brand voice — set a
+          default voice for your account, or a different one per brand if you run more than one. Without a voice
+          set, suggestions use a generic tone. Either way, treat AI suggestions as a starting draft, not a
+          finished post.
         </p>
       </section>
 

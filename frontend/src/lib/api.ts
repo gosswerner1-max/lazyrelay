@@ -55,6 +55,10 @@ export interface SocialAccount {
 export interface Brand {
   id: string;
   name: string;
+  // AI caption/hashtag voice override for this brand (migration 0061) —
+  // beats the account-level default in Account when the account being
+  // composed for is linked to this brand.
+  voice_profile: string | null;
   created_at: string;
 }
 
@@ -192,6 +196,10 @@ export interface Account {
   webhookUrl: string | null;
   webhookConfigured: boolean;
   webhookSecret?: string;
+  // Default AI-caption/hashtag voice (migration 0061) — used whenever the
+  // account being posted from isn't linked to a brand with its own
+  // voice_profile override.
+  voiceProfile: string | null;
 }
 
 export interface RecurringSchedule {
@@ -368,10 +376,10 @@ export const api = {
   // where the cap bites (POST /brands returns a friendly 403 at the limit);
   // assignment just points an account at an owned brand.
   getBrands: (): Promise<Brand[]> => authedFetch("/brands"),
-  createBrand: (name: string): Promise<Brand> =>
-    authedFetch("/brands", { method: "POST", body: JSON.stringify({ name }) }),
-  updateBrand: (id: string, name: string): Promise<Brand> =>
-    authedFetch(`/brands/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+  createBrand: (name: string, voiceProfile?: string | null): Promise<Brand> =>
+    authedFetch("/brands", { method: "POST", body: JSON.stringify({ name, voiceProfile }) }),
+  updateBrand: (id: string, name: string, voiceProfile?: string | null): Promise<Brand> =>
+    authedFetch(`/brands/${id}`, { method: "PATCH", body: JSON.stringify({ name, voiceProfile }) }),
   deleteBrand: (id: string): Promise<null> => authedFetch(`/brands/${id}`, { method: "DELETE" }),
   setAccountBrand: (id: string, brandId: string | null): Promise<SocialAccount> =>
     authedFetch(`/social-accounts/${id}`, { method: "PATCH", body: JSON.stringify({ brandId }) }),
@@ -495,11 +503,11 @@ export const api = {
 
   deleteDMAutomation: (id: string): Promise<void> => authedFetch(`/dm-automations/${id}`, { method: "DELETE" }),
 
-  generateCaption: (topic: string, platform?: string, tone?: string): Promise<{ caption: string }> =>
-    authedFetch("/ai/caption", { method: "POST", body: JSON.stringify({ topic, platform, tone }) }),
+  generateCaption: (topic: string, platform?: string, tone?: string, socialAccountId?: string): Promise<{ caption: string }> =>
+    authedFetch("/ai/caption", { method: "POST", body: JSON.stringify({ topic, platform, tone, socialAccountId }) }),
 
-  suggestHashtags: (content: string, platform?: string): Promise<{ hashtags: string[] }> =>
-    authedFetch("/ai/hashtags", { method: "POST", body: JSON.stringify({ content, platform }) }),
+  suggestHashtags: (content: string, platform?: string, socialAccountId?: string): Promise<{ hashtags: string[] }> =>
+    authedFetch("/ai/hashtags", { method: "POST", body: JSON.stringify({ content, platform, socialAccountId }) }),
 
   getContentIdeas: (): Promise<{ ideas: string[] }> => authedFetch("/ai/content-ideas", { method: "POST" }),
 
@@ -613,6 +621,8 @@ export const api = {
   getAccount: (): Promise<Account> => authedFetch("/account"),
   updateAccount: (businessName: string | null): Promise<Account> =>
     authedFetch("/account", { method: "PATCH", body: JSON.stringify({ businessName }) }),
+  setVoiceProfile: (voiceProfile: string | null): Promise<Account> =>
+    authedFetch("/account", { method: "PATCH", body: JSON.stringify({ voiceProfile }) }),
   setEmailFailureAlerts: (enabled: boolean): Promise<Account> =>
     authedFetch("/account", { method: "PATCH", body: JSON.stringify({ emailFailureAlertsEnabled: enabled }) }),
   setWebhookUrl: (webhookUrl: string | null): Promise<Account> =>

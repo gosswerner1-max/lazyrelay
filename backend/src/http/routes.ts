@@ -203,6 +203,31 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     );
   });
 
+  // Brand voice for AI captions/hashtags (migration 0061, 2026-08-20) — a
+  // brand-specific voice_profile beats the account-level default, since
+  // that's the whole point of the per-brand override for agencies/multi-
+  // business owners; neither is required, so most customers who never
+  // touch either setting see no change in behavior. socialAccountId is
+  // optional and re-verified against the caller's own account here (never
+  // trusted from the client beyond "which account is this for") — a
+  // mismatched or foreign id just falls through to the account default
+  // rather than erroring, since a missing voice is not a failure case.
+  async function resolveVoiceProfile(accountId: string, socialAccountId: unknown): Promise<string | null> {
+    if (typeof socialAccountId === "string" && socialAccountId) {
+      const { data: social } = await supabase
+        .from("social_accounts")
+        .select("brand_id, account_id")
+        .eq("id", socialAccountId)
+        .maybeSingle();
+      if (social && social.account_id === accountId && social.brand_id) {
+        const { data: brand } = await supabase.from("brands").select("voice_profile").eq("id", social.brand_id).maybeSingle();
+        if (brand?.voice_profile?.trim()) return brand.voice_profile.trim();
+      }
+    }
+    const { data: account } = await supabase.from("accounts").select("voice_profile").eq("id", accountId).maybeSingle();
+    return account?.voice_profile?.trim() || null;
+  }
+
   // AI caption generation — optional, only live when ANTHROPIC_API_KEY is
   // set (mirrors every other optional integration's fall-through pattern:
   // missing config degrades this one feature, not the whole API). The
@@ -215,7 +240,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(503).json({ error: "AI caption generation isn't set up on this deploy yet." });
       return;
     }
-    const { topic, platform, tone } = req.body ?? {};
+    const { topic, platform, tone, socialAccountId } = req.body ?? {};
     if (typeof topic !== "string" || topic.trim().length === 0) {
       res.status(400).json({ error: "topic must be a non-empty string" });
       return;
@@ -233,6 +258,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
+    const voiceProfile = await resolveVoiceProfile(req.accountId!, socialAccountId);
+    const voiceBlock = voiceProfile ? `Match this brand's voice: ${voiceProfile}\n\n` : "";
+
     try {
       // Explicit timeout — an unbounded call here would hold the request
       // open indefinitely if Anthropic ever hangs, and could hit a generic
@@ -248,6 +276,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
             role: "user",
             content:
               `Write one social media post for ${platformLabel} about: ${topic}\n\n` +
+              voiceBlock +
               `Tone: ${toneLabel}. Output ONLY the post text — no preamble, no quotation marks, no options to choose from, no hashtag spam (at most 2-3 relevant hashtags if the platform culture calls for them). Keep it native to how real people post, not like marketing copy.`,
           },
         ],
@@ -282,7 +311,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(503).json({ error: "AI hashtag suggestions aren't set up on this deploy yet." });
       return;
     }
-    const { content, platform } = req.body ?? {};
+    const { content, platform, socialAccountId } = req.body ?? {};
     if (typeof content !== "string" || content.trim().length === 0) {
       res.status(400).json({ error: "content must be a non-empty string" });
       return;
@@ -299,6 +328,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
+    const voiceProfile = await resolveVoiceProfile(req.accountId!, socialAccountId);
+    const voiceBlock = voiceProfile ? `This brand's voice: ${voiceProfile}\n\n` : "";
+
     try {
       // Same timeout reasoning as /ai/caption above — bounded failure
       // instead of an indefinitely open request.
@@ -311,6 +343,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
             role: "user",
             content:
               `Suggest 5-8 relevant hashtags for this ${platformLabel} post:\n\n${content}\n\n` +
+              voiceBlock +
               `Output ONLY the hashtags, space-separated, each starting with #, no other text, no numbering, no explanation. Mix broad-reach and niche-specific tags — not all generic, not all obscure.`,
           },
         ],
@@ -1165,11 +1198,16 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // source of truth; brand_label is written in lockstep and dropped in a
   // later cleanup once filtering is migrated to brand_id.
   const MAX_BRAND_NAME_LENGTH = 60;
+  // Free-text voice description ("casual, funny, short sentences, lots of
+  // emoji") fed into the AI caption/hashtag prompts — generous but bounded,
+  // same reasoning as MAX_POST_CONTENT_LENGTH elsewhere: a customer pasting
+  // something enormous shouldn't blow out prompt size or cost unbounded.
+  const MAX_VOICE_PROFILE_LENGTH = 2000;
 
   router.get("/brands", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data, error } = await supabase
       .from("brands")
-      .select("id, name, created_at")
+      .select("id, name, voice_profile, created_at")
       .eq("account_id", req.accountId)
       .order("name");
     if (error) {
@@ -1189,6 +1227,15 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(400).json({ error: `Brand name must be ${MAX_BRAND_NAME_LENGTH} characters or fewer` });
       return;
     }
+    const { voiceProfile } = req.body ?? {};
+    if (voiceProfile !== undefined && voiceProfile !== null && typeof voiceProfile !== "string") {
+      res.status(400).json({ error: "voiceProfile must be a string or null" });
+      return;
+    }
+    if (typeof voiceProfile === "string" && voiceProfile.length > MAX_VOICE_PROFILE_LENGTH) {
+      res.status(400).json({ error: `voiceProfile must be ${MAX_VOICE_PROFILE_LENGTH} characters or fewer` });
+      return;
+    }
     // Real per-tier cap, not just marketing copy — see brandLimits.ts.
     const limitError = await checkBrandLimit(req.accountId!);
     if (limitError) {
@@ -1197,8 +1244,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
     const { data, error } = await supabase
       .from("brands")
-      .insert({ account_id: req.accountId, name })
-      .select("id, name, created_at")
+      .insert({ account_id: req.accountId, name, voice_profile: voiceProfile?.trim() || null })
+      .select("id, name, voice_profile, created_at")
       .maybeSingle();
     if (error) {
       // 23505 = the case-insensitive unique index on (account_id, lower(name)).
@@ -1222,12 +1269,23 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(400).json({ error: `Brand name must be ${MAX_BRAND_NAME_LENGTH} characters or fewer` });
       return;
     }
+    const { voiceProfile } = req.body ?? {};
+    if (voiceProfile !== undefined && voiceProfile !== null && typeof voiceProfile !== "string") {
+      res.status(400).json({ error: "voiceProfile must be a string or null" });
+      return;
+    }
+    if (typeof voiceProfile === "string" && voiceProfile.length > MAX_VOICE_PROFILE_LENGTH) {
+      res.status(400).json({ error: `voiceProfile must be ${MAX_VOICE_PROFILE_LENGTH} characters or fewer` });
+      return;
+    }
+    const update: Record<string, unknown> = { name };
+    if (voiceProfile !== undefined) update.voice_profile = voiceProfile?.trim() || null;
     const { data, error } = await supabase
       .from("brands")
-      .update({ name })
+      .update(update)
       .eq("id", req.params.id)
       .eq("account_id", req.accountId)
-      .select("id, name, created_at")
+      .select("id, name, voice_profile, created_at")
       .maybeSingle();
     if (error) {
       if ((error as { code?: string }).code === "23505") {
@@ -3860,7 +3918,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.get("/account", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data, error } = await supabase
       .from("accounts")
-      .select("email, business_name, email_failure_alerts_enabled, webhook_url, webhook_secret")
+      .select("email, business_name, email_failure_alerts_enabled, webhook_url, webhook_secret, voice_profile")
       .eq("id", req.accountId)
       .single();
     if (error || !data) {
@@ -3876,17 +3934,29 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       // repeated in every account fetch. Revealed once on the request that
       // sets/creates it, or via POST /account/webhook/regenerate-secret.
       webhookConfigured: !!data.webhook_secret,
+      // Default AI-caption/hashtag voice (migration 0061) — overridden per
+      // brand when the account being posted from belongs to one with its
+      // own voice_profile set; see resolveVoiceProfile in the /ai/* routes.
+      voiceProfile: data.voice_profile,
     });
   });
 
   router.patch("/account", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { businessName, emailFailureAlertsEnabled, webhookUrl } = req.body ?? {};
+    const { businessName, emailFailureAlertsEnabled, webhookUrl, voiceProfile } = req.body ?? {};
     if (businessName !== undefined && businessName !== null && typeof businessName !== "string") {
       res.status(400).json({ error: "businessName must be a string or null" });
       return;
     }
     if (typeof businessName === "string" && businessName.length > 80) {
       res.status(400).json({ error: "businessName must be 80 characters or fewer" });
+      return;
+    }
+    if (voiceProfile !== undefined && voiceProfile !== null && typeof voiceProfile !== "string") {
+      res.status(400).json({ error: "voiceProfile must be a string or null" });
+      return;
+    }
+    if (typeof voiceProfile === "string" && voiceProfile.length > MAX_VOICE_PROFILE_LENGTH) {
+      res.status(400).json({ error: `voiceProfile must be ${MAX_VOICE_PROFILE_LENGTH} characters or fewer` });
       return;
     }
     // businessName becomes the inviter label in a team-invite email subject
@@ -3945,6 +4015,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     const update: Record<string, unknown> = {};
     if (businessName !== undefined) update.business_name = businessName?.trim() || null;
     if (emailFailureAlertsEnabled !== undefined) update.email_failure_alerts_enabled = emailFailureAlertsEnabled;
+    if (voiceProfile !== undefined) update.voice_profile = voiceProfile?.trim() || null;
     if (normalizedWebhookUrl !== undefined) {
       update.webhook_url = normalizedWebhookUrl;
       if (normalizedWebhookUrl === null) update.webhook_secret = null;
@@ -3954,7 +4025,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       .from("accounts")
       .update(update)
       .eq("id", req.accountId)
-      .select("email, business_name, email_failure_alerts_enabled, webhook_url, webhook_secret")
+      .select("email, business_name, email_failure_alerts_enabled, webhook_url, webhook_secret, voice_profile")
       .single();
     if (error || !data) {
       dbError(res, error ?? { message: "update returned no row" }, "PATCH /account");
@@ -3966,6 +4037,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       emailFailureAlertsEnabled: data.email_failure_alerts_enabled,
       webhookUrl: data.webhook_url,
       webhookConfigured: !!data.webhook_secret,
+      voiceProfile: data.voice_profile,
       // Only present the one time a secret is newly generated — same
       // "shown once, save it now" pattern as API key creation.
       ...(newWebhookSecret ? { webhookSecret: newWebhookSecret } : {}),

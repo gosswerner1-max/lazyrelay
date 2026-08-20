@@ -203,6 +203,7 @@ export function Dashboard() {
   // input from the server once, so it never clobbers text the user is
   // actively typing into the Settings field.
   const businessNameSeeded = useRef(false);
+  const voiceProfileSeeded = useRef(false);
   const webhookUrlSeeded = useRef(false);
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [platforms, setPlatforms] = useState<PlatformInfo[]>([]);
@@ -224,6 +225,8 @@ export function Dashboard() {
   const [account, setAccount] = useState<Account | null>(null);
   const [businessNameInput, setBusinessNameInput] = useState("");
   const [savingBusinessName, setSavingBusinessName] = useState(false);
+  const [voiceProfileInput, setVoiceProfileInput] = useState("");
+  const [savingVoiceProfile, setSavingVoiceProfile] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [apiKeyName, setApiKeyName] = useState("");
   const [apiKeyCanShareProof, setApiKeyCanShareProof] = useState(false);
@@ -256,6 +259,10 @@ export function Dashboard() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [newBrandName, setNewBrandName] = useState("");
   const [brandBusy, setBrandBusy] = useState(false);
+  // Per-brand voice override drafts, same pattern as mediaAltTextDrafts —
+  // keyed by brand id so editing one brand's voice never touches another's.
+  const [brandVoiceDrafts, setBrandVoiceDrafts] = useState<Record<string, string>>({});
+  const [brandVoiceBusyId, setBrandVoiceBusyId] = useState<string | null>(null);
   const [assigningAccountId, setAssigningAccountId] = useState<string | null>(null);
   // Phase 1b (2026-08-16) — real effective brand capacity (base tier limit +
   // purchased add-on slots) and the add-ons themselves, from GET /brand-addons.
@@ -477,6 +484,10 @@ export function Dashboard() {
       if (!businessNameSeeded.current) {
         setBusinessNameInput(acct.businessName ?? "");
         businessNameSeeded.current = true;
+      }
+      if (!voiceProfileSeeded.current) {
+        setVoiceProfileInput(acct.voiceProfile ?? "");
+        voiceProfileSeeded.current = true;
       }
       if (!webhookUrlSeeded.current) {
         setWebhookUrlInput(acct.webhookUrl ?? "");
@@ -921,6 +932,23 @@ export function Dashboard() {
     }
   }
 
+  /** Saves this brand's AI-caption/hashtag voice override — beats the
+   *  account-level default (Settings tab) for any account linked to this
+   *  brand. */
+  async function handleSaveBrandVoice(brand: Brand) {
+    const draft = brandVoiceDrafts[brand.id] ?? brand.voice_profile ?? "";
+    setBrandVoiceBusyId(brand.id);
+    setError(null);
+    try {
+      const updated = await api.updateBrand(brand.id, brand.name, draft.trim() || null);
+      setBrands((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBrandVoiceBusyId(null);
+    }
+  }
+
   async function handleAssignBrand(accountId: string, brandId: string | null) {
     setAssigningAccountId(accountId);
     setError(null);
@@ -1042,7 +1070,7 @@ export function Dashboard() {
     setError(null);
     try {
       const firstAccount = accounts.find((a) => a.id === selectedAccountIds[0]);
-      const { caption } = await api.generateCaption(aiTopic.trim(), firstAccount?.platform);
+      const { caption } = await api.generateCaption(aiTopic.trim(), firstAccount?.platform, undefined, firstAccount?.id);
       setContent(caption);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -1092,7 +1120,7 @@ export function Dashboard() {
     setError(null);
     try {
       const firstAccount = accounts.find((a) => a.id === selectedAccountIds[0]);
-      const { hashtags } = await api.suggestHashtags(content.trim(), firstAccount?.platform);
+      const { hashtags } = await api.suggestHashtags(content.trim(), firstAccount?.platform, firstAccount?.id);
       if (hashtags.length > 0) {
         setContent((prev) => `${prev.trim()}\n\n${hashtags.join(" ")}`);
       }
@@ -1734,6 +1762,23 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSavingBusinessName(false);
+    }
+  }
+
+  /** Saves the default AI-caption/hashtag voice — used whenever the account
+   *  being composed for isn't linked to a brand with its own override (see
+   *  the Brands manager on the Social Platforms tab for that). */
+  async function handleSaveVoiceProfile(e: FormEvent) {
+    e.preventDefault();
+    setSavingVoiceProfile(true);
+    setError(null);
+    try {
+      const updated = await api.setVoiceProfile(voiceProfileInput.trim() || null);
+      setAccount(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingVoiceProfile(false);
     }
   }
 
@@ -2762,19 +2807,43 @@ export function Dashboard() {
                 </p>
                 {brands.length > 0 && (
                   <ul className="brands-list">
-                    {brands.map((b) => (
-                      <li key={b.id}>
-                        {b.name}
-                        <button
-                          type="button"
-                          className="btn-outline"
-                          disabled={brandBusy}
-                          onClick={() => handleDeleteBrand(b.id)}
-                        >
-                          Delete
-                        </button>
-                      </li>
-                    ))}
+                    {brands.map((b) => {
+                      const voiceDraft = brandVoiceDrafts[b.id] ?? b.voice_profile ?? "";
+                      const voiceDirty = voiceDraft !== (b.voice_profile ?? "");
+                      return (
+                        <li key={b.id} className="brands-list-item">
+                          <div className="brands-list-item-header">
+                            {b.name}
+                            <button
+                              type="button"
+                              className="btn-outline"
+                              disabled={brandBusy}
+                              onClick={() => handleDeleteBrand(b.id)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                          <textarea
+                            className="brand-voice-input"
+                            value={voiceDraft}
+                            onChange={(e) => setBrandVoiceDrafts((prev) => ({ ...prev, [b.id]: e.target.value }))}
+                            placeholder="Voice override for this brand — leave blank to use your account's default"
+                            maxLength={2000}
+                            rows={2}
+                          />
+                          {voiceDirty && (
+                            <button
+                              type="button"
+                              className="btn-outline"
+                              disabled={brandVoiceBusyId === b.id}
+                              onClick={() => handleSaveBrandVoice(b)}
+                            >
+                              {brandVoiceBusyId === b.id ? "Saving..." : "Save voice"}
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
                 <div className="brands-new">
@@ -4011,6 +4080,25 @@ export function Dashboard() {
           </label>
           <button type="submit" disabled={savingBusinessName}>
             {savingBusinessName ? "Saving..." : "Save"}
+          </button>
+        </form>
+        <form onSubmit={handleSaveVoiceProfile} className="account-name-form">
+          <label>
+            Brand voice (default)
+            <textarea
+              value={voiceProfileInput}
+              onChange={(e) => setVoiceProfileInput(e.target.value)}
+              placeholder="e.g. Casual and funny, short sentences, lots of emoji, talks directly to the reader as 'you'"
+              maxLength={2000}
+              rows={3}
+            />
+          </label>
+          <p className="section-note">
+            Used by AI captions and hashtag suggestions. Running multiple brands? Set a different voice per brand in
+            the Brands manager on the Social Platforms tab — that overrides this default for accounts in that brand.
+          </p>
+          <button type="submit" disabled={savingVoiceProfile}>
+            {savingVoiceProfile ? "Saving..." : "Save"}
           </button>
         </form>
       </section>
