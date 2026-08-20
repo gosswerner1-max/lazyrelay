@@ -1,3 +1,31 @@
+/* Auth-link error banner (2026-08-20) — shown when an expired/invalid
+   Supabase auth link (confirm-signup, magic link, invite) redirects back
+   here with error details in the URL hash. Found live: without this, that
+   case silently showed the plain landing page under a broken-looking URL,
+   no explanation at all. */
+.auth-hash-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: var(--error-bg);
+  color: var(--error);
+  font-size: 14px;
+  text-align: center;
+}
+
+.auth-hash-error-banner button {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
 /* Brand lockup */
 .wordmark {
   display: inline-flex;

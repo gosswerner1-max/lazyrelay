@@ -67,6 +67,25 @@ const VIEW_TO_PATH: Partial<Record<View, string>> = {
   signup: "/signup",
 };
 
+// Supabase redirects an expired/invalid/already-used auth link (email
+// confirm, magic link, invite) back to the Site URL with error details in
+// the URL *hash*, not a query string — found live 2026-08-20 when an old
+// confirmation link landed on lazyrelay.com showing
+// "#error=access_denied&error_code=otp_expired&..." with nothing on screen
+// explaining it, just the plain landing page under a broken-looking URL.
+// Read once at module-evaluation time for the same reason INITIAL_PATH is.
+function parseAuthHashError(): { code: string; description: string } | null {
+  if (!window.location.hash.includes("error=")) return null;
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const error = params.get("error");
+  if (!error) return null;
+  return {
+    code: params.get("error_code") ?? error,
+    description: (params.get("error_description") ?? "That link didn't work.").replace(/\+/g, " "),
+  };
+}
+const INITIAL_AUTH_HASH_ERROR = parseAuthHashError();
+
 function Root() {
   const { session, loading } = useAuth();
   const [view, setView] = useState<View>(() => PATH_TO_VIEW[window.location.pathname] ?? "landing");
@@ -76,6 +95,16 @@ function Root() {
   // PASSWORD_RECOVERY auth event is the only reliable signal regardless of
   // where the link actually lands.
   const [resetMode, setResetMode] = useState(window.location.pathname === "/reset-password");
+  const [authHashError, setAuthHashError] = useState(INITIAL_AUTH_HASH_ERROR);
+
+  // Strips the error hash out of the URL bar once read, so it doesn't sit
+  // there looking broken (or get re-parsed as a "new" error on a later
+  // re-render) — same one-time-read intent as INITIAL_PATH/INITIAL_AUTH_HASH_ERROR.
+  useEffect(() => {
+    if (authHashError) {
+      window.history.replaceState({}, "", window.location.pathname + window.location.search);
+    }
+  }, []);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
@@ -249,22 +278,46 @@ function Root() {
     return <ForgotPassword onBack={() => setView("signin")} />;
   }
 
+  // The only two views a stray auth-error hash can realistically land on —
+  // any other branch above returns before reaching here, and none of them
+  // are where an email link would ever point.
+  const authErrorBanner = authHashError && (
+    <div className="auth-hash-error-banner">
+      <span>
+        {authHashError.code === "otp_expired"
+          ? "That link has expired. Please sign up again to get a new confirmation email."
+          : `That link didn't work (${authHashError.description}). Please try again, or contact support if it keeps happening.`}
+      </span>
+      <button type="button" onClick={() => setAuthHashError(null)} aria-label="Dismiss">
+        &times;
+      </button>
+    </div>
+  );
+
   if (view === "landing") {
     return (
-      <Landing
-        onSignIn={() => setView("signin")}
-        onGetStarted={() => setView("signup")}
-        onPrivacy={() => setView("privacy")}
-        onTerms={() => setView("terms")}
-        onDpa={() => setView("dpa")}
-        onContact={() => setView("contact")}
-        onDocs={() => setView("docs")}
-        scrollToPricing={INITIAL_PATH === "/pricing"}
-      />
+      <>
+        {authErrorBanner}
+        <Landing
+          onSignIn={() => setView("signin")}
+          onGetStarted={() => setView("signup")}
+          onPrivacy={() => setView("privacy")}
+          onTerms={() => setView("terms")}
+          onDpa={() => setView("dpa")}
+          onContact={() => setView("contact")}
+          onDocs={() => setView("docs")}
+          scrollToPricing={INITIAL_PATH === "/pricing"}
+        />
+      </>
     );
   }
 
-  return <Login initialMode={view} onBack={() => setView("landing")} onForgotPassword={() => setView("forgot-password")} />;
+  return (
+    <>
+      {authErrorBanner}
+      <Login initialMode={view} onBack={() => setView("landing")} onForgotPassword={() => setView("forgot-password")} />
+    </>
+  );
 }
 
 function App() {
