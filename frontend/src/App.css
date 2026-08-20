@@ -1531,7 +1531,7 @@
 }
 
 .calendar-cell {
-  min-height: 76px;
+  min-height: 44px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -1576,43 +1576,49 @@
   width: 100%;
 }
 
-.calendar-event-chip {
+/* Compact week-row view (2026-08-20) — a full-width line per post,
+   colored by a left border rather than a pill background, so a day with
+   several posts reads as a short list (closer to a real weekly planner)
+   instead of a cluster of chips. Cell height is intentionally NOT capped:
+   CSS grid already matches every cell in a row to its tallest sibling, so
+   a busy day naturally grows its whole week row — the same "week row
+   expands to fit its busiest day" behavior the SocialBee reference has,
+   for free, with no extra layout code. */
+.calendar-event-row {
   display: block;
   width: 100%;
-  padding: 1px 5px;
-  border-radius: 4px;
-  font-size: 10px;
+  padding: 2px 6px;
+  border-left: 3px solid var(--line);
+  font-size: 11px;
   line-height: 1.5;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: left;
+  color: var(--ink);
 }
 
-.calendar-event-chip-pending,
-.calendar-event-chip-posting {
-  background: var(--signal-bg);
-  color: var(--signal);
+.calendar-event-row-pending,
+.calendar-event-row-posting {
+  border-left-color: var(--signal);
 }
 
-.calendar-event-chip-posted {
-  background: #e3f5ea;
-  color: #217a45;
+.calendar-event-row-posted {
+  border-left-color: #2e9e5b;
 }
 
-.calendar-event-chip-failed {
-  background: #fbe7e6;
-  color: #b8352f;
+.calendar-event-row-failed {
+  border-left-color: #d9534f;
 }
 
-.calendar-event-chip-needs_approval {
-  background: #fbf0dc;
-  color: #93650f;
+.calendar-event-row-needs_approval {
+  border-left-color: #e0a02c;
 }
 
-.calendar-event-chip-draft {
-  background: var(--line);
+.calendar-event-row-draft {
+  border-left-color: var(--line);
   color: var(--ink-muted, var(--ink));
+  font-style: italic;
 }
 
 .calendar-cell-more {

@@ -3427,17 +3427,18 @@ export function Dashboard() {
         const dayPosts = selectedDay ? (postsByDay[selectedDay] ?? []) : [];
         const dayPlans = selectedDay ? (plansByDay[selectedDay] ?? []) : [];
 
-        // Short label for a day cell's event chip — a real scheduled post
-        // shows its time + platform (the two things that actually
-        // distinguish same-day posts from each other); a planned idea has
-        // neither yet, so it shows a content snippet instead.
-        function eventChipLabel(p: ScheduledPost): string {
-          if (p.status === "draft") {
-            return p.content.length > 18 ? `${p.content.slice(0, 18)}…` : p.content;
-          }
+        // One line per post/planned-item in the compact week-row view —
+        // Werner's own reference (a competitor's "Compact view") shows
+        // time + platform + a content snippet per line, not an abstract
+        // chip, so a real scheduled post reads as "9:00 instagram —
+        // launch teaser" and a planned idea (no time/platform yet) reads
+        // as "Idea — launch teaser".
+        function eventLineLabel(p: ScheduledPost): string {
+          const snippet = p.content.length > 22 ? `${p.content.slice(0, 22)}…` : p.content;
+          if (p.status === "draft") return `Idea — ${snippet}`;
           const account = accounts.find((a) => a.id === p.social_account_id);
           const time = p.scheduled_for ? new Date(p.scheduled_for).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : "";
-          return [time, account?.platform].filter(Boolean).join(" ");
+          return [time, account?.platform].filter(Boolean).join(" ") + ` — ${snippet}`;
         }
 
         return (
@@ -3488,12 +3489,12 @@ export function Dashboard() {
                       (() => {
                         const dayItems = [...(postsByDay[c.key] ?? []), ...(plansByDay[c.key] ?? [])];
                         if (dayItems.length === 0) return null;
-                        const shown = dayItems.slice(0, 3);
+                        const shown = dayItems.slice(0, 5);
                         return (
                           <span className="calendar-cell-events">
                             {shown.map((p) => (
-                              <span key={p.id} className={`calendar-event-chip calendar-event-chip-${p.status}`}>
-                                {eventChipLabel(p)}
+                              <span key={p.id} className={`calendar-event-row calendar-event-row-${p.status}`}>
+                                {eventLineLabel(p)}
                               </span>
                             ))}
                             {dayItems.length > shown.length && (
