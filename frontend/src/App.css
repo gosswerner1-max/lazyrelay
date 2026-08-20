@@ -771,37 +771,6 @@
   margin: 0 0 20px;
 }
 
-.analytics-summary-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.analytics-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--paper);
-}
-
-.analytics-card-value {
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-
-.analytics-card-label {
-  font-size: 12px;
-  color: var(--wire);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
 .analytics-table {
   width: 100%;
   border-collapse: collapse;
@@ -825,46 +794,6 @@
   font-weight: 600;
 }
 
-.analytics-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  height: 140px;
-  padding-top: 12px;
-  overflow-x: auto;
-}
-
-.analytics-bar-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  height: 100%;
-  min-width: 22px;
-  flex-shrink: 0;
-}
-
-.analytics-bar {
-  width: 14px;
-  min-height: 2px;
-  border-radius: 3px 3px 0 0;
-  background: var(--signal);
-}
-
-.analytics-bar-label {
-  font-size: 10px;
-  color: var(--wire);
-  white-space: nowrap;
-}
-
-.analytics-bar-value {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-
 /* Wraps any wide table (by-platform, CSV preview) in its own horizontal
    scroller instead of letting the table's own width:100% force its
    columns to compress on a narrow viewport — same pattern already used
@@ -886,17 +815,29 @@
 .chart-stat-tile {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  gap: 6px;
+  padding: 18px;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.chart-stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  margin-bottom: 2px;
 }
 
 .chart-stat-value {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 .chart-stat-label {
@@ -907,16 +848,22 @@
 }
 
 .chart-stat-delta {
-  font-size: 12px;
-  font-weight: 600;
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .chart-stat-delta-good {
   color: var(--confirm);
+  background: color-mix(in srgb, var(--confirm) 14%, transparent);
 }
 
 .chart-stat-delta-bad {
   color: var(--error);
+  background: color-mix(in srgb, var(--error) 14%, transparent);
 }
 
 .chart-meter {
@@ -1069,15 +1016,15 @@
 }
 
 .chart-platform-bar-track {
-  height: 20px;
-  border-radius: 5px;
+  height: 22px;
+  border-radius: 999px;
   background: var(--paper);
   overflow: hidden;
 }
 
 .chart-platform-bar-fill {
   height: 100%;
-  border-radius: 5px;
+  border-radius: 999px;
   transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -1118,14 +1065,23 @@
 }
 
 .chart-trend-area {
-  fill: var(--signal);
-  opacity: 0.1;
+  stroke: none;
+}
+
+.chart-trend-gradient-start {
+  stop-color: var(--signal);
+  stop-opacity: 0.32;
+}
+
+.chart-trend-gradient-end {
+  stop-color: var(--signal);
+  stop-opacity: 0;
 }
 
 .chart-trend-line-path {
   fill: none;
   stroke: var(--signal);
-  stroke-width: 2;
+  stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -1183,8 +1139,21 @@
   font-size: 11px;
 }
 
+.chart-sparkline {
+  display: block;
+  overflow: visible;
+}
+
 .chart-section {
-  margin-bottom: 28px;
+  margin-bottom: 20px;
+  padding: 20px;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.chart-section > *:last-child {
+  margin-bottom: 0;
 }
 
 .chart-section h3 {
@@ -1192,7 +1161,7 @@
   color: var(--wire);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  margin: 0 0 10px;
+  margin: 0 0 14px;
 }
 
 .best-time-hints {

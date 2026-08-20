@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { PlatformIcon, BRAND_COLORS } from "./PlatformIcon";
 import type { AnalyticsSummary } from "../lib/api";
 import { Spinner } from "./Spinner";
@@ -66,11 +66,91 @@ function niceCeiling(value: number): number {
   return 10 * magnitude;
 }
 
+// Catmull-Rom → cubic-Bezier smoothing (tension 1/6, the standard value) —
+// turns a straight-segment polyline into a smooth curve through the same
+// points, no external charting library needed for it.
+function smoothPath(points: { x: number; y: number }[]): string {
+  if (points.length < 3) {
+    return points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
+  }
+  let d = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] ?? points[i];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2] ?? p2;
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${cp1x.toFixed(2)} ${cp1y.toFixed(2)}, ${cp2x.toFixed(2)} ${cp2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
+  }
+  return d;
+}
+
 export function formatCompact(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return String(n);
 }
+
+// ---------------------------------------------------------------------------
+// KPI tile icons — small stroke-based glyphs (matches NotificationBell's
+// convention: currentColor, thin strokes), one per stat kind. Not a full
+// icon library — just the handful the KPI row actually needs.
+// ---------------------------------------------------------------------------
+
+function IconPosts({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <line x1="8" y1="8" x2="16" y2="8" />
+      <line x1="8" y1="12" x2="16" y2="12" />
+      <line x1="8" y1="16" x2="13" y2="16" />
+    </svg>
+  );
+}
+
+function IconCheck({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 12.5l2.5 2.5L16 9.5" />
+    </svg>
+  );
+}
+
+function IconAlert({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <line x1="12" y1="8" x2="12" y2="13" />
+      <line x1="12" y1="16" x2="12" y2="16.01" />
+    </svg>
+  );
+}
+
+function IconSpark({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l1.8 5.6L19 10.5l-5.2 1.9L12 18l-1.8-5.6L5 10.5l5.2-1.9L12 3z" />
+    </svg>
+  );
+}
+
+function IconUsers({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
+      <path d="M16 8.2c1.4.3 2.5 1.5 2.5 3s-1.1 2.7-2.5 3" />
+      <path d="M19 19c0-2.3-1.5-4.1-3.5-4.8" />
+    </svg>
+  );
+}
+
+export const StatIcons = { posts: IconPosts, check: IconCheck, alert: IconAlert, spark: IconSpark, users: IconUsers };
+export type StatIconKind = keyof typeof StatIcons;
 
 // ---------------------------------------------------------------------------
 // Stat tile / KPI row
@@ -80,13 +160,25 @@ export function StatTile({
   label,
   value,
   delta,
+  icon,
+  accent = "#8b93a1",
 }: {
   label: string;
   value: string;
   delta?: { text: string; good: boolean };
+  icon?: StatIconKind;
+  /** Hex color for the icon badge — a literal hex (not a CSS var) since the
+   *  badge background is derived from it via alpha suffix (`${accent}22`). */
+  accent?: string;
 }) {
+  const Icon = icon ? StatIcons[icon] : null;
   return (
     <div className="chart-stat-tile">
+      {Icon && (
+        <span className="chart-stat-icon" style={{ background: `${accent}22`, color: accent }}>
+          <Icon size={16} />
+        </span>
+      )}
       <span className="chart-stat-value">{value}</span>
       <span className="chart-stat-label">{label}</span>
       {delta && (
@@ -275,6 +367,7 @@ export function PlatformBarChart({ data }: { data: { platform: string; total: nu
 
 export function TrendLine({ data }: { data: { day: string; count: number }[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const gradientId = useId();
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [reduceMotion, setReduceMotion] = useState(
     () => window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -304,7 +397,7 @@ export function TrendLine({ data }: { data: { day: string; count: number }[] }) 
     ...d,
   }));
 
-  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
+  const linePath = smoothPath(points);
   const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(2)} ${height} L ${points[0].x.toFixed(2)} ${height} Z`;
 
   function handleMove(e: React.PointerEvent<SVGSVGElement>) {
@@ -336,6 +429,12 @@ export function TrendLine({ data }: { data: { day: string; count: number }[] }) 
         role="img"
         aria-label={`Daily post volume, ${data[0].day} to ${data[data.length - 1].day}`}
       >
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" className="chart-trend-gradient-start" />
+            <stop offset="100%" className="chart-trend-gradient-end" />
+          </linearGradient>
+        </defs>
         {/* recessive gridlines + their y-axis value labels — a reader
             shouldn't have to hover to know whether "the peak" means 8 or 80 */}
         {[0, 0.5, 1].map((f) => {
@@ -350,7 +449,7 @@ export function TrendLine({ data }: { data: { day: string; count: number }[] }) 
             </g>
           );
         })}
-        <path d={areaPath} className="chart-trend-area" />
+        <path d={areaPath} className="chart-trend-area" fill={`url(#${gradientId})`} />
         <path d={linePath} className={`chart-trend-line-path${reduceMotion ? "" : " chart-trend-line-animated"}`} />
         {hovered && (
           <>
@@ -377,6 +476,46 @@ export function TrendLine({ data }: { data: { day: string; count: number }[] }) 
         </div>
       )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sparkline — a compact, non-interactive trend line for a value inline in a
+// table row or small card (e.g. one platform's follower count over time).
+// No axes/gridlines/tooltip — the exact numbers already sit next to it.
+// ---------------------------------------------------------------------------
+
+export function Sparkline({ data, color = "#8b93a1" }: { data: { value: number }[]; color?: string }) {
+  const gradientId = useId();
+  if (data.length < 2) return null;
+
+  const width = 120;
+  const height = 32;
+  const pad = 3;
+  const min = Math.min(...data.map((d) => d.value));
+  const max = Math.max(...data.map((d) => d.value));
+  const range = max - min || 1;
+  const stepX = (width - pad * 2) / (data.length - 1);
+
+  const points = data.map((d, i) => ({
+    x: pad + i * stepX,
+    y: pad + (1 - (d.value - min) / range) * (height - pad * 2),
+  }));
+  const linePath = smoothPath(points);
+  const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(2)} ${height} L ${points[0].x.toFixed(2)} ${height} Z`;
+
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="chart-sparkline" role="img" aria-label="Trend over time">
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
+      <path d={linePath} fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={points[points.length - 1].x} cy={points[points.length - 1].y} r="2.5" fill={color} />
+    </svg>
   );
 }
 
@@ -410,15 +549,19 @@ export function OverviewPanel({ analytics, loading }: { analytics: AnalyticsSumm
             const totalEngagement = platformsWithData.reduce((sum, e) => sum + e.likes + e.comments + e.shares, 0);
             return (
               <KpiRow>
-                <StatTile label="Total posts" value={formatCompact(analytics.totalPosts)} />
-                <StatTile label="Failed" value={formatCompact(analytics.byStatus.failed ?? 0)} />
+                <StatTile label="Total posts" value={formatCompact(analytics.totalPosts)} icon="posts" accent="#3b82f6" />
+                <StatTile label="Failed" value={formatCompact(analytics.byStatus.failed ?? 0)} icon="alert" accent="#f97316" />
                 <StatTile
                   label="Verified live"
                   value={analytics.verifiedLiveRate === null ? "—" : `${Math.round(analytics.verifiedLiveRate * 100)}%`}
+                  icon="check"
+                  accent="#16a34a"
                 />
                 <StatTile
                   label="Total engagement"
                   value={platformsWithData.length > 0 ? formatCompact(totalEngagement) : "—"}
+                  icon="spark"
+                  accent="#8b5cf6"
                 />
               </KpiRow>
             );
