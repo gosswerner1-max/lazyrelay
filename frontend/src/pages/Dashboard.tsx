@@ -230,6 +230,7 @@ export function Dashboard() {
   const [creatingKey, setCreatingKey] = useState(false);
   const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null);
   const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
+  const [showRevokedKeys, setShowRevokedKeys] = useState(false);
   const [oauthGrants, setOauthGrants] = useState<OAuthGrant[]>([]);
   const [oauthGrantsLoading, setOauthGrantsLoading] = useState(true);
   const [team, setTeam] = useState<TeamMember[]>([]);
@@ -4150,34 +4151,61 @@ export function Dashboard() {
         {apiKeys.length === 0 ? (
           <p className="empty">No API keys yet.</p>
         ) : (
-          <ul className="media-list">
-            {apiKeys.map((k) => (
-              <li key={k.id}>
-                <span className="media-list-meta">
-                  <strong>{k.name}</strong>: {k.key_prefix}...
-                  {k.revoked_at ? (
-                    <span className="status-badge status-cancelled">revoked</span>
+          <>
+            {(() => {
+              const activeKeys = apiKeys.filter((k) => !k.revoked_at);
+              const revokedKeys = apiKeys.filter((k) => k.revoked_at);
+              return (
+                <>
+                  {activeKeys.length === 0 ? (
+                    <p className="empty">No active API keys.</p>
                   ) : (
-                    <span className="status-badge status-active">
-                      {k.last_used_at ? `last used ${new Date(k.last_used_at).toLocaleDateString()}` : "never used"}
-                    </span>
+                    <ul className="media-list">
+                      {activeKeys.map((k) => (
+                        <li key={k.id}>
+                          <span className="media-list-meta">
+                            <strong>{k.name}</strong>: {k.key_prefix}...
+                            <span className="status-badge status-active">
+                              {k.last_used_at ? `last used ${new Date(k.last_used_at).toLocaleDateString()}` : "never used"}
+                            </span>
+                            {k.can_share_proof && (
+                              <span className="status-badge status-active">can share proof links</span>
+                            )}
+                          </span>
+                          <button
+                            className="btn-outline"
+                            onClick={() => handleRevokeApiKey(k.id)}
+                            disabled={revokingKeyId !== null}
+                          >
+                            {revokingKeyId === k.id ? "Revoking..." : "Revoke"}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                   )}
-                  {k.can_share_proof && !k.revoked_at && (
-                    <span className="status-badge status-active">can share proof links</span>
+                  {revokedKeys.length > 0 && (
+                    <>
+                      <button type="button" className="link-button" onClick={() => setShowRevokedKeys((v) => !v)}>
+                        {showRevokedKeys ? "Hide" : "Show"} {revokedKeys.length} revoked key{revokedKeys.length === 1 ? "" : "s"}
+                      </button>
+                      {showRevokedKeys && (
+                        <ul className="media-list">
+                          {revokedKeys.map((k) => (
+                            <li key={k.id}>
+                              <span className="media-list-meta">
+                                <strong>{k.name}</strong>: {k.key_prefix}...
+                                <span className="status-badge status-cancelled">revoked</span>
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
                   )}
-                </span>
-                {!k.revoked_at && (
-                  <button
-                    className="btn-outline"
-                    onClick={() => handleRevokeApiKey(k.id)}
-                    disabled={revokingKeyId !== null}
-                  >
-                    {revokingKeyId === k.id ? "Revoking..." : "Revoke"}
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
+                </>
+              );
+            })()}
+          </>
         )}
       </section>
       )}
