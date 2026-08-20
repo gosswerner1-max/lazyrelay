@@ -3427,6 +3427,19 @@ export function Dashboard() {
         const dayPosts = selectedDay ? (postsByDay[selectedDay] ?? []) : [];
         const dayPlans = selectedDay ? (plansByDay[selectedDay] ?? []) : [];
 
+        // Short label for a day cell's event chip — a real scheduled post
+        // shows its time + platform (the two things that actually
+        // distinguish same-day posts from each other); a planned idea has
+        // neither yet, so it shows a content snippet instead.
+        function eventChipLabel(p: ScheduledPost): string {
+          if (p.status === "draft") {
+            return p.content.length > 18 ? `${p.content.slice(0, 18)}…` : p.content;
+          }
+          const account = accounts.find((a) => a.id === p.social_account_id);
+          const time = p.scheduled_for ? new Date(p.scheduled_for).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : "";
+          return [time, account?.platform].filter(Boolean).join(" ");
+        }
+
         return (
           <section>
             <div className="calendar-header">
@@ -3475,12 +3488,17 @@ export function Dashboard() {
                       (() => {
                         const dayItems = [...(postsByDay[c.key] ?? []), ...(plansByDay[c.key] ?? [])];
                         if (dayItems.length === 0) return null;
+                        const shown = dayItems.slice(0, 3);
                         return (
-                          <span className="calendar-cell-dots">
-                            {dayItems.slice(0, 4).map((p) => (
-                              <span key={p.id} className={`calendar-dot calendar-dot-${p.status}`} />
+                          <span className="calendar-cell-events">
+                            {shown.map((p) => (
+                              <span key={p.id} className={`calendar-event-chip calendar-event-chip-${p.status}`}>
+                                {eventChipLabel(p)}
+                              </span>
                             ))}
-                            {dayItems.length > 4 && <span className="calendar-cell-more">+{dayItems.length - 4}</span>}
+                            {dayItems.length > shown.length && (
+                              <span className="calendar-cell-more">+{dayItems.length - shown.length} more</span>
+                            )}
                           </span>
                         );
                       })()}
