@@ -212,7 +212,7 @@
 }
 
 .dashboard {
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 32px 20px 80px;
 }
@@ -1557,29 +1557,30 @@
 .calendar-timeblock-header,
 .calendar-timeblock-row {
   display: grid;
-  grid-template-columns: 56px repeat(7, minmax(0, 1fr));
-  gap: 4px;
+  grid-template-columns: 64px repeat(7, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .calendar-timeblock-row {
+  min-height: 52px;
   border-top: 1px solid var(--line);
 }
 
 .calendar-timeblock-time-col {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--wire);
-  padding: 6px 4px 6px 0;
+  padding: 8px 4px 8px 0;
   text-align: right;
 }
 
 .calendar-timeblock-day-header {
   text-align: center;
-  padding-bottom: 6px;
+  padding-bottom: 8px;
 }
 
 .calendar-timeblock-day-name {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1588,7 +1589,7 @@
 
 .calendar-timeblock-day-num {
   display: block;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
 }
 
@@ -1599,34 +1600,34 @@
 .calendar-timeblock-cell {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 4px 0;
+  gap: 3px;
+  padding: 8px 0;
   min-width: 0;
 }
 
 .calendar-weekday {
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--wire);
-  padding-bottom: 6px;
+  padding-bottom: 8px;
 }
 
 .calendar-cell {
-  min-height: 44px;
+  min-height: 56px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
-  gap: 3px;
-  padding: 6px;
+  gap: 4px;
+  padding: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
   color: var(--ink);
-  font-size: 13px;
+  font-size: 14px;
   text-align: left;
 }
 
@@ -1671,9 +1672,9 @@
 .calendar-event-row {
   display: block;
   width: 100%;
-  padding: 2px 6px;
+  padding: 3px 7px;
   border-left: 3px solid var(--line);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
   white-space: nowrap;
   overflow: hidden;

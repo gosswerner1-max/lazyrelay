@@ -3445,7 +3445,11 @@ export function Dashboard() {
         // launch teaser" and a planned idea (no time/platform yet) reads
         // as "Idea — launch teaser".
         function eventLineLabel(p: ScheduledPost): string {
-          const snippet = p.content.length > 22 ? `${p.content.slice(0, 22)}…` : p.content;
+          // Dashboard widened (720px -> 960px) and cells grew alongside it
+          // (2026-08-20, Werner's "make this bigger") — more room per line
+          // now, so a longer snippet still fits without re-triggering the
+          // grid-overflow bug (still guarded separately by minmax(0, 1fr)).
+          const snippet = p.content.length > 34 ? `${p.content.slice(0, 34)}…` : p.content;
           if (p.status === "draft") return `Idea — ${snippet}`;
           const account = accounts.find((a) => a.id === p.social_account_id);
           const time = p.scheduled_for ? new Date(p.scheduled_for).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : "";
@@ -3515,19 +3519,25 @@ export function Dashboard() {
               </button>
             </div>
             <div className="calendar-view-toggle">
+              {/* Internal state values (compact/calendar) are unchanged —
+                  only the customer-facing labels swapped, per Werner's own
+                  mental model: "Calendar view" for the familiar month grid,
+                  "Week view" for the time-block week grid. Renaming the
+                  state itself risked missing a reference somewhere; this
+                  doesn't. */}
               <button
                 type="button"
                 className={calendarViewMode === "compact" ? "calendar-view-toggle-active" : ""}
                 onClick={() => setCalendarViewMode("compact")}
               >
-                Compact view
+                Calendar view
               </button>
               <button
                 type="button"
                 className={calendarViewMode === "calendar" ? "calendar-view-toggle-active" : ""}
                 onClick={() => setCalendarViewMode("calendar")}
               >
-                Calendar view
+                Week view
               </button>
             </div>
             <BrandFilterSelect accounts={accounts} value={brandFilter} onChange={setBrandFilter} />
