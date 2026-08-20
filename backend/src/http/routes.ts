@@ -2793,6 +2793,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     const byStatus: Record<string, number> = {};
     const byPlatform: Record<string, { total: number; posted: number; failed: number; verifiedLive: number }> = {};
     const dailyCounts: Record<string, number> = {};
+    // Per-platform breakdown of the same daily counts above (2026-08-20) —
+    // additive, same loop, same `day`/`platformKey` already computed below,
+    // so this costs nothing extra to accumulate.
+    const dailyCountsByPlatform: Record<string, Record<string, number>> = {};
     let verifiedLiveCount = 0;
     let postedCount = 0;
 
@@ -2833,6 +2837,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
       const day = row.scheduled_for.slice(0, 10);
       dailyCounts[day] = (dailyCounts[day] ?? 0) + 1;
+      dailyCountsByPlatform[platformKey] ??= {};
+      dailyCountsByPlatform[platformKey][day] = (dailyCountsByPlatform[platformKey][day] ?? 0) + 1;
 
       type MetricRow = { checkpoint: string; likes: number | null; comments: number | null; shares: number | null; views: number | null };
       const metricRows: MetricRow[] = Array.isArray(row.post_metrics) ? row.post_metrics : row.post_metrics ? [row.post_metrics] : [];
@@ -2855,6 +2861,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       byStatus,
       byPlatform,
       dailyCounts,
+      dailyCountsByPlatform,
       verifiedLiveRate: postedCount > 0 ? verifiedLiveCount / postedCount : null,
       engagement,
       dmCount,

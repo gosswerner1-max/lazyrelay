@@ -18,7 +18,7 @@ import { DayOfWeekPicker } from "../components/DayOfWeekPicker";
 import { formatBytes } from "../lib/format";
 import { bestTimeFor } from "../lib/bestTimes";
 import { Spinner } from "../components/Spinner";
-import { OverviewPanel, KpiRow, StatTile, TrendLine, PlatformBarChart, Sparkline, formatCompact } from "../components/Charts";
+import { OverviewPanel, KpiRow, StatTile, TrendLine, MultiTrendLine, PlatformBarChart, Sparkline, formatCompact } from "../components/Charts";
 import { CircuitBackground } from "../components/CircuitBackground";
 import { SupportWidget } from "../components/SupportWidget";
 import { PostErrorDetail } from "../components/PostErrorDetail";
@@ -2188,11 +2188,15 @@ export function Dashboard() {
 
             <div className="chart-section">
               <h3>Daily volume</h3>
-              <TrendLine
-                data={Object.entries(analytics.dailyCounts)
-                  .sort((a, b) => a[0].localeCompare(b[0]))
-                  .map(([day, count]) => ({ day, count }))}
-              />
+              {analytics.dailyCountsByPlatform && Object.keys(analytics.dailyCountsByPlatform).length > 0 ? (
+                <MultiTrendLine countsByPlatform={analytics.dailyCountsByPlatform} />
+              ) : (
+                <TrendLine
+                  data={Object.entries(analytics.dailyCounts)
+                    .sort((a, b) => a[0].localeCompare(b[0]))
+                    .map(([day, count]) => ({ day, count }))}
+                />
+              )}
             </div>
 
             <div className="chart-section">

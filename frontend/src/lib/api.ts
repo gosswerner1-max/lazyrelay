@@ -219,6 +219,9 @@ export interface AnalyticsSummary {
   byStatus: Record<string, number>;
   byPlatform: Record<string, { total: number; posted: number; failed: number; verifiedLive: number }>;
   dailyCounts: Record<string, number>;
+  // Per-platform breakdown of dailyCounts above (2026-08-20) — platform ->
+  // day -> count, for the multi-line "one color per platform" chart.
+  dailyCountsByPlatform?: Record<string, Record<string, number>>;
   verifiedLiveRate: number | null;
   dmCount?: number;
   accountsConnected?: number;

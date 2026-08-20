@@ -480,6 +480,150 @@ export function TrendLine({ data }: { data: { day: string; count: number }[] }) 
 }
 
 // ---------------------------------------------------------------------------
+// Multi-series trend line — one colored line per platform sharing one day
+// axis, for "how does daily volume break down by platform" (2026-08-20,
+// Werner's own ask after the single combined-total line). Real brand colors,
+// a legend, and a combined tooltip listing every platform's value for the
+// hovered day at once, matching the reference reporting dashboards he sent.
+// ---------------------------------------------------------------------------
+
+export function MultiTrendLine({ countsByPlatform }: { countsByPlatform: Record<string, Record<string, number>> }) {
+  const dark = usePrefersDark();
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [reduceMotion, setReduceMotion] = useState(
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onChange = () => setReduceMotion(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  const platforms = resolveColorCollisions(
+    Object.keys(countsByPlatform)
+      .map((platform) => ({ platform, total: Object.values(countsByPlatform[platform]).reduce((a, b) => a + b, 0) }))
+      .sort((a, b) => b.total - a.total)
+  );
+
+  // One shared day axis, unioned across every platform — a platform with no
+  // post on a given day is a real 0 on that day, not an absent point, so
+  // every line spans the same x-range instead of drifting independently.
+  const allDays = [...new Set(platforms.flatMap((p) => Object.keys(countsByPlatform[p.platform])))].sort((a, b) =>
+    a.localeCompare(b)
+  );
+
+  if (allDays.length === 0 || platforms.length === 0) return null;
+
+  const width = 640;
+  const height = 200;
+  const padY = 16;
+  const padXLeft = 34;
+  const plotWidth = width - padXLeft;
+  const rawMax = Math.max(...platforms.flatMap((p) => allDays.map((d) => countsByPlatform[p.platform][d] ?? 0)), 1);
+  const max = niceCeiling(rawMax);
+  const stepX = allDays.length > 1 ? plotWidth / (allDays.length - 1) : 0;
+
+  const xAt = (i: number) => padXLeft + (allDays.length > 1 ? i * stepX : plotWidth / 2);
+  const yAt = (count: number) => padY + (1 - count / max) * (height - padY * 2);
+
+  const series = platforms.map((p) => {
+    const color = barColor(p.platform, dark);
+    const points = allDays.map((day, i) => ({ x: xAt(i), y: yAt(countsByPlatform[p.platform][day] ?? 0), count: countsByPlatform[p.platform][day] ?? 0 }));
+    return { platform: p.platform, color, points };
+  });
+
+  function handleMove(e: React.PointerEvent<SVGSVGElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relX = ((e.clientX - rect.left) / rect.width) * width;
+    let nearest = 0;
+    let nearestDist = Infinity;
+    allDays.forEach((_, i) => {
+      const dist = Math.abs(xAt(i) - relX);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = i;
+      }
+    });
+    setHoverIndex(nearest);
+  }
+
+  return (
+    <div className="chart-trend-line">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        className="chart-trend-svg"
+        onPointerMove={handleMove}
+        onPointerLeave={() => setHoverIndex(null)}
+        role="img"
+        aria-label={`Daily post volume by platform, ${allDays[0]} to ${allDays[allDays.length - 1]}`}
+      >
+        {[0, 0.5, 1].map((f) => {
+          const y = padY + f * (height - padY * 2);
+          const value = Math.round(max * (1 - f));
+          return (
+            <g key={f}>
+              <line x1={padXLeft} x2={width} y1={y} y2={y} className="chart-trend-gridline" />
+              <text x={padXLeft - 8} y={y} textAnchor="end" dominantBaseline="middle" className="chart-trend-axis-label">
+                {value}
+              </text>
+            </g>
+          );
+        })}
+        {hoverIndex !== null && (
+          <line x1={xAt(hoverIndex)} x2={xAt(hoverIndex)} y1={0} y2={height} className="chart-trend-crosshair" />
+        )}
+        {series.map((s, i) => (
+          <path
+            key={s.platform}
+            d={smoothPath(s.points)}
+            fill="none"
+            stroke={s.color}
+            strokeWidth="2.25"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={reduceMotion ? "" : "chart-trend-line-animated"}
+            style={reduceMotion ? undefined : { animationDelay: `${i * 60}ms` }}
+          />
+        ))}
+        {series.map((s) => {
+          const p = hoverIndex !== null ? s.points[hoverIndex] : s.points[s.points.length - 1];
+          return <circle key={s.platform} cx={p.x} cy={p.y} r="4" fill={s.color} stroke="var(--surface)" strokeWidth="1.5" />;
+        })}
+      </svg>
+      <div className="chart-trend-labels">
+        <span>{allDays[0].slice(5)}</span>
+        <span>{allDays[allDays.length - 1].slice(5)}</span>
+      </div>
+      <div className="chart-multitrend-legend">
+        {series.map((s) => (
+          <span key={s.platform} className="chart-multitrend-legend-item">
+            <PlatformIcon platform={s.platform} size={12} />
+            {s.platform}
+          </span>
+        ))}
+      </div>
+      {hoverIndex !== null && (
+        <div
+          className="chart-trend-tooltip chart-multitrend-tooltip"
+          style={{ left: `${(xAt(hoverIndex) / width) * 100}%` }}
+        >
+          <span className="chart-trend-tooltip-date">{allDays[hoverIndex]}</span>
+          {series.map((s) => (
+            <span key={s.platform} className="chart-multitrend-tooltip-row">
+              <span className="chart-legend-swatch" style={{ background: s.color }} />
+              {s.platform} <strong>{s.points[hoverIndex].count}</strong>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Sparkline — a compact, non-interactive trend line for a value inline in a
 // table row or small card (e.g. one platform's follower count over time).
 // No axes/gridlines/tooltip — the exact numbers already sit next to it.
