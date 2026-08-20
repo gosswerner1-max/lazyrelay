@@ -1,0 +1,11 @@
+-- Anchors a draft to a calendar day for planning purposes, independent of
+-- the real scheduled_for commitment. A draft (status='draft') already has
+-- no social_account_id/scheduled_for — this adds a THIRD state alongside
+-- "undated draft" (planned_date null, managed from the Posts tab only) and
+-- "real scheduled post" (scheduled_for set): a draft with a planned_date is
+-- a content idea/note the customer is planning for a specific day, shown on
+-- the Calendar tab, that only becomes a real post once explicitly promoted
+-- via the existing PATCH /scheduled-posts/:id/schedule route (unchanged —
+-- promotion still requires picking a real account and time). See
+-- werner-brain 2026-08-20 daily note for the full feature.
+alter table scheduled_posts add column planned_date date;

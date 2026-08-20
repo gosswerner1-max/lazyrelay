@@ -1610,6 +1610,43 @@
   margin-bottom: 12px;
 }
 
+.calendar-plans-heading {
+  margin: 20px 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.calendar-plan-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.calendar-plan-form textarea {
+  font: 15px/1.4 var(--font-body);
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 70px;
+  resize: vertical;
+}
+
+.calendar-plan-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.calendar-plan-file-label {
+  cursor: pointer;
+}
+
 .schedule-form {
   display: flex;
   flex-direction: column;

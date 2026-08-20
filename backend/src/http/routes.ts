@@ -1952,7 +1952,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // account/timing validation validatePostFields does — there's nothing to
   // validate against yet.
   router.post("/scheduled-posts/draft", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { content, mediaUrl, coverImageUrl, boardId, destinationLink, firstComment, mediaAltText } = req.body ?? {};
+    const { content, mediaUrl, coverImageUrl, boardId, destinationLink, firstComment, mediaAltText, plannedDate } = req.body ?? {};
     if (typeof content !== "string" || content.trim().length === 0) {
       res.status(400).json({ error: "content must be a non-empty string" });
       return;
@@ -1967,6 +1967,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         return;
       }
     }
+    if (plannedDate !== undefined && plannedDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(plannedDate)) {
+      res.status(400).json({ error: "plannedDate must be a YYYY-MM-DD string" });
+      return;
+    }
     const { data, error } = await supabase
       .from("scheduled_posts")
       .insert({
@@ -1979,6 +1983,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         destination_link: destinationLink ?? null,
         first_comment: firstComment ?? null,
         media_alt_text: mediaAltText ?? null,
+        planned_date: plannedDate ?? null,
         scheduled_for: null,
         status: "draft",
       })
@@ -2016,7 +2021,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { content, mediaUrl, coverImageUrl, boardId, destinationLink, firstComment, mediaAltText } = req.body ?? {};
+    const { content, mediaUrl, coverImageUrl, boardId, destinationLink, firstComment, mediaAltText, plannedDate } = req.body ?? {};
     const update: Record<string, unknown> = {};
     if (content !== undefined) {
       if (typeof content !== "string" || content.trim().length === 0) {
@@ -2044,6 +2049,13 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         }
         update[key] = value;
       }
+    }
+    if (plannedDate !== undefined) {
+      if (plannedDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(plannedDate)) {
+        res.status(400).json({ error: "plannedDate must be a YYYY-MM-DD string" });
+        return;
+      }
+      update.planned_date = plannedDate;
     }
 
     const { data, error } = await supabase

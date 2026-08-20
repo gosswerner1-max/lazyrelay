@@ -104,6 +104,10 @@ export interface ScheduledPost {
   first_comment: string | null;
   media_alt_text: string | null;
   scheduled_for: string | null;
+  // A draft anchored to a calendar day for planning (migration 0059) — only
+  // meaningful while status is still "draft"; a real scheduled post uses
+  // scheduled_for instead. "YYYY-MM-DD", no time component.
+  planned_date: string | null;
   status: "draft" | "pending" | "posting" | "posted" | "failed" | "needs_approval";
   post_results: Array<{ verified_live: boolean; platform_post_url: string | null; error_message: string | null }>;
 }
@@ -113,6 +117,7 @@ export interface ScheduledPost {
 export interface DraftFields {
   content: string;
   mediaUrl?: string | null;
+  plannedDate?: string | null;
   coverImageUrl?: string | null;
   boardId?: string | null;
   destinationLink?: string | null;

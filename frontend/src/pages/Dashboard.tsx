@@ -329,6 +329,13 @@ export function Dashboard() {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  // The Calendar tab's own "add a plan for this day" mini-form — deliberately
+  // separate from the big Posts-tab compose state (content/mediaUrl etc.),
+  // since a planned idea isn't the same thing as a post being composed.
+  const [planContent, setPlanContent] = useState("");
+  const [planMediaUrl, setPlanMediaUrl] = useState<string | null>(null);
+  const [planMediaUploading, setPlanMediaUploading] = useState(false);
+  const [planBusy, setPlanBusy] = useState(false);
   const [mentions, setMentions] = useState<MentionPost[] | null>(null);
   const [mentionsLoading, setMentionsLoading] = useState(false);
   const [mentionsAttentionOnly, setMentionsAttentionOnly] = useState(false);
@@ -1303,6 +1310,54 @@ export function Dashboard() {
     } finally {
       setApprovingId(null);
     }
+  }
+
+  async function handlePlanMediaFile(file: File) {
+    setError(null);
+    setPlanMediaUploading(true);
+    try {
+      const { url } = await api.uploadMedia(file);
+      setPlanMediaUrl(url);
+      const [usage, media] = await Promise.all([api.getStorageUsage(), api.listMedia()]);
+      setStorageUsage(usage);
+      setMediaFiles(media);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPlanMediaUploading(false);
+    }
+  }
+
+  /** Saves a note/idea for a specific calendar day — a draft anchored to
+   *  that day (migration 0059), not yet a real scheduled post. "Add to
+   *  scheduler" (below) is what turns it into one. */
+  async function handleAddPlanItem(day: string) {
+    if (!planContent.trim()) {
+      setError("Write something before adding it to the planner.");
+      return;
+    }
+    setPlanBusy(true);
+    setError(null);
+    try {
+      await api.saveDraft({ content: planContent, mediaUrl: planMediaUrl ?? undefined, plannedDate: day });
+      setPlanContent("");
+      setPlanMediaUrl(null);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPlanBusy(false);
+    }
+  }
+
+  /** "Add to scheduler" for a planned item — loads it into the Posts tab's
+   *  normal compose form (same path a customer already uses to finish any
+   *  draft) and switches there, so picking the account and exact time still
+   *  goes through the one, already-tested promotion flow rather than a
+   *  second one built just for the Calendar. */
+  function handlePromotePlanItem(p: ScheduledPost) {
+    handleEditDraft(p);
+    setTab("Posts");
   }
 
   async function handleDelete(id: string, isHistory: boolean) {
@@ -3343,11 +3398,21 @@ export function Dashboard() {
         // since Calendar is mainly used for near-term planning, not a
         // full historical archive.
         const postsByDay: Record<string, ScheduledPost[]> = {};
+        // A draft anchored to a day via planned_date (migration 0059,
+        // 2026-08-20) — a content idea for that day, not yet a real post.
+        // Kept in its own map (not merged into postsByDay) so the
+        // day-detail view can show "Scheduled" and "Planned" as clearly
+        // separate sections rather than one ambiguous list.
+        const plansByDay: Record<string, ScheduledPost[]> = {};
         for (const p of posts) {
-          // Drafts have no scheduled_for (nullable, migration 0049) — they
-          // don't belong to any calendar day, so they're managed from the
-          // Posts tab's Upcoming list instead, not shown here.
-          if (p.status === "draft" || !p.scheduled_for) continue;
+          if (p.status === "draft") {
+            // An undated draft (no planned_date) is managed from the Posts
+            // tab's Upcoming list only, same as before this feature.
+            if (!p.planned_date) continue;
+            (plansByDay[p.planned_date] ??= []).push(p);
+            continue;
+          }
+          if (!p.scheduled_for) continue;
           if (!accountMatchesBrand(accounts.find((a) => a.id === p.social_account_id), brandFilter)) continue;
           const key = localDateKey(p.scheduled_for);
           (postsByDay[key] ??= []).push(p);
@@ -3360,6 +3425,7 @@ export function Dashboard() {
         }
 
         const dayPosts = selectedDay ? (postsByDay[selectedDay] ?? []) : [];
+        const dayPlans = selectedDay ? (plansByDay[selectedDay] ?? []) : [];
 
         return (
           <section>
@@ -3405,14 +3471,19 @@ export function Dashboard() {
                     onClick={() => setSelectedDay(c.key === selectedDay ? null : c.key)}
                   >
                     <span className="calendar-cell-day">{c.day}</span>
-                    {c.key && postsByDay[c.key] && (
-                      <span className="calendar-cell-dots">
-                        {postsByDay[c.key].slice(0, 4).map((p) => (
-                          <span key={p.id} className={`calendar-dot calendar-dot-${p.status}`} />
-                        ))}
-                        {postsByDay[c.key].length > 4 && <span className="calendar-cell-more">+{postsByDay[c.key].length - 4}</span>}
-                      </span>
-                    )}
+                    {c.key &&
+                      (() => {
+                        const dayItems = [...(postsByDay[c.key] ?? []), ...(plansByDay[c.key] ?? [])];
+                        if (dayItems.length === 0) return null;
+                        return (
+                          <span className="calendar-cell-dots">
+                            {dayItems.slice(0, 4).map((p) => (
+                              <span key={p.id} className={`calendar-dot calendar-dot-${p.status}`} />
+                            ))}
+                            {dayItems.length > 4 && <span className="calendar-cell-more">+{dayItems.length - 4}</span>}
+                          </span>
+                        );
+                      })()}
                   </button>
                 ),
               )}
@@ -3472,6 +3543,59 @@ export function Dashboard() {
                     })}
                   </ul>
                 )}
+
+                <h4 className="calendar-plans-heading">Planned</h4>
+                {dayPlans.length === 0 ? (
+                  <p className="empty">No planned ideas yet.</p>
+                ) : (
+                  <ul className="post-list">
+                    {dayPlans.map((p) => (
+                      <li key={p.id} className="post-status-draft">
+                        {p.media_url && <img className="media-list-thumb" src={p.media_url} alt="" />}
+                        <div className="post-content">{p.content}</div>
+                        <div className="post-meta">
+                          <label className="account-checkbox">
+                            <input type="checkbox" onChange={() => handlePromotePlanItem(p)} />
+                            Add to scheduler
+                          </label>
+                          <button className="btn-outline" onClick={() => handleDelete(p.id, false)}>
+                            Delete
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <form
+                  className="calendar-plan-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleAddPlanItem(selectedDay);
+                  }}
+                >
+                  <textarea
+                    placeholder="Add a note or content idea for this day..."
+                    value={planContent}
+                    onChange={(e) => setPlanContent(e.target.value)}
+                  />
+                  <div className="calendar-plan-form-actions">
+                    <label className="btn-outline calendar-plan-file-label">
+                      {planMediaUploading ? "Uploading..." : planMediaUrl ? "File attached" : "Attach a file"}
+                      <input
+                        type="file"
+                        hidden
+                        disabled={planMediaUploading}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handlePlanMediaFile(file);
+                        }}
+                      />
+                    </label>
+                    <button type="submit" disabled={planBusy || planMediaUploading || !planContent.trim()}>
+                      {planBusy ? "Adding..." : "Add to planner"}
+                    </button>
+                  </div>
+                </form>
               </div>
             )}
           </section>
