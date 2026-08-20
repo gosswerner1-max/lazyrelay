@@ -13,7 +13,8 @@ import { PlatformIcon } from "../components/PlatformIcon";
 import { AccountPicker, AccountGroupList } from "../components/AccountPicker";
 import { MediaStorageList } from "../components/MediaStorageList";
 import { NotificationBell } from "../components/NotificationBell";
-import { DateTimePicker } from "../components/DateTimePicker";
+import { DateTimePicker, TimeOfDayPicker } from "../components/DateTimePicker";
+import { DayOfWeekPicker } from "../components/DayOfWeekPicker";
 import { formatBytes } from "../lib/format";
 import { bestTimeFor } from "../lib/bestTimes";
 import { Spinner } from "../components/Spinner";
@@ -3189,27 +3190,9 @@ export function Dashboard() {
             </label>
             <label>
               Days of the week
-              <div className="account-checkbox-list">
-                {[
-                  { label: "Mon", value: 1 },
-                  { label: "Tue", value: 2 },
-                  { label: "Wed", value: 3 },
-                  { label: "Thu", value: 4 },
-                  { label: "Fri", value: 5 },
-                  { label: "Sat", value: 6 },
-                  { label: "Sun", value: 7 },
-                ].map((d) => (
-                  <label key={d.value} className="account-checkbox">
-                    <input type="checkbox" checked={rsDaysOfWeek.includes(d.value)} onChange={() => toggleRsDay(d.value)} />
-                    {d.label}
-                  </label>
-                ))}
-              </div>
+              <DayOfWeekPicker selected={rsDaysOfWeek} onToggle={toggleRsDay} />
             </label>
-            <label>
-              Time ({rsTimezone})
-              <input type="time" value={rsTimeOfDay} onChange={(e) => setRsTimeOfDay(e.target.value)} required />
-            </label>
+            <TimeOfDayPicker time={rsTimeOfDay} onChange={setRsTimeOfDay} timezoneLabel={rsTimezone} />
             <div className="schedule-form-actions">
               <button type="submit" disabled={rsSubmitting}>
                 {rsSubmitting ? "Saving..." : rsEditingId ? "Save changes" : "Create recurring schedule"}

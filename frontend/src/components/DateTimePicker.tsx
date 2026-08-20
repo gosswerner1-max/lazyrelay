@@ -12,6 +12,40 @@ const SUGGESTED_TIMES = [
   { label: "Evening", time: "18:00" },
 ];
 
+interface TimeOfDayPickerProps {
+  time: string;
+  onChange: (time: string) => void;
+  timezoneLabel?: string;
+}
+
+// The time-input + suggested-chips block, shared between this popup's own
+// date+time flow and the recurring-schedule form (which has no date to
+// pick, just a time) — one component so both stay visually and
+// behaviorally identical instead of drifting apart.
+export function TimeOfDayPicker({ time, onChange, timezoneLabel }: TimeOfDayPickerProps) {
+  return (
+    <>
+      <label className="datetime-picker-time-label">
+        Time{timezoneLabel ? ` (${timezoneLabel})` : ""}
+        <input type="time" value={time} onChange={(e) => onChange(e.target.value)} />
+      </label>
+      <div className="datetime-picker-suggested">
+        <span className="datetime-picker-suggested-label">Suggested time</span>
+        {SUGGESTED_TIMES.map((s) => (
+          <button
+            type="button"
+            key={s.time}
+            className={`datetime-picker-suggested-chip${time === s.time ? " datetime-picker-suggested-chip-active" : ""}`}
+            onClick={() => onChange(s.time)}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function formatDisplay(date: string, time: string): string {
   if (!date) return "Pick a date and time";
   const d = new Date(`${date}T${time || "00:00"}`);
@@ -117,23 +151,7 @@ export function DateTimePicker({ date, time, onApply, timezoneLabel }: DateTimeP
               ),
             )}
           </div>
-          <label className="datetime-picker-time-label">
-            Time{timezoneLabel ? ` (${timezoneLabel})` : ""}
-            <input type="time" value={draftTime} onChange={(e) => setDraftTime(e.target.value)} />
-          </label>
-          <div className="datetime-picker-suggested">
-            <span className="datetime-picker-suggested-label">Suggested time</span>
-            {SUGGESTED_TIMES.map((s) => (
-              <button
-                type="button"
-                key={s.time}
-                className={`datetime-picker-suggested-chip${draftTime === s.time ? " datetime-picker-suggested-chip-active" : ""}`}
-                onClick={() => setDraftTime(s.time)}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
+          <TimeOfDayPicker time={draftTime} onChange={setDraftTime} timezoneLabel={timezoneLabel} />
           <div className="datetime-picker-actions">
             <button type="button" className="btn-outline" onClick={() => setOpen(false)}>
               Cancel

@@ -454,6 +454,39 @@
   color: var(--signal);
 }
 
+/* Recurring-schedule day-of-week picker (2026-08-20) — a row of toggle
+   chips replacing a vertical checkbox list, same pill language as the
+   suggested-time chips above but sized for standalone use (not tucked
+   inside a popup), since this is the primary control here. */
+.day-of-week-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  text-transform: none;
+  font-weight: 400;
+}
+
+.day-of-week-chip {
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.day-of-week-chip:hover {
+  border-color: var(--signal);
+}
+
+.day-of-week-chip-active {
+  border-color: var(--signal);
+  background: var(--signal-bg);
+  color: var(--signal);
+}
+
 .datetime-picker-actions {
   display: flex;
   justify-content: flex-end;
