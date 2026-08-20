@@ -145,7 +145,7 @@ const FAQ = [
   },
   {
     q: "Which platforms are supported?",
-    a: "Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, and Tumblr.",
+    a: "Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, and Tumblr. Mastodon support today connects to mastodon.social specifically — other Mastodon instances aren't supported yet.",
   },
   {
     q: "Can I set up a recurring posting schedule instead of scheduling each post one at a time?",

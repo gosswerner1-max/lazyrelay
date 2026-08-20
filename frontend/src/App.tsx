@@ -1,15 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { supabase } from "./lib/supabase";
 import { Landing } from "./pages/Landing";
 import { Login } from "./pages/Login";
-import { Dashboard } from "./pages/Dashboard";
 import { PrivacyPolicy } from "./pages/PrivacyPolicy";
 import { TermsOfService } from "./pages/TermsOfService";
 import { DPA } from "./pages/DPA";
 import { DataDeletion } from "./pages/DataDeletion";
 import { Contact } from "./pages/Contact";
-import { ApiDocs } from "./pages/ApiDocs";
 import { ConnectForm } from "./pages/ConnectForm";
 import { BioPage } from "./pages/BioPage";
 import { VerifyPage } from "./pages/VerifyPage";
@@ -20,6 +18,16 @@ import { ResetPassword } from "./pages/ResetPassword";
 import { Spinner } from "./components/Spinner";
 import { CookieConsent } from "./components/CookieConsent";
 import "./App.css";
+
+// Lazy-loaded (2026-08-20) — by far the two biggest chunks in the app
+// (Dashboard pulls in every tab's components: Charts, AccountPicker,
+// MediaStorageList, DateTimePicker...; ApiDocs is a full static reference
+// page). A brand-new visitor hitting the landing page from an ad — the
+// exact traffic a launch sends — never needs either until they actually
+// sign in or click through to /docs, so there's no reason to make them
+// download that code up front.
+const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
+const ApiDocs = lazy(() => import("./pages/ApiDocs").then((m) => ({ default: m.ApiDocs })));
 
 const MANUAL_CONNECT_PLATFORMS = ["bluesky", "telegram", "discord"] as const;
 
@@ -262,7 +270,15 @@ function Root() {
 function App() {
   return (
     <AuthProvider>
-      <Root />
+      <Suspense
+        fallback={
+          <div className="loading">
+            <Spinner />
+          </div>
+        }
+      >
+        <Root />
+      </Suspense>
       <CookieConsent />
     </AuthProvider>
   );

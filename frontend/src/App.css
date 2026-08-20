@@ -1194,6 +1194,25 @@
   box-shadow: var(--shadow);
 }
 
+.onboarding-nudge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 24px;
+  border-radius: 14px;
+  background: var(--signal-bg);
+  box-shadow: var(--shadow);
+  margin-bottom: 20px;
+}
+
+.onboarding-nudge p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+  max-width: 480px;
+}
+
 .chart-section > *:last-child {
   margin-bottom: 0;
 }

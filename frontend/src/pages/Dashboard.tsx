@@ -561,6 +561,22 @@ export function Dashboard() {
     return () => clearInterval(interval);
   }, [tab, posts]);
 
+  // Slow heartbeat, same two tabs — the fast poller above only ever starts
+  // once something is ALREADY due; if nothing was due yet when the tab
+  // loaded, nothing re-triggers its `hasUnresolvedDue` check, so a post
+  // that becomes due later (and fires in the background) never surfaces
+  // without a manual reload. This is exactly the "History doesn't
+  // auto-refresh" gap Werner flagged 2026-08-19. A slow re-fetch here
+  // updates `posts`, which re-runs the effect above and hands off to the
+  // fast poller the moment something newly-due needs snappier updates.
+  useEffect(() => {
+    if (tab !== "Posts" && tab !== "Overview") return;
+    const heartbeat = setInterval(() => {
+      api.listScheduledPosts().then(setPosts).catch(() => {});
+    }, 60000);
+    return () => clearInterval(heartbeat);
+  }, [tab]);
+
   // Lazy-loaded, not part of refresh() — analytics isn't needed on first
   // paint for most customers, and re-fetching it every time an unrelated
   // action (scheduling a post, connecting an account) calls refresh() would
@@ -2678,7 +2694,12 @@ export function Dashboard() {
       {tab === "Overview" && (
         <>
           <BrandFilterSelect accounts={accounts} value={brandFilter} onChange={setBrandFilter} />
-          <OverviewPanel analytics={analytics} loading={analyticsLoading} />
+          <OverviewPanel
+            analytics={analytics}
+            loading={analyticsLoading}
+            hasAccounts={accounts.length > 0}
+            onConnectAccount={() => setTab("Social Platforms")}
+          />
         </>
       )}
 
@@ -2864,7 +2885,12 @@ export function Dashboard() {
       <section>
         <h2>Schedule a one-time post</h2>
         {accounts.length === 0 ? (
-          <p className="empty">Connect an account first.</p>
+          <p className="empty">
+            Connect an account first.{" "}
+            <button type="button" className="link-button" onClick={() => setTab("Social Platforms")}>
+              Connect one now
+            </button>
+          </p>
         ) : (
           <form onSubmit={handleSchedule} className="schedule-form">
             <label>
@@ -3242,7 +3268,12 @@ export function Dashboard() {
           Set up a weekly content cadence once. LazyRelay keeps posting it to your chosen platforms every week until you pause or delete it.
         </p>
         {accounts.length === 0 ? (
-          <p className="empty">Connect an account first.</p>
+          <p className="empty">
+            Connect an account first.{" "}
+            <button type="button" className="link-button" onClick={() => setTab("Social Platforms")}>
+              Connect one now
+            </button>
+          </p>
         ) : (
           <form onSubmit={submitRecurringSchedule} className="schedule-form">
             <label>

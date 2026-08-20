@@ -738,12 +738,36 @@ export function Sparkline({ data, color = "#8b93a1" }: { data: { value: number }
 // can't reach an authenticated Supabase session to show the real thing.
 // ---------------------------------------------------------------------------
 
-export function OverviewPanel({ analytics, loading }: { analytics: AnalyticsSummary | null; loading: boolean }) {
+export function OverviewPanel({
+  analytics,
+  loading,
+  hasAccounts = true,
+  onConnectAccount,
+}: {
+  analytics: AnalyticsSummary | null;
+  loading: boolean;
+  /** Whether the customer has any connected social account yet — a
+   *  brand-new signup won't. Defaults true so every existing caller (and
+   *  the dev-only fixture preview, which has no real account data) keeps
+   *  its prior behavior unless it opts in. */
+  hasAccounts?: boolean;
+  onConnectAccount?: () => void;
+}) {
   return (
     <section>
       <h2>Overview</h2>
       {loading && !analytics && <Spinner />}
-      {!loading && analytics && analytics.totalPosts === 0 && (
+      {!loading && !hasAccounts && (
+        <div className="onboarding-nudge">
+          <p>Connect your first social account to get started — LazyRelay can't schedule anything until there's somewhere to post it.</p>
+          {onConnectAccount && (
+            <button type="button" className="btn-primary" onClick={onConnectAccount}>
+              Connect an account
+            </button>
+          )}
+        </div>
+      )}
+      {!loading && hasAccounts && analytics && analytics.totalPosts === 0 && (
         <p className="empty">No posts scheduled in the last 30 days yet. Your overview fills in once posts go out.</p>
       )}
       {analytics && analytics.totalPosts > 0 && (
