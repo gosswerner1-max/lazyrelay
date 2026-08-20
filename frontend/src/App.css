@@ -2222,9 +2222,10 @@
   gap: 2px;
   max-height: 320px;
   overflow-y: auto;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 4px;
+  border-radius: 10px;
+  padding: 6px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
 .account-picker-group-header {
@@ -2549,6 +2550,10 @@ button[type="submit"]:not(.btn-outline),
 .storage-gauge {
   margin: 0 0 24px;
   max-width: 420px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
 .storage-gauge-track {
@@ -3020,7 +3025,8 @@ button[type="submit"]:not(.btn-outline),
 
 .landing-proof-caption {
   font-size: 13px;
-  color: var(--wire);
+  font-weight: 600;
+  color: var(--signal);
   text-align: left;
   max-width: 460px;
   margin: 8px auto 0;
