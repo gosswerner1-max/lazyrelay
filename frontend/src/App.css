@@ -1689,6 +1689,13 @@
 
 .account-picker-search {
   width: 100%;
+  font: 15px/1.4 var(--font-body);
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  margin-bottom: 8px;
 }
 
 .account-picker-groups {
