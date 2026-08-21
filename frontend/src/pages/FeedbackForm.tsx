@@ -49,6 +49,19 @@ export function FeedbackForm({ token }: { token: string }) {
       .finally(() => setLoading(false));
   }, [token]);
 
+  // Werner's call 2026-08-21: a fresh submission (opened from the email
+  // button, usually its own tab) should close itself rather than leave a
+  // dead tab behind. Only on a genuine new submission, not a reload of an
+  // already-used link -- window.close() only works on tabs with no real
+  // navigation history (most browsers block it otherwise), which a
+  // freshly-opened email-link tab satisfies but a revisited/bookmarked one
+  // might not, so it silently no-ops there instead of erroring.
+  useEffect(() => {
+    if (!done) return;
+    const timer = setTimeout(() => window.close(), 3000);
+    return () => clearTimeout(timer);
+  }, [done]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -107,6 +120,7 @@ export function FeedbackForm({ token }: { token: string }) {
           <BrandMark size={40} />
           <h1>Thanks for the feedback</h1>
           <p>Really appreciate you taking the time.</p>
+          {done && <p className="field-hint">This tab will close on its own in a few seconds — or feel free to close it now.</p>}
         </div>
       </div>
     );
