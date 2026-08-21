@@ -4251,7 +4251,7 @@ export function Dashboard() {
         const canBuySeatAddon = subscription?.tier === "enterprise" || subscription?.tier === "agency" || subscription?.tier === "agency_plus";
         return (
       <section>
-        <h2>Team</h2>
+        <h2>Seats</h2>
         <p className="section-note">
           Invite teammates to work in this account alongside you. Everyone on the team can post, schedule, and
           manage connected platforms; only the owner can change billing, webhooks, API keys, and the team itself.
