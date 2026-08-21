@@ -341,7 +341,12 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     // Platform isn't configured on this deploy (env vars missing) — not a
     // post/adapter failure, so this doesn't count against retries either;
     // just leave it pending for the next cycle once the platform is live.
+    // claimDuePosts() already flipped this post to "posting" before we ever
+    // got here — without this un-claim, it would sit stuck on "posting"
+    // forever, invisible to every future cycle's `.eq("status","pending")`
+    // claim query, silently never posting and never surfacing an error.
     console.warn(`Post ${post.id} left pending — no adapter configured for platform "${post.platform}".`);
+    await unclaimPost(post);
     return;
   }
   try {
