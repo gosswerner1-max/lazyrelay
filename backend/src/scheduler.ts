@@ -480,23 +480,34 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
  *  breaker no longer skips the whole cycle (that only made sense back when
  *  one cycle meant one platform) — instead, any post whose platform's
  *  breaker is open gets un-claimed (back to pending, no retry-count hit)
- *  and the cycle moves on to the next post. */
+ *  and the rest of the batch keeps going.
+ *
+ *  Posts are processed concurrently, not one-at-a-time — the batch used to
+ *  serialize on `await processPost(...)`, so a slow platform call held up
+ *  every other post behind it even though they're independent network
+ *  calls to different customers/platforms. The breaker/rate-limit checks
+ *  themselves stay synchronous (no `await` before they touch their Maps),
+ *  so `due.map`'s synchronous run-up still performs every post's check in
+ *  original claim order before any post's actual network call starts —
+ *  same admission behavior as before, just concurrent execution after. */
 export async function runSchedulerCycle(registry: PlatformAdapterRegistry): Promise<void> {
   const due = await claimDuePosts();
   if (due.length === 0) return;
 
   console.log(`Claimed ${due.length} due post(s).`);
-  for (const post of due) {
-    if (isBreakerTripped(post.platform)) {
-      console.warn(`Un-claiming post ${post.id} — circuit breaker open for platform "${post.platform}".`);
-      await unclaimPost(post);
-      continue;
-    }
-    if (isRateLimited(post.platform)) {
-      console.warn(`Un-claiming post ${post.id} — proactive rate limit reached for platform "${post.platform}" this window.`);
-      await unclaimPost(post);
-      continue;
-    }
-    await processPost(post, registry);
-  }
+  await Promise.all(
+    due.map(async (post) => {
+      if (isBreakerTripped(post.platform)) {
+        console.warn(`Un-claiming post ${post.id} — circuit breaker open for platform "${post.platform}".`);
+        await unclaimPost(post);
+        return;
+      }
+      if (isRateLimited(post.platform)) {
+        console.warn(`Un-claiming post ${post.id} — proactive rate limit reached for platform "${post.platform}" this window.`);
+        await unclaimPost(post);
+        return;
+      }
+      await processPost(post, registry);
+    })
+  );
 }
