@@ -470,10 +470,17 @@ export class BlueskyAdapter implements PlatformAdapter {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     const sessionJson = (await sessionRes.json().catch(() => ({}))) as { did?: string };
-    if (!sessionRes.ok || !sessionJson.did) return null;
+    if (!sessionRes.ok || !sessionJson.did) {
+      console.error(`[bluesky] getFollowerCount failed at getSession: HTTP ${sessionRes.status} ${JSON.stringify(sessionJson).slice(0, 500)}`);
+      return null;
+    }
 
     const profileRes = await fetch(`${GET_PROFILE_URL}?actor=${encodeURIComponent(sessionJson.did)}`);
-    if (!profileRes.ok) return null;
+    if (!profileRes.ok) {
+      const body = await profileRes.text().catch(() => "");
+      console.error(`[bluesky] getFollowerCount failed at getProfile: HTTP ${profileRes.status} ${body.slice(0, 500)}`);
+      return null;
+    }
     const profileJson = (await profileRes.json().catch(() => ({}))) as BlueskyProfile;
     return profileJson.followersCount ?? null;
   }

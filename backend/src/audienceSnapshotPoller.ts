@@ -40,6 +40,7 @@ async function main() {
       const accessToken = await getAccessToken(row.id, adapter);
       const followerCount = await adapter.getFollowerCount(accessToken);
       if (followerCount === null) {
+        console.error(`[audienceSnapshotPoller] getFollowerCount returned null for ${row.id} (${row.platform}) — see adapter log above for the HTTP reason`);
         failed++;
         continue;
       }

@@ -452,7 +452,11 @@ export class YouTubeAdapter implements PlatformAdapter {
     const res = await fetch(`${CHANNELS_URL}?part=statistics&mine=true`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error(`[youtube] getFollowerCount failed: HTTP ${res.status} ${body.slice(0, 500)}`);
+      return null;
+    }
     const json = (await res.json().catch(() => ({}))) as { items?: { statistics?: { subscriberCount?: string } }[] };
     const raw = json.items?.[0]?.statistics?.subscriberCount;
     return raw === undefined ? null : Number(raw);

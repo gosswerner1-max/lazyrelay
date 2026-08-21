@@ -340,7 +340,11 @@ export class MastodonAdapter implements PlatformAdapter {
     const res = await fetch(`${DEFAULT_INSTANCE}/api/v1/accounts/verify_credentials`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error(`[mastodon] getFollowerCount failed: HTTP ${res.status} ${body.slice(0, 500)}`);
+      return null;
+    }
     const json = (await res.json().catch(() => ({}))) as MastodonAccount;
     return json.followers_count ?? null;
   }
