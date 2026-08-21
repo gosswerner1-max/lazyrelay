@@ -274,7 +274,17 @@ export function Dashboard() {
   const pendingSeatAddonRef = useRef(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
-  const [billingBusy, setBillingBusy] = useState<"pro" | "business" | "enterprise" | "cancel" | null>(null);
+  const [billingBusy, setBillingBusy] = useState<"pro" | "business" | "enterprise" | "agency" | "agency_plus" | "cancel" | null>(null);
+  // The Billing section's own 3-card grid, plus the "See Agency plans"
+  // reveal below it — mirrors Landing.tsx's AGENCY_PRICING pattern exactly
+  // (same reasoning: 5 cards in one row doesn't fit, and agencies are a
+  // smaller audience than the main 3 tiers). The backend/API layer already
+  // fully supported "agency"/"agency_plus" (startCheckout, /subscription
+  // /checkout, the Paddle price IDs) — only this dashboard UI was missing
+  // a way to actually reach them, despite the marketing copy already
+  // promising "upgrade to ... Agency, or Agency Plus any time from your
+  // dashboard" (found live 2026-08-21).
+  const [showAgencyBilling, setShowAgencyBilling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelFeedback, setCancelFeedback] = useState("");
   const [cancelDataDeletionAck, setCancelDataDeletionAck] = useState(false);
@@ -452,7 +462,7 @@ export function Dashboard() {
   const [insightLoading, setInsightLoading] = useState(false);
   const [insightResult, setInsightResult] = useState<{ insight: string } | { insufficientData: true; postsWithData: number; needed: number } | null>(null);
   const [finalizingUpgrade, setFinalizingUpgrade] = useState(false);
-  const pendingTierRef = useRef<"pro" | "business" | "enterprise" | null>(null);
+  const pendingTierRef = useRef<"pro" | "business" | "enterprise" | "agency" | "agency_plus" | null>(null);
   const pendingStorageAddonRef = useRef<5 | 20 | 50 | null>(null);
 
   async function refresh() {
@@ -1614,7 +1624,7 @@ export function Dashboard() {
     }
   }
 
-  async function handleUpgrade(tier: "pro" | "business" | "enterprise") {
+  async function handleUpgrade(tier: "pro" | "business" | "enterprise" | "agency" | "agency_plus") {
     setBillingBusy(tier);
     setError(null);
     try {
@@ -4665,7 +4675,40 @@ export function Dashboard() {
                     </button>
                   </div>
                 </div>
-              ) : (
+              ) : null}
+
+              {canUpgrade && !showAgencyBilling && (
+                <button type="button" className="btn-outline pricing-agency-toggle" onClick={() => setShowAgencyBilling(true)}>
+                  Running an agency? See Agency plans &rarr;
+                </button>
+              )}
+
+              {canUpgrade && showAgencyBilling && (
+                <div className="pricing-grid pricing-grid-agency">
+                  <div className="pricing-card">
+                    <h3>Agency: 20GB storage</h3>
+                    <p className="pricing-price">
+                      $149.99<span className="pricing-period">/mo</span>
+                    </p>
+                    <p className="pricing-note">100 accounts, 12 brands, 3 team seats, AI-agent access, priority support</p>
+                    <button className="cta" onClick={() => handleUpgrade("agency")} disabled={billingBusy !== null}>
+                      {billingBusy === "agency" ? "Starting checkout..." : isCancelling ? "Resubscribe to Agency" : "Upgrade to Agency"}
+                    </button>
+                  </div>
+                  <div className="pricing-card">
+                    <h3>Agency Plus: 20GB storage</h3>
+                    <p className="pricing-price">
+                      $199.99<span className="pricing-period">/mo</span>
+                    </p>
+                    <p className="pricing-note">150 accounts, 20 brands, 6 team seats, AI-agent access, priority support</p>
+                    <button className="cta" onClick={() => handleUpgrade("agency_plus")} disabled={billingBusy !== null}>
+                      {billingBusy === "agency_plus" ? "Starting checkout..." : isCancelling ? "Resubscribe to Agency Plus" : "Upgrade to Agency Plus"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!canUpgrade && (
                 <button className="btn-outline" onClick={() => setShowCancelModal(true)} disabled={billingBusy !== null}>
                   Cancel subscription
                 </button>
