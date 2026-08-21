@@ -92,37 +92,49 @@ export async function generateDuePosts(): Promise<void> {
     const tier = await resolveTier(slot.account_id);
     if (tier === "free") continue;
 
+    const targetIds = slot.recurring_schedule_targets.map((t) => t.social_account_id);
+    if (targetIds.length === 0) continue;
+
+    // Batched paused-account check, added 2026-08-21 (a real gap found
+    // during a scaling review) -- this used to be one query PER
+    // (occurrence x target) pair, re-checking the exact same accounts up
+    // to GENERATION_WINDOW_DAYS times over in a single run for no reason
+    // (paused_at can't change mid-run). One query per slot instead, same
+    // "skip a paused connected account up front" behavior as before --
+    // avoids generating a post the existing scheduler would just fail
+    // anyway, same check processPost() already does at drain-time.
+    const { data: accounts } = await supabase.from("social_accounts").select("id, paused_at").in("id", targetIds);
+    const pausedIds = new Set((accounts ?? []).filter((a) => a.paused_at).map((a) => a.id));
+
+    // Batched insert too -- was one upsert call per (occurrence x target)
+    // pair; now one bulk upsert per slot. ignoreDuplicates still makes
+    // already-materialized rows a no-op, it just costs one round trip for
+    // the whole slot instead of one per row.
+    const rows = [];
     for (const occurrenceAt of occurrences) {
       for (const target of slot.recurring_schedule_targets) {
-        // Skip a paused connected account (plan-downgrade case) up front —
-        // avoids generating a post the existing scheduler would just fail
-        // anyway, same check processPost() already does at drain-time.
-        const { data: account } = await supabase
-          .from("social_accounts")
-          .select("paused_at")
-          .eq("id", target.social_account_id)
-          .maybeSingle();
-        if (account?.paused_at) continue;
-
-        const { error: insertError } = await supabase.from("scheduled_posts").upsert(
-          {
-            account_id: slot.account_id,
-            social_account_id: target.social_account_id,
-            content: slot.content,
-            media_url: slot.media_url,
-            cover_image_url: slot.cover_image_url,
-            board_id: slot.board_id,
-            destination_link: slot.destination_link,
-            first_comment: slot.first_comment,
-            scheduled_for: occurrenceAt.toUTC().toISO(),
-            recurring_schedule_id: slot.id,
-          },
-          { onConflict: "recurring_schedule_id,social_account_id,scheduled_for", ignoreDuplicates: true },
-        );
-        if (insertError) {
-          console.error(`[recurringScheduler] failed to generate occurrence for slot ${slot.id}:`, insertError.message);
-        }
+        if (pausedIds.has(target.social_account_id)) continue;
+        rows.push({
+          account_id: slot.account_id,
+          social_account_id: target.social_account_id,
+          content: slot.content,
+          media_url: slot.media_url,
+          cover_image_url: slot.cover_image_url,
+          board_id: slot.board_id,
+          destination_link: slot.destination_link,
+          first_comment: slot.first_comment,
+          scheduled_for: occurrenceAt.toUTC().toISO(),
+          recurring_schedule_id: slot.id,
+        });
       }
+    }
+    if (rows.length === 0) continue;
+
+    const { error: insertError } = await supabase
+      .from("scheduled_posts")
+      .upsert(rows, { onConflict: "recurring_schedule_id,social_account_id,scheduled_for", ignoreDuplicates: true });
+    if (insertError) {
+      console.error(`[recurringScheduler] failed to generate occurrences for slot ${slot.id}:`, insertError.message);
     }
   }
 }
