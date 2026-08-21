@@ -31,7 +31,12 @@ function getReviewRequestStateStore() {
  * EMAIL_REPLY_TEMPLATES.md from support@lazyrelay.com (send-authority
  * approved 2026-08-05 — see feedback-email-agent-draft-and-hold.md in the
  * vault; this comment previously described the earlier draft-and-hold
- * policy, which was superseded before send-authority was ever granted). */
+ * policy, which was superseded before send-authority was ever granted).
+ * Batched 2026-08-21 (a real gap found during a scaling review): this used
+ * to make one social_accounts count query PER account inside the loop —
+ * fine at dozens of accounts, real drag at real volume. Now one query
+ * covering every remaining candidate's connected-accounts, joined in
+ * memory instead of round-tripping per account. */
 async function findStuckOnboardingAccounts(supabase, daysThreshold = STUCK_ONBOARDING_DAYS) {
   const cutoff = new Date(Date.now() - daysThreshold * 24 * 3600 * 1000).toISOString();
   const { data: accounts, error } = await supabase
@@ -41,18 +46,21 @@ async function findStuckOnboardingAccounts(supabase, daysThreshold = STUCK_ONBOA
     .is("cancelled_at", null);
   if (error) throw error;
 
-  const stuck = [];
-  for (const account of accounts ?? []) {
-    if (isInternalTestAccount(account.email)) continue; // never nudge our own test/internal accounts
-    const { count, error: countError } = await supabase
-      .from("social_accounts")
-      .select("id", { count: "exact", head: true })
-      .eq("account_id", account.id)
-      .is("disconnected_at", null);
-    if (countError) throw countError;
-    if ((count ?? 0) === 0) stuck.push(account);
-  }
-  return stuck;
+  const candidates = (accounts ?? []).filter((a) => !isInternalTestAccount(a.email)); // never nudge our own test/internal accounts
+  if (candidates.length === 0) return [];
+
+  const { data: connected, error: connectedError } = await supabase
+    .from("social_accounts")
+    .select("account_id")
+    .in(
+      "account_id",
+      candidates.map((a) => a.id),
+    )
+    .is("disconnected_at", null);
+  if (connectedError) throw connectedError;
+
+  const connectedAccountIds = new Set((connected ?? []).map((r) => r.account_id));
+  return candidates.filter((a) => !connectedAccountIds.has(a.id));
 }
 
 /**
@@ -133,6 +141,12 @@ async function classifyAccountState(supabase, accountId) {
  * the customer via Template 12 from hello@lazyrelay.com (send-authority
  * approved 2026-08-05, same as the stuck-onboarding nudge above). See
  * ACCOUNTS_KNOWLEDGE.md.
+ *
+ * Batched 2026-08-21 (a real gap found during a scaling review): this used
+ * to make one post_results count query PER account inside the loop — fine
+ * at dozens of accounts, real drag at real volume. Now one query covering
+ * every remaining candidate's verified-live post count, joined in memory
+ * instead of round-tripping per account.
  */
 async function findReviewRequestCandidates(supabase, minVerifiedPosts = REVIEW_REQUEST_MIN_VERIFIED_POSTS) {
   const store = getReviewRequestStateStore();
@@ -142,23 +156,29 @@ async function findReviewRequestCandidates(supabase, minVerifiedPosts = REVIEW_R
     .is("cancelled_at", null);
   if (error) throw error;
 
-  const candidates = [];
-  for (const account of accounts ?? []) {
-    if (isInternalTestAccount(account.email)) continue; // never ask our own test/internal accounts for a review
-    if (store.check(account.id).ok) continue; // already requested — never ask twice
+  const candidates = (accounts ?? []).filter(
+    (a) => !isInternalTestAccount(a.email) && !store.check(a.id).ok, // never ask our own test/internal accounts, or anyone already asked
+  );
+  if (candidates.length === 0) return [];
 
-    const { count, error: countError } = await supabase
-      .from("post_results")
-      .select("id", { count: "exact", head: true })
-      .eq("account_id", account.id)
-      .eq("verified_live", true);
-    if (countError) throw countError;
+  const { data: verifiedPosts, error: postsError } = await supabase
+    .from("post_results")
+    .select("account_id")
+    .in(
+      "account_id",
+      candidates.map((a) => a.id),
+    )
+    .eq("verified_live", true);
+  if (postsError) throw postsError;
 
-    if ((count ?? 0) >= minVerifiedPosts) {
-      candidates.push({ id: account.id, email: account.email, verifiedPostCount: count });
-    }
+  const verifiedCountByAccount = new Map();
+  for (const row of verifiedPosts ?? []) {
+    verifiedCountByAccount.set(row.account_id, (verifiedCountByAccount.get(row.account_id) ?? 0) + 1);
   }
-  return candidates;
+
+  return candidates
+    .filter((a) => (verifiedCountByAccount.get(a.id) ?? 0) >= minVerifiedPosts)
+    .map((a) => ({ id: a.id, email: a.email, verifiedPostCount: verifiedCountByAccount.get(a.id) }));
 }
 
 /** Marks an account as having had a review request sent — call this only
