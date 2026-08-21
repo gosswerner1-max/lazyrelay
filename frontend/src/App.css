@@ -3087,11 +3087,14 @@ button[type="submit"]:not(.btn-outline),
 
 /* The "Current plan" badge on a pricing card is a real .cta button (matches
    every other card's element so the grid stays visually even) but
-   permanently disabled -- without this override it kept the vibrant orange
-   background, reading as a clickable action rather than the plan the
-   customer is already on. Found live 2026-08-21 building the tier-switch
-   flow. */
-.cta:disabled {
+   permanently disabled -- without a dedicated style it kept the vibrant
+   orange background, reading as a clickable action rather than the plan
+   the customer is already on. Deliberately its own class, not a plain
+   .cta:disabled rule -- that also caught every OTHER card's button while
+   billingBusy briefly disables them all during one card's click, graying
+   out options that are still genuinely available, not actually broken
+   (found live 2026-08-21 by Werner, same session this was built in). */
+.cta-current-plan {
   background: var(--line);
   color: var(--wire);
   cursor: default;

@@ -285,6 +285,16 @@ export function Dashboard() {
   // promising "upgrade to ... Agency, or Agency Plus any time from your
   // dashboard" (found live 2026-08-21).
   const [showAgencyBilling, setShowAgencyBilling] = useState(false);
+  // Confirmation gate for handleChangeTier -- an already-paying customer's
+  // "Switch to X" charges/credits the prorated difference immediately, no
+  // Paddle checkout overlay in between to double as a natural confirm step
+  // the way a fresh subscription's "Upgrade to X" already has. Added
+  // 2026-08-21 after Werner flagged live that an accidental click would
+  // otherwise change the plan with zero confirmation.
+  const [pendingTierChange, setPendingTierChange] = useState<{
+    tier: "pro" | "business" | "enterprise" | "agency" | "agency_plus";
+    displayName: string;
+  } | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelFeedback, setCancelFeedback] = useState("");
   const [cancelDataDeletionAck, setCancelDataDeletionAck] = useState(false);
@@ -4665,7 +4675,7 @@ export function Dashboard() {
           function renderTierAction(tierCode: "pro" | "business" | "enterprise" | "agency" | "agency_plus", displayName: string) {
             if (subscription?.tier === tierCode && !isCancelling) {
               return (
-                <button className="cta" disabled>
+                <button className="cta cta-current-plan" disabled>
                   Current plan
                 </button>
               );
@@ -4678,7 +4688,11 @@ export function Dashboard() {
               );
             }
             return (
-              <button className="cta" onClick={() => handleChangeTier(tierCode)} disabled={billingBusy !== null}>
+              <button
+                className="cta"
+                onClick={() => setPendingTierChange({ tier: tierCode, displayName })}
+                disabled={billingBusy !== null}
+              >
                 {billingBusy === tierCode ? "Starting checkout..." : `Switch to ${displayName}`}
               </button>
             );
@@ -4858,6 +4872,39 @@ export function Dashboard() {
                 disabled={billingBusy !== null || !cancelDataDeletionAck}
               >
                 {billingBusy === "cancel" ? "Cancelling..." : "Submit & Continue to Cancel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {pendingTierChange && (
+        <div className="modal-overlay" onClick={() => setPendingTierChange(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Switch to {pendingTierChange.displayName}?</h2>
+              <button className="modal-close" onClick={() => setPendingTierChange(null)} aria-label="Close">
+                &times;
+              </button>
+            </div>
+            <p className="modal-subtitle">
+              You'll move from <strong>{tierNames[currentTier]}</strong> to <strong>{pendingTierChange.displayName}</strong>.
+              The prorated price difference is charged to (or credited on) your card on file immediately — this is not a
+              fresh checkout, no card entry needed.
+            </p>
+            <div className="modal-actions">
+              <button className="btn-outline" onClick={() => setPendingTierChange(null)}>
+                Cancel
+              </button>
+              <button
+                className="cta"
+                onClick={() => {
+                  const tier = pendingTierChange.tier;
+                  setPendingTierChange(null);
+                  handleChangeTier(tier);
+                }}
+                disabled={billingBusy !== null}
+              >
+                Confirm switch
               </button>
             </div>
           </div>
