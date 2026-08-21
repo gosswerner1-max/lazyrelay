@@ -193,6 +193,16 @@ const SIGNATURE_DEPARTMENT = {
   "accounts@lazyrelay.com": "Accounts & Billing",
 };
 
+// A name per mailbox (Werner's call, 2026-08-21) — same pattern as vendor
+// support agents signing as a real person (Paddle's Stevan/Rita) rather
+// than a faceless "Customer Support" line. Picked once per mailbox, not
+// per-message — a consistent identity, not a rotating cast.
+const SIGNATURE_NAME = {
+  "hello@lazyrelay.com": "Priya",
+  "support@lazyrelay.com": "Jordan",
+  "accounts@lazyrelay.com": "Sam",
+};
+
 function escapeHtml(text) {
   return text
     .replace(/&/g, "&amp;")
@@ -210,7 +220,11 @@ function textToHtmlParagraphs(text) {
 
 function buildSignatureHtml(mailbox) {
   const dept = SIGNATURE_DEPARTMENT[mailbox] || "LazyRelay";
-  return `<table style="font-family:Arial,sans-serif;border-collapse:collapse;"><tr><td style="padding-right:12px;"><img src="https://lazyrelay.com/lazyrelay-signature-logo.png" width="70" height="70" style="display:block;border-radius:16px;" alt="LazyRelay"></td><td style="border-left:2px solid #ff5630;padding-left:12px;"><div style="color:#ff5630;font-weight:bold;font-size:16px;">LazyRelay</div><div style="color:#14171f;font-size:13px;">${dept}</div><div style="font-size:12px;color:#5b6472;">${mailbox}</div><div style="font-size:12px;color:#5b6472;">www.lazyrelay.com</div><div style="font-style:italic;font-size:12px;color:#5b6472;margin-top:4px;">Automate. Schedule. Publish. Repeat.</div></td></tr></table>`;
+  const name = SIGNATURE_NAME[mailbox];
+  const nameLine = name
+    ? `<div style="color:#ff5630;font-weight:bold;font-size:16px;">${name}</div><div style="color:#14171f;font-size:13px;">LazyRelay &middot; ${dept}</div>`
+    : `<div style="color:#ff5630;font-weight:bold;font-size:16px;">LazyRelay</div><div style="color:#14171f;font-size:13px;">${dept}</div>`;
+  return `<table style="font-family:Arial,sans-serif;border-collapse:collapse;"><tr><td style="padding-right:12px;"><img src="https://lazyrelay.com/lazyrelay-signature-logo.png" width="70" height="70" style="display:block;border-radius:16px;" alt="LazyRelay"></td><td style="border-left:2px solid #ff5630;padding-left:12px;">${nameLine}<div style="font-size:12px;color:#5b6472;">${mailbox}</div><div style="font-size:12px;color:#5b6472;">www.lazyrelay.com</div><div style="font-style:italic;font-size:12px;color:#5b6472;margin-top:4px;">Automate. Schedule. Publish. Repeat.</div></td></tr></table>`;
 }
 
 async function saveDraft(mailbox, opts) {
