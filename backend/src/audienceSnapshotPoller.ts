@@ -17,13 +17,23 @@ import { supabase } from "./supabase.js";
 import { buildPlatformRegistry } from "./platforms/registry.js";
 import { getAccessToken } from "./scheduler.js";
 
+// Added 2026-08-21, a real gap found during a scaling review: this was the
+// only one of the four pollers with no cap at all -- no MAX_*_PER_RUN, no
+// .limit() on the initial select, unlike mentionsAndDmsPoller.ts/
+// dmAutomationPoller.ts/metricsPoller.ts, which all already have this
+// pattern (their own comments note it spends each customer's own platform
+// rate-limit budget, not LazyRelay's). At real account volume this would
+// have been thousands of fully serial, uncapped outbound calls in one run.
+const MAX_ACCOUNT_POLLS_PER_RUN = 1000;
+
 async function main() {
   const registry = buildPlatformRegistry();
 
   const { data: accounts, error } = await supabase
     .from("social_accounts")
     .select("id, account_id, platform")
-    .is("disconnected_at", null);
+    .is("disconnected_at", null)
+    .limit(1000);
   if (error) throw error;
 
   let polled = 0;
@@ -31,6 +41,8 @@ async function main() {
   let failed = 0;
 
   for (const row of accounts ?? []) {
+    if (polled + skipped + failed >= MAX_ACCOUNT_POLLS_PER_RUN) break;
+
     const adapter = registry.get(row.platform);
     if (!adapter?.getFollowerCount) {
       skipped++;
