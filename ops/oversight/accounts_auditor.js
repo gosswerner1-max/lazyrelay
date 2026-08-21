@@ -50,7 +50,13 @@ function check(fixturePath) {
   };
 }
 
-/** Real audit against live Supabase data. Flag-only — reports, never fixes. */
+/** Real audit against live Supabase data. Flag-only — reports, never fixes.
+ * Batched 2026-08-21 (a real gap found during a scaling review): this used
+ * to make 2 extra queries PER account inside the loop (a subscription
+ * lookup, a connected-accounts count) — fine at dozens of accounts, real
+ * drag at real volume. Now one query for every account's subscription and
+ * one for every account's connected-accounts count, each via .in(), with
+ * the join done in memory instead of round-tripping per account. */
 async function runLiveAudit(supabase) {
   const { data: accounts, error } = await supabase
     .from("accounts")
@@ -58,23 +64,30 @@ async function runLiveAudit(supabase) {
     .is("cancelled_at", null);
   if (error) throw error;
 
+  const accountIds = (accounts ?? []).map((a) => a.id);
+  const [{ data: subs, error: subsError }, { data: socialAccounts, error: socialError }] = await Promise.all([
+    accountIds.length
+      ? supabase.from("subscriptions").select("account_id, status").in("account_id", accountIds)
+      : { data: [], error: null },
+    accountIds.length
+      ? supabase.from("social_accounts").select("account_id").in("account_id", accountIds).is("disconnected_at", null)
+      : { data: [], error: null },
+  ]);
+  if (subsError) throw subsError;
+  if (socialError) throw socialError;
+
+  const statusByAccount = new Map((subs ?? []).map((s) => [s.account_id, s.status]));
+  const connectedCountByAccount = new Map();
+  for (const row of socialAccounts ?? []) {
+    connectedCountByAccount.set(row.account_id, (connectedCountByAccount.get(row.account_id) ?? 0) + 1);
+  }
+
   const problems = [];
   for (const account of accounts ?? []) {
-    const { data: sub } = await supabase
-      .from("subscriptions")
-      .select("status")
-      .eq("account_id", account.id)
-      .maybeSingle();
-    const { count } = await supabase
-      .from("social_accounts")
-      .select("id", { count: "exact", head: true })
-      .eq("account_id", account.id)
-      .is("disconnected_at", null);
-
     const snapshot = {
       accountId: account.id,
-      subscriptionStatus: sub?.status ?? null,
-      connectedAccountsCount: count ?? 0,
+      subscriptionStatus: statusByAccount.get(account.id) ?? null,
+      connectedAccountsCount: connectedCountByAccount.get(account.id) ?? 0,
       createdAt: account.created_at,
     };
     const result = evaluateAccountSnapshot(snapshot);
