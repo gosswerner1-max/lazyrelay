@@ -954,6 +954,77 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     });
   });
 
+  // Public review-feedback form — no auth, reached from the review-request
+  // email's link (Template 12 in EMAIL_REPLY_TEMPLATES.md). token doubles
+  // as the sole authorization, same pattern as post_results.id above and
+  // account_members.invite_token (migration 0053) — a random uuid Postgres
+  // generates on insert, not app code. Werner's call 2026-08-21: replace
+  // "reply to this email" with a real 5-question star-rating form + an
+  // optional comment box (migration 0063).
+  router.get("/public/feedback/:token", publicRateLimit, async (req, res) => {
+    const { data: row, error } = await supabase
+      .from("review_feedback")
+      .select("submitted_at")
+      .eq("token", req.params.token)
+      .maybeSingle();
+    if (error) {
+      dbError(res, error, "GET /public/feedback/:token");
+      return;
+    }
+    if (!row) {
+      res.status(404).json({ error: "This feedback link isn't valid." });
+      return;
+    }
+    res.json({ alreadySubmitted: !!row.submitted_at });
+  });
+
+  router.post("/public/feedback/:token", publicRateLimit, async (req, res) => {
+    const ratingFields = [
+      ["ratingOverall", "rating_overall"],
+      ["ratingReliability", "rating_reliability"],
+      ["ratingEase", "rating_ease"],
+      ["ratingSupport", "rating_support"],
+      ["ratingRecommend", "rating_recommend"],
+    ] as const;
+
+    const update: Record<string, unknown> = { submitted_at: new Date().toISOString() };
+    for (const [bodyKey, column] of ratingFields) {
+      const value = req.body?.[bodyKey];
+      if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 5) {
+        res.status(400).json({ error: `${bodyKey} must be an integer from 1 to 5.` });
+        return;
+      }
+      update[column] = value;
+    }
+    const comment = typeof req.body?.comment === "string" ? req.body.comment.trim().slice(0, 2000) : null;
+    update.comment = comment || null;
+
+    const { data: existing, error: fetchError } = await supabase
+      .from("review_feedback")
+      .select("id, submitted_at")
+      .eq("token", req.params.token)
+      .maybeSingle();
+    if (fetchError) {
+      dbError(res, fetchError, "POST /public/feedback/:token fetch");
+      return;
+    }
+    if (!existing) {
+      res.status(404).json({ error: "This feedback link isn't valid." });
+      return;
+    }
+    if (existing.submitted_at) {
+      res.status(409).json({ error: "This feedback link has already been used." });
+      return;
+    }
+
+    const { error: updateError } = await supabase.from("review_feedback").update(update).eq("id", existing.id);
+    if (updateError) {
+      dbError(res, updateError, "POST /public/feedback/:token update");
+      return;
+    }
+    res.json({ ok: true });
+  });
+
   // Public status endpoint — no auth, deliberately narrow: only the signals
   // a customer actually needs (is the scheduler running on time, is the
   // site's certificate healthy), never business-sensitive numbers like MAU

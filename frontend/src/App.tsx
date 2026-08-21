@@ -11,6 +11,7 @@ import { Contact } from "./pages/Contact";
 import { ConnectForm } from "./pages/ConnectForm";
 import { BioPage } from "./pages/BioPage";
 import { VerifyPage } from "./pages/VerifyPage";
+import { FeedbackForm } from "./pages/FeedbackForm";
 import { OAuthConsentPage } from "./pages/OAuthConsent";
 import { TeamAcceptInvitePage } from "./pages/TeamAcceptInvite";
 import { ForgotPassword } from "./pages/ForgotPassword";
@@ -132,6 +133,9 @@ function Root() {
     // Proof-of-Publish share links are the same shape of exception — a
     // public page a customer shares outside the app, owning its own URL.
     if (window.location.pathname.startsWith("/verify/")) return;
+    // Review-feedback links are the same shape of exception — a public,
+    // token-authorized page reached from an email, owning its own URL.
+    if (window.location.pathname.startsWith("/feedback/")) return;
     // The OAuth consent screen is the same shape of exception too — it owns
     // its own URL (with an authorization_id query param this effect would
     // otherwise strip). Missing this exclusion was caught live: without it,
@@ -184,6 +188,14 @@ function Root() {
   const verifyMatch = /^\/verify\/([0-9a-fA-F-]{36})$/.exec(window.location.pathname);
   if (verifyMatch) {
     return <VerifyPage id={verifyMatch[1]} />;
+  }
+
+  // Public review-feedback form (/feedback/<review_feedback.token>) — same
+  // reasoning as bio/verify pages above, reached from a link in an email,
+  // must render regardless of auth state. token is a uuid (migration 0063).
+  const feedbackMatch = /^\/feedback\/([0-9a-fA-F-]{36})$/.exec(window.location.pathname);
+  if (feedbackMatch) {
+    return <FeedbackForm token={feedbackMatch[1]} />;
   }
 
   // OAuth consent screen (/oauth/consent?authorization_id=...) — configured

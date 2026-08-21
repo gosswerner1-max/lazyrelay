@@ -277,6 +277,15 @@ export interface PublicBioPage {
   links: Array<{ id: string; label: string; url: string }>;
 }
 
+export interface FeedbackSubmission {
+  ratingOverall: number;
+  ratingReliability: number;
+  ratingEase: number;
+  ratingSupport: number;
+  ratingRecommend: number;
+  comment: string;
+}
+
 export interface Triage {
   needsAttention: boolean;
   category: "angry_customer" | "sales_question" | "question" | "routine";
@@ -658,6 +667,24 @@ export const api = {
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error ?? "Nothing verified at this link.");
     return body;
+  },
+
+  // Public, unauthenticated — the star-rating form linked from the
+  // review-request email (Template 12). token is the sole authorization.
+  getFeedbackRequest: async (token: string): Promise<{ alreadySubmitted: boolean }> => {
+    const res = await fetch(`${API_URL}/public/feedback/${encodeURIComponent(token)}`);
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error ?? "This feedback link isn't valid.");
+    return body;
+  },
+  submitFeedback: async (token: string, input: FeedbackSubmission): Promise<void> => {
+    const res = await fetch(`${API_URL}/public/feedback/${encodeURIComponent(token)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error ?? "Couldn't submit feedback.");
   },
 
   // Opens a 10-minute window for the NEXT admin-key request to go through.

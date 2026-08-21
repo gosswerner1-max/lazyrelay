@@ -161,11 +161,27 @@ async function findReviewRequestCandidates(supabase, minVerifiedPosts = REVIEW_R
   return candidates;
 }
 
-/** Marks an account as having had a review request drafted — call this only
- * once the draft has actually been saved via imap-tool.js, so a run that
- * finds candidates but doesn't draft (e.g. a dry-run) doesn't burn the mark. */
+/** Marks an account as having had a review request sent — call this only
+ * once the email has actually been sent via imap-tool.js, so a run that
+ * finds candidates but doesn't send (e.g. a dry-run) doesn't burn the mark. */
 function markReviewRequested(accountId) {
   getReviewRequestStateStore().mark(accountId, { reviewRequested: true });
+}
+
+/** Creates the row backing the public star-rating feedback form (migration
+ * 0063) and returns its token for the email link — call this once per
+ * candidate, immediately before sending Template 12, then embed
+ * `https://lazyrelay.com/feedback/${token}` in the email body. Postgres
+ * generates the token (uuid default), not app code, same pattern as
+ * account_members.invite_token. */
+async function createFeedbackRequest(supabase, accountId) {
+  const { data, error } = await supabase
+    .from("review_feedback")
+    .insert({ account_id: accountId })
+    .select("token")
+    .single();
+  if (error) throw error;
+  return data.token;
 }
 
 module.exports = {
@@ -176,4 +192,5 @@ module.exports = {
   classifyAccountState,
   findReviewRequestCandidates,
   markReviewRequested,
+  createFeedbackRequest,
 };

@@ -70,7 +70,7 @@ Hi [name],
 
 This almost always comes down to one thing: is the account set to a Business or Creator profile (not personal)? [If Meta/Instagram: and is it linked to a Facebook Page you admin?]
 
-Can you double check that and try reconnecting from Settings → Connected Accounts? If it's already set correctly, reply back and I'll look deeper.
+Can you double check that and try reconnecting from the Social Platforms tab in your dashboard? If it's already set correctly, reply back and I'll look deeper.
 ```
 
 ## 5. Timezone / "post went out at the wrong time"
@@ -107,7 +107,7 @@ Hi [name],
 
 Two steps to fully disconnect [platform]:
 
-1. In LazyRelay: Settings → Connected Accounts → Disconnect
+1. In LazyRelay: the Social Platforms tab → Disconnect
 2. On [platform]'s own side: revoke LazyRelay's access at [platform-specific link] — step 1 alone doesn't always fully revoke platform-side permissions.
 
 Any scheduled posts on that account will stop publishing once disconnected. Let me know if you run into any issues with either step.
@@ -158,22 +158,24 @@ Hi [name],
 
 Noticed you signed up for LazyRelay but haven't connected a social account yet — just checking in to see if you hit a snag, or if you have any questions before getting started.
 
-Connecting takes about a minute from Settings → Connected Accounts. If something's not working or you're not sure where to start, just reply here and I'll help directly.
+Connecting takes about a minute from the Social Platforms tab in your dashboard. If something's not working or you're not sure where to start, just reply here and I'll help directly.
 ```
 
-## 12. Review request (accounts_ops.js — added 2026-08-05)
+## 12. Review request (accounts_ops.js — added 2026-08-05, form link added 2026-08-21)
 
-Sent to `hello@lazyrelay.com` outbound, not a reply — for `findReviewRequestCandidates()` candidates (5+ posts confirmed actually live via `post_results.verified_live`). Subject: `Quick favor?`. Fill in the real `verifiedPostCount` from the candidate data — never round up or approximate it. Call `markReviewRequested(accountId)` immediately after sending so this never goes out twice.
+Sent to `hello@lazyrelay.com` outbound, not a reply — for `findReviewRequestCandidates()` candidates (5+ posts confirmed actually live via `post_results.verified_live`). Subject: `Quick favor?`. Fill in the real `verifiedPostCount` from the candidate data — never round up or approximate it.
+
+**Before filling this template, call `createFeedbackRequest(supabase, accountId)`** (accounts_ops.js) to get a real `token`, then build the link as `https://lazyrelay.com/feedback/<token>`. Call `markReviewRequested(accountId)` immediately after the email actually sends so this never goes out twice.
 
 ```
 Hi [name],
 
 You've had [verifiedPostCount] posts go out through LazyRelay so far — glad it's working for you.
 
-If you've got a minute, I'd genuinely love to hear what you think — just reply to this email with a quick line or two (still a small, new product, and real feedback like yours helps a lot). No pressure at all if not.
+Got a minute? A few quick questions, just click a star for each: [feedbackUrl]
 ```
 
-No public review destination exists yet (per `ACCOUNTS_KNOWLEDGE.md`'s "Review requests" section) — this collects feedback via reply-to-this-email, not a link to an external site. Update this template if/when a real public reviews section ships.
+Werner's call 2026-08-21: replaced "reply to this email with a quick line or two" with a real 5-question star-rating form (`frontend/src/pages/FeedbackForm.tsx`, reached at `/feedback/<token>`) plus an optional free-text comment box — lower friction than composing a reply, and gives structured signal instead of only free text. No public reviews destination exists yet (per `ACCOUNTS_KNOWLEDGE.md`'s "Review requests" section) — responses land in the `review_feedback` table (migration 0063), not anywhere public. Update this template again if/when a real public reviews section ships.
 
 ## 13. Dunning — payment failed, subscription past due (billing_ops.js — added 2026-08-11)
 
@@ -188,7 +190,7 @@ Hi [name],
 
 Your last LazyRelay payment didn't go through, so your [tier] subscription is currently marked past due.
 
-Usually this is just an expired or replaced card. You can update your payment details from the Billing tab in your dashboard, and that'll settle the outstanding amount automatically.
+Usually this is just an expired or replaced card. You can update your payment details under Settings → Billing in your dashboard, and that'll settle the outstanding amount automatically.
 
 Your scheduled posts are still running for now. If the payment doesn't clear, the account drops back to Free limits — so it's worth sorting out in the next few days.
 
@@ -199,25 +201,26 @@ Never state a specific shutoff date or dollar amount unless it's read from the r
 
 ## 14. Cancellation — confirming a cancel request or asking about cancellation status (added 2026-08-11)
 
-Use when a customer emails asking to cancel, asking how to cancel, or asking to confirm their access end date. **`lazyrelay-email-operations` has no live database access, so it can never see or quote a customer's actual `current_period_end` date — don't invent one.** Cancelling itself is self-serve (Billing tab, real-time), not something this agent does on the customer's behalf.
+Use when a customer emails asking to cancel, asking how to cancel, or asking to confirm their access end date. **`lazyrelay-email-operations` has no live database access, so it can never see or quote a customer's actual `current_period_end` date — don't invent one.** Cancelling itself is self-serve (Settings → Billing, real-time), not something this agent does on the customer's behalf.
 
 Real mechanics to get right (`cancel_at_period_end`, migration `0043`, live 2026-08-11): cancelling does **not** cut off access immediately. It sets a pending-cancellation flag; the subscription stays fully active, and access continues, until the current paid period genuinely ends — at which point it drops to Free automatically. No further charge happens once cancelled.
 
 ```
 Hi [name],
 
-[If they're asking how to cancel:] You can cancel any time from the Billing tab in your dashboard — no need to email us for it.
+[If they're asking how to cancel:] You can cancel any time under Settings → Billing in your dashboard — no need to email us for it.
 
-[If they've already cancelled and are asking to confirm:] That's confirmed on our end. One thing worth knowing: cancelling doesn't cut off access right away — you'll keep everything you have now until your current billing period ends, shown live on your Billing tab, and you won't be charged again after that. Once that date passes, the account moves to the Free plan automatically; nothing else changes and nothing gets deleted.
+[If they've already cancelled and are asking to confirm:] That's confirmed on our end. One thing worth knowing: cancelling doesn't cut off access right away — you'll keep everything you have now until your current billing period ends, shown live under Settings → Billing, and you won't be charged again after that. Once that date passes, the account moves to the Free plan automatically; nothing else changes and nothing gets deleted.
 
 Let me know if anything looks off on your end.
 ```
 
-Never say "your access ends today" or state any date yourself — the dashboard's own Billing tab is the one place with the real, current number, and that's what this reply should point to.
+Never say "your access ends today" or state any date yourself — the dashboard's own Settings → Billing section is the one place with the real, current number, and that's what this reply should point to.
 
 ---
 
 ## Template maintenance
 
 - If `SUPPORT_KNOWLEDGE.md`'s "Current product state" section changes (billing goes live, a new platform integration ships), immediately check whether Templates 2 and 3 above are still accurate — they're written for the current pre-launch state and will actively mislead customers once things change.
+- **Dashboard tab names live in these templates too.** Templates 4, 7, 11, 13 and 14 all tell a customer where to click, so a dashboard restructure silently breaks them. The 2026-08-17 restructure (Settings and API Keys promoted to the top bar; Storage/Account/Billing merged into Settings; "Accounts" renamed **Social Platforms**) invalidated all five at once — corrected 2026-08-18. Whenever the nav changes, re-read `frontend/src/pages/Dashboard.tsx`'s `MAIN_TABS`/`MORE_TABS` and sweep this file alongside `SUPPORT_KNOWLEDGE.md`'s Part 3 layout block, in the same pass.
 - Adding a new template: keep the same terse, plain-language structure — no template here should read like a corporate form letter.
