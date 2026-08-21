@@ -34,15 +34,28 @@ async function makeTestAccount(prefix: string): Promise<{ accountId: string; ema
   const { data: user, error } = await supabase.auth.admin.createUser({ email, password, email_confirm: true });
   if (error || !user.user) throw error ?? new Error("no user");
   const accountId = user.user.id;
-  await supabase.from("accounts").upsert({ id: accountId, email });
 
-  const { createClient } = await import("@supabase/supabase-js");
-  const authClient = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-    auth: { persistSession: false },
-  });
-  const { data: signIn, error: signInError } = await authClient.auth.signInWithPassword({ email, password });
-  if (signInError || !signIn.session) throw signInError ?? new Error("no session");
-  return { accountId, email, jwt: signIn.session.access_token };
+  // Self-cleaning on any failure past this point -- found live 2026-08-21:
+  // a rate limit hitting the sign-in call below (not just createUser)
+  // left a real orphaned auth user + accounts row that the caller's own
+  // accountIds tracking never saw, since this function threw before
+  // returning anything to add to that list. Every failure path from here
+  // now deletes what was just created before re-throwing, so a caller
+  // never has to reason about partial-creation orphans.
+  try {
+    await supabase.from("accounts").upsert({ id: accountId, email });
+
+    const { createClient } = await import("@supabase/supabase-js");
+    const authClient = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+      auth: { persistSession: false },
+    });
+    const { data: signIn, error: signInError } = await authClient.auth.signInWithPassword({ email, password });
+    if (signInError || !signIn.session) throw signInError ?? new Error("no session");
+    return { accountId, email, jwt: signIn.session.access_token };
+  } catch (err) {
+    await cleanup([accountId]);
+    throw err;
+  }
 }
 
 async function cleanup(accountIds: string[]) {
