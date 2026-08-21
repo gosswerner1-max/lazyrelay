@@ -373,6 +373,21 @@ export function Dashboard() {
       dayDetailRef.current.scrollIntoView({ behavior: "auto", block: "start" });
     }
   }, [selectedDay]);
+
+  // The plan-banner "Upgrade" button only ever switched to the Settings
+  // tab — the Billing section lives further down that page, below Storage
+  // and Account, so a customer landed at the top and had no visible plan
+  // cards to click (found live 2026-08-21). Same scroll-into-view fix and
+  // same "auto" not "smooth" reasoning as the calendar day-detail panel
+  // above.
+  const billingSectionRef = useRef<HTMLDivElement>(null);
+  const [scrollToBillingPending, setScrollToBillingPending] = useState(false);
+  useEffect(() => {
+    if (tab === "Settings" && scrollToBillingPending && billingSectionRef.current) {
+      billingSectionRef.current.scrollIntoView({ behavior: "auto", block: "start" });
+      setScrollToBillingPending(false);
+    }
+  }, [tab, scrollToBillingPending]);
   // "Compact view" (the week-row list) vs "Calendar view" (a time-block
   // week grid, hour rows only where something's scheduled) — Werner's own
   // reference, a competitor's toggle of the same name. Calendar view
@@ -2133,7 +2148,13 @@ export function Dashboard() {
             )}
           </span>
           {isFreeOrLapsed && !finalizingUpgrade && (
-            <button className="plan-banner-cta" onClick={() => setTab("Settings")}>
+            <button
+              className="plan-banner-cta"
+              onClick={() => {
+                setTab("Settings");
+                setScrollToBillingPending(true);
+              }}
+            >
               {isPendingCancellation || isLapsedCancelled ? "Resubscribe" : "Upgrade"}
             </button>
           )}
@@ -4563,7 +4584,7 @@ export function Dashboard() {
       )}
 
       {tab === "Settings" && (
-      <section>
+      <section ref={billingSectionRef}>
         <h2>Billing</h2>
         {(() => {
           const tierNames = {
