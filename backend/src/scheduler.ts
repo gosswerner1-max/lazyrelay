@@ -69,6 +69,51 @@ function recordFailure(platform: string): void {
   }
 }
 
+// Proactive rate limiting -- added 2026-08-21, a real gap found during a
+// scaling review (not hypothetical): the circuit breaker above is purely
+// reactive, only engaging after CONSECUTIVE_FAILURE_THRESHOLD calls have
+// already failed. Nothing stopped a burst of posts scheduled for the same
+// popular time (everyone wants "9am") from firing at a single platform as
+// fast as claimDuePosts() could hand them out, which is exactly the
+// "hammering a platform" risk the circuit breaker's own comment already
+// names -- LazyRelay's own app-level API access getting throttled or
+// flagged degrades the product for every customer on that platform, not
+// just whoever's posts triggered it. This caps outbound calls per
+// platform per rolling window, in-process, same Map-keyed-by-platform
+// shape as the breaker above. Deliberately conservative defaults --
+// tune per platform once real traffic gives a reason to, not meant to
+// mirror each platform's exact documented ceiling from day one.
+const RATE_LIMIT_WINDOW_MS = 60_000;
+export const DEFAULT_MAX_CALLS_PER_WINDOW = 30;
+const PLATFORM_MAX_CALLS_PER_WINDOW: Record<string, number> = {};
+
+interface RateLimitState {
+  windowStart: number;
+  count: number;
+}
+const rateLimiters = new Map<string, RateLimitState>();
+
+/** Checks AND consumes a slot atomically, same shape as a token-bucket
+ *  tryAcquire -- true means the platform's budget for the current window
+ *  is already used up (no slot was consumed); false means a slot was just
+ *  taken and the caller may proceed. Exported for test-rate-limiter.ts --
+ *  a pure, fast, non-DB unit test is the right shape for this boundary
+ *  logic (an integration test through runSchedulerCycle would tangle the
+ *  assertion with claimDuePosts' own CLAIM_BATCH_SIZE batching, which
+ *  tests a different thing). */
+export function isRateLimited(platform: string): boolean {
+  const max = PLATFORM_MAX_CALLS_PER_WINDOW[platform] ?? DEFAULT_MAX_CALLS_PER_WINDOW;
+  const now = Date.now();
+  let state = rateLimiters.get(platform);
+  if (!state || now - state.windowStart >= RATE_LIMIT_WINDOW_MS) {
+    state = { windowStart: now, count: 0 };
+    rateLimiters.set(platform, state);
+  }
+  if (state.count >= max) return true;
+  state.count += 1;
+  return false;
+}
+
 interface DuePost {
   id: string;
   account_id: string;
@@ -444,6 +489,11 @@ export async function runSchedulerCycle(registry: PlatformAdapterRegistry): Prom
   for (const post of due) {
     if (isBreakerTripped(post.platform)) {
       console.warn(`Un-claiming post ${post.id} — circuit breaker open for platform "${post.platform}".`);
+      await unclaimPost(post);
+      continue;
+    }
+    if (isRateLimited(post.platform)) {
+      console.warn(`Un-claiming post ${post.id} — proactive rate limit reached for platform "${post.platform}" this window.`);
       await unclaimPost(post);
       continue;
     }
