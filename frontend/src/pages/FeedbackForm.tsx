@@ -37,9 +37,9 @@ export function FeedbackForm({ token }: { token: string }) {
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [comment, setComment] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     api
@@ -57,6 +57,11 @@ export function FeedbackForm({ token }: { token: string }) {
       setError("Please rate all five questions before submitting.");
       return;
     }
+    // Werner's call 2026-08-21: one click, nothing else needed from the
+    // customer. This POST is the real submission AND triggers a real email
+    // to hello@lazyrelay.com server-side (sendReviewFeedbackNotification in
+    // backend/src/email.ts) -- so it still lands as an actual message in
+    // the inbox, without requiring the customer to open their own mail app.
     setSubmitting(true);
     try {
       await api.submitFeedback(token, {

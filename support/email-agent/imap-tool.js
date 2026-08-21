@@ -210,11 +210,32 @@ function escapeHtml(text) {
     .replace(/>/g, "&gt;");
 }
 
+// A paragraph consisting of exactly one line in this form renders as a real
+// clickable button instead of a plain-text link. Added 2026-08-21 -- the
+// review-request email's link was previously just inline URL text, which
+// Werner found unconvincing/easy to miss compared to a real button (matches
+// the style already used on lazyrelay.com's own transactional emails, e.g.
+// the signup-confirmation email's "Confirm email address" button). Label
+// and URL are still escaped before insertion -- this isn't a raw-HTML
+// escape hatch, just one specific safe pattern.
+const BUTTON_LINE_PATTERN = /^\[BUTTON\]\s*(.+?)\s*\|\s*(https?:\/\/\S+)\s*$/;
+
+function renderButton(label, url) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0"><tr>
+<td style="background-color:#ff5630;border-radius:8px;padding:12px 24px;">
+<a href="${escapeHtml(url)}" style="font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;">${escapeHtml(label)}</a>
+</td></tr></table>`;
+}
+
 function textToHtmlParagraphs(text) {
   return text
     .trim()
     .split(/\n\s*\n/)
-    .map((para) => `<p style="margin:0 0 1em 0;">${escapeHtml(para).replace(/\n/g, "<br>")}</p>`)
+    .map((para) => {
+      const buttonMatch = BUTTON_LINE_PATTERN.exec(para.trim());
+      if (buttonMatch) return renderButton(buttonMatch[1], buttonMatch[2]);
+      return `<p style="margin:0 0 1em 0;">${escapeHtml(para).replace(/\n/g, "<br>")}</p>`;
+    })
     .join("\n");
 }
 

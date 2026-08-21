@@ -188,6 +188,40 @@ export function sendTeamInviteEmail(to: string, inviterLabel: string, acceptUrl:
     .catch((err) => console.error("[email] sendTeamInviteEmail threw:", err instanceof Error ? err.message : err));
 }
 
+/** Review-feedback form submission (2026-08-21) — Werner's call: the
+ *  customer only clicks Submit once, nothing else required from them. This
+ *  is the actual delivery mechanism, not a courtesy copy — the structured
+ *  ratings live in review_feedback (migration 0063), but the human-readable
+ *  version of "the review was sent to us" is this real email landing in
+ *  hello@lazyrelay.com, same internal-handoff pattern as
+ *  sendSupportEscalation above. Fire-and-forget for the same reason as the
+ *  rest of this file — a failed notification must never fail the customer's
+ *  actual submission (which already succeeded once the DB write above it
+ *  commits). */
+export function sendReviewFeedbackNotification(ratingsSummary: string, comment: string | null): void {
+  const client = getClient();
+  if (!client) return;
+  client.emails
+    .send({
+      from: `LazyRelay Feedback Form <${FROM_ADDRESS}>`,
+      to: ESCALATION_ADDRESSES.hello,
+      subject: "New review feedback submitted",
+      html: wrapEmailHtml(
+        "New review feedback",
+        `A customer submitted the star-rating feedback form:<br><br>` +
+          `<pre style="white-space:pre-wrap;color:#ffffff;font-family:inherit;font-size:14px;">${escapeHtml(ratingsSummary)}</pre>` +
+          (comment
+            ? `<br>Comment:<br><span style="color:#ffffff;">${escapeHtml(comment)}</span>`
+            : `<br><em>No comment left.</em>`),
+        "Internal notification from the LazyRelay review-feedback form — not a customer notification, and no reply-to address is attached since the submission is anonymous by design."
+      ),
+    })
+    .then((result) => {
+      if (result.error) console.error("[email] sendReviewFeedbackNotification failed:", result.error.message);
+    })
+    .catch((err) => console.error("[email] sendReviewFeedbackNotification threw:", err instanceof Error ? err.message : err));
+}
+
 /** Same alert, worded for the account-paused case (retrying won't help —
  *  the customer needs to reconnect the account or upgrade, not wait). */
 export function sendAccountPausedAlert(to: string, content: string): void {

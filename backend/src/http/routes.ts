@@ -38,7 +38,7 @@ import { cancelFuturePendingOccurrences } from "../recurringScheduler.js";
 import { checkGenerationLimit, recordGeneration } from "../aiUsage.js";
 import { buildSupportSystemPrompt, type SupportAccountContext } from "../support/chatKnowledge.js";
 import { extractSelfReportedEmail, SELF_REPORTED_EMAIL } from "../support/escalationIdentity.js";
-import { sendSupportEscalation, sendTeamInviteEmail } from "../email.js";
+import { sendSupportEscalation, sendTeamInviteEmail, sendReviewFeedbackNotification } from "../email.js";
 import { triageItems, type TriageItem, type TriageResult } from "../commentTriage.js";
 import type { CommentItem } from "../platforms/types.js";
 import { generateWebhookSecret } from "../webhook.js";
@@ -978,6 +978,16 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.json({ alreadySubmitted: !!row.submitted_at });
   });
 
+  // Column name -> the same question wording shown on FeedbackForm.tsx, for
+  // the internal notification email's ratings summary.
+  const FEEDBACK_QUESTION_LABELS = [
+    ["rating_overall", "Overall satisfaction:"],
+    ["rating_reliability", "Reliability:"],
+    ["rating_ease", "Ease of getting started:"],
+    ["rating_support", "Support:"],
+    ["rating_recommend", "Likelihood to recommend:"],
+  ] as const;
+
   router.post("/public/feedback/:token", publicRateLimit, async (req, res) => {
     const ratingFields = [
       ["ratingOverall", "rating_overall"],
@@ -1022,6 +1032,11 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       dbError(res, updateError, "POST /public/feedback/:token update");
       return;
     }
+    // Werner's call 2026-08-21: one click and it's genuinely delivered to
+    // us, no further action needed from the customer — this real email to
+    // hello@lazyrelay.com IS the delivery, not just a courtesy copy.
+    const ratingsSummary = FEEDBACK_QUESTION_LABELS.map(([column, label]) => `${label} ${update[column]}/5`).join("\n");
+    sendReviewFeedbackNotification(ratingsSummary, comment);
     res.json({ ok: true });
   });
 
