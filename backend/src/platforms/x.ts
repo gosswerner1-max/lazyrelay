@@ -142,7 +142,9 @@ export class XAdapter implements PlatformAdapter {
   // this endpoint accepts an OAuth 2.0 user-context Bearer token, not just
   // OAuth 1.0a, despite living under the legacy /1.1/ path.
   private async uploadMedia(mediaUrl: string, accessToken: string): Promise<string | null> {
-    const mediaRes = await fetch(mediaUrl);
+    // redirect: "manual" — see mastodon.ts's uploadMedia for the full
+    // rationale (closes the adapter-side redirect-following SSRF gap).
+    const mediaRes = await fetch(mediaUrl, { redirect: "manual" });
     if (!mediaRes.ok || !mediaRes.body) return null;
     const buffer = Buffer.from(await mediaRes.arrayBuffer());
     const mimeType = mediaRes.headers.get("content-type") ?? "application/octet-stream";

@@ -207,7 +207,9 @@ export class TikTokAdapter implements PlatformAdapter {
     // can never verify — so pull-by-url would fail for every post, not just
     // this one. Uploading the bytes directly sidesteps domain verification
     // entirely.
-    const videoRes = await fetch(request.mediaUrl);
+    // redirect: "manual" — see mastodon.ts's uploadMedia for the full
+    // rationale (closes the adapter-side redirect-following SSRF gap).
+    const videoRes = await fetch(request.mediaUrl, { redirect: "manual" });
     if (!videoRes.ok) {
       return {
         success: false,

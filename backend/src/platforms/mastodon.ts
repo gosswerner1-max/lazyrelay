@@ -182,7 +182,14 @@ export class MastodonAdapter implements PlatformAdapter {
   // when null, same as not passing it at all — no behavior change for
   // uploads that don't have one.
   private async uploadMedia(mediaUrl: string, accessToken: string, altText: string | null): Promise<string | null> {
-    const mediaRes = await fetch(mediaUrl);
+    // redirect: "manual" — mediaUrl already passed isSafeMediaUrl at write
+    // time (routes.ts), but that only checked the URL itself, not wherever
+    // it might redirect to. The default "follow" would happily chase a 3xx
+    // into a private/internal address; refusing to follow (res.ok is false
+    // for any 3xx here, so the existing failure path below already handles
+    // it) closes that gap without re-resolving every hop. Same fix as
+    // webhook.ts's sendVerifiedWebhook.
+    const mediaRes = await fetch(mediaUrl, { redirect: "manual" });
     if (!mediaRes.ok || !mediaRes.body) return null;
     const buffer = Buffer.from(await mediaRes.arrayBuffer());
     const contentType = mediaRes.headers.get("content-type") ?? "application/octet-stream";

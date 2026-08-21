@@ -145,7 +145,9 @@ export class SnapchatAdapter implements PlatformAdapter {
   // files would need real chunking (part_number 1-35) not built here, since
   // LazyRelay's own /media/upload cap is already well under that.
   private async uploadMedia(profileId: string, accessToken: string, mediaUrl: string): Promise<string> {
-    const fileRes = await fetch(mediaUrl);
+    // redirect: "manual" — see mastodon.ts's uploadMedia for the full
+    // rationale (closes the adapter-side redirect-following SSRF gap).
+    const fileRes = await fetch(mediaUrl, { redirect: "manual" });
     if (!fileRes.ok) throw new Error(`Could not fetch media from ${mediaUrl}`);
     const fileBuffer = Buffer.from(await fileRes.arrayBuffer());
 

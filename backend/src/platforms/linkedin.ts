@@ -155,7 +155,9 @@ export class LinkedInAdapter implements PlatformAdapter {
         };
       }
 
-      const imageRes = await fetch(request.mediaUrl);
+      // redirect: "manual" — see mastodon.ts's uploadMedia for the full
+      // rationale (closes the adapter-side redirect-following SSRF gap).
+      const imageRes = await fetch(request.mediaUrl, { redirect: "manual" });
       if (!imageRes.ok || !imageRes.body) {
         return { success: false, platformPostId: null, errorMessage: `Could not fetch image from ${request.mediaUrl}` };
       }

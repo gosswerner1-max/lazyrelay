@@ -217,7 +217,11 @@ export class BlueskyAdapter implements PlatformAdapter {
   }
 
   private async uploadBlob(mediaUrl: string, accessToken: string): Promise<BlueskyBlobRef | null> {
-    const mediaRes = await fetch(mediaUrl);
+    // redirect: "manual" — see mastodon.ts's uploadMedia for the full
+    // rationale (closes the adapter-side redirect-following SSRF gap;
+    // res.ok is false for any 3xx here, so the existing failure path below
+    // already handles it).
+    const mediaRes = await fetch(mediaUrl, { redirect: "manual" });
     if (!mediaRes.ok || !mediaRes.body) return null;
     const buffer = Buffer.from(await mediaRes.arrayBuffer());
     const contentType = mediaRes.headers.get("content-type") ?? "application/octet-stream";

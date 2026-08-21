@@ -267,7 +267,9 @@ export class YouTubeAdapter implements PlatformAdapter {
       return { success: false, platformPostId: null, errorMessage: "YouTube did not return a resumable upload URL" };
     }
 
-    const videoRes = await fetch(request.mediaUrl);
+    // redirect: "manual" — see mastodon.ts's uploadMedia for the full
+    // rationale (closes the adapter-side redirect-following SSRF gap).
+    const videoRes = await fetch(request.mediaUrl, { redirect: "manual" });
     if (!videoRes.ok || !videoRes.body) {
       return { success: false, platformPostId: null, errorMessage: `Could not fetch video from ${request.mediaUrl}` };
     }
