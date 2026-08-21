@@ -22,7 +22,7 @@ function daysAgo(n) {
   return new Date(Date.now() - n * 24 * 3600 * 1000).toISOString();
 }
 
-async function seedAccount(emailPrefix, cancelledDaysAgo, subStatus) {
+async function seedAccount(emailPrefix, cancelledDaysAgo, subStatus, reminderSentDaysAgo = undefined) {
   const email = `${emailPrefix}-${Date.now()}@example.com`;
   const { data: user, error: userError } = await supabase.auth.admin.createUser({ email, email_confirm: true });
   if (userError || !user.user) throw userError ?? new Error("no user created");
@@ -34,7 +34,13 @@ async function seedAccount(emailPrefix, cancelledDaysAgo, subStatus) {
   // INSERTs), so this has to be an update, not an insert.
   const { error: updateError } = await supabase
     .from("accounts")
-    .update({ cancelled_at: cancelledDaysAgo === null ? null : daysAgo(cancelledDaysAgo) })
+    .update({
+      cancelled_at: cancelledDaysAgo === null ? null : daysAgo(cancelledDaysAgo),
+      // reminderSentDaysAgo undefined = leave null (never reminded, the
+      // missed-run scenario); a real number backdates it, matching how a
+      // genuine reminder send would look days/weeks later.
+      data_deletion_reminder_sent_at: reminderSentDaysAgo === undefined ? null : daysAgo(reminderSentDaysAgo),
+    })
     .eq("id", accountId);
   if (updateError) throw updateError;
   await supabase.from("subscriptions").insert({
@@ -72,11 +78,12 @@ async function cleanup(accountId) {
 async function main() {
   const results = [];
 
-  // Test 1: an account past the grace period, no active subscription --
+  // Test 1: an account past the grace period, no active subscription, AND
+  // reminded a real 10 days ago (well past the 7-day minimum gap) --
   // should be found by both finders, and deleteAccountData should actually
   // remove the storage file, the media_uploads row, and mark data_deleted_at.
   {
-    const { accountId, email } = await seedAccount("del-test", 31, "cancelled");
+    const { accountId, email } = await seedAccount("del-test", 31, "cancelled", 10);
     const storagePath = await seedMediaFile(accountId);
     await supabase.from("scheduled_posts").insert({
       account_id: accountId,
@@ -146,6 +153,42 @@ async function main() {
       wronglyFoundForReminder,
       wronglyFoundForDeletion,
       PASS: !wronglyFoundForReminder && !wronglyFoundForDeletion,
+    });
+    await cleanup(accountId);
+  }
+
+  // Test 4: the real bug this fix closes — cancelled 31 days ago (past the
+  // raw deletion threshold) but reminded only 2 days ago, not the full 7.
+  // Before the fix, findAccountsPastGracePeriod only looked at cancelled_at
+  // and would have wrongly included this account; a missed-run scenario
+  // could reminder-and-delete in the same pass. Must NOT be a deletion
+  // candidate yet.
+  {
+    const { accountId, email } = await seedAccount("late-reminder-test", 31, "cancelled", 2);
+    const deletionCandidates = await findAccountsPastGracePeriod(supabase);
+    const wronglyFoundForDeletion = deletionCandidates.some((a) => a.id === accountId);
+    results.push({
+      test: "reminded only 2 days ago (cancelled 31 days ago) is NOT yet a deletion candidate",
+      wronglyFoundForDeletion,
+      PASS: !wronglyFoundForDeletion,
+    });
+    await cleanup(accountId);
+  }
+
+  // Test 5: the missed-run collapse scenario directly -- cancelled 31 days
+  // ago, reminder NEVER sent at all (data_deletion_reminder_sent_at still
+  // null). This is exactly what happens if the sweep missed the day-23
+  // reminder window entirely and only just caught up. Must NOT be a
+  // deletion candidate -- it needs to get reminded first (by the same
+  // sweep's reminder pass, same run) and then wait the real 7-day gap.
+  {
+    const { accountId, email } = await seedAccount("never-reminded-test", 31, "cancelled");
+    const deletionCandidates = await findAccountsPastGracePeriod(supabase);
+    const wronglyFoundForDeletion = deletionCandidates.some((a) => a.id === accountId);
+    results.push({
+      test: "never reminded (cancelled 31 days ago) is NOT a deletion candidate -- the exact missed-run bug this closes",
+      wronglyFoundForDeletion,
+      PASS: !wronglyFoundForDeletion,
     });
     await cleanup(accountId);
   }

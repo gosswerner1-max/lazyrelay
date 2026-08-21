@@ -19,6 +19,7 @@ const { isInternalTestAccount } = require("../shared/internalTestAccounts.js");
 
 const REMINDER_DAYS = 23;
 const DELETION_DAYS = 30;
+const MIN_DAYS_AFTER_REMINDER = DELETION_DAYS - REMINDER_DAYS; // 7
 const MEDIA_BUCKET = "post-media";
 
 function daysAgo(n) {
@@ -38,16 +39,34 @@ async function findAccountsNeedingReminder(supabase) {
   return (data ?? []).filter((a) => !isInternalTestAccount(a.email));
 }
 
-/** Accounts cancelled 30+ days ago, not yet deleted. Being on this list is
- * NOT sufficient to delete on its own — deleteAccountData re-verifies live
+/** Accounts cancelled 30+ days ago, not yet deleted, AND reminded at least
+ * MIN_DAYS_AFTER_REMINDER (7) real days ago -- fixed 2026-08-21, a real gap
+ * found during a scaling review, not a hypothetical. Before this fix, the
+ * deletion check only looked at cancelled_at, with no idea whether the
+ * 7-day reminder had actually gone out yet: if a run was ever missed for
+ * roughly 8+ days (this ops layer runs on a local scheduled task, not an
+ * always-on server -- see the sibling SKILL.md files), an account could
+ * cross BOTH the 23-day reminder threshold and the 30-day deletion
+ * threshold in the exact same run, and runDataRetentionSweep sends the
+ * reminder and runs the deletion pass back to back -- the customer's
+ * "you have 7 days" notice and the actual permanent deletion could fire
+ * seconds apart, silently defeating the entire point of the warning.
+ * Tying the real gate to data_deletion_reminder_sent_at instead makes the
+ * promise ("deleted 7 days after we warn you") true regardless of how late
+ * or irregular the sweep's own run cadence turns out to be. cancelled_at
+ * is still checked too, belt and suspenders, same as deleteAccountData's
+ * own live-resubscribe re-check below. Being on this list is NOT
+ * sufficient to delete on its own — deleteAccountData re-verifies live
  * subscription status before touching anything, in case of a very recent
  * resubscribe that hasn't propagated to this account's cancelled_at yet. */
 async function findAccountsPastGracePeriod(supabase) {
   const { data, error } = await supabase
     .from("accounts")
-    .select("id, email, cancelled_at")
+    .select("id, email, cancelled_at, data_deletion_reminder_sent_at")
     .not("cancelled_at", "is", null)
     .lte("cancelled_at", daysAgo(DELETION_DAYS))
+    .not("data_deletion_reminder_sent_at", "is", null)
+    .lte("data_deletion_reminder_sent_at", daysAgo(MIN_DAYS_AFTER_REMINDER))
     .is("data_deleted_at", null);
   if (error) throw error;
   return (data ?? []).filter((a) => !isInternalTestAccount(a.email));
@@ -193,4 +212,5 @@ module.exports = {
   runDataRetentionSweep,
   REMINDER_DAYS,
   DELETION_DAYS,
+  MIN_DAYS_AFTER_REMINDER,
 };
