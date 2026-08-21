@@ -27,8 +27,11 @@ function getReviewRequestStateStore() {
 }
 
 /** Accounts that signed up N+ days ago with zero connected social accounts —
- * candidates for a nudge (routed through the existing support@ draft-and-hold
- * email agent, not a new send path — see plan's scope boundary). */
+ * candidates for a nudge, sent directly to the customer via Template 11 in
+ * EMAIL_REPLY_TEMPLATES.md from support@lazyrelay.com (send-authority
+ * approved 2026-08-05 — see feedback-email-agent-draft-and-hold.md in the
+ * vault; this comment previously described the earlier draft-and-hold
+ * policy, which was superseded before send-authority was ever granted). */
 async function findStuckOnboardingAccounts(supabase, daysThreshold = STUCK_ONBOARDING_DAYS) {
   const cutoff = new Date(Date.now() - daysThreshold * 24 * 3600 * 1000).toISOString();
   const { data: accounts, error } = await supabase
@@ -126,10 +129,10 @@ async function classifyAccountState(supabase, accountId) {
  * (N+ posts confirmed actually live via post_results.verified_live, not just
  * "sent"), the same trust signal LazyRelay's own positioning is built on.
  * Excludes cancelled accounts and anything already marked in the review-
- * request StateStore, so no account is ever asked twice. Like stuck-
- * onboarding, this only produces candidates — routed through the existing
- * support@lazyrelay.com draft-and-hold email agent (imap-tool.js's
- * save-draft), never a new send path. See ACCOUNTS_KNOWLEDGE.md.
+ * request StateStore, so no account is ever asked twice. Sent directly to
+ * the customer via Template 12 from hello@lazyrelay.com (send-authority
+ * approved 2026-08-05, same as the stuck-onboarding nudge above). See
+ * ACCOUNTS_KNOWLEDGE.md.
  */
 async function findReviewRequestCandidates(supabase, minVerifiedPosts = REVIEW_REQUEST_MIN_VERIFIED_POSTS) {
   const store = getReviewRequestStateStore();
