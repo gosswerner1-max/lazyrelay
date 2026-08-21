@@ -4,11 +4,12 @@
 // auto-sends, same pattern already live for data_retention_ops.js's
 // deletion-reminder email (Resend, no draft-and-hold).
 //
-// Distinct from findStuckOnboardingAccounts() in accounts_ops.js, which is
-// an internal 7-day alert routed to Werner for manual outreach and is left
-// completely unchanged by this file. This is an earlier, automatic,
-// customer-facing nudge -- both can fire for the same account (nudge at
-// day 3, Werner's own internal alert still at day 7 if it's still stuck).
+// Distinct from findStuckOnboardingAccounts() in accounts_ops.js, which
+// ALSO sends directly to the customer (Template 11, support@lazyrelay.com,
+// send-authority since 2026-08-05) but at day 7, not day 3, and is left
+// completely unchanged by this file. This is an earlier, separate,
+// customer-facing nudge -- both can legitimately fire for the same
+// still-stuck account (day-3 nudge here, day-7 Template-11 send later).
 //
 // Grounded in the real schema (migration 0062):
 //   accounts(welcome_email_sent_at, onboarding_nudge_sent_at)
@@ -69,7 +70,7 @@ Questions any time -- just reply to this email, or use the chat on your dashboar
 /** Accounts ONBOARDING_NUDGE_DAYS+ old, zero connected accounts, never
  * nudged. Same "zero connected accounts" check as accounts_ops.js's
  * findStuckOnboardingAccounts(), independent cutoff and independent
- * sent-flag -- this firing does not stop the later 7-day internal alert
+ * sent-flag -- this firing does not stop the later day-7 Template-11 send
  * from also firing if the account is still stuck by then. */
 async function findAccountsNeedingOnboardingNudge(supabase, daysThreshold = ONBOARDING_NUDGE_DAYS) {
   const cutoff = new Date(Date.now() - daysThreshold * 24 * 3600 * 1000).toISOString();
