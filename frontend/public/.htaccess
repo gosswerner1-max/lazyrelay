@@ -29,3 +29,16 @@
   # reason any embedded content should be able to either.
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
 </IfModule>
+
+# SPA fallback — added 2026-08-21 after /pricing and /dpa (both real React
+# routes, no matching static file) were found returning hard 404s on a
+# direct/cold load, despite both being listed in sitemap.xml. Only catches
+# requests that aren't a real file or directory, so static content (guides,
+# terms, images, JS bundles, etc.) is untouched.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
