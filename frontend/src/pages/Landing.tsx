@@ -521,7 +521,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
         </p>
         <p>&copy; {new Date().getFullYear()} LazyRelay. All rights reserved.</p>
       </footer>
-      <SupportWidget />
+      <SupportWidget context="public" />
     </div>
   );
 }

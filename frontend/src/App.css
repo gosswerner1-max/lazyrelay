@@ -4075,6 +4075,49 @@ button[type="submit"]:not(.btn-outline),
   object-fit: contain;
 }
 
+.support-greeting {
+  position: relative;
+  max-width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--signal);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 10px 28px 10px 14px;
+}
+
+.support-greeting-text {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+
+.support-greeting-close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: none;
+  border: none;
+  color: var(--wire);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.support-greeting-close:hover {
+  color: var(--ink);
+}
+
 .support-panel {
   width: 340px;
   max-width: calc(100vw - 40px);

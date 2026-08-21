@@ -28,6 +28,22 @@ function actionButtonLabel(action: SupportAction): string {
 
 const THINKING_CLIPS = [thinking1, thinking2];
 
+// Proactive greeting bubble ("Hi, I'm Ray! Any questions?") -- Werner's
+// call, 2026-08-21. Persisted in localStorage (not sessionStorage) because
+// the whole point is not nagging a returning visitor: once dismissed, or
+// once the visitor has actually opened the chat once, it never shows
+// again, on any page, ever. Trigger timing deliberately differs by where
+// the widget is mounted: on the public marketing pages (Landing.tsx),
+// 3 minutes of no activity is a real "maybe they're stuck deciding"
+// signal worth nudging; inside the logged-in Dashboard, inactivity just
+// as often means someone's mid-thought writing a caption or reading
+// analytics, so popping up there uses a short fixed delay instead --
+// same greeting, no risk of interrupting focused work.
+const GREETING_DISMISSED_KEY = "lazyrelay_support_greeting_dismissed";
+const PUBLIC_INACTIVITY_MS = 3 * 60 * 1000;
+const DASHBOARD_DELAY_MS = 20 * 1000;
+const ACTIVITY_EVENTS = ["mousemove", "keydown", "scroll", "touchstart", "click"] as const;
+
 // Widget never sends the previous conversation's escalation flag back to
 // the backend — only role/content round-trip, escalated is UI-only state
 // derived from each response.
@@ -35,7 +51,7 @@ function toApiMessages(messages: ChatMessage[]): Array<{ role: "user" | "assista
   return messages.map((m) => ({ role: m.role, content: m.content }));
 }
 
-export function SupportWidget() {
+export function SupportWidget({ context = "dashboard" }: { context?: "public" | "dashboard" }) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -48,6 +64,51 @@ export function SupportWidget() {
   // Picked once per widget mount, not per message — so the same visitor
   // doesn't see it flicker between two different clips mid-conversation.
   const [thinkingClip] = useState(() => THINKING_CLIPS[Math.floor(Math.random() * THINKING_CLIPS.length)]);
+
+  const [showGreeting, setShowGreeting] = useState(false);
+
+  function dismissGreeting() {
+    setShowGreeting(false);
+    try {
+      localStorage.setItem(GREETING_DISMISSED_KEY, "1");
+    } catch {
+      // Private-browsing/storage-disabled — worst case the bubble can show
+      // again next visit, not worth failing anything over.
+    }
+  }
+
+  useEffect(() => {
+    let dismissed = false;
+    try {
+      dismissed = localStorage.getItem(GREETING_DISMISSED_KEY) === "1";
+    } catch {
+      dismissed = false;
+    }
+    if (dismissed || isOpen) return;
+
+    if (context === "dashboard") {
+      const timer = setTimeout(() => setShowGreeting(true), DASHBOARD_DELAY_MS);
+      return () => clearTimeout(timer);
+    }
+
+    // Public pages: reset an idle timer on any real activity; only show
+    // once nothing has happened for the full inactivity window.
+    let idleTimer: ReturnType<typeof setTimeout>;
+    function resetIdleTimer() {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => setShowGreeting(true), PUBLIC_INACTIVITY_MS);
+    }
+    resetIdleTimer();
+    ACTIVITY_EVENTS.forEach((evt) => window.addEventListener(evt, resetIdleTimer, { passive: true }));
+    return () => {
+      clearTimeout(idleTimer);
+      ACTIVITY_EVENTS.forEach((evt) => window.removeEventListener(evt, resetIdleTimer));
+    };
+    // Deliberately only re-runs if context/isOpen change -- re-arming on
+    // every render would reset the idle timer constantly and it would
+    // never fire.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [context, isOpen]);
 
   useEffect(() => {
     if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
@@ -190,10 +251,31 @@ export function SupportWidget() {
         </div>
       )}
 
+      {showGreeting && !isOpen && (
+        <div className="support-greeting" role="status">
+          <button type="button" className="support-greeting-close" onClick={dismissGreeting} aria-label="Dismiss">
+            &times;
+          </button>
+          <button
+            type="button"
+            className="support-greeting-text"
+            onClick={() => {
+              dismissGreeting();
+              setIsOpen(true);
+            }}
+          >
+            Hi, I&apos;m Ray! Any questions? I&apos;m here to help.
+          </button>
+        </div>
+      )}
+
       <button
         type="button"
         className="support-bubble"
-        onClick={() => setIsOpen((v) => !v)}
+        onClick={() => {
+          if (!isOpen) dismissGreeting();
+          setIsOpen((v) => !v);
+        }}
         aria-label={isOpen ? "Close support chat" : "Open support chat"}
       >
         <span className="support-bubble-ring support-bubble-ring--outer" aria-hidden="true" />
