@@ -10,6 +10,9 @@ class MockAdapterSucceeds implements MerchantOfRecordAdapter {
   async cancelSubscription(): Promise<CancelResult> {
     return { success: true, errorMessage: null };
   }
+  async changeSubscriptionTier(): Promise<CancelResult> {
+    return { success: true, errorMessage: null };
+  }
 }
 
 class MockAdapterFails implements MerchantOfRecordAdapter {
@@ -17,6 +20,9 @@ class MockAdapterFails implements MerchantOfRecordAdapter {
     throw new Error("not used in this test");
   }
   async cancelSubscription(): Promise<CancelResult> {
+    return { success: false, errorMessage: "simulated MoR outage" };
+  }
+  async changeSubscriptionTier(): Promise<CancelResult> {
     return { success: false, errorMessage: "simulated MoR outage" };
   }
 }

@@ -1649,6 +1649,31 @@ export function Dashboard() {
     }
   }
 
+  // For a customer already on an active paid tier -- real proration on the
+  // existing subscription (see changeSubscriptionTier's doc comment on the
+  // backend), not a fresh Paddle.js checkout overlay. No card re-entry
+  // needed since the existing saved payment method is charged directly, so
+  // this just calls the API and polls the same way handleUpgrade does while
+  // waiting for the resulting webhook to land.
+  async function handleChangeTier(tier: "pro" | "business" | "enterprise" | "agency" | "agency_plus") {
+    setBillingBusy(tier);
+    setError(null);
+    try {
+      await api.changeTier(tier);
+      // Don't await this -- matches handleUpgrade's own pattern (the
+      // checkout.completed event handler fires pollUntilUpgraded without
+      // awaiting it too), so billingBusy clears right away and the
+      // "Finalizing your upgrade..." banner (finalizingUpgrade) is the one
+      // piece of UI carrying the wait, not a disabled button for 15s.
+      pendingTierRef.current = tier;
+      void pollUntilUpgraded();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBillingBusy(null);
+    }
+  }
+
   async function handleBuyStorageAddon(gbAmount: 5 | 20 | 50) {
     setAddonBusy(gbAmount);
     setError(null);
@@ -4627,6 +4652,37 @@ export function Dashboard() {
           const periodEndDate = subscription?.currentPeriodEnd
             ? new Date(subscription.currentPeriodEnd).toLocaleDateString(undefined, { month: "short", day: "numeric" })
             : null;
+          // One button per pricing card, three real states (found live
+          // 2026-08-21 that only the first of these existed -- an already-
+          // paying customer had no self-serve way to move tiers at all,
+          // only cancel-and-lose-access):
+          // 1. This card matches the customer's current tier -> disabled
+          //    "Current plan" badge, not a button at all.
+          // 2. canUpgrade (Free, or a lapsed/cancelled account) -> the
+          //    existing checkout-overlay flow via handleUpgrade.
+          // 3. Already on a different paid tier -> the real proration flow
+          //    via handleChangeTier, no checkout overlay needed.
+          function renderTierAction(tierCode: "pro" | "business" | "enterprise" | "agency" | "agency_plus", displayName: string) {
+            if (subscription?.tier === tierCode && !isCancelling) {
+              return (
+                <button className="cta" disabled>
+                  Current plan
+                </button>
+              );
+            }
+            if (canUpgrade) {
+              return (
+                <button className="cta" onClick={() => handleUpgrade(tierCode)} disabled={billingBusy !== null}>
+                  {billingBusy === tierCode ? "Starting checkout..." : isCancelling ? `Resubscribe to ${displayName}` : `Upgrade to ${displayName}`}
+                </button>
+              );
+            }
+            return (
+              <button className="cta" onClick={() => handleChangeTier(tierCode)} disabled={billingBusy !== null}>
+                {billingBusy === tierCode ? "Starting checkout..." : `Switch to ${displayName}`}
+              </button>
+            );
+          }
           return (
             <>
               <p className="current-plan">
@@ -4642,48 +4698,40 @@ export function Dashboard() {
                 )}
               </p>
 
-              {canUpgrade ? (
-                <div className="pricing-grid billing-upgrade-grid">
-                  <div className="pricing-card">
-                    <h3>Starter: 5GB storage</h3>
-                    <p className="pricing-price">
-                      $29.99<span className="pricing-period">/mo</span>
-                    </p>
-                    <p className="pricing-note">20 accounts, unlimited posts, AI-agent access</p>
-                    <button className="cta" onClick={() => handleUpgrade("pro")} disabled={billingBusy !== null}>
-                      {billingBusy === "pro" ? "Starting checkout..." : isCancelling ? "Resubscribe to Starter" : "Upgrade to Starter"}
-                    </button>
-                  </div>
-                  <div className="pricing-card">
-                    <h3>Pro: 10GB storage</h3>
-                    <p className="pricing-price">
-                      $59.99<span className="pricing-period">/mo</span>
-                    </p>
-                    <p className="pricing-note">40 accounts, unlimited posts, AI-agent access, priority support</p>
-                    <button className="cta" onClick={() => handleUpgrade("business")} disabled={billingBusy !== null}>
-                      {billingBusy === "business" ? "Starting checkout..." : isCancelling ? "Resubscribe to Pro" : "Upgrade to Pro"}
-                    </button>
-                  </div>
-                  <div className="pricing-card">
-                    <h3>Business: 20GB storage</h3>
-                    <p className="pricing-price">
-                      $99.99<span className="pricing-period">/mo</span>
-                    </p>
-                    <p className="pricing-note">100 accounts, unlimited posts, AI-agent access, priority support</p>
-                    <button className="cta" onClick={() => handleUpgrade("enterprise")} disabled={billingBusy !== null}>
-                      {billingBusy === "enterprise" ? "Starting checkout..." : isCancelling ? "Resubscribe to Business" : "Upgrade to Business"}
-                    </button>
-                  </div>
+              <div className="pricing-grid billing-upgrade-grid">
+                <div className="pricing-card">
+                  <h3>Starter: 5GB storage</h3>
+                  <p className="pricing-price">
+                    $29.99<span className="pricing-period">/mo</span>
+                  </p>
+                  <p className="pricing-note">20 accounts, unlimited posts, AI-agent access</p>
+                  {renderTierAction("pro", "Starter")}
                 </div>
-              ) : null}
+                <div className="pricing-card">
+                  <h3>Pro: 10GB storage</h3>
+                  <p className="pricing-price">
+                    $59.99<span className="pricing-period">/mo</span>
+                  </p>
+                  <p className="pricing-note">40 accounts, unlimited posts, AI-agent access, priority support</p>
+                  {renderTierAction("business", "Pro")}
+                </div>
+                <div className="pricing-card">
+                  <h3>Business: 20GB storage</h3>
+                  <p className="pricing-price">
+                    $99.99<span className="pricing-period">/mo</span>
+                  </p>
+                  <p className="pricing-note">100 accounts, unlimited posts, AI-agent access, priority support</p>
+                  {renderTierAction("enterprise", "Business")}
+                </div>
+              </div>
 
-              {canUpgrade && !showAgencyBilling && (
+              {!showAgencyBilling && (
                 <button type="button" className="btn-outline pricing-agency-toggle" onClick={() => setShowAgencyBilling(true)}>
                   Running an agency? See Agency plans &rarr;
                 </button>
               )}
 
-              {canUpgrade && showAgencyBilling && (
+              {showAgencyBilling && (
                 <div className="pricing-grid pricing-grid-agency">
                   <div className="pricing-card">
                     <h3>Agency: 20GB storage</h3>
@@ -4691,9 +4739,7 @@ export function Dashboard() {
                       $149.99<span className="pricing-period">/mo</span>
                     </p>
                     <p className="pricing-note">100 accounts, 12 brands, 3 team seats, AI-agent access, priority support</p>
-                    <button className="cta" onClick={() => handleUpgrade("agency")} disabled={billingBusy !== null}>
-                      {billingBusy === "agency" ? "Starting checkout..." : isCancelling ? "Resubscribe to Agency" : "Upgrade to Agency"}
-                    </button>
+                    {renderTierAction("agency", "Agency")}
                   </div>
                   <div className="pricing-card">
                     <h3>Agency Plus: 20GB storage</h3>
@@ -4701,9 +4747,7 @@ export function Dashboard() {
                       $199.99<span className="pricing-period">/mo</span>
                     </p>
                     <p className="pricing-note">150 accounts, 20 brands, 6 team seats, AI-agent access, priority support</p>
-                    <button className="cta" onClick={() => handleUpgrade("agency_plus")} disabled={billingBusy !== null}>
-                      {billingBusy === "agency_plus" ? "Starting checkout..." : isCancelling ? "Resubscribe to Agency Plus" : "Upgrade to Agency Plus"}
-                    </button>
+                    {renderTierAction("agency_plus", "Agency Plus")}
                   </div>
                 </div>
               )}

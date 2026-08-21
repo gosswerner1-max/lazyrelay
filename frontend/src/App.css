@@ -3085,6 +3085,18 @@ button[type="submit"]:not(.btn-outline),
   background: var(--hero-accent-hover);
 }
 
+/* The "Current plan" badge on a pricing card is a real .cta button (matches
+   every other card's element so the grid stays visually even) but
+   permanently disabled -- without this override it kept the vibrant orange
+   background, reading as a clickable action rather than the plan the
+   customer is already on. Found live 2026-08-21 building the tier-switch
+   flow. */
+.cta:disabled {
+  background: var(--line);
+  color: var(--wire);
+  cursor: default;
+}
+
 .landing-section {
   width: 100%;
   max-width: 1100px;

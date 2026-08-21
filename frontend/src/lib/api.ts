@@ -615,6 +615,11 @@ export const api = {
     tier: "pro" | "business" | "enterprise" | "agency" | "agency_plus"
   ): Promise<{ transactionId: string; checkoutUrl: string | null }> =>
     authedFetch("/subscription/checkout", { method: "POST", body: JSON.stringify({ tier }) }),
+  // For a customer already on an active paid tier -- real proration on the
+  // existing subscription, not a fresh checkout. startCheckout above is for
+  // Free/lapsed -> paid only; this is for moving between paid tiers.
+  changeTier: (tier: "pro" | "business" | "enterprise" | "agency" | "agency_plus"): Promise<{ changed: boolean }> =>
+    authedFetch("/subscription/change-tier", { method: "POST", body: JSON.stringify({ tier }) }),
   cancelSubscription: (feedback: string | undefined, acknowledgedDataDeletion: boolean): Promise<{ cancelled: boolean }> =>
     authedFetch("/subscription/cancel", { method: "POST", body: JSON.stringify({ feedback, acknowledgedDataDeletion }) }),
 

@@ -3620,6 +3620,79 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
   });
 
+  // Changes an EXISTING active subscription's tier in place (real proration,
+  // not a fresh checkout) — found 2026-08-21 that the dashboard had no
+  // self-serve upgrade/downgrade path at all once a customer was already
+  // paying, only cancel-and-lose-access. /subscription/checkout above is
+  // for going from Free (or a lapsed/cancelled account) to a paid tier;
+  // this is for moving between paid tiers. See changeSubscriptionTier's doc
+  // comment in billing/types.ts for why no local DB write happens here —
+  // the resulting webhook is the source of truth, same as every other
+  // subscription-lifecycle change.
+  router.post("/subscription/change-tier", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { tier } = req.body ?? {};
+    if (tier !== "pro" && tier !== "business" && tier !== "enterprise" && tier !== "agency" && tier !== "agency_plus") {
+      res.status(400).json({
+        error:
+          'tier must be "pro" (Starter), "business" (Pro), "enterprise" (Business), "agency" (Agency), or "agency_plus" (Agency Plus)',
+      });
+      return;
+    }
+
+    const apiKey = process.env.MOR_API_KEY;
+    const priceId =
+      tier === "pro"
+        ? process.env.PADDLE_PRICE_ID_STARTER
+        : tier === "business"
+          ? process.env.PADDLE_PRICE_ID_PRO
+          : tier === "enterprise"
+            ? process.env.PADDLE_PRICE_ID_BUSINESS
+            : tier === "agency"
+              ? process.env.PADDLE_PRICE_ID_AGENCY
+              : process.env.PADDLE_PRICE_ID_AGENCY_PLUS;
+    if (!apiKey || !priceId) {
+      res.status(503).json({
+        error: "Billing isn't live yet — no Paddle account/price configured. See BILLING_KNOWLEDGE.md.",
+      });
+      return;
+    }
+
+    const { data: account, error: accountError } = await supabase
+      .from("accounts")
+      .select("email")
+      .eq("id", req.accountId)
+      .single();
+    if (accountError || !account) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+
+    const { data: subscription, error: subError } = await supabase
+      .from("subscriptions")
+      .select("mor_subscription_id, tier, status")
+      .eq("account_id", req.accountId)
+      .maybeSingle();
+    if (subError) {
+      dbError(res, subError, "POST /subscription/change-tier");
+      return;
+    }
+    if (!subscription || (subscription.status !== "active" && subscription.status !== "trialing")) {
+      res.status(400).json({ error: "No active subscription to change — subscribe via /subscription/checkout first." });
+      return;
+    }
+    if (subscription.tier === tier) {
+      res.status(400).json({ error: "Already on this tier." });
+      return;
+    }
+
+    const result = await morAdapter.changeSubscriptionTier(subscription.mor_subscription_id, priceId, tier, account.email);
+    if (!result.success) {
+      res.status(502).json({ error: result.errorMessage ?? "Tier change failed at the payment provider" });
+      return;
+    }
+    res.json({ changed: true });
+  });
+
   // The cancellation flow — this is THE trust-critical endpoint. Cancels
   // with the Merchant of Record first; only then does the local record
   // get marked cancelled. See billing/sync.ts for the full reasoning.

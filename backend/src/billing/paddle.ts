@@ -272,6 +272,25 @@ export class PaddleMorAdapter implements MerchantOfRecordAdapter {
       return { success: false, errorMessage: err instanceof Error ? err.message : String(err) };
     }
   }
+
+  /** prorated_immediately — the customer sees the real price difference
+   *  reflected on their card right away, matching what the dashboard's
+   *  upgrade/downgrade copy will tell them to expect. customData carries
+   *  the new tier so the resulting webhook (see MerchantOfRecordAdapter's
+   *  doc comment) syncs it correctly — the price change alone wouldn't
+   *  tell our own sync code what tier this now is. */
+  async changeSubscriptionTier(morSubscriptionId: string, priceId: string, tier: string, accountEmail: string): Promise<CancelResult> {
+    try {
+      await this.paddle.subscriptions.update(morSubscriptionId, {
+        items: [{ priceId, quantity: 1 }],
+        prorationBillingMode: "prorated_immediately",
+        customData: { kind: "tier", accountEmail, tier },
+      });
+      return { success: true, errorMessage: null };
+    } catch (err) {
+      return { success: false, errorMessage: err instanceof Error ? err.message : String(err) };
+    }
+  }
 }
 
 /** Finds an existing Paddle Customer by email, or creates one — required

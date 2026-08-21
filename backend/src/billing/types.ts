@@ -134,4 +134,19 @@ export interface MerchantOfRecordAdapter {
    *  documented failure was exactly this gap (settings-page bug that
    *  never reached the real cancellation, causing repeat charges). */
   cancelSubscription(morSubscriptionId: string): Promise<CancelResult>;
+
+  /** Changes an EXISTING active subscription's price in place — a real
+   *  upgrade/downgrade with proration, not a fresh checkout transaction.
+   *  Found 2026-08-21: the dashboard had no self-serve way for an
+   *  already-paying customer to move between tiers at all, only
+   *  cancel-and-lose-access. Charges/credits the prorated difference on
+   *  the customer's existing saved payment method immediately — no
+   *  checkout overlay needed, unlike a brand-new subscription. Passes an
+   *  updated customData.tier in the same call so the resulting
+   *  subscription.updated webhook (already handled by
+   *  syncSubscriptionFromWebhook, upserted on account_id) picks up the
+   *  new tier correctly — this is the single source of truth for the
+   *  local `subscriptions` row, deliberately not written synchronously
+   *  here. */
+  changeSubscriptionTier(morSubscriptionId: string, priceId: string, tier: string, accountEmail: string): Promise<CancelResult>;
 }
