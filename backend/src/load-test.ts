@@ -145,33 +145,116 @@ async function burstPhase(jwt: string): Promise<Sample[]> {
   return Promise.all(requests);
 }
 
+// --- Ramp mode: push concurrency 5 -> 150 in stages, one round of
+// concurrent GET /scheduled-posts + GET /analytics/summary per account per
+// stage. Real finding from running this 2026-08-21: this stage shape fires
+// every account's request at the exact same instant, which queues up
+// behind Render's single 0.5 CPU instance and shows meaningfully HIGHER
+// latency (p50 ~1.7-2.5s here) than the sustainedLoadPhase below measured
+// at comparable volume on the same day (p50 ~950-960ms, matching the
+// 2026-07-29 baseline in project-infra-upgrade-load-test-2026-07-29.md,
+// ~800-1250ms) -- confirmed live by re-running sustainedLoadPhase
+// immediately after and getting numbers back in the original range. This
+// mode's latency is a worst-case synchronized-burst number (nobody's real
+// traffic arrives in perfect unison), useful for finding a real error-rate
+// ceiling, NOT a reliable proxy for typical customer-facing latency at
+// that concurrency -- use sustainedLoadPhase (LOAD_TEST_MODE=sustained)
+// for that question instead. Creates all accounts needed for the largest
+// stage up front (Supabase
+// Auth's own admin-createUser rate limit is the thing that capped the
+// July run around 169, not Render capacity) and reuses subsets per stage,
+// rather than re-creating accounts at every stage.
+const RAMP_STAGES = [5, 10, 20, 40, 60, 80, 100, 150];
+
+async function rampPhase(): Promise<{ accountIds: string[] }> {
+  const maxAccounts = RAMP_STAGES[RAMP_STAGES.length - 1];
+  console.log(`\n=== Creating up to ${maxAccounts} disposable test accounts for the ramp ===`);
+  const accounts: { accountId: string; jwt: string }[] = [];
+  const accountIds: string[] = [];
+  for (let i = 0; i < maxAccounts; i++) {
+    try {
+      const account = await makeTestAccount(`ramp-${i}`);
+      accounts.push(account);
+      accountIds.push(account.accountId);
+    } catch (err) {
+      console.log(
+        `  Account creation stopped at ${accounts.length}/${maxAccounts} -- ${err instanceof Error ? err.message : String(err)} ` +
+          `(matches the July finding: Supabase Auth's own signup rate limit, not Render capacity)`,
+      );
+      break;
+    }
+  }
+  console.log(`  Created ${accounts.length} accounts.`);
+
+  for (const stage of RAMP_STAGES) {
+    if (stage > accounts.length) {
+      console.log(`\n=== Stage ${stage} skipped -- only ${accounts.length} accounts available ===`);
+      continue;
+    }
+    const stageAccounts = accounts.slice(0, stage);
+    console.log(`\n=== Stage: ${stage} concurrent accounts, one round each ===`);
+    const samples = (
+      await Promise.all(
+        stageAccounts.map(async ({ jwt }) => {
+          const [a, b] = await Promise.all([
+            timedRequest(`${API_URL}/scheduled-posts`, jwt).then((r) => ({ route: "GET /scheduled-posts", ...r })),
+            timedRequest(`${API_URL}/analytics/summary`, jwt).then((r) => ({ route: "GET /analytics/summary", ...r })),
+          ]);
+          return [a, b];
+        }),
+      )
+    ).flat();
+
+    const ok = samples.filter((s) => s.status === 200).length;
+    const errors = samples.filter((s) => s.status !== 200 && s.status !== 429).length;
+    const ms = samples.map((s) => s.ms).sort((a, b) => a - b);
+    console.log(
+      `  ${samples.length} requests: ${ok} ok, ${errors} error(s). ` +
+        `latency ms: p50=${percentile(ms, 50).toFixed(0)} p95=${percentile(ms, 95).toFixed(0)} p99=${percentile(ms, 99).toFixed(0)} max=${ms[ms.length - 1]?.toFixed(0)}`,
+    );
+    if (errors > 0) {
+      const statuses = [...new Set(samples.filter((s) => s.status !== 200 && s.status !== 429).map((s) => s.status))];
+      console.log(`  non-200 statuses seen: ${statuses.join(", ")}`);
+    }
+    await fetchRenderCpuSnapshot(`after stage ${stage}`);
+  }
+
+  return { accountIds };
+}
+
 async function main() {
   console.log(`=== LazyRelay load test — target: ${API_URL} ===`);
+  const mode = process.env.LOAD_TEST_MODE ?? "ramp";
   const accountIds: string[] = [];
 
   try {
     await fetchRenderCpuSnapshot("before");
 
-    console.log(`\nCreating ${NUM_ACCOUNTS} disposable test accounts...`);
-    const accounts = await Promise.all(Array.from({ length: NUM_ACCOUNTS }, (_, i) => makeTestAccount(`sustained-${i}`)));
-    accountIds.push(...accounts.map((a) => a.accountId));
+    if (mode === "ramp") {
+      const result = await rampPhase();
+      accountIds.push(...result.accountIds);
+    } else {
+      console.log(`\nCreating ${NUM_ACCOUNTS} disposable test accounts...`);
+      const accounts = await Promise.all(Array.from({ length: NUM_ACCOUNTS }, (_, i) => makeTestAccount(`sustained-${i}`)));
+      accountIds.push(...accounts.map((a) => a.accountId));
 
-    const sustainedSamples = await sustainedLoadPhase(accounts);
-    await fetchRenderCpuSnapshot("during/after sustained phase");
+      const sustainedSamples = await sustainedLoadPhase(accounts);
+      await fetchRenderCpuSnapshot("during/after sustained phase");
 
-    const burstSamples = await burstPhase(accounts[0].jwt);
+      const burstSamples = await burstPhase(accounts[0].jwt);
 
-    console.log("\n=== Results ===");
-    reportRoute("GET /scheduled-posts (sustained)", sustainedSamples.filter((s) => s.route === "GET /scheduled-posts"));
-    reportRoute("GET /analytics/summary (sustained)", sustainedSamples.filter((s) => s.route === "GET /analytics/summary"));
-    reportRoute("GET /scheduled-posts (burst, 80 reqs/1 account)", burstSamples);
+      console.log("\n=== Results ===");
+      reportRoute("GET /scheduled-posts (sustained)", sustainedSamples.filter((s) => s.route === "GET /scheduled-posts"));
+      reportRoute("GET /analytics/summary (sustained)", sustainedSamples.filter((s) => s.route === "GET /analytics/summary"));
+      reportRoute("GET /scheduled-posts (burst, 80 reqs/1 account)", burstSamples);
 
-    const burstLimited = burstSamples.filter((s) => s.status === 429).length;
-    const burstOk = burstSamples.filter((s) => s.status === 200).length;
-    console.log(
-      `\nRate limiter check: ${burstLimited > 0 && burstOk > 0 ? "PASS" : "FAIL"} — ` +
-        `${burstOk} ok, ${burstLimited} rate-limited out of 80 rapid requests on one account`,
-    );
+      const burstLimited = burstSamples.filter((s) => s.status === 429).length;
+      const burstOk = burstSamples.filter((s) => s.status === 200).length;
+      console.log(
+        `\nRate limiter check: ${burstLimited > 0 && burstOk > 0 ? "PASS" : "FAIL"} — ` +
+          `${burstOk} ok, ${burstLimited} rate-limited out of 80 rapid requests on one account`,
+      );
+    }
 
     await fetchRenderCpuSnapshot("final");
   } finally {
