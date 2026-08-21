@@ -5,7 +5,15 @@ import { notifyOps } from "./notify.js";
 import { sendFailureAlert, sendAccountPausedAlert } from "./email.js";
 import { sendVerifiedWebhook } from "./webhook.js";
 
-const CLAIM_BATCH_SIZE = 10;
+// How many due posts one scheduler cycle claims and processes. Combined
+// with index.ts's POLL_INTERVAL_MS, this is the real throughput ceiling —
+// confirmed live 2026-08-21 at ~20 posts/min (10 every 30s), while Render's
+// own CPU/memory stayed flat even at 8x that batch size processed fully
+// concurrently. Not a hardware limit — raise this env var on Render (no
+// code change, no redeploy of new code, just the setting) once real volume
+// approaches the current ceiling. Defaults to the original hardcoded value,
+// so leaving it unset changes nothing.
+const CLAIM_BATCH_SIZE = Number(process.env.SCHEDULER_CLAIM_BATCH_SIZE) || 10;
 
 // A post that fails gets retried with exponential backoff before being
 // marked permanently failed — a one-off network blip or momentary platform

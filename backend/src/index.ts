@@ -10,7 +10,12 @@ import { buildApp } from "./http/app.js";
 import { fetchSupabaseOAuthMetadata } from "./http/mcpAuth.js";
 import type { MerchantOfRecordAdapter } from "./billing/types.js";
 
-const POLL_INTERVAL_MS = 30_000;
+// How often the scheduler checks for due posts. Combined with scheduler.ts's
+// CLAIM_BATCH_SIZE, this sets the real publishing throughput ceiling (see
+// that file's comment). Env-configurable so raising throughput later is a
+// Render dashboard setting, not a code change — defaults to the original
+// hardcoded value, so leaving it unset changes nothing.
+const POLL_INTERVAL_MS = Number(process.env.SCHEDULER_POLL_INTERVAL_MS) || 30_000;
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 
 async function main() {
