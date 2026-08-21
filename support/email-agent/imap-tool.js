@@ -221,7 +221,7 @@ function escapeHtml(text) {
 const BUTTON_LINE_PATTERN = /^\[BUTTON\]\s*(.+?)\s*\|\s*(https?:\/\/\S+)\s*$/;
 
 function renderButton(label, url) {
-  return `<table role="presentation" cellpadding="0" cellspacing="0"><tr>
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 1em 0;"><tr>
 <td style="background-color:#ff5630;border-radius:8px;padding:12px 24px;">
 <a href="${escapeHtml(url)}" style="font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;">${escapeHtml(label)}</a>
 </td></tr></table>`;

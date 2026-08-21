@@ -184,6 +184,45 @@ async function createFeedbackRequest(supabase, accountId) {
   return data.token;
 }
 
+// Column -> the same question wording shown on FeedbackForm.tsx and in the
+// internal notification email (backend/src/http/routes.ts's
+// FEEDBACK_QUESTION_LABELS) -- kept in sync by hand since one lives in the
+// frontend/backend TS build and this is a plain ops JS file with no shared
+// import path between them.
+const FEEDBACK_QUESTION_LABELS = [
+  ["rating_overall", "Overall satisfaction"],
+  ["rating_reliability", "Reliability"],
+  ["rating_ease", "Ease of getting started"],
+  ["rating_support", "Support"],
+  ["rating_recommend", "Likelihood to recommend"],
+];
+
+/** Werner's call 2026-08-21: the daily digest needs a real way to see WHERE
+ * to improve, not just that feedback exists. Averages every submitted
+ * review_feedback row per question, sorted lowest-first so the weakest
+ * area (the one most worth acting on) leads the list. Raw comments are
+ * returned as-is, not summarized here -- spotting a recurring theme across
+ * several customers' own words needs judgment, which belongs in the
+ * digest-running agent reading them, not a scripted keyword match. */
+async function getReviewFeedbackSummary(supabase) {
+  const { data, error } = await supabase
+    .from("review_feedback")
+    .select("rating_overall, rating_reliability, rating_ease, rating_support, rating_recommend, comment, submitted_at")
+    .not("submitted_at", "is", null);
+  if (error) throw error;
+
+  const rows = data ?? [];
+  const questionAverages = FEEDBACK_QUESTION_LABELS.map(([column, label]) => {
+    const values = rows.map((r) => r[column]).filter((v) => v !== null && v !== undefined);
+    const average = values.length ? values.reduce((sum, v) => sum + v, 0) / values.length : null;
+    return { column, label, average: average === null ? null : Math.round(average * 10) / 10, responseCount: values.length };
+  }).sort((a, b) => (a.average ?? 5) - (b.average ?? 5));
+
+  const comments = rows.map((r) => r.comment).filter((c) => c && c.trim().length > 0);
+
+  return { count: rows.length, questionAverages, comments };
+}
+
 module.exports = {
   findStuckOnboardingAccounts,
   planDowngradePause,
@@ -193,4 +232,5 @@ module.exports = {
   findReviewRequestCandidates,
   markReviewRequested,
   createFeedbackRequest,
+  getReviewFeedbackSummary,
 };

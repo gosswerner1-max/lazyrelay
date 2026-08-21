@@ -170,12 +170,16 @@ Sent to `hello@lazyrelay.com` outbound, not a reply — for `findReviewRequestCa
 ```
 Hi [name],
 
-You've had [verifiedPostCount] posts go out through LazyRelay so far — glad it's working for you.
+You've published [verifiedPostCount] posts with LazyRelay so far — love that it's working out for you!
 
-Got a minute? A few quick questions, just click a star for each: [feedbackUrl]
+Mind sharing a quick rating? Takes about 30 seconds, and it genuinely helps us make LazyRelay better.
+
+[BUTTON] Rate LazyRelay|[feedbackUrl]
+
+Thanks for being with us early on — it means a lot.
 ```
 
-Werner's call 2026-08-21: replaced "reply to this email with a quick line or two" with a real 5-question star-rating form (`frontend/src/pages/FeedbackForm.tsx`, reached at `/feedback/<token>`) plus an optional free-text comment box — lower friction than composing a reply, and gives structured signal instead of only free text. No public reviews destination exists yet (per `ACCOUNTS_KNOWLEDGE.md`'s "Review requests" section) — responses land in the `review_feedback` table (migration 0063), not anywhere public. Update this template again if/when a real public reviews section ships.
+Werner's call 2026-08-21: replaced "reply to this email with a quick line or two" with a real 5-question star-rating form (`frontend/src/pages/FeedbackForm.tsx`, reached at `/feedback/<token>`) plus an optional free-text comment box — lower friction than composing a reply, and gives structured signal instead of only free text. The `[BUTTON]` line renders as a real styled button, not a bare URL (imap-tool.js, added 2026-08-21) — a first pass with a plain link read as an afterthought/chore, so it's an actual button now. **Copy rewritten same day** after Werner saw the first live test send and said it read as obligatory/a lot of work to ask — warmer, shorter, leads with genuine appreciation rather than "a few quick questions." No public reviews destination exists yet (per `ACCOUNTS_KNOWLEDGE.md`'s "Review requests" section) — responses land in the `review_feedback` table (migration 0063), not anywhere public. Update this template again if/when a real public reviews section ships.
 
 ## 13. Dunning — payment failed, subscription past due (billing_ops.js — added 2026-08-11)
 
