@@ -21,9 +21,25 @@ const INTERNAL_TEST_EMAILS_EXACT = new Set([
   "lazyrelay+reviewer@gmail.com", // Google OAuth reviewer test account, confirmed 2026-08-15
 ]);
 
+// Gmail-only: a "+alias" (local-part+anything@gmail.com) is the same real
+// inbox as local-part@gmail.com. Found 2026-08-21 when a real test signup
+// (goss.werner.1+lrtest1@gmail.com, used to verify the confirmation-link
+// auto-sign-in flow) wasn't recognized as internal and was queued for a
+// stuck-onboarding nudge to Werner's own inbox. Checked against both the
+// raw and de-aliased form (not just de-aliased) so a literal aliased
+// address already in the exact list — lazyrelay+reviewer@gmail.com, a
+// specific Google-controlled address, not a base Werner types — still
+// matches only itself and isn't accidentally widened to bare
+// lazyrelay@gmail.com.
+function stripGmailAlias(email) {
+  const match = /^([^+]+)\+[^@]*(@gmail\.com)$/.exec(email);
+  return match ? `${match[1]}${match[2]}` : email;
+}
+
 function isInternalTestAccount(email) {
   const normalized = (email ?? "").toLowerCase();
   if (INTERNAL_TEST_EMAILS_EXACT.has(normalized)) return true;
+  if (INTERNAL_TEST_EMAILS_EXACT.has(stripGmailAlias(normalized))) return true;
   return INTERNAL_TEST_EMAIL_PATTERNS.some((re) => re.test(normalized));
 }
 
