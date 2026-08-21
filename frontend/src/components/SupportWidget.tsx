@@ -117,12 +117,12 @@ export function SupportWidget() {
   return (
     <div className="support-widget">
       {isOpen && (
-        <div className="support-panel" role="dialog" aria-label="AI Support Assistant">
+        <div className="support-panel" role="dialog" aria-label="Ray, LazyRelay's AI support assistant">
           <div className="support-panel-header">
             <div className="support-panel-header-title">
               <img src={botHead} alt="" className="support-panel-avatar" />
               <div>
-                <p className="support-panel-name">AI Support Assistant</p>
+                <p className="support-panel-name">Ray &middot; AI Support</p>
                 <p className="support-panel-subtitle">Usually replies in seconds</p>
               </div>
             </div>
