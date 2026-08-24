@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>System Status | LazyRelay</title>
 <meta name="description" content="Live status for LazyRelay: is the scheduler running on time, and is the site's security certificate healthy." />
-<link rel="canonical" href="https://lazyrelay.com/status" />
+<link rel="canonical" href="https://lazyrelay.com/status/" />
 <link rel="icon" type="image/png" href="/favicon.png" />
 <link rel="stylesheet" href="/circuit-bg.css" />
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-CNVBJ2076F"></script>
@@ -51,6 +51,8 @@
 <a class="back" href="/">&larr; Back to home</a>
 <h1>System Status</h1>
 <p class="subtitle">Live, checked directly against the running system when you load this page. Not a static page someone forgot to update.</p>
+
+<p>This page checks two things every time it loads: whether LazyRelay's post scheduler is publishing scheduled social posts on time, and whether the site's SSL certificate is valid and not close to expiring. Both checks run live against the production system — there's no cached or manually-updated status here, so what you see reflects the system's real state at the moment you loaded this page.</p>
 
 <div id="banner" class="status-banner loading">
   <span class="status-dot"></span>
