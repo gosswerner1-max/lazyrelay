@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { supabase } from "../lib/supabase";
 import { BrandMark } from "../components/BrandMark";
+import { useCanonical } from "../lib/useCanonical";
 
 interface ForgotPasswordProps {
   onBack: () => void;
@@ -10,6 +11,15 @@ interface ForgotPasswordProps {
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
 
 export function ForgotPassword({ onBack }: ForgotPasswordProps) {
+  useEffect(() => {
+    const previous = document.title;
+    document.title = "Forgot Password | LazyRelay";
+    return () => {
+      document.title = previous;
+    };
+  }, []);
+  useCanonical("/forgot-password");
+
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);

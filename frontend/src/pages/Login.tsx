@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { useAuth } from "../context/AuthContext";
 import { BrandMark } from "../components/BrandMark";
+import { useCanonical } from "../lib/useCanonical";
 
 interface LoginProps {
   initialMode?: "signin" | "signup";
@@ -25,6 +26,15 @@ export function Login({ initialMode = "signin", onBack, onForgotPassword }: Logi
   // so a retry (after a failed attempt, or switching signin/signup) gets a
   // fresh token instead of replaying an already-spent one.
   const [widgetKey, setWidgetKey] = useState(0);
+
+  useEffect(() => {
+    const previous = document.title;
+    document.title = mode === "signup" ? "Sign Up | LazyRelay" : "Log In | LazyRelay";
+    return () => {
+      document.title = previous;
+    };
+  }, [mode]);
+  useCanonical(mode === "signup" ? "/signup" : "/login");
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

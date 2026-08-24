@@ -3,6 +3,7 @@ import { BrandMark } from "../components/BrandMark";
 import { CodeBlock } from "../components/CodeBlock";
 import { CircuitBackground } from "../components/CircuitBackground";
 import { API_BASE_URL, API_ENDPOINTS, MCP_CONFIG_EXAMPLE, HOSTED_MCP_URL, HOSTED_MCP_REMOTE_CONFIG_EXAMPLE, MCP_TOOLS } from "../lib/apiDocsContent";
+import { useCanonical } from "../lib/useCanonical";
 
 interface ApiDocsProps {
   onBack: () => void;
@@ -16,6 +17,7 @@ export function ApiDocs({ onBack }: ApiDocsProps) {
       document.title = previous;
     };
   }, []);
+  useCanonical("/docs");
 
   return (
     <div className="landing">

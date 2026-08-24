@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { BrandMark } from "../components/BrandMark";
 import { CircuitBackground } from "../components/CircuitBackground";
+import { useCanonical } from "../lib/useCanonical";
 
 interface ContactProps {
   onBack: () => void;
@@ -37,6 +38,7 @@ export function Contact({ onBack }: ContactProps) {
       document.title = previous;
     };
   }, []);
+  useCanonical("/contact");
 
   return (
     <div className="landing">

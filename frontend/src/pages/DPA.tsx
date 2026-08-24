@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { BrandMark } from "../components/BrandMark";
 import { CircuitBackground } from "../components/CircuitBackground";
+import { useCanonical } from "../lib/useCanonical";
 
 interface DPAProps {
   onBack: () => void;
@@ -16,6 +17,7 @@ export function DPA({ onBack }: DPAProps) {
       document.title = previous;
     };
   }, []);
+  useCanonical("/dpa");
 
   return (
     <div className="landing">

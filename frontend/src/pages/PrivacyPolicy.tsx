@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { BrandMark } from "../components/BrandMark";
 import { CircuitBackground } from "../components/CircuitBackground";
+import { useCanonical } from "../lib/useCanonical";
 
 interface PrivacyPolicyProps {
   onBack: () => void;
@@ -16,6 +17,7 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
       document.title = previous;
     };
   }, []);
+  useCanonical("/privacy");
 
   return (
     <div className="landing">

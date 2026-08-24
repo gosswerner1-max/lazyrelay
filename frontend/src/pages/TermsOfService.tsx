@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { BrandMark } from "../components/BrandMark";
 import { CircuitBackground } from "../components/CircuitBackground";
+import { useCanonical } from "../lib/useCanonical";
 
 interface TermsOfServiceProps {
   onBack: () => void;
@@ -16,6 +17,7 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
       document.title = previous;
     };
   }, []);
+  useCanonical("/terms");
 
   return (
     <div className="landing">

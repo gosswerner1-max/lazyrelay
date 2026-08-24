@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { BrandMark } from "../components/BrandMark";
 import { CircuitBackground } from "../components/CircuitBackground";
+import { useCanonical } from "../lib/useCanonical";
 
 interface DataDeletionProps {
   onBack: () => void;
@@ -16,6 +17,7 @@ export function DataDeletion({ onBack }: DataDeletionProps) {
       document.title = previous;
     };
   }, []);
+  useCanonical("/data-deletion");
 
   return (
     <div className="landing">
