@@ -404,16 +404,6 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
             <a href="/connect-zapier">Zapier</a>
           </span>
         </div>
-        <p className="platform-reviewed-note">
-          Reviewed and approved by the platform itself, not just self-declared:
-        </p>
-        <div className="platform-row platform-row-reviewed">
-          {REVIEWED_PLATFORMS.map((p) => (
-            <span className="platform-reviewed-badge" key={p}>
-              <PlatformIcon platform={p} size={22} />
-            </span>
-          ))}
-        </div>
       </section>
 
       <section className="landing-section landing-comparison">
@@ -537,6 +527,16 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
         <div className="wordmark">
           <BrandMark size={22} />
           <span>LazyRelay</span>
+        </div>
+        <p className="platform-reviewed-note">
+          Reviewed and approved by the platform itself, not just self-declared:
+        </p>
+        <div className="platform-row platform-row-reviewed">
+          {REVIEWED_PLATFORMS.map((p) => (
+            <span className="platform-reviewed-badge" key={p}>
+              <PlatformIcon platform={p} size={22} />
+            </span>
+          ))}
         </div>
         <div className="landing-disclaimer">
           <p>

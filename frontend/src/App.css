@@ -3399,6 +3399,9 @@ button[type="submit"]:not(.btn-outline),
 }
 
 .platform-row-reviewed {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   margin-top: 10px;
   gap: 14px;
 }
