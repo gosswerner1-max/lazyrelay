@@ -115,6 +115,19 @@ const MAX_POST_CONTENT_LENGTH = 5000;
 // production domain every other public link in this codebase assumes.
 const PUBLIC_SITE_URL = "https://lazyrelay.com";
 
+// Real gap found in the 2026-08-25 pre-launch audit: /subscription/change-tier
+// reads the current subscription, checks it's not already on the target
+// tier, then calls Paddle's changeSubscriptionTier -- which charges a real,
+// immediate prorated amount -- with no lock between the read and the charge.
+// Two concurrent requests for the same account (a double-click, two open
+// tabs, a client retry after a slow response) can both pass the check and
+// both trigger a real Paddle charge; this is the exact failure class behind
+// the real $59.97 unintended-charge incident on 2026-08-21. Single Render
+// instance today (confirmed in the same audit), so a plain in-process lock
+// is sufficient -- revisit with a DB-level lock (e.g. a Postgres advisory
+// lock keyed on account_id) if this backend is ever scaled horizontally.
+const pendingTierChanges = new Set<string>();
+
 // Postgres/Supabase error messages can name internal detail (constraint
 // names, column names, query shape) that shouldn't reach a customer. Log the
 // real message server-side for debugging, return a generic one to the
@@ -3692,6 +3705,33 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
+    // Real gap found in the 2026-08-25 pre-launch audit: nothing here
+    // checked whether the account already had an active/trialing
+    // subscription before starting a fresh Paddle checkout. A stale second
+    // tab, or a resubmitted request, could create a SECOND, independent
+    // Paddle subscription -- the local subscriptions row only ever holds
+    // one (onConflict: "account_id"), so whichever webhook lands last
+    // silently overwrites the tracked mor_subscription_id and the app loses
+    // all ability to see or cancel the orphaned first subscription, which
+    // keeps billing the customer indefinitely. Existing customers upgrading
+    // between paid tiers already have their own dedicated endpoint
+    // (/subscription/change-tier) -- this one is Free-to-paid only.
+    const { data: existingSub, error: existingSubError } = await supabase
+      .from("subscriptions")
+      .select("status")
+      .eq("account_id", req.accountId)
+      .maybeSingle();
+    if (existingSubError) {
+      dbError(res, existingSubError, "POST /subscription/checkout");
+      return;
+    }
+    if (existingSub && (existingSub.status === "active" || existingSub.status === "trialing")) {
+      res.status(400).json({
+        error: "You already have an active plan. Use the dashboard's upgrade/downgrade option to switch tiers instead.",
+      });
+      return;
+    }
+
     const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
     try {
       const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
@@ -3743,40 +3783,53 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { data: account, error: accountError } = await supabase
-      .from("accounts")
-      .select("email")
-      .eq("id", req.accountId)
-      .single();
-    if (accountError || !account) {
-      res.status(404).json({ error: "Account not found" });
+    // Reject a second concurrent change-tier request for this account
+    // outright, before touching the DB or Paddle at all -- see
+    // pendingTierChanges' doc comment above for why this exists.
+    if (pendingTierChanges.has(req.accountId!)) {
+      res.status(409).json({ error: "A tier change is already in progress for this account. Please wait for it to finish." });
       return;
     }
+    pendingTierChanges.add(req.accountId!);
 
-    const { data: subscription, error: subError } = await supabase
-      .from("subscriptions")
-      .select("mor_subscription_id, tier, status")
-      .eq("account_id", req.accountId)
-      .maybeSingle();
-    if (subError) {
-      dbError(res, subError, "POST /subscription/change-tier");
-      return;
-    }
-    if (!subscription || (subscription.status !== "active" && subscription.status !== "trialing")) {
-      res.status(400).json({ error: "No active subscription to change — subscribe via /subscription/checkout first." });
-      return;
-    }
-    if (subscription.tier === tier) {
-      res.status(400).json({ error: "Already on this tier." });
-      return;
-    }
+    try {
+      const { data: account, error: accountError } = await supabase
+        .from("accounts")
+        .select("email")
+        .eq("id", req.accountId)
+        .single();
+      if (accountError || !account) {
+        res.status(404).json({ error: "Account not found" });
+        return;
+      }
 
-    const result = await morAdapter.changeSubscriptionTier(subscription.mor_subscription_id, priceId, tier, account.email);
-    if (!result.success) {
-      res.status(502).json({ error: result.errorMessage ?? "Tier change failed at the payment provider" });
-      return;
+      const { data: subscription, error: subError } = await supabase
+        .from("subscriptions")
+        .select("mor_subscription_id, tier, status")
+        .eq("account_id", req.accountId)
+        .maybeSingle();
+      if (subError) {
+        dbError(res, subError, "POST /subscription/change-tier");
+        return;
+      }
+      if (!subscription || (subscription.status !== "active" && subscription.status !== "trialing")) {
+        res.status(400).json({ error: "No active subscription to change — subscribe via /subscription/checkout first." });
+        return;
+      }
+      if (subscription.tier === tier) {
+        res.status(400).json({ error: "Already on this tier." });
+        return;
+      }
+
+      const result = await morAdapter.changeSubscriptionTier(subscription.mor_subscription_id, priceId, tier, account.email);
+      if (!result.success) {
+        res.status(502).json({ error: result.errorMessage ?? "Tier change failed at the payment provider" });
+        return;
+      }
+      res.json({ changed: true });
+    } finally {
+      pendingTierChanges.delete(req.accountId!);
     }
-    res.json({ changed: true });
   });
 
   // The cancellation flow — this is THE trust-critical endpoint. Cancels

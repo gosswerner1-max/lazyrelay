@@ -23,6 +23,12 @@ export interface SubscriptionEvent {
   tier: "free" | "pro" | "business" | "enterprise" | "agency" | "agency_plus";
   status: "trialing" | "active" | "past_due" | "cancelled";
   currentPeriodEnd: string; // ISO timestamp
+  // Paddle's own event.occurredAt (2026-08-25, pre-launch audit fix) — used
+  // by syncSubscriptionFromWebhook to detect and skip a stale, out-of-order
+  // delivery (Paddle does not guarantee in-order webhook delivery). Only on
+  // the tier event, not the add-on kinds below — those don't drive the
+  // cancelled_at/data-deletion-clock logic this exists to protect.
+  occurredAt: string; // ISO timestamp
 }
 
 /** A storage add-on (2026-07-23) is deliberately its OWN Paddle

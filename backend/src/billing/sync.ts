@@ -135,6 +135,28 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
     return;
   }
 
+  // Stale/out-of-order webhook guard (2026-08-25 pre-launch audit fix):
+  // Paddle does not guarantee in-order delivery, and this app has a
+  // confirmed history of delayed/backlogged deliveries. A delayed event
+  // that's actually OLDER than the last one already applied to this
+  // subscription must be skipped, not blindly applied -- otherwise a
+  // late "active" event landing after a more recent "canceled" one has
+  // already been processed would silently revive access that should stay
+  // revoked (see migration 0067).
+  const { data: existingSub, error: existingSubError } = await supabase
+    .from("subscriptions")
+    .select("last_webhook_occurred_at")
+    .eq("account_id", account.id)
+    .maybeSingle();
+  if (existingSubError) throw existingSubError;
+  if (existingSub?.last_webhook_occurred_at && event.occurredAt <= existingSub.last_webhook_occurred_at) {
+    console.log(
+      `Skipping stale webhook for account ${account.id}: event occurred at ${event.occurredAt}, ` +
+        `already applied one from ${existingSub.last_webhook_occurred_at}.`,
+    );
+    return;
+  }
+
   // onConflict targets account_id, not mor_subscription_id — a customer has
   // exactly one subscription row, but Paddle issues a brand-new subscription
   // id on every checkout, so conflicting on mor_subscription_id let a
@@ -149,6 +171,7 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
       current_period_end: event.currentPeriodEnd,
       // See the matching comment on the storage_addons upsert above.
       cancel_at_period_end: false,
+      last_webhook_occurred_at: event.occurredAt,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "account_id" },
@@ -156,10 +179,16 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
   if (error) throw error;
 
   if (event.status === "cancelled") {
+    // Only set cancelled_at if it isn't already -- a retried/duplicate
+    // cancellation webhook (Paddle retries any delivery that doesn't get a
+    // clean 2xx) must not keep pushing this further into the future on
+    // every redelivery, which would silently extend the 30-day
+    // data-deletion grace period described below.
     await supabase
       .from("accounts")
       .update({ cancelled_at: new Date().toISOString() })
-      .eq("id", account.id);
+      .eq("id", account.id)
+      .is("cancelled_at", null);
   } else if (event.status === "active") {
     // Resubscribe safety (2026-08-15): if this account was previously
     // cancelled and is now genuinely active again, the pending data-deletion
@@ -205,7 +234,17 @@ async function recordSale(event: SaleRecordEvent): Promise<void> {
     payout_earnings: event.payoutEarnings,
     occurred_at: event.occurredAt,
   });
-  if (error) throw error;
+  if (error) {
+    // 23505 = billing_records_event_key_key (migration 0065) -- this exact
+    // transaction was already recorded, almost certainly a Paddle webhook
+    // retry of a delivery we'd already processed. Not an error: recording it
+    // twice is the actual bug this constraint exists to prevent.
+    if ((error as { code?: string }).code === "23505") {
+      console.log(`Sale already recorded for transaction ${event.paddleTransactionId}, skipping duplicate webhook delivery.`);
+      return;
+    }
+    throw error;
+  }
 }
 
 /** A refund's Paddle payload carries no customer email — the account is
@@ -240,7 +279,16 @@ async function recordRefund(event: RefundRecordEvent): Promise<void> {
     total: event.total,
     occurred_at: event.occurredAt,
   });
-  if (error) throw error;
+  if (error) {
+    // Same reasoning as recordSale's 23505 handling above -- a retried
+    // adjustment.created webhook for an adjustment we've already recorded,
+    // not a new refund.
+    if ((error as { code?: string }).code === "23505") {
+      console.log(`Refund already recorded for adjustment ${event.paddleAdjustmentId}, skipping duplicate webhook delivery.`);
+      return;
+    }
+    throw error;
+  }
 }
 
 /** Writes an internal SARS bookkeeping record for a completed sale or a

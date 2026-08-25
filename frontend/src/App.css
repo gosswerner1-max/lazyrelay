@@ -205,10 +205,18 @@
   color: var(--signal-solid);
 }
 
-.feedback-star:hover,
+.feedback-star:hover {
+  color: var(--signal);
+}
+
+/* Real gap found in the 2026-08-25 pre-launch audit: this rule used to
+   apply to :focus-visible too and set outline: none with no replacement
+   focus indicator, so a keyboard user tabbing through this public
+   (email-linked) page had no visible sign of which star was focused. */
 .feedback-star:focus-visible {
   color: var(--signal);
-  outline: none;
+  outline: 2px solid var(--signal-solid);
+  outline-offset: 2px;
 }
 
 .error {

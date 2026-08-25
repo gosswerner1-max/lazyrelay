@@ -1,0 +1,15 @@
+-- Real gap found in the 2026-08-25 pre-launch audit: syncSubscriptionFromWebhook
+-- always applied whatever the current webhook payload said, with no check
+-- against the subscription row's existing state or the event's own
+-- timestamp. Paddle does not guarantee in-order webhook delivery, and this
+-- app has a confirmed history of delayed/backlogged deliveries (see
+-- webhook.ts's documented retry-backlog handling) -- a delayed "active"/
+-- "updated" event landing after a more recent "canceled" event has already
+-- been processed would silently flip the subscription back to active,
+-- clear accounts.cancelled_at, and re-unpause paused social accounts,
+-- reviving access that should stay revoked.
+--
+-- Tracks the occurredAt timestamp of the last webhook actually applied to
+-- this subscription row, so a genuinely-stale delivery can be detected and
+-- skipped instead of blindly applied.
+alter table subscriptions add column last_webhook_occurred_at timestamptz;

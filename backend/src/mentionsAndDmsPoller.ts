@@ -91,30 +91,36 @@ async function pollMentions(registry: ReturnType<typeof buildPlatformRegistry>) 
         commentsResult.comments.map((c) => ({ itemId: c.id, sourceSignature: c.id, author: c.author, text: c.text })),
       );
 
-      for (const c of commentsResult.comments) {
-        const { error: upsertError } = await supabase.from("mention_comments_cache").upsert(
-          {
-            account_id: post.account_id,
-            scheduled_post_id: post.id,
-            social_account_id: post.social_account_id,
-            platform_comment_id: c.id,
-            author: c.author,
-            text: c.text,
-            url: c.url,
-            comment_created_at: c.createdAt,
-            fetched_at: new Date().toISOString(),
-            // first_seen_at deliberately omitted — the column default only
-            // applies on first insert; leaving it out of this payload means
-            // an existing row's original value survives the ON CONFLICT
-            // update untouched.
-          },
-          { onConflict: "scheduled_post_id,platform_comment_id" },
-        );
+      // Batched into a single upsert (2026-08-25 pre-launch audit fix) —
+      // was previously one .upsert() call per comment in a loop, a real N+1
+      // that at this poller's own cap (300 posts x 20-30 comments each)
+      // meant 6,000-9,000 sequential DB round-trips per run. Same pattern
+      // commentTriage.ts already uses for its own cache upsert.
+      if (commentsResult.comments.length > 0) {
+        const fetchedAt = new Date().toISOString();
+        const rows = commentsResult.comments.map((c) => ({
+          account_id: post.account_id,
+          scheduled_post_id: post.id,
+          social_account_id: post.social_account_id,
+          platform_comment_id: c.id,
+          author: c.author,
+          text: c.text,
+          url: c.url,
+          comment_created_at: c.createdAt,
+          fetched_at: fetchedAt,
+          // first_seen_at deliberately omitted — the column default only
+          // applies on first insert; leaving it out of this payload means
+          // an existing row's original value survives the ON CONFLICT
+          // update untouched.
+        }));
+        const { error: upsertError } = await supabase
+          .from("mention_comments_cache")
+          .upsert(rows, { onConflict: "scheduled_post_id,platform_comment_id" });
         if (upsertError) {
-          console.error(`mentionsAndDmsPoller: failed to cache comment ${c.id}:`, upsertError.message);
-          continue;
+          console.error(`mentionsAndDmsPoller: failed to cache ${rows.length} comments for post ${post.id}:`, upsertError.message);
+        } else {
+          commentsCached += rows.length;
         }
-        commentsCached += 1;
       }
     } catch (err) {
       console.error(`mentionsAndDmsPoller: getComments failed for post ${post.id}:`, err instanceof Error ? err.message : err);
@@ -171,27 +177,29 @@ async function pollDms(registry: ReturnType<typeof buildPlatformRegistry>) {
         convResult.conversations.filter((c) => !!c.snippet).map((c) => ({ itemId: c.id, sourceSignature: c.updatedAt ?? "", author: c.participantName, text: c.snippet! })),
       );
 
-      for (const c of convResult.conversations) {
-        const { error: upsertError } = await supabase.from("dm_conversations_cache").upsert(
-          {
-            account_id: account.account_id,
-            social_account_id: account.id,
-            conversation_id: c.id,
-            participant_id: c.participantId,
-            participant_name: c.participantName,
-            snippet: c.snippet,
-            // Always overwritten (unlike mentions' comment_created_at) — see
-            // the migration's own comment on this table for why.
-            conversation_updated_at: c.updatedAt,
-            fetched_at: new Date().toISOString(),
-          },
-          { onConflict: "social_account_id,conversation_id" },
-        );
+      // Batched into a single upsert — same N+1 fix as pollMentions above.
+      if (convResult.conversations.length > 0) {
+        const fetchedAt = new Date().toISOString();
+        const rows = convResult.conversations.map((c) => ({
+          account_id: account.account_id,
+          social_account_id: account.id,
+          conversation_id: c.id,
+          participant_id: c.participantId,
+          participant_name: c.participantName,
+          snippet: c.snippet,
+          // Always overwritten (unlike mentions' comment_created_at) — see
+          // the migration's own comment on this table for why.
+          conversation_updated_at: c.updatedAt,
+          fetched_at: fetchedAt,
+        }));
+        const { error: upsertError } = await supabase
+          .from("dm_conversations_cache")
+          .upsert(rows, { onConflict: "social_account_id,conversation_id" });
         if (upsertError) {
-          console.error(`mentionsAndDmsPoller: failed to cache conversation ${c.id}:`, upsertError.message);
-          continue;
+          console.error(`mentionsAndDmsPoller: failed to cache ${rows.length} conversations for social account ${account.id}:`, upsertError.message);
+        } else {
+          conversationsCached += rows.length;
         }
-        conversationsCached += 1;
       }
     } catch (err) {
       console.error(`mentionsAndDmsPoller: getConversations failed for social account ${account.id}:`, err instanceof Error ? err.message : err);

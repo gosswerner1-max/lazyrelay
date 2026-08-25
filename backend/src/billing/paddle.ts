@@ -76,7 +76,7 @@ interface SubscriptionLike {
 /** Branches on customData.kind to build either a tier SubscriptionEvent or
  *  a StorageAddonEvent — the two are otherwise-identical Paddle
  *  subscriptions distinguished only by what we embedded at checkout time. */
-function buildEventFromCustomData(sub: SubscriptionLike, status: SubscriptionEvent["status"]): BillingEvent {
+function buildEventFromCustomData(sub: SubscriptionLike, status: SubscriptionEvent["status"], occurredAt: string): BillingEvent {
   const customData = sub.customData ?? {};
   const accountEmail = customData.accountEmail;
   if (typeof accountEmail !== "string" || !accountEmail) {
@@ -104,7 +104,7 @@ function buildEventFromCustomData(sub: SubscriptionLike, status: SubscriptionEve
   if (typeof tier !== "string" || !(VALID_TIERS as readonly string[]).includes(tier)) {
     throw new Error(`Subscription ${sub.id} has invalid/missing customData.tier "${String(tier)}"`);
   }
-  return { kind: "tier", morSubscriptionId: sub.id, accountEmail, tier: tier as SubscriptionEvent["tier"], status, currentPeriodEnd };
+  return { kind: "tier", morSubscriptionId: sub.id, accountEmail, tier: tier as SubscriptionEvent["tier"], status, currentPeriodEnd, occurredAt };
 }
 
 interface TransactionTotalsLike {
@@ -254,7 +254,7 @@ export class PaddleMorAdapter implements MerchantOfRecordAdapter {
       throw new Error(`Unmapped Paddle subscription status "${subscription.status}" for ${subscription.id}`);
     }
 
-    return buildEventFromCustomData(subscription, status);
+    return buildEventFromCustomData(subscription, status, event.occurredAt);
   }
 
   /** Deferred to the end of the current paid period, not "immediately"
