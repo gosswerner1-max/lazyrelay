@@ -38,6 +38,17 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+
+  # Real gap found 2026-08-25 via securityheaders.com: the HSTS header above
+  # was assumed to force HTTPS on a first http:// visit, but that's not how
+  # HSTS works -- it only protects a visitor who's already connected
+  # securely once before. Without a real redirect, http://lazyrelay.com
+  # served the site directly over plain, unencrypted HTTP. This rule must
+  # run before the SPA fallback below so an insecure request gets redirected
+  # rather than served.
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule . /index.html [L]
