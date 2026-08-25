@@ -8,6 +8,7 @@ interface AuthContextValue {
   loading: boolean;
   signUp: (email: string, password: string, captchaToken: string, businessName?: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string, captchaToken: string) => Promise<{ error: string | null }>;
+  signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -47,12 +48,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null };
   };
 
+  // Google's own consent flow replaces Turnstile as the bot check here --
+  // no captcha token to thread through. onAuthStateChange (above) picks up
+  // the resulting session once Google redirects back through Supabase's
+  // callback, same as every other auth path in this file.
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    return { error: error?.message ?? null };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ session, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, loading, signUp, signIn, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   );

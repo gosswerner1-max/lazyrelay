@@ -158,6 +158,49 @@
   cursor: default;
 }
 
+.oauth-google-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font: 14px/1 var(--font-body);
+  font-weight: 600;
+}
+
+.oauth-google-button:hover {
+  background: var(--surface);
+}
+
+.oauth-google-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.oauth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  color: var(--wire);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.oauth-divider::before,
+.oauth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
 .link {
   background: none;
   border: none;
