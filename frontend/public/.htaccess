@@ -1,18 +1,23 @@
 # Security headers for the static site (Apache/cPanel hosting) — added
 # after a security review found the live site had none of these.
 <IfModule mod_headers.c>
-  # CSP started in Report-Only (2026-08-25) rather than enforcing, on
-  # purpose -- Paddle.js renders the real, live checkout overlay on the
-  # Dashboard (paddle.Checkout.open(), see Dashboard.tsx), and no official
-  # Paddle CSP domain list exists to copy from. Report-Only logs what
-  # WOULD have been blocked without actually blocking anything, so the
-  # real domains Paddle needs can be read from a live checkout attempt's
-  # own console violations instead of guessed. Deliberately leaves Paddle's
-  # own script/frame/connect domains OUT of this draft so they show up as
-  # violations to confirm exactly what's needed -- do not flip this to the
-  # enforcing Content-Security-Policy header until that's been done and
-  # verified against a real (non-payment) checkout-overlay open.
-  Header always set Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://qbmejnmyqogotdzzzyvj.supabase.co https://lazyrelaylazyrelay-backend.onrender.com https://www.google-analytics.com https://region1.google-analytics.com; frame-src 'self' https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'"
+  # CSP ran in Report-Only for one real checkout attempt (2026-08-25) before
+  # this enforcing header was written -- Paddle.js renders the real, live
+  # checkout overlay on the Dashboard (paddle.Checkout.open(), see
+  # Dashboard.tsx), and no official Paddle CSP domain list exists to copy
+  # from. The Report-Only draft deliberately left Paddle's script/frame/
+  # connect domains out so a live "Upgrade to Starter" attempt (disposable
+  # test account, closed before the Payment step -- no card details ever
+  # entered) would surface exactly what's needed instead of a guess.
+  # Confirmed via performance.getEntriesByType('resource') + a document
+  # iframe scan on the live overlay: cdn.paddle.com (Paddle.js loader,
+  # script-src), buy.paddle.com (checkout iframe + its own API calls,
+  # frame-src + connect-src), public.profitwell.com (Paddle's built-in
+  # retention script, loads automatically, script-src). Everything else in
+  # this policy was already covered by the draft. This is now enforcing --
+  # re-verify with a fresh (non-payment) checkout-overlay open after any
+  # change to this header, since Paddle can add domains without notice.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://challenges.cloudflare.com https://cdn.paddle.com https://public.profitwell.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://qbmejnmyqogotdzzzyvj.supabase.co https://lazyrelaylazyrelay-backend.onrender.com https://www.google-analytics.com https://region1.google-analytics.com https://buy.paddle.com; frame-src 'self' https://challenges.cloudflare.com https://buy.paddle.com; object-src 'none'; base-uri 'self'"
   # Forces HTTPS on every future visit, including the very first navigation
   # typed as http://. 1 year, includeSubDomains — the site has no non-HTTPS
   # subdomains that need to stay reachable over plain http.
