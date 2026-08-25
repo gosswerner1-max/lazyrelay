@@ -44,9 +44,15 @@ export function restoreStoredConsent(): void {
 
 export function CookieConsent() {
   const [dismissed, setDismissed] = useState(() => localStorage.getItem(STORAGE_KEY) !== null);
-  const [analytics, setAnalytics] = useState(true);
-  const [personalization, setPersonalization] = useState(true);
-  const [targetedAdvertising, setTargetedAdvertising] = useState(true);
+  // Opt-IN, not opt-out -- these three used to default to true (pre-checked
+  // before the visitor makes any choice at all), which is the exact pattern
+  // GDPR's Planet49 ruling found non-compliant for non-essential cookies.
+  // Harmless while no ad pixel reads ad_storage, but a real liability once
+  // the paused Google Ads campaign goes live. Fixed 2026-08-25 before that
+  // happened, not after. "Accept All" still turns everything on in one click.
+  const [analytics, setAnalytics] = useState(false);
+  const [personalization, setPersonalization] = useState(false);
+  const [targetedAdvertising, setTargetedAdvertising] = useState(false);
 
   if (dismissed) return null;
 
