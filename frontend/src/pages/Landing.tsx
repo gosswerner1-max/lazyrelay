@@ -134,6 +134,37 @@ const AGENCY_PRICING = [
   },
 ];
 
+// Fact-based comparison, not a named-competitor callout — every row is a
+// real, checkable claim about LazyRelay's own product, phrased generically
+// against the category ("typical schedulers") rather than any one company.
+// Built 2026-08-25 after a real competitive audit (LazyRelay vs. Ayrshare,
+// the genuine top result for "social media API for AI agents") surfaced
+// this exact gap: LazyRelay had no head-to-head comparison anywhere on the
+// page, which the audit's own source material (a real marketing-agency
+// technique, independently verified) flagged as one of the highest-value,
+// easiest wins on a service page.
+const COMPARISON = [
+  { label: "How you use it", us: "Real dashboard — click, don't code", them: "API/CLI only, or a dashboard bolted onto an API-first tool" },
+  { label: "Pricing", us: "Shown on the homepage, every tier", them: "Often hidden behind “Contact sales”" },
+  { label: "Platform coverage", us: "12 platforms, including Mastodon, Bluesky, Telegram, Discord, and Tumblr", them: "Usually stops at the big four or five" },
+  { label: "“Sent” vs. “live”", us: "Proof-of-Publish independently confirms a post is actually live", them: "“Sent” is treated as done" },
+  { label: "Getting started", us: "Free tier, no card required", them: "A card is often required just to try it" },
+];
+
+// Platforms LazyRelay's own developer app has genuinely passed that
+// platform's own review process for, as of 2026-08-25 (Pinterest, TikTok,
+// YouTube/Google all APPROVED; Facebook Pages posting approved, Instagram
+// content publish still in review). Deliberately does NOT include
+// Instagram (pending), Snapchat (not yet offered to customers), or the
+// no-review platforms (Bluesky/Mastodon/Telegram/Discord, which use
+// app-password/self-service auth with no review process to pass) --
+// overstating any of those would contradict the disclaimer already in this
+// page's own footer ("not affiliated with, endorsed by, or sponsored by").
+// "Passed review" is a true, narrower claim than "official partner" and
+// doesn't conflict with it. Update this list only after independently
+// re-confirming a platform's status in its own dashboard, not from memory.
+const REVIEWED_PLATFORMS = ["pinterest", "tiktok", "youtube", "facebook"] as const;
+
 const FAQ = [
   {
     q: "What does LazyRelay actually do?",
@@ -373,6 +404,40 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
             <a href="/connect-zapier">Zapier</a>
           </span>
         </div>
+        <p className="platform-reviewed-note">
+          Reviewed and approved by the platform itself, not just self-declared:
+        </p>
+        <div className="platform-row platform-row-reviewed">
+          {REVIEWED_PLATFORMS.map((p) => (
+            <span className="platform-reviewed-badge" key={p}>
+              <PlatformIcon platform={p} size={22} />
+            </span>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-section landing-comparison">
+        <h2>Why LazyRelay instead of a typical scheduler</h2>
+        <table className="comparison-table">
+          <thead>
+            <tr>
+              <th scope="col"></th>
+              <th scope="col">LazyRelay</th>
+              <th scope="col">Typical schedulers</th>
+            </tr>
+          </thead>
+          <tbody>
+            {COMPARISON.map((row) => (
+              <tr key={row.label}>
+                <th scope="row" className="comparison-row-label">
+                  {row.label}
+                </th>
+                <td className="comparison-cell-us">{row.us}</td>
+                <td className="comparison-cell-them">{row.them}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
 
       <section className="landing-section landing-pricing" id="pricing">

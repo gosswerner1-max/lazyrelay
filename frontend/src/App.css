@@ -3392,6 +3392,100 @@ button[type="submit"]:not(.btn-outline),
   font-weight: 700;
 }
 
+.platform-reviewed-note {
+  margin: 28px 0 0;
+  font-size: 12px;
+  color: var(--wire);
+}
+
+.platform-row-reviewed {
+  margin-top: 10px;
+  gap: 14px;
+}
+
+.platform-reviewed-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.landing-comparison {
+  max-width: 900px;
+}
+
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.comparison-table th,
+.comparison-table td {
+  padding: 14px 16px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.comparison-table tr:last-child th,
+.comparison-table tr:last-child td {
+  border-bottom: none;
+}
+
+.comparison-table thead th {
+  font-family: var(--font-display);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--wire);
+  border-bottom: 1px solid var(--line);
+}
+
+.comparison-table thead th:nth-child(2) {
+  color: var(--signal);
+}
+
+.comparison-row-label {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.comparison-cell-us {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.comparison-cell-us::before {
+  content: "✓ ";
+  color: var(--confirm);
+  font-weight: 700;
+}
+
+.comparison-cell-them {
+  color: var(--wire);
+}
+
+@media (max-width: 640px) {
+  .comparison-table {
+    font-size: 13px;
+  }
+  .comparison-table th,
+  .comparison-table td {
+    padding: 10px;
+  }
+}
+
 .pricing-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
