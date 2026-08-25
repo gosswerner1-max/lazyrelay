@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 
 // Shared animated background — used on the landing page, the dashboard, and
 // (as a static HTML/JS equivalent, generated from the same PULSE_ROUTES
@@ -49,11 +49,41 @@ function shuffledColors(count: number) {
   return pool;
 }
 
+// Every route gets this color until the real shuffle runs — never rendered
+// long enough to notice (see the effect below), but it has to be a fixed,
+// non-random value so the very first render is identical every time.
+const DEFAULT_COLORS = PULSE_ROUTES.map(() => PULSE_COLORS[0]);
+
 export function CircuitBackground() {
-  // Computed once per mount (i.e. once per page load) rather than on every
-  // re-render — a fresh shuffle each render would make the dots visibly
-  // jump colors mid-animation, not just vary between visits.
-  const colors = useMemo(() => shuffledColors(PULSE_ROUTES.length), []);
+  // Deliberately NOT computed with useMemo on first render -- Math.random()
+  // there made this component's output different every single render,
+  // which is fine for a normal re-render but breaks hydration outright:
+  // the prerendered homepage's baked-in shuffle can never match whatever
+  // the real page happens to roll on load, and React throws a hydration
+  // mismatch error over it (found live 2026-08-25 testing the homepage
+  // prerender fix). Starting from the same fixed order on every render and
+  // only shuffling client-side, after mount, keeps the first render
+  // (prerendered or not) deterministic while still giving real visitors
+  // the varied colors this was built for.
+  //
+  // That alone still wasn't enough, and the reason is worth recording:
+  // scripts/prerender.mjs's headless browser waits for the page to finish
+  // loading before it captures the HTML, and this effect fires as part of
+  // that same load -- so the baked-in snapshot ends up with whatever
+  // random shuffle happened to run *inside the prerender bot itself*, not
+  // the deterministic default. A real visitor's browser then starts from
+  // the true default and shuffles again to a *different* result -- two
+  // different random outcomes, guaranteed mismatch every time. Puppeteer
+  // (and every other headless-automation tool) sets navigator.webdriver
+  // to true specifically so pages can detect this; skipping the shuffle
+  // under that flag keeps the baked snapshot showing the same default a
+  // real hydration pass starts from, while real visitors -- webdriver is
+  // false for them -- still get the shuffle exactly as before.
+  const [colors, setColors] = useState(DEFAULT_COLORS);
+  useEffect(() => {
+    if (navigator.webdriver) return;
+    setColors(shuffledColors(PULSE_ROUTES.length));
+  }, []);
 
   return (
     <div className="circuit-background" aria-hidden="true">

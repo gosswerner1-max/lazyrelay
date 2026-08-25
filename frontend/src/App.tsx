@@ -243,12 +243,14 @@ function Root() {
   // logic below takes over correctly.
   if (window.location.pathname === "/docs") {
     return (
-      <ApiDocs
-        onBack={() => {
-          window.history.pushState({}, "", "/");
-          setView("landing");
-        }}
-      />
+      <Suspense fallback={<div className="loading"><Spinner /></div>}>
+        <ApiDocs
+          onBack={() => {
+            window.history.pushState({}, "", "/");
+            setView("landing");
+          }}
+        />
+      </Suspense>
     );
   }
 
@@ -260,7 +262,13 @@ function Root() {
     );
   }
 
-  if (session) return <Dashboard />;
+  if (session) {
+    return (
+      <Suspense fallback={<div className="loading"><Spinner /></div>}>
+        <Dashboard />
+      </Suspense>
+    );
+  }
 
   if (view === "privacy") {
     return <PrivacyPolicy onBack={() => setView("landing")} />;
@@ -335,15 +343,19 @@ function Root() {
 function App() {
   return (
     <AuthProvider>
-      <Suspense
-        fallback={
-          <div className="loading">
-            <Spinner />
-          </div>
-        }
-      >
-        <Root />
-      </Suspense>
+      {/* Suspense used to wrap Root here, for Dashboard/ApiDocs's lazy()
+          imports below -- but that meant EVERY route, including the plain
+          Landing page with no lazy children at all, sat inside a Suspense
+          boundary. A plain innerHTML snapshot (scripts/prerender.mjs)
+          can't reproduce the special hydration marker comments React's
+          real SSR APIs emit around a Suspense boundary's content, so
+          hydrating onto that snapshot threw a mismatch error on every
+          single load even though the actual rendered content was
+          correct -- found live 2026-08-25 testing the homepage prerender
+          fix. Moved to wrap only the two return statements that actually
+          render a lazy component (search "Suspense" in this file) so the
+          Landing path never has a Suspense boundary in its tree at all. */}
+      <Root />
       <CookieConsent />
     </AuthProvider>
   );

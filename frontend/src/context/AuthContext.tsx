@@ -14,9 +14,32 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// Supabase's own default storage key, derived the same way its client does
+// internally (sb-<project-ref>-auth-token) -- reading it directly here,
+// synchronously, is what lets a genuinely logged-out first paint skip the
+// loading spinner entirely instead of always showing it while
+// getSession() resolves. That matters specifically for the prerendered
+// homepage: the static snapshot IS the logged-out Landing page, so the
+// real first client render must produce that same page immediately, not a
+// spinner, or hydration mismatches and the visitor sees a flash. A stored
+// token still falls through to the normal loading-then-verify path below
+// unchanged -- this only short-circuits the case where there's plainly
+// nothing to check.
+function hasStoredSessionToken(): boolean {
+  try {
+    const url = import.meta.env.VITE_SUPABASE_URL as string;
+    const key = `sb-${new URL(url).hostname.split(".")[0]}-auth-token`;
+    return localStorage.getItem(key) !== null;
+  } catch {
+    // Any failure here (private browsing, malformed env var) should fall
+    // back to the always-safe original behavior, not a false "logged out".
+    return true;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(hasStoredSessionToken);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {

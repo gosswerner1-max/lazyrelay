@@ -400,8 +400,15 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
         </div>
         <div className="zapier-callout">
           <span>
-            Plus connects to <strong>9,000+ other apps</strong> via{" "}
-            <a href="/connect-zapier">Zapier</a>
+            {/* Kept on one line, no split JSX whitespace around the link --
+                a `via{" "}` + newline pattern here rendered as "via " vs
+                "via" depending on whether the text came from a live DOM's
+                own innerHTML serialization (this page's prerender step) or
+                React's virtual-DOM text-node reconciliation, and the two
+                disagreeing was a real hydration mismatch (found live
+                2026-08-25, see main.tsx). One unambiguous text node avoids
+                the whole class of issue. */}
+            Plus connects to <strong>9,000+ other apps</strong> via <a href="/connect-zapier">Zapier</a>
           </span>
         </div>
       </section>
@@ -584,7 +591,10 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           </a>
           <a href="mailto:hello@lazyrelay.com">hello@lazyrelay.com</a>
         </p>
-        <p>&copy; {new Date().getFullYear()} LazyRelay. All rights reserved.</p>
+        {/* One template-string expression, not "text {expr} text" as three
+            separate JSX children -- same class of issue as the zapier-callout
+            comment above, same fix. */}
+        <p>{`© ${new Date().getFullYear()} LazyRelay. All rights reserved.`}</p>
       </footer>
       <SupportWidget context="public" />
     </div>
