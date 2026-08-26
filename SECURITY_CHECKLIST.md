@@ -29,8 +29,10 @@ original one.
   session issuance, and token refresh are Supabase's problem, not ours.
   *(2026-08-26)*
 - ✅ **MFA available.** Optional TOTP via Supabase Auth's built-in support,
-  shipped `f9118f4`. Not mandatory for owners yet — see Open Items.
-  *(2026-08-26)*
+  shipped `f9118f4`. Recovery codes shipped same night (`16c39f6`) — 10
+  single-use codes, reveal-once, redeemable at the login challenge screen to
+  remove a lost authenticator and get back in. Not mandatory for owners yet
+  — see Open Items. *(2026-08-26)*
 - ✅ **Sessions actually revoke server-side on sign-out**, not just cleared
   client-side (`supabase.auth.signOut()`, default global scope).
   *(2026-08-26)*
@@ -223,8 +225,10 @@ original one.
 
 ## Open Items (as of 2026-08-26)
 
-1. **MFA not mandatory for account owners** — deliberately deferred; needs a
-   real recovery-code sub-system before it's safe to require. Own future task.
+1. **MFA not mandatory for account owners** — the blocker (no recovery path
+   for a lost authenticator) is now closed as of `16c39f6` (2026-08-26).
+   Making it actually mandatory is still a separate, deliberate product
+   decision, not yet made.
 2. **POPIA compliance** — Werner arranging a real professional, not AI-drafted.
 3. **No written incident response runbook.**
 4. **Storage backups are laptop-only**, no off-site copy — revisit at real
