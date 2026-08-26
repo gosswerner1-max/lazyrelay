@@ -1,0 +1,23 @@
+-- Close a real RLS gap (2026-08-26 security sweep): accounts_update_own
+-- allowed any authenticated user to UPDATE their own accounts row with no
+-- WITH CHECK clause and no column restriction. accounts has no admin/role/
+-- tier column, so this was never a privilege-escalation path -- but it did
+-- let anyone holding the public anon key (extractable from the client
+-- bundle by design) directly overwrite backend-managed bookkeeping fields
+-- on their own row via a raw Supabase REST call that bypasses this app
+-- entirely: email, webhook_secret, and the data-deletion tracking
+-- timestamps (data_deletion_ack_at/data_deletion_reminder_sent_at/
+-- data_deleted_at) -- e.g. self-setting data_deleted_at to dodge the real,
+-- legally-relevant deletion sweep in ops/accounts/data_retention_ops.js.
+--
+-- Confirmed safe to remove entirely, not just narrow: the backend already
+-- writes to accounts exclusively via its service-role key (routes.ts
+-- ~4249, ~4282), which bypasses RLS/grants regardless -- this policy was
+-- never load-bearing for any real feature. The frontend's Supabase client
+-- is also confirmed (grepped) to never call .from() at all, only
+-- .auth.* -- so no legitimate anon-key write path existed to begin with.
+--
+-- accounts_select_own (SELECT) is untouched -- reading your own account
+-- row is legitimate and this migration doesn't change read access.
+drop policy if exists accounts_update_own on public.accounts;
+revoke update on public.accounts from authenticated;
