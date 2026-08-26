@@ -249,6 +249,17 @@ export function Dashboard() {
   const [savingWebhook, setSavingWebhook] = useState(false);
   const [regeneratingWebhookSecret, setRegeneratingWebhookSecret] = useState(false);
   const [revealedWebhookSecret, setRevealedWebhookSecret] = useState<string | null>(null);
+  // undefined = not yet checked (listFactors() hasn't resolved), null = checked
+  // and no verified TOTP factor exists, string = the verified factor's id.
+  // Mirrors the undefined/null-as-sentinel lazy-load pattern used for
+  // mentions/dmConversations/bioPage below (tab-gated effect, fetch once).
+  const [mfaFactorId, setMfaFactorId] = useState<string | null | undefined>(undefined);
+  const [mfaEnrolling, setMfaEnrolling] = useState(false);
+  const [mfaEnrollment, setMfaEnrollment] = useState<{ factorId: string; qrCode: string; secret: string } | null>(null);
+  const [mfaVerifyCode, setMfaVerifyCode] = useState("");
+  const [mfaVerifying, setMfaVerifying] = useState(false);
+  const [mfaVerified, setMfaVerified] = useState(false);
+  const [mfaUnenrolling, setMfaUnenrolling] = useState(false);
   const [sharingProofId, setSharingProofId] = useState<string | null>(null);
   const [shareProofResult, setShareProofResult] = useState<{ postId: string; url: string; copied: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -673,6 +684,22 @@ export function Dashboard() {
       .then(setDmAutomations)
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
   }, [tab, dmAutomations]);
+
+  // Same lazy-load reasoning as Mentions/DMs above — only fetched once the
+  // customer actually opens Settings, where the two-factor section lives.
+  // supabase.auth.mfa.listFactors() doesn't throw on failure (it returns
+  // {data, error}), unlike the api.* helpers above, so the error has to be
+  // checked and thrown manually to land in the same .catch.
+  useEffect(() => {
+    if (tab !== "Settings" || mfaFactorId !== undefined) return;
+    supabase.auth.mfa
+      .listFactors()
+      .then(({ data, error }) => {
+        if (error) throw error;
+        setMfaFactorId(data.totp[0]?.id ?? null);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+  }, [tab, mfaFactorId]);
 
   // Also lazy-loaded, same reasoning as analytics — only fetched once the
   // customer actually opens the tab.
@@ -1994,6 +2021,71 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setRegeneratingWebhookSecret(false);
+    }
+  }
+
+  async function handleStartMfaEnrollment() {
+    setMfaEnrolling(true);
+    setError(null);
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+      if (error) throw error;
+      setMfaEnrollment({ factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret });
+      setMfaVerifyCode("");
+      setMfaVerified(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setMfaEnrolling(false);
+    }
+  }
+
+  function handleCancelMfaEnrollment() {
+    // Deliberately doesn't call unenroll() on the still-unverified factor
+    // this created server-side — it's harmless (listFactors()/the gate in
+    // App.tsx only ever look at verified factors) and enroll() can simply
+    // be called again later, same as abandoning an API key creation form.
+    setMfaEnrollment(null);
+    setMfaVerifyCode("");
+    setMfaVerified(false);
+  }
+
+  async function handleConfirmMfaEnrollment(e: FormEvent) {
+    e.preventDefault();
+    if (!mfaEnrollment) return;
+    setMfaVerifying(true);
+    setError(null);
+    try {
+      const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: mfaEnrollment.factorId });
+      if (challengeError) throw challengeError;
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId: mfaEnrollment.factorId,
+        challengeId: challenge.id,
+        code: mfaVerifyCode,
+      });
+      if (verifyError) throw verifyError;
+      setMfaFactorId(mfaEnrollment.factorId);
+      setMfaVerified(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setMfaVerifying(false);
+    }
+  }
+
+  async function handleRemoveMfa() {
+    if (!mfaFactorId) return;
+    if (!window.confirm("Remove two-factor authentication? You'll only need your password to sign in after this.")) return;
+    setMfaUnenrolling(true);
+    setError(null);
+    try {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: mfaFactorId });
+      if (error) throw error;
+      setMfaFactorId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setMfaUnenrolling(false);
     }
   }
 
@@ -4167,6 +4259,73 @@ export function Dashboard() {
             {savingVoiceProfile ? "Saving..." : "Save"}
           </button>
         </form>
+      </section>
+      )}
+
+      {tab === "Settings" && (
+      <section>
+        <h2>Two-factor authentication</h2>
+        <p className="section-note">
+          Add a second step at sign-in using an authenticator app (Google Authenticator, Authy, 1Password, etc.),
+          on top of your password. Optional — turn it on whenever you like, remove it whenever you like.
+        </p>
+        {mfaFactorId === undefined ? (
+          <p className="section-note">Checking your two-factor status...</p>
+        ) : mfaEnrollment ? (
+          <div className="api-key-reveal">
+            {mfaVerified ? (
+              <>
+                <p><strong>Two-factor authentication is now enabled.</strong></p>
+                <button type="button" className="btn-outline" onClick={handleCancelMfaEnrollment}>
+                  Done
+                </button>
+              </>
+            ) : (
+              <>
+                <p>
+                  <strong>Scan this QR code</strong> with your authenticator app, or enter the secret manually, then
+                  enter the 6-digit code it shows to confirm.
+                </p>
+                <img src={mfaEnrollment.qrCode} alt="Two-factor authentication QR code" width={200} height={200} />
+                <CodeBlock code={mfaEnrollment.secret} />
+                <form onSubmit={handleConfirmMfaEnrollment} className="dm-automation-form">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="6-digit code"
+                    value={mfaVerifyCode}
+                    onChange={(e) => setMfaVerifyCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    maxLength={6}
+                  />
+                  <button type="submit" className="btn-primary" disabled={mfaVerifying || mfaVerifyCode.length !== 6}>
+                    {mfaVerifying ? "Verifying..." : "Confirm"}
+                  </button>
+                </form>
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={handleCancelMfaEnrollment}
+                  disabled={mfaVerifying}
+                  style={{ marginTop: 8 }}
+                >
+                  Cancel
+                </button>
+              </>
+            )}
+          </div>
+        ) : mfaFactorId ? (
+          <>
+            <p className="status-badge status-active">Two-factor authentication is enabled</p>
+            <button type="button" className="btn-outline" onClick={handleRemoveMfa} disabled={mfaUnenrolling}>
+              {mfaUnenrolling ? "Removing..." : "Remove two-factor authentication"}
+            </button>
+          </>
+        ) : (
+          <button type="button" className="btn-outline" onClick={handleStartMfaEnrollment} disabled={mfaEnrolling}>
+            {mfaEnrolling ? "Starting..." : "Enable two-factor authentication"}
+          </button>
+        )}
       </section>
       )}
 

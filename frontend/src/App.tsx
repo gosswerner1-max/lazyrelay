@@ -18,6 +18,7 @@ import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { Spinner } from "./components/Spinner";
 import { CookieConsent } from "./components/CookieConsent";
+import { MfaChallenge } from "./components/MfaChallenge";
 import "./App.css";
 
 // Lazy-loaded (2026-08-20) — by far the two biggest chunks in the app
@@ -116,6 +117,35 @@ function Root() {
     });
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Two-factor gate: undefined while unchecked (or logged out), otherwise
+  // whether the account has a verified TOTP factor this session hasn't
+  // cleared a challenge for yet (currentLevel !== nextLevel). Keyed on
+  // `session` rather than checked once, because that's also how a
+  // successful MfaChallenge verification gets picked up here -- mfa.verify()
+  // triggers AuthContext's onAuthStateChange listener (it listens to every
+  // event) to publish a new `session` object, which re-runs this effect and
+  // clears the gate, without MfaChallenge needing to call back into this
+  // component directly.
+  const [needsMfaChallenge, setNeedsMfaChallenge] = useState<boolean | undefined>(undefined);
+  useEffect(() => {
+    if (!session) {
+      setNeedsMfaChallenge(undefined);
+      return;
+    }
+    let cancelled = false;
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel().then(({ data, error }) => {
+      if (cancelled) return;
+      // Fail open to "no challenge needed" on a lookup error -- this only
+      // ever adds a step-up requirement for accounts that deliberately
+      // enrolled a TOTP factor, so an error here shouldn't lock a customer
+      // out of their own dashboard.
+      setNeedsMfaChallenge(!error && data.nextLevel !== data.currentLevel);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
 
   useEffect(() => {
     // Connect-form pages own their own URL (/connect/<platform>?state=...)
@@ -263,6 +293,20 @@ function Root() {
   }
 
   if (session) {
+    // Wait for the AAL check before rendering anything -- letting Dashboard
+    // flash through first (while needsMfaChallenge is still undefined) would
+    // briefly show a signed-in dashboard to someone who hasn't cleared their
+    // second factor yet.
+    if (needsMfaChallenge === undefined) {
+      return (
+        <div className="loading">
+          <Spinner />
+        </div>
+      );
+    }
+    if (needsMfaChallenge) {
+      return <MfaChallenge />;
+    }
     return (
       <Suspense fallback={<div className="loading"><Spinner /></div>}>
         <Dashboard />
