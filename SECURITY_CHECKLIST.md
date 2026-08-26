@@ -208,10 +208,14 @@ original one.
 
 ## 11. Incident Response
 
-- ❌ **No written incident response plan.** For a pre-revenue, single-founder
-  product, a full IR plan is overkill, but a short runbook (who does what,
-  in what order, for a breach/leak/outage) is cheap insurance. **Open —
-  not yet written.**
+- ✅ **`INCIDENT_RESPONSE.md`** (repo root) — real, practical runbook: how
+  incidents get detected, severity triage, first-15-minutes checklist, and
+  8 playbooks for the scenarios that actually apply to this stack (leaked
+  secret, data breach, compromised account, billing fraud, DDoS, vendor
+  outage, data-loss restore, platform API revocation). Grounded in what's
+  real today, not generic boilerplate — references the actual Slack
+  channel, the actual restore-drill steps proven live, the actual admin-key
+  auto-revoke mechanism. *(2026-08-26)*
 
 ## 12. Infrastructure
 
@@ -230,11 +234,13 @@ original one.
    Making it actually mandatory is still a separate, deliberate product
    decision, not yet made.
 2. **POPIA compliance** — Werner arranging a real professional, not AI-drafted.
-3. **No written incident response runbook.**
-4. **Storage backups are laptop-only**, no off-site copy — revisit at real
+3. **Storage backups are laptop-only**, no off-site copy — revisit at real
    customer volume.
-5. **One unfixed `image-size` CVE**, low-risk given the upload allowlist —
+4. **One unfixed `image-size` CVE**, low-risk given the upload allowlist —
    re-check when upstream ships a fix.
+5. **Customer-communication plan for a real incident** — `INCIDENT_RESPONSE.md`
+   deliberately defers this until there are real customers to notify; draft
+   it when the first one signs up, not mid-incident.
 
 ## Full source list
 
