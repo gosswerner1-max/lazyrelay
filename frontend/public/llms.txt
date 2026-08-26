@@ -1,0 +1,35 @@
+# LazyRelay
+
+> Schedule social posts across 12 platforms and independently verify each one actually went live — not just that it was sent.
+
+LazyRelay is a social media scheduling platform built around Proof-of-Publish: instead of marking a post "sent" the moment an API call is accepted, it independently re-checks each platform afterward to confirm the post is genuinely live. A free tier is available with no card required; AI-agent and MCP access is included on paid plans.
+
+## Docs
+
+- [Pricing](https://lazyrelay.com/pricing/): Free tier to Agency plans, $29.99-$199.99/month. Proof-of-Publish is included on every plan.
+- [API & MCP Docs](https://lazyrelay.com/docs/): REST API and MCP server reference for scheduling and verifying posts programmatically.
+- [Platform Coverage](https://lazyrelay.com/platform-features/): Feature-by-platform breakdown across all 12 supported platforms.
+- [Guides](https://lazyrelay.com/guides/): Full guide index.
+
+## Guides
+
+- [Does Your Scheduled Post Actually Publish?](https://lazyrelay.com/verify-post-published/): Why posts silently fail, and how Proof-of-Publish catches it.
+- [Scheduler Comparison](https://lazyrelay.com/social-media-scheduler-comparison/): How pricing and post verification differ from a typical per-channel scheduler.
+- [AI Agent Silent Failure](https://lazyrelay.com/ai-agent-scheduled-post-failure/): What happens when an AI agent's scheduled post fails with nobody watching the calendar.
+- [Mastodon, Bluesky & Tumblr Scheduler](https://lazyrelay.com/mastodon-bluesky-tumblr-scheduler/): Coverage for platforms most schedulers skip.
+- [Stuck on What to Post](https://lazyrelay.com/stuck-on-what-to-post/): AI content-idea generation grounded in your business and recent posts.
+- [Comment & DM Triage](https://lazyrelay.com/social-media-comment-triage/): AI filtering for which comments and DMs actually need a reply.
+- [Multi-Brand Scheduling](https://lazyrelay.com/multi-brand-social-media-scheduler/): A flat-rate alternative to per-brand or per-workspace pricing.
+- [Proof a Post Went Live](https://lazyrelay.com/proof-post-went-live/): Sharing verifiable proof of a live post with a client, franchise, or boss.
+- [Analytics Insight](https://lazyrelay.com/social-media-analytics-insight/): Turning raw analytics numbers into an actual next step.
+- [Connect to Zapier](https://lazyrelay.com/connect-zapier/): Automate scheduling with 9,000+ apps via Zapier, no code required.
+- [Time-Savings Calculator](https://lazyrelay.com/time-savings-calculator/): Estimate hours saved by scheduling once across multiple platforms.
+
+## Optional
+
+- [Changelog](https://lazyrelay.com/changelog/): Dated list of real shipped features.
+- [System Status](https://lazyrelay.com/status/): Live scheduler and security status.
+- [Terms of Service](https://lazyrelay.com/terms/)
+- [Privacy Policy](https://lazyrelay.com/privacy/)
+- [Refund Policy](https://lazyrelay.com/refunds/)
+- [Data Processing Agreement](https://lazyrelay.com/dpa/)
