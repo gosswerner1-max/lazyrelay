@@ -22,6 +22,7 @@ import { OverviewPanel, KpiRow, StatTile, TrendLine, MultiTrendLine, PlatformBar
 import { CircuitBackground } from "../components/CircuitBackground";
 import { SupportWidget } from "../components/SupportWidget";
 import { PostErrorDetail } from "../components/PostErrorDetail";
+import "./Dashboard.css";
 
 // Settings (2026-08-17, Werner) consolidates the three former separate tabs
 // "Storage"/"Account"/"Billing" into one -- all three sections still exist
