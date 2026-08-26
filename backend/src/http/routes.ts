@@ -3589,6 +3589,12 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (input.endsOn !== undefined) updates.ends_on = input.endsOn;
     if (input.status !== undefined) updates.status = input.status;
 
+    // Ownership was already verified above (existing, fetched with
+    // .eq("account_id", req.accountId)) — this update deliberately doesn't
+    // repeat that filter, since it's the same synchronous request with no
+    // TOCTOU window. If this line ever moves earlier, or the fetch above
+    // is removed/reordered, add .eq("account_id", req.accountId) back here
+    // too — found worth flagging by the 2026-08-26 IDOR audit.
     const { data: updated, error } = await supabase
       .from("recurring_schedules")
       .update(updates)
@@ -3626,6 +3632,12 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       await cancelFuturePendingOccurrences(req.params.id as string);
     }
 
+    // Same reasoning as the PATCH handler above: ownership was already
+    // verified via `existing` (fetched with .eq("account_id", req.accountId)),
+    // so this delete doesn't repeat the filter — same synchronous request,
+    // no TOCTOU window. Keep the account_id filter here if this line ever
+    // moves earlier or the fetch above changes. Flagged by the 2026-08-26
+    // IDOR audit.
     const { error } = await supabase.from("recurring_schedules").delete().eq("id", req.params.id);
     if (error) {
       dbError(res, error, "DELETE /recurring-schedules/:id");
