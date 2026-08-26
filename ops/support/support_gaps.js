@@ -45,4 +45,28 @@ async function markGapReviewed(supabase, id, { status, appliedAt }) {
   if (error) throw error;
 }
 
-module.exports = { getNewGaps, markGapDrafted, markGapReviewed };
+/** Retention: `transcript` carries the customer's real email plus the full
+ * conversation (see routes.ts's escalation handler) — genuinely needed
+ * while a gap is still being drafted/reviewed/replied to, but there's no
+ * reason to keep that PII forever once a gap has reached a terminal state
+ * (found live 2026-08-26 during a log-hygiene security pass). Only ever
+ * purges 'rejected'/'applied' rows — never 'new'/'drafted'/'approved',
+ * which the digest/approval flow may still need regardless of age. Default
+ * 90 days mirrors the account data-retention window's order of magnitude
+ * (data_retention_ops.js) without being tied to it — this table isn't
+ * account-scoped. */
+const DEFAULT_RETENTION_DAYS = 90;
+
+async function purgeOldResolvedGaps(supabase, retentionDays = DEFAULT_RETENTION_DAYS) {
+  const cutoff = new Date(Date.now() - retentionDays * 24 * 3600 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("support_knowledge_gaps")
+    .delete()
+    .in("status", ["rejected", "applied"])
+    .lt("created_at", cutoff)
+    .select("id");
+  if (error) throw error;
+  return { purged: (data ?? []).length, cutoff };
+}
+
+module.exports = { getNewGaps, markGapDrafted, markGapReviewed, purgeOldResolvedGaps, DEFAULT_RETENTION_DAYS };
