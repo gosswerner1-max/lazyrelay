@@ -9,6 +9,25 @@
 // gap was found on. The dashboard and every other authenticated route are
 // untouched; they still render however they always have.
 //
+// Tried extending this same technique to "/login" and "/signup" too
+// (2026-08-26, Browser-Aware Web Design audit flagged the same blank-flash
+// problem there for a fresh/ad-driven visit) and hit a real, structural
+// blocker worth recording so a future session doesn't re-attempt it blind:
+// Login.tsx renders a live Cloudflare Turnstile widget, which (a) needs a
+// fresh, per-visitor challenge session -- a stale one baked into a static
+// snapshot would already be invalid by the time a real visitor saw it, and
+// (b) appears to actively detect and log against headless/automated
+// browsers, which is exactly what puppeteer-core (driving this very script)
+// is. The actual build run threw "Prerender of /login threw errors,
+// refusing to bake a broken snapshot: %c%d font-size:0;color:transparent
+// NaN" -- console noise from Turnstile's own bot-detection, not a real app
+// bug. Loosening the console-error safety check to ignore it would mean
+// silently swallowing a genuine bot-detection signal on a security-
+// sensitive auth flow, which is a worse trade than the blank-flash problem
+// it would fix. Left as a real, known, unfixed gap rather than forced
+// through -- see the note in src/main.tsx next to the hydration-gating
+// check for the same writeup at the point it actually matters.
+//
 // Uses whatever Chrome is already on the machine running the build (not
 // Puppeteer's own downloaded Chromium) since that download's postinstall
 // script is blocked by this repo's allow-scripts policy -- reusing a real

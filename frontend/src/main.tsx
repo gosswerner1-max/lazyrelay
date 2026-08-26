@@ -36,6 +36,19 @@ const tree = (
 // render), but only after throwing and likely a visible content flash.
 // Checking the URL here is cheap insurance: the baked snapshot is only ever
 // valid for "/", so only attempt to hydrate onto it there.
+//
+// /login and /signup were deliberately NOT added to this list despite also
+// getting a real first-visit blank-flash finding (Browser-Aware Web Design
+// audit, 2026-08-26) -- attempting the same prerender-and-bake technique for
+// them hit a real, structural blocker: Login.tsx renders a live Cloudflare
+// Turnstile widget, which needs a fresh per-visitor challenge session and
+// which actively appears to detect/log against headless/automated browsers
+// (the exact thing puppeteer-core, which drives scripts/prerender.mjs, is).
+// Baking a stale captcha challenge into a static snapshot wouldn't be valid
+// for a real visitor anyway, and forcing the console-error safety check to
+// ignore Turnstile's own noise would mean silently swallowing a real
+// bot-detection signal on a security-sensitive auth flow. See
+// scripts/prerender.mjs's header comment for the full writeup.
 if (root.hasAttribute('data-prerendered') && window.location.pathname === '/') {
   hydrateRoot(root, tree)
 } else {

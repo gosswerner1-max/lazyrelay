@@ -245,9 +245,12 @@ export function KpiRow({ children }: { children: React.ReactNode }) {
 // ---------------------------------------------------------------------------
 
 // Gradient from red (0%) → yellow (50%) → green (100%).
-// background-size scales the gradient so it always spans the full track width
-// regardless of how wide the fill div is — at 50% fill you see red→yellow,
-// at 100% you see the full red→yellow→green arc.
+// The fill div stays full track width and is visually shrunk with
+// transform: scaleX() instead of an animated width — scaleX is a compositor
+// property (cheap), width triggers layout on every frame (not). Since the
+// box itself never actually shrinks, background-size stays a flat 100% 100%
+// and the transform scales the whole painted gradient down uniformly with
+// it, so the color-stop positions still line up the same as before.
 const METER_GRADIENT = "linear-gradient(to right, #dc2626, #f59e0b 50%, #16a34a)";
 
 export function Meter({
@@ -283,9 +286,9 @@ export function Meter({
         <div
           className="chart-meter-fill"
           style={{
-            width: `${pct}%`,
+            transform: `scaleX(${pct / 100})`,
             background: METER_GRADIENT,
-            backgroundSize: pct > 0 ? `${(100 / pct) * 100}% 100%` : "100% 100%",
+            backgroundSize: "100% 100%",
           }}
         />
       </div>

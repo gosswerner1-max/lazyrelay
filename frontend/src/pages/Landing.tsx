@@ -317,7 +317,13 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           LazyRelay posts to Facebook, Instagram, TikTok, and 9 more platforms, then independently verifies
           each one actually went live.
         </p>
-        <img src={banner} alt="LazyRelay: automate, schedule, publish, repeat" />
+        <img
+          src={banner}
+          alt="LazyRelay: automate, schedule, publish, repeat"
+          width={1983}
+          height={793}
+          fetchPriority="high"
+        />
         <button className="cta" onClick={onGetStarted}>
           Get started free
         </button>
