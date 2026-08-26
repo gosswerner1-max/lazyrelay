@@ -42,6 +42,25 @@
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
 </IfModule>
 
+# Real gap found 2026-08-26: no Cache-Control header existed anywhere on the
+# site, so every HTML response (the SPA shell, every static crawler page)
+# fell back to browser heuristic caching. Confirmed live: a real returning
+# visitor's browser kept serving a stale cached "/" -- with that morning's
+# already-reverted, WRONG GA4 measurement ID still baked in -- long after
+# the fix had deployed and curl (uncached) already showed the correct one.
+# "no-cache" does NOT mean "don't cache" -- it means the browser must always
+# revalidate with the server (a cheap conditional GET against the existing
+# Last-Modified header) before reusing a cached copy, so a deploy is visible
+# on the very next load instead of whenever the browser's heuristic cache
+# happens to expire. Scoped to .html files only -- the content-hashed files
+# under /assets/ change filename whenever their content changes, so they can
+# and should stay on Apache's default long-cache behavior untouched.
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
 # SPA fallback — added 2026-08-21 after /pricing and /dpa (both real React
 # routes, no matching static file) were found returning hard 404s on a
 # direct/cold load, despite both being listed in sitemap.xml. Only catches

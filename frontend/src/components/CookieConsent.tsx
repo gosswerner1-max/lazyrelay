@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 declare global {
   interface Window {
@@ -43,7 +43,21 @@ export function restoreStoredConsent(): void {
 }
 
 export function CookieConsent() {
-  const [dismissed, setDismissed] = useState(() => localStorage.getItem(STORAGE_KEY) !== null);
+  // Deliberately defaults to false (matches what the homepage's prerender
+  // bake always produces, since that build runs in a clean browser with no
+  // localStorage) and corrects itself in an effect below, rather than
+  // reading localStorage directly in the initializer. A returning visitor
+  // with a real stored choice reliably saw this banner stuck open on every
+  // fresh homepage load despite the choice being correctly saved -- found
+  // 2026-08-26, same root cause as the App.tsx Suspense/hydration fixes
+  // from 2026-08-25: a client-only value read during the render used for
+  // hydration reconciliation can mismatch the always-consent-less prerender
+  // snapshot. Defaulting to the bake's own value here removes the mismatch
+  // entirely instead of relying on hydration to paper over it correctly.
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => {
+    if (localStorage.getItem(STORAGE_KEY) !== null) setDismissed(true);
+  }, []);
   // Opt-IN, not opt-out -- these three used to default to true (pre-checked
   // before the visitor makes any choice at all), which is the exact pattern
   // GDPR's Planet49 ruling found non-compliant for non-essential cookies.
