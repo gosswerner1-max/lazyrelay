@@ -210,6 +210,17 @@ function escapeHtml(text) {
     .replace(/>/g, "&gt;");
 }
 
+// Header/CRLF injection guard for the raw RFC822 messages this file builds
+// by hand (saveDraft's Drafts copy, sendMail's Sent-folder copy) -- unlike
+// the real SMTP send (nodemailer, which sanitizes headers internally), these
+// are plain string-interpolated headers with no protection of their own.
+// Found by the 2026-08-26 security audit; mirrors the same fix already
+// applied to businessName before it reaches an email Subject in
+// backend/src/http/routes.ts (~line 4191).
+function sanitizeHeaderValue(value) {
+  return String(value).replace(/[\r\n]/g, " ");
+}
+
 // A paragraph consisting of exactly one line in this form renders as a real
 // clickable button instead of a plain-text link. Added 2026-08-21 -- the
 // review-request email's link was previously just inline URL text, which
@@ -266,9 +277,9 @@ ${textToHtmlParagraphs(body)}
 
     const headerLines = [
       `From: ${creds.user}`,
-      `To: ${to}`,
-      `Subject: ${subject}`,
-      inReplyTo ? `In-Reply-To: ${inReplyTo}` : null,
+      `To: ${sanitizeHeaderValue(to)}`,
+      `Subject: ${sanitizeHeaderValue(subject)}`,
+      inReplyTo ? `In-Reply-To: ${sanitizeHeaderValue(inReplyTo)}` : null,
       `Date: ${new Date().toUTCString()}`,
       `MIME-Version: 1.0`,
       `Content-Type: text/html; charset=utf-8`,
@@ -552,11 +563,11 @@ ${textToHtmlParagraphs(body)}
       const sentFolder = findFolder(list, ["Sent", "INBOX.Sent", "INBOX/Sent"]) || (await ensureFolder(client, list, "Sent"));
       const headerLines = [
         `From: ${creds.user}`,
-        `To: ${opts.to}`,
-        `Subject: ${opts.subject}`,
+        `To: ${sanitizeHeaderValue(opts.to)}`,
+        `Subject: ${sanitizeHeaderValue(opts.subject)}`,
         `Message-Id: ${info.messageId}`,
-        opts.inReplyTo ? `In-Reply-To: ${opts.inReplyTo}` : null,
-        opts.inReplyTo ? `References: ${opts.inReplyTo}` : null,
+        opts.inReplyTo ? `In-Reply-To: ${sanitizeHeaderValue(opts.inReplyTo)}` : null,
+        opts.inReplyTo ? `References: ${sanitizeHeaderValue(opts.inReplyTo)}` : null,
         `Date: ${new Date().toUTCString()}`,
         `MIME-Version: 1.0`,
         `Content-Type: text/html; charset=utf-8`,
