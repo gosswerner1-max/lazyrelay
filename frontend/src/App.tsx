@@ -335,7 +335,27 @@ function Root() {
   }
 
   if (view === "docs") {
-    return <ApiDocs onBack={() => setView("landing")} />;
+    // Suspense-wrapped for the same reason the pathname-guarded branch
+    // above is: ApiDocs is lazy(). This branch is reachable on the VERY
+    // FIRST render after clicking a "Docs" link from the landing page
+    // (Landing.tsx's onDocs -> setView("docs")) -- the pathname-sync effect
+    // that pushes "/docs" to the URL (making the guarded branch above match
+    // instead) only runs AFTER this render commits, so on that first render
+    // window.location.pathname is still "/" and this unguarded branch is
+    // what actually executes. Without Suspense here, a lazy component that
+    // hasn't been fetched yet throws with no boundary above it but the
+    // global ErrorBoundary in main.tsx -- confirmed live 2026-08-26: a
+    // first-time visitor clicking "Docs" from the homepage hit the generic
+    // "Something went wrong" crash screen instead of the docs page, every
+    // time, since the pathname never got the chance to update before the
+    // crash (the effect that would fix it never ran). Direct navigation or
+    // a refresh on /docs was unaffected -- pathname is already "/docs" on
+    // that render, so the guarded branch above wins instead.
+    return (
+      <Suspense fallback={<div className="loading"><Spinner /></div>}>
+        <ApiDocs onBack={() => setView("landing")} />
+      </Suspense>
+    );
   }
 
   if (view === "forgot-password") {
