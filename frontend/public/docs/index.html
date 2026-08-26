@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>API &amp; MCP Docs | LazyRelay</title>
+<meta name="description" content="LazyRelay's REST API and MCP server reference: authentication, the endpoints for scheduling posts and reading Proof-of-Publish verification, and how to connect an AI agent (Claude, Cursor, or any MCP client) without writing HTTP calls by hand." />
+<link rel="canonical" href="https://lazyrelay.com/docs" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-CNVBJ2076F"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-CNVBJ2076F');
+</script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #5b6472; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 13px; }
+  pre.code-block { background: #14171f; color: #e5e7eb; border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 0 0 16px; }
+  pre.code-block code { color: #e5e7eb; white-space: pre; }
+  .endpoint-list { display: flex; flex-direction: column; gap: 20px; margin-bottom: 16px; }
+  .endpoint { border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; }
+  .endpoint-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .endpoint-header code { color: #14171f; font-size: 14px; }
+  .method { font-family: monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 5px; letter-spacing: 0.03em; }
+  .method-get { background: #ffe4da; color: #c23e15; }
+  .method-post { background: rgba(31, 157, 104, 0.15); color: #1f9d68; }
+  .method-delete { background: rgba(214, 69, 69, 0.12); color: #c23e3e; }
+  .endpoint pre.code-block { margin: 10px 0 0; }
+</style>
+</head>
+<body>
+<script src="/circuit-bg.js"></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/">&larr; Back to home</a>
+<h1>API &amp; MCP server</h1>
+<p class="subtitle">Everything below is real and live today: the same API LazyRelay's own dashboard runs on. Already have an account? The same docs live inside your dashboard's API Keys tab, with no need to sign back in.</p>
+
+<h2>Authentication</h2>
+<p>Generate a key from your dashboard: <strong>More &rarr; API Keys &rarr; Create key</strong>. The raw key is shown once, copy it immediately. Send it as a bearer token on every request:</p>
+<pre class="code-block"><code>Authorization: Bearer lzr_live_your_key_here</code></pre>
+<p>Each key acts as your account. Treat it like a password. Creating or revoking keys always requires signing in to the dashboard directly; a key can never be used to mint or revoke other keys, so a leaked key can't lock you out.</p>
+
+<h2>Base URL</h2>
+<pre class="code-block"><code>https://lazyrelaylazyrelay-backend.onrender.com/api</code></pre>
+
+<h2>Endpoints</h2>
+<div class="endpoint-list">
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method method-get">GET</span><code>/social-accounts</code></div>
+    <p>List your connected social accounts</p>
+  </div>
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method method-post">POST</span><code>/scheduled-posts</code></div>
+    <p>Schedule a post to one connected account</p>
+    <pre class="code-block"><code>{
+  "socialAccountId": "&hellip;",
+  "content": "Your post text",
+  "scheduledFor": "2026-08-10T09:00:00Z",
+  "mediaUrl": "https://example.com/image.jpg"
+}</code></pre>
+  </div>
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method method-get">GET</span><code>/scheduled-posts</code></div>
+    <p>List upcoming and recent posts, with status and Proof-of-Publish verification</p>
+  </div>
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method method-delete">DELETE</span><code>/scheduled-posts/:id</code></div>
+    <p>Cancel a pending post</p>
+  </div>
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method method-get">GET</span><code>/analytics/summary?days=30</code></div>
+    <p>Post counts, verified-live rate, per-platform breakdown, engagement totals</p>
+  </div>
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method method-get">GET</span><code>/mentions</code></div>
+    <p>Recent comments on your posts, where the platform supports reading them</p>
+  </div>
+  <div class="endpoint">
+    <div class="endpoint-header"><span class="method method-post">POST</span><code>/mentions/reply</code></div>
+    <p>Reply to a comment surfaced by GET /mentions</p>
+    <pre class="code-block"><code>{
+  "postId": "&hellip;",
+  "commentId": "&hellip;",
+  "text": "Thanks so much!"
+}</code></pre>
+  </div>
+</div>
+
+<h2>Using this from an AI agent: the MCP server</h2>
+<p>If you're connecting an AI agent (Claude Desktop, Claude Code, Cursor, or anything else that speaks MCP) rather than writing HTTP calls by hand, use LazyRelay's own MCP server instead of calling the API directly. It wraps every endpoint above as a real tool the agent can call.</p>
+<pre class="code-block"><code>{
+  "mcpServers": {
+    "lazyrelay": {
+      "command": "npx",
+      "args": ["-y", "@lazyrelay/mcp-server"],
+      "env": { "LAZYRELAY_API_KEY": "lzr_live_your_key_here" }
+    }
+  }
+}</code></pre>
+<p>This runs locally on your own machine using your own API key, there's nothing to host. See the package README for the full tool list.</p>
+
+<h3>No install: the hosted MCP server</h3>
+<p>Prefer not to install anything, or connecting from claude.ai rather than a desktop app? LazyRelay also runs a hosted MCP server. Instead of an API key, you sign in with your LazyRelay account the first time you connect. Same 6 tools, same account, nothing to run locally.</p>
+<pre class="code-block"><code>https://lazyrelaylazyrelay-backend.onrender.com/mcp</code></pre>
+<p>In Claude, go to <strong>Settings &rarr; Connectors &rarr; Add connector</strong>, choose <strong>Remote</strong>, and paste the URL above. You'll be asked to sign in and approve access, the same way you'd approve any other app. For MCP clients that use a config file instead:</p>
+<pre class="code-block"><code>{
+  "mcpServers": {
+    "lazyrelay": {
+      "url": "https://lazyrelaylazyrelay-backend.onrender.com/mcp"
+    }
+  }
+}</code></pre>
+<p>To stop a connected app from accessing your account, remove it from wherever you connected it (for example, your AI tool's connector settings).</p>
+
+<div class="endpoint-list">
+  <div class="endpoint">
+    <div class="endpoint-header"><code>list_connected_accounts</code></div>
+    <p>List your connected social accounts and their ids</p>
+  </div>
+  <div class="endpoint">
+    <div class="endpoint-header"><code>schedule_post</code></div>
+    <p>Schedule a post to one connected account</p>
+  </div>
+  <div class="endpoint">
+    <div class="endpoint-header"><code>list_scheduled_posts</code></div>
+    <p>See upcoming and recent posts, with status and Proof-of-Publish verification</p>
+  </div>
+  <div class="endpoint">
+    <div class="endpoint-header"><code>delete_scheduled_post</code></div>
+    <p>Cancel a pending post</p>
+  </div>
+  <div class="endpoint">
+    <div class="endpoint-header"><code>get_analytics_summary</code></div>
+    <p>Post counts, verified-live rate, per-platform breakdown, engagement totals</p>
+  </div>
+  <div class="endpoint">
+    <div class="endpoint-header"><code>get_mentions</code></div>
+    <p>Recent comments on your posts, where the platform supports reading them</p>
+  </div>
+</div>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Start free, no card required.</strong> API and MCP access is included on every paid plan.</p>
+  <a class="button" href="/">See plans and get started free</a>
+</div>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/connect-zapier">Connect to Zapier</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>
