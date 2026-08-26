@@ -1,7 +1,13 @@
 import rateLimit from "express-rate-limit";
-import type { Request } from "express";
+import type { Request, Response } from "express";
 import type { AuthedRequest } from "./auth.js";
 import { resolveTier as resolveTierUncached, type Tier } from "../tier.js";
+import { recordSecurityEvent } from "./securityAlerts.js";
+
+function onRateLimited(req: Request, res: Response) {
+  recordSecurityEvent("rate_limited", `${req.method} ${req.path} from ${req.ip ?? "unknown"}`);
+  res.status(429).json({ error: "Too many requests — please slow down and try again shortly." });
+}
 
 // Requests/minute per tier. This limits request VOLUME against our own
 // infra (and, once real platform adapters exist, protects LazyRelay's own
@@ -48,7 +54,7 @@ export const tieredRateLimit = rateLimit({
   keyGenerator: (req: Request) => (req as AuthedRequest).accountId ?? req.ip ?? "unknown",
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Too many requests — please slow down and try again shortly." },
+  handler: onRateLimited,
 });
 
 /** Request-rate limit for the hosted MCP endpoint. Same tier ladder and
@@ -71,7 +77,7 @@ export const mcpRateLimit = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Too many requests — please slow down and try again shortly." },
+  handler: onRateLimited,
 });
 
 /** Coarse IP-based limiter for the one route that runs before/without
@@ -84,5 +90,5 @@ export const publicRateLimit = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Too many requests — please slow down and try again shortly." },
+  handler: onRateLimited,
 });

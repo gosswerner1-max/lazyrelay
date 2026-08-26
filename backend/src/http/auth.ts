@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { createHash } from "node:crypto";
 import { supabase } from "../supabase.js";
+import { recordSecurityEvent } from "./securityAlerts.js";
 
 export interface AuthedRequest extends Request {
   accountId?: string;
@@ -182,6 +183,7 @@ async function resolveAccountForUser(userId: string): Promise<{ accountId: strin
 export async function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
+    recordSecurityEvent("auth_denied", `missing bearer token on ${req.method} ${req.path}`);
     res.status(401).json({ error: "Missing bearer token" });
     return;
   }
@@ -196,6 +198,7 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
         adminKeyId,
         "auto-revoked: used with no registered job header and no open human-approved intent window (possible key leak)"
       );
+      recordSecurityEvent("admin_key_revoked", `admin key ${adminKeyId} on ${req.method} ${req.path}`);
       res.status(403).json({
         error: "This admin key use was not authorized (no registered job, no approved window) and the key has been revoked.",
       });
@@ -238,6 +241,7 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
 
   const { data, error } = await supabase.auth.getUser(token);
   if (error || !data.user) {
+    recordSecurityEvent("auth_denied", `invalid/expired token on ${req.method} ${req.path}`);
     res.status(401).json({ error: "Invalid or expired token" });
     return;
   }
@@ -275,6 +279,7 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
  *  or customer API key should ever be able to reach. */
 export function requireAdmin(req: AuthedRequest, res: Response, next: NextFunction) {
   if (!req.isAdmin) {
+    recordSecurityEvent("auth_denied", `non-admin on admin-only ${req.method} ${req.path}`);
     res.status(403).json({ error: "This endpoint requires an admin key" });
     return;
   }
@@ -336,6 +341,7 @@ export async function requireJwtUser(req: AuthedRequest, res: Response, next: Ne
  *  role is actually blocked here. Mount AFTER requireAuth. */
 export function requireOwner(req: AuthedRequest, res: Response, next: NextFunction) {
   if (req.authMethod === "jwt" && req.role !== "owner") {
+    recordSecurityEvent("auth_denied", `non-owner member on owner-only ${req.method} ${req.path}`);
     res.status(403).json({ error: "Only the account owner can do this." });
     return;
   }
@@ -348,6 +354,7 @@ export function requireOwner(req: AuthedRequest, res: Response, next: NextFuncti
  *  legitimate ones and lock the real owner out. */
 export function requireHumanAuth(req: AuthedRequest, res: Response, next: NextFunction) {
   if (req.authMethod === "apiKey") {
+    recordSecurityEvent("auth_denied", `API key on human-only ${req.method} ${req.path}`);
     res.status(403).json({ error: "This endpoint requires signing in with your account, not an API key" });
     return;
   }
