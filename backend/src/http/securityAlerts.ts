@@ -27,6 +27,7 @@ const THRESHOLDS: Record<string, number> = {
   auth_denied: 20, // 401/403 from requireAuth/requireOwner/requireHumanAuth/requireAdmin
   rate_limited: 30, // 429s across all limiters
   admin_key_revoked: 1, // any auto-revoke is worth an immediate page, not a spike wait
+  mfa_recovery_used: 1, // someone bypassed their second factor -- rare and worth knowing about individually, same as admin_key_revoked
 };
 
 const buckets = new Map<string, EventBucket>();

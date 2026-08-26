@@ -92,3 +92,20 @@ export const publicRateLimit = rateLimit({
   legacyHeaders: false,
   handler: onRateLimited,
 });
+
+/** POST /mfa/recovery-codes/redeem (mfaRecovery.ts) is the one deliberately
+ *  weaker-than-normal-auth endpoint in the whole API — it has to work for
+ *  someone who by definition doesn't have their second factor, so all it
+ *  requires is a valid-but-not-yet-aal2 Supabase JWT plus the recovery code
+ *  itself. Brute-forcing an 8-char uppercase-alphanumeric code
+ *  (36^8 ≈ 2.8e12 possibilities) needs to stay genuinely hard, so this is
+ *  far tighter than publicRateLimit's 30/min. IP-keyed, same as
+ *  publicRateLimit — there's no verified identity to key on until a code
+ *  actually matches. */
+export const mfaRecoveryRedeemRateLimit = rateLimit({
+  windowMs: 15 * 60_000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: onRateLimited,
+});

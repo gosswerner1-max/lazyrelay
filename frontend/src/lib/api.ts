@@ -656,6 +656,18 @@ export const api = {
   acceptTeamInvite: (token: string): Promise<{ accountId: string }> =>
     authedFetch("/team/accept-invite", { method: "POST", body: JSON.stringify({ token }) }),
 
+  // MFA recovery codes (2026-08-26) -- see backend/src/http/mfaRecovery.ts.
+  // generateMfaRecoveryCodes uses the normal authedFetch (JWT-only,
+  // requires a full aal2 session, called from Settings). redeemMfaRecoveryCode
+  // is called from MfaChallenge.tsx, where the session exists but hasn't
+  // cleared aal2 yet -- authedFetch still works there since it only needs a
+  // valid access_token, not a particular AAL, same as the backend route's
+  // own supabase.auth.getUser(token) check (any AAL).
+  generateMfaRecoveryCodes: (): Promise<{ codes: string[] }> =>
+    authedFetch("/mfa/recovery-codes/generate", { method: "POST" }),
+  redeemMfaRecoveryCode: (code: string): Promise<{ recovered: boolean }> =>
+    authedFetch("/mfa/recovery-codes/redeem", { method: "POST", body: JSON.stringify({ code }) }),
+
   // Generates the public Proof-of-Publish share link for a post. The
   // dashboard shows a confirm dialog before calling this (see Dashboard.tsx).
   getProofLink: (scheduledPostId: string): Promise<{ url: string }> =>

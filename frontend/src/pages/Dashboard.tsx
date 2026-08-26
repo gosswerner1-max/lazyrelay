@@ -260,6 +260,12 @@ export function Dashboard() {
   const [mfaVerifying, setMfaVerifying] = useState(false);
   const [mfaVerified, setMfaVerified] = useState(false);
   const [mfaUnenrolling, setMfaUnenrolling] = useState(false);
+  // Recovery codes (2026-08-26) -- reveal-once, same as newlyCreatedKey /
+  // revealedWebhookSecret above. Populated right after a successful
+  // enrollment (auto-generated) or an explicit "Regenerate" click; never
+  // fetched back from the server, since the backend never stores plaintext.
+  const [mfaRecoveryCodes, setMfaRecoveryCodes] = useState<string[] | null>(null);
+  const [mfaGeneratingRecoveryCodes, setMfaGeneratingRecoveryCodes] = useState(false);
   const [sharingProofId, setSharingProofId] = useState<string | null>(null);
   const [shareProofResult, setShareProofResult] = useState<{ postId: string; url: string; copied: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -2048,6 +2054,10 @@ export function Dashboard() {
     setMfaEnrollment(null);
     setMfaVerifyCode("");
     setMfaVerified(false);
+    // Clears the reveal-once codes out of memory once the customer has
+    // clicked past them -- they were never retrievable from the server
+    // again anyway, this just matches that in the UI state too.
+    setMfaRecoveryCodes(null);
   }
 
   async function handleConfirmMfaEnrollment(e: FormEvent) {
@@ -2066,6 +2076,17 @@ export function Dashboard() {
       if (verifyError) throw verifyError;
       setMfaFactorId(mfaEnrollment.factorId);
       setMfaVerified(true);
+      // Best-effort, in its own try/catch -- MFA itself is already enabled
+      // at this point (the verify() above is what matters), so a recovery
+      // -code generation hiccup shouldn't read as the whole enrollment
+      // having failed. The "Regenerate recovery codes" button below covers
+      // the customer if this call happens to fail.
+      try {
+        const { codes } = await api.generateMfaRecoveryCodes();
+        setMfaRecoveryCodes(codes);
+      } catch (codesErr) {
+        setError(codesErr instanceof Error ? codesErr.message : String(codesErr));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -2082,10 +2103,34 @@ export function Dashboard() {
       const { error } = await supabase.auth.mfa.unenroll({ factorId: mfaFactorId });
       if (error) throw error;
       setMfaFactorId(null);
+      // Recovery codes exist to recover this factor -- once it's gone
+      // there's nothing left for them to unlock, so clear any still-
+      // displayed set. (The backend does the equivalent DB-side cleanup
+      // when a code is redeemed instead of removed here in Settings.)
+      setMfaRecoveryCodes(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setMfaUnenrolling(false);
+    }
+  }
+
+  async function handleGenerateMfaRecoveryCodes(isRegenerate: boolean) {
+    if (
+      isRegenerate &&
+      !window.confirm("Regenerate recovery codes? Your existing codes will stop working immediately.")
+    ) {
+      return;
+    }
+    setMfaGeneratingRecoveryCodes(true);
+    setError(null);
+    try {
+      const { codes } = await api.generateMfaRecoveryCodes();
+      setMfaRecoveryCodes(codes);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setMfaGeneratingRecoveryCodes(false);
     }
   }
 
@@ -4276,6 +4321,15 @@ export function Dashboard() {
             {mfaVerified ? (
               <>
                 <p><strong>Two-factor authentication is now enabled.</strong></p>
+                {mfaRecoveryCodes && (
+                  <>
+                    <p>
+                      <strong>Save these recovery codes</strong> somewhere safe — each one lets you back into your
+                      account if you ever lose access to your authenticator app. They won't be shown again.
+                    </p>
+                    <CodeBlock code={mfaRecoveryCodes.join("\n")} />
+                  </>
+                )}
                 <button type="button" className="btn-outline" onClick={handleCancelMfaEnrollment}>
                   Done
                 </button>
@@ -4317,9 +4371,31 @@ export function Dashboard() {
         ) : mfaFactorId ? (
           <>
             <p className="status-badge status-active">Two-factor authentication is enabled</p>
-            <button type="button" className="btn-outline" onClick={handleRemoveMfa} disabled={mfaUnenrolling}>
-              {mfaUnenrolling ? "Removing..." : "Remove two-factor authentication"}
-            </button>
+            {mfaRecoveryCodes && (
+              <div className="api-key-reveal" style={{ marginTop: 12 }}>
+                <p>
+                  <strong>Save these recovery codes</strong> somewhere safe — each one lets you back into your
+                  account if you ever lose access to your authenticator app. They won't be shown again.
+                </p>
+                <CodeBlock code={mfaRecoveryCodes.join("\n")} />
+                <button type="button" className="btn-outline" onClick={() => setMfaRecoveryCodes(null)}>
+                  Done
+                </button>
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => handleGenerateMfaRecoveryCodes(true)}
+                disabled={mfaGeneratingRecoveryCodes}
+              >
+                {mfaGeneratingRecoveryCodes ? "Generating..." : "Regenerate recovery codes"}
+              </button>
+              <button type="button" className="btn-outline" onClick={handleRemoveMfa} disabled={mfaUnenrolling}>
+                {mfaUnenrolling ? "Removing..." : "Remove two-factor authentication"}
+              </button>
+            </div>
           </>
         ) : (
           <button type="button" className="btn-outline" onClick={handleStartMfaEnrollment} disabled={mfaEnrolling}>

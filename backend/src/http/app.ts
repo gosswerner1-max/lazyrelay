@@ -3,6 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import multer from "multer";
 import { buildRouter } from "./routes.js";
+import { buildMfaRecoveryRouter } from "./mfaRecovery.js";
 import { buildWebhookHandler } from "./webhook.js";
 import { mountMcp } from "./mcpRoutes.js";
 import { supabase } from "../supabase.js";
@@ -77,6 +78,10 @@ export function buildApp(
   app.use(cookieParser());
   app.use(express.json());
   app.use("/api", buildRouter(morAdapter, registry));
+  // Own router, mounted separately -- see the doc comment at the top of
+  // mfaRecovery.ts for why this lives outside buildRouter()'s single
+  // 4700-line router.
+  app.use("/api", buildMfaRecoveryRouter());
 
   // Real gap found in the 2026-08-25 pre-launch audit: this used to be a
   // static {status:"ok"} with no dependency check at all, so Render's own
