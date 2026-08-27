@@ -47,7 +47,7 @@
 <script src="/circuit-bg.js" defer></script>
 <header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
 <main>
-<a class="back" href="/">&larr; Back to home</a>
+<a class="back" href="/" id="back-home-link">&larr; Back to home</a>
 <h1>API &amp; MCP server</h1>
 <p class="subtitle">Everything below is real and live today: the same API LazyRelay's own dashboard runs on. Already have an account? The same docs live inside your dashboard's API Keys tab, with no need to sign back in.</p>
 
@@ -176,6 +176,22 @@
   // listener is the standard way to force that same fresh-load behavior
   // every time instead of relying on the user to notice and refresh.
   window.addEventListener("pagehide", function () {});
+
+  // Belt-and-suspenders on top of the bfcache fix above: reproduced live
+  // with Werner across Chrome (normal + Incognito) and Edge, a click on
+  // "Back to home" can update the address bar to "/" while the /docs
+  // content stays frozen on screen -- the default anchor-click navigation
+  // starts but never actually completes the document swap, for a cause
+  // we could not fully pin down despite checking cache headers, CSP,
+  // service workers, and speculative-prerendering (none were the cause).
+  // Forcing the same destination via window.location.assign() is a
+  // different, more direct navigation path than relying on the browser's
+  // default link-following behavior, so it isn't exposed to whatever is
+  // making that specific path unreliable.
+  document.getElementById("back-home-link").addEventListener("click", function (e) {
+    e.preventDefault();
+    window.location.assign("/");
+  });
 </script>
 </body>
 </html>
