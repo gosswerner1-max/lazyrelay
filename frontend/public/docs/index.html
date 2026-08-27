@@ -165,5 +165,17 @@
   <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/connect-zapier">Connect to Zapier</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a></p>
   <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
 </footer>
+<script>
+  // Opts this page out of Chrome's back/forward cache (bfcache). Found live
+  // 2026-08-27: reached via certain navigation paths, this page can be
+  // restored from a stale bfcache snapshot where the address bar shows the
+  // wrong URL for the content on screen ("/" while /docs is what's visible),
+  // which makes every link click on the page a silent no-op since the
+  // browser believes it's already at the destination. A real page reload
+  // works because it can't be served from bfcache. An empty pagehide
+  // listener is the standard way to force that same fresh-load behavior
+  // every time instead of relying on the user to notice and refresh.
+  window.addEventListener("pagehide", function () {});
+</script>
 </body>
 </html>
