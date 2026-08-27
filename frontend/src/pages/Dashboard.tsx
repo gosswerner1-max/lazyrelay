@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
@@ -23,6 +23,9 @@ import { CircuitBackground } from "../components/CircuitBackground";
 import { SupportWidget } from "../components/SupportWidget";
 import { PostErrorDetail } from "../components/PostErrorDetail";
 import "./Dashboard.css";
+
+const ProductTour = lazy(() => import("../components/ProductTour").then((m) => ({ default: m.ProductTour })));
+const TOUR_SEEN_KEY = "lazyrelay_tour_seen";
 
 // Settings (2026-08-17, Werner) consolidates the three former separate tabs
 // "Storage"/"Account"/"Billing" into one -- all three sections still exist
@@ -273,6 +276,7 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Overview");
+  const [runTour, setRunTour] = useState(false);
   const [brandFilter, setBrandFilter] = useState("");
   const [brands, setBrands] = useState<Brand[]>([]);
   const [newBrandName, setNewBrandName] = useState("");
@@ -426,6 +430,20 @@ export function Dashboard() {
       setScrollToBillingPending(false);
     }
   }, [tab, scrollToBillingPending]);
+  // First-time product tour (2026-08-27) — fires once real data has
+  // loaded, not on the loading skeleton, so its steps have something real
+  // to point at. localStorage rather than a backend field: this is a
+  // client-only convenience, not something that needs to sync across
+  // devices or survive the user clearing site data.
+  useEffect(() => {
+    if (!loading && !localStorage.getItem(TOUR_SEEN_KEY)) {
+      setRunTour(true);
+    }
+  }, [loading]);
+  const handleTourFinish = () => {
+    setRunTour(false);
+    localStorage.setItem(TOUR_SEEN_KEY, "1");
+  };
   // "Compact view" (the week-row list) vs "Calendar view" (a time-block
   // week grid, hour rows only where something's scheduled) — Werner's own
   // reference, a competitor's toggle of the same name. Calendar view
@@ -2364,6 +2382,7 @@ export function Dashboard() {
         {MAIN_TABS.map((t) => (
           <button
             key={t}
+            data-tour={`tab-${t.toLowerCase().replace(/\s+/g, "-")}`}
             className={t === tab ? "tab-active" : ""}
             onClick={() => setTab(t)}
           >
@@ -2395,6 +2414,10 @@ export function Dashboard() {
           )}
         </div>
       </nav>
+
+      <Suspense fallback={null}>
+        <ProductTour run={runTour} onFinish={handleTourFinish} />
+      </Suspense>
 
       {error && <p className="error">{error}</p>}
       {notice && <p className="notice">{notice}</p>}
@@ -4286,6 +4309,9 @@ export function Dashboard() {
             {savingBusinessName ? "Saving..." : "Save"}
           </button>
         </form>
+        <p className="section-note">
+          New here? <button type="button" className="link-button" data-tour="replay-tour" onClick={() => setRunTour(true)}>Replay the product tour</button>
+        </p>
         <form onSubmit={handleSaveVoiceProfile} className="account-name-form">
           <label>
             Brand voice (default)
