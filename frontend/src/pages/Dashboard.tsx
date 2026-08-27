@@ -436,7 +436,11 @@ export function Dashboard() {
   // client-only convenience, not something that needs to sync across
   // devices or survive the user clearing site data.
   useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log("[tour-debug] effect fired, loading=", loading, "tourSeen=", localStorage.getItem(TOUR_SEEN_KEY));
     if (!loading && !localStorage.getItem(TOUR_SEEN_KEY)) {
+      // eslint-disable-next-line no-console
+      console.log("[tour-debug] calling setRunTour(true)");
       setRunTour(true);
     }
   }, [loading]);
