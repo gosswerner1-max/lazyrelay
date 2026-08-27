@@ -353,7 +353,12 @@ function Root() {
     // that render, so the guarded branch above wins instead.
     return (
       <Suspense fallback={<div className="loading"><Spinner /></div>}>
-        <ApiDocs onBack={() => setView("landing")} />
+        <ApiDocs
+          onBack={() => {
+            window.history.pushState({}, "", "/");
+            setView("landing");
+          }}
+        />
       </Suspense>
     );
   }
