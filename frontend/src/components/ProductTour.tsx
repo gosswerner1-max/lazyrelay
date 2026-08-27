@@ -33,8 +33,6 @@ const TOUR_STEPS = [
 ];
 
 export function ProductTour({ run, onFinish }: { run: boolean; onFinish: () => void }) {
-  // eslint-disable-next-line no-console
-  console.log("[tour-debug] ProductTour rendered, run=", run);
   return (
     <Joyride
       steps={TOUR_STEPS}
@@ -42,8 +40,6 @@ export function ProductTour({ run, onFinish }: { run: boolean; onFinish: () => v
       continuous
       scrollToFirstStep
       onEvent={(data: EventData) => {
-        // eslint-disable-next-line no-console
-        console.log("[tour-debug] joyride event:", data.type, JSON.stringify(data));
         if (data.type === "tour:end") {
           onFinish();
         }
@@ -51,6 +47,7 @@ export function ProductTour({ run, onFinish }: { run: boolean; onFinish: () => v
       options={{
         primaryColor: "#ff5630",
         zIndex: 10000,
+        overlayClickAction: false,
       }}
     />
   );
