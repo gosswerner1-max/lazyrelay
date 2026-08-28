@@ -1,0 +1,30 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.gosswerner1-max/lazyrelay-mcp-server",
+  "description": "Schedule social posts, check Proof-of-Publish status, pull analytics, and read mentions.",
+  "repository": {
+    "url": "https://github.com/gosswerner1-max/lazyrelay",
+    "source": "github",
+    "subfolder": "mcp-server"
+  },
+  "version": "0.1.3",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@lazyrelay/mcp-server",
+      "version": "0.1.3",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Your LazyRelay API key. Get one from your LazyRelay dashboard: Settings -> More -> API Keys -> Create key.",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": true,
+          "name": "LAZYRELAY_API_KEY"
+        }
+      ]
+    }
+  ]
+}
