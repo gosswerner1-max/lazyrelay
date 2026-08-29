@@ -642,6 +642,21 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
               loading="lazy"
             />
           </a>
+          <a
+            href="https://saascubes.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Listed on SaaS Cubes"
+            className="saascubes-badge"
+          >
+            <img
+              src="https://saascubes.com/images/badges/badge-light.png"
+              alt="Listed on SaaS Cubes"
+              width={175}
+              height={54}
+              loading="lazy"
+            />
+          </a>
         </div>
       </footer>
       <SupportWidget context="public" />
