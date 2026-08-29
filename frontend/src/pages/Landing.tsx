@@ -601,33 +601,35 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
             separate JSX children -- same class of issue as the zapier-callout
             comment above, same fix. */}
         <p>{`© ${new Date().getFullYear()} LazyRelay. All rights reserved.`}</p>
-        <a
-          href="https://startupfa.me/s/lazyrelay?utm_source=lazyrelay.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="startup-fame-badge"
-        >
-          <img
-            src="https://startupfa.me/badges/featured-badge-small.webp"
-            alt="LazyRelay - Featured on Startup Fame"
-            width={224}
-            height={36}
-          />
-        </a>
-        <a
-          href="https://smollaunch.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="smol-launch-badge"
-        >
-          <img
-            src="https://smollaunch.com/badges/featured.svg"
-            alt="LazyRelay - Featured on Smol Launch"
-            width={250}
-            height={60}
-            loading="lazy"
-          />
-        </a>
+        <div className="landing-footer-badges">
+          <a
+            href="https://startupfa.me/s/lazyrelay?utm_source=lazyrelay.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="startup-fame-badge"
+          >
+            <img
+              src="https://startupfa.me/badges/featured-badge-small.webp"
+              alt="LazyRelay - Featured on Startup Fame"
+              width={224}
+              height={36}
+            />
+          </a>
+          <a
+            href="https://smollaunch.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="smol-launch-badge"
+          >
+            <img
+              src="https://smollaunch.com/badges/featured.svg"
+              alt="LazyRelay - Featured on Smol Launch"
+              width={250}
+              height={60}
+              loading="lazy"
+            />
+          </a>
+        </div>
       </footer>
       <SupportWidget context="public" />
     </div>
