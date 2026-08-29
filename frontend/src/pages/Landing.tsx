@@ -657,6 +657,20 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
               loading="lazy"
             />
           </a>
+          <a
+            href="https://listmysaas.xyz/"
+            target="_blank"
+            rel="dofollow noopener"
+            className="listmysaas-badge"
+          >
+            <img
+              src="https://listmysaas.xyz/listmysaasbadgenormal.svg"
+              alt="Featured on ListMySaaS"
+              width={125}
+              height={44}
+              loading="lazy"
+            />
+          </a>
         </div>
       </footer>
       <SupportWidget context="public" />
