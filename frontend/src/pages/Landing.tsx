@@ -614,6 +614,20 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
             height={36}
           />
         </a>
+        <a
+          href="https://smollaunch.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="smol-launch-badge"
+        >
+          <img
+            src="https://smollaunch.com/badges/featured.svg"
+            alt="LazyRelay - Featured on Smol Launch"
+            width={250}
+            height={60}
+            loading="lazy"
+          />
+        </a>
       </footer>
       <SupportWidget context="public" />
     </div>
