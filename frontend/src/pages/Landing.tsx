@@ -711,6 +711,20 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
               loading="lazy"
             />
           </a>
+          <a
+            href="https://wired.business/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="wired-business-badge"
+          >
+            <img
+              src="https://wired.business/badge0-white.svg"
+              alt="Featured on Wired Business"
+              width={200}
+              height={54}
+              loading="lazy"
+            />
+          </a>
         </div>
       </footer>
       <SupportWidget context="public" />
