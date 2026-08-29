@@ -697,6 +697,20 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
               loading="lazy"
             />
           </a>
+          <a
+            href="https://twelve.tools/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="twelve-tools-badge"
+          >
+            <img
+              src="https://twelve.tools/badge0-white.svg"
+              alt="Featured on Twelve Tools"
+              width={148}
+              height={40}
+              loading="lazy"
+            />
+          </a>
         </div>
       </footer>
       <SupportWidget context="public" />
