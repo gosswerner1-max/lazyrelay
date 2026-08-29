@@ -671,6 +671,19 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
               loading="lazy"
             />
           </a>
+          <a
+            href="https://findly.tools/lazyrelay?utm_source=lazyrelay"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="findly-tools-badge"
+          >
+            <img
+              src="https://findly.tools/badges/findly-tools-badge-light.svg"
+              alt="Featured on Findly.tools"
+              width={150}
+              loading="lazy"
+            />
+          </a>
         </div>
       </footer>
       <SupportWidget context="public" />
