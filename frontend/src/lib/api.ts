@@ -396,6 +396,14 @@ export const api = {
   startConnect: (platform: string): Promise<{ authorizeUrl: string }> =>
     authedFetch(`/social-accounts/connect?platform=${encodeURIComponent(platform)}`),
 
+  // Google Calendar two-way sync — deliberately its own small route group,
+  // not part of the platform-connect flow above (it's not a platform to
+  // post to). See backend/src/googleCalendar/connect.ts's header comment.
+  getGoogleCalendarStatus: (): Promise<{ connected: boolean; google_calendar_id?: string; connected_at?: string; last_synced_at?: string | null }> =>
+    authedFetch("/google-calendar/status"),
+  startGoogleCalendarConnect: (): Promise<{ authorizeUrl: string }> => authedFetch("/google-calendar/connect"),
+  disconnectGoogleCalendar: (): Promise<null> => authedFetch("/google-calendar", { method: "DELETE" }),
+
   // Real Page/account picker for platforms where one OAuth login can map to
   // several destinations (Facebook: multiple Pages; Instagram: whichever
   // Page has a Business Account linked) — see backend/src/platforms/connect.ts.

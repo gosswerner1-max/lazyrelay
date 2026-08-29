@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { supabase } from "./supabase.js";
 import { resolveTier } from "./tier.js";
+import { syncPostToCalendar } from "./googleCalendar/outboundSync.js";
 
 // How far ahead to keep scheduled_posts populated from active recurring
 // schedules. Short enough that an outage under a week never silently loses
@@ -130,11 +131,21 @@ export async function generateDuePosts(): Promise<void> {
     }
     if (rows.length === 0) continue;
 
-    const { error: insertError } = await supabase
+    // .select("id") after an ignoreDuplicates upsert returns only the rows
+    // Postgres actually inserted (ON CONFLICT DO NOTHING ... RETURNING),
+    // not the ones skipped as already-materialized duplicates -- exactly
+    // the set that's genuinely new and needs a Calendar event created for
+    // it, not every occurrence in this run's window.
+    const { data: inserted, error: insertError } = await supabase
       .from("scheduled_posts")
-      .upsert(rows, { onConflict: "recurring_schedule_id,social_account_id,scheduled_for", ignoreDuplicates: true });
+      .upsert(rows, { onConflict: "recurring_schedule_id,social_account_id,scheduled_for", ignoreDuplicates: true })
+      .select("id");
     if (insertError) {
       console.error(`[recurringScheduler] failed to generate occurrences for slot ${slot.id}:`, insertError.message);
+      continue;
+    }
+    for (const row of inserted ?? []) {
+      void syncPostToCalendar(row.id);
     }
   }
 }

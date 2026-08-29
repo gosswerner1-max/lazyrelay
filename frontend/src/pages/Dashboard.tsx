@@ -176,10 +176,18 @@ function readAndClearConnectParams(): {
   selectAccount: string | null;
   prefillContent: string | null;
   prefillMediaUrl: string | null;
+  gcalConnected: boolean;
+  gcalConnectError: string | null;
 } {
   const params = new URLSearchParams(window.location.search);
   const connectError = params.get("connectError");
   const connected = params.get("connected") !== null;
+  // Google Calendar's connect flow (backend routes.ts's
+  // GET /google-calendar/callback) redirects here the same way the platform
+  // connect flow does, with its own distinct param names so the two connect
+  // flows' redirects can never be confused with each other.
+  const gcalConnected = params.get("gcalConnected") !== null;
+  const gcalConnectError = params.get("gcalConnectError");
   // Set when a connect has more than one real Page/account to choose from
   // (Facebook: multiple Pages; Instagram: whichever Page has a Business
   // Account linked) — see backend/src/platforms/connect.ts. Holds the
@@ -191,10 +199,10 @@ function readAndClearConnectParams(): {
   // instead of having to copy/paste the URL themselves.
   const prefillContent = params.get("prefillContent");
   const prefillMediaUrl = params.get("prefillMediaUrl");
-  if (connectError || connected || selectAccount || prefillContent || prefillMediaUrl) {
+  if (connectError || connected || selectAccount || prefillContent || prefillMediaUrl || gcalConnected || gcalConnectError) {
     window.history.replaceState({}, "", window.location.pathname);
   }
-  return { connectError, connected, selectAccount, prefillContent, prefillMediaUrl };
+  return { connectError, connected, selectAccount, prefillContent, prefillMediaUrl, gcalConnected, gcalConnectError };
 }
 const connectParams = readAndClearConnectParams();
 
@@ -253,6 +261,11 @@ export function Dashboard() {
   const [savingWebhook, setSavingWebhook] = useState(false);
   const [regeneratingWebhookSecret, setRegeneratingWebhookSecret] = useState(false);
   const [revealedWebhookSecret, setRevealedWebhookSecret] = useState<string | null>(null);
+  // undefined = not yet checked, null = checked and not connected, object =
+  // connected. Same lazy-load sentinel pattern as mfaFactorId below.
+  const [gcalStatus, setGcalStatus] = useState<{ google_calendar_id?: string; last_synced_at?: string | null } | null | undefined>(undefined);
+  const [gcalConnecting, setGcalConnecting] = useState(false);
+  const [gcalDisconnecting, setGcalDisconnecting] = useState(false);
   // undefined = not yet checked (listFactors() hasn't resolved), null = checked
   // and no verified TOTP factor exists, string = the verified factor's id.
   // Mirrors the undefined/null-as-sentinel lazy-load pattern used for
@@ -726,6 +739,17 @@ export function Dashboard() {
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
   }, [tab, mfaFactorId]);
 
+  // Same lazy-load pattern as mfaFactorId above -- only fetched once the
+  // customer opens Settings, and re-fetched (via gcalStatus reset to
+  // undefined) after a connect/disconnect action below.
+  useEffect(() => {
+    if (tab !== "Settings" || gcalStatus !== undefined) return;
+    api
+      .getGoogleCalendarStatus()
+      .then((status) => setGcalStatus(status.connected ? status : null))
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+  }, [tab, gcalStatus]);
+
   // Also lazy-loaded, same reasoning as analytics — only fetched once the
   // customer actually opens the tab.
   useEffect(() => {
@@ -773,6 +797,13 @@ export function Dashboard() {
       setTab("Posts");
       if (connectParams.prefillContent) setContent(connectParams.prefillContent);
       if (connectParams.prefillMediaUrl) setMediaUrl(connectParams.prefillMediaUrl);
+    }
+    if (connectParams.gcalConnectError) {
+      setError(connectParams.gcalConnectError);
+    } else if (connectParams.gcalConnected) {
+      setNotice("Google Calendar connected!");
+      setTab("Settings");
+      setGcalStatus(undefined); // triggers the lazy-load effect above to re-fetch
     }
   }, []);
 
@@ -2046,6 +2077,32 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setRegeneratingWebhookSecret(false);
+    }
+  }
+
+  async function handleConnectGoogleCalendar() {
+    setGcalConnecting(true);
+    setError(null);
+    try {
+      const { authorizeUrl } = await api.startGoogleCalendarConnect();
+      window.location.href = authorizeUrl;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setGcalConnecting(false);
+    }
+  }
+
+  async function handleDisconnectGoogleCalendar() {
+    if (!window.confirm("Disconnect Google Calendar? LazyRelay will stop syncing posts to it. Your LazyRelay Posts calendar and its events stay on your Google account either way.")) return;
+    setGcalDisconnecting(true);
+    setError(null);
+    try {
+      await api.disconnectGoogleCalendar();
+      setGcalStatus(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setGcalDisconnecting(false);
     }
   }
 
@@ -4497,6 +4554,35 @@ export function Dashboard() {
               Done
             </button>
           </div>
+        )}
+      </section>
+      )}
+
+      {tab === "Settings" && (
+      <section>
+        <h2>Google Calendar</h2>
+        <p className="section-note">
+          Two-way sync with a dedicated "LazyRelay Posts" calendar on your Google account. Every event in it is
+          a real scheduled post — move, edit, or delete one there and LazyRelay picks up the change. Create a
+          new event there and it lands in LazyRelay for you to confirm before it posts. Subscribe to that
+          calendar on your phone to see (and change) your posting schedule anywhere.
+        </p>
+        {gcalStatus === undefined ? (
+          <p className="section-note">Checking your Google Calendar connection...</p>
+        ) : gcalStatus ? (
+          <>
+            <p>
+              <strong>Connected.</strong>
+              {gcalStatus.last_synced_at && ` Last synced ${new Date(gcalStatus.last_synced_at).toLocaleString()}.`}
+            </p>
+            <button type="button" className="btn-outline" onClick={handleDisconnectGoogleCalendar} disabled={gcalDisconnecting}>
+              {gcalDisconnecting ? "Disconnecting..." : "Disconnect"}
+            </button>
+          </>
+        ) : (
+          <button type="button" onClick={handleConnectGoogleCalendar} disabled={gcalConnecting}>
+            {gcalConnecting ? "Connecting..." : "Connect Google Calendar"}
+          </button>
         )}
       </section>
       )}

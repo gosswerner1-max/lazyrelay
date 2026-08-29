@@ -16,6 +16,13 @@ import {
   finalizeConnectSelection,
   type PlatformAdapterRegistry,
 } from "../platforms/connect.js";
+import { isGoogleCalendarConfigured } from "../googleCalendar/oauthClient.js";
+import {
+  startGoogleCalendarConnect,
+  completeGoogleCalendarConnect,
+  disconnectGoogleCalendar,
+} from "../googleCalendar/connect.js";
+import { syncPostToCalendar, deletePostFromCalendar } from "../googleCalendar/outboundSync.js";
 import {
   requireAuth,
   requireHumanAuth,
@@ -1283,6 +1290,79 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.json(data);
   });
 
+  // Google Calendar two-way sync — a genuinely different shape from every
+  // other connection above (not a platform to post TO, a two-way data
+  // source), so it's deliberately its own small route group rather than
+  // folded into /social-accounts/connect's platform-registry flow. See
+  // googleCalendar/connect.ts's header comment for why.
+  router.get("/google-calendar/status", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data, error } = await supabase
+      .from("google_calendar_connections")
+      .select("google_calendar_id, connected_at, last_synced_at")
+      .eq("account_id", req.accountId)
+      .is("disconnected_at", null)
+      .maybeSingle();
+    if (error) {
+      dbError(res, error, "GET /google-calendar/status");
+      return;
+    }
+    res.json({ connected: !!data, ...data });
+  });
+
+  router.get("/google-calendar/connect", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    if (!isGoogleCalendarConfigured()) {
+      res.status(400).json({ error: "Google Calendar sync isn't available yet." });
+      return;
+    }
+    try {
+      const { url, stateId } = await startGoogleCalendarConnect(req.accountId!);
+      // Same CSRF binding as /social-accounts/connect's lr_oauth_state
+      // cookie — a distinct cookie name so the two connect flows can be in
+      // flight at once without clobbering each other.
+      res.cookie("lr_gcal_oauth_state", stateId, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        maxAge: 15 * 60_000,
+      });
+      res.json({ authorizeUrl: url });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  router.get("/google-calendar/callback", publicRateLimit, async (req, res) => {
+    const { code, state } = req.query;
+    if (typeof code !== "string" || typeof state !== "string") {
+      res.redirect(`${frontendUrl}/?gcalConnectError=${encodeURIComponent("Missing code or state")}`);
+      return;
+    }
+    const cookieState = req.cookies?.lr_gcal_oauth_state;
+    res.clearCookie("lr_gcal_oauth_state", { httpOnly: true, secure: true, sameSite: "none" });
+    if (cookieState !== state) {
+      res.redirect(
+        `${frontendUrl}/?gcalConnectError=${encodeURIComponent("This connect link wasn't opened in the same browser it was started in — please try connecting again.")}`,
+      );
+      return;
+    }
+    try {
+      await completeGoogleCalendarConnect(state, code);
+      res.redirect(`${frontendUrl}/?gcalConnected=1`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.redirect(`${frontendUrl}/?gcalConnectError=${encodeURIComponent(message)}`);
+    }
+  });
+
+  router.delete("/google-calendar", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    try {
+      await disconnectGoogleCalendar(req.accountId!);
+      res.status(204).send();
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
   // Multi-brand support. Started 2026-08-08 as a free-text label per account
   // (migration 0042); promoted 2026-08-16 to a real `brands` entity
   // (migration 0047) so brands can be COUNTED and CAPPED per tier — closing
@@ -2064,6 +2144,11 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       console.error("[routes] scheduleOnePost insert:", error.message);
       return { status: 500, body: { error: "Something went wrong on our end. Please try again." } };
     }
+    // Fire-and-forget: a failed calendar sync must never fail the post
+    // itself (see outboundSync.ts's header comment). Covers both the single
+    // POST /scheduled-posts route and the bulk-import route above, which
+    // both call scheduleOnePost().
+    void syncPostToCalendar(data.id);
     return { status: 201, body: data };
   }
 
@@ -2262,6 +2347,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       dbError(res, error, "PATCH /scheduled-posts/:id");
       return;
     }
+    void syncPostToCalendar(data.id);
     res.json(data);
   });
 
@@ -2327,6 +2413,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       dbError(res, error, "PATCH /scheduled-posts/:id/schedule");
       return;
     }
+    void syncPostToCalendar(data.id);
     res.json(data);
   });
 
@@ -3227,6 +3314,14 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(409).json({ error: "This post is being published right now — try again in a moment" });
       return;
     }
+
+    // Awaited, not fire-and-forget like the other call sites — it needs to
+    // read the row's google_event_id BEFORE the delete below removes it,
+    // so it can't race the delete. deletePostFromCalendar never throws (see
+    // its own internal try/catch) — a failed calendar cleanup still can't
+    // block the delete itself, it just leaves a stale Calendar event behind
+    // to clean up later rather than failing the customer's delete action.
+    await deletePostFromCalendar(existing.id);
 
     const { error, count } = await supabase
       .from("scheduled_posts")
