@@ -1864,9 +1864,13 @@
 /* Anchored popovers (2026-08-30) — replaces the old below-grid
    .calendar-day-detail panel. Portal-rendered (see components/Popover.tsx),
    so this is positioned via inline style, not this stylesheet; this only
-   covers the panel's own look. */
+   covers the panel's own look. z-index 70, not 50: found live that the
+   floating support-chat widget (.support-widget, z-index 60) sat on top of
+   and intercepted clicks meant for a popover anchored near the bottom-right
+   of the viewport — clicking "through" it registered as an outside click
+   and closed the popover instead of reaching whatever was underneath. */
 .popover-panel {
-  z-index: 50;
+  z-index: 70;
   width: 320px;
   max-width: calc(100vw - 16px);
   max-height: calc(100vh - 16px);
