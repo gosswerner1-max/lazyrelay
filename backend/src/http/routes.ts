@@ -1925,6 +1925,31 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     scheduledFor: string;
   };
 
+  /** Just the scheduledFor bounds-check, pulled out of validatePostFields
+   *  (2026-08-30) so the reschedule route can revalidate a new time without
+   *  re-running the rest of validatePostFields' checks — content/account
+   *  aren't changing on a reschedule, so re-checking media reachability etc.
+   *  would be pointless work and an extra failure surface for a no-op field. */
+  function validateScheduledFor(scheduledFor: unknown): PostFieldsError | { scheduledFor: string; scheduledDate: Date } {
+    if (typeof scheduledFor !== "string") {
+      return { status: 400, body: { error: "scheduledFor must be an ISO date string" } };
+    }
+    const scheduledDate = new Date(scheduledFor);
+    if (Number.isNaN(scheduledDate.getTime())) {
+      return { status: 400, body: { error: "scheduledFor must be a valid date" } };
+    }
+    // Allow "now" and small clock-skew/latency slack rather than a strict
+    // future-only check — scheduling for immediate posting is legitimate,
+    // and a rigid ">Date.now()" comparison is fragile across a real network
+    // hop. Still rejects genuinely stale input (e.g. a client bug sending
+    // last year's date).
+    const SCHEDULED_FOR_PAST_GRACE_MS = 60_000;
+    if (scheduledDate.getTime() < Date.now() - SCHEDULED_FOR_PAST_GRACE_MS) {
+      return { status: 400, body: { error: "scheduledFor can't be in the past" } };
+    }
+    return { scheduledFor, scheduledDate };
+  }
+
   /** Shared validation for "a real post about to become live-scheduled" —
    *  used by scheduleOnePost's insert path AND (2026-08-16) the
    *  draft-promotion path below, which needs the exact same checks (account
@@ -1976,21 +2001,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (content.length > MAX_POST_CONTENT_LENGTH) {
       return { status: 400, body: { error: `content must be ${MAX_POST_CONTENT_LENGTH} characters or fewer` } };
     }
-    if (typeof scheduledFor !== "string") {
-      return { status: 400, body: { error: "scheduledFor must be an ISO date string" } };
-    }
-    const scheduledDate = new Date(scheduledFor);
-    if (Number.isNaN(scheduledDate.getTime())) {
-      return { status: 400, body: { error: "scheduledFor must be a valid date" } };
-    }
-    // Allow "now" and small clock-skew/latency slack rather than a strict
-    // future-only check — scheduling for immediate posting is legitimate,
-    // and a rigid ">Date.now()" comparison is fragile across a real network
-    // hop. Still rejects genuinely stale input (e.g. a client bug sending
-    // last year's date).
-    const SCHEDULED_FOR_PAST_GRACE_MS = 60_000;
-    if (scheduledDate.getTime() < Date.now() - SCHEDULED_FOR_PAST_GRACE_MS) {
-      return { status: 400, body: { error: "scheduledFor can't be in the past" } };
+    const scheduledForCheck = validateScheduledFor(scheduledFor);
+    if ("status" in scheduledForCheck) {
+      return scheduledForCheck;
     }
 
     // Confirm the social account actually belongs to this caller before
@@ -2066,7 +2079,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       destinationLink: (destinationLink as string | undefined) ?? null,
       firstComment: (firstComment as string | undefined) ?? null,
       mediaAltText: (mediaAltText as string | undefined) ?? null,
-      scheduledFor,
+      scheduledFor: scheduledForCheck.scheduledFor,
     };
   }
 
@@ -2110,7 +2123,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
   async function scheduleOnePost(
     accountId: string | undefined,
-    input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; coverImageUrl?: unknown; boardId?: unknown; destinationLink?: unknown; firstComment?: unknown; scheduledFor?: unknown; requiresApproval?: unknown },
+    input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; coverImageUrl?: unknown; boardId?: unknown; destinationLink?: unknown; firstComment?: unknown; mediaAltText?: unknown; scheduledFor?: unknown; requiresApproval?: unknown },
   ): Promise<{ status: number; body: Record<string, unknown> }> {
     const validated = await validatePostFields(accountId, input);
     if ("status" in validated) return validated;
@@ -3288,7 +3301,180 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(404).json({ error: "Not found, not owned by this caller, or not awaiting approval" });
       return;
     }
+    // 2026-08-30 fix: every other route that changes a post's calendar-
+    // relevant state (create, reschedule, delete) calls syncPostToCalendar —
+    // this one never did, so an approved post silently never appeared on
+    // the customer's Google Calendar even though it's now really scheduled.
+    void syncPostToCalendar(data.id);
     res.json(data);
+  });
+
+  // Move an already-pending post to a new day/time — including "post now"
+  // (frontend just passes the current time), since claimDuePosts() already
+  // polls for status='pending' AND scheduled_for<=now() and
+  // validatePostFields already treats "now" as legitimate. There was no way
+  // to do this at all before 2026-08-30 — the only previous option was
+  // delete + recreate (see the comment on PATCH /scheduled-posts/:id above).
+  router.patch("/scheduled-posts/:id/reschedule", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const scheduledForCheck = validateScheduledFor((req.body ?? {}).scheduledFor);
+    if ("status" in scheduledForCheck) {
+      res.status(scheduledForCheck.status).json(scheduledForCheck.body);
+      return;
+    }
+
+    const { data: existing, error: fetchError } = await supabase
+      .from("scheduled_posts")
+      .select("id, status")
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .maybeSingle();
+    if (fetchError) {
+      dbError(res, fetchError, "PATCH /scheduled-posts/:id/reschedule lookup");
+      return;
+    }
+    if (!existing) {
+      res.status(404).json({ error: "Not found or not owned by this caller" });
+      return;
+    }
+    if (existing.status !== "pending") {
+      res.status(409).json({ error: "Only a pending post can be rescheduled." });
+      return;
+    }
+
+    const { data, error, count } = await supabase
+      .from("scheduled_posts")
+      .update(
+        {
+          scheduled_for: scheduledForCheck.scheduledFor,
+          // A rescheduled recurring occurrence is now a standalone one-off,
+          // not "the Tuesday one moved" — detaching avoids colliding with
+          // scheduled_posts_recurring_occurrence_key if the new time matches
+          // another already-generated occurrence of the same series.
+          recurring_schedule_id: null,
+        },
+        { count: "exact" },
+      )
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .eq("status", "pending")
+      .select()
+      .maybeSingle();
+    if (error) {
+      // 23505 = unique_violation. Only realistic cause here is the
+      // recurring-occurrence unique constraint above.
+      if (error.code === "23505") {
+        res.status(409).json({ error: "This account already has a post scheduled for that exact time." });
+        return;
+      }
+      dbError(res, error, "PATCH /scheduled-posts/:id/reschedule");
+      return;
+    }
+    if (!count || !data) {
+      res.status(409).json({ error: "Only a pending post can be rescheduled." });
+      return;
+    }
+    // google_event_id is already set on this row (it was already synced
+    // when first created), so this correctly PATCHes the existing Calendar
+    // event's time rather than creating a second one.
+    void syncPostToCalendar(data.id);
+    res.json(data);
+  });
+
+  // Pause/resume a single pending post without cancelling it — a
+  // paused_at timestamp rather than a new status value (see migration
+  // 0073's own comment for why): status stays 'pending' throughout, so
+  // every other place that already gates on status='pending'
+  // (releaseMediaIfOrphaned, DELETE /media/:id's in-use check, the
+  // GET /scheduled-posts upcoming-list query) keeps working unchanged.
+  // claimDuePosts() is the only place that needed to learn about this.
+  router.patch("/scheduled-posts/:id/pause", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data, error, count } = await supabase
+      .from("scheduled_posts")
+      .update({ paused_at: new Date().toISOString() }, { count: "exact" })
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .eq("status", "pending")
+      .is("paused_at", null)
+      .select()
+      .maybeSingle();
+    if (error) {
+      dbError(res, error, "PATCH /scheduled-posts/:id/pause");
+      return;
+    }
+    if (!count || !data) {
+      res.status(404).json({ error: "Not found, not owned by this caller, not pending, or already paused" });
+      return;
+    }
+    // No calendar sync call — pausing doesn't change scheduled_for, and
+    // eventMapper.ts doesn't mirror status/pause state onto the Calendar
+    // event at all, so the mirrored event is already correct as-is.
+    res.json(data);
+  });
+
+  router.patch("/scheduled-posts/:id/resume", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data, error, count } = await supabase
+      .from("scheduled_posts")
+      .update({ paused_at: null }, { count: "exact" })
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .eq("status", "pending")
+      .not("paused_at", "is", null)
+      .select()
+      .maybeSingle();
+    if (error) {
+      dbError(res, error, "PATCH /scheduled-posts/:id/resume");
+      return;
+    }
+    if (!count || !data) {
+      res.status(404).json({ error: "Not found, not owned by this caller, not pending, or not paused" });
+      return;
+    }
+    res.json(data);
+  });
+
+  // Copy an existing post to a new day — reuses scheduleOnePost wholesale
+  // (validatePostFields + checkFreeTierPostLimit + insert + calendar sync),
+  // the exact same path a brand-new post goes through, since a duplicate
+  // really is a brand-new row that happens to be pre-filled from another
+  // one. Deliberately does NOT carry forward google_event_id/
+  // google_updated_at/last_synced_at (scheduleOnePost's insert never sets
+  // them, so they're correctly null on the new row — copying google_event_id
+  // would violate its unique partial index) or recurring_schedule_id (also
+  // never set by scheduleOnePost) — a duplicate is always a standalone
+  // one-off, matching the reschedule route's own detach behavior above.
+  router.post("/scheduled-posts/:id/duplicate", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: existing, error: fetchError } = await supabase
+      .from("scheduled_posts")
+      .select("social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, status")
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .maybeSingle();
+    if (fetchError) {
+      dbError(res, fetchError, "POST /scheduled-posts/:id/duplicate lookup");
+      return;
+    }
+    if (!existing) {
+      res.status(404).json({ error: "Not found or not owned by this caller" });
+      return;
+    }
+    if (existing.status === "draft" || existing.status === "posting") {
+      res.status(400).json({ error: "Drafts and in-flight posts can't be duplicated this way" });
+      return;
+    }
+
+    const result = await scheduleOnePost(req.accountId, {
+      socialAccountId: existing.social_account_id,
+      content: existing.content,
+      mediaUrl: existing.media_url,
+      coverImageUrl: existing.cover_image_url,
+      boardId: existing.board_id,
+      destinationLink: existing.destination_link,
+      firstComment: existing.first_comment,
+      mediaAltText: existing.media_alt_text,
+      scheduledFor: (req.body ?? {}).scheduledFor,
+      requiresApproval: (req.body ?? {}).requiresApproval,
+    });
+    res.status(result.status).json(result.body);
   });
 
   // A pending post can be cancelled, or a posted/failed one cleared from

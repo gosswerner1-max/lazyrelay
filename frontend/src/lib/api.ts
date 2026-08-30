@@ -118,6 +118,10 @@ export interface ScheduledPost {
   // Posts tab compose form. Never meaningful once status leaves "draft".
   planned_account_ids: string[] | null;
   status: "draft" | "pending" | "posting" | "posted" | "failed" | "needs_approval";
+  // A pending post can be paused without cancelling it (2026-08-30,
+  // migration 0073) — still 'pending', just withheld from the scheduler
+  // until resumed. null/undefined for every non-paused post.
+  paused_at: string | null;
   post_results: Array<{ verified_live: boolean; platform_post_url: string | null; error_message: string | null }>;
 }
 
@@ -471,6 +475,18 @@ export const api = {
   ): Promise<ScheduledPost> => authedFetch(`/scheduled-posts/${id}/schedule`, { method: "PATCH", body: JSON.stringify(input) }),
   approveScheduledPost: (id: string): Promise<ScheduledPost> =>
     authedFetch(`/scheduled-posts/${id}/approve`, { method: "PATCH" }),
+
+  // Move a pending post to a new day/time, or "post now" by passing the
+  // current time — backend already treats "now" as legitimate, no separate
+  // post-now endpoint (2026-08-30).
+  rescheduleScheduledPost: (id: string, scheduledFor: string): Promise<ScheduledPost> =>
+    authedFetch(`/scheduled-posts/${id}/reschedule`, { method: "PATCH", body: JSON.stringify({ scheduledFor }) }),
+  pauseScheduledPost: (id: string): Promise<ScheduledPost> =>
+    authedFetch(`/scheduled-posts/${id}/pause`, { method: "PATCH" }),
+  resumeScheduledPost: (id: string): Promise<ScheduledPost> =>
+    authedFetch(`/scheduled-posts/${id}/resume`, { method: "PATCH" }),
+  duplicateScheduledPost: (id: string, scheduledFor: string, requiresApproval?: boolean): Promise<ScheduledPost> =>
+    authedFetch(`/scheduled-posts/${id}/duplicate`, { method: "POST", body: JSON.stringify({ scheduledFor, requiresApproval }) }),
 
   // Real Pinterest board list for a connected account — empty array for any
   // other platform (see GET /social-accounts/:id/boards). Drives the board

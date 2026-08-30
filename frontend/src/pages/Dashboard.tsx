@@ -358,6 +358,12 @@ export function Dashboard() {
   // one-caption-fits-all case.
   const [perAccountContent, setPerAccountContent] = useState<Record<string, string>>({});
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  // Move/post-now/pause/resume/duplicate (2026-08-30) — covers both "move to
+  // another day" and "post now" since both call the same reschedule
+  // endpoint (backend already treats scheduledFor=now as legitimate).
+  const [reschedulingId, setReschedulingId] = useState<string | null>(null);
+  const [pauseResumeId, setPauseResumeId] = useState<string | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [hashtagGenerating, setHashtagGenerating] = useState(false);
   const [ideasGenerating, setIdeasGenerating] = useState(false);
@@ -1530,6 +1536,81 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setApprovingId(null);
+    }
+  }
+
+  // Stopgap prompt()-based date entry (2026-08-30) — a real date-picker
+  // popover is coming in the Calendar redesign; this exists so move/
+  // post-now/duplicate are genuinely clickable end-to-end in the meantime.
+  function promptForDateTime(message: string): string | null {
+    const input = window.prompt(`${message}\n(e.g. "2026-09-15 14:30", your local time)`);
+    if (!input) return null;
+    const date = new Date(input);
+    if (Number.isNaN(date.getTime())) {
+      setError(`Couldn't understand "${input}" as a date/time.`);
+      return null;
+    }
+    return date.toISOString();
+  }
+
+  async function handleReschedulePost(id: string) {
+    const scheduledFor = promptForDateTime("Move this post to when?");
+    if (!scheduledFor) return;
+    setReschedulingId(id);
+    setError(null);
+    try {
+      await api.rescheduleScheduledPost(id, scheduledFor);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setReschedulingId(null);
+    }
+  }
+
+  async function handlePostExistingNow(id: string) {
+    if (!window.confirm("Post this now? It will go out within about 30 seconds.")) return;
+    setReschedulingId(id);
+    setError(null);
+    try {
+      await api.rescheduleScheduledPost(id, new Date().toISOString());
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setReschedulingId(null);
+    }
+  }
+
+  async function handleTogglePause(id: string, isPaused: boolean) {
+    setPauseResumeId(id);
+    setError(null);
+    try {
+      if (isPaused) {
+        await api.resumeScheduledPost(id);
+      } else {
+        await api.pauseScheduledPost(id);
+      }
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPauseResumeId(null);
+    }
+  }
+
+  async function handleDuplicatePost(id: string) {
+    const scheduledFor = promptForDateTime("Duplicate this post to when?");
+    if (!scheduledFor) return;
+    setDuplicatingId(id);
+    setError(null);
+    try {
+      await api.duplicateScheduledPost(id, scheduledFor);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDuplicatingId(null);
     }
   }
 
@@ -3783,6 +3864,24 @@ export function Dashboard() {
                     {approvingId === p.id ? "Approving..." : "Approve"}
                   </button>
                 )}
+                {p.status === "pending" && (
+                  <>
+                    <button className="btn-outline" disabled={reschedulingId === p.id} onClick={() => handleReschedulePost(p.id)}>
+                      {reschedulingId === p.id ? "..." : "Move"}
+                    </button>
+                    {!p.paused_at && (
+                      <button className="btn-outline" disabled={reschedulingId === p.id} onClick={() => handlePostExistingNow(p.id)}>
+                        Post now
+                      </button>
+                    )}
+                    <button className="btn-outline" disabled={pauseResumeId === p.id} onClick={() => handleTogglePause(p.id, Boolean(p.paused_at))}>
+                      {pauseResumeId === p.id ? "..." : p.paused_at ? "Resume" : "Pause"}
+                    </button>
+                    <button className="btn-outline" disabled={duplicatingId === p.id} onClick={() => handleDuplicatePost(p.id)}>
+                      {duplicatingId === p.id ? "..." : "Duplicate"}
+                    </button>
+                  </>
+                )}
                 {p.status !== "posting" && (
                   <button className="btn-outline" onClick={() => handleDelete(p.id, p.status !== "pending" && p.status !== "needs_approval")}>
                     {p.status === "pending" || p.status === "needs_approval" ? "Cancel" : "Delete"}
@@ -4247,6 +4346,24 @@ export function Dashboard() {
                               <button className="btn-outline" disabled={approvingId === p.id} onClick={() => handleApprove(p.id)}>
                                 {approvingId === p.id ? "Approving..." : "Approve"}
                               </button>
+                            )}
+                            {p.status === "pending" && (
+                              <>
+                                <button className="btn-outline" disabled={reschedulingId === p.id} onClick={() => handleReschedulePost(p.id)}>
+                                  {reschedulingId === p.id ? "..." : "Move"}
+                                </button>
+                                {!p.paused_at && (
+                                  <button className="btn-outline" disabled={reschedulingId === p.id} onClick={() => handlePostExistingNow(p.id)}>
+                                    Post now
+                                  </button>
+                                )}
+                                <button className="btn-outline" disabled={pauseResumeId === p.id} onClick={() => handleTogglePause(p.id, Boolean(p.paused_at))}>
+                                  {pauseResumeId === p.id ? "..." : p.paused_at ? "Resume" : "Pause"}
+                                </button>
+                                <button className="btn-outline" disabled={duplicatingId === p.id} onClick={() => handleDuplicatePost(p.id)}>
+                                  {duplicatingId === p.id ? "..." : "Duplicate"}
+                                </button>
+                              </>
                             )}
                             {p.status !== "posting" && (
                               <button className="btn-outline" onClick={() => handleDelete(p.id, p.status !== "pending" && p.status !== "needs_approval")}>

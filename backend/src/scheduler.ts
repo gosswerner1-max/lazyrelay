@@ -148,6 +148,7 @@ async function claimDuePosts(): Promise<DuePost[]> {
     .from("scheduled_posts")
     .select("id")
     .eq("status", "pending")
+    .is("paused_at", null)
     .lte("scheduled_for", new Date().toISOString())
     .limit(CLAIM_BATCH_SIZE);
 
@@ -169,6 +170,7 @@ async function claimDuePosts(): Promise<DuePost[]> {
     .update({ status: "posting" })
     .in("id", ids)
     .eq("status", "pending")
+    .is("paused_at", null)
     .select("id, account_id, social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, retry_count, social_accounts(platform)");
 
   if (claimError) throw claimError;

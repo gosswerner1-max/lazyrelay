@@ -1,0 +1,19 @@
+-- Per-post pause (2026-08-30) — lets a customer temporarily withhold a
+-- single pending post from firing without cancelling/deleting it and
+-- without touching its scheduled_for, mirroring social_accounts.paused_at
+-- (migration 0013): pausing withholds posting rights while everything else
+-- about the row stays intact, so resuming needs no re-entry of any kind.
+--
+-- Deliberately NOT a new scheduled_posts_status_check value ('paused') --
+-- status already gates a wide surface of call sites that assume
+-- status='pending' means "still eligible to fire eventually"
+-- (releaseMediaIfOrphaned and DELETE /media/:id's in-use check in
+-- routes.ts, GET /scheduled-posts's "upcoming" query) -- overloading status
+-- would require teaching every one of those a new value or silently
+-- breaking them (e.g. a paused post's attached media getting released as
+-- "no longer in use", or a paused post disappearing from the dashboard
+-- entirely). A nullable timestamp column alongside the unchanged 'pending'
+-- status leaves every one of those queries correct with zero changes -- the
+-- ONLY place that needs to learn about this is claimDuePosts() in
+-- scheduler.ts, which must not fire a post that's still paused.
+alter table scheduled_posts add column paused_at timestamptz;
