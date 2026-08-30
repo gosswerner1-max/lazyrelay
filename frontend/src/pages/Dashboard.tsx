@@ -4593,54 +4593,61 @@ export function Dashboard() {
                         </button>
                       )}
                       {p.status === "pending" && (
-                        <div className="popover-kebab">
-                          <button
-                            type="button"
-                            className="popover-icon-btn"
-                            title="More options"
-                            onClick={() => setEventPopoverPanel(eventPopoverPanel === "menu" ? null : "menu")}
-                          >
-                            &#8942;
-                          </button>
-                          {eventPopoverPanel === "menu" && (
-                            <div className="popover-kebab-menu">
-                              <button type="button" onClick={() => setEventPopoverPanel("move")}>
-                                Move to another day...
-                              </button>
-                              {!p.paused_at && (
-                                <button
-                                  type="button"
-                                  disabled={reschedulingId === p.id}
-                                  onClick={() => {
-                                    handlePostExistingNow(p.id);
-                                    setEventPopoverPanel(null);
-                                  }}
-                                >
-                                  Post now
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                disabled={pauseResumeId === p.id}
-                                onClick={() => {
-                                  handleTogglePause(p.id, Boolean(p.paused_at));
-                                  setEventPopoverPanel(null);
-                                }}
-                              >
-                                {p.paused_at ? "Resume" : "Pause"}
-                              </button>
-                              <button type="button" onClick={() => setEventPopoverPanel("duplicate")}>
-                                Duplicate to another day...
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                        <button
+                          type="button"
+                          className="popover-icon-btn"
+                          title="More options"
+                          onClick={() => setEventPopoverPanel(eventPopoverPanel === "menu" ? null : "menu")}
+                        >
+                          &#8942;
+                        </button>
                       )}
                     </div>
                     <button type="button" className="popover-close" onClick={closeEventPopover}>
                       &times;
                     </button>
                   </div>
+
+                  {/* Inline, not an absolutely-positioned dropdown (2026-08-30
+                      fix) — a floating menu here got silently clipped by
+                      .popover-panel's own overflow-y: auto, which per the CSS
+                      overflow spec forces overflow-x to also stop being
+                      "visible" the moment overflow-y isn't, so a menu wide
+                      enough to extend past the panel's edge was cut off no
+                      matter which side it was anchored to. An inline expanding
+                      section sidesteps the whole problem. */}
+                  {eventPopoverPanel === "menu" && p.status === "pending" && (
+                    <div className="popover-kebab-menu">
+                      <button type="button" onClick={() => setEventPopoverPanel("move")}>
+                        Move to another day...
+                      </button>
+                      {!p.paused_at && (
+                        <button
+                          type="button"
+                          disabled={reschedulingId === p.id}
+                          onClick={() => {
+                            handlePostExistingNow(p.id);
+                            setEventPopoverPanel(null);
+                          }}
+                        >
+                          Post now
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={pauseResumeId === p.id}
+                        onClick={() => {
+                          handleTogglePause(p.id, Boolean(p.paused_at));
+                          setEventPopoverPanel(null);
+                        }}
+                      >
+                        {p.paused_at ? "Resume" : "Pause"}
+                      </button>
+                      <button type="button" onClick={() => setEventPopoverPanel("duplicate")}>
+                        Duplicate to another day...
+                      </button>
+                    </div>
+                  )}
 
                   <div className="popover-event-body">
                     <div className="popover-event-title">

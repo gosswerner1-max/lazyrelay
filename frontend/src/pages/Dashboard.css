@@ -1902,9 +1902,9 @@
   border: none;
   background: none;
   color: var(--wire);
-  font-size: 16px;
+  font-size: 20px;
   line-height: 1;
-  padding: 4px 6px;
+  padding: 6px 8px;
   border-radius: 6px;
   cursor: pointer;
 }
@@ -1924,20 +1924,16 @@
   cursor: pointer;
 }
 
-.popover-kebab {
-  position: relative;
-}
-
+/* Inline expanding section, not a floating dropdown (2026-08-30) — see the
+   comment at this menu's JSX for why: a position:absolute menu here got
+   clipped by .popover-panel's own overflow-y: auto (the CSS spec forces
+   overflow-x to stop being "visible" the moment overflow-y isn't, so
+   anything wide enough to extend past the panel's own edge was cut off
+   regardless of which side it opened toward). */
 .popover-kebab-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  z-index: 6;
-  min-width: 180px;
-  background: var(--paper);
+  margin-bottom: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
   overflow: hidden;
