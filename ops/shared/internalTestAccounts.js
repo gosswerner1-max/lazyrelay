@@ -19,6 +19,11 @@ const INTERNAL_TEST_EMAILS_EXACT = new Set([
   "goss.werner.1@gmail.com",
   "jacobsluzaan@gmail.com",
   "lazyrelay+reviewer@gmail.com", // Google OAuth reviewer test account, confirmed 2026-08-15
+  // The dogfooding account's login (2026-08-30, was shop@lazydownloader.co.za
+  // until the calendar-sync test needed it to match a real Google login).
+  // Same account this whole file's header comment already describes -- just
+  // a different email for it now, not a new test account.
+  "lazyrelay@gmail.com",
 ]);
 
 // Gmail-only: a "+alias" (local-part+anything@gmail.com) is the same real
@@ -29,8 +34,9 @@ const INTERNAL_TEST_EMAILS_EXACT = new Set([
 // raw and de-aliased form (not just de-aliased) so a literal aliased
 // address already in the exact list — lazyrelay+reviewer@gmail.com, a
 // specific Google-controlled address, not a base Werner types — still
-// matches only itself and isn't accidentally widened to bare
-// lazyrelay@gmail.com.
+// matches only itself and isn't accidentally widened to unrelated aliases
+// of the same base (this no longer means bare lazyrelay@gmail.com is safe
+// to omit, since 2026-08-30 it's in the exact list directly).
 function stripGmailAlias(email) {
   const match = /^([^+]+)\+[^@]*(@gmail\.com)$/.exec(email);
   return match ? `${match[1]}${match[2]}` : email;
