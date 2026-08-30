@@ -1556,8 +1556,38 @@
   text-align: left;
 }
 
+.calendar-cell-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  width: 100%;
+}
+
 .calendar-cell-day {
   align-self: flex-start;
+}
+
+/* A day packed with events left no reliable blank space to click to open
+   the day view -- clicking a visible row opened THAT event instead, and
+   the only remaining target was "+N more" or a sliver of empty cell,
+   easy to miss (Werner, 2026-08-30). This is now the one predictable,
+   always-visible way in, regardless of how full the cell is. */
+.calendar-cell-view-day {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--wire);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.calendar-cell-view-day:hover {
+  color: var(--signal);
+  border-color: var(--signal);
 }
 
 .calendar-cell-blank {
@@ -1873,6 +1903,10 @@
   z-index: 70;
   width: 320px;
   max-width: calc(100vw - 16px);
+  /* .calendar-day-popover overrides this to 440px -- the day view has to
+     fit platform rows, counts, a note textarea, and file/planner buttons,
+     which felt cramped at the event-popover's default width (Werner,
+     2026-08-30). */
   max-height: calc(100vh - 16px);
   overflow-y: auto;
   background: var(--paper);
@@ -1992,6 +2026,10 @@
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
+}
+
+.calendar-day-popover {
+  width: 440px;
 }
 
 .calendar-day-popover-post-link {

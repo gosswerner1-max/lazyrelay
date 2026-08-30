@@ -4382,47 +4382,66 @@ export function Dashboard() {
                       {w}
                     </div>
                   ))}
-                  {cells.map((c, i) =>
-                    c.day === null ? (
-                      <div key={`blank-${i}`} className="calendar-cell calendar-cell-blank" />
-                    ) : (
-                      <button
+                  {cells.map((c, i) => {
+                    if (c.day === null) return <div key={`blank-${i}`} className="calendar-cell calendar-cell-blank" />;
+                    const dayItems = c.key ? [...(postsByDay[c.key] ?? []), ...(plansByDay[c.key] ?? [])] : [];
+                    const shown = dayItems.slice(0, 5);
+                    return (
+                      // A plain div, not a button: it needs to contain the
+                      // real "View day" button below, and a button can't
+                      // validly contain another button (2026-08-30).
+                      <div
                         key={c.key}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         className={`calendar-cell${c.key === todayKey ? " calendar-cell-today" : ""}${c.key === selectedDay ? " calendar-cell-selected" : ""}`}
                         onClick={(e) => openDayPopover(c.key!, e.currentTarget)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            openDayPopover(c.key!, e.currentTarget);
+                          }
+                        }}
                       >
-                        <span className="calendar-cell-day">{c.day}</span>
-                        {c.key &&
-                          (() => {
-                            const dayItems = [...(postsByDay[c.key] ?? []), ...(plansByDay[c.key] ?? [])];
-                            if (dayItems.length === 0) return null;
-                            const shown = dayItems.slice(0, 5);
-                            return (
-                              <span className="calendar-cell-events">
-                                {shown.map((p) => (
-                                  <span
-                                    key={p.id}
-                                    role="button"
-                                    tabIndex={0}
-                                    className={`calendar-event-row calendar-event-row-${p.status}`}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openEventPopover(p, e.currentTarget);
-                                    }}
-                                  >
-                                    {eventLineLabel(p)}
-                                  </span>
-                                ))}
-                                {dayItems.length > shown.length && (
-                                  <span className="calendar-cell-more">+{dayItems.length - shown.length} more</span>
-                                )}
+                        <span className="calendar-cell-head">
+                          <span className="calendar-cell-day">{c.day}</span>
+                          {dayItems.length > 0 && (
+                            <button
+                              type="button"
+                              className="calendar-cell-view-day"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDayPopover(c.key!, e.currentTarget);
+                              }}
+                            >
+                              View day
+                            </button>
+                          )}
+                        </span>
+                        {dayItems.length > 0 && (
+                          <span className="calendar-cell-events">
+                            {shown.map((p) => (
+                              <span
+                                key={p.id}
+                                role="button"
+                                tabIndex={0}
+                                className={`calendar-event-row calendar-event-row-${p.status}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEventPopover(p, e.currentTarget);
+                                }}
+                              >
+                                {eventLineLabel(p)}
                               </span>
-                            );
-                          })()}
-                      </button>
-                    ),
-                  )}
+                            ))}
+                            {dayItems.length > shown.length && (
+                              <span className="calendar-cell-more">+{dayItems.length - shown.length} more</span>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

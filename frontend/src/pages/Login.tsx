@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { useAuth } from "../context/AuthContext";
 import { BrandMark } from "../components/BrandMark";
 import { useCanonical } from "../lib/useCanonical";
+import { api } from "../lib/api";
 
 interface LoginProps {
   initialMode?: "signin" | "signup";
@@ -17,6 +18,9 @@ export function Login({ initialMode = "signin", onBack, onForgotPassword }: Logi
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [businessName, setBusinessName] = useState("");
+  const [nameStatus, setNameStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
+  const [nameSuggestions, setNameSuggestions] = useState<string[]>([]);
+  const nameCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mode, setMode] = useState<"signin" | "signup">(initialMode);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -37,12 +41,65 @@ export function Login({ initialMode = "signin", onBack, onForgotPassword }: Logi
   }, [mode]);
   useCanonical(mode === "signup" ? "/signup" : "/login");
 
+  // Checks as the customer types so a taken name surfaces before they hit
+  // submit, with a few free alternatives to pick from (2026-08-30) --
+  // duplicate business names make it slower for support to find the right
+  // account when several customers share a common one. This is a
+  // convenience nudge only; migration 0074's unique index is the real
+  // backstop if this check fails to run or two people submit the same
+  // name in the same instant.
+  useEffect(() => {
+    if (mode !== "signup") return;
+    const trimmed = businessName.trim();
+    if (!trimmed) {
+      setNameStatus("idle");
+      setNameSuggestions([]);
+      return;
+    }
+    setNameStatus("checking");
+    if (nameCheckTimer.current) clearTimeout(nameCheckTimer.current);
+    nameCheckTimer.current = setTimeout(async () => {
+      try {
+        const result = await api.checkBusinessNameAvailability(trimmed);
+        setNameStatus(result.available ? "available" : "taken");
+        setNameSuggestions(result.available ? [] : (result.suggestions ?? []));
+      } catch {
+        setNameStatus("idle");
+        setNameSuggestions([]);
+      }
+    }, 500);
+    return () => {
+      if (nameCheckTimer.current) clearTimeout(nameCheckTimer.current);
+    };
+  }, [businessName, mode]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     if (!captchaToken) {
       setError("Please complete the verification check.");
       return;
+    }
+    const trimmedName = businessName.trim();
+    if (mode === "signup" && trimmedName) {
+      if (nameStatus === "taken") {
+        setError("That business name is already taken — pick one of the suggestions or a different name.");
+        return;
+      }
+      if (nameStatus !== "available") {
+        // The debounce may not have resolved yet on a fast submit.
+        try {
+          const result = await api.checkBusinessNameAvailability(trimmedName);
+          if (!result.available) {
+            setNameStatus("taken");
+            setNameSuggestions(result.suggestions ?? []);
+            setError("That business name is already taken — pick one of the suggestions or a different name.");
+            return;
+          }
+        } catch {
+          // Don't block signup on a check that itself failed to run.
+        }
+      }
     }
     setSubmitting(true);
     const result =
@@ -110,6 +167,33 @@ export function Login({ initialMode = "signin", onBack, onForgotPassword }: Logi
                   maxLength={80}
                 />
               </label>
+            )}
+            {mode === "signup" && nameStatus === "checking" && <p className="field-hint">Checking availability...</p>}
+            {mode === "signup" && nameStatus === "available" && (
+              <p className="field-hint field-hint--ok">Available</p>
+            )}
+            {mode === "signup" && nameStatus === "taken" && (
+              <div className="field-hint field-hint--error">
+                <p>That name's taken{nameSuggestions.length > 0 ? " — try:" : "."}</p>
+                {nameSuggestions.length > 0 && (
+                  <div className="name-suggestions">
+                    {nameSuggestions.map((suggestion) => (
+                      <button
+                        type="button"
+                        key={suggestion}
+                        className="name-suggestion-chip"
+                        onClick={() => {
+                          setBusinessName(suggestion);
+                          setNameStatus("available");
+                          setNameSuggestions([]);
+                        }}
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
             <label>
               Email

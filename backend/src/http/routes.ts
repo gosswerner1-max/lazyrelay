@@ -933,6 +933,49 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.json({ title: page.title, bio: page.bio, avatarUrl: page.avatar_url, links: links ?? [] });
   });
 
+  // Public, pre-signup availability check (2026-08-30) — no auth exists yet
+  // at this point (see AuthContext.tsx's signUp), so this can't be a
+  // duplicate-name check on an authed route the way PATCH /account's is.
+  // Reads every non-null business_name once and compares in JS rather than
+  // one query per candidate — at LazyRelay's actual account volume this is
+  // a single small text column, not worth the fragility of building a
+  // PostgREST OR-filter string out of untrusted, possibly comma/paren-
+  // containing business names. Suggestions are plain numeric suffixes,
+  // capped at 80 chars total to match the field's own limit.
+  router.post("/public/signup/check-business-name", publicRateLimit, async (req, res) => {
+    const raw = typeof req.body?.businessName === "string" ? req.body.businessName.trim() : "";
+    if (!raw) {
+      res.json({ available: true });
+      return;
+    }
+    if (raw.length > 80) {
+      res.status(400).json({ error: "businessName must be 80 characters or fewer" });
+      return;
+    }
+    if (/[\r\n]/.test(raw)) {
+      res.status(400).json({ error: "businessName can't contain line breaks" });
+      return;
+    }
+    const { data, error } = await supabase.from("accounts").select("business_name").not("business_name", "is", null);
+    if (error) {
+      dbError(res, error, "POST /public/signup/check-business-name");
+      return;
+    }
+    const taken = new Set((data ?? []).map((row) => (row.business_name as string).toLowerCase()));
+    if (!taken.has(raw.toLowerCase())) {
+      res.json({ available: true });
+      return;
+    }
+    const suggestions: string[] = [];
+    for (let n = 2; n <= 6 && suggestions.length < 3; n++) {
+      const suffix = ` ${n}`;
+      const base = raw.length + suffix.length > 80 ? raw.slice(0, 80 - suffix.length) : raw;
+      const candidate = `${base}${suffix}`;
+      if (!taken.has(candidate.toLowerCase())) suggestions.push(candidate);
+    }
+    res.json({ available: false, suggestions });
+  });
+
   // Public Proof-of-Publish verification page — no auth, this is what
   // renders at lazyrelay.com/verify/:id when a customer shares the link
   // from GET /scheduled-posts/:id/proof-link. post_results.id doubles as
@@ -4532,8 +4575,18 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       .eq("id", req.accountId)
       .select("email, business_name, email_failure_alerts_enabled, webhook_url, webhook_secret, voice_profile")
       .single();
-    if (error || !data) {
-      dbError(res, error ?? { message: "update returned no row" }, "PATCH /account");
+    if (error) {
+      // 23505 = the case-insensitive unique index on lower(business_name)
+      // (migration 0074) — same pattern as POST/PATCH /brands.
+      if ((error as { code?: string }).code === "23505") {
+        res.status(409).json({ error: "That business name is already taken — try a different one." });
+        return;
+      }
+      dbError(res, error, "PATCH /account");
+      return;
+    }
+    if (!data) {
+      dbError(res, { message: "update returned no row" }, "PATCH /account");
       return;
     }
     res.json({

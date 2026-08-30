@@ -107,6 +107,41 @@
   letter-spacing: normal;
 }
 
+.field-hint--ok {
+  color: var(--success, #1a7f37);
+}
+
+.field-hint--error {
+  color: var(--error);
+}
+
+.field-hint--error p {
+  margin: 0;
+}
+
+.name-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.name-suggestion-chip {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  text-transform: none;
+}
+
+.name-suggestion-chip:hover {
+  border-color: var(--signal-solid);
+}
+
 .auth-card form {
   display: flex;
   flex-direction: column;

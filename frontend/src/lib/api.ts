@@ -697,6 +697,20 @@ export const api = {
   getProofLink: (scheduledPostId: string): Promise<{ url: string }> =>
     authedFetch(`/scheduled-posts/${scheduledPostId}/proof-link`),
 
+  // Public, unauthenticated — no session exists yet at signup, so this
+  // can't go through authedFetch. Called as the customer types their
+  // business name and once more right before submit.
+  checkBusinessNameAvailability: async (businessName: string): Promise<{ available: boolean; suggestions?: string[] }> => {
+    const res = await fetch(`${API_URL}/public/signup/check-business-name`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessName }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error ?? "Couldn't check that name right now.");
+    return body;
+  },
+
   // Public, unauthenticated — same pattern as getPublicBioPage.
   getPublicVerification: async (id: string): Promise<PublicVerification> => {
     const res = await fetch(`${API_URL}/public/verify/${encodeURIComponent(id)}`);
