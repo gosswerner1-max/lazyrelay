@@ -18,7 +18,7 @@ export function Login({ initialMode = "signin", onBack, onForgotPassword }: Logi
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [businessName, setBusinessName] = useState("");
-  const [nameStatus, setNameStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
+  const [nameStatus, setNameStatus] = useState<"idle" | "checking" | "available" | "taken" | "reserved">("idle");
   const [nameSuggestions, setNameSuggestions] = useState<string[]>([]);
   const nameCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mode, setMode] = useState<"signin" | "signup">(initialMode);
@@ -61,8 +61,15 @@ export function Login({ initialMode = "signin", onBack, onForgotPassword }: Logi
     nameCheckTimer.current = setTimeout(async () => {
       try {
         const result = await api.checkBusinessNameAvailability(trimmed);
-        setNameStatus(result.available ? "available" : "taken");
+        setNameStatus(result.available ? "available" : (result.reason ?? "taken"));
         setNameSuggestions(result.available ? [] : (result.suggestions ?? []));
+        // Reserved names get a popup instead of the inline hint the "taken"
+        // case uses (Werner, 2026-08-30) -- simpler than explaining a
+        // reservation rule inline for something that should just never
+        // come up for a real customer.
+        if (!result.available && result.reason === "reserved") {
+          window.alert("That business name isn't available.");
+        }
       } catch {
         setNameStatus("idle");
         setNameSuggestions([]);
@@ -86,14 +93,22 @@ export function Login({ initialMode = "signin", onBack, onForgotPassword }: Logi
         setError("That business name is already taken — pick one of the suggestions or a different name.");
         return;
       }
+      if (nameStatus === "reserved") {
+        window.alert("That business name isn't available.");
+        return;
+      }
       if (nameStatus !== "available") {
         // The debounce may not have resolved yet on a fast submit.
         try {
           const result = await api.checkBusinessNameAvailability(trimmedName);
           if (!result.available) {
-            setNameStatus("taken");
+            setNameStatus(result.reason ?? "taken");
             setNameSuggestions(result.suggestions ?? []);
-            setError("That business name is already taken — pick one of the suggestions or a different name.");
+            if (result.reason === "reserved") {
+              window.alert("That business name isn't available.");
+            } else {
+              setError("That business name is already taken — pick one of the suggestions or a different name.");
+            }
             return;
           }
         } catch {

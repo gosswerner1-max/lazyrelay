@@ -17,6 +17,12 @@
 const AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 export const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
+// `email` is a "basic" (non-sensitive) scope -- unlike `calendar`, it needs
+// no verification review, so adding it doesn't touch the pending review for
+// the scope above. Added 2026-08-30 so the connected Google account's email
+// can be shown back to the customer ("Connected as ...") instead of just
+// "Connected." with no way to tell which account is linked.
+const USERINFO_SCOPE = "email";
 
 function getClientConfig() {
   const clientId = process.env.GOOGLE_CALENDAR_CLIENT_ID;
@@ -42,7 +48,7 @@ export function getAuthorizeUrl(state: string): string {
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     response_type: "code",
-    scope: CALENDAR_SCOPE,
+    scope: `${CALENDAR_SCOPE} ${USERINFO_SCOPE}`,
     access_type: "offline",
     prompt: "consent",
     state,
@@ -88,6 +94,24 @@ export async function exchangeCode(code: string): Promise<GoogleTokens> {
     refreshToken: json.refresh_token ?? null,
     expiresAt: json.expires_in ? new Date(Date.now() + json.expires_in * 1000).toISOString() : null,
   };
+}
+
+/** Best-effort only -- called once at connect time purely to label the
+ *  connection back to the customer ("Connected as ..."). Never blocks or
+ *  fails the actual connect flow if it errors; the connection is still
+ *  fully functional without an email, just shown as "Connected." like it
+ *  always was before this existed. */
+export async function fetchConnectedEmail(accessToken: string): Promise<string | null> {
+  try {
+    const res = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { email?: string };
+    return json.email ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function refreshTokens(refreshToken: string): Promise<GoogleTokens> {

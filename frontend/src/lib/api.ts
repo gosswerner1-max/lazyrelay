@@ -122,6 +122,12 @@ export interface ScheduledPost {
   // migration 0073) — still 'pending', just withheld from the scheduler
   // until resumed. null/undefined for every non-paused post.
   paused_at: string | null;
+  // Set once this post has actually synced to the customer's connected
+  // Google Calendar (backend/src/googleCalendar/outboundSync.ts) — null for
+  // a post that either isn't connected to Calendar or hasn't synced yet
+  // (e.g. still needs_approval). Used by the Calendar tab's "Connected as
+  // [email]" filter (2026-08-30) to show only posts really on that calendar.
+  google_event_id: string | null;
   post_results: Array<{ verified_live: boolean; platform_post_url: string | null; error_message: string | null }>;
 }
 
@@ -403,7 +409,13 @@ export const api = {
   // Google Calendar two-way sync — deliberately its own small route group,
   // not part of the platform-connect flow above (it's not a platform to
   // post to). See backend/src/googleCalendar/connect.ts's header comment.
-  getGoogleCalendarStatus: (): Promise<{ connected: boolean; google_calendar_id?: string; connected_at?: string; last_synced_at?: string | null }> =>
+  getGoogleCalendarStatus: (): Promise<{
+    connected: boolean;
+    google_calendar_id?: string;
+    connected_email?: string | null;
+    connected_at?: string;
+    last_synced_at?: string | null;
+  }> =>
     authedFetch("/google-calendar/status"),
   startGoogleCalendarConnect: (): Promise<{ authorizeUrl: string }> => authedFetch("/google-calendar/connect"),
   disconnectGoogleCalendar: (): Promise<null> => authedFetch("/google-calendar", { method: "DELETE" }),
@@ -700,7 +712,9 @@ export const api = {
   // Public, unauthenticated — no session exists yet at signup, so this
   // can't go through authedFetch. Called as the customer types their
   // business name and once more right before submit.
-  checkBusinessNameAvailability: async (businessName: string): Promise<{ available: boolean; suggestions?: string[] }> => {
+  checkBusinessNameAvailability: async (
+    businessName: string,
+  ): Promise<{ available: boolean; reason?: "taken" | "reserved"; suggestions?: string[] }> => {
     const res = await fetch(`${API_URL}/public/signup/check-business-name`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

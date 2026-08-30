@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type DragEvent, type FormEvent } from "react";
+import { DndContext, useDraggable, useDroppable, type DragEndEvent } from "@dnd-kit/core";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
@@ -27,6 +28,11 @@ import "./Dashboard.css";
 
 const ProductTour = lazy(() => import("../components/ProductTour").then((m) => ({ default: m.ProductTour })));
 const TOUR_SEEN_KEY = "lazyrelay_tour_seen";
+// First-run "connect Google Calendar?" prompt (2026-08-30, Werner's idea) —
+// same client-only localStorage pattern as the tour above, not a backend
+// field, for the same reason: this is a one-time convenience nudge, not
+// something that needs to sync across devices.
+const GCAL_PROMPT_SEEN_KEY = "lazyrelay_gcal_prompt_seen";
 
 // Settings (2026-08-17, Werner) consolidates the three former separate tabs
 // "Storage"/"Account"/"Billing" into one -- all three sections still exist
@@ -57,6 +63,15 @@ function brandCapFor(tier: string | undefined): number {
 function localDateKey(iso: string): string {
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// Used by drag-and-drop (2026-08-30) to preserve a post's time-of-day when
+// it's dropped on a different day — matches Google Calendar's own drag
+// behavior, and reuses handleReschedulePostTo's existing (date, time)
+// signature rather than adding a parallel reschedule-by-ISO-string path.
+function localTimeKey(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 // A real phone-width check (2026-08-20) — the calendar's grid layouts
@@ -179,6 +194,118 @@ function MiniMonthPicker({
           ),
         )}
       </div>
+    </div>
+  );
+}
+
+// Draggable event chip (Phase 2, 2026-08-30) -- only a `pending` post can be
+// dragged, matching the reschedule route's own status guard, so a posted/
+// failed/draft/needs_approval chip renders identically to before this
+// existed (useDraggable's listeners/attributes are simply omitted). A
+// plain click still opens the event popover: @dnd-kit's default pointer
+// sensor has its own drag-vs-click distance threshold, so this doesn't
+// need any manual suppression.
+function CalendarEventChip({
+  post,
+  label,
+  onOpen,
+}: {
+  post: ScheduledPost;
+  label: string;
+  onOpen: (post: ScheduledPost, el: HTMLElement) => void;
+}) {
+  const draggable = post.status === "pending";
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: post.id,
+    disabled: !draggable,
+  });
+  const style: CSSProperties | undefined = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 80 }
+    : undefined;
+  return (
+    <span
+      ref={setNodeRef}
+      role="button"
+      tabIndex={0}
+      style={style}
+      className={`calendar-event-row calendar-event-row-${post.status}${isDragging ? " calendar-event-row-dragging" : ""}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpen(post, e.currentTarget);
+      }}
+      {...(draggable ? attributes : {})}
+      {...(draggable ? listeners : {})}
+    >
+      {label}
+    </span>
+  );
+}
+
+// Droppable day cell (Phase 2, 2026-08-30) -- extracted from what used to
+// be an inline .map() in the Calendar tab's render because @dnd-kit's
+// useDroppable/useDraggable are hooks, and hooks can't be called per-
+// iteration inside another component's render; each cell/chip needs to be
+// its own component instance. `id` is prefixed "day:" so handleDragEnd can
+// tell a day-cell drop target apart from anything else droppable added
+// later without guessing from the raw key format.
+function CalendarDayCell({
+  cellKey,
+  day,
+  isToday,
+  isSelected,
+  dayItems,
+  eventLineLabel,
+  onOpenDay,
+  onOpenEvent,
+}: {
+  cellKey: string;
+  day: number;
+  isToday: boolean;
+  isSelected: boolean;
+  dayItems: ScheduledPost[];
+  eventLineLabel: (p: ScheduledPost) => string;
+  onOpenDay: (key: string, el: HTMLElement) => void;
+  onOpenEvent: (post: ScheduledPost, el: HTMLElement) => void;
+}) {
+  const { isOver, setNodeRef } = useDroppable({ id: `day:${cellKey}` });
+  const shown = dayItems.slice(0, 5);
+  return (
+    <div
+      ref={setNodeRef}
+      role="button"
+      tabIndex={0}
+      className={`calendar-cell${isToday ? " calendar-cell-today" : ""}${isSelected ? " calendar-cell-selected" : ""}${isOver ? " calendar-cell-drop-over" : ""}`}
+      onClick={(e) => onOpenDay(cellKey, e.currentTarget)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpenDay(cellKey, e.currentTarget);
+        }
+      }}
+    >
+      <span className="calendar-cell-head">
+        <span className="calendar-cell-day">{day}</span>
+        {dayItems.length > 0 && (
+          <button
+            type="button"
+            className="calendar-cell-view-day"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenDay(cellKey, e.currentTarget);
+            }}
+          >
+            View day
+          </button>
+        )}
+      </span>
+      {dayItems.length > 0 && (
+        <span className="calendar-cell-events">
+          {shown.map((p) => (
+            <CalendarEventChip key={p.id} post={p} label={eventLineLabel(p)} onOpen={onOpenEvent} />
+          ))}
+          {dayItems.length > shown.length && <span className="calendar-cell-more">+{dayItems.length - shown.length} more</span>}
+        </span>
+      )}
     </div>
   );
 }
@@ -331,7 +458,9 @@ export function Dashboard() {
   const [revealedWebhookSecret, setRevealedWebhookSecret] = useState<string | null>(null);
   // undefined = not yet checked, null = checked and not connected, object =
   // connected. Same lazy-load sentinel pattern as mfaFactorId below.
-  const [gcalStatus, setGcalStatus] = useState<{ google_calendar_id?: string; last_synced_at?: string | null } | null | undefined>(undefined);
+  const [gcalStatus, setGcalStatus] = useState<
+    { google_calendar_id?: string; connected_email?: string | null; last_synced_at?: string | null } | null | undefined
+  >(undefined);
   const [gcalConnecting, setGcalConnecting] = useState(false);
   const [gcalDisconnecting, setGcalDisconnecting] = useState(false);
   // undefined = not yet checked (listFactors() hasn't resolved), null = checked
@@ -358,6 +487,7 @@ export function Dashboard() {
   const [notice, setNotice] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Overview");
   const [runTour, setRunTour] = useState(false);
+  const [showGcalPrompt, setShowGcalPrompt] = useState(false);
   const [brandFilter, setBrandFilter] = useState("");
   const [brands, setBrands] = useState<Brand[]>([]);
   const [newBrandName, setNewBrandName] = useState("");
@@ -515,6 +645,21 @@ export function Dashboard() {
     setRunTour(false);
     localStorage.setItem(TOUR_SEEN_KEY, "1");
   };
+  // First-run "connect Google Calendar?" prompt (2026-08-30) — waits for
+  // the tour to be out of the way (either finished or already seen before)
+  // so the two first-run UIs never compete for attention, and only shows
+  // once gcalStatus has actually resolved to "not connected" (undefined
+  // means still loading, not "no").
+  useEffect(() => {
+    if (loading || runTour) return;
+    if (gcalStatus !== null) return;
+    if (localStorage.getItem(GCAL_PROMPT_SEEN_KEY)) return;
+    setShowGcalPrompt(true);
+  }, [loading, runTour, gcalStatus]);
+  function dismissGcalPrompt() {
+    setShowGcalPrompt(false);
+    localStorage.setItem(GCAL_PROMPT_SEEN_KEY, "1");
+  }
   // "Compact view" (the week-row list) vs "Calendar view" (a time-block
   // week grid, hour rows only where something's scheduled) — Werner's own
   // reference, a competitor's toggle of the same name. Calendar view
@@ -541,6 +686,11 @@ export function Dashboard() {
   const [eventPopoverPanel, setEventPopoverPanel] = useState<null | "menu" | "move" | "duplicate">(null);
   const [calendarSearch, setCalendarSearch] = useState("");
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
+  // Clicking the "Connected as [email]" indicator in the Calendar sidebar
+  // (2026-08-30, Werner's idea) narrows the grid to posts that actually
+  // reached that Google Calendar (google_event_id set) rather than every
+  // post regardless of sync state.
+  const [syncedOnlyFilter, setSyncedOnlyFilter] = useState(false);
 
   function openDayPopover(key: string, el: HTMLElement) {
     const anchor = el.getBoundingClientRect();
@@ -879,16 +1029,19 @@ export function Dashboard() {
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
   }, [tab, mfaFactorId]);
 
-  // Same lazy-load pattern as mfaFactorId above -- only fetched once the
-  // customer opens Settings, and re-fetched (via gcalStatus reset to
-  // undefined) after a connect/disconnect action below.
+  // Fetched once real data has loaded, regardless of tab -- originally
+  // lazy-loaded only on Settings, but the Calendar tab's sidebar and the
+  // first-run "connect Google Calendar?" prompt (2026-08-30) both need to
+  // know this before the customer has necessarily opened Settings at all.
+  // Re-fetched (via gcalStatus reset to undefined) after a connect/
+  // disconnect action below.
   useEffect(() => {
-    if (tab !== "Settings" || gcalStatus !== undefined) return;
+    if (loading || gcalStatus !== undefined) return;
     api
       .getGoogleCalendarStatus()
       .then((status) => setGcalStatus(status.connected ? status : null))
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
-  }, [tab, gcalStatus]);
+  }, [loading, gcalStatus]);
 
   // Also lazy-loaded, same reasoning as analytics — only fetched once the
   // customer actually opens the tab.
@@ -2691,6 +2844,32 @@ export function Dashboard() {
         <ProductTour run={runTour} onFinish={handleTourFinish} />
       </Suspense>
 
+      {showGcalPrompt && (
+        <div className="modal-overlay" onClick={dismissGcalPrompt}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h2>Connect Google Calendar?</h2>
+            <p>
+              See and manage your scheduled posts right from your phone's calendar app — move, edit, or delete one
+              there and LazyRelay picks up the change. You can always do this later from Settings.
+            </p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                onClick={() => {
+                  dismissGcalPrompt();
+                  handleConnectGoogleCalendar();
+                }}
+              >
+                Connect now
+              </button>
+              <button type="button" className="btn-outline" onClick={dismissGcalPrompt}>
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {error && <p className="error">{error}</p>}
       {notice && <p className="notice">{notice}</p>}
 
@@ -4128,6 +4307,7 @@ export function Dashboard() {
           }
           if (!p.scheduled_for) continue;
           if (!accountMatchesBrand(accounts.find((a) => a.id === p.social_account_id), brandFilter)) continue;
+          if (syncedOnlyFilter && !p.google_event_id) continue;
           const key = localDateKey(p.scheduled_for);
           (postsByDay[key] ??= []).push(p);
         }
@@ -4243,6 +4423,25 @@ export function Dashboard() {
               />
 
               <BrandFilterSelect accounts={accounts} value={brandFilter} onChange={setBrandFilter} />
+
+              {/* Which Google account is connected, shown right here instead
+                  of only buried in Settings (Werner, 2026-08-30) — clicking
+                  it filters the grid to posts that actually reached that
+                  calendar (google_event_id set), not just everything. */}
+              {gcalStatus ? (
+                <button
+                  type="button"
+                  className={`calendar-gcal-indicator${syncedOnlyFilter ? " calendar-gcal-indicator-active" : ""}`}
+                  onClick={() => setSyncedOnlyFilter((v) => !v)}
+                  title={syncedOnlyFilter ? "Showing only posts synced to Google Calendar — click to show all" : "Click to show only posts synced to Google Calendar"}
+                >
+                  📅 {gcalStatus.connected_email ? `Connected as ${gcalStatus.connected_email}` : "Google Calendar connected"}
+                </button>
+              ) : gcalStatus === null ? (
+                <button type="button" className="calendar-gcal-indicator" onClick={handleConnectGoogleCalendar} disabled={gcalConnecting}>
+                  📅 {gcalConnecting ? "Connecting..." : "Connect Google Calendar"}
+                </button>
+              ) : null}
             </aside>
 
             <div className="calendar-main">
@@ -4376,73 +4575,48 @@ export function Dashboard() {
                   )}
                 </div>
               ) : (
-                <div className="calendar-grid">
-                  {WEEKDAY_LABELS.map((w) => (
-                    <div key={w} className="calendar-weekday">
-                      {w}
-                    </div>
-                  ))}
-                  {cells.map((c, i) => {
-                    if (c.day === null) return <div key={`blank-${i}`} className="calendar-cell calendar-cell-blank" />;
-                    const dayItems = c.key ? [...(postsByDay[c.key] ?? []), ...(plansByDay[c.key] ?? [])] : [];
-                    const shown = dayItems.slice(0, 5);
-                    return (
-                      // A plain div, not a button: it needs to contain the
-                      // real "View day" button below, and a button can't
-                      // validly contain another button (2026-08-30).
-                      <div
-                        key={c.key}
-                        role="button"
-                        tabIndex={0}
-                        className={`calendar-cell${c.key === todayKey ? " calendar-cell-today" : ""}${c.key === selectedDay ? " calendar-cell-selected" : ""}`}
-                        onClick={(e) => openDayPopover(c.key!, e.currentTarget)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            openDayPopover(c.key!, e.currentTarget);
-                          }
-                        }}
-                      >
-                        <span className="calendar-cell-head">
-                          <span className="calendar-cell-day">{c.day}</span>
-                          {dayItems.length > 0 && (
-                            <button
-                              type="button"
-                              className="calendar-cell-view-day"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openDayPopover(c.key!, e.currentTarget);
-                              }}
-                            >
-                              View day
-                            </button>
-                          )}
-                        </span>
-                        {dayItems.length > 0 && (
-                          <span className="calendar-cell-events">
-                            {shown.map((p) => (
-                              <span
-                                key={p.id}
-                                role="button"
-                                tabIndex={0}
-                                className={`calendar-event-row calendar-event-row-${p.status}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openEventPopover(p, e.currentTarget);
-                                }}
-                              >
-                                {eventLineLabel(p)}
-                              </span>
-                            ))}
-                            {dayItems.length > shown.length && (
-                              <span className="calendar-cell-more">+{dayItems.length - shown.length} more</span>
-                            )}
-                          </span>
-                        )}
+                <DndContext
+                  onDragEnd={(event: DragEndEvent) => {
+                    const { active, over } = event;
+                    if (!over) return;
+                    const overId = String(over.id);
+                    if (!overId.startsWith("day:")) return;
+                    const targetDayKey = overId.slice(4);
+                    const post = posts.find((p) => p.id === String(active.id));
+                    // Same guards as the reschedule route itself (pending-
+                    // only, must have a time to preserve) -- a chip for
+                    // anything else is never draggable in the first place,
+                    // this is just defense in depth.
+                    if (!post || post.status !== "pending" || !post.scheduled_for) return;
+                    if (localDateKey(post.scheduled_for) === targetDayKey) return;
+                    handleReschedulePostTo(post.id, targetDayKey, localTimeKey(post.scheduled_for));
+                  }}
+                >
+                  <div className="calendar-grid">
+                    {WEEKDAY_LABELS.map((w) => (
+                      <div key={w} className="calendar-weekday">
+                        {w}
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                    {cells.map((c, i) =>
+                      c.day === null ? (
+                        <div key={`blank-${i}`} className="calendar-cell calendar-cell-blank" />
+                      ) : (
+                        <CalendarDayCell
+                          key={c.key}
+                          cellKey={c.key!}
+                          day={c.day}
+                          isToday={c.key === todayKey}
+                          isSelected={c.key === selectedDay}
+                          dayItems={[...(postsByDay[c.key!] ?? []), ...(plansByDay[c.key!] ?? [])]}
+                          eventLineLabel={eventLineLabel}
+                          onOpenDay={openDayPopover}
+                          onOpenEvent={openEventPopover}
+                        />
+                      ),
+                    )}
+                  </div>
+                </DndContext>
               )}
             </div>
 
@@ -5026,7 +5200,7 @@ export function Dashboard() {
         ) : gcalStatus ? (
           <>
             <p>
-              <strong>Connected.</strong>
+              <strong>{gcalStatus.connected_email ? `Connected as ${gcalStatus.connected_email}.` : "Connected."}</strong>
               {gcalStatus.last_synced_at && ` Last synced ${new Date(gcalStatus.last_synced_at).toLocaleString()}.`}
             </p>
             <button type="button" className="btn-outline" onClick={handleDisconnectGoogleCalendar} disabled={gcalDisconnecting}>

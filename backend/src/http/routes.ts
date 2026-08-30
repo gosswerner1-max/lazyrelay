@@ -933,6 +933,18 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     res.json({ title: page.title, bio: page.bio, avatarUrl: page.avatar_url, links: links ?? [] });
   });
 
+  // Prefixes reserved for LazyRelay's own family of names (Werner,
+  // 2026-08-30) — a customer picking "Lazy..." would both collide with our
+  // own brand and undercut the whole point of unique names (support/agents
+  // still can't tell accounts apart at a glance). Checked separately from,
+  // and before, the uniqueness lookup below — no numeric-suffix suggestion
+  // makes sense for a reserved word, since "Lazy Co 2" is just as reserved.
+  const RESERVED_BUSINESS_NAME_PREFIXES = ["lazy"];
+  function isReservedBusinessName(name: string): boolean {
+    const lower = name.toLowerCase();
+    return RESERVED_BUSINESS_NAME_PREFIXES.some((prefix) => lower.startsWith(prefix));
+  }
+
   // Public, pre-signup availability check (2026-08-30) — no auth exists yet
   // at this point (see AuthContext.tsx's signUp), so this can't be a
   // duplicate-name check on an authed route the way PATCH /account's is.
@@ -956,6 +968,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(400).json({ error: "businessName can't contain line breaks" });
       return;
     }
+    if (isReservedBusinessName(raw)) {
+      res.json({ available: false, reason: "reserved" });
+      return;
+    }
     const { data, error } = await supabase.from("accounts").select("business_name").not("business_name", "is", null);
     if (error) {
       dbError(res, error, "POST /public/signup/check-business-name");
@@ -973,7 +989,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       const candidate = `${base}${suffix}`;
       if (!taken.has(candidate.toLowerCase())) suggestions.push(candidate);
     }
-    res.json({ available: false, suggestions });
+    res.json({ available: false, reason: "taken", suggestions });
   });
 
   // Public Proof-of-Publish verification page — no auth, this is what
@@ -1341,7 +1357,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.get("/google-calendar/status", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data, error } = await supabase
       .from("google_calendar_connections")
-      .select("google_calendar_id, connected_at, last_synced_at")
+      .select("google_calendar_id, connected_email, connected_at, last_synced_at")
       .eq("account_id", req.accountId)
       .is("disconnected_at", null)
       .maybeSingle();
@@ -4515,6 +4531,19 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (typeof businessName === "string" && /[\r\n]/.test(businessName)) {
       res.status(400).json({ error: "businessName can't contain line breaks" });
       return;
+    }
+    // Reserved-prefix check (2026-08-30, see the signup-time check above
+    // for the reasoning) — exempts a no-op re-save of the account's OWN
+    // already-set name, since LazyRelay's own dogfooding account is
+    // literally named "LazyRelay" and would otherwise be unable to hit
+    // Save on its own Settings page without changing anything.
+    if (typeof businessName === "string" && businessName.trim() && isReservedBusinessName(businessName.trim())) {
+      const { data: current } = await supabase.from("accounts").select("business_name").eq("id", req.accountId).maybeSingle();
+      const currentNormalized = current?.business_name?.trim().toLowerCase();
+      if (businessName.trim().toLowerCase() !== currentNormalized) {
+        res.status(400).json({ error: "That name isn't available — try a different one." });
+        return;
+      }
     }
     if (emailFailureAlertsEnabled !== undefined && typeof emailFailureAlertsEnabled !== "boolean") {
       res.status(400).json({ error: "emailFailureAlertsEnabled must be a boolean" });

@@ -7,7 +7,7 @@
 // needs to serve 15+ platforms.
 
 import { supabase } from "../supabase.js";
-import { getAuthorizeUrl as buildAuthorizeUrl, exchangeCode, type GoogleTokens } from "./oauthClient.js";
+import { getAuthorizeUrl as buildAuthorizeUrl, exchangeCode, fetchConnectedEmail, type GoogleTokens } from "./oauthClient.js";
 
 const CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3";
 const DEDICATED_CALENDAR_SUMMARY = "LazyRelay Posts";
@@ -96,6 +96,7 @@ export async function completeGoogleCalendarConnect(
 
   const tokens: GoogleTokens = await exchangeCode(code);
   const googleCalendarId = await createDedicatedCalendar(tokens.accessToken);
+  const connectedEmail = await fetchConnectedEmail(tokens.accessToken);
 
   const { data: accessVaultId, error: accessVaultError } = await supabase.rpc("store_social_token", {
     p_token: tokens.accessToken,
@@ -118,6 +119,7 @@ export async function completeGoogleCalendarConnect(
         refresh_token_vault_id: refreshVaultId,
         token_expires_at: tokens.expiresAt,
         google_calendar_id: googleCalendarId,
+        connected_email: connectedEmail,
         target_social_account_ids: defaultTargetSocialAccountIds,
         disconnected_at: null,
       },

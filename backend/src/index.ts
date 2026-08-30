@@ -105,7 +105,15 @@ async function main() {
   setInterval(() => {
     runSchedulerCycle(registry).catch((err) => console.error("Scheduler cycle error:", err));
   }, POLL_INTERVAL_MS);
-  await runSchedulerCycle(registry);
+  // This first, immediate call was the one gap the interval version above
+  // didn't have: unlike the setInterval callback, it was `await`ed directly
+  // inside main() with no .catch() of its own, so a transient failure here
+  // (e.g. a query against a column a migration hadn't created yet) became
+  // an unhandled rejection — fatal on Node 24 — and crashed the whole
+  // process on the very first poll cycle after a fresh deploy. That's
+  // exactly what happened 2026-08-30 (see project-calendar-redesign's
+  // Phase 0 notes). Same .catch() as the interval version closes it.
+  await runSchedulerCycle(registry).catch((err) => console.error("Scheduler cycle error:", err));
 
   // Materializes due recurring-schedule occurrences into scheduled_posts —
   // a sibling job to runSchedulerCycle(), not a replacement. Runs on a much
@@ -116,7 +124,8 @@ async function main() {
   setInterval(() => {
     generateDuePosts().catch((err) => console.error("Recurring schedule generation error:", err));
   }, RECURRING_GENERATION_INTERVAL_MS);
-  await generateDuePosts();
+  // Same gap as runSchedulerCycle's initial call above, same fix.
+  await generateDuePosts().catch((err) => console.error("Recurring schedule generation error:", err));
 }
 
 main();

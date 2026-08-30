@@ -1609,6 +1609,19 @@
   background: var(--signal-bg);
 }
 
+/* Drag-and-drop (Phase 2, 2026-08-30) -- desktop-only, matches the existing
+   isMobile branch that routes phone widths to the agenda list instead of
+   this grid. Dragging preserves time-of-day, only the date changes. */
+.calendar-cell-drop-over {
+  border-color: var(--signal);
+  border-style: dashed;
+  background: var(--signal-bg);
+}
+
+.calendar-event-row-dragging {
+  opacity: 0.5;
+}
+
 .calendar-cell-events {
   display: flex;
   flex-direction: column;
@@ -1668,6 +1681,9 @@
   border-width: 0;
   border-left-width: 3px;
   font: inherit;
+  /* Drag-and-drop (2026-08-30) -- without this, a touch/pen drag on a
+     pending chip scrolls the page instead of dragging the chip. */
+  touch-action: none;
 }
 
 .calendar-cell-more {
@@ -1858,6 +1874,33 @@
   background: var(--paper);
   color: var(--ink);
   font: 14px var(--font-body);
+}
+
+.calendar-gcal-indicator {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--wire);
+  font-size: 12px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-gcal-indicator:hover {
+  border-color: var(--signal);
+  color: var(--ink);
+}
+
+.calendar-gcal-indicator-active {
+  border-color: var(--signal);
+  background: var(--signal-bg);
+  color: var(--ink);
+  font-weight: 600;
 }
 
 /* Mobile month-view agenda list (2026-08-30) — replaces the old
