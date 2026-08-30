@@ -1623,52 +1623,27 @@
   font-style: italic;
 }
 
+/* Reuses --wire, same token .calendar-event-row-draft already uses above —
+   a paused post is "temporarily withheld," the same muted-but-not-alarming
+   register as a not-yet-real draft, and reusing the token means this gets
+   dark-mode parity for free instead of a new hex value needing its own
+   audit (2026-08-30). */
+.calendar-event-row-paused {
+  border-left-color: var(--wire);
+}
+
+.calendar-event-row[role="button"] {
+  cursor: pointer;
+  background: none;
+  border-width: 0;
+  border-left-width: 3px;
+  font: inherit;
+}
+
 .calendar-cell-more {
   font-size: 9px;
   color: var(--wire);
   text-align: left;
-}
-
-.calendar-cell-dots {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 3px;
-  width: 100%;
-}
-
-.calendar-cell-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--line);
-  flex-shrink: 0;
-}
-
-.calendar-cell-dot-pending,
-.calendar-cell-dot-posting {
-  background: var(--signal);
-}
-
-.calendar-cell-dot-posted {
-  background: #2e9e5b;
-}
-
-.calendar-cell-dot-failed {
-  background: #d9534f;
-}
-
-.calendar-cell-dot-needs_approval {
-  background: #e0a02c;
-}
-
-.calendar-cell-dot-draft {
-  background: var(--wire);
-}
-
-.calendar-cell-dot-more {
-  font-size: 9px;
-  color: var(--wire);
 }
 
 @media (max-width: 700px) {
@@ -1700,14 +1675,339 @@
   }
 }
 
-.calendar-day-detail {
-  margin-top: 24px;
-  padding-top: 20px;
+/* Calendar tab redesign (2026-08-30) — full-width sidebar + grid layout,
+   replacing the old single-column stack. Stacks on mobile (sidebar above
+   the grid) at the same 700px breakpoint the rest of this file uses. */
+.calendar-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.calendar-sidebar {
+  flex: 0 0 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.calendar-main {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 700px) {
+  .calendar-layout {
+    flex-direction: column;
+  }
+
+  .calendar-sidebar {
+    flex: none;
+    width: 100%;
+  }
+}
+
+.calendar-create-menu {
+  position: relative;
+}
+
+.calendar-create-menu > button {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: none;
+  background: var(--signal);
+  color: var(--paper);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.calendar-create-menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.calendar-create-menu-list button {
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  color: var(--ink);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.calendar-create-menu-list button:hover {
+  background: var(--signal-bg);
+  color: var(--signal);
+}
+
+.calendar-mini-month-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+
+.calendar-mini-month-header .btn-outline {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.calendar-mini-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.calendar-mini-month-weekday {
+  text-align: center;
+  font-size: 10px;
+  color: var(--wire);
+  padding-bottom: 4px;
+}
+
+.calendar-mini-month-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+  position: relative;
+}
+
+.calendar-mini-month-day:hover {
+  background: var(--signal-bg);
+}
+
+.calendar-mini-month-day-today {
+  color: var(--signal);
+  font-weight: 700;
+}
+
+.calendar-mini-month-day-selected {
+  background: var(--signal);
+  color: var(--paper);
+}
+
+.calendar-mini-month-day-has-items::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+.calendar-search {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font: 14px var(--font-body);
+}
+
+/* Mobile month-view agenda list (2026-08-30) — replaces the old
+   colored-dots-only cells, which lost all information at phone width. */
+.calendar-agenda-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.calendar-agenda-day-heading {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--wire);
+  margin-bottom: 6px;
+}
+
+.calendar-agenda-row {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  margin-bottom: 3px;
+  border: none;
+  border-left: 3px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Anchored popovers (2026-08-30) — replaces the old below-grid
+   .calendar-day-detail panel. Portal-rendered (see components/Popover.tsx),
+   so this is positioned via inline style, not this stylesheet; this only
+   covers the panel's own look. */
+.popover-panel {
+  z-index: 50;
+  width: 320px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.popover-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.popover-header h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.popover-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.popover-icon-btn {
+  border: none;
+  background: none;
+  color: var(--wire);
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.popover-icon-btn:hover {
+  background: var(--signal-bg);
+  color: var(--signal);
+}
+
+.popover-close {
+  border: none;
+  background: none;
+  color: var(--wire);
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.popover-kebab {
+  position: relative;
+}
+
+.popover-kebab-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 6;
+  min-width: 180px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.popover-kebab-menu button {
+  padding: 9px 12px;
+  border: none;
+  background: none;
+  color: var(--ink);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.popover-kebab-menu button:hover:not(:disabled) {
+  background: var(--signal-bg);
+  color: var(--signal);
+}
+
+.popover-kebab-menu button:disabled {
+  color: var(--wire);
+  cursor: default;
+}
+
+.popover-event-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.popover-event-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.popover-event-time {
+  font-size: 13px;
+  color: var(--wire);
+}
+
+.popover-event-content {
+  font-size: 14px;
+  white-space: pre-wrap;
+}
+
+.popover-subpanel {
+  margin-top: 14px;
+  padding-top: 14px;
   border-top: 1px solid var(--line);
 }
 
-.calendar-day-detail h3 {
-  margin-bottom: 12px;
+.calendar-day-popover-post-link {
+  display: block;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--ink);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.calendar-day-popover-post-link:hover {
+  color: var(--signal);
 }
 
 .calendar-plans-heading {
@@ -2093,6 +2393,15 @@
 .status-needs_approval {
   background: var(--warn-bg);
   color: var(--warn);
+}
+
+/* Paused (2026-08-30) — a pending post temporarily withheld, not a new
+   status value in the data model (see migration 0073's own comment) but
+   real enough to need its own badge look. Neutral/muted rather than any
+   of the other statuses' colors, since it's "on hold," not good or bad. */
+.status-paused {
+  background: var(--line);
+  color: var(--wire);
 }
 
 .approval-checkbox-label {

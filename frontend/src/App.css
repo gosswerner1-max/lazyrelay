@@ -288,6 +288,13 @@
   padding: 32px 20px 80px;
 }
 
+/* Calendar tab redesign (2026-08-30) — the grid + sidebar layout needs more
+   room than every other tab, so it's the one place that opts into a wider
+   page rather than changing the shared max-width for everything. */
+.dashboard-wide {
+  max-width: 1400px;
+}
+
 .dashboard header {
   display: flex;
   align-items: center;

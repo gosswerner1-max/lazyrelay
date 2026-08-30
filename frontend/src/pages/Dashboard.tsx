@@ -14,6 +14,7 @@ import { AccountPicker, AccountGroupList } from "../components/AccountPicker";
 import { MediaStorageList } from "../components/MediaStorageList";
 import { NotificationBell } from "../components/NotificationBell";
 import { DateTimePicker, TimeOfDayPicker } from "../components/DateTimePicker";
+import { Popover } from "../components/Popover";
 import { DayOfWeekPicker } from "../components/DayOfWeekPicker";
 import { formatBytes } from "../lib/format";
 import { bestTimeFor } from "../lib/bestTimes";
@@ -112,6 +113,73 @@ function BrandFilterSelect({ accounts, value, onChange }: { accounts: SocialAcco
       ))}
       {hasUnbranded && <option value={UNBRANDED_FILTER_VALUE}>Unbranded</option>}
     </select>
+  );
+}
+
+// Compact month picker for the Calendar tab's sidebar (2026-08-30) —
+// mirrors the main grid's own `calendarMonth` rather than paginating
+// independently, so the two views can never show different months at
+// once. `hasItemsKeys` gets a small dot under any day that has a post or
+// planned idea, same signal Google's own mini-picker equivalent gives.
+function MiniMonthPicker({
+  month,
+  onPrev,
+  onNext,
+  onSelectDay,
+  selectedKey,
+  todayKey,
+  hasItemsKeys,
+}: {
+  month: Date;
+  onPrev: () => void;
+  onNext: () => void;
+  onSelectDay: (key: string, el: HTMLElement) => void;
+  selectedKey: string | null;
+  todayKey: string;
+  hasItemsKeys: Set<string>;
+}) {
+  const year = month.getFullYear();
+  const m = month.getMonth();
+  const daysInMonth = new Date(year, m + 1, 0).getDate();
+  const leadingBlanks = new Date(year, m, 1).getDay();
+  const cells: { day: number | null; key: string | null }[] = [];
+  for (let i = 0; i < leadingBlanks; i++) cells.push({ day: null, key: null });
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push({ day: d, key: `${year}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}` });
+  }
+  return (
+    <div className="calendar-mini-month">
+      <div className="calendar-mini-month-header">
+        <button type="button" className="btn-outline" onClick={onPrev}>
+          &larr;
+        </button>
+        <span>{month.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</span>
+        <button type="button" className="btn-outline" onClick={onNext}>
+          &rarr;
+        </button>
+      </div>
+      <div className="calendar-mini-month-grid">
+        {WEEKDAY_LABELS.map((w) => (
+          <div key={w} className="calendar-mini-month-weekday">
+            {w.slice(0, 1)}
+          </div>
+        ))}
+        {cells.map((c, i) =>
+          c.day === null ? (
+            <div key={`blank-${i}`} />
+          ) : (
+            <button
+              type="button"
+              key={c.key}
+              className={`calendar-mini-month-day${c.key === todayKey ? " calendar-mini-month-day-today" : ""}${c.key === selectedKey ? " calendar-mini-month-day-selected" : ""}${c.key && hasItemsKeys.has(c.key) ? " calendar-mini-month-day-has-items" : ""}`}
+              onClick={(e) => onSelectDay(c.key!, e.currentTarget)}
+            >
+              {c.day}
+            </button>
+          ),
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -418,22 +486,6 @@ export function Dashboard() {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  // The day-detail panel renders below the calendar grid, off-screen on a
-  // normal-height viewport — clicking a day with no visible reaction reads
-  // as "this doesn't work" (Werner's own catch, 2026-08-20). Scrolling it
-  // into view is the fix; the panel itself already existed and worked.
-  const dayDetailRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (selectedDay && dayDetailRef.current) {
-      // behavior: "auto" (instant), not "smooth" — confirmed by direct
-      // testing that smooth scrolling silently doesn't move the page in at
-      // least one real browser context, which would have made this fix
-      // itself invisible some of the time. Instant scroll has no such
-      // failure mode and the requirement here is just "become visible,"
-      // not a polished animation.
-      dayDetailRef.current.scrollIntoView({ behavior: "auto", block: "start" });
-    }
-  }, [selectedDay]);
 
   // The plan-banner "Upgrade" button only ever switched to the Settings
   // tab — the Billing section lives further down that page, below Storage
@@ -478,6 +530,88 @@ export function Dashboard() {
   // below) — that block is a conditional IIFE, and a hook called inside it
   // would only run some renders, breaking React's rules of hooks.
   const isMobile = useIsMobile();
+  // Calendar redesign (2026-08-30) — replaces the old below-grid
+  // .calendar-day-detail panel with two anchored popovers. dayPopoverAnchor
+  // holds the clicked element's rect (day cell, mini-month day, or "+
+  // Create" -> Idea) so the popover renders next to whatever was actually
+  // clicked; selectedDay (already existed) still drives which day's
+  // content it shows.
+  const [dayPopoverAnchor, setDayPopoverAnchor] = useState<DOMRect | null>(null);
+  const [eventPopover, setEventPopover] = useState<{ post: ScheduledPost; anchor: DOMRect } | null>(null);
+  const [eventPopoverPanel, setEventPopoverPanel] = useState<null | "menu" | "move" | "duplicate">(null);
+  const [calendarSearch, setCalendarSearch] = useState("");
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
+
+  function openDayPopover(key: string, el: HTMLElement) {
+    const anchor = el.getBoundingClientRect();
+    if (key === selectedDay && dayPopoverAnchor) {
+      setSelectedDay(null);
+      setDayPopoverAnchor(null);
+      return;
+    }
+    setSelectedDay(key);
+    setDayPopoverAnchor(anchor);
+    setEventPopover(null);
+  }
+
+  function openEventPopover(post: ScheduledPost, el: HTMLElement) {
+    setEventPopover({ post, anchor: el.getBoundingClientRect() });
+    setEventPopoverPanel(null);
+    setSelectedDay(null);
+    setDayPopoverAnchor(null);
+  }
+
+  function closeEventPopover() {
+    setEventPopover(null);
+    setEventPopoverPanel(null);
+  }
+
+  function isoFromDateTime(date: string, time: string): string {
+    return new Date(`${date}T${time}`).toISOString();
+  }
+
+  async function handleReschedulePostTo(id: string, date: string, time: string) {
+    setReschedulingId(id);
+    setError(null);
+    try {
+      await api.rescheduleScheduledPost(id, isoFromDateTime(date, time));
+      await refresh();
+      closeEventPopover();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setReschedulingId(null);
+    }
+  }
+
+  async function handleDuplicatePostTo(id: string, date: string, time: string) {
+    setDuplicatingId(id);
+    setError(null);
+    try {
+      await api.duplicateScheduledPost(id, isoFromDateTime(date, time));
+      await refresh();
+      closeEventPopover();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDuplicatingId(null);
+    }
+  }
+
+  // eventPopover holds a snapshot of the clicked post, not a live reference
+  // into `posts` — so a pause/resume/post-now action that refreshes `posts`
+  // in place (popover stays open, only Move/Duplicate close it) would
+  // otherwise leave the popover showing stale status/paused_at. This keeps
+  // it in sync whenever `posts` changes.
+  useEffect(() => {
+    if (!eventPopover) return;
+    const fresh = posts.find((p) => p.id === eventPopover.post.id);
+    if (fresh && fresh !== eventPopover.post) {
+      setEventPopover((prev) => (prev ? { ...prev, post: fresh } : prev));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posts]);
+
   // The Calendar tab's own "add a plan for this day" mini-form — deliberately
   // separate from the big Posts-tab compose state (content/mediaUrl etc.),
   // since a planned idea isn't the same thing as a post being composed.
@@ -2499,7 +2633,7 @@ export function Dashboard() {
           )}
         </div>
       </div>
-      <div className="dashboard">
+      <div className={tab === "Calendar" ? "dashboard dashboard-wide" : "dashboard"}>
       <header>
         <div className="wordmark">
           <BrandMark size={30} />
@@ -3964,6 +4098,10 @@ export function Dashboard() {
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         const leadingBlanks = firstOfMonth.getDay();
         const todayKey = localDateKey(new Date().toISOString());
+        // Search (2026-08-30) — filters posts/ideas by content substring,
+        // applied alongside the existing brand filter rather than
+        // replacing it, so the two narrow the view together.
+        const searchLower = calendarSearch.trim().toLowerCase();
 
         // Only sees whatever's currently loaded in `posts` — bounded to
         // Upcoming plus the most recent History page (see
@@ -3976,10 +4114,11 @@ export function Dashboard() {
         // A draft anchored to a day via planned_date (migration 0059,
         // 2026-08-20) — a content idea for that day, not yet a real post.
         // Kept in its own map (not merged into postsByDay) so the
-        // day-detail view can show "Scheduled" and "Planned" as clearly
+        // day popover can show "Scheduled" and "Planned" as clearly
         // separate sections rather than one ambiguous list.
         const plansByDay: Record<string, ScheduledPost[]> = {};
         for (const p of posts) {
+          if (searchLower && !p.content.toLowerCase().includes(searchLower)) continue;
           if (p.status === "draft") {
             // An undated draft (no planned_date) is managed from the Posts
             // tab's Upcoming list only, same as before this feature.
@@ -4001,18 +4140,12 @@ export function Dashboard() {
 
         const dayPosts = selectedDay ? (postsByDay[selectedDay] ?? []) : [];
         const dayPlans = selectedDay ? (plansByDay[selectedDay] ?? []) : [];
+        const hasItemsKeys = new Set<string>([...Object.keys(postsByDay), ...Object.keys(plansByDay)]);
 
-        // One line per post/planned-item in the compact week-row view —
-        // Werner's own reference (a competitor's "Compact view") shows
-        // time + platform + a content snippet per line, not an abstract
-        // chip, so a real scheduled post reads as "9:00 instagram —
-        // launch teaser" and a planned idea (no time/platform yet) reads
-        // as "Idea — launch teaser".
+        // One line per post/planned-item — a real scheduled post reads as
+        // "9:00 instagram — launch teaser" and a planned idea (no
+        // time/platform yet) reads as "Idea — launch teaser".
         function eventLineLabel(p: ScheduledPost): string {
-          // Dashboard widened (720px -> 960px) and cells grew alongside it
-          // (2026-08-20, Werner's "make this bigger") — more room per line
-          // now, so a longer snippet still fits without re-triggering the
-          // grid-overflow bug (still guarded separately by minmax(0, 1fr)).
           const snippet = p.content.length > 34 ? `${p.content.slice(0, 34)}…` : p.content;
           if (p.status === "draft") return `Idea — ${snippet}`;
           const account = accounts.find((a) => a.id === p.social_account_id);
@@ -4024,15 +4157,15 @@ export function Dashboard() {
           return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
         }
 
-        // Calendar view (time-block grid) — a real week on desktop, but a
+        // Week view (time-block grid) — a real week on desktop, but a
         // 7-column hour grid genuinely doesn't fit a real phone (checked at
         // 375px, 2026-08-20: columns render 26-31px wide, present in the
         // DOM but visually unreadable). Mobile shows one day at a time
         // instead — the same pattern real calendar apps use at this width
         // — rather than a shrunk, unreadable version of the week grid.
         // Only real scheduled posts can be placed on an hour axis (a
-        // planned idea has no time yet, so it stays Compact-view-only
-        // until promoted). Rows exist only for hours that actually have
+        // planned idea has no time yet, so it stays month-view-only until
+        // promoted). Rows exist only for hours that actually have
         // something in the visible range — Werner's own reference draws a
         // full 24-row grid as wasted space, so this doesn't either.
         const timeblockDayCount = isMobile ? 1 : 7;
@@ -4057,167 +4190,265 @@ export function Dashboard() {
             : `${weekDays[0].date.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${weekEnd.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
         const timeblockColumns = `64px repeat(${weekDays.length}, minmax(0, 1fr))`;
 
-        return (
-          <section>
-            <div className="calendar-header">
-              <button
-                type="button"
-                className="btn-outline"
-                onClick={() => {
-                  if (calendarViewMode === "compact") {
-                    setCalendarMonth(new Date(year, month - 1, 1));
-                  } else {
-                    // Mobile Week view shows one day, so Prev/Next steps by
-                    // a day instead of a full week — same anchor state,
-                    // just a different step size.
-                    const step = isMobile ? 1 : 7;
-                    setCalendarWeekStart(new Date(calendarWeekStart.getFullYear(), calendarWeekStart.getMonth(), calendarWeekStart.getDate() - step));
-                  }
-                  setSelectedDay(null);
-                }}
-              >
-                &larr; Prev
-              </button>
-              <h2>{calendarViewMode === "compact" ? firstOfMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" }) : weekRangeLabel}</h2>
-              <button
-                type="button"
-                className="btn-outline"
-                onClick={() => {
-                  if (calendarViewMode === "compact") {
-                    setCalendarMonth(new Date(year, month + 1, 1));
-                  } else {
-                    const step = isMobile ? 1 : 7;
-                    setCalendarWeekStart(new Date(calendarWeekStart.getFullYear(), calendarWeekStart.getMonth(), calendarWeekStart.getDate() + step));
-                  }
-                  setSelectedDay(null);
-                }}
-              >
-                Next &rarr;
-              </button>
-            </div>
-            <div className="calendar-view-toggle">
-              {/* Internal state values (compact/calendar) are unchanged —
-                  only the customer-facing labels swapped, per Werner's own
-                  mental model: "Calendar view" for the familiar month grid,
-                  "Week view" for the time-block week grid. Renaming the
-                  state itself risked missing a reference somewhere; this
-                  doesn't. */}
-              <button
-                type="button"
-                className={calendarViewMode === "compact" ? "calendar-view-toggle-active" : ""}
-                onClick={() => setCalendarViewMode("compact")}
-              >
-                Calendar view
-              </button>
-              <button
-                type="button"
-                className={calendarViewMode === "calendar" ? "calendar-view-toggle-active" : ""}
-                onClick={() => setCalendarViewMode("calendar")}
-              >
-                Week view
-              </button>
-            </div>
-            <BrandFilterSelect accounts={accounts} value={brandFilter} onChange={setBrandFilter} />
+        // Agenda list for the month view on mobile (2026-08-30) — replaces
+        // the old colored-dots-only cells, which lost all information at
+        // phone width. One section per day-with-something, matching
+        // Google Calendar's own "Schedule" view.
+        const agendaDays = cells.filter((c) => c.key && ((postsByDay[c.key]?.length ?? 0) + (plansByDay[c.key]?.length ?? 0) > 0));
 
-            {calendarViewMode === "calendar" ? (
-              <div className="calendar-timeblock">
-                <div className="calendar-timeblock-header" style={{ gridTemplateColumns: timeblockColumns }}>
-                  <div className="calendar-timeblock-time-col" />
-                  {weekDays.map(({ date, key }) => (
-                    <div key={key} className={`calendar-timeblock-day-header${key === todayKey ? " calendar-timeblock-day-header-today" : ""}`}>
-                      <span className="calendar-timeblock-day-name">{date.toLocaleDateString(undefined, { weekday: "short" })}</span>
-                      <span className="calendar-timeblock-day-num">{date.getDate()}</span>
-                    </div>
-                  ))}
-                </div>
-                {sortedHours.length === 0 ? (
-                  <p className="empty">Nothing scheduled this week.</p>
-                ) : (
-                  sortedHours.map((hour) => (
-                    <div key={hour} className="calendar-timeblock-row" style={{ gridTemplateColumns: timeblockColumns }}>
-                      <div className="calendar-timeblock-time-col">
-                        {new Date(2000, 0, 1, hour).toLocaleTimeString(undefined, { hour: "numeric" })}
-                      </div>
-                      {weekDays.map(({ key }) => {
-                        const items = (postsByDay[key] ?? []).filter((p) => p.scheduled_for && new Date(p.scheduled_for).getHours() === hour);
-                        return (
-                          <div key={key} className="calendar-timeblock-cell">
-                            {items.map((p) => (
-                              <span key={p.id} className={`calendar-event-row calendar-event-row-${p.status}`}>
-                                {eventLineLabel(p)}
-                              </span>
-                            ))}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))
+        return (
+          <section className="calendar-layout">
+            <aside className="calendar-sidebar">
+              <div className="calendar-create-menu">
+                <button type="button" onClick={() => setCreateMenuOpen((v) => !v)}>
+                  + Create
+                </button>
+                {createMenuOpen && (
+                  <div className="calendar-create-menu-list">
+                    <button type="button" onClick={() => { setCreateMenuOpen(false); setTab("Posts"); }}>
+                      Scheduled post
+                    </button>
+                    <button type="button" onClick={() => { setCreateMenuOpen(false); setTab("Posts"); }}>
+                      Recurring schedule
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        setCreateMenuOpen(false);
+                        openDayPopover(todayKey, e.currentTarget);
+                      }}
+                    >
+                      Idea
+                    </button>
+                  </div>
                 )}
               </div>
-            ) : (
-            <>
-            <div className="calendar-grid">
-              {WEEKDAY_LABELS.map((w) => (
-                <div key={w} className="calendar-weekday">
-                  {w}
-                </div>
-              ))}
-              {cells.map((c, i) =>
-                c.day === null ? (
-                  <div key={`blank-${i}`} className="calendar-cell calendar-cell-blank" />
-                ) : (
-                  <button
-                    key={c.key}
-                    type="button"
-                    className={`calendar-cell${c.key === todayKey ? " calendar-cell-today" : ""}${c.key === selectedDay ? " calendar-cell-selected" : ""}`}
-                    onClick={() => setSelectedDay(c.key === selectedDay ? null : c.key)}
-                  >
-                    <span className="calendar-cell-day">{c.day}</span>
-                    {c.key &&
-                      (() => {
-                        const dayItems = [...(postsByDay[c.key] ?? []), ...(plansByDay[c.key] ?? [])];
-                        if (dayItems.length === 0) return null;
-                        // Phones can't fit a full text line per post at
-                        // this cell width (measured 26-44px on a real
-                        // device — the text is just unreadable), so mobile
-                        // gets a row of status-colored dots instead; tap
-                        // the day to read the actual list in the detail
-                        // panel below.
-                        if (isMobile) {
-                          const shown = dayItems.slice(0, 4);
+
+              <MiniMonthPicker
+                month={calendarMonth}
+                onPrev={() => setCalendarMonth(new Date(year, month - 1, 1))}
+                onNext={() => setCalendarMonth(new Date(year, month + 1, 1))}
+                onSelectDay={(key, el) => openDayPopover(key, el)}
+                selectedKey={selectedDay}
+                todayKey={todayKey}
+                hasItemsKeys={hasItemsKeys}
+              />
+
+              <input
+                type="search"
+                className="calendar-search"
+                placeholder="Search posts…"
+                value={calendarSearch}
+                onChange={(e) => setCalendarSearch(e.target.value)}
+              />
+
+              <BrandFilterSelect accounts={accounts} value={brandFilter} onChange={setBrandFilter} />
+            </aside>
+
+            <div className="calendar-main">
+              <div className="calendar-header">
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={() => {
+                    if (calendarViewMode === "compact") {
+                      setCalendarMonth(new Date(year, month - 1, 1));
+                    } else {
+                      // Mobile Week view shows one day, so Prev/Next steps by
+                      // a day instead of a full week — same anchor state,
+                      // just a different step size.
+                      const step = isMobile ? 1 : 7;
+                      setCalendarWeekStart(new Date(calendarWeekStart.getFullYear(), calendarWeekStart.getMonth(), calendarWeekStart.getDate() - step));
+                    }
+                    setSelectedDay(null);
+                    setDayPopoverAnchor(null);
+                  }}
+                >
+                  &larr; Prev
+                </button>
+                <h2>{calendarViewMode === "compact" ? firstOfMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" }) : weekRangeLabel}</h2>
+                <button
+                  type="button"
+                  className="btn-outline"
+                  onClick={() => {
+                    if (calendarViewMode === "compact") {
+                      setCalendarMonth(new Date(year, month + 1, 1));
+                    } else {
+                      const step = isMobile ? 1 : 7;
+                      setCalendarWeekStart(new Date(calendarWeekStart.getFullYear(), calendarWeekStart.getMonth(), calendarWeekStart.getDate() + step));
+                    }
+                    setSelectedDay(null);
+                    setDayPopoverAnchor(null);
+                  }}
+                >
+                  Next &rarr;
+                </button>
+              </div>
+              <div className="calendar-view-toggle">
+                {/* Internal state values (compact/calendar) are unchanged —
+                    only the customer-facing labels swapped, per Werner's own
+                    mental model: "Calendar view" for the familiar month grid,
+                    "Week view" for the time-block week grid. Renaming the
+                    state itself risked missing a reference somewhere; this
+                    doesn't. */}
+                <button
+                  type="button"
+                  className={calendarViewMode === "compact" ? "calendar-view-toggle-active" : ""}
+                  onClick={() => setCalendarViewMode("compact")}
+                >
+                  Calendar view
+                </button>
+                <button
+                  type="button"
+                  className={calendarViewMode === "calendar" ? "calendar-view-toggle-active" : ""}
+                  onClick={() => setCalendarViewMode("calendar")}
+                >
+                  Week view
+                </button>
+              </div>
+
+              {calendarViewMode === "calendar" ? (
+                <div className="calendar-timeblock">
+                  <div className="calendar-timeblock-header" style={{ gridTemplateColumns: timeblockColumns }}>
+                    <div className="calendar-timeblock-time-col" />
+                    {weekDays.map(({ date, key }) => (
+                      <div key={key} className={`calendar-timeblock-day-header${key === todayKey ? " calendar-timeblock-day-header-today" : ""}`}>
+                        <span className="calendar-timeblock-day-name">{date.toLocaleDateString(undefined, { weekday: "short" })}</span>
+                        <span className="calendar-timeblock-day-num">{date.getDate()}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {sortedHours.length === 0 ? (
+                    <p className="empty">Nothing scheduled this week.</p>
+                  ) : (
+                    sortedHours.map((hour) => (
+                      <div key={hour} className="calendar-timeblock-row" style={{ gridTemplateColumns: timeblockColumns }}>
+                        <div className="calendar-timeblock-time-col">
+                          {new Date(2000, 0, 1, hour).toLocaleTimeString(undefined, { hour: "numeric" })}
+                        </div>
+                        {weekDays.map(({ key }) => {
+                          const items = (postsByDay[key] ?? []).filter((p) => p.scheduled_for && new Date(p.scheduled_for).getHours() === hour);
                           return (
-                            <span className="calendar-cell-dots">
-                              {shown.map((p) => (
-                                <span key={p.id} className={`calendar-cell-dot calendar-cell-dot-${p.status}`} />
+                            <div key={key} className="calendar-timeblock-cell">
+                              {items.map((p) => (
+                                <span
+                                  key={p.id}
+                                  role="button"
+                                  tabIndex={0}
+                                  className={`calendar-event-row calendar-event-row-${p.status}`}
+                                  onClick={(e) => openEventPopover(p, e.currentTarget)}
+                                >
+                                  {eventLineLabel(p)}
+                                </span>
                               ))}
-                              {dayItems.length > shown.length && (
-                                <span className="calendar-cell-dot-more">+{dayItems.length - shown.length}</span>
-                              )}
-                            </span>
+                            </div>
                           );
-                        }
-                        const shown = dayItems.slice(0, 5);
-                        return (
-                          <span className="calendar-cell-events">
-                            {shown.map((p) => (
-                              <span key={p.id} className={`calendar-event-row calendar-event-row-${p.status}`}>
-                                {eventLineLabel(p)}
+                        })}
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : isMobile ? (
+                <div className="calendar-agenda-list">
+                  {agendaDays.length === 0 ? (
+                    <p className="empty">Nothing scheduled this month.</p>
+                  ) : (
+                    agendaDays.map((c) => {
+                      const items = [...(postsByDay[c.key!] ?? []), ...(plansByDay[c.key!] ?? [])];
+                      return (
+                        <div key={c.key} className="calendar-agenda-day">
+                          <div className="calendar-agenda-day-heading">
+                            {new Date(`${c.key}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                          </div>
+                          {items.map((p) => (
+                            <button
+                              type="button"
+                              key={p.id}
+                              className={`calendar-agenda-row calendar-event-row-${p.status}`}
+                              onClick={(e) => openEventPopover(p, e.currentTarget)}
+                            >
+                              {eventLineLabel(p)}
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              ) : (
+                <div className="calendar-grid">
+                  {WEEKDAY_LABELS.map((w) => (
+                    <div key={w} className="calendar-weekday">
+                      {w}
+                    </div>
+                  ))}
+                  {cells.map((c, i) =>
+                    c.day === null ? (
+                      <div key={`blank-${i}`} className="calendar-cell calendar-cell-blank" />
+                    ) : (
+                      <button
+                        key={c.key}
+                        type="button"
+                        className={`calendar-cell${c.key === todayKey ? " calendar-cell-today" : ""}${c.key === selectedDay ? " calendar-cell-selected" : ""}`}
+                        onClick={(e) => openDayPopover(c.key!, e.currentTarget)}
+                      >
+                        <span className="calendar-cell-day">{c.day}</span>
+                        {c.key &&
+                          (() => {
+                            const dayItems = [...(postsByDay[c.key] ?? []), ...(plansByDay[c.key] ?? [])];
+                            if (dayItems.length === 0) return null;
+                            const shown = dayItems.slice(0, 5);
+                            return (
+                              <span className="calendar-cell-events">
+                                {shown.map((p) => (
+                                  <span
+                                    key={p.id}
+                                    role="button"
+                                    tabIndex={0}
+                                    className={`calendar-event-row calendar-event-row-${p.status}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openEventPopover(p, e.currentTarget);
+                                    }}
+                                  >
+                                    {eventLineLabel(p)}
+                                  </span>
+                                ))}
+                                {dayItems.length > shown.length && (
+                                  <span className="calendar-cell-more">+{dayItems.length - shown.length} more</span>
+                                )}
                               </span>
-                            ))}
-                            {dayItems.length > shown.length && (
-                              <span className="calendar-cell-more">+{dayItems.length - shown.length} more</span>
-                            )}
-                          </span>
-                        );
-                      })()}
-                  </button>
-                ),
+                            );
+                          })()}
+                      </button>
+                    ),
+                  )}
+                </div>
               )}
             </div>
 
-            {selectedDay && (
-              <div className="calendar-day-detail" ref={dayDetailRef}>
-                <h3>{new Date(`${selectedDay}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</h3>
+            {selectedDay && dayPopoverAnchor && (
+              <Popover
+                anchorRect={dayPopoverAnchor}
+                onClose={() => {
+                  setSelectedDay(null);
+                  setDayPopoverAnchor(null);
+                }}
+                className="calendar-day-popover"
+              >
+                <div className="popover-header">
+                  <h3>{new Date(`${selectedDay}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</h3>
+                  <button
+                    type="button"
+                    className="popover-close"
+                    onClick={() => {
+                      setSelectedDay(null);
+                      setDayPopoverAnchor(null);
+                    }}
+                  >
+                    &times;
+                  </button>
+                </div>
 
                 {/* Planned section (add-form + existing plan items) comes
                     FIRST, before the scheduled-posts list — Werner's own
@@ -4311,75 +4542,155 @@ export function Dashboard() {
                   <p className="empty">Nothing scheduled this day.</p>
                 ) : (
                   <ul className="post-list">
-                    {dayPosts.map((p) => {
-                      const account = accounts.find((a) => a.id === p.social_account_id);
-                      const result = p.post_results?.[0];
-                      return (
-                        <li key={p.id} className={`post-status-${p.status}`}>
-                          {account && (
-                            <div className="post-platform">
-                              <PlatformIcon platform={account.platform} size={14} />
-                              {account.display_name ?? account.platform_account_id}
-                            </div>
-                          )}
-                          <div className="post-content">{p.content}</div>
-                          <div className="post-meta">
-                            <span className={`status-badge status-${p.status}`}>
-                              {p.status === "needs_approval" ? "Needs approval" : p.status}
-                            </span>
-                            {/* Guaranteed non-null: postsByDay (built above) already
-                                skips any post with status='draft' or a null
-                                scheduled_for, so every item reaching this render
-                                genuinely has one — TS just can't see that guarantee
-                                across the two separate loops. */}
-                            {p.scheduled_for && <span>{new Date(p.scheduled_for).toLocaleTimeString()}</span>}
-                            {result && (
-                              result.verified_live ? (
-                                <span className="verified">
-                                  <RelaySignal size={14} pulsing /> Confirmed live
-                                </span>
-                              ) : (
-                                <PostErrorDetail errorMessage={result.error_message} platform={account?.platform} />
-                              )
-                            )}
-                            {p.status === "needs_approval" && (
-                              <button className="btn-outline" disabled={approvingId === p.id} onClick={() => handleApprove(p.id)}>
-                                {approvingId === p.id ? "Approving..." : "Approve"}
-                              </button>
-                            )}
-                            {p.status === "pending" && (
-                              <>
-                                <button className="btn-outline" disabled={reschedulingId === p.id} onClick={() => handleReschedulePost(p.id)}>
-                                  {reschedulingId === p.id ? "..." : "Move"}
-                                </button>
-                                {!p.paused_at && (
-                                  <button className="btn-outline" disabled={reschedulingId === p.id} onClick={() => handlePostExistingNow(p.id)}>
-                                    Post now
-                                  </button>
-                                )}
-                                <button className="btn-outline" disabled={pauseResumeId === p.id} onClick={() => handleTogglePause(p.id, Boolean(p.paused_at))}>
-                                  {pauseResumeId === p.id ? "..." : p.paused_at ? "Resume" : "Pause"}
-                                </button>
-                                <button className="btn-outline" disabled={duplicatingId === p.id} onClick={() => handleDuplicatePost(p.id)}>
-                                  {duplicatingId === p.id ? "..." : "Duplicate"}
-                                </button>
-                              </>
-                            )}
-                            {p.status !== "posting" && (
-                              <button className="btn-outline" onClick={() => handleDelete(p.id, p.status !== "pending" && p.status !== "needs_approval")}>
-                                {p.status === "pending" || p.status === "needs_approval" ? "Cancel" : "Delete"}
-                              </button>
-                            )}
-                          </div>
-                        </li>
-                      );
-                    })}
+                    {dayPosts.map((p) => (
+                      <li key={p.id} className={`post-status-${p.status}`}>
+                        <button
+                          type="button"
+                          className="calendar-day-popover-post-link"
+                          onClick={(e) => openEventPopover(p, e.currentTarget)}
+                        >
+                          {eventLineLabel(p)}
+                        </button>
+                      </li>
+                    ))}
                   </ul>
                 )}
-              </div>
+              </Popover>
             )}
-            </>
-            )}
+
+            {eventPopover && (() => {
+              const p = eventPopover.post;
+              const account = accounts.find((a) => a.id === p.social_account_id);
+              const result = p.post_results?.[0];
+              return (
+                <Popover anchorRect={eventPopover.anchor} onClose={closeEventPopover} className="calendar-event-popover">
+                  <div className="popover-header">
+                    <div className="popover-header-actions">
+                      {p.status === "draft" && (
+                        <button
+                          type="button"
+                          className="popover-icon-btn"
+                          title="Edit"
+                          onClick={() => {
+                            handleEditDraft(p);
+                            closeEventPopover();
+                          }}
+                        >
+                          &#9998;
+                        </button>
+                      )}
+                      {p.status !== "posting" && (
+                        <button
+                          type="button"
+                          className="popover-icon-btn"
+                          title={p.status === "pending" || p.status === "needs_approval" ? "Cancel" : "Delete"}
+                          onClick={() => {
+                            handleDelete(p.id, p.status !== "pending" && p.status !== "needs_approval");
+                            closeEventPopover();
+                          }}
+                        >
+                          &#128465;
+                        </button>
+                      )}
+                      {p.status === "pending" && (
+                        <div className="popover-kebab">
+                          <button
+                            type="button"
+                            className="popover-icon-btn"
+                            title="More options"
+                            onClick={() => setEventPopoverPanel(eventPopoverPanel === "menu" ? null : "menu")}
+                          >
+                            &#8942;
+                          </button>
+                          {eventPopoverPanel === "menu" && (
+                            <div className="popover-kebab-menu">
+                              <button type="button" onClick={() => setEventPopoverPanel("move")}>
+                                Move to another day...
+                              </button>
+                              {!p.paused_at && (
+                                <button
+                                  type="button"
+                                  disabled={reschedulingId === p.id}
+                                  onClick={() => {
+                                    handlePostExistingNow(p.id);
+                                    setEventPopoverPanel(null);
+                                  }}
+                                >
+                                  Post now
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                disabled={pauseResumeId === p.id}
+                                onClick={() => {
+                                  handleTogglePause(p.id, Boolean(p.paused_at));
+                                  setEventPopoverPanel(null);
+                                }}
+                              >
+                                {p.paused_at ? "Resume" : "Pause"}
+                              </button>
+                              <button type="button" onClick={() => setEventPopoverPanel("duplicate")}>
+                                Duplicate to another day...
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <button type="button" className="popover-close" onClick={closeEventPopover}>
+                      &times;
+                    </button>
+                  </div>
+
+                  <div className="popover-event-body">
+                    <div className="popover-event-title">
+                      {account && <PlatformIcon platform={account.platform} size={16} />}
+                      <span>{account?.display_name ?? account?.platform_account_id ?? (p.status === "draft" ? "Idea" : "")}</span>
+                    </div>
+                    {p.scheduled_for && (
+                      <div className="popover-event-time">
+                        {new Date(p.scheduled_for).toLocaleString(undefined, { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                      </div>
+                    )}
+                    <div className="popover-event-content">{p.content}</div>
+                    <span className={`status-badge status-${p.status}${p.paused_at ? " status-paused" : ""}`}>
+                      {p.paused_at ? "Paused" : p.status === "needs_approval" ? "Needs approval" : p.status}
+                    </span>
+                    {result &&
+                      (result.verified_live ? (
+                        <span className="verified">
+                          <RelaySignal size={14} pulsing /> Confirmed live
+                        </span>
+                      ) : (
+                        <PostErrorDetail errorMessage={result.error_message} platform={account?.platform} />
+                      ))}
+                    {result?.verified_live && (
+                      <button className="btn-outline" disabled={sharingProofId === p.id} onClick={() => handleShareProof(p.id)}>
+                        {sharingProofId === p.id ? "..." : "Share proof"}
+                      </button>
+                    )}
+                    {p.status === "needs_approval" && (
+                      <button className="btn-outline" disabled={approvingId === p.id} onClick={() => handleApprove(p.id)}>
+                        {approvingId === p.id ? "Approving..." : "Approve"}
+                      </button>
+                    )}
+                  </div>
+
+                  {eventPopoverPanel === "move" && (
+                    <div className="popover-subpanel">
+                      <p className="section-note">Move to a new day and time:</p>
+                      <DateTimePicker date="" time="" onApply={(date, time) => handleReschedulePostTo(p.id, date, time)} timezoneLabel={scheduleTimezone} />
+                    </div>
+                  )}
+                  {eventPopoverPanel === "duplicate" && (
+                    <div className="popover-subpanel">
+                      <p className="section-note">Duplicate to a new day and time:</p>
+                      <DateTimePicker date="" time="" onApply={(date, time) => handleDuplicatePostTo(p.id, date, time)} timezoneLabel={scheduleTimezone} />
+                    </div>
+                  )}
+                </Popover>
+              );
+            })()}
           </section>
         );
       })()}
