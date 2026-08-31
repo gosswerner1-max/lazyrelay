@@ -8,6 +8,7 @@
 
 import { supabase } from "../supabase.js";
 import { getAuthorizeUrl as buildAuthorizeUrl, exchangeCode, fetchConnectedEmail, type GoogleTokens } from "./oauthClient.js";
+import { startWatchingConnection, stopWatchingConnection } from "./pushNotifications.js";
 
 const CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3";
 const DEDICATED_CALENDAR_SUMMARY = "LazyRelay Posts";
@@ -129,6 +130,11 @@ export async function completeGoogleCalendarConnect(
     .single();
   if (insertError || !connection) throw insertError ?? new Error("Failed to save the Google Calendar connection");
 
+  // Best-effort -- a failed subscribe never fails the connect itself, the
+  // connection just relies on the poller's hourly safety net until the next
+  // renewal attempt (or a reconnect) succeeds. See pushNotifications.ts.
+  await startWatchingConnection({ id: connection.id, google_calendar_id: googleCalendarId });
+
   return { connectionId: connection.id, calendarName: DEDICATED_CALENDAR_SUMMARY };
 }
 
@@ -138,6 +144,18 @@ export async function completeGoogleCalendarConnect(
  *  (see design decision 6 in the plan): disconnecting stops syncing, it
  *  doesn't destroy the customer's calendar or their post history. */
 export async function disconnectGoogleCalendar(accountId: string): Promise<void> {
+  const { data: connection } = await supabase
+    .from("google_calendar_connections")
+    .select("id, watch_channel_id, watch_resource_id")
+    .eq("account_id", accountId)
+    .is("disconnected_at", null)
+    .maybeSingle();
+  if (connection) {
+    // Best-effort, never blocks the actual disconnect below -- see
+    // pushNotifications.ts.
+    await stopWatchingConnection(connection);
+  }
+
   const { error } = await supabase
     .from("google_calendar_connections")
     .update({ disconnected_at: new Date().toISOString() })

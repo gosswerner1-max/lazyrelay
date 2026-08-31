@@ -1,7 +1,7 @@
 import { Router, type Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import multer from "multer";
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID, randomBytes, timingSafeEqual } from "node:crypto";
 import { imageSize } from "image-size";
 import { fileTypeFromBuffer } from "file-type";
 import { supabase } from "../supabase.js";
@@ -23,6 +23,7 @@ import {
   disconnectGoogleCalendar,
 } from "../googleCalendar/connect.js";
 import { syncPostToCalendar, deletePostFromCalendar } from "../googleCalendar/outboundSync.js";
+import { syncConnectionInbound, type GoogleCalendarConnectionRow } from "../googleCalendar/inboundSync.js";
 import {
   requireAuth,
   requireHumanAuth,
@@ -1416,6 +1417,61 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
     }
+  });
+
+  // Google's push notification endpoint (Phase 3, pushNotifications.ts) --
+  // NOT behind requireAuth, same reasoning as /google-calendar/callback:
+  // Google calls this directly with no way to attach our JWT. Identity
+  // instead comes from X-Goog-Channel-Token, a random secret we generated
+  // and stored per-connection at subscribe time, which Google echoes back
+  // on every call for that channel. The notification itself carries no
+  // data -- just "something changed" -- so a valid call just re-runs the
+  // exact same syncConnectionInbound() the hourly poller already calls.
+  router.post("/google-calendar/webhook", publicRateLimit, async (req, res) => {
+    const channelId = req.header("X-Goog-Channel-ID");
+    const receivedToken = req.header("X-Goog-Channel-Token");
+    const resourceState = req.header("X-Goog-Resource-State");
+    if (!channelId || !receivedToken) {
+      res.status(404).end();
+      return;
+    }
+
+    const { data: connection } = await supabase
+      .from("google_calendar_connections")
+      .select("id, account_id, google_calendar_id, sync_token, target_social_account_ids, watch_channel_token")
+      .eq("watch_channel_id", channelId)
+      .is("disconnected_at", null)
+      .maybeSingle();
+
+    const storedToken = connection?.watch_channel_token;
+    // timingSafeEqual throws on mismatched buffer lengths rather than
+    // returning false -- guard explicitly instead of catching, since an
+    // unregistered/wrong channel id is an expected case, not an error.
+    const tokenMatches =
+      !!storedToken &&
+      Buffer.byteLength(storedToken) === Buffer.byteLength(receivedToken) &&
+      timingSafeEqual(Buffer.from(storedToken), Buffer.from(receivedToken));
+    if (!connection || !tokenMatches) {
+      res.status(404).end();
+      return;
+    }
+
+    // Google's one-time handshake message when a channel starts -- nothing
+    // to sync yet, just acknowledge it.
+    if (resourceState === "sync") {
+      res.status(200).end();
+      return;
+    }
+
+    const row: GoogleCalendarConnectionRow = {
+      id: connection.id,
+      account_id: connection.account_id,
+      google_calendar_id: connection.google_calendar_id,
+      sync_token: connection.sync_token,
+      target_social_account_ids: connection.target_social_account_ids,
+    };
+    await syncConnectionInbound(row);
+    res.status(200).end();
   });
 
   // Multi-brand support. Started 2026-08-08 as a free-text label per account

@@ -8,6 +8,7 @@
 import "dotenv/config";
 import { supabase } from "./supabase.js";
 import { syncConnectionInbound, type GoogleCalendarConnectionRow, type InboundSyncResult } from "./googleCalendar/inboundSync.js";
+import { renewExpiringWatches } from "./googleCalendar/pushNotifications.js";
 
 // Same bounding convention as every other poller (metricsPoller.ts's
 // MAX_POLLS_PER_RUN, mentionsAndDmsPoller.ts's per-category caps) — real
@@ -16,6 +17,12 @@ import { syncConnectionInbound, type GoogleCalendarConnectionRow, type InboundSy
 const MAX_CONNECTIONS_PER_RUN = 100;
 
 async function main() {
+  // Phase 3: real-time push notifications (pushNotifications.ts) are now
+  // the primary trigger for inbound sync -- this poll run is the safety
+  // net. Renewing anything expiring soon here reuses this task's existing
+  // hourly cadence rather than needing its own scheduled task.
+  await renewExpiringWatches();
+
   const { data: connections, error } = await supabase
     .from("google_calendar_connections")
     .select("id, account_id, google_calendar_id, sync_token, target_social_account_ids")
