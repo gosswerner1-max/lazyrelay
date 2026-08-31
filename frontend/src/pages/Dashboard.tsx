@@ -5220,8 +5220,9 @@ export function Dashboard() {
         <p className="section-note">
           Two-way sync with a dedicated "LazyRelay Posts" calendar on your Google account. Every event in it is
           a real scheduled post — move, edit, or delete one there and LazyRelay picks up the change. Create a
-          new event there and it lands in LazyRelay for you to confirm before it posts. Subscribe to that
-          calendar on your phone to see (and change) your posting schedule anywhere.
+          new event there and it lands in LazyRelay as a planned idea for that day, ready for you to pick a
+          platform and time. Subscribe to that calendar on your phone to see (and change) your posting
+          schedule anywhere.
         </p>
         {gcalStatus === undefined ? (
           <p className="section-note">Checking your Google Calendar connection...</p>

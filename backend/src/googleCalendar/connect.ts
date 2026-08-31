@@ -13,7 +13,7 @@ import { startWatchingConnection, stopWatchingConnection } from "./pushNotificat
 const CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3";
 const DEDICATED_CALENDAR_SUMMARY = "LazyRelay Posts";
 const DEDICATED_CALENDAR_DESCRIPTION =
-  "Scheduled posts from LazyRelay. Every event here is a real post — move, edit, or delete one and LazyRelay picks up the change. Create a new event here and it lands in LazyRelay for you to confirm before it posts.";
+  "Scheduled posts from LazyRelay. Every event here is a real post — move, edit, or delete one and LazyRelay picks up the change. Create a new event here and it lands in LazyRelay as a planned idea for that day, ready for you to pick a platform and time.";
 
 interface GoogleCalendarResource {
   id?: string;
@@ -65,11 +65,7 @@ async function createDedicatedCalendar(accessToken: string): Promise<string> {
 
 /** Completes the connect flow: validates the CSRF state, exchanges the code,
  *  creates the dedicated calendar, and stores everything. Returns the new
- *  connection's id. Defaults a calendar-created event's target platforms to
- *  every currently-connected social account (see design decision 7: a
- *  customer confirms the actual target(s) via the existing
- *  needs_approval → approve flow before anything posts — this default just
- *  avoids a brand-new event having literally zero targets). */
+ *  connection's id. */
 export async function completeGoogleCalendarConnect(
   state: string,
   code: string,
@@ -87,13 +83,6 @@ export async function completeGoogleCalendarConnect(
   if (new Date(stateRow.expires_at) < new Date()) {
     throw new Error("Connect link expired — please try connecting again");
   }
-
-  const { data: accounts } = await supabase
-    .from("social_accounts")
-    .select("id")
-    .eq("account_id", stateRow.account_id)
-    .is("disconnected_at", null);
-  const defaultTargetSocialAccountIds = (accounts ?? []).map((a) => a.id);
 
   const tokens: GoogleTokens = await exchangeCode(code);
   const googleCalendarId = await createDedicatedCalendar(tokens.accessToken);
@@ -121,7 +110,6 @@ export async function completeGoogleCalendarConnect(
         token_expires_at: tokens.expiresAt,
         google_calendar_id: googleCalendarId,
         connected_email: connectedEmail,
-        target_social_account_ids: defaultTargetSocialAccountIds,
         disconnected_at: null,
       },
       { onConflict: "account_id" },

@@ -5,23 +5,25 @@
 // was already decided when migrations 0071/0072 shipped alongside Phase 1;
 // this file implements against that existing schema, no new migration.
 //
-// Fan-out design: a brand-new event (one a customer created directly in
-// Google Calendar, not one LazyRelay wrote) targets every account in the
-// connection's target_social_account_ids. Only the FIRST target's new
-// scheduled_posts row keeps the source event's own google_event_id --
-// scheduled_posts_google_event_id_idx (migration 0072) is a unique index,
-// so no two rows can ever share one. Every other target gets its own row
-// with no google_event_id yet, and Phase 1's own outboundSync.ts (already
-// called automatically by scheduleOnePost()) creates a fresh, independent
-// Calendar event for each of those on its own -- exactly like any other
-// multi-platform post created elsewhere in this app. Net effect: one
-// calendar event becomes N independent, individually two-way-syncable
-// events, not N rows silently sharing one event.
+// New-event design, revised 2026-08-31: a brand-new event (one a customer
+// created directly in Google Calendar, not one LazyRelay wrote) has no
+// field anywhere for "which platform" -- Calendar just doesn't have one.
+// The original design guessed by fanning out to every connected account;
+// live-tested the same day and Werner's call was that guessing (even
+// reversibly, since every fanned-out row needed approval) was worse than
+// not guessing at all. Lands as a `draft` planned-idea row instead --
+// content and the calendar day carried over, no account or time
+// committed -- using the same status='draft' concept the compose UI's own
+// "Add a note or content idea for this day" already has (migration 0049).
+// The customer picks the actual platform(s) and time from inside LazyRelay
+// itself, the same promote-a-draft flow that already exists for any other
+// draft. Still two-way: editing or deleting the event afterward still
+// updates or removes the linked draft (see handleExistingEvent/
+// handleCancelledEvent below), same as any pending/needs_approval row.
 
 import { supabase } from "../supabase.js";
 import { getGoogleAccessToken } from "./tokens.js";
 import { calendarEventToPost, type CalendarEventForPost } from "./eventMapper.js";
-import { scheduleOnePost, checkFreeTierPostLimit } from "../postCreation.js";
 
 const CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3";
 
@@ -107,10 +109,18 @@ async function findLinkedPost(googleEventId: string): Promise<LinkedPostRow | nu
   return data;
 }
 
+/** Draft/pending/needs_approval are all "not yet posted" — still fair game
+ *  for an inbound edit or delete to touch. Everything else (posting,
+ *  posted, failed) is final; Proof-of-Publish history is immutable
+ *  regardless of what happens on the Calendar side. */
+function isStillEditableFromCalendar(status: string): boolean {
+  return status === "draft" || status === "pending" || status === "needs_approval";
+}
+
 async function handleCancelledEvent(event: CalendarEventForPost, result: InboundSyncResult): Promise<void> {
   const linked = await findLinkedPost(event.id);
   if (!linked) return; // never synced, or already cleaned up — nothing to do
-  if (linked.status !== "pending" && linked.status !== "needs_approval") {
+  if (!isStillEditableFromCalendar(linked.status)) {
     // Already posted (or otherwise final) — Proof-of-Publish history is
     // immutable, an inbound delete never touches it.
     result.eventsSkipped += 1;
@@ -134,28 +144,33 @@ async function handleExistingEvent(event: CalendarEventForPost, linked: LinkedPo
     result.eventsSkipped += 1;
     return;
   }
-  if (linked.status !== "pending" && linked.status !== "needs_approval") {
+  if (!isStillEditableFromCalendar(linked.status)) {
     // A real external edit, but the post is already final — never rewrite
     // Proof-of-Publish history from a calendar change.
     result.eventsSkipped += 1;
     return;
   }
   const mapped = calendarEventToPost(event);
-  if (!mapped.content || !mapped.scheduledFor) {
-    // A customer cleared the event's content/time entirely — nothing
-    // sane to sync; leave the post as it was rather than write garbage.
+  if (!mapped.content) {
+    // A customer cleared the event's content entirely — nothing sane to
+    // sync; leave the post as it was rather than write garbage.
     result.eventsSkipped += 1;
     return;
   }
-  const { error } = await supabase
-    .from("scheduled_posts")
-    .update({
-      content: mapped.content,
-      scheduled_for: mapped.scheduledFor,
-      google_updated_at: mapped.googleUpdatedAt,
-      last_synced_at: new Date().toISOString(),
-    })
-    .eq("id", linked.id);
+  // A draft has no committed time (see handleNewEvent) -- an edit updates
+  // its planned_date, never invents a scheduled_for it never had. A real
+  // pending/needs_approval row keeps updating scheduled_for as before.
+  const update: Record<string, unknown> = {
+    content: mapped.content,
+    google_updated_at: mapped.googleUpdatedAt,
+    last_synced_at: new Date().toISOString(),
+  };
+  if (linked.status === "draft") {
+    update.planned_date = mapped.scheduledFor ? mapped.scheduledFor.slice(0, 10) : null;
+  } else if (mapped.scheduledFor) {
+    update.scheduled_for = mapped.scheduledFor;
+  }
+  const { error } = await supabase.from("scheduled_posts").update(update).eq("id", linked.id);
   if (error) {
     console.error(`[googleCalendar/inboundSync] failed to update post ${linked.id} from event ${event.id}:`, error.message);
     result.errors += 1;
@@ -170,65 +185,30 @@ async function handleNewEvent(
   result: InboundSyncResult,
 ): Promise<void> {
   const mapped = calendarEventToPost(event);
-  if (!mapped.content || !mapped.scheduledFor) {
+  if (!mapped.content) {
     result.eventsSkipped += 1;
     return;
   }
-  const targets = connection.target_social_account_ids;
-  if (!targets.length) {
-    console.warn(`[googleCalendar/inboundSync] connection ${connection.id} has no target_social_account_ids — skipping event ${event.id}`);
-    result.eventsSkipped += 1;
-    return;
-  }
-
-  const [firstTarget, ...remainingTargets] = targets;
-
-  // First target: a direct insert so google_event_id can be set to the
-  // SOURCE event's id — scheduleOnePost() never accepts one, since every
-  // other caller is creating a post that doesn't have a Calendar event yet.
-  const limitError = await checkFreeTierPostLimit(connection.account_id, firstTarget);
-  if (limitError) {
-    console.warn(`[googleCalendar/inboundSync] free-tier limit reached for account ${firstTarget}, skipping event ${event.id}`);
-    result.eventsSkipped += 1;
+  // The calendar day the customer picked, carried over as planned_date —
+  // no account or time committed yet, same as any other planned idea
+  // (POST /scheduled-posts/draft). No tier-limit check: a draft isn't a
+  // real post yet, the existing draft route doesn't check one either.
+  const plannedDate = mapped.scheduledFor ? mapped.scheduledFor.slice(0, 10) : null;
+  const { error } = await supabase.from("scheduled_posts").insert({
+    account_id: connection.account_id,
+    social_account_id: null,
+    content: mapped.content,
+    planned_date: plannedDate,
+    status: "draft",
+    google_event_id: event.id,
+    google_updated_at: mapped.googleUpdatedAt,
+    last_synced_at: new Date().toISOString(),
+  });
+  if (error) {
+    console.error(`[googleCalendar/inboundSync] failed to create planned idea for event ${event.id}:`, error.message);
+    result.errors += 1;
   } else {
-    const { error } = await supabase.from("scheduled_posts").insert({
-      account_id: connection.account_id,
-      social_account_id: firstTarget,
-      content: mapped.content,
-      scheduled_for: mapped.scheduledFor,
-      status: "needs_approval",
-      google_event_id: event.id,
-      google_updated_at: mapped.googleUpdatedAt,
-      last_synced_at: new Date().toISOString(),
-    });
-    if (error) {
-      console.error(`[googleCalendar/inboundSync] failed to create post for event ${event.id} (account ${firstTarget}):`, error.message);
-      result.errors += 1;
-    } else {
-      result.eventsCreated += 1;
-    }
-  }
-
-  // Remaining targets: scheduleOnePost() handles validation, the same
-  // tier-limit check, the insert, and — because it has no google_event_id
-  // to update — its own automatic syncPostToCalendar() call creates a
-  // fresh, independent Calendar event for each one. No new sync code
-  // needed for this half.
-  for (const socialAccountId of remainingTargets) {
-    const outcome = await scheduleOnePost(connection.account_id, {
-      socialAccountId,
-      content: mapped.content,
-      scheduledFor: mapped.scheduledFor,
-      requiresApproval: true,
-    });
-    if (outcome.status >= 400) {
-      console.warn(
-        `[googleCalendar/inboundSync] could not fan out event ${event.id} to account ${socialAccountId}: ${JSON.stringify(outcome.body)}`,
-      );
-      result.eventsSkipped += 1;
-    } else {
-      result.eventsCreated += 1;
-    }
+    result.eventsCreated += 1;
   }
 }
 
