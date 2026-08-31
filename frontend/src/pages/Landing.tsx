@@ -725,6 +725,20 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
               loading="lazy"
             />
           </a>
+          <a
+            href="https://www.saashub.com/lazyrelay?utm_source=badge&utm_campaign=badge&utm_content=lazyrelay&badge_variant=color&badge_kind=approved"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="saashub-badge"
+          >
+            <img
+              src="https://cdn-b.saashub.com/img/badges/approved-color.png?v=1"
+              alt="LazyRelay badge - Approved on SaaSHub"
+              width={150}
+              height={50}
+              loading="lazy"
+            />
+          </a>
         </div>
       </footer>
       <SupportWidget context="public" />
