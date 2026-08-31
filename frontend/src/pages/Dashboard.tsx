@@ -946,21 +946,49 @@ export function Dashboard() {
     return () => clearInterval(interval);
   }, [tab, posts]);
 
-  // Slow heartbeat, same two tabs — the fast poller above only ever starts
-  // once something is ALREADY due; if nothing was due yet when the tab
-  // loaded, nothing re-triggers its `hasUnresolvedDue` check, so a post
-  // that becomes due later (and fires in the background) never surfaces
-  // without a manual reload. This is exactly the "History doesn't
-  // auto-refresh" gap Werner flagged 2026-08-19. A slow re-fetch here
-  // updates `posts`, which re-runs the effect above and hands off to the
-  // fast poller the moment something newly-due needs snappier updates.
+  // Slow heartbeat — the fast poller above only ever starts once something
+  // is ALREADY due; if nothing was due yet when the tab loaded, nothing
+  // re-triggers its `hasUnresolvedDue` check, so a post that becomes due
+  // later (and fires in the background) never surfaces without a manual
+  // reload. This is exactly the "History doesn't auto-refresh" gap Werner
+  // flagged 2026-08-19. A slow re-fetch here updates `posts`, which
+  // re-runs the effect above and hands off to the fast poller the moment
+  // something newly-due needs snappier updates.
+  //
+  // Calendar included since 2026-08-31 (Phase 3 Google Calendar sync made
+  // inbound updates near-instant on the backend, which only matters if the
+  // frontend actually re-fetches — Calendar derives its whole view from
+  // `posts`, same as Posts/Overview, but was the one tab with no live
+  // refresh at all, confirmed live: a customer sitting on Calendar while a
+  // sync happened elsewhere saw stale data until a manual reload).
   useEffect(() => {
-    if (tab !== "Posts" && tab !== "Overview") return;
+    if (tab !== "Posts" && tab !== "Overview" && tab !== "Calendar") return;
     const heartbeat = setInterval(() => {
       api.listScheduledPosts().then(setPosts).catch(() => {});
     }, 60000);
     return () => clearInterval(heartbeat);
   }, [tab]);
+
+  // Refetch-on-focus, added 2026-08-31 alongside the Calendar heartbeat fix
+  // above — the scenario that surfaced both gaps: tab away to Google
+  // Calendar (or anywhere else), make a change, tab back to LazyRelay, and
+  // see it reflected immediately rather than waiting up to 60s for the
+  // heartbeat. visibilitychange (not window "focus") to also catch
+  // switching virtual desktops/apps, not just window focus specifically.
+  // Deliberately calls the lightweight listScheduledPosts(), same scope as
+  // the heartbeat, not the full refresh() Promise.all -- an alt-tab habit
+  // shouldn't re-fetch all 14 endpoints every time.
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState !== "visible") return;
+      api.listScheduledPosts().then(setPosts).catch(() => {});
+      if (tab === "Overview" || tab === "Analytics") {
+        api.getAnalyticsSummary(tab === "Overview" ? 30 : analyticsRangeDays, brandFilter || undefined).then(setAnalytics).catch(() => {});
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [tab, analyticsRangeDays, brandFilter]);
 
   // Lazy-loaded, not part of refresh() — analytics isn't needed on first
   // paint for most customers, and re-fetching it every time an unrelated
