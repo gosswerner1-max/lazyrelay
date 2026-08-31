@@ -6,7 +6,6 @@
 <title>Guides | LazyRelay</title>
 <meta name="description" content="Guides on social media scheduling: post verification, platform coverage, AI content ideas, comment triage, multi-brand support, proof-of-publish sharing, and analytics insight." />
 <link rel="canonical" href="https://lazyrelay.com/guides" />
-<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" href="/favicon.png" />
 <link rel="stylesheet" href="/circuit-bg.css" />
 <script src="/consent.js" defer></script>
@@ -18,7 +17,7 @@
   .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
   .wordmark .dot { color: #ff5630; }
   a { color: #ff5630; }
-  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #5b6472; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
   h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
   .section-heading { font-family: Georgia, serif; color: #14171f; font-size: 22px; margin-top: 44px; }
   .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
@@ -36,7 +35,7 @@
 <script src="/circuit-bg.js" defer></script>
 <header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
 <main>
-<a class="back" href="/">&larr; Back to home</a>
+<a class="back" href="/" id="back-home-link">&larr; Back to home</a>
 <h1>Guides</h1>
 <p class="subtitle">Straight answers on the parts of social media scheduling that actually trip people up, not just feature lists.</p>
 
@@ -137,5 +136,23 @@
   <p><a href="/">Home</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
   <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
 </footer>
+<script>
+  // Same fix as /docs (2026-08-27, see project-docs-back-to-home-bug note):
+  // opts this page out of Chrome's back/forward cache (bfcache), which was
+  // found to sometimes restore this page from a stale snapshot where the
+  // address bar shows the wrong URL for the content on screen, making every
+  // link click a silent no-op. An empty pagehide listener forces a fresh
+  // load every time instead of relying on the user noticing and refreshing.
+  window.addEventListener("pagehide", function () {});
+
+  // Belt-and-suspenders on top of the bfcache fix above, same as /docs:
+  // forcing navigation via window.location.assign() is a more direct path
+  // than the browser's default link-following behavior, so it isn't
+  // exposed to whatever made that default path unreliable there.
+  document.getElementById("back-home-link").addEventListener("click", function (e) {
+    e.preventDefault();
+    window.location.assign("/");
+  });
+</script>
 </body>
 </html>
