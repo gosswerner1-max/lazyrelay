@@ -6,17 +6,33 @@
 // pattern as googleBusiness.ts (and every other adapter in this codebase)
 // -- no googleapis npm package, no OAuth library.
 //
-// Scope note: `calendar.events` (narrower, easier to get through Google's
-// sensitive-scope verification review) only covers event CRUD -- it does
-// NOT cover calendars.insert, which this feature needs once, at connect
-// time, to create the dedicated "LazyRelay Posts" calendar. That's a
-// calendar-RESOURCE operation, not an event operation, per Google's own
-// scope-to-endpoint documentation. The broader `calendar` scope is used
-// here for that reason, not by default/convenience.
-
+// Scope note, revised 2026-08-31: `calendar.events` (narrower, easier to
+// get through Google's sensitive-scope verification review) only covers
+// event CRUD -- it does NOT cover calendars.insert, which this feature
+// needs once, at connect time, to create the dedicated "LazyRelay Posts"
+// calendar. That's a calendar-RESOURCE operation, not an event operation,
+// per Google's own scope-to-endpoint documentation.
+//
+// `calendar.app.created` ("Make secondary Google calendars, and see,
+// create, change, and delete events on them") covers both -- it's the
+// exact shape of this feature, which only ever creates and touches its
+// own dedicated calendar, never the customer's others. Verified against
+// every real endpoint this module calls (calendars.insert, events.list/
+// insert/patch/delete): all of them accept it. It's also genuinely
+// NON-sensitive per Google Cloud Console's own Data Access page --
+// confirmed live, not assumed.
+//
+// The one gap: calendarList.insert (subscribing the new calendar so it's
+// actually visible in the customer's Calendar app/phone -- see
+// connect.ts, this is load-bearing, not cosmetic) only accepts the full
+// `calendar` scope or `calendar.calendarlist`. The latter is still
+// sensitive, so this pair doesn't skip verification review, but it
+// replaces one broad, alarming grant ("permanently delete all the
+// calendars you can access") with two narrow, self-explanatory ones --
+// both a cleaner review and a less scary real consent screen.
 const AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
-export const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
+export const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.app.created https://www.googleapis.com/auth/calendar.calendarlist";
 // `email` is a "basic" (non-sensitive) scope -- unlike `calendar`, it needs
 // no verification review, so adding it doesn't touch the pending review for
 // the scope above. Added 2026-08-30 so the connected Google account's email
