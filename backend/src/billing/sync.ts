@@ -56,6 +56,29 @@ async function unpausePausedAccountsUpToLimit(accountId: string, tier: Tier): Pr
   if (unpauseError) throw unpauseError;
 }
 
+/** Resolves the account a webhook event belongs to. Prefers the stable
+ *  account UUID embedded in customData at checkout time (see
+ *  buildCheckoutTransaction in billing/paddle.ts) over the accountEmail
+ *  fallback — email is a secondary attribute that could in principle be
+ *  duplicated or changed later, while the UUID is set once, by us, at
+ *  checkout creation and never modified afterward (2026-09-01 audit fix).
+ *  accountId is optional only so a transaction created by the pre-fix
+ *  checkout code, still in flight across the deploy, still resolves. */
+async function resolveAccountId(event: { accountId?: string; accountEmail: string }): Promise<string> {
+  if (event.accountId) {
+    const { data, error } = await supabase.from("accounts").select("id").eq("id", event.accountId).single();
+    if (error || !data) {
+      throw new Error(`No account found for id ${event.accountId}: ${error?.message}`);
+    }
+    return data.id;
+  }
+  const { data, error } = await supabase.from("accounts").select("id").eq("email", event.accountEmail).single();
+  if (error || !data) {
+    throw new Error(`No account found for email ${event.accountEmail}: ${error?.message}`);
+  }
+  return data.id;
+}
+
 /** Called by the webhook HTTP handler after signature verification. Keeps
  *  our local `subscriptions` row in sync with what the MoR actually thinks
  *  the state is — this table is the source of truth for what a customer
@@ -64,14 +87,7 @@ async function unpausePausedAccountsUpToLimit(accountId: string, tier: Tier): Pr
  *  billing complaints). Branches to the storage-addons sync path for
  *  add-on subscriptions (2026-07-23) — see BillingEvent's `kind` field. */
 export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | StorageAddonEvent | BrandAddonEvent | SeatAddonEvent): Promise<void> {
-  const { data: account, error: accountError } = await supabase
-    .from("accounts")
-    .select("id")
-    .eq("email", event.accountEmail)
-    .single();
-  if (accountError || !account) {
-    throw new Error(`No account found for email ${event.accountEmail}: ${accountError?.message}`);
-  }
+  const accountId = await resolveAccountId(event);
 
   if (event.kind === "storage_addon") {
     // Upserted on mor_subscription_id, NOT account_id — unlike the tier
@@ -79,7 +95,7 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
     // add-ons at once, so each Paddle subscription gets its own row.
     const { error } = await supabase.from("storage_addons").upsert(
       {
-        account_id: account.id,
+        account_id: accountId,
         mor_subscription_id: event.morSubscriptionId,
         gb_amount: event.gbAmount,
         status: event.status,
@@ -103,7 +119,7 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
     // a customer can stack several active brand add-ons at once.
     const { error } = await supabase.from("brand_addons").upsert(
       {
-        account_id: account.id,
+        account_id: accountId,
         mor_subscription_id: event.morSubscriptionId,
         status: event.status,
         current_period_end: event.currentPeriodEnd,
@@ -122,7 +138,7 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
     // add-ons at once (see seatLimits.ts).
     const { error } = await supabase.from("seat_addons").upsert(
       {
-        account_id: account.id,
+        account_id: accountId,
         mor_subscription_id: event.morSubscriptionId,
         status: event.status,
         current_period_end: event.currentPeriodEnd,
@@ -135,48 +151,82 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
     return;
   }
 
-  // Stale/out-of-order webhook guard (2026-08-25 pre-launch audit fix):
-  // Paddle does not guarantee in-order delivery, and this app has a
-  // confirmed history of delayed/backlogged deliveries. A delayed event
-  // that's actually OLDER than the last one already applied to this
-  // subscription must be skipped, not blindly applied -- otherwise a
-  // late "active" event landing after a more recent "canceled" one has
-  // already been processed would silently revive access that should stay
-  // revoked (see migration 0067).
-  const { data: existingSub, error: existingSubError } = await supabase
-    .from("subscriptions")
-    .select("last_webhook_occurred_at")
-    .eq("account_id", account.id)
-    .maybeSingle();
-  if (existingSubError) throw existingSubError;
-  if (existingSub?.last_webhook_occurred_at && event.occurredAt <= existingSub.last_webhook_occurred_at) {
-    console.log(
-      `Skipping stale webhook for account ${account.id}: event occurred at ${event.occurredAt}, ` +
-        `already applied one from ${existingSub.last_webhook_occurred_at}.`,
-    );
-    return;
+  // Stale/out-of-order webhook guard (2026-08-25 pre-launch audit fix,
+  // HARDENED 2026-09-01 to close a real race in the original version: it
+  // read last_webhook_occurred_at, checked it in application code, and only
+  // then wrote -- two concurrent deliveries could both read before either
+  // wrote, so whichever one's write landed LAST in wall-clock order would
+  // win, regardless of which event was actually newer per Paddle's own
+  // occurredAt. Paddle does not guarantee in-order delivery, and this app
+  // has a confirmed history of delayed/backlogged deliveries, so this isn't
+  // hypothetical (see migration 0067).
+  //
+  // The fix below makes the ordering check part of the same atomic UPDATE
+  // statement instead of a separate read: Postgres's own row lock on the
+  // UPDATE means two concurrent requests for the same account_id serialize,
+  // and the second one's WHERE clause is evaluated against whatever the
+  // first one just committed -- so an older event can never overwrite a
+  // newer one no matter which request's JS reached this line first.
+  const subscriptionRow = {
+    account_id: accountId,
+    mor_subscription_id: event.morSubscriptionId,
+    tier: event.tier,
+    status: event.status,
+    current_period_end: event.currentPeriodEnd,
+    // See the matching comment on the storage_addons upsert above.
+    cancel_at_period_end: false,
+    last_webhook_occurred_at: event.occurredAt,
+    updated_at: new Date().toISOString(),
+  };
+
+  const applyIfNewer = async () => {
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .update(subscriptionRow)
+      .eq("account_id", accountId)
+      .or(`last_webhook_occurred_at.is.null,last_webhook_occurred_at.lt.${event.occurredAt}`)
+      .select("account_id");
+    if (error) throw error;
+    return data ?? [];
+  };
+
+  let winningRow = await applyIfNewer();
+  if (winningRow.length === 0) {
+    // No row was updated: either no subscription row exists yet for this
+    // account (its first-ever webhook), or the existing row is already
+    // same-or-newer (genuinely stale, nothing to do) -- this single
+    // statement can't tell the two apart yet. onConflict + ignoreDuplicates
+    // targets account_id, not mor_subscription_id -- a customer has exactly
+    // one subscription row, but Paddle issues a brand-new subscription id
+    // on every checkout, so conflicting on mor_subscription_id let a
+    // cancel-then-resubscribe insert a second row instead of updating the
+    // existing one (found live 2026-07-22; see migration 0007's note).
+    // ignoreDuplicates makes this a pure no-op if a row already exists
+    // (whether current or stale) -- it only actually inserts on this
+    // account's genuine first-ever webhook, and .select() tells us which
+    // case just happened (PostgREST returns the row it actually inserted;
+    // an ON CONFLICT DO NOTHING no-op returns nothing).
+    const { data: inserted, error: insertError } = await supabase
+      .from("subscriptions")
+      .upsert(subscriptionRow, { onConflict: "account_id", ignoreDuplicates: true })
+      .select("account_id");
+    if (insertError) throw insertError;
+    if ((inserted ?? []).length > 0) {
+      winningRow = inserted!;
+    } else {
+      // The insert no-op'd, meaning a row already existed at that moment
+      // too. Closes one remaining gap: a concurrent request could have
+      // inserted that row, with an older occurredAt than ours, in the
+      // window between the two calls above -- re-running the conditional
+      // update catches that case; it's a cheap no-op in every other case.
+      winningRow = await applyIfNewer();
+    }
   }
 
-  // onConflict targets account_id, not mor_subscription_id — a customer has
-  // exactly one subscription row, but Paddle issues a brand-new subscription
-  // id on every checkout, so conflicting on mor_subscription_id let a
-  // cancel-then-resubscribe insert a second row instead of updating the
-  // existing one (found live 2026-07-22; see migration 0007's note).
-  const { error } = await supabase.from("subscriptions").upsert(
-    {
-      account_id: account.id,
-      mor_subscription_id: event.morSubscriptionId,
-      tier: event.tier,
-      status: event.status,
-      current_period_end: event.currentPeriodEnd,
-      // See the matching comment on the storage_addons upsert above.
-      cancel_at_period_end: false,
-      last_webhook_occurred_at: event.occurredAt,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "account_id" },
-  );
-  if (error) throw error;
+  if (winningRow.length === 0) {
+    console.log(`Skipping stale webhook for account ${accountId}: event occurred at ${event.occurredAt}.`);
+    return;
+  }
 
   if (event.status === "cancelled") {
     // Only set cancelled_at if it isn't already -- a retried/duplicate
@@ -187,7 +237,7 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
     await supabase
       .from("accounts")
       .update({ cancelled_at: new Date().toISOString() })
-      .eq("id", account.id)
+      .eq("id", accountId)
       .is("cancelled_at", null);
   } else if (event.status === "active") {
     // Resubscribe safety (2026-08-15): if this account was previously
@@ -201,23 +251,16 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
     await supabase
       .from("accounts")
       .update({ cancelled_at: null, data_deletion_ack_at: null, data_deletion_reminder_sent_at: null })
-      .eq("id", account.id);
-    await unpausePausedAccountsUpToLimit(account.id, event.tier as Tier);
+      .eq("id", accountId);
+    await unpausePausedAccountsUpToLimit(accountId, event.tier as Tier);
   }
 }
 
 async function recordSale(event: SaleRecordEvent): Promise<void> {
-  const { data: account, error: accountError } = await supabase
-    .from("accounts")
-    .select("id")
-    .eq("email", event.accountEmail)
-    .single();
-  if (accountError || !account) {
-    throw new Error(`No account found for email ${event.accountEmail}: ${accountError?.message}`);
-  }
+  const accountId = await resolveAccountId(event);
 
   const { error } = await supabase.from("billing_records").insert({
-    account_id: account.id,
+    account_id: accountId,
     kind: "sale",
     paddle_transaction_id: event.paddleTransactionId,
     paddle_subscription_id: event.paddleSubscriptionId,
@@ -253,7 +296,7 @@ async function recordSale(event: SaleRecordEvent): Promise<void> {
  *  record isn't found, this throws rather than inserting a refund record
  *  with a guessed/null account — an orphaned tax record is worse than a
  *  webhook retry (Paddle retries failed deliveries). */
-async function recordRefund(event: RefundRecordEvent): Promise<void> {
+async function recordRefund(event: RefundRecordEvent, morAdapter: MerchantOfRecordAdapter): Promise<void> {
   const { data: saleRecord, error: saleError } = await supabase
     .from("billing_records")
     .select("account_id")
@@ -289,6 +332,34 @@ async function recordRefund(event: RefundRecordEvent): Promise<void> {
     }
     throw error;
   }
+
+  // 2026-09-01 audit fix: a chargeback used to be recorded here for internal
+  // SARS bookkeeping only -- nothing ever revoked the customer's access, so
+  // a chargeback was pure loss (money back to them, access unchanged).
+  // event.reason is built in billing/paddle.ts's buildRefundRecordEvent as
+  // `${adj.action}: ${adj.reason}`, so this matches only the exact
+  // "chargeback" action -- deliberately NOT chargeback_reverse (money
+  // returned to us) or chargeback_warning (no money has moved yet).
+  // revokeSubscriptionImmediately, not the deferred cancelSubscription used
+  // by the customer-facing cancel button -- a customer who has already
+  // reversed a payment via their bank should not keep paid access for the
+  // rest of that billing period. Paddle's own docs don't state whether a
+  // chargeback already auto-cancels the subscription on their side; calling
+  // this regardless is the defensive choice. Best-effort: a failed clawback
+  // call is logged, not thrown, since the bookkeeping record above (the
+  // thing Paddle will retry this webhook for) has already been written
+  // successfully and must not be undone by a downstream failure.
+  if (event.paddleSubscriptionId && event.reason.startsWith("chargeback:")) {
+    const revokeResult = await morAdapter.revokeSubscriptionImmediately(event.paddleSubscriptionId);
+    if (!revokeResult.success) {
+      console.error(
+        `Chargeback ${event.paddleAdjustmentId}: failed to revoke subscription ${event.paddleSubscriptionId} at Paddle — needs manual follow-up:`,
+        revokeResult.errorMessage,
+      );
+    } else {
+      console.log(`Chargeback ${event.paddleAdjustmentId}: revoked subscription ${event.paddleSubscriptionId} immediately.`);
+    }
+  }
 }
 
 /** Writes an internal SARS bookkeeping record for a completed sale or a
@@ -296,11 +367,11 @@ async function recordRefund(event: RefundRecordEvent): Promise<void> {
  *  the webhook handler alongside (not instead of) syncSubscriptionFromWebhook,
  *  since a "sale_record"/"refund_record" event never overlaps with a
  *  subscription-lifecycle one for the same webhook delivery. */
-export async function recordBillingEvent(event: SaleRecordEvent | RefundRecordEvent): Promise<void> {
+export async function recordBillingEvent(event: SaleRecordEvent | RefundRecordEvent, morAdapter: MerchantOfRecordAdapter): Promise<void> {
   if (event.kind === "sale_record") {
     await recordSale(event);
   } else {
-    await recordRefund(event);
+    await recordRefund(event, morAdapter);
   }
 }
 

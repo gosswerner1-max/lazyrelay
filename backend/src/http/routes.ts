@@ -130,6 +130,17 @@ const PUBLIC_SITE_URL = "https://lazyrelay.com";
 // instance today (confirmed in the same audit), so a plain in-process lock
 // is sufficient -- revisit with a DB-level lock (e.g. a Postgres advisory
 // lock keyed on account_id) if this backend is ever scaled horizontally.
+//
+// 2026-09-01 audit fix: /subscription/checkout had the exact same
+// check-then-act shape and no lock at all -- a double-click or two open
+// tabs on Free-to-paid checkout could create TWO independent Paddle
+// subscriptions, both actually charged, with the local row only ever
+// tracking one (onConflict: account_id) -- the other bills the customer
+// indefinitely with no way for the app or the customer to see or cancel it.
+// Reusing this same set for both routes is correct: both represent "this
+// account has an in-flight subscription-lifecycle mutation," and there's no
+// legitimate reason to allow a checkout and a change-tier to race each
+// other either.
 const pendingTierChanges = new Set<string>();
 
 // Postgres/Supabase error messages can name internal detail (constraint
@@ -3845,54 +3856,70 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { data: account, error: accountError } = await supabase
-      .from("accounts")
-      .select("email")
-      .eq("id", req.accountId)
-      .single();
-    if (accountError || !account) {
-      res.status(404).json({ error: "Account not found" });
+    // Real gap found in the 2026-09-01 audit: this route had the same
+    // check-then-act shape as /subscription/change-tier (see
+    // pendingTierChanges' doc comment above) with no lock at all -- reject a
+    // second concurrent checkout for this account outright, before touching
+    // the DB or Paddle at all, same as change-tier already does.
+    if (pendingTierChanges.has(req.accountId!)) {
+      res.status(409).json({ error: "A subscription change is already in progress for this account. Please wait for it to finish." });
       return;
     }
+    pendingTierChanges.add(req.accountId!);
 
-    // Real gap found in the 2026-08-25 pre-launch audit: nothing here
-    // checked whether the account already had an active/trialing
-    // subscription before starting a fresh Paddle checkout. A stale second
-    // tab, or a resubmitted request, could create a SECOND, independent
-    // Paddle subscription -- the local subscriptions row only ever holds
-    // one (onConflict: "account_id"), so whichever webhook lands last
-    // silently overwrites the tracked mor_subscription_id and the app loses
-    // all ability to see or cancel the orphaned first subscription, which
-    // keeps billing the customer indefinitely. Existing customers upgrading
-    // between paid tiers already have their own dedicated endpoint
-    // (/subscription/change-tier) -- this one is Free-to-paid only.
-    const { data: existingSub, error: existingSubError } = await supabase
-      .from("subscriptions")
-      .select("status")
-      .eq("account_id", req.accountId)
-      .maybeSingle();
-    if (existingSubError) {
-      dbError(res, existingSubError, "POST /subscription/checkout");
-      return;
-    }
-    if (existingSub && (existingSub.status === "active" || existingSub.status === "trialing")) {
-      res.status(400).json({
-        error: "You already have an active plan. Use the dashboard's upgrade/downgrade option to switch tiers instead.",
-      });
-      return;
-    }
-
-    const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
     try {
-      const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
-        kind: "tier",
-        accountEmail: account.email,
-        tier,
-        priceId,
-      });
-      res.json({ transactionId, checkoutUrl });
-    } catch (err) {
-      res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+      const { data: account, error: accountError } = await supabase
+        .from("accounts")
+        .select("email")
+        .eq("id", req.accountId)
+        .single();
+      if (accountError || !account) {
+        res.status(404).json({ error: "Account not found" });
+        return;
+      }
+
+      // Real gap found in the 2026-08-25 pre-launch audit: nothing here
+      // checked whether the account already had an active/trialing
+      // subscription before starting a fresh Paddle checkout. A stale second
+      // tab, or a resubmitted request, could create a SECOND, independent
+      // Paddle subscription -- the local subscriptions row only ever holds
+      // one (onConflict: "account_id"), so whichever webhook lands last
+      // silently overwrites the tracked mor_subscription_id and the app loses
+      // all ability to see or cancel the orphaned first subscription, which
+      // keeps billing the customer indefinitely. Existing customers upgrading
+      // between paid tiers already have their own dedicated endpoint
+      // (/subscription/change-tier) -- this one is Free-to-paid only.
+      const { data: existingSub, error: existingSubError } = await supabase
+        .from("subscriptions")
+        .select("status")
+        .eq("account_id", req.accountId)
+        .maybeSingle();
+      if (existingSubError) {
+        dbError(res, existingSubError, "POST /subscription/checkout");
+        return;
+      }
+      if (existingSub && (existingSub.status === "active" || existingSub.status === "trialing")) {
+        res.status(400).json({
+          error: "You already have an active plan. Use the dashboard's upgrade/downgrade option to switch tiers instead.",
+        });
+        return;
+      }
+
+      const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
+      try {
+        const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
+          kind: "tier",
+          accountEmail: account.email,
+          accountId: req.accountId!,
+          tier,
+          priceId,
+        });
+        res.json({ transactionId, checkoutUrl });
+      } catch (err) {
+        res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+      }
+    } finally {
+      pendingTierChanges.delete(req.accountId!);
     }
   });
 
@@ -3971,7 +3998,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         return;
       }
 
-      const result = await morAdapter.changeSubscriptionTier(subscription.mor_subscription_id, priceId, tier, account.email);
+      const result = await morAdapter.changeSubscriptionTier(subscription.mor_subscription_id, priceId, tier, account.email, req.accountId!);
       if (!result.success) {
         res.status(502).json({ error: result.errorMessage ?? "Tier change failed at the payment provider" });
         return;
@@ -4078,6 +4105,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
         kind: "storage_addon",
         accountEmail: account.email,
+        accountId: req.accountId!,
         gbAmount,
         priceId,
       });
@@ -4169,6 +4197,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
         kind: "brand_addon",
         accountEmail: account.email,
+        accountId: req.accountId!,
         priceId,
       });
       res.json({ transactionId, checkoutUrl });
@@ -4255,6 +4284,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
         kind: "seat_addon",
         accountEmail: account.email,
+        accountId: req.accountId!,
         priceId,
       });
       res.json({ transactionId, checkoutUrl });

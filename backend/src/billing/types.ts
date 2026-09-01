@@ -20,6 +20,12 @@ export interface SubscriptionEvent {
   kind: "tier";
   morSubscriptionId: string;
   accountEmail: string;
+  // The account's stable UUID, embedded in customData at checkout time
+  // (2026-09-01 audit fix) — preferred over accountEmail for resolving which
+  // account a webhook belongs to. Optional only so a transaction created by
+  // the pre-fix checkout code, still in flight across the deploy, still
+  // resolves correctly via the accountEmail fallback.
+  accountId?: string;
   tier: "free" | "pro" | "business" | "enterprise" | "agency" | "agency_plus";
   status: "trialing" | "active" | "past_due" | "cancelled";
   currentPeriodEnd: string; // ISO timestamp
@@ -39,6 +45,7 @@ export interface StorageAddonEvent {
   kind: "storage_addon";
   morSubscriptionId: string;
   accountEmail: string;
+  accountId?: string; // see SubscriptionEvent.accountId
   gbAmount: number;
   status: "trialing" | "active" | "past_due" | "cancelled";
   currentPeriodEnd: string; // ISO timestamp
@@ -53,6 +60,7 @@ export interface StorageAddonEvent {
 export interface SaleRecordEvent {
   kind: "sale_record";
   accountEmail: string;
+  accountId?: string; // see SubscriptionEvent.accountId
   paddleTransactionId: string;
   paddleSubscriptionId: string | null;
   invoiceNumber: string | null;
@@ -92,6 +100,7 @@ export interface BrandAddonEvent {
   kind: "brand_addon";
   morSubscriptionId: string;
   accountEmail: string;
+  accountId?: string; // see SubscriptionEvent.accountId
   status: "trialing" | "active" | "past_due" | "cancelled";
   currentPeriodEnd: string; // ISO timestamp
 }
@@ -103,6 +112,7 @@ export interface SeatAddonEvent {
   kind: "seat_addon";
   morSubscriptionId: string;
   accountEmail: string;
+  accountId?: string; // see SubscriptionEvent.accountId
   status: "trialing" | "active" | "past_due" | "cancelled";
   currentPeriodEnd: string; // ISO timestamp
 }
@@ -154,5 +164,17 @@ export interface MerchantOfRecordAdapter {
    *  new tier correctly — this is the single source of truth for the
    *  local `subscriptions` row, deliberately not written synchronously
    *  here. */
-  changeSubscriptionTier(morSubscriptionId: string, priceId: string, tier: string, accountEmail: string): Promise<CancelResult>;
+  changeSubscriptionTier(morSubscriptionId: string, priceId: string, tier: string, accountEmail: string, accountId: string): Promise<CancelResult>;
+
+  /** Cancels a subscription EFFECTIVE IMMEDIATELY, not deferred to period
+   *  end like cancelSubscription() above — added 2026-09-01 for the
+   *  chargeback path (billing/sync.ts's recordRefund): a customer who has
+   *  already reversed a payment via their bank should not keep paid access
+   *  for the rest of that period the way a normal self-serve cancel
+   *  promises. Paddle's own docs don't say whether a chargeback already
+   *  auto-cancels the subscription on their side — calling this regardless
+   *  is the defensive choice; confirm against a real Paddle sandbox
+   *  chargeback that calling it on an already-cancelled subscription is a
+   *  safe no-op, not a hard error, before fully trusting this path. */
+  revokeSubscriptionImmediately(morSubscriptionId: string): Promise<CancelResult>;
 }

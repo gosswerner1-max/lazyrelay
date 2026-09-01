@@ -13,6 +13,9 @@ class MockAdapterSucceeds implements MerchantOfRecordAdapter {
   async changeSubscriptionTier(): Promise<CancelResult> {
     return { success: true, errorMessage: null };
   }
+  async revokeSubscriptionImmediately(): Promise<CancelResult> {
+    return { success: true, errorMessage: null };
+  }
 }
 
 class MockAdapterFails implements MerchantOfRecordAdapter {
@@ -23,6 +26,9 @@ class MockAdapterFails implements MerchantOfRecordAdapter {
     return { success: false, errorMessage: "simulated MoR outage" };
   }
   async changeSubscriptionTier(): Promise<CancelResult> {
+    return { success: false, errorMessage: "simulated MoR outage" };
+  }
+  async revokeSubscriptionImmediately(): Promise<CancelResult> {
     return { success: false, errorMessage: "simulated MoR outage" };
   }
 }

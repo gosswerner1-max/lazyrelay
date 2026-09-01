@@ -27,4 +27,9 @@ export class StubMorAdapter implements MerchantOfRecordAdapter {
     console.log(`[stub] would change ${morSubscriptionId} to price ${priceId} (tier ${tier}) with the real MoR`);
     return { success: true, errorMessage: null };
   }
+
+  async revokeSubscriptionImmediately(morSubscriptionId: string): Promise<CancelResult> {
+    console.log(`[stub] would immediately revoke ${morSubscriptionId} with the real MoR`);
+    return { success: true, errorMessage: null };
+  }
 }

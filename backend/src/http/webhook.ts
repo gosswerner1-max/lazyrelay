@@ -51,7 +51,7 @@ export function buildWebhookHandler(morAdapter: MerchantOfRecordAdapter) {
 
     try {
       if (event.kind === "sale_record" || event.kind === "refund_record") {
-        await recordBillingEvent(event);
+        await recordBillingEvent(event, morAdapter);
       } else {
         await syncSubscriptionFromWebhook(event);
       }

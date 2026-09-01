@@ -82,6 +82,11 @@ function buildEventFromCustomData(sub: SubscriptionLike, status: SubscriptionEve
   if (typeof accountEmail !== "string" || !accountEmail) {
     throw new Error(`Subscription ${sub.id} has no customData.accountEmail — was it created via buildCheckoutTransaction?`);
   }
+  // 2026-09-01 audit fix: prefer the stable account UUID over accountEmail
+  // for resolving which account this event belongs to (see
+  // SubscriptionEvent.accountId's doc comment). Optional — an older
+  // transaction created before this fix has no accountId in its customData.
+  const accountId = typeof customData.accountId === "string" && customData.accountId ? customData.accountId : undefined;
   const currentPeriodEnd = sub.currentBillingPeriod?.endsAt ?? new Date().toISOString();
 
   if (customData.kind === "storage_addon") {
@@ -89,22 +94,22 @@ function buildEventFromCustomData(sub: SubscriptionLike, status: SubscriptionEve
     if (typeof gbAmount !== "number" || gbAmount <= 0) {
       throw new Error(`Subscription ${sub.id} has invalid/missing customData.gbAmount "${String(gbAmount)}"`);
     }
-    return { kind: "storage_addon", morSubscriptionId: sub.id, accountEmail, gbAmount, status, currentPeriodEnd };
+    return { kind: "storage_addon", morSubscriptionId: sub.id, accountEmail, accountId, gbAmount, status, currentPeriodEnd };
   }
 
   if (customData.kind === "brand_addon") {
-    return { kind: "brand_addon", morSubscriptionId: sub.id, accountEmail, status, currentPeriodEnd };
+    return { kind: "brand_addon", morSubscriptionId: sub.id, accountEmail, accountId, status, currentPeriodEnd };
   }
 
   if (customData.kind === "seat_addon") {
-    return { kind: "seat_addon", morSubscriptionId: sub.id, accountEmail, status, currentPeriodEnd };
+    return { kind: "seat_addon", morSubscriptionId: sub.id, accountEmail, accountId, status, currentPeriodEnd };
   }
 
   const tier = customData.tier;
   if (typeof tier !== "string" || !(VALID_TIERS as readonly string[]).includes(tier)) {
     throw new Error(`Subscription ${sub.id} has invalid/missing customData.tier "${String(tier)}"`);
   }
-  return { kind: "tier", morSubscriptionId: sub.id, accountEmail, tier: tier as SubscriptionEvent["tier"], status, currentPeriodEnd, occurredAt };
+  return { kind: "tier", morSubscriptionId: sub.id, accountEmail, accountId, tier: tier as SubscriptionEvent["tier"], status, currentPeriodEnd, occurredAt };
 }
 
 interface TransactionTotalsLike {
@@ -144,6 +149,8 @@ function buildSaleRecordEvent(txn: TransactionLike): SaleRecordEvent {
   if (typeof accountEmail !== "string" || !accountEmail) {
     throw new Error(`Transaction ${txn.id} has no customData.accountEmail — was it created via buildCheckoutTransaction?`);
   }
+  // See buildEventFromCustomData's matching comment above.
+  const accountId = typeof customData.accountId === "string" && customData.accountId ? customData.accountId : undefined;
   const totals = txn.details?.totals;
   if (!totals) throw new Error(`Transaction ${txn.id} has no details.totals — cannot record a sale without amounts`);
   const payoutTotals = txn.details?.payoutTotals ?? null;
@@ -151,6 +158,7 @@ function buildSaleRecordEvent(txn: TransactionLike): SaleRecordEvent {
   return {
     kind: "sale_record",
     accountEmail,
+    accountId,
     paddleTransactionId: txn.id,
     paddleSubscriptionId: txn.subscriptionId,
     invoiceNumber: txn.invoiceNumber,
@@ -279,13 +287,25 @@ export class PaddleMorAdapter implements MerchantOfRecordAdapter {
    *  the new tier so the resulting webhook (see MerchantOfRecordAdapter's
    *  doc comment) syncs it correctly — the price change alone wouldn't
    *  tell our own sync code what tier this now is. */
-  async changeSubscriptionTier(morSubscriptionId: string, priceId: string, tier: string, accountEmail: string): Promise<CancelResult> {
+  async changeSubscriptionTier(morSubscriptionId: string, priceId: string, tier: string, accountEmail: string, accountId: string): Promise<CancelResult> {
     try {
       await this.paddle.subscriptions.update(morSubscriptionId, {
         items: [{ priceId, quantity: 1 }],
         prorationBillingMode: "prorated_immediately",
-        customData: { kind: "tier", accountEmail, tier },
+        customData: { kind: "tier", accountEmail, accountId, tier },
       });
+      return { success: true, errorMessage: null };
+    } catch (err) {
+      return { success: false, errorMessage: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
+  /** See MerchantOfRecordAdapter.revokeSubscriptionImmediately's doc
+   *  comment — the chargeback path, distinct from cancelSubscription()'s
+   *  deferred-to-period-end behavior. */
+  async revokeSubscriptionImmediately(morSubscriptionId: string): Promise<CancelResult> {
+    try {
+      await this.paddle.subscriptions.cancel(morSubscriptionId, { effectiveFrom: "immediately" });
       return { success: true, errorMessage: null };
     } catch (err) {
       return { success: false, errorMessage: err instanceof Error ? err.message : String(err) };
@@ -304,10 +324,10 @@ async function getOrCreateCustomerId(paddle: Paddle, email: string): Promise<str
 }
 
 type CheckoutParams =
-  | { kind: "tier"; accountEmail: string; tier: "pro" | "business" | "enterprise" | "agency" | "agency_plus"; priceId: string }
-  | { kind: "storage_addon"; accountEmail: string; gbAmount: number; priceId: string }
-  | { kind: "brand_addon"; accountEmail: string; priceId: string }
-  | { kind: "seat_addon"; accountEmail: string; priceId: string };
+  | { kind: "tier"; accountEmail: string; accountId: string; tier: "pro" | "business" | "enterprise" | "agency" | "agency_plus"; priceId: string }
+  | { kind: "storage_addon"; accountEmail: string; accountId: string; gbAmount: number; priceId: string }
+  | { kind: "brand_addon"; accountEmail: string; accountId: string; priceId: string }
+  | { kind: "seat_addon"; accountEmail: string; accountId: string; priceId: string };
 
 /** Creates a Paddle transaction to check out. Returns the transactionId,
  * which the frontend passes to Paddle.js's `Paddle.Checkout.open({
@@ -331,12 +351,12 @@ export async function buildCheckoutTransaction(
   const customerId = await getOrCreateCustomerId(paddle, params.accountEmail);
   const customData =
     params.kind === "storage_addon"
-      ? { accountEmail: params.accountEmail, kind: "storage_addon", gbAmount: params.gbAmount }
+      ? { accountEmail: params.accountEmail, accountId: params.accountId, kind: "storage_addon", gbAmount: params.gbAmount }
       : params.kind === "brand_addon"
-        ? { accountEmail: params.accountEmail, kind: "brand_addon" }
+        ? { accountEmail: params.accountEmail, accountId: params.accountId, kind: "brand_addon" }
         : params.kind === "seat_addon"
-          ? { accountEmail: params.accountEmail, kind: "seat_addon" }
-          : { accountEmail: params.accountEmail, kind: "tier", tier: params.tier };
+          ? { accountEmail: params.accountEmail, accountId: params.accountId, kind: "seat_addon" }
+          : { accountEmail: params.accountEmail, accountId: params.accountId, kind: "tier", tier: params.tier };
   const transaction = await paddle.transactions.create({
     items: [{ priceId: params.priceId, quantity: 1 }],
     customerId,
