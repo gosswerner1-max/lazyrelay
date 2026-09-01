@@ -386,9 +386,9 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
       <section className="landing-section landing-platforms">
         <h2>Works with</h2>
         <p className="section-note">
-          <strong>The scheduler for the platforms Big Social forgot.</strong> Most tools cover the big four
-          or five platforms and stop. LazyRelay covers Mastodon, Bluesky, Telegram, Discord, and Tumblr too,
-          not as an afterthought.
+          <strong>Mastodon (mastodon.social), Bluesky, Telegram, Discord, and Tumblr, all first-class.</strong> Most
+          schedulers cover the big four or five and stop. We checked seventeen of them. Not one covers
+          all five of these.
         </p>
         <div className="platform-row">
           <PlatformIcon platform="facebook" size={40} />
