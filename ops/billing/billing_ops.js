@@ -10,8 +10,12 @@
 // This is the monitoring/follow-up layer on top of what already lands in
 // the DB via that real flow.
 
+const fs = require("fs");
+const path = require("path");
 const { getMorCredentials, getRenderCredentials } = require("../config/credentials.js");
 const { isInternalTestAccount } = require("../shared/internalTestAccounts.js");
+
+const CHARGEBACK_STATE_PATH = path.join(__dirname, "state", "chargeback_watch.json");
 
 const PAST_DUE_GRACE_HOURS = 24; // money-impacting -> tight loop, same
 // reasoning as Lazy Download's vendor-issue follow-up policy (24h for
@@ -234,4 +238,67 @@ async function checkStorageMargin(supabase) {
   };
 }
 
-module.exports = { getMorStatus, findPastDueNeedingFollowup, planRefund, checkStorageMargin };
+/** Watches for a real chargeback — added 2026-09-01 the same day
+ *  backend/src/billing/sync.ts's chargeback -> revokeSubscriptionImmediately
+ *  path shipped (see the 2026-09-01 payment-webhook-audit project note).
+ *  That code has never been exercised by a real chargeback, so this exists
+ *  purely to make sure the FIRST one actually gets noticed by a human, and
+ *  its outcome checked against the real subscription row — it does not run
+ *  any chargeback logic itself (that already lives in billing/sync.ts,
+ *  triggered directly off the live webhook, not from this daily check).
+ *
+ *  A chargeback lands in `billing_records` as kind="refund" with
+ *  reason="chargeback: <detail>" (see buildRefundRecordEvent in
+ *  billing/paddle.ts) — deliberately excludes chargeback_reverse/
+ *  chargeback_warning, same distinction the revoke code itself makes.
+ *  Tracks which paddle_adjustment_ids have already been reported via a
+ *  small state file, so the same chargeback doesn't re-alert forever once
+ *  seen once. */
+async function checkForNewChargebacks(supabase) {
+  const { data, error } = await supabase
+    .from("billing_records")
+    .select("account_id, paddle_adjustment_id, paddle_transaction_id, paddle_subscription_id, reason, occurred_at")
+    .eq("kind", "refund")
+    .like("reason", "chargeback:%")
+    .order("occurred_at", { ascending: true });
+  if (error) throw error;
+  const rows = data ?? [];
+
+  let seen = new Set();
+  try {
+    const raw = fs.readFileSync(CHARGEBACK_STATE_PATH, "utf8");
+    seen = new Set(JSON.parse(raw).seenAdjustmentIds ?? []);
+  } catch {
+    // No state file yet — first run since this watch was added.
+  }
+
+  const newOnes = rows.filter((r) => !seen.has(r.paddle_adjustment_id));
+
+  // For each new one, check the linked subscription's CURRENT local status —
+  // the whole point of this watch is to confirm revokeSubscriptionImmediately
+  // genuinely worked, not just that the bookkeeping row got written. Note:
+  // the local status only updates once Paddle's own subsequent
+  // subscription.canceled webhook lands, which can trail the chargeback
+  // webhook by some real delay — a still-"active" status here doesn't
+  // necessarily mean the revoke failed, just that it may need a re-check a
+  // few hours later (this function won't re-surface it once marked seen).
+  const newChargebacks = [];
+  for (const row of newOnes) {
+    let subscriptionStatusNow = null;
+    if (row.paddle_subscription_id) {
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("status")
+        .eq("mor_subscription_id", row.paddle_subscription_id)
+        .maybeSingle();
+      subscriptionStatusNow = sub?.status ?? null;
+    }
+    newChargebacks.push({ ...row, subscriptionStatusNow });
+  }
+
+  fs.writeFileSync(CHARGEBACK_STATE_PATH, JSON.stringify({ seenAdjustmentIds: rows.map((r) => r.paddle_adjustment_id) }, null, 2));
+
+  return { newChargebacks, totalEverSeen: rows.length };
+}
+
+module.exports = { getMorStatus, findPastDueNeedingFollowup, planRefund, checkStorageMargin, checkForNewChargebacks };
