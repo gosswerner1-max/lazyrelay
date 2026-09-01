@@ -342,6 +342,15 @@ const FOOTER_BADGES: FooterBadge[] = [
     width: 222,
     height: 48,
   },
+  {
+    href: "https://tinylaunch.com/",
+    rel: "noopener",
+    className: "tinylaunch-badge",
+    imgSrc: "https://tinylaunch.com/tinylaunch_badge_launching_soon.svg",
+    alt: "TinyLaunch Badge",
+    width: 200,
+    height: 54,
+  },
 ];
 
 function FooterBadgeGroup({ ariaHidden }: { ariaHidden?: boolean }) {
