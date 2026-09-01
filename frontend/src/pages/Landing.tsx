@@ -307,6 +307,15 @@ const FOOTER_BADGES: FooterBadge[] = [
     width: 200,
     height: 54,
   },
+  {
+    href: "https://www.foundrlist.com/product/lazyrelay?utm_source=badge&utm_medium=embed",
+    rel: "noopener",
+    className: "foundrlist-badge",
+    imgSrc: "https://www.foundrlist.com/api/badge/lazyrelay",
+    alt: "Featured on FoundrList",
+    width: 150,
+    height: 48,
+  },
 ];
 
 function FooterBadgeGroup({ ariaHidden }: { ariaHidden?: boolean }) {
