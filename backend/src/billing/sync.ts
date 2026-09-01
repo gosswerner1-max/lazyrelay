@@ -206,20 +206,40 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
     // account's genuine first-ever webhook, and .select() tells us which
     // case just happened (PostgREST returns the row it actually inserted;
     // an ON CONFLICT DO NOTHING no-op returns nothing).
-    const { data: inserted, error: insertError } = await supabase
-      .from("subscriptions")
-      .upsert(subscriptionRow, { onConflict: "account_id", ignoreDuplicates: true })
-      .select("account_id");
-    if (insertError) throw insertError;
-    if ((inserted ?? []).length > 0) {
-      winningRow = inserted!;
-    } else {
-      // The insert no-op'd, meaning a row already existed at that moment
-      // too. Closes one remaining gap: a concurrent request could have
-      // inserted that row, with an older occurredAt than ours, in the
-      // window between the two calls above -- re-running the conditional
-      // update catches that case; it's a cheap no-op in every other case.
-      winningRow = await applyIfNewer();
+    try {
+      const { data: inserted, error: insertError } = await supabase
+        .from("subscriptions")
+        .upsert(subscriptionRow, { onConflict: "account_id", ignoreDuplicates: true })
+        .select("account_id");
+      if (insertError) throw insertError;
+      if ((inserted ?? []).length > 0) {
+        winningRow = inserted!;
+      } else {
+        // The insert no-op'd, meaning a row already existed at that moment
+        // too. Closes one remaining gap: a concurrent request could have
+        // inserted that row, with an older occurredAt than ours, in the
+        // window between the two calls above -- re-running the conditional
+        // update catches that case; it's a cheap no-op in every other case.
+        winningRow = await applyIfNewer();
+      }
+    } catch (err) {
+      // FOUND LIVE 2026-09-01 by a real concurrent-webhook test: a 23505
+      // here means a concurrent request's insert landed first and collided
+      // on mor_subscription_id's OWN unique constraint (migration 0001),
+      // not account_id -- ON CONFLICT (account_id) DO NOTHING only guards
+      // the conflict target named in this exact statement, it does nothing
+      // for a different table constraint. Genuinely reachable: Paddle can
+      // fire two lifecycle events sharing the same brand-new subscription
+      // id (e.g. subscription.created and subscription.activated) close
+      // enough together to race before either has left a row behind. Either
+      // way, a real row now exists for this account_id -- re-running the
+      // conditional update resolves correctly regardless of which of the
+      // two concurrent requests actually won the insert.
+      if ((err as { code?: string }).code === "23505") {
+        winningRow = await applyIfNewer();
+      } else {
+        throw err;
+      }
     }
   }
 
