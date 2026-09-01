@@ -316,6 +316,15 @@ const FOOTER_BADGES: FooterBadge[] = [
     width: 150,
     height: 48,
   },
+  {
+    href: "https://nicklaunches.com/products/lazyrelay/?utm_source=lazyrelay.com&utm_medium=badge&utm_campaign=featured",
+    rel: "noopener",
+    className: "nicklaunches-badge",
+    imgSrc: "https://nicklaunches.com/badges/featured.png",
+    alt: "LazyRelay on Nick Launches",
+    width: 244,
+    height: 56,
+  },
 ];
 
 function FooterBadgeGroup({ ariaHidden }: { ariaHidden?: boolean }) {

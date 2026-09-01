@@ -17,6 +17,10 @@
   # this policy was already covered by the draft. This is now enforcing --
   # re-verify with a fresh (non-payment) checkout-overlay open after any
   # change to this header, since Paddle can add domains without notice.
+  # Nick Launches badge host (nicklaunches.com) added 2026-09-01, same
+  # reason as the rest -- an unlisted host here means the footer badge
+  # silently fails to render for every real visitor even though curl
+  # never catches it.
   # img-src widened 2026-08-29 -- real bug found, not a third-party
   # flakiness issue as earlier notes assumed: the footer's Startup Fame and
   # Smol Launch badges were silently failing to load for every real visitor
@@ -46,7 +50,7 @@
   # rankinpublic.xyz while X-Frame-Options still blocks every other origin
   # and still protects any browser old enough not to understand CSP framing
   # directives at all.
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://challenges.cloudflare.com https://cdn.paddle.com https://public.profitwell.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://startupfa.me https://smollaunch.com https://img.turbo0.com https://saascubes.com https://listmysaas.xyz https://findly.tools https://fazier.com https://twelve.tools https://wired.business https://cdn-b.saashub.com https://web-review.com https://www.scrolllaunch.com https://saasbison.com https://www.foundrlist.com; font-src 'self'; connect-src 'self' https://qbmejnmyqogotdzzzyvj.supabase.co https://lazyrelaylazyrelay-backend.onrender.com https://www.google-analytics.com https://region1.google-analytics.com https://buy.paddle.com; frame-src 'self' https://challenges.cloudflare.com https://buy.paddle.com; frame-ancestors 'self' https://rankinpublic.xyz; object-src 'none'; base-uri 'self'"
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://challenges.cloudflare.com https://cdn.paddle.com https://public.profitwell.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://startupfa.me https://smollaunch.com https://img.turbo0.com https://saascubes.com https://listmysaas.xyz https://findly.tools https://fazier.com https://twelve.tools https://wired.business https://cdn-b.saashub.com https://web-review.com https://www.scrolllaunch.com https://saasbison.com https://www.foundrlist.com https://nicklaunches.com; font-src 'self'; connect-src 'self' https://qbmejnmyqogotdzzzyvj.supabase.co https://lazyrelaylazyrelay-backend.onrender.com https://www.google-analytics.com https://region1.google-analytics.com https://buy.paddle.com; frame-src 'self' https://challenges.cloudflare.com https://buy.paddle.com; frame-ancestors 'self' https://rankinpublic.xyz; object-src 'none'; base-uri 'self'"
   # Forces HTTPS on every future visit, including the very first navigation
   # typed as http://. 1 year, includeSubDomains — the site has no non-HTTPS
   # subdomains that need to stay reachable over plain http.
