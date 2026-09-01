@@ -288,8 +288,13 @@ const FOOTER_BADGES: FooterBadge[] = [
     href: "https://www.scrolllaunch.com/products/lazyrelay?ref=badge",
     rel: "noopener",
     className: "scrolllaunch-badge",
-    imgSrc: "https://www.scrolllaunch.com/api/badge/lazyrelay",
-    alt: "Featured on ScrollLaunch",
+    // 2026-09-01: swapped for the exact URL ScrollLaunch's own post-
+    // verification confirmation email recommends (the bare URL from the
+    // pre-verification modal has no variant/theme params -- functionally
+    // worked, verification already passed, but this is their current
+    // authoritative instruction and matches our dark footer explicitly).
+    imgSrc: "https://www.scrolllaunch.com/api/badge/lazyrelay?variant=featured&theme=light",
+    alt: "LazyRelay - Featured on ScrollLaunch",
     width: 220,
     height: 48,
   },
