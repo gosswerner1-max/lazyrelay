@@ -325,6 +325,14 @@ const FOOTER_BADGES: FooterBadge[] = [
     width: 244,
     height: 56,
   },
+  {
+    href: "https://goodaitools.com/ai/lazyrelay",
+    rel: "noopener",
+    className: "goodaitools-badge",
+    imgSrc: "https://goodaitools.com/assets/images/badge.png",
+    alt: "Good AI Tools",
+    height: 54,
+  },
 ];
 
 function FooterBadgeGroup({ ariaHidden }: { ariaHidden?: boolean }) {
