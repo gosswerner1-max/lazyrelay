@@ -351,6 +351,15 @@ const FOOTER_BADGES: FooterBadge[] = [
     width: 200,
     height: 54,
   },
+  {
+    href: "https://viberank.dev/apps/LazyRelay",
+    rel: "noopener noreferrer",
+    className: "viberank-badge",
+    imgSrc: "https://viberank.dev/badge?app=LazyRelay&theme=dark",
+    alt: "LazyRelay on VibeRank",
+    width: 220,
+    height: 60,
+  },
 ];
 
 function FooterBadgeGroup({ ariaHidden }: { ariaHidden?: boolean }) {
