@@ -165,6 +165,148 @@ const COMPARISON = [
 // re-confirming a platform's status in its own dashboard, not from memory.
 const REVIEWED_PLATFORMS = ["pinterest", "tiktok", "youtube", "facebook"] as const;
 
+// Directory-badge campaign (2026-08-27 onward) -- one entry per free-tier
+// directory that gates its dofollow backlink on this badge staying live on
+// the site. Kept data-driven (2026-09-01, was a hand-copied JSX block per
+// badge) so the scrolling strip below can render two identical copies for a
+// seamless CSS marquee loop without duplicating markup by hand -- adding the
+// 11th+ badge is now one array entry, not a copy-pasted <a><img> block.
+// Deliberately NOT loading="lazy": that attribute is why three separate
+// directories' own verification crawlers failed to detect this badge in
+// 2026-08 (a renderer that doesn't scroll ~24,000px down the page, or
+// duplicate-copy #2 of the marquee, never fires the lazy-load network
+// request) -- see Active Priorities' "drop loading=lazy" item, resolved by
+// this redesign rather than left open.
+interface FooterBadge {
+  href: string;
+  rel: string;
+  className: string;
+  imgSrc: string;
+  alt: string;
+  width?: number;
+  height?: number;
+}
+
+const FOOTER_BADGES: FooterBadge[] = [
+  {
+    href: "https://startupfa.me/s/lazyrelay?utm_source=lazyrelay.com",
+    rel: "noopener noreferrer",
+    className: "startup-fame-badge",
+    imgSrc: "https://startupfa.me/badges/featured-badge-small.webp",
+    alt: "LazyRelay - Featured on Startup Fame",
+    width: 224,
+    height: 36,
+  },
+  {
+    href: "https://smollaunch.com",
+    rel: "noopener noreferrer",
+    className: "smol-launch-badge",
+    imgSrc: "https://smollaunch.com/badges/featured.svg",
+    alt: "LazyRelay - Featured on Smol Launch",
+    width: 250,
+    height: 60,
+  },
+  {
+    href: "https://turbo0.com/item/lazyrelay",
+    rel: "noopener noreferrer",
+    className: "turbo0-badge",
+    imgSrc: "https://img.turbo0.com/badge-listed-light.svg",
+    alt: "Listed on Turbo0",
+    height: 54,
+  },
+  {
+    href: "https://saascubes.com",
+    rel: "noopener noreferrer",
+    className: "saascubes-badge",
+    imgSrc: "https://saascubes.com/images/badges/badge-light.png",
+    alt: "Listed on SaaS Cubes",
+    width: 175,
+    height: 54,
+  },
+  {
+    href: "https://listmysaas.xyz/",
+    rel: "dofollow noopener",
+    className: "listmysaas-badge",
+    imgSrc: "https://listmysaas.xyz/listmysaasbadgenormal.svg",
+    alt: "Featured on ListMySaaS",
+    width: 125,
+    height: 44,
+  },
+  {
+    href: "https://findly.tools/lazyrelay?utm_source=lazyrelay",
+    rel: "noopener noreferrer",
+    className: "findly-tools-badge",
+    imgSrc: "https://findly.tools/badges/findly-tools-badge-light.svg",
+    alt: "Featured on Findly.tools",
+    width: 150,
+  },
+  {
+    href: "https://fazier.com/launches/lazyrelay.com",
+    rel: "noopener noreferrer",
+    className: "fazier-badge",
+    imgSrc: "https://fazier.com/api/v1/public/badges/launch_badges.svg?badge_type=featured&theme=light",
+    alt: "Fazier badge",
+    width: 250,
+  },
+  {
+    href: "https://twelve.tools/",
+    rel: "noopener noreferrer",
+    className: "twelve-tools-badge",
+    imgSrc: "https://twelve.tools/badge0-white.svg",
+    alt: "Featured on Twelve Tools",
+    width: 148,
+    height: 40,
+  },
+  {
+    href: "https://wired.business/",
+    rel: "noopener noreferrer",
+    className: "wired-business-badge",
+    imgSrc: "https://wired.business/badge0-white.svg",
+    alt: "Featured on Wired Business",
+    width: 200,
+    height: 54,
+  },
+  {
+    href: "https://www.saashub.com/lazyrelay?utm_source=badge&utm_campaign=badge&utm_content=lazyrelay&badge_variant=color&badge_kind=approved",
+    rel: "noopener noreferrer",
+    className: "saashub-badge",
+    imgSrc: "https://cdn-b.saashub.com/img/badges/approved-color.png?v=1",
+    alt: "LazyRelay badge - Approved on SaaSHub",
+    width: 150,
+    height: 50,
+  },
+  {
+    href: "https://web-review.com",
+    rel: "noopener noreferrer dofollow",
+    className: "web-review-badge",
+    imgSrc: "https://web-review.com/badge.png",
+    alt: "Featured on Web Review",
+    width: 200,
+    height: 54,
+  },
+  {
+    href: "https://www.scrolllaunch.com/products/lazyrelay?ref=badge",
+    rel: "noopener",
+    className: "scrolllaunch-badge",
+    imgSrc: "https://www.scrolllaunch.com/api/badge/lazyrelay",
+    alt: "Featured on ScrollLaunch",
+    width: 220,
+    height: 48,
+  },
+];
+
+function FooterBadgeGroup({ ariaHidden }: { ariaHidden?: boolean }) {
+  return (
+    <div className="landing-footer-badges-group" aria-hidden={ariaHidden || undefined}>
+      {FOOTER_BADGES.map((badge) => (
+        <a key={badge.className} href={badge.href} target="_blank" rel={badge.rel} className={badge.className} tabIndex={ariaHidden ? -1 : undefined}>
+          <img src={badge.imgSrc} alt={badge.alt} width={badge.width} height={badge.height} />
+        </a>
+      ))}
+    </div>
+  );
+}
+
 const FAQ = [
   {
     q: "What does LazyRelay actually do?",
@@ -601,158 +743,11 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
             separate JSX children -- same class of issue as the zapier-callout
             comment above, same fix. */}
         <p>{`© ${new Date().getFullYear()} LazyRelay. All rights reserved.`}</p>
-        <div className="landing-footer-badges">
-          <a
-            href="https://startupfa.me/s/lazyrelay?utm_source=lazyrelay.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="startup-fame-badge"
-          >
-            <img
-              src="https://startupfa.me/badges/featured-badge-small.webp"
-              alt="LazyRelay - Featured on Startup Fame"
-              width={224}
-              height={36}
-            />
-          </a>
-          <a
-            href="https://smollaunch.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="smol-launch-badge"
-          >
-            <img
-              src="https://smollaunch.com/badges/featured.svg"
-              alt="LazyRelay - Featured on Smol Launch"
-              width={250}
-              height={60}
-              loading="lazy"
-            />
-          </a>
-          <a
-            href="https://turbo0.com/item/lazyrelay"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="turbo0-badge"
-          >
-            <img
-              src="https://img.turbo0.com/badge-listed-light.svg"
-              alt="Listed on Turbo0"
-              height={54}
-              loading="lazy"
-            />
-          </a>
-          <a
-            href="https://saascubes.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Listed on SaaS Cubes"
-            className="saascubes-badge"
-          >
-            <img
-              src="https://saascubes.com/images/badges/badge-light.png"
-              alt="Listed on SaaS Cubes"
-              width={175}
-              height={54}
-              loading="lazy"
-            />
-          </a>
-          <a
-            href="https://listmysaas.xyz/"
-            target="_blank"
-            rel="dofollow noopener"
-            className="listmysaas-badge"
-          >
-            <img
-              src="https://listmysaas.xyz/listmysaasbadgenormal.svg"
-              alt="Featured on ListMySaaS"
-              width={125}
-              height={44}
-              loading="lazy"
-            />
-          </a>
-          <a
-            href="https://findly.tools/lazyrelay?utm_source=lazyrelay"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="findly-tools-badge"
-          >
-            <img
-              src="https://findly.tools/badges/findly-tools-badge-light.svg"
-              alt="Featured on Findly.tools"
-              width={150}
-              loading="lazy"
-            />
-          </a>
-          <a
-            href="https://fazier.com/launches/lazyrelay.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="fazier-badge"
-          >
-            <img
-              src="https://fazier.com/api/v1/public/badges/launch_badges.svg?badge_type=featured&theme=light"
-              alt="Fazier badge"
-              width={250}
-              loading="lazy"
-            />
-          </a>
-          <a
-            href="https://twelve.tools/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="twelve-tools-badge"
-          >
-            <img
-              src="https://twelve.tools/badge0-white.svg"
-              alt="Featured on Twelve Tools"
-              width={148}
-              height={40}
-              loading="lazy"
-            />
-          </a>
-          <a
-            href="https://wired.business/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="wired-business-badge"
-          >
-            <img
-              src="https://wired.business/badge0-white.svg"
-              alt="Featured on Wired Business"
-              width={200}
-              height={54}
-              loading="lazy"
-            />
-          </a>
-          <a
-            href="https://www.saashub.com/lazyrelay?utm_source=badge&utm_campaign=badge&utm_content=lazyrelay&badge_variant=color&badge_kind=approved"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="saashub-badge"
-          >
-            <img
-              src="https://cdn-b.saashub.com/img/badges/approved-color.png?v=1"
-              alt="LazyRelay badge - Approved on SaaSHub"
-              width={150}
-              height={50}
-              loading="lazy"
-            />
-          </a>
-          <a
-            href="https://web-review.com"
-            target="_blank"
-            rel="noopener noreferrer dofollow"
-            className="web-review-badge"
-          >
-            <img
-              src="https://web-review.com/badge.png"
-              alt="Featured on Web Review"
-              width={200}
-              height={54}
-              loading="lazy"
-            />
-          </a>
+        <div className="landing-footer-badges-viewport">
+          <div className="landing-footer-badges-track">
+            <FooterBadgeGroup />
+            <FooterBadgeGroup ariaHidden />
+          </div>
         </div>
       </footer>
       <SupportWidget context="public" />

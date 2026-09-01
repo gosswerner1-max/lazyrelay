@@ -1543,13 +1543,60 @@ button[type="submit"]:not(.btn-outline),
   font-size: 13px;
 }
 
-.landing-footer-badges {
+/* Directory-badge marquee (2026-09-01) -- replaced the old wrapping flex
+   row (landing-footer-badges) once the badge count reached 11 and kept
+   growing. Two identical .landing-footer-badges-group copies sit side by
+   side inside one flex track; animating the track by exactly -50% (one
+   group's width) loops seamlessly back to the start with no visible seam,
+   the standard CSS marquee technique. The mask fades both edges so badges
+   don't hard-cut at the viewport boundary. */
+.landing-footer-badges-viewport {
+  overflow: hidden;
+  width: 100%;
+  -webkit-mask-image: linear-gradient(to right, transparent, black 48px, black calc(100% - 48px), transparent);
+  mask-image: linear-gradient(to right, transparent, black 48px, black calc(100% - 48px), transparent);
+}
+
+.landing-footer-badges-track {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
+  width: max-content;
+  animation: landing-footer-badges-scroll 36s linear infinite;
+}
+
+.landing-footer-badges-viewport:hover .landing-footer-badges-track {
+  animation-play-state: paused;
+}
+
+.landing-footer-badges-group {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 16px;
+  gap: 32px;
+  padding-right: 32px;
+}
+
+@keyframes landing-footer-badges-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Users who've asked the OS/browser to reduce motion get a static, wrapped
+   row instead -- the second (aria-hidden, duplicate) group is hidden so it
+   doesn't just sit there as visible duplicate content. */
+@media (prefers-reduced-motion: reduce) {
+  .landing-footer-badges-track {
+    animation: none;
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .landing-footer-badges-group:nth-child(2) {
+    display: none;
+  }
 }
 
 .landing-footer-links a {
