@@ -739,6 +739,20 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
               loading="lazy"
             />
           </a>
+          <a
+            href="https://web-review.com"
+            target="_blank"
+            rel="noopener noreferrer dofollow"
+            className="web-review-badge"
+          >
+            <img
+              src="https://web-review.com/badge.png"
+              alt="Featured on Web Review"
+              width={200}
+              height={54}
+              loading="lazy"
+            />
+          </a>
         </div>
       </footer>
       <SupportWidget context="public" />
