@@ -80,6 +80,25 @@ async function resolveAdminKeyId(key: string): Promise<string | null> {
   return data.id;
 }
 
+/** Narrow, read-only "is this a real, non-revoked admin key?" check, used
+ *  ONLY to decide whether to include non-sensitive build metadata in a
+ *  response (see /health in app.ts). Never to authorize an action.
+ *
+ *  Deliberately does NOT go through requireAdmin/authorizeAdminRequest.
+ *  Those auto-REVOKE the key when it's presented without a registered job
+ *  header or an open human intent window — correct for routes that DO
+ *  something, but catastrophic on a liveness probe: any health check that
+ *  happened to carry the admin key would silently destroy it. This check
+ *  resolves the key hash and stops there.
+ *
+ *  Anything that actually does something still uses requireAdmin. If you
+ *  are tempted to reuse this for that, don't — you'd be dropping the
+ *  leaked-key guard that migration 0037 exists to provide. */
+export async function isKnownAdminKey(key: string | undefined): Promise<boolean> {
+  if (typeof key !== "string" || !key) return false;
+  return (await resolveAdminKeyId(key)) !== null;
+}
+
 /** Best-effort audit trail for every admin-key request — never blocks or
  *  fails the real request, same fire-and-forget pattern as the
  *  last_used_at updates above. A key this powerful needs a real record of

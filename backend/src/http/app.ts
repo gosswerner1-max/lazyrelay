@@ -6,6 +6,7 @@ import { buildRouter } from "./routes.js";
 import { buildMfaRecoveryRouter } from "./mfaRecovery.js";
 import { buildWebhookHandler } from "./webhook.js";
 import { mountMcp } from "./mcpRoutes.js";
+import { isKnownAdminKey } from "./auth.js";
 import { supabase } from "../supabase.js";
 import type { MerchantOfRecordAdapter } from "../billing/types.js";
 import type { PlatformAdapterRegistry } from "../platforms/connect.js";
@@ -94,10 +95,55 @@ export function buildApp(
   // own domain, a scheduler-lag query) — those are fine for a customer-
   // facing status page polled occasionally, not for a liveness probe Render
   // may hit every few seconds.
-  app.get("/health", async (_req, res) => {
+  //
+  // Deploy verification (2026-09-01): the response also carries the live
+  // commit SHA, but ONLY for a caller holding a real admin key. The public
+  // response stays exactly {status:"ok"}.
+  //
+  // Why gated rather than public: the GitHub repo is public, so a commit
+  // SHA on an unauthenticated endpoint tells anyone precisely which code is
+  // running — most usefully to an attacker, whether a given security fix
+  // has shipped yet. Gating costs nothing, because the only consumer that
+  // needs it is our own deploy verification; Render's probe and
+  // ops/health/health_ops.js both read `status` alone.
+  //
+  // The reason this exists at all: verifying the 2026-09-01 business-name
+  // deploy took a detour through pg_stat_statements, because that change
+  // was behaviourally invisible and nothing exposed the running build.
+  //
+  // isKnownAdminKey, NOT requireAdmin — see its doc comment in auth.ts. The
+  // admin-key guard auto-revokes on use without a registered job, which on
+  // a liveness probe would destroy the key.
+  app.get("/health", async (req, res) => {
     try {
       const { error } = await supabase.from("accounts").select("id", { head: true, count: "exact" }).limit(1);
       if (error) throw error;
+      // Only runs when a key is actually presented, and can never fail the
+      // probe: Render's own health check sends no Authorization header, so
+      // it does no extra work and takes on no extra risk here. The
+      // try/catch is deliberate belt-and-braces — a liveness probe must not
+      // become less reliable because we added a debugging convenience, so
+      // any failure resolving the key degrades to the plain response rather
+      // than reporting the service unhealthy.
+      const presentedKey = req.header("authorization")?.replace(/^Bearer\s+/i, "");
+      if (presentedKey) {
+        try {
+          if (await isKnownAdminKey(presentedKey)) {
+            // RENDER_GIT_COMMIT/BRANCH are injected by Render at runtime;
+            // both are absent locally, hence explicit nulls rather than
+            // omitting the keys — "running locally" and "couldn't
+            // determine" should not read as a successful lookup.
+            res.json({
+              status: "ok",
+              commit: process.env.RENDER_GIT_COMMIT ?? null,
+              branch: process.env.RENDER_GIT_BRANCH ?? null,
+            });
+            return;
+          }
+        } catch (keyErr) {
+          console.error("Health check: admin-key lookup failed, returning plain status:", keyErr instanceof Error ? keyErr.message : keyErr);
+        }
+      }
       res.json({ status: "ok" });
     } catch (err) {
       console.error("Health check failed — database unreachable:", err instanceof Error ? err.message : err);
