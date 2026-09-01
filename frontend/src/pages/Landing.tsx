@@ -333,6 +333,15 @@ const FOOTER_BADGES: FooterBadge[] = [
     alt: "Good AI Tools",
     height: 54,
   },
+  {
+    href: "https://openhunts.com/",
+    rel: "noopener",
+    className: "openhunts-badge",
+    imgSrc: "https://cdn.openhunts.com/badges/club.webp",
+    alt: "OpenHunts Club Member",
+    width: 222,
+    height: 48,
+  },
 ];
 
 function FooterBadgeGroup({ ariaHidden }: { ariaHidden?: boolean }) {
