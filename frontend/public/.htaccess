@@ -37,7 +37,16 @@
   # SaaSHub badge host (cdn-b.saashub.com) added 2026-08-31, same reason as
   # the rest -- an unlisted host here means the footer badge silently fails
   # to render for every real visitor even though curl never catches it.
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://challenges.cloudflare.com https://cdn.paddle.com https://public.profitwell.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://startupfa.me https://smollaunch.com https://img.turbo0.com https://saascubes.com https://listmysaas.xyz https://findly.tools https://fazier.com https://twelve.tools https://wired.business https://cdn-b.saashub.com https://web-review.com https://www.scrolllaunch.com https://saasbison.com https://www.foundrlist.com; font-src 'self'; connect-src 'self' https://qbmejnmyqogotdzzzyvj.supabase.co https://lazyrelaylazyrelay-backend.onrender.com https://www.google-analytics.com https://region1.google-analytics.com https://buy.paddle.com; frame-src 'self' https://challenges.cloudflare.com https://buy.paddle.com; object-src 'none'; base-uri 'self'"
+  # frame-ancestors added 2026-09-01: RankInPublic's tournament voting page
+  # needs to preview lazyrelay.com in an iframe on their own domain, which
+  # the X-Frame-Options: SAMEORIGIN header below blocks outright. Rather than
+  # remove that header (their literal instruction), scoped an exception here
+  # instead -- modern browsers give CSP's frame-ancestors priority over
+  # X-Frame-Options whenever both are present, so this unblocks exactly
+  # rankinpublic.xyz while X-Frame-Options still blocks every other origin
+  # and still protects any browser old enough not to understand CSP framing
+  # directives at all.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://challenges.cloudflare.com https://cdn.paddle.com https://public.profitwell.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://startupfa.me https://smollaunch.com https://img.turbo0.com https://saascubes.com https://listmysaas.xyz https://findly.tools https://fazier.com https://twelve.tools https://wired.business https://cdn-b.saashub.com https://web-review.com https://www.scrolllaunch.com https://saasbison.com https://www.foundrlist.com; font-src 'self'; connect-src 'self' https://qbmejnmyqogotdzzzyvj.supabase.co https://lazyrelaylazyrelay-backend.onrender.com https://www.google-analytics.com https://region1.google-analytics.com https://buy.paddle.com; frame-src 'self' https://challenges.cloudflare.com https://buy.paddle.com; frame-ancestors 'self' https://rankinpublic.xyz; object-src 'none'; base-uri 'self'"
   # Forces HTTPS on every future visit, including the very first navigation
   # typed as http://. 1 year, includeSubDomains — the site has no non-HTTPS
   # subdomains that need to stay reachable over plain http.
