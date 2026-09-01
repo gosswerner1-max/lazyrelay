@@ -956,12 +956,22 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // Public, pre-signup availability check (2026-08-30) — no auth exists yet
   // at this point (see AuthContext.tsx's signUp), so this can't be a
   // duplicate-name check on an authed route the way PATCH /account's is.
-  // Reads every non-null business_name once and compares in JS rather than
-  // one query per candidate — at LazyRelay's actual account volume this is
-  // a single small text column, not worth the fragility of building a
-  // PostgREST OR-filter string out of untrusted, possibly comma/paren-
-  // containing business names. Suggestions are plain numeric suffixes,
-  // capped at 80 chars total to match the field's own limit.
+  //
+  // Until 2026-09-01 this read EVERY non-null business_name into memory on
+  // each call and compared in JS. That was a deliberate trade, not an
+  // oversight: building a PostgREST OR-filter out of untrusted names is
+  // genuinely fragile, since commas and parens are filter syntax. But this
+  // route is unauthenticated AND fires on every keystroke batch during
+  // signup, so the cost of each anonymous request grew with the accounts
+  // table. Moved into check_business_name_available() (migration 0077),
+  // which avoids the filter-string hazard entirely rather than walking into
+  // it — every candidate is a bound value and the lookup rides
+  // accounts_lower_business_name_idx (migration 0074). At most 6 index hits
+  // per call instead of a full scan; response shape unchanged.
+  //
+  // The three guards below still run in Node, before the DB is touched.
+  // isReservedBusinessName in particular must NOT be duplicated into SQL —
+  // PATCH /account shares it, and two implementations would drift.
   router.post("/public/signup/check-business-name", publicRateLimit, async (req, res) => {
     const raw = typeof req.body?.businessName === "string" ? req.body.businessName.trim() : "";
     if (!raw) {
@@ -980,24 +990,12 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.json({ available: false, reason: "reserved" });
       return;
     }
-    const { data, error } = await supabase.from("accounts").select("business_name").not("business_name", "is", null);
+    const { data, error } = await supabase.rpc("check_business_name_available", { p_name: raw });
     if (error) {
       dbError(res, error, "POST /public/signup/check-business-name");
       return;
     }
-    const taken = new Set((data ?? []).map((row) => (row.business_name as string).toLowerCase()));
-    if (!taken.has(raw.toLowerCase())) {
-      res.json({ available: true });
-      return;
-    }
-    const suggestions: string[] = [];
-    for (let n = 2; n <= 6 && suggestions.length < 3; n++) {
-      const suffix = ` ${n}`;
-      const base = raw.length + suffix.length > 80 ? raw.slice(0, 80 - suffix.length) : raw;
-      const candidate = `${base}${suffix}`;
-      if (!taken.has(candidate.toLowerCase())) suggestions.push(candidate);
-    }
-    res.json({ available: false, reason: "taken", suggestions });
+    res.json(data);
   });
 
   // Public Proof-of-Publish verification page — no auth, this is what
