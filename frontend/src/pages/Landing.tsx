@@ -357,8 +357,8 @@ const FOOTER_BADGES: FooterBadge[] = [
     className: "viberank-badge",
     imgSrc: "https://viberank.dev/badge?app=LazyRelay&theme=dark",
     alt: "LazyRelay on VibeRank",
-    width: 220,
-    height: 60,
+    width: 250,
+    height: 54,
   },
 ];
 
