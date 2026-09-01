@@ -298,6 +298,15 @@ const FOOTER_BADGES: FooterBadge[] = [
     width: 220,
     height: 48,
   },
+  {
+    href: "https://saasbison.com",
+    rel: "dofollow",
+    className: "saasbison-badge",
+    imgSrc: "https://saasbison.com/badge.png",
+    alt: "Featured on SaaSBison",
+    width: 200,
+    height: 54,
+  },
 ];
 
 function FooterBadgeGroup({ ariaHidden }: { ariaHidden?: boolean }) {
