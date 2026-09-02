@@ -53,8 +53,7 @@
 
 <h2>Setup</h2>
 <ol>
-  <li>In your LazyRelay dashboard, go to <strong>API Keys</strong> (top nav) and confirm you're on a paid plan &mdash; Starter and up.</li>
-  <li>From a terminal, run:
+    <li>From a terminal, run:
   <pre><code>gemini mcp add --transport http lazyrelay https://lazyrelaylazyrelay-backend.onrender.com/mcp</code></pre>
   </li>
   <li>Gemini CLI detects that the server requires OAuth (it responds with a 401) and walks you through signing in with your LazyRelay account automatically &mdash; no client ID or secret to configure by hand.</li>
@@ -63,7 +62,7 @@
 <p class="note">This adds the server to your user-level config (<code>~/.gemini/settings.json</code>); add <code>-s project</code> to the command instead to scope it to the current project's <code>.gemini/settings.json</code>. Full tool reference (<code>list_connected_accounts</code>, <code>list_workspaces</code>, <code>schedule_post</code>, <code>publish_post_now</code>, <code>update_post</code>, <code>list_scheduled_posts</code>, <code>delete_scheduled_post</code>, <code>get_analytics_summary</code>, <code>get_mentions</code>) at <a href="/docs">lazyrelay.com/docs</a>.</p>
 
 <div class="cta-box">
-  <p style="margin-top:0;"><strong>Don't have an API key yet?</strong> Generate one from your dashboard's Settings tab &mdash; available on every paid plan (Starter, Pro, Business, Agency, and Agency Plus).</p>
+  <p style="margin-top:0;"><strong>Don't have an API key yet?</strong> Generate one from your dashboard's Settings tab &mdash; available on every plan, including Free.</p>
   <a class="button" href="/pricing">See plans and get started free</a>
 </div>
 

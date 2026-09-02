@@ -53,7 +53,7 @@
 
 <h2>Setup</h2>
 <ol>
-  <li>In your LazyRelay dashboard, go to <strong>API Keys</strong> (top nav) and create a new key. Requires a paid plan — Starter and up. Copy it now, it's only shown once.</li>
+  <li>In your LazyRelay dashboard, go to <strong>API Keys</strong> (top nav) and create a new key — available on every plan, including Free. Copy it now, it's only shown once.</li>
   <li>Codex CLI reads its MCP servers from its config file (<code>~/.codex/config.toml</code>). Add a block like:
   <pre><code>[mcp_servers.lazyrelay]
 command = "npx"
@@ -66,7 +66,7 @@ env = { LAZYRELAY_API_KEY = "lzr_live_your_key_here" }</code></pre>
 <p class="note">Prefer nothing running locally? LazyRelay also runs a hosted MCP server at <code>https://lazyrelaylazyrelay-backend.onrender.com/mcp</code> — point Codex's config at that URL instead and skip the API key, if your version of Codex CLI supports remote MCP servers. Full tool reference (<code>list_connected_accounts</code>, <code>list_workspaces</code>, <code>schedule_post</code>, <code>publish_post_now</code>, <code>update_post</code>, <code>list_scheduled_posts</code>, <code>delete_scheduled_post</code>, <code>get_analytics_summary</code>, <code>get_mentions</code>) at <a href="/docs">lazyrelay.com/docs</a>.</p>
 
 <div class="cta-box">
-  <p style="margin-top:0;"><strong>Don't have an API key yet?</strong> Generate one from your dashboard's Settings tab &mdash; available on every paid plan (Starter, Pro, Business, Agency, and Agency Plus).</p>
+  <p style="margin-top:0;"><strong>Don't have an API key yet?</strong> Generate one from your dashboard's Settings tab &mdash; available on every plan, including Free.</p>
   <a class="button" href="/pricing">See plans and get started free</a>
 </div>
 

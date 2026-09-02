@@ -4495,16 +4495,18 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // them, so a leaked key can't be used to self-escalate into permanent
   // access if the original key is later revoked.
   router.post("/api-keys", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
-    // Pricing has always advertised "AI-agent / MCP access" as a paid-tier
-    // perk, but this route had no tier check at all until now (found live
-    // by a site audit, confirmed as a real gap by Werner 2026-08-10, not
-    // just stale copy) -- same paid-tier-gate pattern already used for
-    // recurring schedules and storage add-ons above.
-    const tier = await resolveTier(req.accountId!);
-    if (tier === "free") {
-      res.status(403).json({ error: "API keys are a paid-tier feature. Upgrade to Starter, Pro, or Business for API and MCP access." });
-      return;
-    }
+    // AI-agent / MCP access opened to every tier including Free 2026-09-02
+    // (Werner's call, after a competitor audit found 3 of 5 competitors
+    // with a real free plan already give this away free). The paid-tier
+    // block that used to live here is gone on purpose, not a missed spot --
+    // the hosted (OAuth) MCP path already had no equivalent check at all
+    // (mcpAuth.ts verifies the token, not the tier), so this was the one
+    // remaining place Free was actually blocked; removing it makes both
+    // paths consistent instead of adding a new gate to the other one.
+    // Free-tier usage is still bounded by the same real limits everyone
+    // else has: tieredRateLimit's 60 req/min ceiling and the free-tier
+    // post-count cap enforced in scheduleOnePost/checkFreeTierPostLimit --
+    // an API key doesn't bypass either.
     const { name, canShareProof } = req.body ?? {};
     if (typeof name !== "string" || name.trim().length === 0) {
       res.status(400).json({ error: "name is required" });

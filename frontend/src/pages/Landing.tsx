@@ -82,7 +82,7 @@ const PRICING = [
     name: "Free",
     price: "$0",
     note: "Get started, no card required",
-    features: ["3 connected accounts", "1 brand", "10 posts per account, refillable", "One-time scheduled posts only", "250MB storage", "Proof-of-Publish verification"],
+    features: ["3 connected accounts", "1 brand", "10 posts per account, refillable", "One-time scheduled posts only", "250MB storage", "AI-agent / MCP access", "Proof-of-Publish verification"],
     cta: "Get started free",
   },
   {

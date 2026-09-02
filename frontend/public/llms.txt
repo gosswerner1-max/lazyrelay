@@ -2,7 +2,7 @@
 
 > Schedule social posts across 12 platforms and independently verify each one actually went live — not just that it was sent.
 
-LazyRelay is a social media scheduling platform built around Proof-of-Publish: instead of marking a post "sent" the moment an API call is accepted, it independently re-checks each platform afterward to confirm the post is genuinely live. A free tier is available with no card required; AI-agent and MCP access is included on paid plans.
+LazyRelay is a social media scheduling platform built around Proof-of-Publish: instead of marking a post "sent" the moment an API call is accepted, it independently re-checks each platform afterward to confirm the post is genuinely live. A free tier is available with no card required, and AI-agent/MCP access is included on every plan, including Free.
 
 ## Docs
 
