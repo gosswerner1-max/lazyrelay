@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>In the Works | LazyRelay</title>
+<meta name="description" content="What LazyRelay is building next: in progress and planned, in plain language." />
+<link rel="canonical" href="https://lazyrelay.com/in-the-works" />
+<link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 18px; margin-top: 36px; margin-bottom: 4px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 8px; }
+  .section-note { font-size: 14px; color: #5b6472; margin-top: 0; margin-bottom: 16px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .item-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+  .item { border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 16px; }
+  .item .tag { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 2px 8px; border-radius: 999px; margin-bottom: 6px; }
+  .tag-progress { background: rgba(31, 157, 104, 0.12); color: #1f9d68; }
+  .tag-planned { background: #f0f1f3; color: #5b6472; }
+  .item h3 { font-family: Georgia, serif; color: #14171f; font-size: 15px; margin: 0 0 4px; }
+  .item p { margin: 0; font-size: 14px; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+</style>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/guides">&larr; Back to guides</a>
+<h1>In the Works</h1>
+<p class="subtitle">What's actually in progress and what's planned, in plain language. See the <a href="/changelog">Changelog</a> for what's already shipped.</p>
+
+<h2>In progress</h2>
+<p class="section-note">Built or mostly built, waiting on something outside our control before it ships.</p>
+<div class="item-list">
+  <div class="item">
+    <span class="tag tag-progress">In progress</span>
+    <h3>Google Business Profile posting</h3>
+    <p>The integration itself is code-complete. It's waiting on Google's own API access approval, which is a separate, stricter gate than a normal login-permission review. No firm date until Google responds.</p>
+  </div>
+  <div class="item">
+    <span class="tag tag-progress">In progress</span>
+    <h3>Public Zapier app-directory listing</h3>
+    <p>LazyRelay's Zapier integration already works today (see the <a href="/connect-zapier">Zapier guide</a>), just as an invite-only app rather than one listed in Zapier's public directory. Zapier's own review requires 3 real customer accounts with live Zaps before a public listing is possible.</p>
+  </div>
+</div>
+
+<h2>Planned</h2>
+<p class="section-note">Not started, or early — no committed date.</p>
+<div class="item-list">
+  <div class="item">
+    <span class="tag tag-planned">Planned</span>
+    <h3>Referral / partner program</h3>
+    <p>A commission for anyone who refers a paying customer.</p>
+  </div>
+  <div class="item">
+    <span class="tag tag-planned">Planned</span>
+    <h3>A saved content-ideas backlog</h3>
+    <p>Today's AI idea generator gives you 5 fresh ideas on demand but doesn't save them anywhere. A real backlog you can build up over time and turn into posts when ready.</p>
+  </div>
+  <div class="item">
+    <span class="tag tag-planned">Planned</span>
+    <h3>Upload media directly through an AI agent</h3>
+    <p>Today, scheduling a post through Claude, ChatGPT, or another MCP client needs a publicly hosted image/video URL. Uploading raw media straight through the agent is planned.</p>
+  </div>
+  <div class="item">
+    <span class="tag tag-planned">Planned</span>
+    <h3>Proof-of-Publish audit export</h3>
+    <p>A downloadable report of verified-live posts over a date range, for anyone who needs to show a client or head office a full record, not just one post at a time.</p>
+  </div>
+  <div class="item">
+    <span class="tag tag-planned">Planned</span>
+    <h3>An embeddable Proof-of-Publish badge</h3>
+    <p>A small widget for your own website showing your real, verified posting record.</p>
+  </div>
+  <div class="item">
+    <span class="tag tag-planned">Planned</span>
+    <h3>More AI-agent integrations</h3>
+    <p>LazyRelay's MCP server already works with <a href="/mcp">15 AI agents and editors</a>. New ones get added as they emerge.</p>
+  </div>
+</div>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Have a request?</strong> Get in touch and tell us what would actually help.</p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/changelog">Changelog</a> &middot; <a href="/status">Status</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>
