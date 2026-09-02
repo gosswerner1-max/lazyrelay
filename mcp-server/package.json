@@ -4,6 +4,11 @@
   "private": false,
   "mcpName": "io.github.gosswerner1-max/lazyrelay-mcp-server",
   "description": "MCP server for LazyRelay: schedule posts, check analytics, and read mentions from any MCP-compatible AI agent. Local (stdio, API key) or hosted (OAuth, no install).",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gosswerner1-max/lazyrelay",
+    "directory": "mcp-server"
+  },
   "type": "module",
   "bin": {
     "lazyrelay-mcp": "dist/index.js"
