@@ -19,6 +19,7 @@ import { ResetPassword } from "./pages/ResetPassword";
 import { Spinner } from "./components/Spinner";
 import { CookieConsent } from "./components/CookieConsent";
 import { MfaChallenge } from "./components/MfaChallenge";
+import { readRefParam, captureReferralCode } from "./lib/referral";
 import "./App.css";
 
 // Lazy-loaded (2026-08-20) — by far the two biggest chunks in the app
@@ -87,6 +88,15 @@ function parseAuthHashError(): { code: string; description: string } | null {
   };
 }
 const INITIAL_AUTH_HASH_ERROR = parseAuthHashError();
+
+// Captured once at module-evaluation time, same reasoning as INITIAL_PATH
+// above -- the path-sync effect further down rewrites the URL for several
+// view transitions (e.g. a referral link landing on a path other than "/"),
+// which would strip the `?ref=` query string before a later effect got a
+// chance to read it. Storing it is a side effect, not state this component
+// needs to react to, so it happens directly here rather than in a
+// render-time hook.
+captureReferralCode(readRefParam(window.location.search));
 
 function Root() {
   const { session, loading } = useAuth();

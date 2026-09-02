@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { trackSignUp } from "../lib/analytics";
+import { getStoredReferralCode } from "../lib/referral";
 
 interface AuthContextValue {
   session: Session | null;
@@ -53,14 +54,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, captchaToken: string, businessName?: string) => {
-    // business_name rides in Supabase's user metadata purely to get it to
-    // the handle_new_user() trigger (see migration 0024) — it isn't read
-    // back from here, the accounts table is the source of truth afterward.
+    // business_name and referred_by_code both ride in Supabase's user
+    // metadata purely to get them to the handle_new_user() trigger (see
+    // migration 0024 for business_name, 0079 for referred_by_code) — neither
+    // is read back from here, the accounts table is the source of truth
+    // afterward. The referral code (if any) was captured on an earlier page
+    // load by App.tsx/lib/referral.ts, not read fresh from the URL here —
+    // this is the signup form, which doesn't carry a `?ref=` param itself.
     const trimmed = businessName?.trim();
+    const referredByCode = getStoredReferralCode();
+    const metadata = {
+      ...(trimmed ? { business_name: trimmed } : {}),
+      ...(referredByCode ? { referred_by_code: referredByCode } : {}),
+    };
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { captchaToken, ...(trimmed ? { data: { business_name: trimmed } } : {}) },
+      options: { captchaToken, ...(Object.keys(metadata).length > 0 ? { data: metadata } : {}) },
     });
     if (!error) trackSignUp();
     return { error: error?.message ?? null };
