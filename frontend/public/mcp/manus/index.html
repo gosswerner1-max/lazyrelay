@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>How to Connect LazyRelay to Manus (MCP) | LazyRelay</title>
+<meta name="description" content="Schedule social posts, check analytics, and read comments from Manus &mdash; with Proof-of-Publish verification Manus can actually see." />
+<link rel="canonical" href="https://lazyrelay.com/mcp/manus" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  ol, ul { padding-left: 22px; }
+  li { margin-bottom: 12px; }
+  code { background: #f0f1f3; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/guides">&larr; Back to guides</a>
+<h1>Post to Social Media from Manus</h1>
+<p class="subtitle">Connect LazyRelay's hosted MCP server to Manus and let your agent schedule, check, and verify social posts as part of a larger task.</p>
+
+<h2>What you can ask Manus</h2>
+<ul>
+  <li>"Once you're done writing this launch announcement, schedule it to X and LinkedIn for 9am tomorrow."</li>
+  <li>"What's already queued this week?"</li>
+  <li>"Did last Tuesday's post actually go live, or just get accepted?"</li>
+  <li>"Pull my post analytics for the last 30 days as part of this report."</li>
+</ul>
+
+<h2>The part most AI-agent schedulers skip</h2>
+<p>Most integrations stop at the API call &mdash; Manus asks for a post, the API says 200 OK, and that's treated as done. It isn't. Rate limits, silent moderation holds, and platform-side failures can all eat a "successful" request. LazyRelay's <code>list_scheduled_posts</code> tool returns real Proof-of-Publish status, so Manus can check whether a post actually went live, not just whether the request was accepted.</p>
+
+<h2>Setup</h2>
+<ol>
+  <li>In your LazyRelay dashboard, go to <strong>API Keys</strong> (top nav) and confirm you're on a paid plan &mdash; Starter and up. You won't need the key itself for this method, but the account behind it must have an active paid plan.</li>
+  <li>In Manus, open <strong>Connectors</strong> and choose to connect a custom MCP server (<strong>+ Connect</strong>).</li>
+  <li>Paste in LazyRelay's hosted MCP Server URL:
+  <p><code>https://lazyrelaylazyrelay-backend.onrender.com/mcp</code></p>
+  and sign in with your LazyRelay account when prompted.</li>
+</ol>
+
+<p class="note">Full tool reference (<code>list_connected_accounts</code>, <code>schedule_post</code>, <code>list_scheduled_posts</code>, <code>delete_scheduled_post</code>, <code>get_analytics_summary</code>, <code>get_mentions</code>) at <a href="/docs">lazyrelay.com/docs</a>.</p>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Don't have a LazyRelay account yet?</strong> Connectors require a paid plan &mdash; Starter, Pro, Business, Agency, or Agency Plus.</p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/docs">API &amp; MCP Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>

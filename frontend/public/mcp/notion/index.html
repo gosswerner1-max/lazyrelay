@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>How to Connect LazyRelay to Notion (MCP) | LazyRelay</title>
+<meta name="description" content="Give a Notion agent the ability to schedule social posts and check Proof-of-Publish status through LazyRelay's MCP server." />
+<link rel="canonical" href="https://lazyrelay.com/mcp/notion" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  ol, ul { padding-left: 22px; }
+  li { margin-bottom: 12px; }
+  code { background: #f0f1f3; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/guides">&larr; Back to guides</a>
+<h1>Post to Social Media from Notion</h1>
+<p class="subtitle">Give a Notion custom agent the ability to schedule, check, and verify social posts through LazyRelay's MCP server.</p>
+
+<h2>What this unlocks</h2>
+<ul>
+  <li>A Notion agent that turns a content-calendar database row into a scheduled LazyRelay post.</li>
+  <li>Asking a Notion agent "did last week's launch post actually go live?" and getting a real, verified answer back in your workspace.</li>
+  <li>Pulling post analytics straight into a Notion page or dashboard.</li>
+</ul>
+
+<h2>The part most AI-agent schedulers skip</h2>
+<p>Most integrations stop at the API call &mdash; an agent asks for a post, the API says 200 OK, and that's treated as done. It isn't. Rate limits, silent moderation holds, and platform-side failures can all eat a "successful" request. LazyRelay's <code>list_scheduled_posts</code> tool returns real Proof-of-Publish status, so a Notion agent can check whether a post is actually confirmed live, not just accepted.</p>
+
+<h2>Setup</h2>
+<ol>
+  <li>In your LazyRelay dashboard, go to <strong>API Keys</strong> (top nav) and confirm you're on a paid plan &mdash; Starter and up. You won't need the key itself for this method, but the account behind it must have an active paid plan.</li>
+  <li>In Notion, open a custom agent's <strong>Tools &amp; Access</strong> settings and choose <strong>Add connection &rarr; Custom MCP server</strong>.</li>
+  <li>Paste in LazyRelay's hosted MCP Server URL:
+  <p><code>https://lazyrelaylazyrelay-backend.onrender.com/mcp</code></p>
+  and approve the OAuth screen, signing in with your LazyRelay account.</li>
+</ol>
+
+<p class="note">Custom MCP connections are available on Notion <strong>Business and Enterprise</strong> plans, and only a workspace owner or admin can add a new custom connector for the first time &mdash; after that, it appears as an option for any tool or agent in the workspace. Full tool reference (<code>list_connected_accounts</code>, <code>schedule_post</code>, <code>list_scheduled_posts</code>, <code>delete_scheduled_post</code>, <code>get_analytics_summary</code>, <code>get_mentions</code>) at <a href="/docs">lazyrelay.com/docs</a>.</p>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Don't have a LazyRelay account yet?</strong> Connectors require a paid plan &mdash; Starter, Pro, Business, Agency, or Agency Plus.</p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/docs">API &amp; MCP Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>

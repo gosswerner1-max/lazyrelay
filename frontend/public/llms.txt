@@ -8,6 +8,7 @@ LazyRelay is a social media scheduling platform built around Proof-of-Publish: i
 
 - [Pricing](https://lazyrelay.com/pricing/): Free tier to Agency plans, $29.99-$199.99/month. Proof-of-Publish is included on every plan.
 - [API & MCP Docs](https://lazyrelay.com/docs/): REST API and MCP server reference for scheduling and verifying posts programmatically.
+- [Integrations](https://lazyrelay.com/mcp/): Connect LazyRelay to 15 AI agents and editors (Claude, ChatGPT, Gemini, Cursor, Notion, and more) plus Zapier, all via one hosted MCP server.
 - [Platform Coverage](https://lazyrelay.com/platform-features/): Feature-by-platform breakdown across all 12 supported platforms.
 - [Guides](https://lazyrelay.com/guides/): Full guide index.
 
