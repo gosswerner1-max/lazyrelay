@@ -26,6 +26,21 @@ LazyRelay is a social media scheduling platform built around Proof-of-Publish: i
 - [Connect to Zapier](https://lazyrelay.com/connect-zapier/): Automate scheduling with 9,000+ apps via Zapier, no code required.
 - [Time-Savings Calculator](https://lazyrelay.com/time-savings-calculator/): Estimate hours saved by scheduling once across multiple platforms.
 
+## Compare
+
+Honest, fact-checked head-to-head comparisons — features and pricing verified directly against each competitor's own site, including where they're genuinely ahead of LazyRelay.
+
+- [LazyRelay vs Buffer](https://lazyrelay.com/alternatives/buffer/)
+- [LazyRelay vs Hootsuite](https://lazyrelay.com/alternatives/hootsuite/)
+- [LazyRelay vs Metricool](https://lazyrelay.com/alternatives/metricool/)
+- [LazyRelay vs Later](https://lazyrelay.com/alternatives/later/)
+- [LazyRelay vs Sprout Social](https://lazyrelay.com/alternatives/sprout-social/)
+- [LazyRelay vs SocialBee](https://lazyrelay.com/alternatives/socialbee/)
+- [LazyRelay vs Publer](https://lazyrelay.com/alternatives/publer/)
+- [LazyRelay vs Postiz](https://lazyrelay.com/alternatives/postiz/)
+- [LazyRelay vs Publora](https://lazyrelay.com/alternatives/publora/)
+- [LazyRelay vs PostDodo](https://lazyrelay.com/alternatives/postdodo/)
+
 ## Optional
 
 - [Changelog](https://lazyrelay.com/changelog/): Dated list of real shipped features.
