@@ -115,7 +115,7 @@
 <p>This runs locally on your own machine using your own API key, there's nothing to host. See the package README for the full tool list.</p>
 
 <h3>No install: the hosted MCP server</h3>
-<p>Prefer not to install anything, or connecting from claude.ai rather than a desktop app? LazyRelay also runs a hosted MCP server. Instead of an API key, you sign in with your LazyRelay account the first time you connect. Same 6 tools, same account, nothing to run locally.</p>
+<p>Prefer not to install anything, or connecting from claude.ai rather than a desktop app? LazyRelay also runs a hosted MCP server. Instead of an API key, you sign in with your LazyRelay account the first time you connect. Same 9 tools, same account, nothing to run locally.</p>
 <pre class="code-block"><code>https://lazyrelaylazyrelay-backend.onrender.com/mcp</code></pre>
 <p>In Claude, go to <strong>Settings &rarr; Connectors &rarr; Add connector</strong>, choose <strong>Remote</strong>, and paste the URL above. You'll be asked to sign in and approve access, the same way you'd approve any other app. For MCP clients that use a config file instead:</p>
 <pre class="code-block"><code>{
@@ -133,8 +133,20 @@
     <p>List your connected social accounts and their ids</p>
   </div>
   <div class="endpoint">
+    <div class="endpoint-header"><code>list_workspaces</code></div>
+    <p>List your brands/workspaces</p>
+  </div>
+  <div class="endpoint">
     <div class="endpoint-header"><code>schedule_post</code></div>
     <p>Schedule a post to one connected account</p>
+  </div>
+  <div class="endpoint">
+    <div class="endpoint-header"><code>publish_post_now</code></div>
+    <p>Publish immediately instead of scheduling for later</p>
+  </div>
+  <div class="endpoint">
+    <div class="endpoint-header"><code>update_post</code></div>
+    <p>Edit a draft or still-pending post's content or media</p>
   </div>
   <div class="endpoint">
     <div class="endpoint-header"><code>list_scheduled_posts</code></div>

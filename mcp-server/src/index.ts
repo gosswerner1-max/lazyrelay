@@ -58,6 +58,13 @@ server.tool(
 );
 
 server.tool(
+  "list_workspaces",
+  "List this account's brands/workspaces, with the id needed to file a post under a specific one.",
+  {},
+  async () => textResult(await lazyRelayFetch("/brands"))
+);
+
+server.tool(
   "schedule_post",
   "Schedule a post to one connected social account. Call list_connected_accounts first to get a valid socialAccountId — post to multiple platforms by calling this once per account.",
   {
@@ -67,12 +74,58 @@ server.tool(
       .string()
       .describe("ISO 8601 timestamp for when to post — use the current time for immediate posting"),
     mediaUrl: z.string().optional().describe("A publicly accessible image or video URL to attach, if any"),
+    firstComment: z
+      .string()
+      .optional()
+      .describe("Optional first comment posted immediately after publishing (Facebook and Instagram only)"),
   },
-  async ({ socialAccountId, content, scheduledFor, mediaUrl }) =>
+  async ({ socialAccountId, content, scheduledFor, mediaUrl, firstComment }) =>
     textResult(
       await lazyRelayFetch("/scheduled-posts", {
         method: "POST",
-        body: JSON.stringify({ socialAccountId, content, scheduledFor, mediaUrl }),
+        body: JSON.stringify({ socialAccountId, content, scheduledFor, mediaUrl, firstComment }),
+      })
+    )
+);
+
+server.tool(
+  "publish_post_now",
+  "Publish to one connected account immediately, instead of scheduling for later. Call list_connected_accounts first to get a valid socialAccountId. The post is picked up by the scheduler within moments, not published synchronously — call list_scheduled_posts afterward to confirm it actually went live.",
+  {
+    socialAccountId: z.string().describe("The connected account id to post to, from list_connected_accounts"),
+    content: z.string().describe("The post text/caption"),
+    mediaUrl: z.string().optional().describe("A publicly accessible image or video URL to attach, if any"),
+    firstComment: z
+      .string()
+      .optional()
+      .describe("Optional first comment posted immediately after publishing (Facebook and Instagram only)"),
+  },
+  async ({ socialAccountId, content, mediaUrl, firstComment }) =>
+    textResult(
+      await lazyRelayFetch("/scheduled-posts", {
+        method: "POST",
+        body: JSON.stringify({ socialAccountId, content, scheduledFor: new Date().toISOString(), mediaUrl, firstComment }),
+      })
+    )
+);
+
+server.tool(
+  "update_post",
+  "Edit a post's content or media before it goes out — works on a draft or a still-pending scheduled post, not one that's already posting or done. Call list_scheduled_posts first to get a valid id. To change the scheduled time instead of the content, delete and recreate the post.",
+  {
+    id: z.string().describe("The scheduled post id, from list_scheduled_posts"),
+    content: z.string().optional().describe("New post text/caption"),
+    mediaUrl: z.string().optional().describe("New publicly accessible image or video URL to attach"),
+    firstComment: z
+      .string()
+      .optional()
+      .describe("New first comment posted immediately after publishing (Facebook and Instagram only)"),
+  },
+  async ({ id, content, mediaUrl, firstComment }) =>
+    textResult(
+      await lazyRelayFetch(`/scheduled-posts/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ content, mediaUrl, firstComment }),
       })
     )
 );

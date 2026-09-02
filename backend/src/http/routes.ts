@@ -2173,8 +2173,14 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(404).json({ error: "Not found or not owned by this caller" });
       return;
     }
-    if (existing.status !== "draft") {
-      res.status(409).json({ error: "Only drafts can be edited this way — use /schedule to turn a draft into a real scheduled post." });
+    // 'pending' (a real, not-yet-posted scheduled post, not just a draft) was
+    // added 2026-09-02 for the update_post MCP tool — the scheduler is the
+    // only other thing that moves a 'pending' row (claimDuePosts flips it to
+    // 'posting'), so the update below re-checks status atomically in the
+    // same query instead of trusting this earlier read, exactly like
+    // /reschedule already does for the same race.
+    if (existing.status !== "draft" && existing.status !== "pending") {
+      res.status(409).json({ error: "Only a draft or a still-pending post can be edited — it's already posting or done." });
       return;
     }
 
@@ -2215,15 +2221,20 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       update.planned_date = plannedDate;
     }
 
-    const { data, error } = await supabase
+    const { data, error, count } = await supabase
       .from("scheduled_posts")
-      .update(update)
+      .update(update, { count: "exact" })
       .eq("id", req.params.id)
       .eq("account_id", req.accountId)
+      .eq("status", existing.status)
       .select()
-      .single();
+      .maybeSingle();
     if (error) {
       dbError(res, error, "PATCH /scheduled-posts/:id");
+      return;
+    }
+    if (!count || !data) {
+      res.status(409).json({ error: "Only a draft or a still-pending post can be edited — it's already posting or done." });
       return;
     }
     void syncPostToCalendar(data.id);

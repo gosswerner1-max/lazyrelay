@@ -30,7 +30,10 @@ This is a **local server** — it runs on your own machine and talks to LazyRela
 | Tool | What it does |
 |---|---|
 | `list_connected_accounts` | List your connected social accounts and their ids |
+| `list_workspaces` | List your brands/workspaces |
 | `schedule_post` | Schedule a post to one connected account |
+| `publish_post_now` | Publish immediately instead of scheduling for later |
+| `update_post` | Edit a draft or still-pending post's content or media |
 | `list_scheduled_posts` | See upcoming and recent posts, with status and Proof-of-Publish verification |
 | `delete_scheduled_post` | Cancel a pending post |
 | `get_analytics_summary` | Post counts, verified-live rate, per-platform breakdown, engagement totals |
