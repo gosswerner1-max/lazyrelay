@@ -18,6 +18,7 @@ import { supabase } from "./supabase.js";
 import { isSafeMediaUrl } from "./urlSafety.js";
 import { validateMediaForPlatform, type Platform } from "./mediaLimits.js";
 import { syncPostToCalendar } from "./googleCalendar/outboundSync.js";
+import { syncAccountSheet } from "./googleSheets/outboundSync.js";
 
 /** Free tier: 10 posts per connected account per calendar month. */
 export const FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT = 10;
@@ -272,5 +273,6 @@ export async function scheduleOnePost(
   // Google Calendar inbound-sync poller, which all go through this one
   // function.
   void syncPostToCalendar(data.id);
+  void syncAccountSheet(data.account_id);
   return { status: 201, body: data };
 }

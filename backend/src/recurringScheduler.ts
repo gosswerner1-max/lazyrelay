@@ -2,6 +2,7 @@ import { DateTime } from "luxon";
 import { supabase } from "./supabase.js";
 import { resolveTier } from "./tier.js";
 import { syncPostToCalendar } from "./googleCalendar/outboundSync.js";
+import { syncAccountSheet } from "./googleSheets/outboundSync.js";
 
 // How far ahead to keep scheduled_posts populated from active recurring
 // schedules. Short enough that an outage under a week never silently loses
@@ -146,6 +147,12 @@ export async function generateDuePosts(): Promise<void> {
     }
     for (const row of inserted ?? []) {
       void syncPostToCalendar(row.id);
+    }
+    // One rewrite for the whole slot's batch, not per-row -- syncAccountSheet
+    // rebuilds the full sheet from current DB state regardless, so calling
+    // it once after the loop is both correct and cheaper.
+    if ((inserted ?? []).length > 0) {
+      void syncAccountSheet(slot.account_id);
     }
   }
 }

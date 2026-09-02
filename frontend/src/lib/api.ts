@@ -420,6 +420,19 @@ export const api = {
   startGoogleCalendarConnect: (): Promise<{ authorizeUrl: string }> => authedFetch("/google-calendar/connect"),
   disconnectGoogleCalendar: (): Promise<null> => authedFetch("/google-calendar", { method: "DELETE" }),
 
+  // Google Sheets content-calendar export — same shape as Calendar above,
+  // its own independent connection. See backend/src/googleSheets/connect.ts.
+  getGoogleSheetsStatus: (): Promise<{
+    connected: boolean;
+    spreadsheet_id?: string;
+    connected_email?: string | null;
+    connected_at?: string;
+    last_synced_at?: string | null;
+  }> =>
+    authedFetch("/google-sheets/status"),
+  startGoogleSheetsConnect: (): Promise<{ authorizeUrl: string }> => authedFetch("/google-sheets/connect"),
+  disconnectGoogleSheets: (): Promise<null> => authedFetch("/google-sheets", { method: "DELETE" }),
+
   // Real Page/account picker for platforms where one OAuth login can map to
   // several destinations (Facebook: multiple Pages; Instagram: whichever
   // Page has a Business Account linked) — see backend/src/platforms/connect.ts.

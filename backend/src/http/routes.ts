@@ -24,6 +24,9 @@ import {
 } from "../googleCalendar/connect.js";
 import { syncPostToCalendar, deletePostFromCalendar } from "../googleCalendar/outboundSync.js";
 import { syncConnectionInbound, type GoogleCalendarConnectionRow } from "../googleCalendar/inboundSync.js";
+import { isGoogleSheetsConfigured } from "../googleSheets/oauthClient.js";
+import { startGoogleSheetsConnect, completeGoogleSheetsConnect, disconnectGoogleSheets } from "../googleSheets/connect.js";
+import { syncAccountSheet } from "../googleSheets/outboundSync.js";
 import {
   requireAuth,
   requireHumanAuth,
@@ -1428,6 +1431,79 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
   });
 
+  // Google Sheets content-calendar export — same reasoning as the Calendar
+  // group above for why this is its own small route group: not a platform
+  // to post to, its own independent connection. See googleSheets/connect.ts.
+  router.get("/google-sheets/status", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data, error } = await supabase
+      .from("google_sheets_connections")
+      .select("spreadsheet_id, connected_email, connected_at, last_synced_at")
+      .eq("account_id", req.accountId)
+      .is("disconnected_at", null)
+      .maybeSingle();
+    if (error) {
+      dbError(res, error, "GET /google-sheets/status");
+      return;
+    }
+    res.json({ connected: !!data, ...data });
+  });
+
+  router.get("/google-sheets/connect", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    if (!isGoogleSheetsConfigured()) {
+      res.status(400).json({ error: "Google Sheets export isn't available yet." });
+      return;
+    }
+    try {
+      const { url, stateId } = await startGoogleSheetsConnect(req.accountId!);
+      // Distinct cookie name from lr_gcal_oauth_state so the two connect
+      // flows can be in flight at once without clobbering each other.
+      res.cookie("lr_gsheet_oauth_state", stateId, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        maxAge: 15 * 60_000,
+      });
+      res.json({ authorizeUrl: url });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  router.get("/google-sheets/callback", publicRateLimit, async (req, res) => {
+    const { code, state } = req.query;
+    if (typeof code !== "string" || typeof state !== "string") {
+      res.redirect(`${frontendUrl}/?gsheetConnectError=${encodeURIComponent("Missing code or state")}`);
+      return;
+    }
+    const cookieState = req.cookies?.lr_gsheet_oauth_state;
+    res.clearCookie("lr_gsheet_oauth_state", { httpOnly: true, secure: true, sameSite: "none" });
+    if (cookieState !== state) {
+      res.redirect(
+        `${frontendUrl}/?gsheetConnectError=${encodeURIComponent("This connect link wasn't opened in the same browser it was started in — please try connecting again.")}`,
+      );
+      return;
+    }
+    try {
+      const { accountId } = await completeGoogleSheetsConnect(state, code);
+      // First sync happens right away so the customer sees real data the
+      // moment they land back — not empty rows waiting on their next edit.
+      void syncAccountSheet(accountId);
+      res.redirect(`${frontendUrl}/?gsheetConnected=1`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.redirect(`${frontendUrl}/?gsheetConnectError=${encodeURIComponent(message)}`);
+    }
+  });
+
+  router.delete("/google-sheets", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    try {
+      await disconnectGoogleSheets(req.accountId!);
+      res.status(204).send();
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
   // Google's push notification endpoint (Phase 3, pushNotifications.ts) --
   // NOT behind requireAuth, same reasoning as /google-calendar/callback:
   // Google calls this directly with no way to attach our JWT. Identity
@@ -2238,6 +2314,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
     void syncPostToCalendar(data.id);
+    void syncAccountSheet(req.accountId!);
     res.json(data);
   });
 
@@ -2304,6 +2381,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
     void syncPostToCalendar(data.id);
+    void syncAccountSheet(req.accountId!);
     res.json(data);
   });
 
@@ -3183,6 +3261,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // this one never did, so an approved post silently never appeared on
     // the customer's Google Calendar even though it's now really scheduled.
     void syncPostToCalendar(data.id);
+    void syncAccountSheet(req.accountId!);
     res.json(data);
   });
 
@@ -3254,6 +3333,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // when first created), so this correctly PATCHes the existing Calendar
     // event's time rather than creating a second one.
     void syncPostToCalendar(data.id);
+    void syncAccountSheet(req.accountId!);
     res.json(data);
   });
 
@@ -3399,6 +3479,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(404).json({ error: "Not found or not owned by this caller" });
       return;
     }
+    void syncAccountSheet(req.accountId!);
 
     // Deleting the post is what a customer actually means by "free up
     // storage" — reclaim the attached media too, but only once nothing else

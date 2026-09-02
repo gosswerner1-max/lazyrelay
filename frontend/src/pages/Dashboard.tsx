@@ -373,6 +373,8 @@ function readAndClearConnectParams(): {
   prefillMediaUrl: string | null;
   gcalConnected: boolean;
   gcalConnectError: string | null;
+  gsheetConnected: boolean;
+  gsheetConnectError: string | null;
 } {
   const params = new URLSearchParams(window.location.search);
   const connectError = params.get("connectError");
@@ -383,6 +385,10 @@ function readAndClearConnectParams(): {
   // flows' redirects can never be confused with each other.
   const gcalConnected = params.get("gcalConnected") !== null;
   const gcalConnectError = params.get("gcalConnectError");
+  // Google Sheets' connect flow — same pattern, its own distinct param
+  // names again so all three connect flows stay unambiguous.
+  const gsheetConnected = params.get("gsheetConnected") !== null;
+  const gsheetConnectError = params.get("gsheetConnectError");
   // Set when a connect has more than one real Page/account to choose from
   // (Facebook: multiple Pages; Instagram: whichever Page has a Business
   // Account linked) — see backend/src/platforms/connect.ts. Holds the
@@ -394,10 +400,30 @@ function readAndClearConnectParams(): {
   // instead of having to copy/paste the URL themselves.
   const prefillContent = params.get("prefillContent");
   const prefillMediaUrl = params.get("prefillMediaUrl");
-  if (connectError || connected || selectAccount || prefillContent || prefillMediaUrl || gcalConnected || gcalConnectError) {
+  if (
+    connectError ||
+    connected ||
+    selectAccount ||
+    prefillContent ||
+    prefillMediaUrl ||
+    gcalConnected ||
+    gcalConnectError ||
+    gsheetConnected ||
+    gsheetConnectError
+  ) {
     window.history.replaceState({}, "", window.location.pathname);
   }
-  return { connectError, connected, selectAccount, prefillContent, prefillMediaUrl, gcalConnected, gcalConnectError };
+  return {
+    connectError,
+    connected,
+    selectAccount,
+    prefillContent,
+    prefillMediaUrl,
+    gcalConnected,
+    gcalConnectError,
+    gsheetConnected,
+    gsheetConnectError,
+  };
 }
 const connectParams = readAndClearConnectParams();
 
@@ -463,6 +489,13 @@ export function Dashboard() {
   >(undefined);
   const [gcalConnecting, setGcalConnecting] = useState(false);
   const [gcalDisconnecting, setGcalDisconnecting] = useState(false);
+  // Same undefined/null/object sentinel pattern as gcalStatus above, for
+  // the independent Google Sheets connection.
+  const [gsheetStatus, setGsheetStatus] = useState<
+    { spreadsheet_id?: string; connected_email?: string | null; last_synced_at?: string | null } | null | undefined
+  >(undefined);
+  const [gsheetConnecting, setGsheetConnecting] = useState(false);
+  const [gsheetDisconnecting, setGsheetDisconnecting] = useState(false);
   // undefined = not yet checked (listFactors() hasn't resolved), null = checked
   // and no verified TOTP factor exists, string = the verified factor's id.
   // Mirrors the undefined/null-as-sentinel lazy-load pattern used for
@@ -1071,6 +1104,15 @@ export function Dashboard() {
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
   }, [loading, gcalStatus]);
 
+  // Same lazy-load-once pattern as gcalStatus above, independent connection.
+  useEffect(() => {
+    if (loading || gsheetStatus !== undefined) return;
+    api
+      .getGoogleSheetsStatus()
+      .then((status) => setGsheetStatus(status.connected ? status : null))
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+  }, [loading, gsheetStatus]);
+
   // Also lazy-loaded, same reasoning as analytics — only fetched once the
   // customer actually opens the tab.
   useEffect(() => {
@@ -1125,6 +1167,13 @@ export function Dashboard() {
       setNotice("Google Calendar connected!");
       setTab("Settings");
       setGcalStatus(undefined); // triggers the lazy-load effect above to re-fetch
+    }
+    if (connectParams.gsheetConnectError) {
+      setError(connectParams.gsheetConnectError);
+    } else if (connectParams.gsheetConnected) {
+      setNotice("Google Sheets connected!");
+      setTab("Settings");
+      setGsheetStatus(undefined); // triggers the lazy-load effect above to re-fetch
     }
   }, []);
 
@@ -2499,6 +2548,32 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setGcalDisconnecting(false);
+    }
+  }
+
+  async function handleConnectGoogleSheets() {
+    setGsheetConnecting(true);
+    setError(null);
+    try {
+      const { authorizeUrl } = await api.startGoogleSheetsConnect();
+      window.location.href = authorizeUrl;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setGsheetConnecting(false);
+    }
+  }
+
+  async function handleDisconnectGoogleSheets() {
+    if (!window.confirm("Disconnect Google Sheets? LazyRelay will stop updating the spreadsheet. The spreadsheet itself stays in your Google Drive either way.")) return;
+    setGsheetDisconnecting(true);
+    setError(null);
+    try {
+      await api.disconnectGoogleSheets();
+      setGsheetStatus(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setGsheetDisconnecting(false);
     }
   }
 
@@ -5239,6 +5314,41 @@ export function Dashboard() {
         ) : (
           <button type="button" onClick={handleConnectGoogleCalendar} disabled={gcalConnecting}>
             {gcalConnecting ? "Connecting..." : "Connect Google Calendar"}
+          </button>
+        )}
+      </section>
+      )}
+
+      {tab === "Settings" && (
+      <section>
+        <h2>Google Sheets</h2>
+        <p className="section-note">
+          A live-updating spreadsheet mirror of your content calendar — one dedicated sheet on your Google
+          account, one row per scheduled post. Handy for sharing a read-only view with a client, or bulk-reviewing
+          a month of posts. One-way for now: edits happen in LazyRelay, the sheet always reflects the latest state.
+        </p>
+        {gsheetStatus === undefined ? (
+          <p className="section-note">Checking your Google Sheets connection...</p>
+        ) : gsheetStatus ? (
+          <>
+            <p>
+              <strong>{gsheetStatus.connected_email ? `Connected as ${gsheetStatus.connected_email}.` : "Connected."}</strong>
+              {gsheetStatus.last_synced_at && ` Last synced ${new Date(gsheetStatus.last_synced_at).toLocaleString()}.`}
+            </p>
+            {gsheetStatus.spreadsheet_id && (
+              <p>
+                <a href={`https://docs.google.com/spreadsheets/d/${gsheetStatus.spreadsheet_id}/edit`} target="_blank" rel="noreferrer">
+                  Open my sheet
+                </a>
+              </p>
+            )}
+            <button type="button" className="btn-outline" onClick={handleDisconnectGoogleSheets} disabled={gsheetDisconnecting}>
+              {gsheetDisconnecting ? "Disconnecting..." : "Disconnect"}
+            </button>
+          </>
+        ) : (
+          <button type="button" onClick={handleConnectGoogleSheets} disabled={gsheetConnecting}>
+            {gsheetConnecting ? "Connecting..." : "Connect Google Sheets"}
           </button>
         )}
       </section>
