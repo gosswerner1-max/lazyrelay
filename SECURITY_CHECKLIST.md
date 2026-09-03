@@ -243,11 +243,21 @@ original one.
 - ⚠️ **One unfixed high-severity `image-size` CVE** (ICNS/JXL/HEIF DoS, no
   upstream fix exists) — accepted as low-risk: the app's own upload allowlist
   blocks those file types from ever reaching the vulnerable code path.
-  Re-check when a fix ships. Re-confirmed 2026-09-01 by live
-  `npm audit --omit=dev`: backend still reports exactly this one high and
-  nothing else (`fixAvailable: false` — still no upstream fix); frontend and
-  mcp-server both report **zero** vulnerabilities at every severity. No new
-  CVEs since the last check. *(2026-09-01)*
+  Re-check when a fix ships. Re-confirmed 2026-09-03: backend still reports
+  exactly this one high and nothing else (`fixAvailable: false` — still no
+  upstream fix); frontend and mcp-server both report **zero** vulnerabilities
+  at every severity. **This is the only real gap left after closing a real
+  one found the same day**: `fast-uri` (4 distinct high-severity advisories)
+  and `qs` (2 medium) had appeared as transitive dependencies since the
+  09-01 check — in `backend` via `@modelcontextprotocol/sdk`'s `ajv`, and
+  separately in `mcp-server`'s own copy of the same dependency tree — and
+  had been sitting unfixed long enough to show the "GitHub found N
+  vulnerabilities" warning on every single push. Fixed both lockfiles with a
+  clean, non-forcing `npm audit fix`, verified each package still builds,
+  deployed, and confirmed **0 open Dependabot alerts repo-wide** via the
+  GitHub API (not the push-time message, which lags the actual scan by one
+  push and briefly showed a confusingly higher number right after the
+  first fix). *(2026-09-03)*
 - ✅ **No auto-merge of dependency updates.** *(2026-08-26)*
 - ✅ **`package.json` deps use caret ranges, but the lockfile pins exact
   versions** — reproducibility holds via the lockfile even though the
