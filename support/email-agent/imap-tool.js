@@ -111,6 +111,64 @@ async function markRead(mailbox, uids) {
   }
 }
 
+// mailparser populates parsed.text ONLY when the message has a text/plain part.
+// HTML-only mail (some vendor receipts, and any customer sending from a client
+// that omits the alternative part) leaves it undefined, which JSON.stringify then
+// drops entirely — a header-only result indistinguishable from an empty email.
+// So fall back to the HTML body, stripped to readable text.
+function htmlToText(html) {
+  if (!html) return "";
+  return html
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|tr|li|h[1-6]|table)>/gi, "\n")
+    .replace(/<li\b[^>]*>/gi, "- ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    // Currency symbols matter here — this tool reads billing receipts, and a raw
+    // "&pound;" next to an amount is exactly the kind of thing that gets misread.
+    .replace(/&pound;/gi, "£")
+    .replace(/&euro;/gi, "€")
+    .replace(/&yen;/gi, "¥")
+    .replace(/&cent;/gi, "¢")
+    .replace(/&[nm]dash;/gi, "—")
+    .replace(/&hellip;/gi, "...")
+    .replace(/&[lr]squo;/gi, "'")
+    .replace(/&[lr]dquo;/gi, '"')
+    .replace(/&(copy|reg|trade|deg|times|middot);/gi, (_, n) => {
+      const map = { copy: "©", reg: "®", trade: "™", deg: "°", times: "×", middot: "·" };
+      return map[n.toLowerCase()] || "";
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    // &amp; last, so an escaped entity like "&amp;pound;" is not double-decoded.
+    .replace(/&amp;/gi, "&")
+    .replace(/[ \t]+/g, " ")
+    // Trim each line BEFORE collapsing blank runs — doing it after leaves the
+    // whitespace-only lines that HTML table layouts produce as fresh blank runs.
+    .split("\n")
+    .map((line) => line.trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+// Always returns a { text, bodySource } pair — never undefined, so a caller can
+// never mistake "we failed to read the body" for "the email was empty".
+function extractBody(parsed) {
+  if (parsed.text && parsed.text.trim()) {
+    return { text: parsed.text, bodySource: "text" };
+  }
+  const fromHtml = htmlToText(parsed.html);
+  if (fromHtml) return { text: fromHtml, bodySource: "html" };
+  return { text: "", bodySource: "none" };
+}
+
 async function getMessage(mailbox, uid, folderName) {
   const client = await connect(mailbox);
   try {
@@ -119,6 +177,7 @@ async function getMessage(mailbox, uid, folderName) {
     try {
       const msg = await client.fetchOne(uid, { source: true, uid: true }, { uid: true });
       const parsed = await simpleParser(msg.source);
+      const body = extractBody(parsed);
       console.log(
         JSON.stringify(
           {
@@ -128,7 +187,8 @@ async function getMessage(mailbox, uid, folderName) {
             subject: parsed.subject,
             date: parsed.date,
             messageId: parsed.messageId,
-            text: parsed.text,
+            text: body.text,
+            bodySource: body.bodySource,
           },
           null,
           2

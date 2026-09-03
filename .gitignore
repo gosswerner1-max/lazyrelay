@@ -6,3 +6,15 @@ node_modules/
 *.zip
 *.local.json
 backups/
+
+# Auto-generated runtime state, not source - churns every run
+ops/accounts/state/accounts_overseer_flags.json
+ops/advertising/state/advertising_overseer_flags.json
+ops/billing/state/billing_overseer_flags.json
+ops/marketing/state/marketing_overseer_flags.json
+ops/oversight/state/system_overseer_state.json
+ops/tests/selftest_results/accounts_auditor.json
+ops/tests/selftest_results/billing_auditor.json
+
+# Large binary marketing assets, tracked in the vault instead
+/marketing/

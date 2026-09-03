@@ -30,6 +30,8 @@ Let me know once you've tried that and I'll help if it's still not working.
 
 Use when a customer reports a posting failure but LazyRelay's real integration status for that platform doesn't match what they're describing (e.g. reporting a Meta posting bug when Meta isn't actually connected/live for them yet). Always double-check current platform status in `SUPPORT_KNOWLEDGE.md`'s "Current product state" section before sending this — it changes as integrations go live.
 
+**As of 2026-08-25 this template applies to Instagram publishing only.** Pinterest (08-04), TikTok (08-14), YouTube (08-14) and **Facebook Pages** (08-24) are all live — a posting failure on any of those is a real issue to troubleshoot against `SUPPORT_KNOWLEDGE.md` Part 1, not a premise mismatch. Note Meta is now **split by surface**: Facebook Pages approved, Instagram publishing still under review — so "Meta" is no longer a single status. Re-read the product-state line before sending; don't trust this paragraph's date.
+
 ```
 Hi [name],
 

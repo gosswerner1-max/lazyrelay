@@ -22,14 +22,29 @@ const ExcelJS = require("exceljs");
 const { getSupabaseClient } = require("../shared/supabaseClient.js");
 const { getMorStatus } = require("../billing/billing_ops.js");
 const { gatherStorageUsage } = require("../shared/storageUsage.js");
+const { isInternalTestAccount } = require("../shared/internalTestAccounts.js");
 
 // Real pricing constants — mirrored from frontend/src/pages/Landing.tsx
 // (subscription tiers) and Dashboard.tsx (storage add-ons). Kept here
 // rather than imported cross-runtime (ops/ is CommonJS, frontend is a
 // separate Vite/TS build) — same boundary reasoning as accountLimits.ts
 // needing its own copy in backend/src vs ops/.
-const TIER_PRICE_USD = { free: 0, pro: 24.99, business: 48.99, enterprise: 79.99 };
-const TIER_DISPLAY_NAMES = { free: "Free", pro: "Starter", business: "Pro", enterprise: "Business" };
+const TIER_PRICE_USD = {
+  free: 0,
+  pro: 29.99,
+  business: 59.99,
+  enterprise: 99.99,
+  agency: 149.99,
+  agency_plus: 199.99,
+};
+const TIER_DISPLAY_NAMES = {
+  free: "Free",
+  pro: "Starter",
+  business: "Pro",
+  enterprise: "Business",
+  agency: "Agency",
+  agency_plus: "Agency Plus",
+};
 const STORAGE_ADDON_PRICE_USD = { 5: 2.99, 20: 7.99, 50: 14.99 };
 
 const WEEK_MS = 7 * 24 * 3600 * 1000;
@@ -41,10 +56,16 @@ function weekWindow(now = new Date()) {
 }
 
 async function gatherAccountsAndRevenue(supabase) {
-  const { data: accounts, error: accountsError } = await supabase
+  const { data: allAccounts, error: accountsError } = await supabase
     .from("accounts")
     .select("id, email, created_at, cancelled_at");
   if (accountsError) throw accountsError;
+
+  // Internal/comp accounts (Werner's own testing, fixtures, dogfooding) are
+  // real rows but not real customers — excluded here so the customer count,
+  // MRR, and churn figures below only ever reflect genuine external accounts.
+  // Same shared filter accounts_ops.js/billing_ops.js use for send decisions.
+  const accounts = (allAccounts ?? []).filter((a) => !isInternalTestAccount(a.email));
 
   const { data: subscriptions, error: subsError } = await supabase
     .from("subscriptions")
@@ -67,7 +88,7 @@ async function gatherAccountsAndRevenue(supabase) {
     (a) => a.cancelled_at && new Date(a.cancelled_at) >= start && new Date(a.cancelled_at) <= end
   ).length;
 
-  const tierCounts = { free: 0, pro: 0, business: 0, enterprise: 0 };
+  const tierCounts = Object.fromEntries(Object.keys(TIER_PRICE_USD).map((tier) => [tier, 0]));
   let mrr = 0;
   for (const account of accounts ?? []) {
     if (account.cancelled_at) continue;
@@ -78,8 +99,11 @@ async function gatherAccountsAndRevenue(supabase) {
     if (isPaidActive) mrr += TIER_PRICE_USD[tier] ?? 0;
   }
 
+  const nonInternalAccountIds = new Set(accounts.map((a) => a.id));
   let addonMrr = 0;
-  const activeAddons = (addons ?? []).filter((a) => a.status === "active");
+  const activeAddons = (addons ?? []).filter(
+    (a) => a.status === "active" && nonInternalAccountIds.has(a.account_id)
+  );
   for (const a of activeAddons) {
     addonMrr += STORAGE_ADDON_PRICE_USD[a.gb_amount] ?? 0;
   }
@@ -217,7 +241,7 @@ async function buildWorkbook(summary, platformActivity, morStatus, storageUsage)
 
   dataHeaderRow(["Tier", "Customer count", "Price/mo (USD)", "Subtotal MRR (USD)", "", ""]);
   const tierStartRow = ws.rowCount + 1;
-  for (const tier of ["free", "pro", "business", "enterprise"]) {
+  for (const tier of Object.keys(TIER_PRICE_USD)) {
     const count = summary.tierCounts[tier] ?? 0;
     const price = TIER_PRICE_USD[tier];
     const r = ws.addRow([TIER_DISPLAY_NAMES[tier], count, price, { formula: `B${ws.rowCount + 1}*C${ws.rowCount + 1}` }]);

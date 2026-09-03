@@ -130,11 +130,23 @@ original one.
   *(2026-08-19)*
 - ✅ **No internal/admin routes reachable without an admin key**, and admin
   keys themselves need a pre-registered job or a human-opened intent window —
-  a key used outside both auto-revokes immediately. *(2026-08-26)*
+  a key used outside both auto-revokes immediately. **As of 2026-09-01 there
+  are zero live admin keys** (all three revoked: two by the auto-revoke guard
+  on 2026-08-08 and 2026-08-30, the third — minted 2026-08-13, never used,
+  plaintext not retained — revoked manually on Werner's instruction).
+  `admin_key_registered_jobs` is empty and nothing calls
+  `getLazyRelayAdminApiKey()`, so nothing depends on one existing. This is
+  Werner's standing position: *mint one only when needed*
+  (`backend/src/create-admin-key.ts`). *(2026-09-01)*
 - ✅ **Security-event alerting**: 401/403 spikes, 429 rate-limit spikes, and
   any admin-key auto-revoke page `#all-lazyrelay` in real time
   (`backend/src/http/securityAlerts.ts`, commit `5253a9b`). Proven against
-  live production traffic, not just locally. *(2026-08-26)*
+  live production traffic, not just locally. **Re-confirmed 2026-09-01 by
+  reading the actual Slack history**, not the code: the 2026-08-30 admin-key
+  auto-revoke produced a real bot alert in `#all-lazyrelay` at 12:11:41 CAT,
+  ~1 second after the revoke timestamp in `admin_api_keys`. An `auth_denied`
+  spike alert fired the same morning. This item is now evidenced by observed
+  output rather than by inspection. *(2026-09-01)*
 
 ## 3. Secrets & Configuration
 
@@ -156,7 +168,16 @@ original one.
   (`git log --all -p -- '*.env'`), only `.env.example` files were ever
   tracked. *(2026-08-26)*
 - ✅ **Dev/staging vs. production secrets are genuinely separate**
-  (`PADDLE_ENVIRONMENT`, separately cut-over Render env vars). *(2026-08-26)*
+  (`PADDLE_ENVIRONMENT`, separately cut-over Render env vars). **Re-verified
+  live 2026-09-01** against the Render API (`GET /v1/services/{id}/env-vars`,
+  HTTP 200): `PADDLE_ENVIRONMENT = production`, and **all 60** production env
+  var values scanned for sandbox/test-shaped patterns
+  (`sandbox`/`_test_`/`sdbx`/`dummy`/`localhost`) — **zero matches**. This is
+  the exact class of drift that caused the 2026-08-05 incident (Render on
+  sandbox Paddle keys for weeks while local held live ones), so it is worth
+  re-running every month. Credentials come from `RENDER_API_KEY` /
+  `RENDER_SERVICE_ID` via `ops/config/credentials.js`'s
+  `getRenderCredentials()`. *(2026-09-01)*
 - ✅ **Third-party keys are least-privilege** — every platform OAuth adapter
   requests only the named scopes it needs, checked adapter-by-adapter.
   Re-verified 2026-09-01 including the new Google Calendar client: it uses a
@@ -256,6 +277,19 @@ original one.
   *(2026-08-26)*
 - ✅ **Scheduler/posting failures alert Slack** (`notifyOps()`, wired to
   `SLACK_WEBHOOK_URL` on Render). *(2026-08-26)*
+- ✅ **Deploys are verifiable**: `/health` returns the live
+  `RENDER_GIT_COMMIT`/`RENDER_GIT_BRANCH`, but **only** to a caller holding
+  a real admin key — the public response stays exactly `{"status":"ok"}`.
+  Gated deliberately: the GitHub repo is public, so a commit SHA on an
+  unauthenticated endpoint would tell anyone which code is live and, most
+  usefully to an attacker, whether a given fix has shipped. Added
+  2026-09-01 (`40f5a60`) after verifying the 0077 deploy required a detour
+  through `pg_stat_statements`. Uses `isKnownAdminKey()`, **not**
+  `requireAdmin` — the latter auto-revokes a key presented without a
+  registered job, which on a liveness probe would destroy it. The lookup
+  runs only when an `Authorization` header is present and is wrapped in its
+  own try/catch, so build metadata can never make the probe report
+  unhealthy. *(2026-09-01)*
 - ✅ **Logs checked for over-capture of sensitive data** — full audit of
   ~584 `console.*` calls found everything clean (tokens only ever logged as
   hashes/prefixes, no raw `req.body` logging, AI prompts/responses never
@@ -312,9 +346,89 @@ original one.
 
 - — **No Infrastructure-as-Code** (Terraform/CloudFormation) — Render and
   Supabase are managed via their own dashboards, nothing to scan here.
-- ✅ **Cloudflare CDN/WAF live** — DDoS protection, Bot Fight Mode, leaked-
-  credentials mitigation, Client-side security (Page Shield) all enabled.
-  *(2026-08-26)*
+- ✅ **Cloudflare is live and proxying** — verified 2026-09-01 by API and by
+  a real request: `lazyrelay.com` returns `server: cloudflare` with a
+  `cf-ray` header, and the HSTS header
+  (`max-age=31536000; includeSubDomains`) is served. Zone plan: **Free
+  Website**. First checked with a real API token this run (read-only,
+  scoped to the `lazyrelay.com` zone alone, `Zone:Read` +
+  `Zone Settings:Read`), stored as `cloudflareApiToken` in
+  `ops/config/credentials.local.json`. *(2026-09-01)*
+- ✅ **Page Shield enabled** — `GET /zones/{id}/page_shield` →
+  `{"enabled":true,...,"updated_at":"2026-08-26T10:40:02Z"}`, matching the
+  date it was originally switched on. *(2026-09-01)*
+- ✅ **SSL mode is `strict`** with `automatic_https_rewrites = on` and
+  `tls_1_3 = on`. *(2026-09-01)*
+- ✅ **`min_tls_version` is `1.2`** — was `1.0` (Cloudflare's default, never
+  changed) and **not on this checklist at all** until a real API token was
+  added this run. TLS 1.0/1.1 are deprecated, prohibited under PCI DSS, and
+  dropped by every major browser in 2020. Raised to `1.2` by Werner in the
+  dashboard 2026-09-01; confirmed by `GET
+  /zones/{id}/settings/min_tls_version` → `"1.2"`, with the site still
+  serving HTTP 200 over TLS 1.2 and 1.3.
+  **Evidence caveat, recorded deliberately:** an attempt to independently
+  prove TLS 1.0 is now refused was **inconclusive** — this Windows machine's
+  curl uses Schannel, which fails with `SEC_E_UNSUPPORTED_FUNCTION` before
+  reaching Cloudflare, so the refusal came from the OS, not the edge. The
+  Cloudflare API's own report of the zone config is the evidence here. A
+  future run wanting true end-to-end proof needs a client that can still
+  speak TLS 1.0, or an external scanner (e.g. SSL Labs). *(2026-09-01)*
+- ✅ **`always_use_https` is `on`** — enabled 2026-09-01, so http→https is now
+  turned around at the Cloudflare edge instead of travelling to the origin
+  first. Cloudflare warns this can cause `ERR_TOO_MANY_REDIRECTS` when the
+  origin *also* forces HTTPS, which this one does (`.htaccess` `mod_rewrite`
+  301, §1) — **it does not here, and that was tested rather than assumed.**
+  Because SSL mode is `strict`, Cloudflare reaches the origin over HTTPS, the
+  origin sees HTTPS already on, and does not re-redirect. Verified against a
+  pre-change baseline (1 hop, 200) and re-tested after on four paths — `/`,
+  `/pricing/`, `/docs/`, and `www.` — all still **1 hop → 200**, with
+  `https://` direct and the backend `/health` both 200. Config confirmed via
+  API: `always_use_https = "on"`. *(2026-09-01)*
+- ⚠️ **Bot Fight Mode stays OFF — deliberate business decision, not a gap.**
+  Werner's call, 2026-09-01: it challenges non-browser traffic, which breaks
+  the verification crawlers that directory and badge-exchange sites send to
+  confirm a backlink is live (Startup Fame, Smol Launch, Turbo0, SaaS Cubes,
+  ListMySaaS, Findly.tools, Fazier, Twelve Tools, Wired Business, SaaSHub —
+  all added 2026-08-28→31, see the `.htaccess` CSP `img-src` list). Backlinks
+  are an active growth channel; breaking them to satisfy a checklist item is
+  the wrong trade. **This also corrects the 2026-08-26 entry**, which claimed
+  Bot Fight Mode was *enabled* — that came from a dashboard glance, not a
+  verified reading. **Compensating control:** the app's own tiered
+  rate limiting plus the coarse IP limiter on pre-auth routes (§2) carry this
+  load, and they are code-verified rather than edge-dependent. Do not enable
+  Bot Fight Mode without checking the backlink-verification impact first.
+  **Now confirmed by API** (token widened 2026-09-01):
+  `GET /zones/{id}/bot_management` → `"fight_mode": false`, with
+  `crawler_protection`, `ai_bots_protection` and `content_bots_protection`
+  all `disabled` — consistent with keeping crawlers unblocked.
+  *(2026-09-01)*
+- ✅ **WAF and DDoS protection are genuinely deployed** — confirmed 2026-09-01
+  via `GET /zones/{id}/rulesets` (after the token was widened). Three managed
+  rulesets are live: **Cloudflare Managed Free Ruleset**
+  (`http_request_firewall_managed` — the actual WAF), **DDoS L7 ruleset**
+  (`ddos_l7`), and the **Normalization Ruleset** (`http_request_sanitize`).
+  This settles the legacy `waf: off` zone setting above: it is indeed
+  meaningless, and WAF coverage is present via the managed ruleset.
+  *(2026-09-01)*
+- ⚠️ **Cloudflare's leaked-credential detection is OFF**
+  (`GET /zones/{id}/leaked-credential-checks` → `{"enabled": false}`).
+  **This corrects the 2026-08-26 claim that it was enabled — it never was.**
+  But turning it on would achieve little here, for an architectural reason:
+  it works by inspecting login requests passing through the zone, and
+  LazyRelay's auth does not pass through it — the browser calls Supabase
+  directly (`AuthContext.tsx`; see the `connect-src` Supabase origin in the
+  `.htaccess` CSP), so credentials never traverse `lazyrelay.com`'s
+  Cloudflare proxy. **The equivalent protection is already in place one layer
+  down**: Supabase's own `password_hibp_enabled` was switched on 2026-09-01
+  (§1), which checks passwords against the same breach corpus at the point
+  they are actually set. Left off deliberately as redundant-and-ineffective
+  rather than pursued. *(2026-09-01)*
+- ⚠️ **The zone-level `waf` setting reads `off`** — this is the *legacy* WAF
+  toggle, largely meaningless on a Free plan (paid managed rulesets are not
+  available; the free managed ruleset is applied automatically). Recorded so
+  a future run doesn't misread it as a regression, but it is **not**
+  independent evidence that WAF coverage is absent — `/rulesets` returned 403
+  above, so the true state is genuinely unknown. *(2026-09-01)*
 
 ---
 
@@ -337,8 +451,9 @@ original one.
    leaked-password protection on, three security notification emails on.
    One loose end: the notification emails are enabled but have not been
    *received and read* end-to-end. Confirm on the next real password change.
-8. **`/public/signup/check-business-name` full-table read** — **fixed
-   2026-09-01, awaiting deploy.** It read every non-null `business_name`
+8. ~~`/public/signup/check-business-name` full-table read~~ — **closed
+   2026-09-01, fix deployed and proven live.** It read every non-null
+   `business_name`
    into memory per call, on an unauthenticated route that fires on every
    keystroke batch during signup. Replaced with
    `check_business_name_available()` (migration 0077): at most 6 index hits
@@ -349,9 +464,35 @@ original one.
    locked, EXECUTE revoked from `anon`/`authenticated`, granted only to
    `service_role`); six live calls return the exact response contract the
    frontend expects, including the comma/paren name that motivated the old
-   full-scan approach. **The backend is not yet deployed** — Render still
-   runs the old scan, which is harmless (the new function is additive), but
-   the fix isn't live until it ships.
+   full-scan approach. Deployed in `ee2e639`. **Proven live, not assumed:**
+   because the new code returns byte-identical responses to the old, the
+   endpoint alone can't reveal which version is running — so the proof came
+   from `pg_stat_statements` instead. Across three live production requests
+   the RPC path went 2 → 5 (+3, exactly matching) while the old full-scan
+   query stayed flat at 5. The old path is no longer called. *(2026-09-01)*
+9. ~~Cloudflare `min_tls_version` is `1.0`~~ — **closed 2026-09-01**, raised
+   to `1.2` the same day it was found. It had never been on the checklist;
+   it surfaced only because a real Cloudflare API token was added this run,
+   which is the argument for keeping the token.
+10. ~~Cloudflare `always_use_https` is `off`~~ — **closed 2026-09-01,
+   enabled and tested.** The dashboard's `ERR_TOO_MANY_REDIRECTS` warning
+   does apply in principle (this origin does force HTTPS), so it was enabled
+   against a captured baseline and immediately re-tested on four paths
+   rather than assumed — no loop, 1 hop → 200 throughout. The reason it is
+   safe is `ssl = strict`: Cloudflare reaches the origin over HTTPS, so the
+   origin's own redirect never fires. **If SSL mode is ever changed to
+   `Flexible`, this combination WILL loop and take the site down** — that
+   dependency is the thing to remember here.
+11. ~~Leaked-credentials mitigation + deployed WAF rulesets are unverified~~
+   — **closed 2026-09-01.** Token widened (Bot Management:Read +
+   Zone WAF:Read, still read-only, still one zone); all three previously-403
+   endpoints now return 200. Results: WAF and DDoS L7 managed rulesets **are**
+   deployed; Bot Fight Mode is **off** (deliberate, see §12); Cloudflare
+   leaked-credential detection is **off** and left off as architecturally
+   ineffective here — Supabase's `password_hibp_enabled` covers it at the
+   right layer. **Two of August's §12 green ticks turned out to be false**
+   (Bot Fight Mode, leaked credentials), both originally recorded from a
+   dashboard glance rather than a verified read.
 
 ## Re-check log
 
@@ -363,9 +504,13 @@ original one.
   audited fresh and came back clean: RLS with `auth.uid()` policies, tokens
   in Supabase Vault, narrowed scopes, timing-safe webhook auth, no token
   logging, every route rate-limited. **Not re-checked this run, needs a
-  human pass:** Cloudflare WAF / Bot Fight Mode / Page Shield (§12) and
-  Render env-var separation (§3) — no API credentials for either are
-  available to the scheduled task; only a Supabase management token is.
+  human pass:** Cloudflare WAF / Bot Fight Mode / Page Shield (§12). **This
+  run's claim that Render was equally uncheckable was wrong** — corrected
+  later the same day: `ops/config/credentials.js` exposes
+  `getRenderCredentials()` (`RENDER_API_KEY` / `RENDER_SERVICE_ID`), so §3's
+  env-var separation *is* verifiable headlessly and was verified. A future
+  run should reach for `ops/config/credentials.js` before declaring
+  something uncheckable — it also holds the Supabase and npm tokens.
 - **2026-09-01 (same day, follow-up with Werner)** — five Supabase Auth
   settings changed and verified live, closing open items 6 and 7 the same
   day they were opened: session timebox 0 → 720 hours (30 days), password

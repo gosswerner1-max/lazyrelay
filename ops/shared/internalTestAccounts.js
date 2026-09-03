@@ -7,7 +7,26 @@
 // (testing is ongoing) rather than deleted, so the exclusion is a pattern
 // match here instead — covers whatever test accounts get created next too.
 
-const INTERNAL_TEST_EMAIL_PATTERNS = [/@lazyrelay\.invalid$/i, /@lazydownloader\.co\.za$/i, /@lazyrelay\.com$/i];
+const INTERNAL_TEST_EMAIL_PATTERNS = [
+  /@lazyrelay\.invalid$/i,
+  /@lazydownloader\.co\.za$/i,
+  /@lazyrelay\.com$/i,
+  // RFC 2606 reserved-for-documentation domains. Added 2026-08-31 (Werner's
+  // go-ahead) after `lazyrelay-disposable-onboarding-test@example.com` -- the
+  // onboarding-popup test fixture created 2026-08-30 via the Supabase Admin
+  // API -- slipped through as a "genuine external signup" and was 6 days from
+  // being sent a stuck-onboarding nudge by lazyrelay-accounts-ops-daily.
+  // Fourth instance of a fixture beating this filter (Google reviewer,
+  // +lrtest1, the gmail login change, then this); the first three were
+  // address-shaped and fixed with exact entries + stripGmailAlias(), this one
+  // is domain-shaped and needed a pattern. Safe to widen rather than list
+  // exactly -- unlike @gmail.com, these domains are reserved by RFC 2606
+  // precisely so they can never be registered or receive mail, so no real
+  // customer can ever sign up on one. Subdomains included (mail.example.com).
+  /@(?:[^@]+\.)?example\.(?:com|net|org)$/i,
+  // The reserved `.example` TLD from the same RFC clause, same rationale.
+  /@(?:[^@]+\.)?example$/i,
+];
 
 // Specific personal addresses confirmed 2026-08-05 as Werner's/Luzaan's own
 // testing — a domain pattern can't cover these (real customers legitimately
@@ -15,6 +34,11 @@ const INTERNAL_TEST_EMAIL_PATTERNS = [/@lazyrelay\.invalid$/i, /@lazydownloader\
 // Confirmed with Werner: only these two exist right now. Add here, never
 // widen the domain patterns above, if another personal test address shows
 // up later.
+//   Scope of that rule, clarified 2026-08-31: it means never widen a
+//   *deliverable* domain (@gmail.com and the like) where a real customer
+//   could collide. It does not cover the RFC 2606 reserved domains added to
+//   the pattern list above, which no one can ever register or receive mail
+//   on -- those are safe as patterns and belong there, not here.
 const INTERNAL_TEST_EMAILS_EXACT = new Set([
   "goss.werner.1@gmail.com",
   "jacobsluzaan@gmail.com",
