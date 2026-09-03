@@ -362,6 +362,36 @@ const FOOTER_BADGES: FooterBadge[] = [
   },
 ];
 
+// SourceForge's badge (added 2026-09-03) isn't a static image like every
+// other footer badge -- it's a script-rendered widget that replaces the
+// contents of any .sf-root div it finds on the page. The script only
+// needs loading once regardless of how many .sf-root divs exist (the
+// marquee renders FooterBadgeGroup twice, for the seamless-scroll
+// duplicate), so this guard lives at module scope, not inside the
+// component -- a per-component useEffect would otherwise inject it twice.
+let sourceForgeBadgeScriptLoaded = false;
+function loadSourceForgeBadgeScriptOnce() {
+  if (sourceForgeBadgeScriptLoaded) return;
+  sourceForgeBadgeScriptLoaded = true;
+  const sc = document.createElement("script");
+  sc.async = true;
+  sc.src = "https://b.sf-syn.com/badge_js?sf_id=4133019&variant_id=sf";
+  document.head.appendChild(sc);
+}
+
+function SourceForgeBadge() {
+  useEffect(() => {
+    loadSourceForgeBadgeScriptOnce();
+  }, []);
+  return (
+    <div className="sf-root sourceforge-badge" data-id="4133019" data-badge="customers-love-us-white" data-variant-id="sf" style={{ width: 125 }}>
+      <a href="https://sourceforge.net/software/product/LazyRelay/" target="_blank" rel="noopener noreferrer">
+        LazyRelay Reviews
+      </a>
+    </div>
+  );
+}
+
 function FooterBadgeGroup({ ariaHidden }: { ariaHidden?: boolean }) {
   return (
     <div className="landing-footer-badges-group" aria-hidden={ariaHidden || undefined}>
@@ -370,6 +400,7 @@ function FooterBadgeGroup({ ariaHidden }: { ariaHidden?: boolean }) {
           <img src={badge.imgSrc} alt={badge.alt} width={badge.width} height={badge.height} />
         </a>
       ))}
+      <SourceForgeBadge />
     </div>
   );
 }
