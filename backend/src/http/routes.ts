@@ -192,31 +192,29 @@ async function releaseMediaIfOrphaned(mediaUrl: string, accountId: string): Prom
 // configured." Reddit was dropped from the roadmap entirely on 2026-07-30
 // in favor of Snapchat (see
 // product/reference-social-automation-saas-venture-research and
-// lazyrelay/project-snapchat-replaces-reddit-2026-07-30 memory) — removed
-// from this list rather than left as a stale "coming soon" tile pointing at
-// a platform that's no longer the plan. "snapchat" is comingSoon: true —
-// its adapter is code-complete (platforms/snapchat.ts) but has never been
-// tested against a real API response, no OAuth app exists yet (Business
-// Manager setup paused mid-way), and the Public Profile API is
-// allowlist-only regardless — real credentials won't be enough on their
-// own, Snap has to manually allowlist the client ID too. "x" is also
-// comingSoon: true — the adapter is code-complete and registered, but
-// X's API is pay-per-use (Basic tier $200/mo just for write access), and
-// the user decided 2026-08-04 to hold off funding it until there's real
-// customer demand, rather than pay for an untested, unused integration.
-// "google-business" is also comingSoon: true, added 2026-08-17 — the
-// adapter is code-complete (platforms/googleBusiness.ts) but has never been
-// tested against a real API response, and Google Business Profile APIs are
-// fully gated: the API isn't even visible in the Cloud Console until Google
-// approves a separate access-request form, a stricter gate than a standard
-// OAuth-scope review. Real credentials + the access-request approval are
-// both required before this can go live for any customer.
+// lazyrelay/project-snapchat-replaces-reddit-2026-07-30 memory), then
+// Snapchat itself was dropped 2026-09-03 (its Public Profile API allowlisting
+// turned out to be gated on an Account Manager assignment Snap wouldn't
+// commit to a timeline on) and its adapter (platforms/snapchat.ts) removed
+// entirely rather than left dark — see
+// lazyrelay/project-snapchat-replaces-reddit-2026-07-30 memory for the
+// decision. "x" is comingSoon: true — the adapter is code-complete and
+// registered, but X's API is pay-per-use (Basic tier $200/mo just for write
+// access), and the user decided 2026-08-04 to hold off funding it until
+// there's real customer demand, rather than pay for an untested, unused
+// integration. "google-business" is also comingSoon: true, added 2026-08-17
+// — the adapter is code-complete (platforms/googleBusiness.ts) but has never
+// been tested against a real API response, and Google Business Profile APIs
+// are fully gated: the API isn't even visible in the Cloud Console until
+// Google approves a separate access-request form, a stricter gate than a
+// standard OAuth-scope review. Real credentials + the access-request
+// approval are both required before this can go live for any customer.
 const ALL_PLATFORMS = [
   "tiktok", "pinterest", "youtube", "mastodon", "bluesky", "telegram",
   "linkedin", "threads", "facebook", "instagram", "discord", "tumblr", "x",
-  "snapchat", "google-business",
+  "google-business",
 ] as const;
-const COMING_SOON_PLATFORMS = new Set<string>(["snapchat", "x", "google-business"]);
+const COMING_SOON_PLATFORMS = new Set<string>(["x", "google-business"]);
 
 export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: PlatformAdapterRegistry): Router {
   const router = Router();

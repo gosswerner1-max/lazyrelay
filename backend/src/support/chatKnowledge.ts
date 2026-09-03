@@ -121,10 +121,11 @@ const LIVE_PLATFORMS = [
   "Discord",
   "Tumblr",
 ] as const;
-// Werner's call, 2026-08-19: only surface X as "coming soon" -- Snapchat and
-// Google Business are real work in progress (see routes.ts's own
+// Werner's call, 2026-08-19: only surface X as "coming soon" -- Google
+// Business is real work in progress (see routes.ts's own
 // COMING_SOON_PLATFORMS/ALL_PLATFORMS, the actual source of truth) but
-// deliberately not advertised anywhere customer-facing right now.
+// deliberately not advertised anywhere customer-facing right now. Snapchat
+// was dropped from the roadmap entirely 2026-09-03, adapter removed.
 const COMING_SOON_PLATFORMS = ["X"] as const;
 
 // Curated from support/SUPPORT_KNOWLEDGE.md -- customer-safe troubleshooting

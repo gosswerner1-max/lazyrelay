@@ -41,7 +41,6 @@ export type Platform =
   | "discord"
   | "tumblr"
   | "x"
-  | "snapchat"
   | "google-business";
 
 // Platforms without a researched, bespoke rule yet fall back to the same
@@ -142,16 +141,6 @@ const RULES: Record<Platform, PlatformRules> = {
   x: {
     image: { maxSizeBytes: 5 * MB, allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] },
     video: { maxSizeBytes: 512 * MB, allowedMimeTypes: ["video/mp4", "video/quicktime"] },
-  },
-  // developers.snap.com Public Profile API docs (verified 2026-07-31, never
-  // tested against a real account — see platforms/snapchat.ts). Story posts
-  // require MP4 video only, 5-60s, min 540x960px — there is no documented
-  // image-post path, so the image rule here exists only so
-  // validateMediaForPlatform() returns a clear rejection rather than an
-  // undefined-rule crash if a customer tries to attach an image.
-  snapchat: {
-    image: { maxSizeBytes: 0, allowedMimeTypes: [] },
-    video: { maxSizeBytes: 1024 * MB, allowedMimeTypes: ["video/mp4"] },
   },
   // support.google.com/business/answer/6103862 (verified 2026-08-17, never
   // tested against a real account — API access itself is still gated, see

@@ -155,9 +155,9 @@ const COMPARISON = [
 // platform's own review process for, as of 2026-08-25 (Pinterest, TikTok,
 // YouTube/Google all APPROVED; Facebook Pages posting approved, Instagram
 // content publish still in review). Deliberately does NOT include
-// Instagram (pending), Snapchat (not yet offered to customers), or the
-// no-review platforms (Bluesky/Mastodon/Telegram/Discord, which use
-// app-password/self-service auth with no review process to pass) --
+// Instagram (pending), or the no-review platforms (Bluesky/Mastodon/
+// Telegram/Discord, which use app-password/self-service auth with no
+// review process to pass) --
 // overstating any of those would contradict the disclaimer already in this
 // page's own footer ("not affiliated with, endorsed by, or sponsored by").
 // "Passed review" is a true, narrower claim than "official partner" and

@@ -87,9 +87,6 @@ async function main() {
       `X_CLIENT_ID=${process.env.X_CLIENT_ID ? "set" : "MISSING"} ` +
       `X_CLIENT_SECRET=${process.env.X_CLIENT_SECRET ? "set" : "MISSING"} ` +
       `X_REDIRECT_URI=${process.env.X_REDIRECT_URI ? "set" : "MISSING"}; ` +
-      `SNAPCHAT_CLIENT_ID=${process.env.SNAPCHAT_CLIENT_ID ? "set" : "MISSING"} ` +
-      `SNAPCHAT_CLIENT_SECRET=${process.env.SNAPCHAT_CLIENT_SECRET ? "set" : "MISSING"} ` +
-      `SNAPCHAT_REDIRECT_URI=${process.env.SNAPCHAT_REDIRECT_URI ? "set" : "MISSING"}; ` +
       `ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? "set" : "MISSING"}`,
   );
 

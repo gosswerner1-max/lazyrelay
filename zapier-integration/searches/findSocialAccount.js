@@ -49,7 +49,7 @@ module.exports = {
         choices: [
           "tiktok", "pinterest", "youtube", "mastodon", "bluesky", "telegram",
           "linkedin", "threads", "facebook", "instagram", "discord", "tumblr",
-          "x", "snapchat", "google-business",
+          "x", "google-business",
         ],
         helpText: "Leave blank to search across every connected platform.",
       },
