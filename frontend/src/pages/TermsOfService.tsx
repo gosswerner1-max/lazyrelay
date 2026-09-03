@@ -7,7 +7,7 @@ interface TermsOfServiceProps {
   onBack: () => void;
 }
 
-const LAST_UPDATED = "11 August 2026";
+const LAST_UPDATED = "3 September 2026";
 
 export function TermsOfService({ onBack }: TermsOfServiceProps) {
   useEffect(() => {
@@ -61,8 +61,8 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
 
           <h3>Cancellations and refunds</h3>
           <p>
-            <strong>You can cancel your plan at any time</strong> from the Billing tab of your dashboard
-            (under More in the top nav).
+            <strong>You can cancel your plan at any time</strong> from the Billing section of the Settings tab
+            (always visible in the top nav).
             Cancelling stops future billing, but you keep access to your current plan's features until the end
             of the billing period you've already paid for, then your account drops to the Free plan.
           </p>
@@ -76,8 +76,9 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
             supported through self-serve cancellation.
           </p>
           <p>
-            Storage add-ons themselves follow the same rule: cancel one at any time from the Billing tab,
-            effective at the end of its current billing period, no partial refund for time already paid.
+            Storage add-ons themselves follow the same rule: cancel one at any time from the Billing section
+            of the Settings tab, effective at the end of its current billing period, no partial refund for
+            time already paid.
           </p>
           <p>
             <strong>Once your plan actually ends, your posts and uploaded media are permanently deleted 30 days
@@ -91,8 +92,8 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
           <p>
             You own the content you schedule through LazyRelay. We store it only to publish it at the time you
             choose, and to show you what's scheduled, posted, or failed. Uploaded media counts against your
-            plan's storage quota (shown as a gauge on the Storage tab) plus any storage add-ons you've
-            purchased.
+            plan's storage quota (shown as a gauge in the Storage section of the Settings tab) plus any
+            storage add-ons you've purchased.
             Once you're at your limit, new uploads are rejected until you delete something or add more space.
             We never delete your files ourselves for going over your quota while subscribed — storage is only
             ever freed by your own action or the 30-day post-cancellation deletion described above.

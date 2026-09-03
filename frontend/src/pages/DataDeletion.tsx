@@ -7,7 +7,7 @@ interface DataDeletionProps {
   onBack: () => void;
 }
 
-const LAST_UPDATED = "10 August 2026";
+const LAST_UPDATED = "3 September 2026";
 
 export function DataDeletion({ onBack }: DataDeletionProps) {
   useEffect(() => {
@@ -56,7 +56,7 @@ export function DataDeletion({ onBack }: DataDeletionProps) {
 
           <h3>Cancel your subscription (self-serve)</h3>
           <p>
-            Go to the Billing tab of your Dashboard (under More in the top nav) and click Cancel. This stops
+            Go to the Billing section of the Settings tab (always visible in the top nav) and click Cancel. This stops
             future billing; your account drops to the Free plan at the end of the period you've already paid
             for. Your data is <strong>not</strong> deleted at that point — but <strong>30 days after your access
             ends, your posts and uploaded media are permanently deleted</strong>, since we can't provide storage
