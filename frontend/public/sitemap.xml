@@ -6,247 +6,247 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/pricing</loc>
+    <loc>https://lazyrelay.com/pricing/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/guides</loc>
+    <loc>https://lazyrelay.com/guides/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/mcp</loc>
+    <loc>https://lazyrelay.com/mcp/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/status</loc>
+    <loc>https://lazyrelay.com/status/</loc>
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/changelog</loc>
+    <loc>https://lazyrelay.com/changelog/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/in-the-works</loc>
+    <loc>https://lazyrelay.com/in-the-works/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/platform-features</loc>
+    <loc>https://lazyrelay.com/platform-features/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/docs</loc>
+    <loc>https://lazyrelay.com/docs/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/connect-zapier</loc>
+    <loc>https://lazyrelay.com/connect-zapier/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/mcp/claude</loc>
+    <loc>https://lazyrelay.com/mcp/claude/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/mcp/cursor</loc>
+    <loc>https://lazyrelay.com/mcp/cursor/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/mcp/windsurf</loc>
+    <loc>https://lazyrelay.com/mcp/windsurf/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/mcp/chatgpt</loc>
+    <loc>https://lazyrelay.com/mcp/chatgpt/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/mcp/codex-cli</loc>
+    <loc>https://lazyrelay.com/mcp/codex-cli/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/mcp/n8n</loc>
+    <loc>https://lazyrelay.com/mcp/n8n/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/mcp/make</loc>
+    <loc>https://lazyrelay.com/mcp/make/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/mcp/gemini-cli</loc>
+    <loc>https://lazyrelay.com/mcp/gemini-cli/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/mcp/vscode</loc>
+    <loc>https://lazyrelay.com/mcp/vscode/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/mcp/antigravity</loc>
+    <loc>https://lazyrelay.com/mcp/antigravity/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/mcp/perplexity</loc>
+    <loc>https://lazyrelay.com/mcp/perplexity/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/mcp/notion</loc>
+    <loc>https://lazyrelay.com/mcp/notion/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/mcp/manus</loc>
+    <loc>https://lazyrelay.com/mcp/manus/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/mcp/openclaw</loc>
+    <loc>https://lazyrelay.com/mcp/openclaw/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/mcp/raycast</loc>
+    <loc>https://lazyrelay.com/mcp/raycast/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/time-savings-calculator</loc>
+    <loc>https://lazyrelay.com/time-savings-calculator/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/verify-post-published</loc>
+    <loc>https://lazyrelay.com/verify-post-published/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/social-media-scheduler-comparison</loc>
+    <loc>https://lazyrelay.com/social-media-scheduler-comparison/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/alternatives/postdodo</loc>
+    <loc>https://lazyrelay.com/alternatives/postdodo/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/alternatives/buffer</loc>
+    <loc>https://lazyrelay.com/alternatives/buffer/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/alternatives/hootsuite</loc>
+    <loc>https://lazyrelay.com/alternatives/hootsuite/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/alternatives/metricool</loc>
+    <loc>https://lazyrelay.com/alternatives/metricool/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/alternatives/later</loc>
+    <loc>https://lazyrelay.com/alternatives/later/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/alternatives/sprout-social</loc>
+    <loc>https://lazyrelay.com/alternatives/sprout-social/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/alternatives/socialbee</loc>
+    <loc>https://lazyrelay.com/alternatives/socialbee/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/alternatives/publer</loc>
+    <loc>https://lazyrelay.com/alternatives/publer/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/alternatives/postiz</loc>
+    <loc>https://lazyrelay.com/alternatives/postiz/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/alternatives/publora</loc>
+    <loc>https://lazyrelay.com/alternatives/publora/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/ai-agent-scheduled-post-failure</loc>
+    <loc>https://lazyrelay.com/ai-agent-scheduled-post-failure/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/mastodon-bluesky-tumblr-scheduler</loc>
+    <loc>https://lazyrelay.com/mastodon-bluesky-tumblr-scheduler/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/stuck-on-what-to-post</loc>
+    <loc>https://lazyrelay.com/stuck-on-what-to-post/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/social-media-comment-triage</loc>
+    <loc>https://lazyrelay.com/social-media-comment-triage/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/multi-brand-social-media-scheduler</loc>
+    <loc>https://lazyrelay.com/multi-brand-social-media-scheduler/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/proof-post-went-live</loc>
+    <loc>https://lazyrelay.com/proof-post-went-live/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/social-media-analytics-insight</loc>
+    <loc>https://lazyrelay.com/social-media-analytics-insight/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/terms</loc>
+    <loc>https://lazyrelay.com/terms/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/privacy</loc>
+    <loc>https://lazyrelay.com/privacy/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/refunds</loc>
+    <loc>https://lazyrelay.com/refunds/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/dpa</loc>
+    <loc>https://lazyrelay.com/dpa/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://lazyrelay.com/data-deletion</loc>
+    <loc>https://lazyrelay.com/data-deletion/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
