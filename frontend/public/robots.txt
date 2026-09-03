@@ -24,4 +24,16 @@ Allow: /
 User-agent: CCBot
 Allow: /
 
+User-agent: GrokBot
+Allow: /
+
+User-agent: xAI-Grok
+Allow: /
+
+User-agent: Grok-DeepSearch
+Allow: /
+
+User-agent: Meta-ExternalAgent
+Allow: /
+
 Sitemap: https://lazyrelay.com/sitemap.xml
