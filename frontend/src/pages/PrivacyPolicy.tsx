@@ -7,7 +7,7 @@ interface PrivacyPolicyProps {
   onBack: () => void;
 }
 
-const LAST_UPDATED = "10 August 2026";
+const LAST_UPDATED = "3 September 2026";
 
 export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
   useEffect(() => {
@@ -83,6 +83,22 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
             <li>Service providers that host our infrastructure (e.g. our database and hosting providers), bound to keep your data confidential.</li>
             <li>When required by law.</li>
           </ul>
+
+          <h3>AI features and Google user data</h3>
+          <p>
+            LazyRelay uses Anthropic's Claude API for two optional features: generating post captions on request,
+            and classifying incoming social media comments and DMs. Separately, LazyRelay offers an MCP (Model
+            Context Protocol) server that lets you connect a third-party AI assistant of your own choosing (for
+            example Claude or ChatGPT) to manage your own scheduled posts through our API — any request through
+            that connection is initiated by your own AI client, under your own authorization, not by LazyRelay.
+          </p>
+          <p>
+            If you connect Google Calendar or Google Sheets, we do not use raw or derived data obtained through
+            those Google APIs to train, retrain, or improve any AI or machine learning model, foundational or
+            otherwise. That data is used exclusively to provide the calendar-sync and spreadsheet-sync
+            functionality you've authorized, and is never transferred to Anthropic, to any AI assistant you
+            connect via our MCP server, or to any other third party for model-training purposes.
+          </p>
 
           <h3>Data retention</h3>
           <p>
