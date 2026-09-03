@@ -68,6 +68,9 @@ const MORE_FEATURES = [
   "Link-in-bio page: a simple, hosted link page you can share as one URL",
   "Comment tracking: see comments on your own Facebook, Instagram, YouTube, Mastodon, and Bluesky posts",
   "Browser extension: right-click any page, link, or image to send it to LazyRelay",
+  "Google Calendar sync: two-way sync with a dedicated calendar on your Google account — move, edit, or add a post from either side",
+  "Google Sheets export: a live-updating spreadsheet mirror of your content calendar, handy for sharing a read-only view with a client",
+  "Two-factor authentication: optional TOTP-based 2FA plus one-time recovery codes, for extra account security",
 ];
 
 const STEPS = [
