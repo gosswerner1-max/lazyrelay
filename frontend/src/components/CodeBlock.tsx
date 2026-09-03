@@ -1,6 +1,16 @@
 import { useState } from "react";
 
-export function CodeBlock({ code }: { code: string }) {
+interface CodeBlockProps {
+  code: string;
+  // Set on any block revealing a real generated secret (API key, webhook
+  // secret, MFA recovery codes/TOTP secret) -- adds PostHog's ph-mask class
+  // so it's excluded from session replay regardless of the project-level
+  // masking setting. Docs/example code (which never contains a real
+  // secret) should leave this unset, since replay stays useful there.
+  sensitive?: boolean;
+}
+
+export function CodeBlock({ code, sensitive }: CodeBlockProps) {
   const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
 
   async function handleCopy() {
@@ -19,7 +29,7 @@ export function CodeBlock({ code }: { code: string }) {
   }
 
   return (
-    <pre className="api-code-block">
+    <pre className={`api-code-block${sensitive ? " ph-mask" : ""}`}>
       <button type="button" className={`api-code-copy${status === "failed" ? " api-code-copy-failed" : ""}`} onClick={handleCopy}>
         {status === "copied" ? "Copied!" : status === "failed" ? "Couldn't copy, select manually" : "Copy"}
       </button>

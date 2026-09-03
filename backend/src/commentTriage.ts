@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { supabase } from "./supabase.js";
+import { createAnthropicClient } from "./posthogClient.js";
 
 // Comment/DM triage (2026-08-08) — item 10 from the 2026-08-07 competitor
 // audit: surface only the comment/DM that actually needs a human, instead
@@ -39,7 +40,7 @@ const MAX_ITEMS_PER_BATCH = 30;
 function getClient(): Anthropic | null {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
-  return new Anthropic({ apiKey, timeout: 20_000 });
+  return createAnthropicClient(apiKey, 20_000);
 }
 
 async function classifyBatch(items: TriageItem[]): Promise<Map<string, TriageResult>> {

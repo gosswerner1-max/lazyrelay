@@ -66,7 +66,18 @@
   # rankinpublic.xyz while X-Frame-Options still blocks every other origin
   # and still protects any browser old enough not to understand CSP framing
   # directives at all.
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://challenges.cloudflare.com https://cdn.paddle.com https://public.profitwell.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://startupfa.me https://smollaunch.com https://img.turbo0.com https://saascubes.com https://listmysaas.xyz https://findly.tools https://fazier.com https://twelve.tools https://wired.business https://cdn-b.saashub.com https://web-review.com https://www.scrolllaunch.com https://saasbison.com https://www.foundrlist.com https://nicklaunches.com https://goodaitools.com https://cdn.openhunts.com https://tinylaunch.com https://www.tinylaunch.com https://viberank.dev; font-src 'self'; connect-src 'self' https://qbmejnmyqogotdzzzyvj.supabase.co https://lazyrelaylazyrelay-backend.onrender.com https://www.google-analytics.com https://region1.google-analytics.com https://buy.paddle.com; frame-src 'self' https://challenges.cloudflare.com https://buy.paddle.com; frame-ancestors 'self' https://rankinpublic.xyz; object-src 'none'; base-uri 'self'"
+  # PostHog (Session Replay/Error Tracking/Product Analytics/AI observability/
+  # MCP analytics) added 2026-09-03 -- script-src and connect-src use PostHog's
+  # own documented wildcard (https://*.posthog.com) rather than a single
+  # subdomain, per their own CSP guide: the exact subdomain serving each
+  # request can change over time as they optimize routing, so a pinned single
+  # host is the wrong fix here, unlike every badge-image host above (which are
+  # genuinely fixed). worker-src is new to this policy entirely -- Session
+  # Replay's recorder runs in a Web Worker, which needs its own directive; it
+  # silently falls back to the default-src 'self' restriction without one,
+  # which would block replay outright with no visible error in a plain curl
+  # check (same failure shape as the img-src badge bug above).
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://challenges.cloudflare.com https://cdn.paddle.com https://public.profitwell.com https://*.posthog.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://startupfa.me https://smollaunch.com https://img.turbo0.com https://saascubes.com https://listmysaas.xyz https://findly.tools https://fazier.com https://twelve.tools https://wired.business https://cdn-b.saashub.com https://web-review.com https://www.scrolllaunch.com https://saasbison.com https://www.foundrlist.com https://nicklaunches.com https://goodaitools.com https://cdn.openhunts.com https://tinylaunch.com https://www.tinylaunch.com https://viberank.dev; font-src 'self'; connect-src 'self' https://qbmejnmyqogotdzzzyvj.supabase.co https://lazyrelaylazyrelay-backend.onrender.com https://www.google-analytics.com https://region1.google-analytics.com https://buy.paddle.com https://*.posthog.com; worker-src 'self' blob: data:; frame-src 'self' https://challenges.cloudflare.com https://buy.paddle.com; frame-ancestors 'self' https://rankinpublic.xyz; object-src 'none'; base-uri 'self'"
   # Forces HTTPS on every future visit, including the very first navigation
   # typed as http://. 1 year, includeSubDomains — the site has no non-HTTPS
   # subdomains that need to stay reachable over plain http.

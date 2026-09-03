@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { setPostHogConsent } from "../lib/posthog";
 
 declare global {
   interface Window {
@@ -22,6 +23,7 @@ function applyConsent(choices: ConsentChoices) {
     ad_user_data: choices.targetedAdvertising ? "granted" : "denied",
     ad_personalization: choices.targetedAdvertising ? "granted" : "denied",
   });
+  setPostHogConsent(choices.analytics);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(choices));
 }
 

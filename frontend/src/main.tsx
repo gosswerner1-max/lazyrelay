@@ -4,7 +4,9 @@ import './index.css'
 import App from './App.tsx'
 import { restoreStoredConsent } from './components/CookieConsent.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
+import { initPostHog } from './lib/posthog.ts'
 
+initPostHog()
 restoreStoredConsent()
 
 const root = document.getElementById('root')!

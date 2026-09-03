@@ -66,8 +66,13 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
             LazyRelay are stored so we can publish them at the time you choose.
           </p>
           <p>
-            <strong>Usage data.</strong> We collect basic technical information (like error logs) to keep the
-            service running reliably. We do not use tracking cookies for advertising.
+            <strong>Usage data.</strong> If you accept analytics cookies in the cookie banner, we use PostHog to
+            understand how the product is used and to debug issues — this includes product usage events, error
+            reports, and session replay (a recording of your on-screen activity, not audio or video of you). Every
+            page and input on the dashboard is masked in these recordings by default, and anything showing a real
+            secret (an API key, a webhook secret, MFA recovery codes) is always masked regardless of that setting.
+            If you decline analytics cookies, none of this is collected. We do not use tracking cookies for
+            advertising.
           </p>
 
           <h3>How we use your information</h3>
@@ -81,6 +86,7 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
           <ul>
             <li>The social media platforms you've explicitly connected, solely to publish your content.</li>
             <li>Service providers that host our infrastructure (e.g. our database and hosting providers), bound to keep your data confidential.</li>
+            <li>PostHog, our product analytics provider, if you've accepted analytics cookies — see above.</li>
             <li>When required by law.</li>
           </ul>
 

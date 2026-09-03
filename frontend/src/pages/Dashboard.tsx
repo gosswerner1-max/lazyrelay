@@ -5142,7 +5142,7 @@ export function Dashboard() {
                       <strong>Save these recovery codes</strong> somewhere safe — each one lets you back into your
                       account if you ever lose access to your authenticator app. They won't be shown again.
                     </p>
-                    <CodeBlock code={mfaRecoveryCodes.join("\n")} />
+                    <CodeBlock code={mfaRecoveryCodes.join("\n")} sensitive />
                   </>
                 )}
                 <button type="button" className="btn-outline" onClick={handleCancelMfaEnrollment}>
@@ -5156,7 +5156,7 @@ export function Dashboard() {
                   enter the 6-digit code it shows to confirm.
                 </p>
                 <img src={mfaEnrollment.qrCode} alt="Two-factor authentication QR code" width={200} height={200} />
-                <CodeBlock code={mfaEnrollment.secret} />
+                <CodeBlock code={mfaEnrollment.secret} sensitive />
                 <form onSubmit={handleConfirmMfaEnrollment} className="dm-automation-form">
                   <input
                     type="text"
@@ -5280,7 +5280,7 @@ export function Dashboard() {
         {revealedWebhookSecret && (
           <div className="api-key-reveal" style={{ marginTop: 12 }}>
             <p><strong>Copy this secret now.</strong> It won't be shown again.</p>
-            <CodeBlock code={revealedWebhookSecret} />
+            <CodeBlock code={revealedWebhookSecret} sensitive />
             <button type="button" className="btn-outline" onClick={() => setRevealedWebhookSecret(null)}>
               Done
             </button>
@@ -5512,7 +5512,7 @@ export function Dashboard() {
         {newlyCreatedKey && (
           <div className="api-key-reveal">
             <p><strong>Copy this key now</strong>, it won't be shown again.</p>
-            <CodeBlock code={newlyCreatedKey} />
+            <CodeBlock code={newlyCreatedKey} sensitive />
             <button type="button" className="btn-outline" onClick={() => setNewlyCreatedKey(null)}>
               Done
             </button>
