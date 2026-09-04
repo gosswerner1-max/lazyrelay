@@ -20,7 +20,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # 22, not 20 -- found 2026-09-04 wiring in the security test:
+          # @supabase/supabase-js's realtime client requires a native
+          # WebSocket global, which Node 20 doesn't provide, and the
+          # backend crashes on startup as a result (confirmed live in this
+          # exact CI job). supabase-js's own deprecation warning already
+          # names 22 as the fix. Local dev/Render weren't hitting this
+          # since this backend build+boot sequence had never run in CI
+          # before this test was wired in.
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: backend/package-lock.json
       - working-directory: backend
