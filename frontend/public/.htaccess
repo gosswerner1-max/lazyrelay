@@ -84,18 +84,31 @@
   # has been silently blocked by this CSP since it went enforcing on
   # 2026-08-25 -- confirmed live via window.dataLayer never receiving the
   # consent-default push. Whitelisting the exact script by its own SHA-256
-  # hash (Chrome's own CSP violation message supplies it) is the narrow fix:
-  # it allows only this one unchanging inline script, not 'unsafe-inline'
-  # generally. Any future edit to that script block changes its hash and
-  # needs this value regenerated -- if the consent-default push silently
-  # stops working again, check this first before assuming a JS bug.
+  # hash is the narrow fix: it allows only this one unchanging inline
+  # script, not 'unsafe-inline' generally. The FIRST attempt at this fix
+  # (same day) used the wrong hash -- grabbed from a Chrome console error
+  # without confirming which of the page's two inline scripts (this one, or
+  # the JSON-LD structured-data block above it) it actually belonged to, and
+  # guessed wrong. Caught immediately by verifying live: even after deploy,
+  # window.google_tag_data.ics.entries still showed `implicit: true` for
+  # every consent type (meaning gtag never received an explicit default),
+  # and computing the SHA-256 of the actual live script client-side via
+  # crypto.subtle.digest confirmed the real hash. Lesson: a hash copied from
+  # a console message still needs confirming against the specific script
+  # element it's blocking, not just plugged in on the assumption of a match
+  # -- verify with computed dataLayer/ics state, not just "the console error
+  # went away," since the two-hash mixup still left the console clean (the
+  # OTHER script's block just went quiet instead). Any future edit to this
+  # script block changes its hash and needs this value regenerated -- if the
+  # consent-default push silently stops working again, check this first
+  # before assuming a JS bug.
   # font-src widened to include data: same day, same audit -- self-hosted
   # JetBrains Mono (used for code/API-key display) has its smallest unicode
   # subsets inlined as base64 data: URIs by the font-subsetting build step
   # rather than separate files; font-src 'self' alone doesn't cover data:
   # URIs, so those specific character ranges were silently falling back to a
   # substitute monospace font.
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-2swpvGgXFwQ2/Sg93tEhHVwMmF9woQdIHrd5NMiFT9M=' https://www.googletagmanager.com https://challenges.cloudflare.com https://cdn.paddle.com https://public.profitwell.com https://*.posthog.com https://b.sf-syn.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://startupfa.me https://smollaunch.com https://img.turbo0.com https://saascubes.com https://listmysaas.xyz https://findly.tools https://fazier.com https://twelve.tools https://wired.business https://cdn-b.saashub.com https://web-review.com https://www.scrolllaunch.com https://saasbison.com https://www.foundrlist.com https://nicklaunches.com https://goodaitools.com https://cdn.openhunts.com https://tinylaunch.com https://www.tinylaunch.com https://viberank.dev https://b.sf-syn.com; font-src 'self' data:; connect-src 'self' https://qbmejnmyqogotdzzzyvj.supabase.co https://lazyrelaylazyrelay-backend.onrender.com https://www.google-analytics.com https://region1.google-analytics.com https://buy.paddle.com https://*.posthog.com; worker-src 'self' blob: data:; frame-src 'self' https://challenges.cloudflare.com https://buy.paddle.com; frame-ancestors 'self' https://rankinpublic.xyz; object-src 'none'; base-uri 'self'"
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-R+9jP645iC2aAQGgX33J5akLs/LFrAkSCq8iA7w+F6s=' https://www.googletagmanager.com https://challenges.cloudflare.com https://cdn.paddle.com https://public.profitwell.com https://*.posthog.com https://b.sf-syn.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://startupfa.me https://smollaunch.com https://img.turbo0.com https://saascubes.com https://listmysaas.xyz https://findly.tools https://fazier.com https://twelve.tools https://wired.business https://cdn-b.saashub.com https://web-review.com https://www.scrolllaunch.com https://saasbison.com https://www.foundrlist.com https://nicklaunches.com https://goodaitools.com https://cdn.openhunts.com https://tinylaunch.com https://www.tinylaunch.com https://viberank.dev https://b.sf-syn.com; font-src 'self' data:; connect-src 'self' https://qbmejnmyqogotdzzzyvj.supabase.co https://lazyrelaylazyrelay-backend.onrender.com https://www.google-analytics.com https://region1.google-analytics.com https://buy.paddle.com https://*.posthog.com; worker-src 'self' blob: data:; frame-src 'self' https://challenges.cloudflare.com https://buy.paddle.com; frame-ancestors 'self' https://rankinpublic.xyz; object-src 'none'; base-uri 'self'"
   # Forces HTTPS on every future visit, including the very first navigation
   # typed as http://. 1 year, includeSubDomains — the site has no non-HTTPS
   # subdomains that need to stay reachable over plain http.
