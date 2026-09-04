@@ -3,8 +3,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createAnthropicClient } from "../posthogClient.js";
 import multer from "multer";
 import { randomUUID, randomBytes, timingSafeEqual } from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
 import { imageSize } from "image-size";
-import { fileTypeFromBuffer } from "file-type";
+import { fileTypeFromFile } from "file-type";
 import { supabase } from "../supabase.js";
 import { cancelSubscription, cancelStorageAddon, cancelBrandAddon, cancelSeatAddon } from "../billing/sync.js";
 import { buildCheckoutTransaction } from "../billing/paddle.js";
@@ -101,11 +103,23 @@ const SEAT_ADDON_PRICE_ID_ENV_VAR = "PADDLE_PRICE_ID_SEAT_ADDON";
 const TEAM_INVITE_EXPIRY_MS = 72 * 60 * 60 * 1000;
 
 // Post media (images/video attached to a scheduled post) — uploaded via
-// multipart form data, held in memory only long enough to forward the
-// buffer to Supabase Storage's "post-media" bucket (see migration
-// 0007_post_media_bucket.sql). 20MB covers a real photo/short clip without
-// letting someone upload something absurd through this endpoint.
-const MEDIA_UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
+// multipart form data. Streamed to a temp file on disk as it arrives
+// (multer.diskStorage), not buffered in process memory — the backend runs
+// as a single Node process on a 512MB Render instance, so an in-memory
+// buffer per upload (the original approach) meant two concurrent uploads
+// near the cap could OOM-crash the whole server, not just fail the upload.
+// The temp file is streamed on to Supabase Storage's "post-media" bucket
+// (see migration 0007_post_media_bucket.sql) and deleted afterward either
+// way (found 2026-09-04 while raising this from its original 20MB).
+//
+// 45MB is a deliberate margin under Supabase Storage's own hard ceiling for
+// this project, not a number chosen for its own sake: the project is on
+// Supabase's Free plan, which caps every object at 50MB project-wide
+// (confirmed live via the Management API's /config/storage endpoint) — no
+// code change here can exceed that without upgrading Supabase itself, which
+// Werner declined for now (most customers cross-post one video sized for
+// multiple platforms, not a YouTube-native long-form upload).
+const MEDIA_UPLOAD_MAX_BYTES = 45 * 1024 * 1024;
 const ALLOWED_MEDIA_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -115,7 +129,13 @@ const ALLOWED_MEDIA_MIME_TYPES = new Set([
   "video/quicktime",
   "video/webm", // TikTok-supported format, not previously allowed here
 ]);
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MEDIA_UPLOAD_MAX_BYTES } });
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: os.tmpdir(),
+    filename: (_req, _file, cb) => cb(null, randomUUID()),
+  }),
+  limits: { fileSize: MEDIA_UPLOAD_MAX_BYTES },
+});
 
 // Used to build the public Proof-of-Publish share link returned by
 // GET /scheduled-posts/:id/proof-link (see migration
@@ -1865,102 +1885,118 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(400).json({ error: "No file uploaded (expected multipart field \"file\")" });
       return;
     }
-    // multer puts non-file multipart fields onto req.body as strings.
-    const altTextInput = req.body?.altText;
-    if (altTextInput !== undefined && typeof altTextInput !== "string") {
-      res.status(400).json({ error: "altText must be a string" });
-      return;
-    }
-    if (typeof altTextInput === "string" && altTextInput.length > MAX_ALT_TEXT_LENGTH) {
-      res.status(400).json({ error: `altText must be ${MAX_ALT_TEXT_LENGTH} characters or fewer` });
-      return;
-    }
-    const altText = altTextInput?.trim() || null;
-    // The client-supplied mimetype/filename (file.mimetype, file.originalname)
-    // are just headers the caller chose to send — trusting them is how a file
-    // named "photo.png.exe" with a spoofed image/png Content-Type would sail
-    // through and land in storage with a literal .exe extension. Detect the
-    // REAL type from the file's magic bytes instead, and use that (not
-    // anything client-supplied) for both the allowlist check and the stored
-    // file's extension/content-type.
-    const detected = await fileTypeFromBuffer(file.buffer);
-    if (!detected || !ALLOWED_MEDIA_MIME_TYPES.has(detected.mime)) {
-      res.status(400).json({
-        error: `Unsupported or unrecognized file type${detected ? ` "${detected.mime}"` : ""} — use an image (jpeg/png/webp/gif) or video (mp4/mov/webm)`,
-      });
-      return;
-    }
-
-    // Per-account storage quota — the defense against the "upload media
-    // forever, never attached to anything, for free" cost-abuse gap. We
-    // never delete a customer's files ourselves; once they're at quota,
-    // new uploads are rejected until they delete something or upgrade —
-    // same model as any cloud storage gauge, not a notice-and-delete policy.
-    const quotaError = await checkQuotaForNewUpload(req.accountId!, file.buffer.length);
-    if (quotaError) {
-      res.status(413).json({ error: quotaError });
-      return;
-    }
-
-    // storage.objects and media_uploads both stay on supabase through this
-    // whole route (and the rest of the media_uploads routes below) --
-    // 0007_post_media_bucket.sql: "all writes go through the backend's
-    // service-role client... no client-facing storage RLS policies are
-    // needed," and 0009_media_uploads.sql: same fail-closed-by-omission
-    // pattern, no anon/authenticated policies on media_uploads either.
-    // req.db would get a permissions error on the storage write and zero
-    // rows on the table.
-    const path = `${req.accountId}/${randomUUID()}.${detected.ext}`;
-    const { error: uploadError } = await supabase.storage
-      .from("post-media")
-      .upload(path, file.buffer, { contentType: detected.mime });
-    if (uploadError) {
-      dbError(res, uploadError, "POST /media/upload storage.upload");
-      return;
-    }
-
-    const { data } = supabase.storage.from("post-media").getPublicUrl(path);
-
-    // Measure real dimensions ourselves (images only — video needs ffprobe,
-    // not added yet, see mediaLimits.ts) so /scheduled-posts can validate
-    // against the TARGET platform's actual requirements later using
-    // server-measured metadata, not anything a client could misreport.
-    let width: number | null = null;
-    let height: number | null = null;
-    if (detected.mime.startsWith("image/")) {
-      try {
-        const dims = imageSize(file.buffer);
-        width = dims.width ?? null;
-        height = dims.height ?? null;
-      } catch {
-        // Unreadable/corrupt image headers — leave dimensions null rather
-        // than fail the upload; the platform itself will reject it later
-        // if it's genuinely broken, and dimension checks just get skipped.
+    try {
+      // multer puts non-file multipart fields onto req.body as strings.
+      const altTextInput = req.body?.altText;
+      if (altTextInput !== undefined && typeof altTextInput !== "string") {
+        res.status(400).json({ error: "altText must be a string" });
+        return;
       }
-    }
+      if (typeof altTextInput === "string" && altTextInput.length > MAX_ALT_TEXT_LENGTH) {
+        res.status(400).json({ error: `altText must be ${MAX_ALT_TEXT_LENGTH} characters or fewer` });
+        return;
+      }
+      const altText = altTextInput?.trim() || null;
+      // The client-supplied mimetype/filename (file.mimetype, file.originalname)
+      // are just headers the caller chose to send — trusting them is how a file
+      // named "photo.png.exe" with a spoofed image/png Content-Type would sail
+      // through and land in storage with a literal .exe extension. Detect the
+      // REAL type from the file's magic bytes instead, and use that (not
+      // anything client-supplied) for both the allowlist check and the stored
+      // file's extension/content-type. Reads just the header, not the whole
+      // file, same as everything else in this route now that it's disk-backed.
+      const detected = await fileTypeFromFile(file.path);
+      if (!detected || !ALLOWED_MEDIA_MIME_TYPES.has(detected.mime)) {
+        res.status(400).json({
+          error: `Unsupported or unrecognized file type${detected ? ` "${detected.mime}"` : ""} — use an image (jpeg/png/webp/gif) or video (mp4/mov/webm)`,
+        });
+        return;
+      }
 
-    const { data: mediaRow, error: metaError } = await supabase
-      .from("media_uploads")
-      .insert({
-        account_id: req.accountId,
-        url: data.publicUrl,
-        storage_path: path,
-        mime_type: detected.mime,
-        size_bytes: file.buffer.length,
-        width,
-        height,
-        alt_text: altText,
-      })
-      .select("id, url, alt_text")
-      .single();
-    if (metaError) {
-      dbError(res, metaError, "POST /media/upload media_uploads.insert");
-      return;
-    }
+      // Per-account storage quota — the defense against the "upload media
+      // forever, never attached to anything, for free" cost-abuse gap. We
+      // never delete a customer's files ourselves; once they're at quota,
+      // new uploads are rejected until they delete something or upgrade —
+      // same model as any cloud storage gauge, not a notice-and-delete policy.
+      const quotaError = await checkQuotaForNewUpload(req.accountId!, file.size);
+      if (quotaError) {
+        res.status(413).json({ error: quotaError });
+        return;
+      }
 
-    // id included alongside the historical `url`-only shape so a caller can
-    // later PATCH /media/:id to add/edit alt text without a separate lookup.
-    res.status(201).json({ id: mediaRow.id, url: mediaRow.url, altText: mediaRow.alt_text });
+      // storage.objects and media_uploads both stay on supabase through this
+      // whole route (and the rest of the media_uploads routes below) --
+      // 0007_post_media_bucket.sql: "all writes go through the backend's
+      // service-role client... no client-facing storage RLS policies are
+      // needed," and 0009_media_uploads.sql: same fail-closed-by-omission
+      // pattern, no anon/authenticated policies on media_uploads either.
+      // req.db would get a permissions error on the storage write and zero
+      // rows on the table.
+      //
+      // Streamed straight from the temp file rather than read into a buffer
+      // first — storage-js's upload() accepts a Node ReadableStream directly,
+      // so the file's bytes are never held in process memory at all, on
+      // either side of this request.
+      const path = `${req.accountId}/${randomUUID()}.${detected.ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("post-media")
+        .upload(path, fs.createReadStream(file.path), { contentType: detected.mime });
+      if (uploadError) {
+        dbError(res, uploadError, "POST /media/upload storage.upload");
+        return;
+      }
+
+      const { data } = supabase.storage.from("post-media").getPublicUrl(path);
+
+      // Measure real dimensions ourselves (images only — video needs ffprobe,
+      // not added yet, see mediaLimits.ts) so /scheduled-posts can validate
+      // against the TARGET platform's actual requirements later using
+      // server-measured metadata, not anything a client could misreport.
+      // image-size reads a file path directly (just enough of the header,
+      // not the whole file) — no need to load it ourselves.
+      let width: number | null = null;
+      let height: number | null = null;
+      if (detected.mime.startsWith("image/")) {
+        try {
+          const dims = imageSize(file.path);
+          width = dims.width ?? null;
+          height = dims.height ?? null;
+        } catch {
+          // Unreadable/corrupt image headers — leave dimensions null rather
+          // than fail the upload; the platform itself will reject it later
+          // if it's genuinely broken, and dimension checks just get skipped.
+        }
+      }
+
+      const { data: mediaRow, error: metaError } = await supabase
+        .from("media_uploads")
+        .insert({
+          account_id: req.accountId,
+          url: data.publicUrl,
+          storage_path: path,
+          mime_type: detected.mime,
+          size_bytes: file.size,
+          width,
+          height,
+          alt_text: altText,
+        })
+        .select("id, url, alt_text")
+        .single();
+      if (metaError) {
+        dbError(res, metaError, "POST /media/upload media_uploads.insert");
+        return;
+      }
+
+      // id included alongside the historical `url`-only shape so a caller can
+      // later PATCH /media/:id to add/edit alt text without a separate lookup.
+      res.status(201).json({ id: mediaRow.id, url: mediaRow.url, altText: mediaRow.alt_text });
+    } finally {
+      // Always clean up the temp file — success, validation failure, or a
+      // thrown error. Best-effort: a delete failure here shouldn't mask
+      // whatever response was already sent, just leaves one stray file for
+      // the OS to reclaim on its own temp-dir schedule.
+      fs.promises.unlink(file.path).catch(() => {});
+    }
   });
 
   // Edits a media item's alt text after upload (2026-08-16) — the one field
