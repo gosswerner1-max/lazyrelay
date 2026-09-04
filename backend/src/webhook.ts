@@ -51,7 +51,20 @@ export function sendVerifiedWebhook(url: string, secret: string, payload: Omit<V
         console.error(`[webhook] delivery to ${url} was refused because it returned a redirect (${res.status}) — redirects are not followed`);
         return;
       }
-      if (!res.ok) console.error(`[webhook] delivery to ${url} returned ${res.status}`);
+      if (!res.ok) {
+        console.error(`[webhook] delivery to ${url} returned ${res.status}`);
+        return;
+      }
+      // Logged on purpose, and please don't remove it as noise: until
+      // 2026-09-04 only FAILURES were logged here, which made a successful
+      // delivery completely invisible server-side. That is why this feature
+      // sat unverified from the day it shipped (2026-08-08) — nothing short
+      // of controlling the receiving endpoint could prove a delivery had
+      // ever succeeded, and a silently-failing customer integration was
+      // indistinguishable from one that never fired. Deliberately does not
+      // log the payload, the signature or the secret; the URL matches what
+      // the two failure lines above already log.
+      console.log(`[webhook] delivered ${body.event} for post ${body.postId} to ${url} (${res.status})`);
     })
     .catch((err) => console.error("[webhook] delivery failed:", err instanceof Error ? err.message : err));
 }
