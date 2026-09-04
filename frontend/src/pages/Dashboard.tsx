@@ -46,6 +46,16 @@ const MAIN_TABS: Tab[] = ["Overview", "Posts", "Calendar", "Social Platforms", "
 const MORE_TABS: Tab[] = ["Analytics", "Mentions", "DMs", "Bio Page"];
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+// Both Google integrations are built and working, but Google's own app
+// verification review is still pending for both -- a real customer trying
+// to connect would hit Google's "unverified app" warning screen mid-consent,
+// which reads as untrustworthy on a product whose whole pitch is proof and
+// verification. Greyed out for everyone (including this account) rather
+// than a real-customer-only gate, on purpose -- simpler, and this is a
+// temporary state that reverses the moment Google clears review. Flip back
+// to true to resume internal testing before then. 2026-09-04, Werner's call.
+const GOOGLE_INTEGRATIONS_LIVE = false;
+
 // Multi-brand filtering (2026-08-08) — matches the backend's
 // UNBRANDED_FILTER_VALUE sentinel in routes.ts, used wherever a customer
 // filters Overview/Posts/Calendar/Mentions/DMs/Analytics down to accounts
@@ -5290,8 +5300,10 @@ export function Dashboard() {
       )}
 
       {tab === "Settings" && (
-      <section>
-        <h2>Google Calendar</h2>
+      <section className={GOOGLE_INTEGRATIONS_LIVE ? undefined : "settings-section-disabled"}>
+        <h2>
+          Google Calendar {!GOOGLE_INTEGRATIONS_LIVE && <span className="coming-soon-badge">Coming soon</span>}
+        </h2>
         <p className="section-note">
           Two-way sync with a dedicated "LazyRelay Posts" calendar on your Google account. Every event in it is
           a real scheduled post — move, edit, or delete one there and LazyRelay picks up the change. Create a
@@ -5299,7 +5311,12 @@ export function Dashboard() {
           platform and time. Subscribe to that calendar on your phone to see (and change) your posting
           schedule anywhere.
         </p>
-        {gcalStatus === undefined ? (
+        {!GOOGLE_INTEGRATIONS_LIVE ? (
+          <p className="section-note">
+            Built and working, but waiting on Google's own app verification review before it can open up to real
+            customers. See <a href="/in-the-works">what's in the works</a>.
+          </p>
+        ) : gcalStatus === undefined ? (
           <p className="section-note">Checking your Google Calendar connection...</p>
         ) : gcalStatus ? (
           <>
@@ -5320,14 +5337,21 @@ export function Dashboard() {
       )}
 
       {tab === "Settings" && (
-      <section>
-        <h2>Google Sheets</h2>
+      <section className={GOOGLE_INTEGRATIONS_LIVE ? undefined : "settings-section-disabled"}>
+        <h2>
+          Google Sheets {!GOOGLE_INTEGRATIONS_LIVE && <span className="coming-soon-badge">Coming soon</span>}
+        </h2>
         <p className="section-note">
           A live-updating spreadsheet mirror of your content calendar — one dedicated sheet on your Google
           account, one row per scheduled post. Handy for sharing a read-only view with a client, or bulk-reviewing
           a month of posts. One-way for now: edits happen in LazyRelay, the sheet always reflects the latest state.
         </p>
-        {gsheetStatus === undefined ? (
+        {!GOOGLE_INTEGRATIONS_LIVE ? (
+          <p className="section-note">
+            Built and working, but waiting on Google's own app verification review before it can open up to real
+            customers. See <a href="/in-the-works">what's in the works</a>.
+          </p>
+        ) : gsheetStatus === undefined ? (
           <p className="section-note">Checking your Google Sheets connection...</p>
         ) : gsheetStatus ? (
           <>

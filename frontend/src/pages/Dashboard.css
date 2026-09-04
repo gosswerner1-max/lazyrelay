@@ -2819,3 +2819,27 @@
   padding: 12px;
   margin-bottom: 16px;
 }
+
+/* Google Calendar/Sheets Settings sections, greyed out while Google's app
+   verification review is pending (2026-09-04) -- see GOOGLE_INTEGRATIONS_LIVE
+   in Dashboard.tsx. Muted rather than hidden entirely, so it's clear the
+   feature exists and is coming, not just missing. */
+.settings-section-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.coming-soon-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface, #f0f1f3);
+  color: var(--wire);
+  vertical-align: middle;
+  margin-left: 8px;
+  pointer-events: none;
+}
