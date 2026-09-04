@@ -90,14 +90,6 @@ export function mountMcp(app: Express, oauthMetadata: OAuthMetadata) {
       res.on("close", () => {
         void transport.close();
       });
-      // TEMP DIAGNOSTIC 2026-09-04 — hunting the "MCP tool invoked without a
-      // verified access token" bug (extra.authInfo undefined in tool
-      // handlers despite requireMcpAuth passing). Logs whether req.auth was
-      // actually set by the auth middleware at the exact point this file
-      // hands the request to the transport. Remove once root-caused.
-      console.log(
-        `[mcp][diag] method=${req.method} hasReqAuth=${!!req.auth} accountId=${req.auth?.extra?.accountId ?? "none"} authInfoKeys=${req.auth ? Object.keys(req.auth).join(",") : "none"}`
-      );
       try {
         const server = buildMcpServer();
         await server.connect(transport);
