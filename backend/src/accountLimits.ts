@@ -40,3 +40,41 @@ export async function checkAccountLimit(accountId: string): Promise<string | nul
   }
   return null;
 }
+
+// checkAccountLimit above only counts accounts connected RIGHT NOW
+// (disconnected_at is null) -- on its own, that lets a customer disconnect
+// one real account and connect a DIFFERENT one every day, never exceeding
+// the "currently connected" cap while cycling through far more distinct
+// accounts than their plan actually allows over time (e.g. a Free-tier
+// customer running an agency's worth of clients through the product for
+// $0, one at a time). Reconnecting an account already known to us (same
+// account_id + platform + platform_account_id) is NOT a new distinct
+// account and must never be blocked by this -- found 2026-09-04.
+const DISTINCT_ACCOUNT_WINDOW_DAYS = 30;
+
+/** Checked in storeConnectedAccount (platforms/connect.ts), right before a
+ *  genuinely new platform_account_id is upserted for this customer for the
+ *  first time. Counts every account_id row first connected within the last
+ *  30 days (connected_at, which reconnecting an EXISTING row never bumps --
+ *  see the upsert comment in connect.ts) -- currently-connected or since
+ *  disconnected, since the point is limiting distinct accounts CYCLED
+ *  THROUGH, not just accounts held open at once. Callers must only invoke
+ *  this for a platform_account_id they've confirmed is new; a reconnect of
+ *  a known account should never reach this check at all. */
+export async function checkNewDistinctAccountLimit(accountId: string): Promise<string | null> {
+  const tier = await resolveTier(accountId);
+  const limit = ACCOUNT_LIMITS[tier];
+  const windowStart = new Date(Date.now() - DISTINCT_ACCOUNT_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  const { count, error } = await supabase
+    .from("social_accounts")
+    .select("id", { count: "exact", head: true })
+    .eq("account_id", accountId)
+    .gte("connected_at", windowStart);
+  if (error) throw error;
+
+  if ((count ?? 0) >= limit) {
+    return `You've connected ${limit} different accounts in the last ${DISTINCT_ACCOUNT_WINDOW_DAYS} days — your plan's real limit, even if you've since disconnected some. A slot frees up ${DISTINCT_ACCOUNT_WINDOW_DAYS} days after that account was first connected, or upgrade for more.`;
+  }
+  return null;
+}

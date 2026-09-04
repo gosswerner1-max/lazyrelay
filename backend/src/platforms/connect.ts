@@ -1,4 +1,5 @@
 import { supabase } from "../supabase.js";
+import { checkNewDistinctAccountLimit } from "../accountLimits.js";
 import type { PlatformAdapter, OAuthExchangeResult, ConnectOption } from "./types.js";
 
 export type PlatformAdapterRegistry = Map<string, PlatformAdapter>;
@@ -21,6 +22,26 @@ async function storeConnectedAccount(
   platform: string,
   result: OAuthExchangeResult,
 ): Promise<string> {
+  // Reconnecting an account we already know (same account_id + platform +
+  // platform_account_id) is exempt from the distinct-account limit below --
+  // it isn't a new account, just a token refresh/re-auth, and blocking it
+  // would break the "click Connect again" path checkAccountLimit already
+  // lets through. Only a genuinely never-seen platform_account_id gets
+  // checked against the rolling window. See accountLimits.ts for why this
+  // exists (checkAccountLimit alone only caps accounts held open AT ONCE,
+  // not distinct accounts cycled through over time).
+  const { data: existingAccount } = await supabase
+    .from("social_accounts")
+    .select("id")
+    .eq("account_id", accountId)
+    .eq("platform", platform)
+    .eq("platform_account_id", result.platformAccountId)
+    .maybeSingle();
+  if (!existingAccount) {
+    const limitError = await checkNewDistinctAccountLimit(accountId);
+    if (limitError) throw new Error(limitError);
+  }
+
   const { data: accessVaultId, error: accessVaultError } = await supabase.rpc("store_social_token", {
     p_token: result.accessToken,
   });
