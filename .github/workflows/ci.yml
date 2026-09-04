@@ -1,9 +1,11 @@
 name: CI
 
-# Typecheck + build both packages on every push/PR to main. This is a
-# visibility gate, not a blocking one — Render/the frontend deploy still
-# fire on push regardless of this workflow's outcome, but a red X on the
-# commit now makes a broken push impossible to miss instead of only
+# Typecheck + build both packages, plus a real cross-account security
+# regression test on the backend (added 2026-09-04, see that step for the
+# full why), on every push/PR to main. This is a visibility gate, not a
+# blocking one — Render/the frontend deploy still fire on push regardless
+# of this workflow's outcome, but a red X on the commit now makes a broken
+# push (or a real IDOR/auth regression) impossible to miss instead of only
 # showing up as a live production error.
 on:
   push:
@@ -25,6 +27,46 @@ jobs:
         run: npm ci
       - working-directory: backend
         run: npm run build
+      # security-test.ts already existed (auth bypass, cross-account IDOR,
+      # upload spoofing, input validation, webhook forgery, CORS) but was
+      # never run anywhere until 2026-09-04 -- wired in after a security
+      # audit found the database's RLS policies are currently decorative
+      # (the backend only ever connects with the service-role key, which
+      # bypasses RLS), so the ONLY thing stopping one customer from
+      # reading/modifying another's data is every route handler's own
+      # account_id filter. This is the automated backstop for that: it
+      # creates two real, independent @lazyrelay.invalid test accounts
+      # (self-cleaning, same pattern the other test-*.ts scripts already
+      # use) and asserts Account A can never touch Account B's data. Needs
+      # real Supabase credentials since it boots the actual backend --
+      # PADDLE_ENVIRONMENT is deliberately left unset so it boots with the
+      # stub billing adapter, no Paddle secrets required (index.ts only
+      # refuses to start when PADDLE_ENVIRONMENT=production without real
+      # MOR credentials).
+      - working-directory: backend
+        run: node dist/index.js &
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - name: Wait for backend to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/health > /dev/null; then
+              echo "backend is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "backend never became healthy" >&2
+          exit 1
+      - working-directory: backend
+        run: npm run test:security
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - name: Stop local backend
+        if: always()
+        run: pkill -f "node dist/index.js" || true
 
   frontend:
     runs-on: ubuntu-latest

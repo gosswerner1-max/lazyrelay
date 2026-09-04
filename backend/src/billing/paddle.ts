@@ -238,7 +238,23 @@ export class PaddleMorAdapter implements MerchantOfRecordAdapter {
    * WebhookSignatureError; anything after that point is a genuine Paddle
    * delivery with a data problem, not a security event. */
   async parseWebhookEvent(rawBody: string, signatureHeader: string): Promise<BillingEvent | null> {
-    const isValid = await this.paddle.webhooks.isSignatureValid(rawBody, this.webhookSecret, signatureHeader);
+    // Found 2026-09-04 by the newly-CI-wired security test: a request with
+    // NO signature header at all (signatureHeader === "") makes the SDK's
+    // own isSignatureValid() throw its own parse error (malformed/empty
+    // signature format) rather than returning false -- which used to
+    // escape this function uncaught and land in webhook.ts's generic
+    // "unable to process payload" 400 branch instead of the 401
+    // WebhookSignatureError branch. Still rejected either way, so never a
+    // real security gap, but a missing signature IS a signature failure,
+    // not a data problem, and deserves the same classification a wrong
+    // one gets. Wrapping the call so any throw here -- missing, malformed,
+    // or simply wrong -- normalizes to WebhookSignatureError.
+    let isValid: boolean;
+    try {
+      isValid = await this.paddle.webhooks.isSignatureValid(rawBody, this.webhookSecret, signatureHeader);
+    } catch (err) {
+      throw new WebhookSignatureError(err instanceof Error ? err.message : "Webhook signature verification failed");
+    }
     if (!isValid) {
       throw new WebhookSignatureError("Webhook signature verification failed");
     }
