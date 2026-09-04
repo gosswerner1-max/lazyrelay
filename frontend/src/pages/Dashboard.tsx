@@ -4326,7 +4326,54 @@ export function Dashboard() {
               {upcoming.length === 0 ? (
                 <p className="empty">Nothing scheduled yet.</p>
               ) : (
-                <ul className="post-list">{upcoming.map(renderPost)}</ul>
+                // Grouped by local calendar date into collapsible sections,
+                // same pattern as History below — a flat list got
+                // unmanageably long once an account had more than a
+                // handful of upcoming posts (Werner flagged this directly,
+                // 2026-09-04, after a real bulk-scheduling batch). Soonest
+                // date opens expanded, everything further out starts
+                // collapsed.
+                (() => {
+                  // needs_approval posts promoted from an undated plan can
+                  // still have no scheduled_for — grouped under their own
+                  // key rather than crashing localDateKey on null, sorted
+                  // to the very front since "no time picked yet" needs
+                  // attention before anything already scheduled.
+                  const NO_DATE_KEY = "no-date";
+                  const groups = new Map<string, ScheduledPost[]>();
+                  for (const p of upcoming) {
+                    const key = p.scheduled_for ? localDateKey(p.scheduled_for) : NO_DATE_KEY;
+                    (groups.get(key) ?? groups.set(key, []).get(key)!).push(p);
+                  }
+                  const sortedKeys = [...groups.keys()].sort((a, b) => {
+                    if (a === NO_DATE_KEY) return -1;
+                    if (b === NO_DATE_KEY) return 1;
+                    return a.localeCompare(b);
+                  });
+                  return sortedKeys.map((key, i) => {
+                    const groupPosts = groups.get(key)!;
+                    const label =
+                      key === NO_DATE_KEY
+                        ? "No time picked yet"
+                        : new Date(`${key}T00:00:00`).toLocaleDateString(undefined, {
+                            weekday: "long",
+                            month: "long",
+                            day: "numeric",
+                            year: "numeric",
+                          });
+                    return (
+                      <details key={key} className="post-date-group" open={i === 0}>
+                        <summary>
+                          {label}
+                          <span className="post-date-group-count">
+                            {groupPosts.length} post{groupPosts.length === 1 ? "" : "s"}
+                          </span>
+                        </summary>
+                        <ul className="post-list">{groupPosts.map(renderPost)}</ul>
+                      </details>
+                    );
+                  });
+                })()
               )}
             </section>
 
