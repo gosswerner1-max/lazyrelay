@@ -56,6 +56,14 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Needed from 2026-09-04 (the RLS rework) -- security-test.ts's
+          # team-access checks build a real per-request authenticated
+          # client (anon key + a real JWT) to prove RLS enforcement itself
+          # works, not just the API layer. Same public value already
+          # embedded in the deployed frontend bundle -- not a secret in
+          # the sense the other two vars are, just stored as one for
+          # consistency with how it's already handled locally/on Render.
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       - name: Wait for backend to be ready
         run: |
           for i in $(seq 1 30); do
@@ -72,6 +80,14 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Needed from 2026-09-04 (the RLS rework) -- security-test.ts's
+          # team-access checks build a real per-request authenticated
+          # client (anon key + a real JWT) to prove RLS enforcement itself
+          # works, not just the API layer. Same public value already
+          # embedded in the deployed frontend bundle -- not a secret in
+          # the sense the other two vars are, just stored as one for
+          # consistency with how it's already handled locally/on Render.
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       - name: Stop local backend
         if: always()
         run: pkill -f "node dist/index.js" || true
