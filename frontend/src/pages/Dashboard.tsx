@@ -4364,7 +4364,10 @@ export function Dashboard() {
                     return (
                       <details key={key} className="post-date-group" open={i === 0}>
                         <summary>
-                          {label}
+                          <span className="post-date-group-label">
+                            <span className="post-date-group-chevron" aria-hidden="true" />
+                            {label}
+                          </span>
                           <span className="post-date-group-count">
                             {groupPosts.length} post{groupPosts.length === 1 ? "" : "s"}
                           </span>
@@ -4406,7 +4409,10 @@ export function Dashboard() {
                       return (
                         <details key={key} className="post-date-group" open={i === 0}>
                           <summary>
-                            {label}
+                            <span className="post-date-group-label">
+                              <span className="post-date-group-chevron" aria-hidden="true" />
+                              {label}
+                            </span>
                             <span className="post-date-group-count">
                               {posts.length} post{posts.length === 1 ? "" : "s"}
                             </span>

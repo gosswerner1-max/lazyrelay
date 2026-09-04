@@ -420,11 +420,40 @@
   cursor: pointer;
   font-weight: 600;
   color: var(--ink);
-  list-style: revert;
+  list-style: none;
 }
 
+/* The native marker relies on `display: list-item`, which the flex layout
+   above overrides -- it was rendering nowhere, not just unstyled (Werner
+   caught this directly, 2026-09-04: no visible affordance that a date
+   group opens/closes). Suppressed explicitly and replaced with a real
+   chevron rather than trying to coax the native one back. */
 .post-date-group summary::-webkit-details-marker {
-  color: var(--wire);
+  display: none;
+}
+.post-date-group summary::marker {
+  content: "";
+}
+
+.post-date-group-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.post-date-group-chevron {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-right: 2px solid var(--wire);
+  border-bottom: 2px solid var(--wire);
+  transform: rotate(-45deg); /* closed: points right */
+  transition: transform 0.15s ease;
+}
+
+.post-date-group[open] .post-date-group-chevron {
+  transform: rotate(45deg); /* open: points down */
 }
 
 .post-date-group[open] summary {
