@@ -23,7 +23,7 @@
     "dotenv": "^16.4.0",
     "express": "^5.2.1",
     "express-rate-limit": "^7.5.1",
-    "file-type": "^22.0.1",
+    "file-type": "^22.0.2",
     "image-size": "^1.2.1",
     "jose": "^6.2.9",
     "luxon": "^3.7.2",
