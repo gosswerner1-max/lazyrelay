@@ -106,16 +106,12 @@ export function OAuthConsentPage({ authorizationId }: { authorizationId: string 
   if (!session) {
     // Sign in first, then this component re-renders with a session and
     // proceeds to fetch the authorization details automatically — no
-    // separate "continue" step needed.
-    return (
-      <div className="oauth-consent-shell">
-        <div className="oauth-consent-intro">
-          <BrandMark size={28} />
-          <p>Sign in to LazyRelay to continue connecting an app to your account.</p>
-        </div>
-        <Login onBack={() => window.location.assign("/")} />
-      </div>
-    );
+    // separate "continue" step needed. Rendered bare (no extra wrapper/
+    // intro text) so this looks exactly like the standalone /login route —
+    // Login already provides its own complete full-page shell, and an
+    // earlier version wrapping it in .oauth-consent-shell double-stacked
+    // two full-page shells (Werner caught the visible dead space live).
+    return <Login onBack={() => window.location.assign("/")} />;
   }
 
   if (redirecting || loadingDetails) {
