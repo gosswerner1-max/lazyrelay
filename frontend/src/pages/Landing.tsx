@@ -397,11 +397,24 @@ function loadSourceForgeBadgeScriptOnce() {
 // has necessarily finished, so it starts from the PRE-rewrite JSX state --
 // a guaranteed mismatch every time, unrelated to anything actually wrong.
 // Fix: never give React real JSX children to hydrate here at all. The
-// placeholder link is set imperatively via the ref, in the same effect
-// that loads the widget script, so React's own tree is just an empty div
-// on both server and client (nothing to mismatch on), while the real DOM
-// -- what a crawler or a visitor whose widget script hasn't loaded yet
-// actually sees -- still gets the exact same placeholder content as before.
+// first attempt at this (plain empty JSX children, no dangerouslySetInnerHTML)
+// turned out not to be enough -- confirmed live, re-reproducing the exact
+// hydration warning after that "fix": suppressHydrationWarning only
+// silences a MISMATCHED TEXT NODE's warning, it does not stop React from
+// noticing extra/unexpected CHILD ELEMENTS sitting in the DOM (which is
+// exactly what a baked snapshot captured after this widget's script ran
+// contains) and discarding/regenerating the subtree over it anyway.
+// dangerouslySetInnerHTML={{__html: ""}} is the real fix: it tells React
+// this node's children are raw, externally-owned HTML it should never
+// diff at all, on either server or client -- the same escape hatch every
+// React-plus-third-party-widget integration guide recommends for exactly
+// this scenario. The placeholder link is then set imperatively via the
+// ref, in the same effect that loads the widget script, safe specifically
+// because dangerouslySetInnerHTML already told React to stay out of this
+// subtree's children -- so React's own tree is genuinely inert here on
+// both server and client, while the real DOM (what a crawler or a visitor
+// whose widget script hasn't loaded yet actually sees) still gets the
+// exact same placeholder content as before.
 function SourceForgeBadge() {
   const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -419,6 +432,7 @@ function SourceForgeBadge() {
   return (
     <div
       ref={rootRef}
+      dangerouslySetInnerHTML={{ __html: "" }}
       className="sf-root sourceforge-badge"
       data-id="4133019"
       data-badge="customers-love-us-white"
