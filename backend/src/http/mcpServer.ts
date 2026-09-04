@@ -76,6 +76,9 @@ function textResult(data: unknown) {
  *  ever changed by mistake. */
 function requireAuthInfo(extra: { authInfo?: AuthInfo }): { auth: AuthInfo; accountId: string } {
   const auth = extra.authInfo;
+  // TEMP DIAGNOSTIC 2026-09-04 — see matching note in mcpRoutes.ts. Remove
+  // once root-caused.
+  console.log(`[mcp][diag] tool handler extra keys=${Object.keys(extra).join(",")} hasAuthInfo=${!!auth}`);
   if (!auth) throw new Error("MCP tool invoked without a verified access token");
   return { auth, accountId: accountIdFromAuth(auth) };
 }
