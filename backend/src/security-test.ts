@@ -235,11 +235,38 @@ async function testTeamAccess(owner: { accountId: string; jwt: string }) {
   const teammateSeesItViaApi = Array.isArray(listViaApi) && listViaApi.some((a: { id: string }) => a.id === socialAccountId);
   report("An accepted teammate sees the owner's connected account via GET /social-accounts (the piloted route)", teammateSeesItViaApi);
 
-  await supabase.from("brands").delete().eq("id", brand.id);
-  await supabase.from("account_members").delete().eq("user_id", teammate.userId).eq("account_id", owner.accountId);
-  await supabase.auth.admin.deleteUser(teammate.userId);
-  await supabase.from("accounts").delete().eq("id", outsider.accountId);
-  await supabase.auth.admin.deleteUser(outsider.accountId);
+  // Cleanup, with every call's error actually checked and surfaced.
+  // Previously these were fire-and-forget `await`s -- found 2026-09-04 when
+  // a real run left two fake accounts behind in PRODUCTION (checked: 4
+  // instead of the real 2) with the suite still reporting "ALL PASS",
+  // because supabase-js's admin/delete calls return `{error}` rather than
+  // throwing, so a transient failure (this project has already seen
+  // unrelated transient network blips the same day) was silently
+  // swallowed. Root cause of that specific incident couldn't be pinned down
+  // (two immediate faithful re-runs both cleaned up perfectly), but the
+  // silent-failure shape is real regardless of what triggered it once --
+  // cleanup failing should be loud, never quiet, since quiet means fake
+  // accounts accumulate in the real production database this suite runs
+  // against. `warnIfError` logs to stderr without failing the overall
+  // suite -- a cleanup hiccup doesn't invalidate the security assertions
+  // already made above, but it must never again be invisible.
+  const warnIfError = (label: string, error: { message: string } | null) => {
+    if (error) console.error(`[security-test cleanup] ${label} failed: ${error.message}`);
+  };
+  warnIfError("delete test brand", (await supabase.from("brands").delete().eq("id", brand.id)).error);
+  warnIfError(
+    "delete teammate's membership grant",
+    (await supabase.from("account_members").delete().eq("user_id", teammate.userId).eq("account_id", owner.accountId)).error,
+  );
+  // Also delete the teammate's own self-owned account explicitly (auto-
+  // created by the handle_new_user() trigger alongside a self-ownership
+  // account_members row neither of which the grant-delete above touches) --
+  // relying solely on deleteUser's cascade is the same assumption that
+  // apparently didn't hold on 2026-09-04's stray run.
+  warnIfError("delete teammate's own account row", (await supabase.from("accounts").delete().eq("id", teammate.userId)).error);
+  warnIfError("delete teammate auth user", (await supabase.auth.admin.deleteUser(teammate.userId)).error);
+  warnIfError("delete outsider account row", (await supabase.from("accounts").delete().eq("id", outsider.accountId)).error);
+  warnIfError("delete outsider auth user", (await supabase.auth.admin.deleteUser(outsider.accountId)).error);
 }
 
 // --- 3. Upload validation: spoofed content-type / disguised extension ---
