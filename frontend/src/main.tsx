@@ -4,9 +4,12 @@ import './index.css'
 import App from './App.tsx'
 import { restoreStoredConsent } from './components/CookieConsent.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
-import { initPostHog } from './lib/posthog.ts'
 
-initPostHog()
+// No unconditional PostHog init here on purpose -- restoreStoredConsent()
+// below only initializes it (via setPostHogConsent) if a returning visitor
+// already granted analytics consent in a prior session. A fresh visitor
+// gets zero PostHog footprint, not even an inert cookie, until they
+// actually choose. See lib/posthog.ts for the full reasoning.
 restoreStoredConsent()
 
 const root = document.getElementById('root')!

@@ -14,18 +14,21 @@ const POSTHOG_HOST = "https://us.i.posthog.com";
 
 let initialized = false;
 
-/** Call once at app startup (see main.tsx). Loads the library and starts
- *  it in an opted-out state -- matches the existing Google Consent Mode
- *  pattern in CookieConsent.tsx, which also defaults every non-essential
- *  category to denied until the visitor makes an explicit choice. Capture
- *  only actually starts once setPostHogConsent(true) is called. */
-export function initPostHog(): void {
+/** Lazily called from setPostHogConsent() the first time a visitor grants
+ *  analytics consent -- never called eagerly at app startup. posthog-js's
+ *  own init() sets a persistent device-id cookie immediately, regardless of
+ *  opt_out_capturing_by_default, so initializing unconditionally at startup
+ *  left an inert-but-real cookie on every visit before any choice was made
+ *  (found 2026-09-04: zero data was ever sent before consent, verified live,
+ *  but the cookie itself existed, which a strict cookie-law reading still
+ *  cares about). Not initializing at all until consent is granted is the
+ *  only way to guarantee zero PostHog footprint pre-consent. */
+function initPostHog(): void {
   if (initialized) return;
   initialized = true;
   posthog.init(POSTHOG_KEY, {
     api_host: POSTHOG_HOST,
     person_profiles: "identified_only",
-    opt_out_capturing_by_default: true,
     capture_pageview: true,
     autocapture: true,
   });
@@ -33,11 +36,17 @@ export function initPostHog(): void {
 
 /** Wired into CookieConsent.tsx's applyConsent()/restoreStoredConsent() so
  *  PostHog capture follows the same opt-in analytics choice as Google
- *  Consent Mode, rather than tracking before the visitor has chosen. */
+ *  Consent Mode. Initializes PostHog for the first time on the first
+ *  granted=true call (a fresh visitor accepting, or a returning visitor's
+ *  stored choice being restored) -- if consent is never granted, PostHog
+ *  is never initialized at all, not just left in an opted-out state. */
 export function setPostHogConsent(granted: boolean): void {
-  if (!initialized) return;
-  if (granted) posthog.opt_in_capturing();
-  else posthog.opt_out_capturing();
+  if (granted) {
+    initPostHog();
+    posthog.opt_in_capturing();
+  } else if (initialized) {
+    posthog.opt_out_capturing();
+  }
 }
 
 export { posthog };
