@@ -5,7 +5,7 @@ import multer from "multer";
 import { randomUUID, randomBytes, timingSafeEqual } from "node:crypto";
 import { imageSize } from "image-size";
 import { fileTypeFromBuffer } from "file-type";
-import { supabase, createUserClient } from "../supabase.js";
+import { supabase } from "../supabase.js";
 import { cancelSubscription, cancelStorageAddon, cancelBrandAddon, cancelSeatAddon } from "../billing/sync.js";
 import { buildCheckoutTransaction } from "../billing/paddle.js";
 import { Environment } from "@paddle/paddle-node-sdk";
@@ -420,8 +420,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { data: account } = await supabase.from("accounts").select("business_name").eq("id", req.accountId).maybeSingle();
-    const { data: recentPosts } = await supabase
+    const { data: account } = await req.db!.from("accounts").select("business_name").eq("id", req.accountId).maybeSingle();
+    const { data: recentPosts } = await req.db!
       .from("scheduled_posts")
       .select("content")
       .eq("account_id", req.accountId)
@@ -748,6 +748,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // requireAuth (see 0027_bio_pages.sql for why RLS alone can't serve it).
   const BIO_SLUG_PATTERN = /^[a-z0-9-]{3,40}$/;
   router.get("/bio-page", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    // bio_pages/bio_links stay on supabase (service-role) throughout this
+    // file, not req.db -- 0027_bio_pages.sql's own comment: "No client-facing
+    // RLS policies... only the backend's service-role client ever
+    // reads/writes this table." req.db would just see zero rows here.
     const { data: page, error } = await supabase.from("bio_pages").select("*").eq("account_id", req.accountId).maybeSingle();
     if (error) {
       dbError(res, error, "GET /bio-page");
@@ -784,6 +788,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
+    // bio_pages/bio_links: service-role only, see the comment on GET
+    // /bio-page above (0027_bio_pages.sql).
     const { data: slugOwner } = await supabase.from("bio_pages").select("account_id").eq("slug", slug).maybeSingle();
     if (slugOwner && slugOwner.account_id !== req.accountId) {
       res.status(409).json({ error: "That link name is already taken — pick another." });
@@ -816,6 +822,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
+    // bio_pages/bio_links: service-role only, see the comment on GET
+    // /bio-page above (0027_bio_pages.sql).
     const { data: page, error: pageError } = await supabase
       .from("bio_pages")
       .select("id")
@@ -876,6 +884,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // A link only belongs to a page owned by this account — join through
     // bio_pages rather than trusting the link id alone, same ownership
     // discipline as every other per-resource route.
+    // bio_pages/bio_links: service-role only, see the comment on GET
+    // /bio-page above (0027_bio_pages.sql).
     const { data: link, error: linkError } = await supabase
       .from("bio_links")
       .select("id, bio_pages!inner(account_id)")
@@ -895,6 +905,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   });
 
   router.delete("/bio-page/links/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    // bio_pages/bio_links: service-role only, see the comment on GET
+    // /bio-page above (0027_bio_pages.sql).
     const { data: link, error: linkError } = await supabase
       .from("bio_links")
       .select("id, bio_pages!inner(account_id)")
@@ -1345,16 +1357,14 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   });
 
   // Pilot route for the RLS rework (2026-09-04) -- the first one switched
-  // to a per-request authenticated client so migration 0081's policies
-  // become real enforcement, not just correct-looking database rows.
-  // req.rawToken only exists on the JWT (dashboard) auth path; an API-key
-  // or admin-key caller legitimately acts as the account itself with no
-  // user JWT to build a per-request client from, so those fall back to
-  // the service-role client unchanged -- same account_id filter, same
-  // result, just without RLS as a second layer for that auth method.
+  // to req.db, the per-request client requireAuth now builds (see auth.ts)
+  // so migration 0081/0082's policies become real enforcement, not just
+  // correct-looking database rows. req.db is the service-role client
+  // unchanged for API-key/admin-key callers, which legitimately act as
+  // the account itself with no user JWT to build a per-request client
+  // from -- same account_id filter, same result either way.
   router.get("/social-accounts", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const client = req.rawToken ? createUserClient(req.rawToken) : supabase;
-    const { data, error } = await client
+    const { data, error } = await req.db!
       .from("social_accounts")
       .select("id, platform, platform_account_id, display_name, connected_at, disconnected_at, brand_label, brand_id")
       .eq("account_id", req.accountId)
@@ -1372,7 +1382,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // folded into /social-accounts/connect's platform-registry flow. See
   // googleCalendar/connect.ts's header comment for why.
   router.get("/google-calendar/status", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data, error } = await supabase
+    const { data, error } = await req.db!
       .from("google_calendar_connections")
       .select("google_calendar_id, connected_email, connected_at, last_synced_at")
       .eq("account_id", req.accountId)
@@ -1443,7 +1453,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // group above for why this is its own small route group: not a platform
   // to post to, its own independent connection. See googleSheets/connect.ts.
   router.get("/google-sheets/status", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data, error } = await supabase
+    const { data, error } = await req.db!
       .from("google_sheets_connections")
       .select("spreadsheet_id, connected_email, connected_at, last_synced_at")
       .eq("account_id", req.accountId)
@@ -1588,7 +1598,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   const MAX_VOICE_PROFILE_LENGTH = 2000;
 
   router.get("/brands", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data, error } = await supabase
+    const { data, error } = await req.db!
       .from("brands")
       .select("id, name, voice_profile, created_at")
       .eq("account_id", req.accountId)
@@ -1625,7 +1635,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(403).json({ error: limitError });
       return;
     }
-    const { data, error } = await supabase
+    const { data, error } = await req.db!
       .from("brands")
       .insert({ account_id: req.accountId, name, voice_profile: voiceProfile?.trim() || null })
       .select("id, name, voice_profile, created_at")
@@ -1663,7 +1673,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
     const update: Record<string, unknown> = { name };
     if (voiceProfile !== undefined) update.voice_profile = voiceProfile?.trim() || null;
-    const { data, error } = await supabase
+    const { data, error } = await req.db!
       .from("brands")
       .update(update)
       .eq("id", req.params.id)
@@ -1683,7 +1693,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
     // Keep the brand_label mirror in sync on this brand's accounts.
-    const { error: mirrorError } = await supabase
+    const { error: mirrorError } = await req.db!
       .from("social_accounts")
       .update({ brand_label: name })
       .eq("account_id", req.accountId)
@@ -1699,7 +1709,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // Clear the brand_label mirror on this brand's accounts first. brand_id
     // auto-nulls via the FK's `on delete set null`, but the denormalized
     // mirror must be cleared explicitly.
-    const { error: mirrorError } = await supabase
+    const { error: mirrorError } = await req.db!
       .from("social_accounts")
       .update({ brand_label: null })
       .eq("account_id", req.accountId)
@@ -1708,7 +1718,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       dbError(res, mirrorError, "DELETE /brands/:id mirror");
       return;
     }
-    const { data, error } = await supabase
+    const { data, error } = await req.db!
       .from("brands")
       .delete()
       .eq("id", req.params.id)
@@ -1737,7 +1747,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
     let brandName: string | null = null;
     if (brandId) {
-      const { data: brand, error: brandError } = await supabase
+      const { data: brand, error: brandError } = await req.db!
         .from("brands")
         .select("id, name")
         .eq("id", brandId)
@@ -1753,7 +1763,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       }
       brandName = brand.name;
     }
-    const { data, error } = await supabase
+    const { data, error } = await req.db!
       .from("social_accounts")
       .update({ brand_id: brandId ?? null, brand_label: brandName })
       .eq("id", req.params.id)
@@ -1784,7 +1794,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // become unreachable dead weight once this row stops being selectable —
   // same as every other soft-deleted row in this system.
   router.delete("/social-accounts/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data, error, count } = await supabase
+    const { data, error, count } = await req.db!
       .from("social_accounts")
       .update({ disconnected_at: new Date().toISOString() }, { count: "exact" })
       .eq("id", req.params.id)
@@ -1811,7 +1821,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // rather than a 404/400 — "nothing to pick" is a legitimate response, not
   // an error, so the frontend doesn't need a platform allowlist of its own.
   router.get("/social-accounts/:id/boards", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data: account, error } = await supabase
+    const { data: account, error } = await req.db!
       .from("social_accounts")
       .select("account_id, platform, access_token_vault_id")
       .eq("id", req.params.id)
@@ -1827,6 +1837,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
+    // read_social_token's EXECUTE grant is service_role only (see
+    // 0003_fix_function_grants.sql) -- calling it via req.db would just
+    // fail with a permissions error, so this stays on supabase.
     const { data: accessToken, error: tokenError } = await supabase.rpc("read_social_token", {
       p_vault_id: account.access_token_vault_id,
     });
@@ -1889,6 +1902,14 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
+    // storage.objects and media_uploads both stay on supabase through this
+    // whole route (and the rest of the media_uploads routes below) --
+    // 0007_post_media_bucket.sql: "all writes go through the backend's
+    // service-role client... no client-facing storage RLS policies are
+    // needed," and 0009_media_uploads.sql: same fail-closed-by-omission
+    // pattern, no anon/authenticated policies on media_uploads either.
+    // req.db would get a permissions error on the storage write and zero
+    // rows on the table.
     const path = `${req.accountId}/${randomUUID()}.${detected.ext}`;
     const { error: uploadError } = await supabase.storage
       .from("post-media")
@@ -1955,6 +1976,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(400).json({ error: `altText must be ${MAX_ALT_TEXT_LENGTH} characters or fewer` });
       return;
     }
+    // media_uploads: service-role only, see the comment on POST
+    // /media/upload above (0009_media_uploads.sql).
     const { data: updated, error } = await supabase
       .from("media_uploads")
       .update({ alt_text: altTextInput?.trim() || null })
@@ -2000,17 +2023,19 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       { data: postRows, error: postsError },
       { data: scheduleRows, error: scheduleError },
     ] = await Promise.all([
+      // media_uploads: service-role only, see the comment on POST
+      // /media/upload above (0009_media_uploads.sql).
       supabase
         .from("media_uploads")
         .select("id, url, mime_type, size_bytes, width, height, alt_text, created_at")
         .eq("account_id", req.accountId)
         .order("created_at", { ascending: false }),
-      supabase
+      req.db!
         .from("scheduled_posts")
         .select("media_url, social_accounts(platform)")
         .eq("account_id", req.accountId)
         .not("media_url", "is", null),
-      supabase
+      req.db!
         .from("recurring_schedule_targets")
         .select("social_accounts(platform), recurring_schedules!inner(media_url, account_id)")
         .eq("recurring_schedules.account_id", req.accountId),
@@ -2065,6 +2090,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // post (checked via media_url match) so deleting storage out from under
   // an about-to-fire post can't silently break it.
   router.delete("/media/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    // media_uploads/storage.objects: service-role only, see the comment on
+    // POST /media/upload above (0007_post_media_bucket.sql /
+    // 0009_media_uploads.sql).
     const { data: media, error: mediaError } = await supabase
       .from("media_uploads")
       .select("id, account_id, url, storage_path")
@@ -2075,7 +2103,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { count: inUseCount, error: inUseError } = await supabase
+    const { count: inUseCount, error: inUseError } = await req.db!
       .from("scheduled_posts")
       .select("id", { count: "exact", head: true })
       .eq("media_url", media.url)
@@ -2195,7 +2223,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         return;
       }
       if (plannedAccountIds.length > 0) {
-        const { data: owned, error: ownedError } = await supabase
+        const { data: owned, error: ownedError } = await req.db!
           .from("social_accounts")
           .select("id")
           .in("id", plannedAccountIds)
@@ -2211,7 +2239,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       }
       validatedPlannedAccountIds = plannedAccountIds.length > 0 ? plannedAccountIds : null;
     }
-    const { data, error } = await supabase
+    const { data, error } = await req.db!
       .from("scheduled_posts")
       .insert({
         account_id: req.accountId,
@@ -2243,7 +2271,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // this route deliberately doesn't change that, it only ever touches rows
   // that are still status='draft'.
   router.patch("/scheduled-posts/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data: existing, error: fetchError } = await supabase
+    const { data: existing, error: fetchError } = await req.db!
       .from("scheduled_posts")
       .select("id, status")
       .eq("id", req.params.id)
@@ -2305,7 +2333,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       update.planned_date = plannedDate;
     }
 
-    const { data, error, count } = await supabase
+    const { data, error, count } = await req.db!
       .from("scheduled_posts")
       .update(update, { count: "exact" })
       .eq("id", req.params.id)
@@ -2334,7 +2362,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // monthly cap exactly like a brand-new post — it's the same real post,
   // just created a bit earlier.
   router.patch("/scheduled-posts/:id/schedule", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data: existing, error: fetchError } = await supabase
+    const { data: existing, error: fetchError } = await req.db!
       .from("scheduled_posts")
       .select("id, status")
       .eq("id", req.params.id)
@@ -2366,7 +2394,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await req.db!
       .from("scheduled_posts")
       .update({
         social_account_id: socialAccountId,
@@ -2413,7 +2441,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // scheduled post.
   router.get("/scheduled-posts", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const [{ data: upcoming, error: upcomingError }, { data: history, error: historyError }] = await Promise.all([
-      supabase
+      req.db!
         .from("scheduled_posts")
         .select("*, post_results(*)")
         .eq("account_id", req.accountId)
@@ -2425,7 +2453,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         // failed once and later succeeded on retry could still show its
         // stale first-attempt failure reason instead of the real outcome.
         .order("created_at", { ascending: false, referencedTable: "post_results" }),
-      supabase
+      req.db!
         .from("scheduled_posts")
         .select("*, post_results(*)")
         .eq("account_id", req.accountId)
@@ -2454,7 +2482,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     const limit = Math.min(Math.max(Number(req.query.limit) || SCHEDULED_POSTS_HISTORY_DEFAULT_LIMIT, 1), SCHEDULED_POSTS_HISTORY_MAX_LIMIT);
     const before = typeof req.query.before === "string" ? req.query.before : undefined;
 
-    let query = supabase
+    let query = req.db!
       .from("scheduled_posts")
       .select("*, post_results(*)")
       .eq("account_id", req.accountId)
@@ -2488,7 +2516,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // (content/scheduledFor/platformPostUrl) still comes straight from
   // scheduled_posts/post_results since the cache only stores comments.
   router.get("/mentions", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data: posts, error } = await supabase
+    const { data: posts, error } = await req.db!
       .from("scheduled_posts")
       .select("id, content, scheduled_for, social_account_id, social_accounts(platform), post_results(platform_post_id, platform_post_url, verified_live)")
       .eq("account_id", req.accountId)
@@ -2501,6 +2529,11 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
 
     const postIds = (posts ?? []).map((p) => p.id);
+    // mention_comments_cache/dm_conversations_cache/notification_view_state
+    // all stay on supabase throughout this file -- 0058_mentions_dms_cache.sql:
+    // "No client-facing RLS policies... only the backend's service-role
+    // client (the API routes and the poller) ever reads/writes these
+    // tables."
     const { data: cachedComments, error: cacheError } = postIds.length
       ? await supabase
           .from("mention_comments_cache")
@@ -2570,6 +2603,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // ordering dmAutomationPoller uses for its own side effects — a
     // comment that lands between this read and the next poll simply shows
     // up as new next time, not lost.
+    // notification_view_state: service-role only, see the cache comment
+    // above (0058_mentions_dms_cache.sql).
     await supabase
       .from("notification_view_state")
       .upsert({ account_id: req.accountId, mentions_last_viewed_at: new Date().toISOString() }, { onConflict: "account_id" });
@@ -2591,7 +2626,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { data: post, error: postError } = await supabase
+    const { data: post, error: postError } = await req.db!
       .from("scheduled_posts")
       .select("account_id, social_account_id, social_accounts(platform)")
       .eq("id", postId)
@@ -2612,11 +2647,13 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { data: account } = await supabase
+    const { data: account } = await req.db!
       .from("social_accounts")
       .select("access_token_vault_id")
       .eq("id", post.social_account_id)
       .single();
+    // read_social_token: service_role-only grant, see the comment on GET
+    // /social-accounts/:id/boards above (0003_fix_function_grants.sql).
     const { data: accessToken } = account
       ? await supabase.rpc("read_social_token", { p_vault_id: account.access_token_vault_id })
       : { data: null };
@@ -2643,7 +2680,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // mentionsAndDmsPoller.ts) rather than calling each connected account's
   // platform live — see migration 0058_mentions_dms_cache.sql.
   router.get("/dms", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data: accounts, error } = await supabase
+    const { data: accounts, error } = await req.db!
       .from("social_accounts")
       .select("id, platform, display_name")
       .eq("account_id", req.accountId)
@@ -2655,6 +2692,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     const accountById = new Map((accounts ?? []).map((a) => [a.id, a]));
     const socialAccountIds = (accounts ?? []).map((a) => a.id);
 
+    // dm_conversations_cache: service-role only, see the cache comment on
+    // GET /mentions above (0058_mentions_dms_cache.sql).
     const { data: cached, error: cacheError } = socialAccountIds.length
       ? await supabase
           .from("dm_conversations_cache")
@@ -2706,6 +2745,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       r.triage = triageMap.get(r.conversationId) ?? null;
     }
 
+    // notification_view_state: service-role only, see the cache comment on
+    // GET /mentions above (0058_mentions_dms_cache.sql).
     await supabase
       .from("notification_view_state")
       .upsert({ account_id: req.accountId, dms_last_viewed_at: new Date().toISOString() }, { onConflict: "account_id" });
@@ -2721,6 +2762,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // platform doesn't supply its own timestamp (comment_created_at /
   // conversation_updated_at can both be null).
   router.get("/notifications/summary", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    // notification_view_state/mention_comments_cache/dm_conversations_cache:
+    // service-role only throughout this route, see the cache comment on
+    // GET /mentions above (0058_mentions_dms_cache.sql).
     const { data: viewState, error: viewStateError } = await supabase
       .from("notification_view_state")
       .select("mentions_last_viewed_at, dms_last_viewed_at")
@@ -2764,7 +2808,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { data: account, error } = await supabase
+    const { data: account, error } = await req.db!
       .from("social_accounts")
       .select("account_id, platform, platform_account_id, access_token_vault_id")
       .eq("id", socialAccountId)
@@ -2784,6 +2828,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
+    // read_social_token: service_role-only grant, see the comment on GET
+    // /social-accounts/:id/boards above (0003_fix_function_grants.sql).
     const { data: accessToken } = await supabase.rpc("read_social_token", { p_vault_id: account.access_token_vault_id });
     if (!accessToken) {
       res.status(500).json({ error: "Could not load this account's access token" });
@@ -2802,7 +2848,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { data: account, error } = await supabase
+    const { data: account, error } = await req.db!
       .from("social_accounts")
       .select("account_id, platform, access_token_vault_id")
       .eq("id", socialAccountId)
@@ -2822,6 +2868,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
+    // read_social_token: service_role-only grant, see the comment on GET
+    // /social-accounts/:id/boards above (0003_fix_function_grants.sql).
     const { data: accessToken } = await supabase.rpc("read_social_token", { p_vault_id: account.access_token_vault_id });
     if (!accessToken) {
       res.status(500).json({ error: "Could not load this account's access token" });
@@ -2853,7 +2901,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { data: account } = await supabase
+    const { data: account } = await req.db!
       .from("social_accounts")
       .select("account_id, platform")
       .eq("id", socialAccountId)
@@ -2869,14 +2917,14 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
 
     if (scheduledPostId) {
-      const { data: post } = await supabase.from("scheduled_posts").select("account_id").eq("id", scheduledPostId).maybeSingle();
+      const { data: post } = await req.db!.from("scheduled_posts").select("account_id").eq("id", scheduledPostId).maybeSingle();
       if (!post || post.account_id !== req.accountId) {
         res.status(404).json({ error: "Post not found" });
         return;
       }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await req.db!
       .from("dm_automations")
       .insert({
         account_id: req.accountId,
@@ -2895,7 +2943,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   });
 
   router.get("/dm-automations", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data, error } = await supabase
+    const { data, error } = await req.db!
       .from("dm_automations")
       .select("id, social_account_id, scheduled_post_id, keyword, dm_message, active, created_at, social_accounts(platform, display_name)")
       .eq("account_id", req.accountId)
@@ -2908,12 +2956,12 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   });
 
   router.delete("/dm-automations/:id", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data: automation } = await supabase.from("dm_automations").select("account_id").eq("id", req.params.id).maybeSingle();
+    const { data: automation } = await req.db!.from("dm_automations").select("account_id").eq("id", req.params.id).maybeSingle();
     if (!automation || automation.account_id !== req.accountId) {
       res.status(404).json({ error: "Automation not found" });
       return;
     }
-    const { error } = await supabase.from("dm_automations").delete().eq("id", req.params.id);
+    const { error } = await req.db!.from("dm_automations").delete().eq("id", req.params.id);
     if (error) {
       dbError(res, error, "DELETE /dm-automations/:id");
       return;
@@ -2964,7 +3012,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    let scheduledPostsQuery = supabase
+    let scheduledPostsQuery = req.db!
       .from("scheduled_posts")
       .select(
         "id, status, scheduled_for, social_accounts(platform), post_results(verified_live, error_message), post_metrics(checkpoint, likes, comments, shares, views)"
@@ -2979,7 +3027,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // query above, just against audience_snapshots instead of
     // scheduled_posts. social_accounts(platform) joined in so the frontend
     // can group by platform without a second round trip.
-    let audienceSnapshotsQuery = supabase
+    let audienceSnapshotsQuery = req.db!
       .from("audience_snapshots")
       .select("social_account_id, follower_count, snapshot_date, social_accounts(platform)")
       .eq("account_id", req.accountId)
@@ -2996,8 +3044,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       { data: audienceSnapshotRows, error: audienceError },
     ] = await Promise.all([
       scheduledPostsQuery,
-      supabase.from("dm_automations").select("id").eq("account_id", req.accountId),
-      supabase.from("social_accounts").select("id", { count: "exact", head: true }).eq("account_id", req.accountId).is("disconnected_at", null),
+      req.db!.from("dm_automations").select("id").eq("account_id", req.accountId),
+      req.db!.from("social_accounts").select("id", { count: "exact", head: true }).eq("account_id", req.accountId).is("disconnected_at", null),
       audienceSnapshotsQuery,
     ]);
     if (error) {
@@ -3038,7 +3086,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
     let dmCount = 0;
     if (automationIds.length > 0) {
-      const { count } = await supabase
+      const { count } = await req.db!
         .from("dm_automation_log")
         .select("automation_id", { count: "exact", head: true })
         .in("automation_id", automationIds);
@@ -3162,7 +3210,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    let postsQuery = supabase
+    let postsQuery = req.db!
       .from("scheduled_posts")
       .select("id, content, post_metrics(checkpoint, likes, comments, shares, views)")
       .eq("account_id", req.accountId)
@@ -3248,7 +3296,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // 0026_scheduled_posts_approval.sql) — anyone authenticated as this
   // account can approve, same as anyone can already edit/delete any post.
   router.patch("/scheduled-posts/:id/approve", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data, error, count } = await supabase
+    const { data, error, count } = await req.db!
       .from("scheduled_posts")
       .update({ status: "pending" }, { count: "exact" })
       .eq("id", req.params.id)
@@ -3286,7 +3334,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { data: existing, error: fetchError } = await supabase
+    const { data: existing, error: fetchError } = await req.db!
       .from("scheduled_posts")
       .select("id, status")
       .eq("id", req.params.id)
@@ -3305,7 +3353,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { data, error, count } = await supabase
+    const { data, error, count } = await req.db!
       .from("scheduled_posts")
       .update(
         {
@@ -3353,7 +3401,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // GET /scheduled-posts upcoming-list query) keeps working unchanged.
   // claimDuePosts() is the only place that needed to learn about this.
   router.patch("/scheduled-posts/:id/pause", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data, error, count } = await supabase
+    const { data, error, count } = await req.db!
       .from("scheduled_posts")
       .update({ paused_at: new Date().toISOString() }, { count: "exact" })
       .eq("id", req.params.id)
@@ -3377,7 +3425,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   });
 
   router.patch("/scheduled-posts/:id/resume", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data, error, count } = await supabase
+    const { data, error, count } = await req.db!
       .from("scheduled_posts")
       .update({ paused_at: null }, { count: "exact" })
       .eq("id", req.params.id)
@@ -3408,7 +3456,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // never set by scheduleOnePost) — a duplicate is always a standalone
   // one-off, matching the reschedule route's own detach behavior above.
   router.post("/scheduled-posts/:id/duplicate", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data: existing, error: fetchError } = await supabase
+    const { data: existing, error: fetchError } = await req.db!
       .from("scheduled_posts")
       .select("social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, status")
       .eq("id", req.params.id)
@@ -3447,7 +3495,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // post mid-flight ("posting") is protected, since the scheduler is
   // actively working it at that moment.
   router.delete("/scheduled-posts/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data: existing, error: fetchError } = await supabase
+    const { data: existing, error: fetchError } = await req.db!
       .from("scheduled_posts")
       .select("id, media_url, status")
       .eq("id", req.params.id)
@@ -3474,6 +3522,12 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // to clean up later rather than failing the customer's delete action.
     await deletePostFromCalendar(existing.id);
 
+    // Stays on supabase, not req.db: scheduled_posts_delete_members (see
+    // 0082_fix_account_members_policy_recursion.sql) only allows deleting a
+    // row while status='pending', but this route also deletes posted/
+    // failed/draft/needs_approval history (only 'posting' is blocked
+    // above) -- under RLS that would silently delete 0 rows for every
+    // status but pending and misreport as 404.
     const { error, count } = await supabase
       .from("scheduled_posts")
       .delete({ count: "exact" })
@@ -3513,7 +3567,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { data: result, error } = await supabase
+    const { data: result, error } = await req.db!
       .from("post_results")
       .select("id, verified_live")
       .eq("scheduled_post_id", req.params.id)
@@ -3663,7 +3717,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (limit !== null) {
       // Any status counts against the cap — a paused slot still occupies a
       // content cadence, it hasn't been deleted.
-      const { count, error: countError } = await supabase
+      const { count, error: countError } = await req.db!
         .from("recurring_schedules")
         .select("id", { count: "exact", head: true })
         .eq("account_id", req.accountId);
@@ -3683,7 +3737,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // same ownership check POST /scheduled-posts already does for a single
     // account, applied per-target here.
     const socialAccountIds = input.socialAccountIds as string[];
-    const { data: owned, error: ownedError } = await supabase
+    const { data: owned, error: ownedError } = await req.db!
       .from("social_accounts")
       .select("id")
       .eq("account_id", req.accountId)
@@ -3697,7 +3751,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { data: slot, error } = await supabase
+    const { data: slot, error } = await req.db!
       .from("recurring_schedules")
       .insert({
         account_id: req.accountId,
@@ -3720,14 +3774,14 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { error: targetsError } = await supabase
+    const { error: targetsError } = await req.db!
       .from("recurring_schedule_targets")
       .insert(socialAccountIds.map((social_account_id) => ({ recurring_schedule_id: slot.id, social_account_id })));
     if (targetsError) {
       // Roll back the slot rather than leaving an orphaned schedule with no
       // targets — a slot with zero targets would never generate anything
       // and would silently occupy the customer's tier cap for nothing.
-      await supabase.from("recurring_schedules").delete().eq("id", slot.id);
+      await req.db!.from("recurring_schedules").delete().eq("id", slot.id);
       dbError(res, targetsError, "POST /recurring-schedules targets insert");
       return;
     }
@@ -3736,7 +3790,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   });
 
   router.get("/recurring-schedules", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data, error } = await supabase
+    const { data, error } = await req.db!
       .from("recurring_schedules")
       .select("*, recurring_schedule_targets(social_account_id)")
       .eq("account_id", req.accountId)
@@ -3755,7 +3809,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   });
 
   router.patch("/recurring-schedules/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data: existing, error: fetchError } = await supabase
+    const { data: existing, error: fetchError } = await req.db!
       .from("recurring_schedules")
       .select("id, status")
       .eq("id", req.params.id)
@@ -3799,7 +3853,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
     if (input.socialAccountIds !== undefined) {
       const socialAccountIds = input.socialAccountIds as string[];
-      const { data: owned, error: ownedError } = await supabase
+      const { data: owned, error: ownedError } = await req.db!
         .from("social_accounts")
         .select("id")
         .eq("account_id", req.accountId)
@@ -3812,8 +3866,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         res.status(403).json({ error: "One or more social accounts weren't found or aren't owned by this caller" });
         return;
       }
-      await supabase.from("recurring_schedule_targets").delete().eq("recurring_schedule_id", req.params.id);
-      const { error: targetsError } = await supabase
+      await req.db!.from("recurring_schedule_targets").delete().eq("recurring_schedule_id", req.params.id);
+      const { error: targetsError } = await req.db!
         .from("recurring_schedule_targets")
         .insert(socialAccountIds.map((social_account_id) => ({ recurring_schedule_id: req.params.id, social_account_id })));
       if (targetsError) {
@@ -3842,7 +3896,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // TOCTOU window. If this line ever moves earlier, or the fetch above
     // is removed/reordered, add .eq("account_id", req.accountId) back here
     // too — found worth flagging by the 2026-08-26 IDOR audit.
-    const { data: updated, error } = await supabase
+    const { data: updated, error } = await req.db!
       .from("recurring_schedules")
       .update(updates)
       .eq("id", req.params.id)
@@ -3860,7 +3914,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // recurring_schedule_id set null via the FK's `on delete set null`) and
   // left to fire normally — history is never touched either way.
   router.delete("/recurring-schedules/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data: existing, error: fetchError } = await supabase
+    const { data: existing, error: fetchError } = await req.db!
       .from("recurring_schedules")
       .select("id")
       .eq("id", req.params.id)
@@ -3885,7 +3939,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // no TOCTOU window. Keep the account_id filter here if this line ever
     // moves earlier or the fetch above changes. Flagged by the 2026-08-26
     // IDOR audit.
-    const { error } = await supabase.from("recurring_schedules").delete().eq("id", req.params.id);
+    const { error } = await req.db!.from("recurring_schedules").delete().eq("id", req.params.id);
     if (error) {
       dbError(res, error, "DELETE /recurring-schedules/:id");
       return;
@@ -3897,7 +3951,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // no subscription row exists yet (a fresh signup before ever upgrading),
   // which is a normal state, not an error.
   router.get("/subscription", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data: sub, error } = await supabase
+    const { data: sub, error } = await req.db!
       .from("subscriptions")
       .select("tier, status, current_period_end, cancel_at_period_end")
       .eq("account_id", req.accountId)
@@ -3966,7 +4020,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     pendingTierChanges.add(req.accountId!);
 
     try {
-      const { data: account, error: accountError } = await supabase
+      const { data: account, error: accountError } = await req.db!
         .from("accounts")
         .select("email")
         .eq("id", req.accountId)
@@ -3987,7 +4041,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       // keeps billing the customer indefinitely. Existing customers upgrading
       // between paid tiers already have their own dedicated endpoint
       // (/subscription/change-tier) -- this one is Free-to-paid only.
-      const { data: existingSub, error: existingSubError } = await supabase
+      const { data: existingSub, error: existingSubError } = await req.db!
         .from("subscriptions")
         .select("status")
         .eq("account_id", req.accountId)
@@ -4068,7 +4122,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     pendingTierChanges.add(req.accountId!);
 
     try {
-      const { data: account, error: accountError } = await supabase
+      const { data: account, error: accountError } = await req.db!
         .from("accounts")
         .select("email")
         .eq("id", req.accountId)
@@ -4078,7 +4132,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         return;
       }
 
-      const { data: subscription, error: subError } = await supabase
+      const { data: subscription, error: subError } = await req.db!
         .from("subscriptions")
         .select("mor_subscription_id, tier, status")
         .eq("account_id", req.accountId)
@@ -4133,6 +4187,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // Lists the caller's active/trialing storage add-ons — the "manage your
   // extra storage" view alongside the storage gauge.
   router.get("/storage-addons", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    // storage_addons: service-role only throughout this file --
+    // 0012_storage_addons.sql: "No client-facing RLS policies... only the
+    // backend's service-role client ever touches this table."
     const { data, error } = await supabase
       .from("storage_addons")
       .select("id, gb_amount, status, current_period_end, cancel_at_period_end")
@@ -4165,6 +4222,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
+    // storage_addons: service-role only, see GET /storage-addons above.
     const { count: activeAddonCount, error: countError } = await supabase
       .from("storage_addons")
       .select("id", { count: "exact", head: true })
@@ -4188,7 +4246,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { data: account, error: accountError } = await supabase
+    const { data: account, error: accountError } = await req.db!
       .from("accounts")
       .select("email")
       .eq("id", req.accountId)
@@ -4230,6 +4288,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // active add-on slots) so the frontend can show "N/cap" honestly without a
   // second round trip.
   router.get("/brand-addons", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    // brand_addons: service-role only throughout this file --
+    // 0048_brand_addons.sql: "No client-facing RLS policies... only the
+    // backend's service-role client ever touches this table."
     const [{ data, error }, capacity] = await Promise.all([
       supabase
         .from("brand_addons")
@@ -4257,6 +4318,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
+    // brand_addons: service-role only, see GET /brand-addons above.
     const { count: activeAddonCount, error: countError } = await supabase
       .from("brand_addons")
       .select("id", { count: "exact", head: true })
@@ -4280,7 +4342,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { data: account, error: accountError } = await supabase
+    const { data: account, error: accountError } = await req.db!
       .from("accounts")
       .select("email")
       .eq("id", req.accountId)
@@ -4321,6 +4383,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // Agency Plus (see SEAT_LIMITS in seatLimits.ts) — so this excludes "pro"
   // and "business" (internal codes; Starter/Pro displayed), not just "free".
   router.get("/seat-addons", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    // seat_addons: service-role only throughout this file --
+    // 0054_agency_tiers_and_seats.sql: "No client-facing RLS policies...
+    // only the backend's service-role client ever touches this table."
     const [{ data, error }, capacity] = await Promise.all([
       supabase
         .from("seat_addons")
@@ -4344,6 +4409,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
+    // seat_addons: service-role only, see GET /seat-addons above.
     const { count: activeAddonCount, error: countError } = await supabase
       .from("seat_addons")
       .select("id", { count: "exact", head: true })
@@ -4367,7 +4433,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { data: account, error: accountError } = await supabase
+    const { data: account, error: accountError } = await req.db!
       .from("accounts")
       .select("email")
       .eq("id", req.accountId)
@@ -4406,7 +4472,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // shown at signup — set once at signup via Supabase auth metadata (see
   // migration 0024), editable afterward here.
   router.get("/account", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data, error } = await supabase
+    const { data, error } = await req.db!
       .from("accounts")
       .select("email, business_name, email_failure_alerts_enabled, webhook_url, webhook_secret, voice_profile")
       .eq("id", req.accountId)
@@ -4464,7 +4530,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // literally named "LazyRelay" and would otherwise be unable to hit
     // Save on its own Settings page without changing anything.
     if (typeof businessName === "string" && businessName.trim() && isReservedBusinessName(businessName.trim())) {
-      const { data: current } = await supabase.from("accounts").select("business_name").eq("id", req.accountId).maybeSingle();
+      const { data: current } = await req.db!.from("accounts").select("business_name").eq("id", req.accountId).maybeSingle();
       const currentNormalized = current?.business_name?.trim().toLowerCase();
       if (businessName.trim().toLowerCase() !== currentNormalized) {
         res.status(400).json({ error: "That name isn't available — try a different one." });
@@ -4509,7 +4575,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         return;
       }
       normalizedWebhookUrl = trimmed;
-      const { data: existing } = await supabase.from("accounts").select("webhook_secret").eq("id", req.accountId).maybeSingle();
+      const { data: existing } = await req.db!.from("accounts").select("webhook_secret").eq("id", req.accountId).maybeSingle();
       if (!existing?.webhook_secret) newWebhookSecret = generateWebhookSecret();
     } else if (webhookUrl === null) {
       normalizedWebhookUrl = null;
@@ -4524,6 +4590,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       if (normalizedWebhookUrl === null) update.webhook_secret = null;
       else if (newWebhookSecret) update.webhook_secret = newWebhookSecret;
     }
+    // Stays on supabase, not req.db: UPDATE on accounts is revoked from
+    // authenticated entirely (0069_lock_down_accounts_update_rls.sql --
+    // "the backend already writes to accounts exclusively via its
+    // service-role key"), so req.db would fail with a permissions error.
     const { data, error } = await supabase
       .from("accounts")
       .update(update)
@@ -4562,12 +4632,14 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // webhook URL itself. Human-dashboard-only, same reasoning as the
   // webhookUrl check in PATCH /account above.
   router.post("/account/webhook/regenerate-secret", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data: existing } = await supabase.from("accounts").select("webhook_url").eq("id", req.accountId).maybeSingle();
+    const { data: existing } = await req.db!.from("accounts").select("webhook_url").eq("id", req.accountId).maybeSingle();
     if (!existing?.webhook_url) {
       res.status(400).json({ error: "Set a webhook URL first before generating a secret." });
       return;
     }
     const newSecret = generateWebhookSecret();
+    // Stays on supabase: accounts UPDATE is revoked from authenticated, see
+    // the comment on PATCH /account above (0069_lock_down_accounts_update_rls.sql).
     const { error } = await supabase.from("accounts").update({ webhook_secret: newSecret }).eq("id", req.accountId);
     if (error) {
       dbError(res, error, "POST /account/webhook/regenerate-secret");
@@ -4606,7 +4678,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
     const rawKey = `${API_KEY_PREFIX}${randomBytes(24).toString("hex")}`;
-    const { data, error } = await supabase
+    const { data, error } = await req.db!
       .from("api_keys")
       .insert({
         account_id: req.accountId,
@@ -4631,7 +4703,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   });
 
   router.get("/api-keys", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data, error } = await supabase
+    const { data, error } = await req.db!
       .from("api_keys")
       .select("id, name, key_prefix, can_share_proof, created_at, last_used_at, revoked_at")
       .eq("account_id", req.accountId)
@@ -4644,11 +4716,17 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   });
 
   router.delete("/api-keys/:id", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data: key } = await supabase.from("api_keys").select("account_id").eq("id", req.params.id).maybeSingle();
+    const { data: key } = await req.db!.from("api_keys").select("account_id").eq("id", req.params.id).maybeSingle();
     if (!key || key.account_id !== req.accountId) {
       res.status(404).json({ error: "API key not found" });
       return;
     }
+    // Stays on supabase, not req.db: api_keys' RLS policies (0081/0082
+    // migrations) only cover SELECT (api_keys_select_members) and hard
+    // DELETE (api_keys_delete_owner) -- there's no UPDATE policy, and this
+    // revoke is a soft-delete via UPDATE, not a real DELETE. Under req.db
+    // this would silently affect 0 rows (no error, key stays live) instead
+    // of actually revoking it.
     const { error } = await supabase
       .from("api_keys")
       .update({ revoked_at: new Date().toISOString() })
@@ -4666,7 +4744,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // rule rather than following one. Any account can use it today; adding a
   // tier check here is the natural place once that pricing decision exists.
   router.get("/team", requireAuth, requireHumanAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data, error } = await supabase
+    const { data, error } = await req.db!
       .from("account_members")
       .select("id, user_id, invited_email, role, invited_at, accepted_at")
       .eq("account_id", req.accountId)
@@ -4692,13 +4770,13 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
     const normalizedEmail = email.trim().toLowerCase();
 
-    const { data: account } = await supabase.from("accounts").select("email, business_name").eq("id", req.accountId).maybeSingle();
+    const { data: account } = await req.db!.from("accounts").select("email, business_name").eq("id", req.accountId).maybeSingle();
     if (account?.email && account.email.toLowerCase() === normalizedEmail) {
       res.status(400).json({ error: "That's your own email address" });
       return;
     }
 
-    const { data: existing } = await supabase
+    const { data: existing } = await req.db!
       .from("account_members")
       .select("id, accepted_at")
       .eq("account_id", req.accountId)
@@ -4709,6 +4787,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
+    // Stays on supabase, not req.db: account_members has no INSERT policy
+    // at all (0081_team_aware_rls_policies.sql's own comment: "invite/
+    // accept/remove has seat-limit business logic... that belongs behind a
+    // backend/RPC boundary, not raw RLS") -- req.db would fail outright.
     const { data: invite, error } = await supabase
       .from("account_members")
       .insert({ account_id: req.accountId, invited_email: normalizedEmail, role: "member" })
@@ -4727,7 +4809,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   });
 
   router.delete("/team/:id", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data: member } = await supabase
+    const { data: member } = await req.db!
       .from("account_members")
       .select("id, account_id, role")
       .eq("id", req.params.id)
@@ -4740,6 +4822,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(400).json({ error: "The account owner can't be removed" });
       return;
     }
+    // Stays on supabase: account_members has no DELETE policy either, see
+    // the comment on POST /team/invite above.
     const { error } = await supabase.from("account_members").delete().eq("id", req.params.id);
     if (error) {
       dbError(res, error, "DELETE /team/:id");
@@ -4756,7 +4840,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // 2026-08-17: without this, a missed/expired invite email meant deleting
   // the row and starting over instead of one click.
   router.post("/team/:id/resend", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data: member } = await supabase
+    const { data: member } = await req.db!
       .from("account_members")
       .select("id, account_id, invited_email, user_id, accepted_at, invite_token")
       .eq("id", req.params.id)
@@ -4770,6 +4854,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
+    // Stays on supabase: account_members has no UPDATE policy either, see
+    // the comment on POST /team/invite above.
     const { error } = await supabase
       .from("account_members")
       .update({ invited_at: new Date().toISOString() })
@@ -4779,7 +4865,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { data: account } = await supabase.from("accounts").select("email, business_name").eq("id", req.accountId).maybeSingle();
+    const { data: account } = await req.db!.from("accounts").select("email, business_name").eq("id", req.accountId).maybeSingle();
     const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
     const acceptUrl = `${frontendUrl}/team/accept?token=${member.invite_token}`;
     sendTeamInviteEmail(member.invited_email!, account?.business_name || account?.email || "A LazyRelay account", acceptUrl);
@@ -4791,6 +4877,13 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // is the one route where "who is calling" must be resolved independently
   // of account-membership lookup, since accepting is the act that creates
   // that membership in the first place.
+  //
+  // Every call below stays on supabase, not req.db: requireJwtUser is a
+  // separate auth path from requireAuth and never sets req.db (see
+  // AuthedRequest's own doc comment in auth.ts) -- it would be undefined
+  // here regardless of table policy. account_members also has no
+  // INSERT/UPDATE/DELETE policy anyway (see POST /team/invite above), so
+  // even a req.db built here couldn't do this route's write.
   router.post("/team/accept-invite", requireJwtUser, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { token } = req.body ?? {};
     if (typeof token !== "string" || token.trim().length === 0) {
@@ -4883,6 +4976,11 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     const taskLabel = typeof req.body?.taskLabel === "string" ? req.body.taskLabel.slice(0, 500) : null;
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
+    // Stays on supabase, not req.db: this route is requireAuth (not
+    // requireAdmin), so req.db would be a real per-user client here -- but
+    // admin_key_intents (0037_admin_key_guard.sql) has RLS enabled with no
+    // policies ever written for it, an internal admin-system table meant
+    // for the service-role client only. req.db would fail outright.
     const { error } = await supabase.from("admin_key_intents").insert({
       announced_by: req.accountId,
       task_label: taskLabel,

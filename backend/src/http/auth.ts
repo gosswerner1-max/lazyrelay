@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createHash } from "node:crypto";
-import { supabase } from "../supabase.js";
+import { supabase, createUserClient } from "../supabase.js";
 import { recordSecurityEvent } from "./securityAlerts.js";
 
 export interface AuthedRequest extends Request {
@@ -29,6 +30,18 @@ export interface AuthedRequest extends Request {
    *  paths — those act as the account itself or across every account,
    *  which is exactly the service-role client's job, not a per-user one. */
   rawToken?: string;
+  /** The per-request client every ordinary customer-scoped route should
+   *  use going forward (rollout started 2026-09-04) — a real per-user
+   *  authenticated client (RLS-enforced) on the JWT path, and the
+   *  service-role client unchanged on the apiKey/adminKey paths (which
+   *  legitimately act as the account itself or across every account).
+   *  Set on every requireAuth-gated request, always defined by the time a
+   *  route handler runs. A route that specifically needs elevated access
+   *  (a service-role-only RPC, a genuinely cross-account lookup) should
+   *  keep importing and using `supabase` directly for THAT call, with a
+   *  comment saying why — req.db is the default, not a universal
+   *  replacement for every query in every handler. */
+  db?: SupabaseClient;
 }
 
 export const API_KEY_PREFIX = "lzr_live_";
@@ -237,6 +250,7 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
     req.isAdmin = true;
     req.adminKeyId = adminKeyId;
     req.authMethod = "apiKey";
+    req.db = supabase;
 
     const targetAccountId = req.headers["x-account-id"];
     if (typeof targetAccountId === "string" && targetAccountId) {
@@ -264,6 +278,7 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
     req.accountId = apiKey.accountId;
     req.authMethod = "apiKey";
     req.apiKeyCanShareProof = apiKey.canShareProof;
+    req.db = supabase;
     next();
     return;
   }
@@ -301,6 +316,7 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
   req.role = membership.role;
   req.authMethod = "jwt";
   req.rawToken = token;
+  req.db = createUserClient(token);
   next();
 }
 
