@@ -48,6 +48,7 @@ import {
   validateScheduledFor,
   checkFreeTierPostLimit,
   MAX_POST_CONTENT_LENGTH,
+  TIKTOK_PRIVACY_LEVELS,
 } from "../postCreation.js";
 import { checkQuotaForNewUpload, getStorageUsage } from "../storageQuota.js";
 import { checkAccountLimit } from "../accountLimits.js";
@@ -2221,7 +2222,22 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // account/timing validation validatePostFields does — there's nothing to
   // validate against yet.
   router.post("/scheduled-posts/draft", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { content, mediaUrl, coverImageUrl, boardId, destinationLink, firstComment, mediaAltText, plannedDate, plannedAccountIds, scheduledFor } = req.body ?? {};
+    const {
+      content,
+      mediaUrl,
+      coverImageUrl,
+      boardId,
+      destinationLink,
+      firstComment,
+      mediaAltText,
+      tiktokPrivacyLevel,
+      tiktokDisableComment,
+      tiktokDisableDuet,
+      tiktokDisableStitch,
+      plannedDate,
+      plannedAccountIds,
+      scheduledFor,
+    } = req.body ?? {};
     if (typeof content !== "string" || content.trim().length === 0) {
       res.status(400).json({ error: "content must be a non-empty string" });
       return;
@@ -2230,9 +2246,15 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(400).json({ error: `content must be ${MAX_POST_CONTENT_LENGTH} characters or fewer` });
       return;
     }
-    for (const [name, value] of [["coverImageUrl", coverImageUrl], ["boardId", boardId], ["destinationLink", destinationLink], ["firstComment", firstComment], ["mediaAltText", mediaAltText]] as const) {
+    for (const [name, value] of [["coverImageUrl", coverImageUrl], ["boardId", boardId], ["destinationLink", destinationLink], ["firstComment", firstComment], ["mediaAltText", mediaAltText], ["tiktokPrivacyLevel", tiktokPrivacyLevel]] as const) {
       if (value !== undefined && value !== null && typeof value !== "string") {
         res.status(400).json({ error: `${name} must be a string` });
+        return;
+      }
+    }
+    for (const [name, value] of [["tiktokDisableComment", tiktokDisableComment], ["tiktokDisableDuet", tiktokDisableDuet], ["tiktokDisableStitch", tiktokDisableStitch]] as const) {
+      if (value !== undefined && typeof value !== "boolean") {
+        res.status(400).json({ error: `${name} must be a boolean` });
         return;
       }
     }
@@ -2287,6 +2309,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         destination_link: destinationLink ?? null,
         first_comment: firstComment ?? null,
         media_alt_text: mediaAltText ?? null,
+        tiktok_privacy_level: tiktokPrivacyLevel ?? null,
+        tiktok_disable_comment: tiktokDisableComment ?? true,
+        tiktok_disable_duet: tiktokDisableDuet ?? true,
+        tiktok_disable_stitch: tiktokDisableStitch ?? true,
         planned_date: plannedDate ?? null,
         planned_account_ids: validatedPlannedAccountIds,
         scheduled_for: scheduledFor ?? null,
@@ -2332,7 +2358,20 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    const { content, mediaUrl, coverImageUrl, boardId, destinationLink, firstComment, mediaAltText, plannedDate } = req.body ?? {};
+    const {
+      content,
+      mediaUrl,
+      coverImageUrl,
+      boardId,
+      destinationLink,
+      firstComment,
+      mediaAltText,
+      tiktokPrivacyLevel,
+      tiktokDisableComment,
+      tiktokDisableDuet,
+      tiktokDisableStitch,
+      plannedDate,
+    } = req.body ?? {};
     const update: Record<string, unknown> = {};
     if (content !== undefined) {
       if (typeof content !== "string" || content.trim().length === 0) {
@@ -2352,10 +2391,24 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       ["destination_link", "destinationLink", destinationLink],
       ["first_comment", "firstComment", firstComment],
       ["media_alt_text", "mediaAltText", mediaAltText],
+      ["tiktok_privacy_level", "tiktokPrivacyLevel", tiktokPrivacyLevel],
     ] as const) {
       if (value !== undefined) {
         if (value !== null && typeof value !== "string") {
           res.status(400).json({ error: `${name} must be a string` });
+          return;
+        }
+        update[key] = value;
+      }
+    }
+    for (const [key, name, value] of [
+      ["tiktok_disable_comment", "tiktokDisableComment", tiktokDisableComment],
+      ["tiktok_disable_duet", "tiktokDisableDuet", tiktokDisableDuet],
+      ["tiktok_disable_stitch", "tiktokDisableStitch", tiktokDisableStitch],
+    ] as const) {
+      if (value !== undefined) {
+        if (typeof value !== "boolean") {
+          res.status(400).json({ error: `${name} must be a boolean` });
           return;
         }
         update[key] = value;
@@ -2422,7 +2475,21 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       res.status(validated.status).json(validated.body);
       return;
     }
-    const { socialAccountId, content, mediaUrl, coverImageUrl, boardId, destinationLink, firstComment, mediaAltText, scheduledFor } = validated;
+    const {
+      socialAccountId,
+      content,
+      mediaUrl,
+      coverImageUrl,
+      boardId,
+      destinationLink,
+      firstComment,
+      mediaAltText,
+      tiktokPrivacyLevel,
+      tiktokDisableComment,
+      tiktokDisableDuet,
+      tiktokDisableStitch,
+      scheduledFor,
+    } = validated;
 
     const limitError = await checkFreeTierPostLimit(req.accountId, socialAccountId);
     if (limitError) {
@@ -2441,6 +2508,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         destination_link: destinationLink,
         first_comment: firstComment,
         media_alt_text: mediaAltText,
+        tiktok_privacy_level: tiktokPrivacyLevel,
+        tiktok_disable_comment: tiktokDisableComment,
+        tiktok_disable_duet: tiktokDisableDuet,
+        tiktok_disable_stitch: tiktokDisableStitch,
         scheduled_for: scheduledFor,
         status: req.body?.requiresApproval === true ? "needs_approval" : "pending",
       })
@@ -3494,7 +3565,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.post("/scheduled-posts/:id/duplicate", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data: existing, error: fetchError } = await req.db!
       .from("scheduled_posts")
-      .select("social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, status")
+      .select(
+        "social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, status",
+      )
       .eq("id", req.params.id)
       .eq("account_id", req.accountId)
       .maybeSingle();
@@ -3520,6 +3593,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       destinationLink: existing.destination_link,
       firstComment: existing.first_comment,
       mediaAltText: existing.media_alt_text,
+      tiktokPrivacyLevel: existing.tiktok_privacy_level,
+      tiktokDisableComment: existing.tiktok_disable_comment,
+      tiktokDisableDuet: existing.tiktok_disable_duet,
+      tiktokDisableStitch: existing.tiktok_disable_stitch,
       scheduledFor: (req.body ?? {}).scheduledFor,
       requiresApproval: (req.body ?? {}).requiresApproval,
     });
@@ -3643,6 +3720,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     boardId?: unknown;
     destinationLink?: unknown;
     firstComment?: unknown;
+    tiktokPrivacyLevel?: unknown;
+    tiktokDisableComment?: unknown;
+    tiktokDisableDuet?: unknown;
+    tiktokDisableStitch?: unknown;
     socialAccountIds?: unknown;
     daysOfWeek?: unknown;
     timeOfDay?: unknown;
@@ -3731,6 +3812,20 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (input.firstComment !== undefined && input.firstComment !== null && typeof input.firstComment !== "string") {
       return "firstComment must be a string";
     }
+    if (input.tiktokPrivacyLevel !== undefined && input.tiktokPrivacyLevel !== null) {
+      if (typeof input.tiktokPrivacyLevel !== "string" || !TIKTOK_PRIVACY_LEVELS.includes(input.tiktokPrivacyLevel)) {
+        return `tiktokPrivacyLevel must be one of: ${TIKTOK_PRIVACY_LEVELS.join(", ")}`;
+      }
+    }
+    for (const [name, value] of [
+      ["tiktokDisableComment", input.tiktokDisableComment],
+      ["tiktokDisableDuet", input.tiktokDisableDuet],
+      ["tiktokDisableStitch", input.tiktokDisableStitch],
+    ] as const) {
+      if (value !== undefined && typeof value !== "boolean") {
+        return `${name} must be a boolean`;
+      }
+    }
     return null;
   }
 
@@ -3797,6 +3892,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         board_id: input.boardId ?? null,
         destination_link: input.destinationLink ?? null,
         first_comment: input.firstComment ?? null,
+        tiktok_privacy_level: (input.tiktokPrivacyLevel as string | undefined) ?? null,
+        tiktok_disable_comment: (input.tiktokDisableComment as boolean | undefined) ?? true,
+        tiktok_disable_duet: (input.tiktokDisableDuet as boolean | undefined) ?? true,
+        tiktok_disable_stitch: (input.tiktokDisableStitch as boolean | undefined) ?? true,
         days_of_week: input.daysOfWeek,
         time_of_day: `${input.timeOfDay}:00`,
         timezone: input.timezone,
@@ -3919,6 +4018,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (input.boardId !== undefined) updates.board_id = input.boardId;
     if (input.destinationLink !== undefined) updates.destination_link = input.destinationLink;
     if (input.firstComment !== undefined) updates.first_comment = input.firstComment;
+    if (input.tiktokPrivacyLevel !== undefined) updates.tiktok_privacy_level = input.tiktokPrivacyLevel;
+    if (input.tiktokDisableComment !== undefined) updates.tiktok_disable_comment = input.tiktokDisableComment;
+    if (input.tiktokDisableDuet !== undefined) updates.tiktok_disable_duet = input.tiktokDisableDuet;
+    if (input.tiktokDisableStitch !== undefined) updates.tiktok_disable_stitch = input.tiktokDisableStitch;
     if (input.daysOfWeek !== undefined) updates.days_of_week = input.daysOfWeek;
     if (input.timeOfDay !== undefined) updates.time_of_day = `${input.timeOfDay}:00`;
     if (input.timezone !== undefined) updates.timezone = input.timezone;

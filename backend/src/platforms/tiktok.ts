@@ -194,6 +194,14 @@ export class TikTokAdapter implements PlatformAdapter {
     if (!request.mediaUrl) {
       return { success: false, platformPostId: null, errorMessage: "TikTok posts require a video URL" };
     }
+    // TikTok's Content Sharing Guidelines require our own UI to show this
+    // choice with no default selection -- a missing value here means the
+    // customer never made that choice (or an old row predates this field),
+    // not something the adapter should silently default. See the comment on
+    // PostRequest.tiktokPrivacyLevel and migration 0083.
+    if (!request.tiktokPrivacyLevel) {
+      return { success: false, platformPostId: null, errorMessage: "TikTok posts require a privacy level to be chosen" };
+    }
 
     const eligibility = await this.checkDirectPostEligible(request.accessToken);
     if (!eligibility.eligible) {
@@ -228,17 +236,18 @@ export class TikTokAdapter implements PlatformAdapter {
       },
       body: JSON.stringify({
         post_info: {
-          // Hardcoded SELF_ONLY: this app is still in Sandbox / unaudited
-          // with TikTok (Content Posting API review pending — see
-          // project-platform-app-registration memory). Unaudited clients
-          // are only permitted to publish as SELF_ONLY; requesting anything
-          // else here would be rejected by TikTok outright. Switch this to
-          // a real customer-facing choice once TikTok's app audit clears.
-          privacy_level: "SELF_ONLY",
+          // A real customer choice now (2026-09-05), not hardcoded -- see
+          // PostRequest.tiktokPrivacyLevel. While this app remains
+          // unaudited with TikTok, only SELF_ONLY will actually succeed
+          // regardless of what's requested here (confirmed via the real API
+          // error unaudited_client_can_only_post_to_private_accounts) --
+          // that's TikTok's own account-level restriction, not something
+          // this adapter enforces.
+          privacy_level: request.tiktokPrivacyLevel,
           title: request.content.slice(0, 2200),
-          disable_duet: false,
-          disable_stitch: false,
-          disable_comment: false,
+          disable_duet: request.tiktokDisableDuet ?? true,
+          disable_stitch: request.tiktokDisableStitch ?? true,
+          disable_comment: request.tiktokDisableComment ?? true,
         },
         source_info: {
           source: "FILE_UPLOAD",

@@ -107,6 +107,13 @@ export interface ScheduledPost {
   destination_link: string | null;
   first_comment: string | null;
   media_alt_text: string | null;
+  // TikTok-only (migration 0083) — the compose form's own privacy/
+  // interaction choices, required for a real TikTok post (see
+  // postCreation.ts), null/default on every other platform's rows.
+  tiktok_privacy_level: string | null;
+  tiktok_disable_comment: boolean;
+  tiktok_disable_duet: boolean;
+  tiktok_disable_stitch: boolean;
   scheduled_for: string | null;
   // A draft anchored to a calendar day for planning (migration 0059) — only
   // meaningful while status is still "draft"; a real scheduled post uses
@@ -142,6 +149,10 @@ export interface DraftFields {
   destinationLink?: string | null;
   firstComment?: string | null;
   mediaAltText?: string | null;
+  tiktokPrivacyLevel?: string | null;
+  tiktokDisableComment?: boolean;
+  tiktokDisableDuet?: boolean;
+  tiktokDisableStitch?: boolean;
   plannedAccountIds?: string[] | null;
   scheduledFor?: string | null;
 }
@@ -483,6 +494,10 @@ export const api = {
     destinationLink?: string;
     firstComment?: string;
     mediaAltText?: string;
+    tiktokPrivacyLevel?: string;
+    tiktokDisableComment?: boolean;
+    tiktokDisableDuet?: boolean;
+    tiktokDisableStitch?: boolean;
     scheduledFor: string;
     requiresApproval?: boolean;
   }): Promise<ScheduledPost> => authedFetch("/scheduled-posts", { method: "POST", body: JSON.stringify(input) }),
@@ -496,7 +511,22 @@ export const api = {
     authedFetch(`/scheduled-posts/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   scheduleDraft: (
     id: string,
-    input: { socialAccountId: string; content: string; mediaUrl?: string; coverImageUrl?: string; boardId?: string; destinationLink?: string; firstComment?: string; mediaAltText?: string; scheduledFor: string; requiresApproval?: boolean },
+    input: {
+      socialAccountId: string;
+      content: string;
+      mediaUrl?: string;
+      coverImageUrl?: string;
+      boardId?: string;
+      destinationLink?: string;
+      firstComment?: string;
+      mediaAltText?: string;
+      tiktokPrivacyLevel?: string;
+      tiktokDisableComment?: boolean;
+      tiktokDisableDuet?: boolean;
+      tiktokDisableStitch?: boolean;
+      scheduledFor: string;
+      requiresApproval?: boolean;
+    },
   ): Promise<ScheduledPost> => authedFetch(`/scheduled-posts/${id}/schedule`, { method: "PATCH", body: JSON.stringify(input) }),
   approveScheduledPost: (id: string): Promise<ScheduledPost> =>
     authedFetch(`/scheduled-posts/${id}/approve`, { method: "PATCH" }),

@@ -36,8 +36,18 @@ export type PostFieldsOk = {
   destinationLink: string | null;
   firstComment: string | null;
   mediaAltText: string | null;
+  tiktokPrivacyLevel: string | null;
+  tiktokDisableComment: boolean;
+  tiktokDisableDuet: boolean;
+  tiktokDisableStitch: boolean;
   scheduledFor: string;
 };
+
+// The exact values TikTok's own creator_info/privacy_level_options can
+// return (developers.tiktok.com/doc/content-posting-api-reference-direct-post)
+// -- validated against this allowlist rather than passed through as an
+// arbitrary string, same reasoning as every other enum-shaped client input.
+export const TIKTOK_PRIVACY_LEVELS = ["PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "SELF_ONLY"];
 
 /** Just the scheduledFor bounds-check, pulled out of validatePostFields
  *  (2026-08-30) so the reschedule route can revalidate a new time without
@@ -73,9 +83,37 @@ export function validateScheduledFor(scheduledFor: unknown): PostFieldsError | {
  *  both need it, but at slightly different points in their callers. */
 export async function validatePostFields(
   accountId: string | undefined,
-  input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; coverImageUrl?: unknown; boardId?: unknown; destinationLink?: unknown; firstComment?: unknown; mediaAltText?: unknown; scheduledFor?: unknown },
+  input: {
+    socialAccountId?: unknown;
+    content?: unknown;
+    mediaUrl?: unknown;
+    coverImageUrl?: unknown;
+    boardId?: unknown;
+    destinationLink?: unknown;
+    firstComment?: unknown;
+    mediaAltText?: unknown;
+    tiktokPrivacyLevel?: unknown;
+    tiktokDisableComment?: unknown;
+    tiktokDisableDuet?: unknown;
+    tiktokDisableStitch?: unknown;
+    scheduledFor?: unknown;
+  },
 ): Promise<PostFieldsError | PostFieldsOk> {
-  const { socialAccountId, content, mediaUrl, coverImageUrl, boardId, destinationLink, firstComment, mediaAltText, scheduledFor } = input;
+  const {
+    socialAccountId,
+    content,
+    mediaUrl,
+    coverImageUrl,
+    boardId,
+    destinationLink,
+    firstComment,
+    mediaAltText,
+    tiktokPrivacyLevel,
+    tiktokDisableComment,
+    tiktokDisableDuet,
+    tiktokDisableStitch,
+    scheduledFor,
+  } = input;
   if (coverImageUrl !== undefined && coverImageUrl !== null && typeof coverImageUrl !== "string") {
     return { status: 400, body: { error: "coverImageUrl must be a string" } };
   }
@@ -100,6 +138,22 @@ export async function validatePostFields(
   // other adapter simply ignores it, same generic-column pattern as above.
   if (mediaAltText !== undefined && mediaAltText !== null && typeof mediaAltText !== "string") {
     return { status: 400, body: { error: "mediaAltText must be a string" } };
+  }
+  // TikTok-only (see PostRequest.tiktokPrivacyLevel) — validated against
+  // TikTok's own real enum, not passed through as an arbitrary string.
+  if (tiktokPrivacyLevel !== undefined && tiktokPrivacyLevel !== null) {
+    if (typeof tiktokPrivacyLevel !== "string" || !TIKTOK_PRIVACY_LEVELS.includes(tiktokPrivacyLevel)) {
+      return { status: 400, body: { error: `tiktokPrivacyLevel must be one of: ${TIKTOK_PRIVACY_LEVELS.join(", ")}` } };
+    }
+  }
+  for (const [name, value] of [
+    ["tiktokDisableComment", tiktokDisableComment],
+    ["tiktokDisableDuet", tiktokDisableDuet],
+    ["tiktokDisableStitch", tiktokDisableStitch],
+  ] as const) {
+    if (value !== undefined && typeof value !== "boolean") {
+      return { status: 400, body: { error: `${name} must be a boolean` } };
+    }
   }
   if (!socialAccountId || !content || !scheduledFor) {
     return { status: 400, body: { error: "socialAccountId, content, and scheduledFor are required" } };
@@ -129,6 +183,14 @@ export async function validatePostFields(
     .single();
   if (accountError || !account || account.account_id !== accountId) {
     return { status: 403, body: { error: "Social account not found or not owned by this caller" } };
+  }
+
+  // TikTok's Content Sharing Guidelines require our own UI to show this as
+  // a real choice with no default selection — required here, not defaulted,
+  // so a customer can never end up with a TikTok post that skipped that
+  // choice (see platforms/tiktok.ts's matching check and migration 0083).
+  if (account.platform === "tiktok" && !tiktokPrivacyLevel) {
+    return { status: 400, body: { error: "tiktokPrivacyLevel is required when posting to TikTok" } };
   }
 
   // Both mediaUrl and coverImageUrl get fetched server-side by whichever
@@ -191,6 +253,12 @@ export async function validatePostFields(
     destinationLink: (destinationLink as string | undefined) ?? null,
     firstComment: (firstComment as string | undefined) ?? null,
     mediaAltText: (mediaAltText as string | undefined) ?? null,
+    tiktokPrivacyLevel: (tiktokPrivacyLevel as string | undefined) ?? null,
+    // Default true (interactions OFF) per TikTok's "unchecked by default"
+    // requirement — matches the DB column defaults in migration 0083.
+    tiktokDisableComment: (tiktokDisableComment as boolean | undefined) ?? true,
+    tiktokDisableDuet: (tiktokDisableDuet as boolean | undefined) ?? true,
+    tiktokDisableStitch: (tiktokDisableStitch as boolean | undefined) ?? true,
     scheduledFor: scheduledForCheck.scheduledFor,
   };
 }
@@ -233,11 +301,40 @@ export async function checkFreeTierPostLimit(accountId: string | undefined, soci
 
 export async function scheduleOnePost(
   accountId: string | undefined,
-  input: { socialAccountId?: unknown; content?: unknown; mediaUrl?: unknown; coverImageUrl?: unknown; boardId?: unknown; destinationLink?: unknown; firstComment?: unknown; mediaAltText?: unknown; scheduledFor?: unknown; requiresApproval?: unknown },
+  input: {
+    socialAccountId?: unknown;
+    content?: unknown;
+    mediaUrl?: unknown;
+    coverImageUrl?: unknown;
+    boardId?: unknown;
+    destinationLink?: unknown;
+    firstComment?: unknown;
+    mediaAltText?: unknown;
+    tiktokPrivacyLevel?: unknown;
+    tiktokDisableComment?: unknown;
+    tiktokDisableDuet?: unknown;
+    tiktokDisableStitch?: unknown;
+    scheduledFor?: unknown;
+    requiresApproval?: unknown;
+  },
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   const validated = await validatePostFields(accountId, input);
   if ("status" in validated) return validated;
-  const { socialAccountId, content, mediaUrl, coverImageUrl, boardId, destinationLink, firstComment, mediaAltText, scheduledFor } = validated;
+  const {
+    socialAccountId,
+    content,
+    mediaUrl,
+    coverImageUrl,
+    boardId,
+    destinationLink,
+    firstComment,
+    mediaAltText,
+    tiktokPrivacyLevel,
+    tiktokDisableComment,
+    tiktokDisableDuet,
+    tiktokDisableStitch,
+    scheduledFor,
+  } = validated;
 
   const limitError = await checkFreeTierPostLimit(accountId, socialAccountId);
   if (limitError) return limitError;
@@ -254,6 +351,10 @@ export async function scheduleOnePost(
       destination_link: destinationLink,
       first_comment: firstComment,
       media_alt_text: mediaAltText,
+      tiktok_privacy_level: tiktokPrivacyLevel,
+      tiktok_disable_comment: tiktokDisableComment,
+      tiktok_disable_duet: tiktokDisableDuet,
+      tiktok_disable_stitch: tiktokDisableStitch,
       scheduled_for: scheduledFor,
       // A post created with requiresApproval sits in needs_approval —
       // invisible to the scheduler (claimDuePosts only ever selects

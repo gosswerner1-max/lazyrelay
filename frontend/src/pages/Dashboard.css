@@ -2523,6 +2523,19 @@
   letter-spacing: normal !important;
 }
 
+/* TikTok's own Content Sharing Guidelines require a real privacy choice
+   (no default) plus interaction toggles, shown only once a TikTok account
+   is selected in the compose form (2026-09-05). */
+.tiktok-post-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
 .status-trialing {
   background: var(--signal-bg);
   color: var(--signal);

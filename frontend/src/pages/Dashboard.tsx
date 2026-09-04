@@ -641,6 +641,16 @@ export function Dashboard() {
   // it at all, so every Pin's destination link was silently blank.
   const [destinationLink, setDestinationLink] = useState<string | null>(null);
   const [firstComment, setFirstComment] = useState<string | null>(null);
+  // TikTok's own Content Sharing Guidelines require this app's UI to show a
+  // real privacy choice with no default selection, and interaction toggles
+  // unchecked by default -- found missing entirely 2026-09-05 while applying
+  // for the Content Posting API's audited status. null privacyLevel means
+  // "customer hasn't chosen yet"; the backend rejects a TikTok post without
+  // one rather than silently defaulting it (see postCreation.ts).
+  const [tiktokPrivacyLevel, setTiktokPrivacyLevel] = useState<string | null>(null);
+  const [tiktokAllowComment, setTiktokAllowComment] = useState(false);
+  const [tiktokAllowDuet, setTiktokAllowDuet] = useState(false);
+  const [tiktokAllowStitch, setTiktokAllowStitch] = useState(false);
   // The initial /scheduled-posts fetch already caps History at the
   // backend's page size (see routes.ts) — this just tracks whether a
   // fetched page came back full (there's probably more to load) so the
@@ -1634,6 +1644,10 @@ export function Dashboard() {
       setError("Select at least one connected account to post to.");
       return;
     }
+    if (selectedAccountIds.some((id) => accounts.find((a) => a.id === id)?.platform === "tiktok") && !tiktokPrivacyLevel) {
+      setError("Choose who can see this post on TikTok before scheduling.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -1668,6 +1682,17 @@ export function Dashboard() {
           // Only consumed by Mastodon today (see PostRequest.mediaAltText) —
           // every other adapter simply ignores it, same pattern as above.
           mediaAltText: mediaAltText?.trim() ? mediaAltText.trim() : undefined,
+          // TikTok-only, same gate pattern as boardId/destinationLink above.
+          // The backend rejects a TikTok post with no privacy level rather
+          // than defaulting it — see postCreation.ts.
+          ...(accounts.find((a) => a.id === socialAccountId)?.platform === "tiktok"
+            ? {
+                tiktokPrivacyLevel: tiktokPrivacyLevel ?? undefined,
+                tiktokDisableComment: !tiktokAllowComment,
+                tiktokDisableDuet: !tiktokAllowDuet,
+                tiktokDisableStitch: !tiktokAllowStitch,
+              }
+            : {}),
           scheduledFor: scheduledForIso,
           requiresApproval: requiresApprovalOverride,
         };
@@ -1685,6 +1710,10 @@ export function Dashboard() {
       setDestinationLink(null);
       setFirstComment(null);
       setMediaAltText(null);
+      setTiktokPrivacyLevel(null);
+      setTiktokAllowComment(false);
+      setTiktokAllowDuet(false);
+      setTiktokAllowStitch(false);
       setPerAccountContent({});
       setRequiresApproval(false);
       setEditingDraftId(null);
@@ -1717,6 +1746,10 @@ export function Dashboard() {
         coverImageUrl: coverImageUrl ?? undefined,
         firstComment: firstComment?.trim() ? firstComment.trim() : undefined,
         mediaAltText: mediaAltText?.trim() ? mediaAltText.trim() : undefined,
+        tiktokPrivacyLevel: tiktokPrivacyLevel ?? undefined,
+        tiktokDisableComment: !tiktokAllowComment,
+        tiktokDisableDuet: !tiktokAllowDuet,
+        tiktokDisableStitch: !tiktokAllowStitch,
       };
       if (editingDraftId) {
         await api.updateDraft(editingDraftId, fields);
@@ -1728,6 +1761,10 @@ export function Dashboard() {
       setCoverImageUrl(null);
       setFirstComment(null);
       setMediaAltText(null);
+      setTiktokPrivacyLevel(null);
+      setTiktokAllowComment(false);
+      setTiktokAllowDuet(false);
+      setTiktokAllowStitch(false);
       setEditingDraftId(null);
       await refresh();
     } catch (err) {
@@ -1747,6 +1784,10 @@ export function Dashboard() {
     setDestinationLink(p.destination_link);
     setFirstComment(p.first_comment);
     setMediaAltText(p.media_alt_text);
+    setTiktokPrivacyLevel(p.tiktok_privacy_level);
+    setTiktokAllowComment(!p.tiktok_disable_comment);
+    setTiktokAllowDuet(!p.tiktok_disable_duet);
+    setTiktokAllowStitch(!p.tiktok_disable_stitch);
     setEditingDraftId(p.id);
     setError(null);
   }
@@ -1758,6 +1799,10 @@ export function Dashboard() {
     setDestinationLink(null);
     setFirstComment(null);
     setMediaAltText(null);
+    setTiktokPrivacyLevel(null);
+    setTiktokAllowComment(false);
+    setTiktokAllowDuet(false);
+    setTiktokAllowStitch(false);
     setEditingDraftId(null);
   }
 
@@ -4022,6 +4067,44 @@ export function Dashboard() {
                 <span className="section-note">Facebook and Instagram only for now, ignored on other platforms.</span>
               </label>
             )}
+            {(() => {
+              const tiktokAccount = accounts.find((a) => selectedAccountIds.includes(a.id) && a.platform === "tiktok");
+              if (!tiktokAccount) return null;
+              return (
+                <div className="tiktok-post-settings">
+                  <span className="section-note">
+                    Posting as {tiktokAccount.display_name ?? tiktokAccount.platform_account_id} on TikTok
+                  </span>
+                  <label>
+                    Who can view this on TikTok
+                    <select
+                      value={tiktokPrivacyLevel ?? ""}
+                      onChange={(e) => setTiktokPrivacyLevel(e.target.value || null)}
+                      required
+                    >
+                      <option value="" disabled>
+                        Choose who can see this post
+                      </option>
+                      <option value="PUBLIC_TO_EVERYONE">Everyone</option>
+                      <option value="MUTUAL_FOLLOW_FRIENDS">Friends (mutual followers)</option>
+                      <option value="SELF_ONLY">Only me</option>
+                    </select>
+                  </label>
+                  <label className="approval-checkbox-label">
+                    <input type="checkbox" checked={tiktokAllowComment} onChange={(e) => setTiktokAllowComment(e.target.checked)} />
+                    Allow comments
+                  </label>
+                  <label className="approval-checkbox-label">
+                    <input type="checkbox" checked={tiktokAllowDuet} onChange={(e) => setTiktokAllowDuet(e.target.checked)} />
+                    Allow duet
+                  </label>
+                  <label className="approval-checkbox-label">
+                    <input type="checkbox" checked={tiktokAllowStitch} onChange={(e) => setTiktokAllowStitch(e.target.checked)} />
+                    Allow stitch
+                  </label>
+                </div>
+              );
+            })()}
             <label>
               When to post
               <DateTimePicker

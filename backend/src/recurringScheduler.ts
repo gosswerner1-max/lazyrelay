@@ -19,6 +19,10 @@ interface RecurringScheduleRow {
   board_id: string | null;
   destination_link: string | null;
   first_comment: string | null;
+  tiktok_privacy_level: string | null;
+  tiktok_disable_comment: boolean;
+  tiktok_disable_duet: boolean;
+  tiktok_disable_stitch: boolean;
   days_of_week: number[];
   time_of_day: string; // "HH:mm:ss" from Postgres `time`
   timezone: string;
@@ -125,6 +129,10 @@ export async function generateDuePosts(): Promise<void> {
           board_id: slot.board_id,
           destination_link: slot.destination_link,
           first_comment: slot.first_comment,
+          tiktok_privacy_level: slot.tiktok_privacy_level,
+          tiktok_disable_comment: slot.tiktok_disable_comment,
+          tiktok_disable_duet: slot.tiktok_disable_duet,
+          tiktok_disable_stitch: slot.tiktok_disable_stitch,
           scheduled_for: occurrenceAt.toUTC().toISO(),
           recurring_schedule_id: slot.id,
         });

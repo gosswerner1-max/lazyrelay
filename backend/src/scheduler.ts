@@ -133,6 +133,10 @@ interface DuePost {
   destination_link: string | null;
   first_comment: string | null;
   media_alt_text: string | null;
+  tiktok_privacy_level: string | null;
+  tiktok_disable_comment: boolean;
+  tiktok_disable_duet: boolean;
+  tiktok_disable_stitch: boolean;
   retry_count: number;
   platform: string;
 }
@@ -171,7 +175,9 @@ async function claimDuePosts(): Promise<DuePost[]> {
     .in("id", ids)
     .eq("status", "pending")
     .is("paused_at", null)
-    .select("id, account_id, social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, retry_count, social_accounts(platform)");
+    .select(
+      "id, account_id, social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, retry_count, social_accounts(platform)",
+    );
 
   if (claimError) throw claimError;
   if (!claimed || claimed.length === 0) return [];
@@ -382,6 +388,10 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
       boardId: post.board_id,
       destinationLink: post.destination_link,
       mediaAltText: post.media_alt_text,
+      tiktokPrivacyLevel: post.tiktok_privacy_level,
+      tiktokDisableComment: post.tiktok_disable_comment,
+      tiktokDisableDuet: post.tiktok_disable_duet,
+      tiktokDisableStitch: post.tiktok_disable_stitch,
       accessToken,
     });
 

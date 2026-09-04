@@ -31,6 +31,16 @@ export interface PostRequest {
   // currently Mastodon. Every other adapter simply ignores it, same
   // accepted-but-unused pattern as coverImageUrl/boardId above.
   mediaAltText?: string | null;
+  // TikTok-only (2026-09-05). TikTok's Content Sharing Guidelines require
+  // our own UI to show a privacy-status picker with no default selection —
+  // null/undefined means the customer never chose one, which the adapter
+  // must treat as an error, not silently default. disableComment/Duet/Stitch
+  // default true (interactions OFF) per the same guidelines' "unchecked by
+  // default" requirement — every other adapter ignores all four.
+  tiktokPrivacyLevel?: string | null;
+  tiktokDisableComment?: boolean;
+  tiktokDisableDuet?: boolean;
+  tiktokDisableStitch?: boolean;
   accessToken: string;
 }
 
