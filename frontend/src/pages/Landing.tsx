@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
 import { RelaySignal } from "../components/RelaySignal";
@@ -382,16 +382,50 @@ function loadSourceForgeBadgeScriptOnce() {
   document.head.appendChild(sc);
 }
 
+// The placeholder link inside .sf-root used to be plain JSX children --
+// found 2026-09-04, via a real hydration-error investigation, that this was
+// the single biggest real (non-CircuitBackground, non-Cloudflare) cause of
+// React discarding and rebuilding the whole homepage tree on first load.
+// SourceForge's own script (loaded above) rewrites this div's content
+// in place once it runs -- href gains tracking params, rel gets added,
+// the text changes, width goes from a string to a number -- exactly the
+// same category React's own hydration-mismatch message names explicitly
+// ("the client has a browser extension installed which messes with the
+// HTML before React loaded"). The prerender bot's page waits for
+// networkidle, so the baked snapshot always captures the POST-rewrite
+// state; a real visitor's hydration runs before the async widget script
+// has necessarily finished, so it starts from the PRE-rewrite JSX state --
+// a guaranteed mismatch every time, unrelated to anything actually wrong.
+// Fix: never give React real JSX children to hydrate here at all. The
+// placeholder link is set imperatively via the ref, in the same effect
+// that loads the widget script, so React's own tree is just an empty div
+// on both server and client (nothing to mismatch on), while the real DOM
+// -- what a crawler or a visitor whose widget script hasn't loaded yet
+// actually sees -- still gets the exact same placeholder content as before.
 function SourceForgeBadge() {
+  const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    const el = rootRef.current;
+    if (el && !el.firstChild) {
+      const a = document.createElement("a");
+      a.href = "https://sourceforge.net/software/product/LazyRelay/";
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = "LazyRelay Reviews";
+      el.appendChild(a);
+    }
     loadSourceForgeBadgeScriptOnce();
   }, []);
   return (
-    <div className="sf-root sourceforge-badge" data-id="4133019" data-badge="customers-love-us-white" data-variant-id="sf" style={{ width: 125 }}>
-      <a href="https://sourceforge.net/software/product/LazyRelay/" target="_blank" rel="noopener noreferrer">
-        LazyRelay Reviews
-      </a>
-    </div>
+    <div
+      ref={rootRef}
+      className="sf-root sourceforge-badge"
+      data-id="4133019"
+      data-badge="customers-love-us-white"
+      data-variant-id="sf"
+      style={{ width: 125 }}
+      suppressHydrationWarning
+    />
   );
 }
 
@@ -842,7 +876,25 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           <a className="link" href="/data-deletion">
             Data Deletion
           </a>
-          <a href="mailto:hello@lazyrelay.com">hello@lazyrelay.com</a>
+          {/* suppressHydrationWarning (found 2026-09-04): Cloudflare's own
+              "Email Address Obfuscation" (Scrape Shield) rewrites this
+              mailto link and its visible text at the CDN edge on every
+              response -- confirmed live via the Cloudflare API
+              (email_obfuscation: "on") -- so the real served HTML never
+              matches what this JSX actually renders, and never can while
+              that setting stays on. This was the actual root cause of the
+              React hydration error #418 firing on every fresh homepage
+              load (reproduced locally with full unminified React
+              diagnostics, not guessed): the FIRST divergence was harmless
+              (CircuitBackground's animation timing, fixed separately), but
+              this one was real and unavoidable without either turning off
+              email obfuscation for the zone (Werner's call, a Cloudflare
+              dashboard toggle, not something this token can safely change)
+              or telling React not to fight the CDN over it, which is what
+              this does. */}
+          <a href="mailto:hello@lazyrelay.com" suppressHydrationWarning>
+            hello@lazyrelay.com
+          </a>
         </p>
         {/* One template-string expression, not "text {expr} text" as three
             separate JSX children -- same class of issue as the zapier-callout

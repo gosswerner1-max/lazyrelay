@@ -178,20 +178,40 @@ export function CircuitBackground() {
         <path className="trace soft desktop-only" d="M1580 150V400H1545V650H1580V1000" />
 
         {/* Signals — 16 routes, colors shuffled once per page load so the
-            same track doesn't always carry the same color. */}
+            same track doesn't always carry the same color.
+            suppressHydrationWarning on each styled element (found 2026-09-04
+            via a real hydration-mismatch investigation): animationDuration/
+            animationDelay are static, deterministic values -- identical on
+            server and client -- but React's hydration check still flags
+            style-object mismatches on these two specific properties even
+            when the actual value strings match (confirmed directly: same
+            "8.5s"/"−0.4s" text on both sides, only the reported property-name
+            casing/format differed in React's own diff, camelCase vs the
+            kebab-case the browser always uses when serializing a style
+            attribute back to HTML text). That was the actual, sole trigger
+            for the whole <Landing> subtree being discarded and rebuilt on
+            every fresh homepage load -- confirmed by reproducing the exact
+            unminified hydration warning locally and finding this was the
+            first (and only real) point of divergence, everything above it
+            in the tree matched cleanly. This whole background is
+            aria-hidden and purely decorative, so telling React not to
+            complain about it is the correct fix per React's own docs, not
+            a hack -- there is nothing here a real hydration bug could hide
+            behind. */}
         {PULSE_ROUTES.map((route, i) => {
           const cls = route.desktopOnly ? "desktop-only" : undefined;
           const style = { stroke: colors[i], animationDuration: `${route.duration}s`, animationDelay: `${route.delay}s` };
           return (
             <g key={route.d} className={cls}>
-              <path className="pulse" pathLength={1000} d={route.d} style={style} />
-              <circle className="confirmation-ring" cx={route.cx} cy={route.cy} r="8" style={style} />
+              <path className="pulse" pathLength={1000} d={route.d} style={style} suppressHydrationWarning />
+              <circle className="confirmation-ring" cx={route.cx} cy={route.cy} r="8" style={style} suppressHydrationWarning />
               <circle
                 className="confirmation-dot"
                 cx={route.cx}
                 cy={route.cy}
                 r="2.4"
                 style={{ fill: colors[i], animationDuration: style.animationDuration, animationDelay: style.animationDelay }}
+                suppressHydrationWarning
               />
             </g>
           );
