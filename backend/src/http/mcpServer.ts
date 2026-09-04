@@ -89,7 +89,7 @@ export function buildMcpServer(): McpServer {
     "list_connected_accounts",
     "List every social media account connected to this LazyRelay account, with platform, display name, and the id needed by schedule_post.",
     {},
-    async (extra) => {
+    async (_args, extra) => {
       const { auth, accountId } = requireAuthInfo(extra);
       return textResult(await callLazyRelayApi(auth, accountId, "/social-accounts"));
     }
@@ -99,7 +99,7 @@ export function buildMcpServer(): McpServer {
     "list_workspaces",
     "List this account's brands/workspaces, with the id needed to file a post under a specific one.",
     {},
-    async (extra) => {
+    async (_args, extra) => {
       const { auth, accountId } = requireAuthInfo(extra);
       return textResult(await callLazyRelayApi(auth, accountId, "/brands"));
     }
@@ -181,7 +181,7 @@ export function buildMcpServer(): McpServer {
     "list_scheduled_posts",
     "List this account's upcoming and recent posts, with status (pending/posted/failed) and Proof-of-Publish verification.",
     {},
-    async (extra) => {
+    async (_args, extra) => {
       const { auth, accountId } = requireAuthInfo(extra);
       return textResult(await callLazyRelayApi(auth, accountId, "/scheduled-posts"));
     }
@@ -212,7 +212,7 @@ export function buildMcpServer(): McpServer {
     "get_mentions",
     "Get recent comments on this account's posts, on the platforms that support reading comments (Facebook, Instagram, Mastodon, Bluesky, YouTube).",
     {},
-    async (extra) => {
+    async (_args, extra) => {
       const { auth, accountId } = requireAuthInfo(extra);
       return textResult(await callLazyRelayApi(auth, accountId, "/mentions"));
     }
