@@ -58,6 +58,16 @@ const PATH_TO_VIEW: Record<string, View> = {
   "/forgot-password": "forgot-password",
 };
 
+// PATH_TO_VIEW's keys have no trailing slash, but the sitemap and this
+// site's own Apache config (a physical /privacy, /terms, /dpa directory
+// under frontend/public/ until 2026-09-04) both point at the trailing-slash
+// form — so a bare pathname lookup silently falls through to "landing"
+// for /privacy/, /terms/, /dpa/, etc. Strip a single trailing slash (but
+// not the root "/") before every PATH_TO_VIEW lookup.
+function normalizePath(pathname: string): string {
+  return pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+}
+
 const VIEW_TO_PATH: Partial<Record<View, string>> = {
   landing: "/",
   terms: "/terms",
@@ -100,7 +110,7 @@ captureReferralCode(readRefParam(window.location.search));
 
 function Root() {
   const { session, loading } = useAuth();
-  const [view, setView] = useState<View>(() => PATH_TO_VIEW[window.location.pathname] ?? "landing");
+  const [view, setView] = useState<View>(() => PATH_TO_VIEW[normalizePath(window.location.pathname)] ?? "landing");
   // Catches the case where the recovery email link lands on the site root
   // instead of /reset-password (Supabase may redirect to Site URL when the
   // email template doesn't preserve the redirectTo path). Listening for the
@@ -196,7 +206,7 @@ function Root() {
   }, [view]);
 
   useEffect(() => {
-    const onPopState = () => setView(PATH_TO_VIEW[window.location.pathname] ?? "landing");
+    const onPopState = () => setView(PATH_TO_VIEW[normalizePath(window.location.pathname)] ?? "landing");
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
@@ -405,7 +415,7 @@ function Root() {
           onDpa={() => setView("dpa")}
           onContact={() => setView("contact")}
           onDocs={() => setView("docs")}
-          scrollToPricing={INITIAL_PATH === "/pricing"}
+          scrollToPricing={normalizePath(INITIAL_PATH) === "/pricing"}
         />
       </>
     );
