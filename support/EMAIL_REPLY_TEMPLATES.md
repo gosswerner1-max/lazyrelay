@@ -26,11 +26,13 @@ Thanks for flagging this — [one-sentence restatement of what they're seeing, i
 Let me know once you've tried that and I'll help if it's still not working.
 ```
 
-## 2. "It's not live yet" premise mismatch
+## 2. "It's not live yet" premise mismatch — **RETIRED 2026-09-04, do not send**
 
-Use when a customer reports a posting failure but LazyRelay's real integration status for that platform doesn't match what they're describing (e.g. reporting a Meta posting bug when Meta isn't actually connected/live for them yet). Always double-check current platform status in `SUPPORT_KNOWLEDGE.md`'s "Current product state" section before sending this — it changes as integrations go live.
+**Every platform LazyRelay integrates is now at production access**, so there is no surface left for which this template's premise is true: Pinterest (2026-08-04), TikTok (2026-08-14), YouTube (2026-08-14), Facebook Pages (2026-08-24) and **Instagram publishing (2026-09-04, the last one)**. Sending it now would tell a customer their platform isn't live when it is — the exact stale-premise failure this file's maintenance rule exists to catch.
 
-**As of 2026-08-25 this template applies to Instagram publishing only.** Pinterest (08-04), TikTok (08-14), YouTube (08-14) and **Facebook Pages** (08-24) are all live — a posting failure on any of those is a real issue to troubleshoot against `SUPPORT_KNOWLEDGE.md` Part 1, not a premise mismatch. Note Meta is now **split by surface**: Facebook Pages approved, Instagram publishing still under review — so "Meta" is no longer a single status. Re-read the product-state line before sending; don't trust this paragraph's date.
+**A reported posting failure on ANY platform is now a real issue.** Troubleshoot it against `SUPPORT_KNOWLEDGE.md` Part 1 (Template 1 is the right starting structure), never with a premise mismatch.
+
+Kept here rather than deleted for one reason only: if a *new* platform integration ships and is awaiting review, this is the correct shape for that case. **Before ever reusing it, re-read `SUPPORT_KNOWLEDGE.md`'s "Current product state" line and confirm the specific platform genuinely is not live** — don't trust this paragraph's date, and don't reuse it for any of the five platforms named above.
 
 ```
 Hi [name],
@@ -227,6 +229,6 @@ Never say "your access ends today" or state any date yourself — the dashboard'
 
 ## Template maintenance
 
-- If `SUPPORT_KNOWLEDGE.md`'s "Current product state" section changes (billing goes live, a new platform integration ships), immediately check whether Templates 2 and 3 above are still accurate — they're written for the current pre-launch state and will actively mislead customers once things change.
+- If `SUPPORT_KNOWLEDGE.md`'s "Current product state" section changes (billing goes live, a new platform integration ships), immediately check whether Templates 2 and 3 above are still accurate — they're written for the current pre-launch state and will actively mislead customers once things change. **This rule has now fired twice and caught a real defect both times:** Template 3 on 2026-08-11 (it told customers "nothing you're using today will result in a charge" hours after billing went live) and **Template 2 on 2026-09-04** (Instagram was its last remaining valid target; the moment that approval landed, the whole template became a way to tell customers a live platform isn't live). Both were caught in the same pass as the product-state edit, which is the only reason neither reached a customer — **do the sweep in the same pass, not "next run."**
 - **Dashboard tab names live in these templates too.** Templates 4, 7, 11, 13 and 14 all tell a customer where to click, so a dashboard restructure silently breaks them. The 2026-08-17 restructure (Settings and API Keys promoted to the top bar; Storage/Account/Billing merged into Settings; "Accounts" renamed **Social Platforms**) invalidated all five at once — corrected 2026-08-18. Whenever the nav changes, re-read `frontend/src/pages/Dashboard.tsx`'s `MAIN_TABS`/`MORE_TABS` and sweep this file alongside `SUPPORT_KNOWLEDGE.md`'s Part 3 layout block, in the same pass.
 - Adding a new template: keep the same terse, plain-language structure — no template here should read like a corporate form letter.
