@@ -7,7 +7,7 @@ interface PrivacyPolicyProps {
   onBack: () => void;
 }
 
-const LAST_UPDATED = "3 September 2026";
+const LAST_UPDATED = "4 September 2026";
 
 export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
   useEffect(() => {
@@ -91,6 +91,14 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
           </ul>
 
           <h3>AI features and Google user data</h3>
+          <p>
+            LazyRelay's use and transfer to any other app of information received from Google APIs will adhere to
+            the{" "}
+            <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer">
+              Google API Services User Data Policy
+            </a>
+            , including the Limited Use requirements.
+          </p>
           <p>
             LazyRelay uses Anthropic's Claude API for two optional features: generating post captions on request,
             and classifying incoming social media comments and DMs. Separately, LazyRelay offers an MCP (Model
