@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { supabase } from "./supabase.js";
+import { supabase, createUserClient } from "./supabase.js";
 import { createClient } from "@supabase/supabase-js";
 
 // Real security tests against the LOCAL backend — authorized self-testing
@@ -30,6 +30,26 @@ async function makeAccount(prefix: string): Promise<{ accountId: string; jwt: st
   const { data: signIn, error: signInError } = await authClient.auth.signInWithPassword({ email, password });
   if (signInError || !signIn.session) throw signInError ?? new Error("no session");
   return { accountId: user.user.id, jwt: signIn.session.access_token };
+}
+
+// Added for the RLS rework (2026-09-04) -- creates a real second user and
+// makes them an ACCEPTED team member of an existing account (not an owner
+// of their own account, unlike makeAccount). This is the one behavior
+// migration 0081's policies exist to support and that had never been
+// exercised even once in this codebase before today (production has held
+// exactly 2 accounts, neither with a teammate).
+async function makeTeammate(ownerAccountId: string, prefix: string): Promise<{ userId: string; jwt: string }> {
+  const email = `sectest-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}@lazyrelay.invalid`;
+  const password = "SecTest123!";
+  const { data: user, error } = await supabase.auth.admin.createUser({ email, password, email_confirm: true });
+  if (error || !user.user) throw error ?? new Error("no user");
+  const { error: memberError } = await supabase
+    .from("account_members")
+    .insert({ account_id: ownerAccountId, user_id: user.user.id, role: "member", accepted_at: new Date().toISOString() });
+  if (memberError) throw memberError;
+  const { data: signIn, error: signInError } = await authClient.auth.signInWithPassword({ email, password });
+  if (signInError || !signIn.session) throw signInError ?? new Error("no session");
+  return { userId: user.user.id, jwt: signIn.session.access_token };
 }
 
 async function seedSocialAccount(accountId: string): Promise<string> {
@@ -142,6 +162,84 @@ async function testIDOR(accountA: { accountId: string; jwt: string }, accountB: 
   const accountsA = await fetch(`${API_URL}/social-accounts`, { headers: { Authorization: `Bearer ${accountA.jwt}` } }).then((r) => r.json());
   const accountLeaked = Array.isArray(accountsA) && accountsA.some((a: { id: string }) => a.id === socialAccountB);
   report("Account A's /social-accounts list does not include Account B's connected account", !accountLeaked);
+}
+
+// --- 2b. Team access: RLS itself (migration 0081), not just the API layer ---
+// This is the one behavior that had never been exercised even once in this
+// codebase before today (production has held exactly 2 accounts, neither
+// with a teammate) -- every prior policy in this schema's history checked
+// direct ownership only, so a genuine positive-path test matters here as
+// much as the negative IDOR checks above: proving enforcement doesn't
+// silently lock out a real, legitimate teammate is exactly as important as
+// proving it blocks a real attacker. Queries the database directly through
+// a per-request anon-key+JWT client (the same shape createUserClient()
+// builds in production) rather than only through the API, since only one
+// route (GET /social-accounts) has been switched to that client so far --
+// this proves the RLS layer itself is correct independent of API rollout
+// progress.
+async function testTeamAccess(owner: { accountId: string; jwt: string }) {
+  const teammate = await makeTeammate(owner.accountId, "team");
+  const outsider = await makeAccount("outsider");
+
+  const socialAccountId = await seedSocialAccount(owner.accountId);
+  const postId = await seedScheduledPost(owner.accountId, socialAccountId);
+  const { data: brand, error: brandError } = await supabase
+    .from("brands")
+    .insert({ account_id: owner.accountId, name: "Sec Test Brand" })
+    .select("id")
+    .single();
+  if (brandError || !brand) throw brandError ?? new Error("no brand");
+
+  const teammateClient = createUserClient(teammate.jwt);
+  const { data: postsAsTeammate, error: postsError } = await teammateClient
+    .from("scheduled_posts")
+    .select("id")
+    .eq("id", postId);
+  report(
+    "An accepted teammate CAN see the owner's scheduled_posts via RLS directly",
+    !postsError && !!postsAsTeammate && postsAsTeammate.length === 1,
+    postsError ? postsError.message : `rows: ${postsAsTeammate?.length}`,
+  );
+
+  const { data: socialAsTeammate, error: socialError } = await teammateClient
+    .from("social_accounts")
+    .select("id")
+    .eq("id", socialAccountId);
+  report(
+    "An accepted teammate CAN see the owner's social_accounts via RLS directly",
+    !socialError && !!socialAsTeammate && socialAsTeammate.length === 1,
+    socialError ? socialError.message : `rows: ${socialAsTeammate?.length}`,
+  );
+
+  const { data: brandsAsTeammate, error: brandsError } = await teammateClient.from("brands").select("id").eq("id", brand.id);
+  report(
+    "An accepted teammate CAN see the owner's brands via RLS directly",
+    !brandsError && !!brandsAsTeammate && brandsAsTeammate.length === 1,
+    brandsError ? brandsError.message : `rows: ${brandsAsTeammate?.length}`,
+  );
+
+  // Negative control -- a real, unrelated third account (no account_members
+  // row at all for this owner) must NOT see any of it via the same RLS
+  // path. Without this, a policy that's simply wide-open (e.g. `using
+  // (true)`) would pass every check above too.
+  const outsiderClient = createUserClient(outsider.jwt);
+  const { data: postsAsOutsider } = await outsiderClient.from("scheduled_posts").select("id").eq("id", postId);
+  report("An unrelated account CANNOT see the owner's scheduled_posts via RLS directly", (postsAsOutsider?.length ?? 0) === 0);
+  const { data: brandsAsOutsider } = await outsiderClient.from("brands").select("id").eq("id", brand.id);
+  report("An unrelated account CANNOT see the owner's brands via RLS directly", (brandsAsOutsider?.length ?? 0) === 0);
+
+  // End-to-end through the actual API too, for the one route already
+  // switched to the per-request client -- proves the whole wire, not just
+  // the raw policy.
+  const listViaApi = await fetch(`${API_URL}/social-accounts`, { headers: { Authorization: `Bearer ${teammate.jwt}` } }).then((r) => r.json());
+  const teammateSeesItViaApi = Array.isArray(listViaApi) && listViaApi.some((a: { id: string }) => a.id === socialAccountId);
+  report("An accepted teammate sees the owner's connected account via GET /social-accounts (the piloted route)", teammateSeesItViaApi);
+
+  await supabase.from("brands").delete().eq("id", brand.id);
+  await supabase.from("account_members").delete().eq("user_id", teammate.userId).eq("account_id", owner.accountId);
+  await supabase.auth.admin.deleteUser(teammate.userId);
+  await supabase.from("accounts").delete().eq("id", outsider.accountId);
+  await supabase.auth.admin.deleteUser(outsider.accountId);
 }
 
 // --- 3. Upload validation: spoofed content-type / disguised extension ---
@@ -260,6 +358,14 @@ async function main() {
     await testInputValidation(accountA.jwt, socialAccountA);
   } catch (err) {
     report("account-scoped tests threw", false, err instanceof Error ? err.message : String(err));
+  }
+
+  try {
+    const owner = await makeAccount("owner");
+    cleanupIds.push(owner.accountId);
+    await testTeamAccess(owner);
+  } catch (err) {
+    report("team access tests threw", false, err instanceof Error ? err.message : String(err));
   }
 
   try {

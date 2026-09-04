@@ -19,6 +19,16 @@ export interface AuthedRequest extends Request {
   role?: "owner" | "member";
   /** Set only by requireJwtUser — see its own doc comment. */
   jwtUser?: { id: string; email: string };
+  /** Set only on the JWT (browser dashboard) auth path, once the token is
+   *  verified — the raw bearer token itself, not just its decoded claims.
+   *  Added for the RLS rework (2026-09-04): lets a route build a
+   *  per-request Supabase client authenticated as the real calling user
+   *  (anon key + this token), so Postgres's own RLS policies become the
+   *  actual enforcement instead of relying solely on this route's own
+   *  account_id filter. Deliberately never set on the apiKey/adminKey
+   *  paths — those act as the account itself or across every account,
+   *  which is exactly the service-role client's job, not a per-user one. */
+  rawToken?: string;
 }
 
 export const API_KEY_PREFIX = "lzr_live_";
@@ -290,6 +300,7 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
   req.accountId = membership.accountId;
   req.role = membership.role;
   req.authMethod = "jwt";
+  req.rawToken = token;
   next();
 }
 

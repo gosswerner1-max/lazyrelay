@@ -5,7 +5,7 @@ import multer from "multer";
 import { randomUUID, randomBytes, timingSafeEqual } from "node:crypto";
 import { imageSize } from "image-size";
 import { fileTypeFromBuffer } from "file-type";
-import { supabase } from "../supabase.js";
+import { supabase, createUserClient } from "../supabase.js";
 import { cancelSubscription, cancelStorageAddon, cancelBrandAddon, cancelSeatAddon } from "../billing/sync.js";
 import { buildCheckoutTransaction } from "../billing/paddle.js";
 import { Environment } from "@paddle/paddle-node-sdk";
@@ -1344,8 +1344,17 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
   });
 
+  // Pilot route for the RLS rework (2026-09-04) -- the first one switched
+  // to a per-request authenticated client so migration 0081's policies
+  // become real enforcement, not just correct-looking database rows.
+  // req.rawToken only exists on the JWT (dashboard) auth path; an API-key
+  // or admin-key caller legitimately acts as the account itself with no
+  // user JWT to build a per-request client from, so those fall back to
+  // the service-role client unchanged -- same account_id filter, same
+  // result, just without RLS as a second layer for that auth method.
   router.get("/social-accounts", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data, error } = await supabase
+    const client = req.rawToken ? createUserClient(req.rawToken) : supabase;
+    const { data, error } = await client
       .from("social_accounts")
       .select("id, platform, platform_account_id, display_name, connected_at, disconnected_at, brand_label, brand_id")
       .eq("account_id", req.accountId)
