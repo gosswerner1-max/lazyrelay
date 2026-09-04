@@ -212,15 +212,28 @@ original one.
   /account` as plain `requireAuth`, which undersells it — the human-only
   check is inline in the handler, not middleware, so a middleware-only audit
   would miss it. *(2026-09-04)*
-- ⚠️ **A successful webhook delivery is invisible in the logs** — only
-  failures log (`webhook.ts:49-56`: non-2xx, refused redirect, or a thrown
-  error). This is precisely why the feature sat unverified from 2026-08-08
-  until the constructed test above: nothing short of controlling the
-  receiving end could prove a delivery succeeded. Not a vulnerability, but
-  it means a silently-failing integration on a real customer's endpoint
-  would be indistinguishable from one that never fired. A single log line on
-  a 2xx would close it — flagged, not changed (source code needs Werner's
-  go-ahead). *(2026-09-04)*
+- ✅ **Successful webhook deliveries are logged** — closed 2026-09-04, same
+  day it was found. Until then only failures logged (non-2xx, refused
+  redirect, thrown error), so a successful delivery wrote nothing at all.
+  That is precisely why the feature sat unverified from the day it shipped
+  (2026-08-08): nothing short of controlling the receiving endpoint could
+  prove a delivery had succeeded, and a silently-failing integration on a
+  real customer's endpoint was indistinguishable from one that never fired.
+  Fixed in `afa7031` — one `console.log` on the 2xx path naming the event,
+  post id, URL and status. Deliberately logs no payload, signature or
+  secret; `console.log` not `console.error`, since a success is not an
+  error. **Deployed and confirmed live**: CI green, Render deploy `live` at
+  2026-09-04T12:03:12Z, and the running backend reports commit
+  `967fde20c5e6…` on the admin-gated `/health` (public response still
+  exactly `{"status":"ok"}`).
+  **Honest limit on the evidence:** all three log branches were proven
+  against a real local HTTP server (2xx logs at `log` level naming post id
+  and status; non-2xx and refused-redirect still log errors; no secret,
+  signature or payload content leaks) — but the new line has **not** yet
+  been observed in Render's own production logs, because that needs a real
+  account with a webhook URL configured and a post actually publishing, and
+  the test configuration was torn down. Confirm on the first real customer
+  webhook. *(2026-09-04)*
 - ✅ **Security-event alerting**: 401/403 spikes, 429 rate-limit spikes, and
   any admin-key auto-revoke page `#all-lazyrelay` in real time
   (`backend/src/http/securityAlerts.ts`, commit `5253a9b`). Proven against
