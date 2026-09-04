@@ -13,6 +13,7 @@ ops/advertising/state/advertising_overseer_flags.json
 ops/billing/state/billing_overseer_flags.json
 ops/marketing/state/marketing_overseer_flags.json
 ops/oversight/state/system_overseer_state.json
+ops/incident-response/state/incident_response_state.json
 ops/tests/selftest_results/accounts_auditor.json
 ops/tests/selftest_results/billing_auditor.json
 
