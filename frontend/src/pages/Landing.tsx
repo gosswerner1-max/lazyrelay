@@ -155,18 +155,19 @@ const COMPARISON = [
 ];
 
 // Platforms LazyRelay's own developer app has genuinely passed that
-// platform's own review process for, as of 2026-08-25 (Pinterest, TikTok,
-// YouTube/Google all APPROVED; Facebook Pages posting approved, Instagram
-// content publish still in review). Deliberately does NOT include
-// Instagram (pending), or the no-review platforms (Bluesky/Mastodon/
-// Telegram/Discord, which use app-password/self-service auth with no
-// review process to pass) --
+// platform's own review process for. Pinterest, TikTok, YouTube/Google,
+// and Facebook Pages posting were approved earlier; Instagram content
+// publish (the last one) was approved 2026-09-04 -- verified live against
+// the real Meta App Review dashboard before adding it here, not from
+// memory. Deliberately does NOT include the no-review platforms
+// (Bluesky/Mastodon/Telegram/Discord, which use app-password/self-service
+// auth with no review process to pass) --
 // overstating any of those would contradict the disclaimer already in this
 // page's own footer ("not affiliated with, endorsed by, or sponsored by").
 // "Passed review" is a true, narrower claim than "official partner" and
 // doesn't conflict with it. Update this list only after independently
 // re-confirming a platform's status in its own dashboard, not from memory.
-const REVIEWED_PLATFORMS = ["pinterest", "tiktok", "youtube", "facebook"] as const;
+const REVIEWED_PLATFORMS = ["pinterest", "tiktok", "youtube", "facebook", "instagram"] as const;
 
 // Directory-badge campaign (2026-08-27 onward) -- one entry per free-tier
 // directory that gates its dofollow backlink on this badge staying live on
