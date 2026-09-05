@@ -118,6 +118,7 @@ async function checkSchedulerLag(supabase, graceMinutes = 5) {
     .from("scheduled_posts")
     .select("id", { count: "exact", head: true })
     .eq("status", "pending")
+    .is("paused_at", null)
     .lt("scheduled_for", cutoff);
   if (error) throw error;
   const overdueCount = count ?? 0;
