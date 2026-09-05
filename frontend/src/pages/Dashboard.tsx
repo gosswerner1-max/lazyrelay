@@ -662,6 +662,14 @@ export function Dashboard() {
   const [tiktokDiscloseCommercial, setTiktokDiscloseCommercial] = useState(false);
   const [tiktokBrandOrganic, setTiktokBrandOrganic] = useState(false);
   const [tiktokBrandContent, setTiktokBrandContent] = useState(false);
+  // TikTok's Content Sharing Guidelines: "there should be a declaration
+  // asking for a user's consent before the publish button" -- found
+  // 2026-09-05 that this needs to be an actual required checkbox, not just
+  // disclosure text, since the guideline is asking for consent, not merely
+  // stating a fact. Gates Schedule/Post Now (not draft-saving, since nothing
+  // is actually published yet); never sent to the backend, purely a
+  // client-side gate matching the guideline's UX requirement.
+  const [tiktokConsentGiven, setTiktokConsentGiven] = useState(false);
   // The initial /scheduled-posts fetch already caps History at the
   // backend's page size (see routes.ts) — this just tracks whether a
   // fetched page came back full (there's probably more to load) so the
@@ -1668,6 +1676,10 @@ export function Dashboard() {
       setError("Choose whether this content promotes yourself, a third party, or both.");
       return;
     }
+    if (selectedAccountIds.some((id) => accounts.find((a) => a.id === id)?.platform === "tiktok") && !tiktokConsentGiven) {
+      setError("Agree to TikTok's Music Usage Confirmation before posting.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -1739,6 +1751,7 @@ export function Dashboard() {
       setTiktokDiscloseCommercial(false);
       setTiktokBrandOrganic(false);
       setTiktokBrandContent(false);
+      setTiktokConsentGiven(false);
       setPerAccountContent({});
       setRequiresApproval(false);
       setEditingDraftId(null);
@@ -1795,6 +1808,7 @@ export function Dashboard() {
       setTiktokDiscloseCommercial(false);
       setTiktokBrandOrganic(false);
       setTiktokBrandContent(false);
+      setTiktokConsentGiven(false);
       setEditingDraftId(null);
       await refresh();
     } catch (err) {
@@ -1839,6 +1853,7 @@ export function Dashboard() {
     setTiktokDiscloseCommercial(false);
     setTiktokBrandOrganic(false);
     setTiktokBrandContent(false);
+    setTiktokConsentGiven(false);
     setEditingDraftId(null);
   }
 
@@ -4183,9 +4198,14 @@ export function Dashboard() {
                       )}
                     </>
                   )}
-                  <span className="section-note">
+                  <label className="approval-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={tiktokConsentGiven}
+                      onChange={(e) => setTiktokConsentGiven(e.target.checked)}
+                    />
                     By posting, you agree to TikTok's{tiktokBrandContent ? " Branded Content Policy and" : ""} Music Usage Confirmation.
-                  </span>
+                  </label>
                 </div>
               );
             })()}
