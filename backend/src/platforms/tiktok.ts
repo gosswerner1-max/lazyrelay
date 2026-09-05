@@ -40,10 +40,18 @@ interface CreatorInfo {
   privacy_level_options?: string[];
 }
 
-// TikTok's own single-chunk exception: files under 5MB may be uploaded as
-// one chunk (chunk_size === video_size, total_chunk_count === 1) instead of
-// being split into 5-64MB chunks.
-const SINGLE_CHUNK_MAX_BYTES = 5 * 1024 * 1024;
+// TikTok's real single-PUT ceiling (developers.tiktok.com/doc/content-posting-api-media-transfer-guide,
+// confirmed 2026-09-05): a chunk may be up to 64MB, and a video under 5MB
+// must go up as one whole "chunk" too (chunk_size === video_size). So ANY
+// video from 0 to 64MB can be sent as a single chunk_size=video_size,
+// total_chunk_count=1 request -- true multi-chunk splitting is only needed
+// past 64MB. Previously this constant was wrongly set to 5MB (misreading
+// the under-5MB exception as a general ceiling), which rejected every real
+// video between 5MB and LazyRelay's own 45MB app-wide cap -- i.e. almost
+// every real TikTok video -- even though the single-PUT code below already
+// handled them correctly. Since 45MB < 64MB, this fix alone closes the gap
+// with no actual chunking loop needed.
+const SINGLE_CHUNK_MAX_BYTES = 64 * 1024 * 1024;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -228,6 +236,20 @@ export class TikTokAdapter implements PlatformAdapter {
     const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
     const videoSize = videoBuffer.byteLength;
 
+    // Checked before calling TikTok's init endpoint at all: no point
+    // burning a publish_id on a file this adapter can't actually send.
+    // LazyRelay's own media-upload endpoint already caps every file at
+    // 45MB, well under this 64MB ceiling, so this should never trigger in
+    // real usage -- it's a defensive check in case that cap is ever raised
+    // without updating this adapter too.
+    if (videoSize > SINGLE_CHUNK_MAX_BYTES) {
+      return {
+        success: false,
+        platformPostId: null,
+        errorMessage: `Video is ${videoSize} bytes — this adapter only supports single-chunk uploads up to ${SINGLE_CHUNK_MAX_BYTES} bytes`,
+      };
+    }
+
     const res = await fetch(POST_INIT_URL, {
       method: "POST",
       headers: {
@@ -257,10 +279,10 @@ export class TikTokAdapter implements PlatformAdapter {
         source_info: {
           source: "FILE_UPLOAD",
           video_size: videoSize,
-          // Files under 5MB go up as a single chunk (TikTok's own documented
-          // exception to the normal 5-64MB chunk range) — true for every
-          // video this app generates today. A genuinely large upload would
-          // need real chunking here.
+          // Any video up to 64MB (TikTok's real single-PUT ceiling, checked
+          // above) can go up as one whole chunk -- chunk_size === video_size
+          // is valid for the whole 0-64MB range, not just under 5MB. See the
+          // comment on SINGLE_CHUNK_MAX_BYTES above.
           chunk_size: videoSize,
           total_chunk_count: 1,
         },
@@ -273,14 +295,6 @@ export class TikTokAdapter implements PlatformAdapter {
         success: false,
         platformPostId: null,
         errorMessage: json.error?.message ?? `TikTok post init failed (HTTP ${res.status})`,
-      };
-    }
-
-    if (videoSize > SINGLE_CHUNK_MAX_BYTES) {
-      return {
-        success: false,
-        platformPostId: json.data.publish_id,
-        errorMessage: `Video is ${videoSize} bytes — single-chunk upload only supports files under ${SINGLE_CHUNK_MAX_BYTES} bytes`,
       };
     }
 
