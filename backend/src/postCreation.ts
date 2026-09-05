@@ -40,6 +40,8 @@ export type PostFieldsOk = {
   tiktokDisableComment: boolean;
   tiktokDisableDuet: boolean;
   tiktokDisableStitch: boolean;
+  tiktokBrandOrganic: boolean;
+  tiktokBrandContent: boolean;
   scheduledFor: string;
 };
 
@@ -96,6 +98,8 @@ export async function validatePostFields(
     tiktokDisableComment?: unknown;
     tiktokDisableDuet?: unknown;
     tiktokDisableStitch?: unknown;
+    tiktokBrandOrganic?: unknown;
+    tiktokBrandContent?: unknown;
     scheduledFor?: unknown;
   },
 ): Promise<PostFieldsError | PostFieldsOk> {
@@ -112,6 +116,8 @@ export async function validatePostFields(
     tiktokDisableComment,
     tiktokDisableDuet,
     tiktokDisableStitch,
+    tiktokBrandOrganic,
+    tiktokBrandContent,
     scheduledFor,
   } = input;
   if (coverImageUrl !== undefined && coverImageUrl !== null && typeof coverImageUrl !== "string") {
@@ -150,10 +156,19 @@ export async function validatePostFields(
     ["tiktokDisableComment", tiktokDisableComment],
     ["tiktokDisableDuet", tiktokDisableDuet],
     ["tiktokDisableStitch", tiktokDisableStitch],
+    ["tiktokBrandOrganic", tiktokBrandOrganic],
+    ["tiktokBrandContent", tiktokBrandContent],
   ] as const) {
     if (value !== undefined && typeof value !== "boolean") {
       return { status: 400, body: { error: `${name} must be a boolean` } };
     }
+  }
+  // TikTok's Content Sharing Guidelines: branded content can never be
+  // private — see the matching frontend UI (Dashboard.tsx disables "Only
+  // me" when Branded Content is checked). Enforced here too since the
+  // frontend is advisory, not authoritative.
+  if (tiktokBrandContent === true && tiktokPrivacyLevel === "SELF_ONLY") {
+    return { status: 400, body: { error: "Branded content on TikTok can't be set to private — choose a different privacy level" } };
   }
   if (!socialAccountId || !content || !scheduledFor) {
     return { status: 400, body: { error: "socialAccountId, content, and scheduledFor are required" } };
@@ -259,6 +274,11 @@ export async function validatePostFields(
     tiktokDisableComment: (tiktokDisableComment as boolean | undefined) ?? true,
     tiktokDisableDuet: (tiktokDisableDuet as boolean | undefined) ?? true,
     tiktokDisableStitch: (tiktokDisableStitch as boolean | undefined) ?? true,
+    // Default false (not disclosed as commercial content) per TikTok's "off
+    // by default" requirement — matches the DB column defaults in
+    // migration 0084.
+    tiktokBrandOrganic: (tiktokBrandOrganic as boolean | undefined) ?? false,
+    tiktokBrandContent: (tiktokBrandContent as boolean | undefined) ?? false,
     scheduledFor: scheduledForCheck.scheduledFor,
   };
 }
@@ -314,6 +334,8 @@ export async function scheduleOnePost(
     tiktokDisableComment?: unknown;
     tiktokDisableDuet?: unknown;
     tiktokDisableStitch?: unknown;
+    tiktokBrandOrganic?: unknown;
+    tiktokBrandContent?: unknown;
     scheduledFor?: unknown;
     requiresApproval?: unknown;
   },
@@ -333,6 +355,8 @@ export async function scheduleOnePost(
     tiktokDisableComment,
     tiktokDisableDuet,
     tiktokDisableStitch,
+    tiktokBrandOrganic,
+    tiktokBrandContent,
     scheduledFor,
   } = validated;
 
@@ -355,6 +379,8 @@ export async function scheduleOnePost(
       tiktok_disable_comment: tiktokDisableComment,
       tiktok_disable_duet: tiktokDisableDuet,
       tiktok_disable_stitch: tiktokDisableStitch,
+      tiktok_brand_organic: tiktokBrandOrganic,
+      tiktok_brand_content: tiktokBrandContent,
       scheduled_for: scheduledFor,
       // A post created with requiresApproval sits in needs_approval —
       // invisible to the scheduler (claimDuePosts only ever selects

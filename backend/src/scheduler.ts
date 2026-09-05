@@ -137,6 +137,8 @@ interface DuePost {
   tiktok_disable_comment: boolean;
   tiktok_disable_duet: boolean;
   tiktok_disable_stitch: boolean;
+  tiktok_brand_organic: boolean;
+  tiktok_brand_content: boolean;
   retry_count: number;
   platform: string;
 }
@@ -176,7 +178,7 @@ async function claimDuePosts(): Promise<DuePost[]> {
     .eq("status", "pending")
     .is("paused_at", null)
     .select(
-      "id, account_id, social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, retry_count, social_accounts(platform)",
+      "id, account_id, social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, tiktok_brand_organic, tiktok_brand_content, retry_count, social_accounts(platform)",
     );
 
   if (claimError) throw claimError;
@@ -392,6 +394,8 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
       tiktokDisableComment: post.tiktok_disable_comment,
       tiktokDisableDuet: post.tiktok_disable_duet,
       tiktokDisableStitch: post.tiktok_disable_stitch,
+      tiktokBrandOrganic: post.tiktok_brand_organic,
+      tiktokBrandContent: post.tiktok_brand_content,
       accessToken,
     });
 

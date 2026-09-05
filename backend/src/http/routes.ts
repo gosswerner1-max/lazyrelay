@@ -2234,6 +2234,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       tiktokDisableComment,
       tiktokDisableDuet,
       tiktokDisableStitch,
+      tiktokBrandOrganic,
+      tiktokBrandContent,
       plannedDate,
       plannedAccountIds,
       scheduledFor,
@@ -2252,7 +2254,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         return;
       }
     }
-    for (const [name, value] of [["tiktokDisableComment", tiktokDisableComment], ["tiktokDisableDuet", tiktokDisableDuet], ["tiktokDisableStitch", tiktokDisableStitch]] as const) {
+    for (const [name, value] of [["tiktokDisableComment", tiktokDisableComment], ["tiktokDisableDuet", tiktokDisableDuet], ["tiktokDisableStitch", tiktokDisableStitch], ["tiktokBrandOrganic", tiktokBrandOrganic], ["tiktokBrandContent", tiktokBrandContent]] as const) {
       if (value !== undefined && typeof value !== "boolean") {
         res.status(400).json({ error: `${name} must be a boolean` });
         return;
@@ -2313,6 +2315,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         tiktok_disable_comment: tiktokDisableComment ?? true,
         tiktok_disable_duet: tiktokDisableDuet ?? true,
         tiktok_disable_stitch: tiktokDisableStitch ?? true,
+        tiktok_brand_organic: tiktokBrandOrganic ?? false,
+        tiktok_brand_content: tiktokBrandContent ?? false,
         planned_date: plannedDate ?? null,
         planned_account_ids: validatedPlannedAccountIds,
         scheduled_for: scheduledFor ?? null,
@@ -2370,6 +2374,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       tiktokDisableComment,
       tiktokDisableDuet,
       tiktokDisableStitch,
+      tiktokBrandOrganic,
+      tiktokBrandContent,
       plannedDate,
     } = req.body ?? {};
     const update: Record<string, unknown> = {};
@@ -2405,6 +2411,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       ["tiktok_disable_comment", "tiktokDisableComment", tiktokDisableComment],
       ["tiktok_disable_duet", "tiktokDisableDuet", tiktokDisableDuet],
       ["tiktok_disable_stitch", "tiktokDisableStitch", tiktokDisableStitch],
+      ["tiktok_brand_organic", "tiktokBrandOrganic", tiktokBrandOrganic],
+      ["tiktok_brand_content", "tiktokBrandContent", tiktokBrandContent],
     ] as const) {
       if (value !== undefined) {
         if (typeof value !== "boolean") {
@@ -2488,6 +2496,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       tiktokDisableComment,
       tiktokDisableDuet,
       tiktokDisableStitch,
+      tiktokBrandOrganic,
+      tiktokBrandContent,
       scheduledFor,
     } = validated;
 
@@ -2512,6 +2522,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         tiktok_disable_comment: tiktokDisableComment,
         tiktok_disable_duet: tiktokDisableDuet,
         tiktok_disable_stitch: tiktokDisableStitch,
+        tiktok_brand_organic: tiktokBrandOrganic,
+        tiktok_brand_content: tiktokBrandContent,
         scheduled_for: scheduledFor,
         status: req.body?.requiresApproval === true ? "needs_approval" : "pending",
       })
@@ -3566,7 +3578,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     const { data: existing, error: fetchError } = await req.db!
       .from("scheduled_posts")
       .select(
-        "social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, status",
+        "social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, tiktok_brand_organic, tiktok_brand_content, status",
       )
       .eq("id", req.params.id)
       .eq("account_id", req.accountId)
@@ -3597,6 +3609,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       tiktokDisableComment: existing.tiktok_disable_comment,
       tiktokDisableDuet: existing.tiktok_disable_duet,
       tiktokDisableStitch: existing.tiktok_disable_stitch,
+      tiktokBrandOrganic: existing.tiktok_brand_organic,
+      tiktokBrandContent: existing.tiktok_brand_content,
       scheduledFor: (req.body ?? {}).scheduledFor,
       requiresApproval: (req.body ?? {}).requiresApproval,
     });
@@ -3724,6 +3738,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     tiktokDisableComment?: unknown;
     tiktokDisableDuet?: unknown;
     tiktokDisableStitch?: unknown;
+    tiktokBrandOrganic?: unknown;
+    tiktokBrandContent?: unknown;
     socialAccountIds?: unknown;
     daysOfWeek?: unknown;
     timeOfDay?: unknown;
@@ -3821,10 +3837,15 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       ["tiktokDisableComment", input.tiktokDisableComment],
       ["tiktokDisableDuet", input.tiktokDisableDuet],
       ["tiktokDisableStitch", input.tiktokDisableStitch],
+      ["tiktokBrandOrganic", input.tiktokBrandOrganic],
+      ["tiktokBrandContent", input.tiktokBrandContent],
     ] as const) {
       if (value !== undefined && typeof value !== "boolean") {
         return `${name} must be a boolean`;
       }
+    }
+    if (input.tiktokBrandContent === true && input.tiktokPrivacyLevel === "SELF_ONLY") {
+      return "Branded content on TikTok can't be set to private — choose a different privacy level";
     }
     return null;
   }
@@ -3896,6 +3917,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         tiktok_disable_comment: (input.tiktokDisableComment as boolean | undefined) ?? true,
         tiktok_disable_duet: (input.tiktokDisableDuet as boolean | undefined) ?? true,
         tiktok_disable_stitch: (input.tiktokDisableStitch as boolean | undefined) ?? true,
+        tiktok_brand_organic: (input.tiktokBrandOrganic as boolean | undefined) ?? false,
+        tiktok_brand_content: (input.tiktokBrandContent as boolean | undefined) ?? false,
         days_of_week: input.daysOfWeek,
         time_of_day: `${input.timeOfDay}:00`,
         timezone: input.timezone,
@@ -4022,6 +4045,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (input.tiktokDisableComment !== undefined) updates.tiktok_disable_comment = input.tiktokDisableComment;
     if (input.tiktokDisableDuet !== undefined) updates.tiktok_disable_duet = input.tiktokDisableDuet;
     if (input.tiktokDisableStitch !== undefined) updates.tiktok_disable_stitch = input.tiktokDisableStitch;
+    if (input.tiktokBrandOrganic !== undefined) updates.tiktok_brand_organic = input.tiktokBrandOrganic;
+    if (input.tiktokBrandContent !== undefined) updates.tiktok_brand_content = input.tiktokBrandContent;
     if (input.daysOfWeek !== undefined) updates.days_of_week = input.daysOfWeek;
     if (input.timeOfDay !== undefined) updates.time_of_day = `${input.timeOfDay}:00`;
     if (input.timezone !== undefined) updates.timezone = input.timezone;

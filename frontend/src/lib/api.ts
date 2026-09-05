@@ -114,6 +114,11 @@ export interface ScheduledPost {
   tiktok_disable_comment: boolean;
   tiktok_disable_duet: boolean;
   tiktok_disable_stitch: boolean;
+  // TikTok's Content Sharing Guidelines require a commercial-content
+  // disclosure control (migration 0084) — both false means "not disclosed
+  // as commercial content", the same default as a real TikTok post.
+  tiktok_brand_organic: boolean;
+  tiktok_brand_content: boolean;
   scheduled_for: string | null;
   // A draft anchored to a calendar day for planning (migration 0059) — only
   // meaningful while status is still "draft"; a real scheduled post uses
@@ -153,6 +158,8 @@ export interface DraftFields {
   tiktokDisableComment?: boolean;
   tiktokDisableDuet?: boolean;
   tiktokDisableStitch?: boolean;
+  tiktokBrandOrganic?: boolean;
+  tiktokBrandContent?: boolean;
   plannedAccountIds?: string[] | null;
   scheduledFor?: string | null;
 }
@@ -498,6 +505,8 @@ export const api = {
     tiktokDisableComment?: boolean;
     tiktokDisableDuet?: boolean;
     tiktokDisableStitch?: boolean;
+    tiktokBrandOrganic?: boolean;
+    tiktokBrandContent?: boolean;
     scheduledFor: string;
     requiresApproval?: boolean;
   }): Promise<ScheduledPost> => authedFetch("/scheduled-posts", { method: "POST", body: JSON.stringify(input) }),
@@ -524,6 +533,8 @@ export const api = {
       tiktokDisableComment?: boolean;
       tiktokDisableDuet?: boolean;
       tiktokDisableStitch?: boolean;
+      tiktokBrandOrganic?: boolean;
+      tiktokBrandContent?: boolean;
       scheduledFor: string;
       requiresApproval?: boolean;
     },

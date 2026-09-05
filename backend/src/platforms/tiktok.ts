@@ -248,6 +248,11 @@ export class TikTokAdapter implements PlatformAdapter {
           disable_duet: request.tiktokDisableDuet ?? true,
           disable_stitch: request.tiktokDisableStitch ?? true,
           disable_comment: request.tiktokDisableComment ?? true,
+          // Commercial-content disclosure (2026-09-05) -- see
+          // PostRequest.tiktokBrandOrganic and migration 0084. Both default
+          // false, matching TikTok's own "off by default" requirement.
+          brand_organic_toggle: request.tiktokBrandOrganic ?? false,
+          brand_content_toggle: request.tiktokBrandContent ?? false,
         },
         source_info: {
           source: "FILE_UPLOAD",

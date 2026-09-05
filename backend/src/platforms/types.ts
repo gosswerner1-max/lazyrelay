@@ -41,6 +41,12 @@ export interface PostRequest {
   tiktokDisableComment?: boolean;
   tiktokDisableDuet?: boolean;
   tiktokDisableStitch?: boolean;
+  // TikTok's Content Sharing Guidelines also require a commercial-content
+  // disclosure control (migration 0084) -- both false/undefined means "not
+  // disclosed as commercial content", TikTok's own default. Every other
+  // adapter ignores these, same pattern as the fields above.
+  tiktokBrandOrganic?: boolean;
+  tiktokBrandContent?: boolean;
   accessToken: string;
 }
 

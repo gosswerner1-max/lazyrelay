@@ -651,6 +651,17 @@ export function Dashboard() {
   const [tiktokAllowComment, setTiktokAllowComment] = useState(false);
   const [tiktokAllowDuet, setTiktokAllowDuet] = useState(false);
   const [tiktokAllowStitch, setTiktokAllowStitch] = useState(false);
+  // TikTok's Content Sharing Guidelines require a commercial-content
+  // disclosure control -- off by default, found missing entirely 2026-09-05
+  // alongside the privacy/interaction fields above, same audit application.
+  // discloseCommercial is UI-only (no matching column): it just gates
+  // whether the Your Brand/Branded Content checkboxes show at all. The two
+  // checkboxes are what actually get sent to TikTok (brand_organic_toggle /
+  // brand_content_toggle) -- see PostRequest.tiktokBrandOrganic and
+  // migration 0084.
+  const [tiktokDiscloseCommercial, setTiktokDiscloseCommercial] = useState(false);
+  const [tiktokBrandOrganic, setTiktokBrandOrganic] = useState(false);
+  const [tiktokBrandContent, setTiktokBrandContent] = useState(false);
   // The initial /scheduled-posts fetch already caps History at the
   // backend's page size (see routes.ts) — this just tracks whether a
   // fetched page came back full (there's probably more to load) so the
@@ -1648,6 +1659,15 @@ export function Dashboard() {
       setError("Choose who can see this post on TikTok before scheduling.");
       return;
     }
+    if (
+      selectedAccountIds.some((id) => accounts.find((a) => a.id === id)?.platform === "tiktok") &&
+      tiktokDiscloseCommercial &&
+      !tiktokBrandOrganic &&
+      !tiktokBrandContent
+    ) {
+      setError("Choose whether this content promotes yourself, a third party, or both.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -1691,6 +1711,8 @@ export function Dashboard() {
                 tiktokDisableComment: !tiktokAllowComment,
                 tiktokDisableDuet: !tiktokAllowDuet,
                 tiktokDisableStitch: !tiktokAllowStitch,
+                tiktokBrandOrganic: tiktokDiscloseCommercial && tiktokBrandOrganic,
+                tiktokBrandContent: tiktokDiscloseCommercial && tiktokBrandContent,
               }
             : {}),
           scheduledFor: scheduledForIso,
@@ -1714,6 +1736,9 @@ export function Dashboard() {
       setTiktokAllowComment(false);
       setTiktokAllowDuet(false);
       setTiktokAllowStitch(false);
+      setTiktokDiscloseCommercial(false);
+      setTiktokBrandOrganic(false);
+      setTiktokBrandContent(false);
       setPerAccountContent({});
       setRequiresApproval(false);
       setEditingDraftId(null);
@@ -1750,6 +1775,8 @@ export function Dashboard() {
         tiktokDisableComment: !tiktokAllowComment,
         tiktokDisableDuet: !tiktokAllowDuet,
         tiktokDisableStitch: !tiktokAllowStitch,
+        tiktokBrandOrganic: tiktokDiscloseCommercial && tiktokBrandOrganic,
+        tiktokBrandContent: tiktokDiscloseCommercial && tiktokBrandContent,
       };
       if (editingDraftId) {
         await api.updateDraft(editingDraftId, fields);
@@ -1765,6 +1792,9 @@ export function Dashboard() {
       setTiktokAllowComment(false);
       setTiktokAllowDuet(false);
       setTiktokAllowStitch(false);
+      setTiktokDiscloseCommercial(false);
+      setTiktokBrandOrganic(false);
+      setTiktokBrandContent(false);
       setEditingDraftId(null);
       await refresh();
     } catch (err) {
@@ -1788,6 +1818,9 @@ export function Dashboard() {
     setTiktokAllowComment(!p.tiktok_disable_comment);
     setTiktokAllowDuet(!p.tiktok_disable_duet);
     setTiktokAllowStitch(!p.tiktok_disable_stitch);
+    setTiktokDiscloseCommercial(p.tiktok_brand_organic || p.tiktok_brand_content);
+    setTiktokBrandOrganic(p.tiktok_brand_organic);
+    setTiktokBrandContent(p.tiktok_brand_content);
     setEditingDraftId(p.id);
     setError(null);
   }
@@ -1803,6 +1836,9 @@ export function Dashboard() {
     setTiktokAllowComment(false);
     setTiktokAllowDuet(false);
     setTiktokAllowStitch(false);
+    setTiktokDiscloseCommercial(false);
+    setTiktokBrandOrganic(false);
+    setTiktokBrandContent(false);
     setEditingDraftId(null);
   }
 
@@ -4087,8 +4123,13 @@ export function Dashboard() {
                       </option>
                       <option value="PUBLIC_TO_EVERYONE">Everyone</option>
                       <option value="MUTUAL_FOLLOW_FRIENDS">Friends (mutual followers)</option>
-                      <option value="SELF_ONLY">Only me</option>
+                      <option value="SELF_ONLY" disabled={tiktokBrandContent} title={tiktokBrandContent ? "Branded content visibility cannot be set to private." : undefined}>
+                        Only me
+                      </option>
                     </select>
+                    {tiktokBrandContent && tiktokPrivacyLevel === "SELF_ONLY" && (
+                      <span className="section-note">Branded content visibility cannot be set to private — choose a different option.</span>
+                    )}
                   </label>
                   <label className="approval-checkbox-label">
                     <input type="checkbox" checked={tiktokAllowComment} onChange={(e) => setTiktokAllowComment(e.target.checked)} />
@@ -4102,6 +4143,49 @@ export function Dashboard() {
                     <input type="checkbox" checked={tiktokAllowStitch} onChange={(e) => setTiktokAllowStitch(e.target.checked)} />
                     Allow stitch
                   </label>
+                  <label className="approval-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={tiktokDiscloseCommercial}
+                      onChange={(e) => {
+                        setTiktokDiscloseCommercial(e.target.checked);
+                        if (!e.target.checked) {
+                          setTiktokBrandOrganic(false);
+                          setTiktokBrandContent(false);
+                        }
+                      }}
+                    />
+                    Disclose commercial content
+                  </label>
+                  {tiktokDiscloseCommercial && (
+                    <>
+                      <label className="approval-checkbox-label">
+                        <input type="checkbox" checked={tiktokBrandOrganic} onChange={(e) => setTiktokBrandOrganic(e.target.checked)} />
+                        Your Brand — promoting yourself or your own business
+                      </label>
+                      <label
+                        className="approval-checkbox-label"
+                        title={tiktokPrivacyLevel === "SELF_ONLY" ? "Branded content visibility cannot be set to private." : undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={tiktokBrandContent}
+                          disabled={tiktokPrivacyLevel === "SELF_ONLY"}
+                          onChange={(e) => setTiktokBrandContent(e.target.checked)}
+                        />
+                        Branded Content — promoting another brand or a third party
+                      </label>
+                      {tiktokBrandOrganic && !tiktokBrandContent && (
+                        <span className="section-note">Your photo/video will be labeled as "Promotional content".</span>
+                      )}
+                      {tiktokBrandContent && (
+                        <span className="section-note">Your photo/video will be labeled as "Paid partnership".</span>
+                      )}
+                    </>
+                  )}
+                  <span className="section-note">
+                    By posting, you agree to TikTok's{tiktokBrandContent ? " Branded Content Policy and" : ""} Music Usage Confirmation.
+                  </span>
                 </div>
               );
             })()}

@@ -23,6 +23,8 @@ interface RecurringScheduleRow {
   tiktok_disable_comment: boolean;
   tiktok_disable_duet: boolean;
   tiktok_disable_stitch: boolean;
+  tiktok_brand_organic: boolean;
+  tiktok_brand_content: boolean;
   days_of_week: number[];
   time_of_day: string; // "HH:mm:ss" from Postgres `time`
   timezone: string;
@@ -133,6 +135,8 @@ export async function generateDuePosts(): Promise<void> {
           tiktok_disable_comment: slot.tiktok_disable_comment,
           tiktok_disable_duet: slot.tiktok_disable_duet,
           tiktok_disable_stitch: slot.tiktok_disable_stitch,
+          tiktok_brand_organic: slot.tiktok_brand_organic,
+          tiktok_brand_content: slot.tiktok_brand_content,
           scheduled_for: occurrenceAt.toUTC().toISO(),
           recurring_schedule_id: slot.id,
         });
