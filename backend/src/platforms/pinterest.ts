@@ -11,15 +11,18 @@ import { fetchMediaForStreaming, buildStreamingMultipartBody, type RequestInitWi
 // host — only the API calls below move to the Sandbox subdomain.
 const AUTHORIZE_URL = "https://www.pinterest.com/oauth/";
 
-// This app currently has Trial access (see project-platform-app-registration
-// memory) — confirmed live: Pinterest rejects Pin creation against the
-// production API host for Trial apps ("use API Sandbox ... instead"), and
-// Pinterest's own docs confirm every call (OAuth token exchange, reads, and
-// writes alike) must go through api-sandbox.pinterest.com while on Trial,
-// using its own separate tokens/entities from production. This is a
-// deliberate stopgap mirroring TikTok's SELF_ONLY hardcode — switch back to
-// api.pinterest.com once this app is approved for Standard access.
-const API_BASE = "https://api-sandbox.pinterest.com";
+// Pinterest Standard access was approved 2026-08-04 (see
+// project-pinterest-standard-access-resubmit-2026-08-04) -- this app no
+// longer needs api-sandbox.pinterest.com (Trial-tier only). CAUGHT LIVE
+// 2026-09-05, over a month later: this constant was never flipped back to
+// production after that approval, so every real call since 08-04 -- reads
+// and writes alike -- was still silently going through Sandbox. Real
+// consequence found the same day: Pinterest's Sandbox environment is
+// measurably less reliable for video specifically (a media upload can
+// report `status: "succeeded"` and still be rejected by create_pin with
+// "has not been uploaded" -- a real Sandbox-only inconsistency, not a
+// LazyRelay bug). Fixed by switching to the real production host.
+const API_BASE = "https://api.pinterest.com";
 const TOKEN_URL = `${API_BASE}/v5/oauth/token`;
 const USER_ACCOUNT_URL = `${API_BASE}/v5/user_account`;
 const BOARDS_URL = `${API_BASE}/v5/boards`;
