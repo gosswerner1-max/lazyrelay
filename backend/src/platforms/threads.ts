@@ -47,6 +47,19 @@ interface ThreadsMediaResponse {
   permalink?: string;
 }
 
+interface ThreadsContainerStatusResponse {
+  // CAUGHT LIVE 2026-09-05: the real field name is `status`, NOT
+  // `status_code` -- Instagram's equivalent container-status field really
+  // is `status_code`, and the earlier research summary conflated the two
+  // APIs' naming. Confirmed directly: querying `status_code` on a Threads
+  // container returns "Tried accessing nonexisting field (status_code)".
+  status?: "EXPIRED" | "ERROR" | "FINISHED" | "IN_PROGRESS" | "PUBLISHED";
+}
+
+function isVideoUrl(url: string): boolean {
+  return /\.(mp4|mov|m4v)(\?.*)?$/i.test(url);
+}
+
 export class ThreadsAdapter implements PlatformAdapter {
   readonly platform: "threads" = "threads";
 
@@ -132,19 +145,51 @@ export class ThreadsAdapter implements PlatformAdapter {
     return { id: json.id, username: json.username ?? json.id };
   }
 
+  // Polls a video container's status_code before publishing — added
+  // 2026-09-05 alongside video support. Meta's own guidance
+  // (developers.facebook.com/documentation/threads/posts): "wait on average
+  // 30 seconds before publishing"; if that's not enough, poll "once per
+  // minute, for no more than 5 minutes." This waits the recommended 30s
+  // once, then polls if it's still not ready, rather than always burning
+  // the full 5-minute budget on every video post.
+  private async waitForVideoContainerReady(containerId: string, accessToken: string): Promise<string | null> {
+    await new Promise((resolve) => setTimeout(resolve, 30_000));
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const url = new URL(`${GRAPH_BASE}/${containerId}`);
+      url.searchParams.set("fields", "status");
+      url.searchParams.set("access_token", accessToken);
+      const res = await fetch(url.toString());
+      const json = (await res.json()) as ThreadsContainerStatusResponse & ThreadsErrorBody;
+      if (!res.ok) {
+        return json.error?.message ?? `Could not check Threads container status (HTTP ${res.status})`;
+      }
+      if (json.status === "FINISHED" || json.status === "PUBLISHED") return null;
+      if (json.status === "ERROR" || json.status === "EXPIRED") {
+        return `Threads media container failed processing (${json.status})`;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 60_000));
+    }
+    return "Threads media container did not finish processing in time";
+  }
+
   async post(request: PostRequest): Promise<PostAttemptResult> {
     const me = await this.getMe(request.accessToken);
+    const isVideo = !!request.mediaUrl && isVideoUrl(request.mediaUrl);
 
     // Two-step publish, per Threads API design: create a media container,
     // then publish it as a second call — a single combined create+publish
-    // endpoint does not exist.
+    // endpoint does not exist. Video support added 2026-09-05
+    // (developers.facebook.com/documentation/threads/posts, confirmed
+    // live): media_type: "VIDEO" + video_url, same container→publish shape
+    // as an image, just needs the readiness poll below first. Real limits:
+    // 1GB max, 5min max duration (enforced pre-flight by mediaLimits.ts).
     const containerParams = new URLSearchParams({
-      media_type: request.mediaUrl ? "IMAGE" : "TEXT",
+      media_type: request.mediaUrl ? (isVideo ? "VIDEO" : "IMAGE") : "TEXT",
       text: request.content,
       access_token: request.accessToken,
     });
     if (request.mediaUrl) {
-      containerParams.set("image_url", request.mediaUrl);
+      containerParams.set(isVideo ? "video_url" : "image_url", request.mediaUrl);
     }
 
     const containerRes = await fetch(`${GRAPH_BASE}/${me.id}/threads`, {
@@ -159,6 +204,13 @@ export class ThreadsAdapter implements PlatformAdapter {
         platformPostId: null,
         errorMessage: containerJson.error?.message ?? `Threads container creation failed (HTTP ${containerRes.status})`,
       };
+    }
+
+    if (isVideo) {
+      const containerError = await this.waitForVideoContainerReady(containerJson.id, request.accessToken);
+      if (containerError) {
+        return { success: false, platformPostId: null, errorMessage: containerError };
+      }
     }
 
     const publishParams = new URLSearchParams({

@@ -5,6 +5,7 @@ import type {
   VerifyResult,
   OAuthExchangeResult,
 } from "./types.js";
+import { fetchMediaForStreaming, buildStreamingMultipartBody, type RequestInitWithDuplex } from "./streamUpload.js";
 
 // Tumblr API v2 supports real OAuth 2.0 (confirmed via Tumblr's own docs,
 // not assumed) — standard authorize + token exchange, distinct from the
@@ -43,6 +44,10 @@ interface TumblrUserInfo {
 interface TumblrPostResponse {
   id?: number | string;
   post_url?: string;
+}
+
+function isVideoUrl(url: string): boolean {
+  return /\.(mp4|mov|m4v|webm)(\?.*)?$/i.test(url);
 }
 
 export class TumblrAdapter implements PlatformAdapter {
@@ -146,22 +151,64 @@ export class TumblrAdapter implements PlatformAdapter {
 
   async post(request: PostRequest): Promise<PostAttemptResult> {
     const blogName = await this.getBlogName(request.accessToken);
+    const postUrl = `${API_BASE}/blog/${encodeURIComponent(blogName)}/posts`;
 
-    const content: Array<{ type: string; text?: string; media?: Array<{ url: string; type: string }> }> = [
-      { type: "text", text: request.content },
-    ];
-    if (request.mediaUrl) {
-      content.push({ type: "image", media: [{ url: request.mediaUrl, type: "image/jpeg" }] });
+    let res: Response;
+    if (request.mediaUrl && isVideoUrl(request.mediaUrl)) {
+      // Video support added 2026-09-05, CORRECTED live the same day: the
+      // NPF video block's `url` field is NOT a generic hosted-file fetch
+      // the way Meta/Threads' video_url is -- confirmed live it rejects an
+      // arbitrary directly-hosted MP4 URL ("Something goofed. Try again."
+      // on every attempt, including with `provider: "tumblr"` set). The
+      // REAL working path is native multipart upload: a `json` field
+      // carrying the post body (the video block references a plain
+      // `identifier` string, not a URL) plus a same-named binary file part
+      // -- confirmed live with a real 201 Created. Streamed rather than
+      // buffered (see streamUpload.ts), same as every other platform in
+      // this build.
+      const media = await fetchMediaForStreaming(request.mediaUrl);
+      if (!media) {
+        return { success: false, platformPostId: null, errorMessage: `Could not fetch video from ${request.mediaUrl}` };
+      }
+      const identifier = "video0";
+      const jsonBody = JSON.stringify({
+        content: [
+          { type: "text", text: request.content },
+          { type: "video", media: { type: "video/mp4", identifier } },
+        ],
+        layout: [],
+        state: "published",
+      });
+      const { body, contentType, contentLength } = buildStreamingMultipartBody([
+        { fieldName: "json", value: jsonBody },
+        { fieldName: identifier, value: { filename: "video.mp4", contentType: media.contentType, data: media.body, sizeBytes: media.sizeBytes } },
+      ]);
+      res = await fetch(postUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${request.accessToken}`,
+          "Content-Type": contentType,
+          ...(contentLength != null ? { "Content-Length": String(contentLength) } : {}),
+        },
+        body,
+        duplex: "half",
+      } as RequestInitWithDuplex);
+    } else {
+      const content: Array<{ type: string; text?: string; media?: Array<{ url: string; type: string }> }> = [
+        { type: "text", text: request.content },
+      ];
+      if (request.mediaUrl) {
+        content.push({ type: "image", media: [{ url: request.mediaUrl, type: "image/jpeg" }] });
+      }
+      res = await fetch(postUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${request.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ content, layout: [], state: "published" }),
+      });
     }
-
-    const res = await fetch(`${API_BASE}/blog/${encodeURIComponent(blogName)}/posts`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${request.accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ content, layout: [], state: "published" }),
-    });
     const json = (await res.json()) as TumblrEnvelope<TumblrPostResponse>;
 
     const postId = json.response?.id;

@@ -5,6 +5,7 @@ import type {
   VerifyResult,
   OAuthExchangeResult,
 } from "./types.js";
+import { fetchMediaForStreaming, type RequestInitWithDuplex } from "./streamUpload.js";
 
 // Personal-profile-only scope, per the resolved build decision: posting to
 // LinkedIn Company Pages needs the vetted "Community Management API"
@@ -155,19 +156,20 @@ export class LinkedInAdapter implements PlatformAdapter {
         };
       }
 
-      // redirect: "manual" — see mastodon.ts's uploadMedia for the full
-      // rationale (closes the adapter-side redirect-following SSRF gap).
-      const imageRes = await fetch(request.mediaUrl, { redirect: "manual" });
-      if (!imageRes.ok || !imageRes.body) {
+      // Streamed instead of buffered (2026-09-05) -- see streamUpload.ts.
+      // redirect: "manual" is applied inside fetchMediaForStreaming, same
+      // SSRF-closing rationale as mastodon.ts's original uploadMedia.
+      const media = await fetchMediaForStreaming(request.mediaUrl);
+      if (!media) {
         return { success: false, platformPostId: null, errorMessage: `Could not fetch image from ${request.mediaUrl}` };
       }
-      const imageBuffer = Buffer.from(await imageRes.arrayBuffer());
 
       const uploadRes = await fetch(initJson.value.uploadUrl, {
         method: "PUT",
         headers: { Authorization: `Bearer ${request.accessToken}` },
-        body: imageBuffer,
-      });
+        body: media.body,
+        duplex: "half",
+      } as RequestInitWithDuplex);
       if (!uploadRes.ok) {
         return { success: false, platformPostId: null, errorMessage: `LinkedIn image upload failed (HTTP ${uploadRes.status})` };
       }

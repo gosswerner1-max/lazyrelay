@@ -97,6 +97,10 @@ interface InstagramMessagesResponse {
   error?: { message?: string };
 }
 
+function isVideoUrl(url: string): boolean {
+  return /\.(mp4|mov|m4v)(\?.*)?$/i.test(url);
+}
+
 export class InstagramAdapter implements PlatformAdapter {
   readonly platform: "instagram" = "instagram";
 
@@ -255,13 +259,18 @@ export class InstagramAdapter implements PlatformAdapter {
     return json.instagram_business_account.id;
   }
 
-  // Instagram downloads/processes the image asynchronously after container
+  // Instagram downloads/processes the media asynchronously after container
   // creation — calling media_publish before status_code reaches FINISHED
   // fails with "Media ID is not available." Poll rather than publish
-  // immediately. 10 tries * 3s covers Instagram's typical few-second
-  // processing window without hanging the scheduler cycle indefinitely.
-  private async waitForContainerReady(containerId: string, accessToken: string): Promise<string | null> {
-    for (let attempt = 0; attempt < 10; attempt++) {
+  // immediately. Images: 10 tries * 3s (typical few-second processing
+  // window). Video (added 2026-09-05 for Reels): Meta's own guidance is to
+  // poll "once per minute, for no more than 5 minutes" -- video containers
+  // genuinely take longer, and the image-tuned 30s window would report a
+  // still-processing Reel as failed.
+  private async waitForContainerReady(containerId: string, accessToken: string, isVideo: boolean): Promise<string | null> {
+    const attempts = isVideo ? 5 : 10;
+    const delayMs = isVideo ? 60_000 : 3000;
+    for (let attempt = 0; attempt < attempts; attempt++) {
       const url = new URL(`${GRAPH_BASE}/${containerId}`);
       url.searchParams.set("fields", "status_code");
       url.searchParams.set("access_token", accessToken);
@@ -274,28 +283,35 @@ export class InstagramAdapter implements PlatformAdapter {
       if (json.status_code === "ERROR" || json.status_code === "EXPIRED") {
         return `Instagram media container failed processing (${json.status_code})`;
       }
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
     return "Instagram media container did not finish processing in time";
   }
 
   // Two-step publish, same shape as the Threads adapter: create a media
-  // container, then publish it as a second call.
+  // container, then publish it as a second call. Reels video support added
+  // 2026-09-05 (developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media,
+  // confirmed live): same container→publish flow as an image, just
+  // media_type: "REELS" + video_url instead of image_url -- no new
+  // permission needed, instagram_content_publish already covers it. Real
+  // limits: 300MB max, 15min max / 3s min duration (enforced pre-flight by
+  // mediaLimits.ts, not re-checked here).
   async post(request: PostRequest): Promise<PostAttemptResult> {
     if (!request.mediaUrl) {
       return {
         success: false,
         platformPostId: null,
-        errorMessage: "Instagram does not support text-only posts — an image is required",
+        errorMessage: "Instagram does not support text-only posts — an image or video is required",
       };
     }
 
     const igId = await this.getInstagramAccountId(request.accessToken);
+    const isVideo = isVideoUrl(request.mediaUrl);
 
     const containerParams = new URLSearchParams({
-      image_url: request.mediaUrl,
       caption: request.content,
       access_token: request.accessToken,
+      ...(isVideo ? { media_type: "REELS", video_url: request.mediaUrl } : { image_url: request.mediaUrl }),
     });
     const containerRes = await fetch(`${GRAPH_BASE}/${igId}/media`, {
       method: "POST",
@@ -311,7 +327,7 @@ export class InstagramAdapter implements PlatformAdapter {
       };
     }
 
-    const containerError = await this.waitForContainerReady(containerJson.id, request.accessToken);
+    const containerError = await this.waitForContainerReady(containerJson.id, request.accessToken, isVideo);
     if (containerError) {
       return { success: false, platformPostId: null, errorMessage: containerError };
     }

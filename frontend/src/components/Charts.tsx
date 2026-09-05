@@ -134,10 +134,11 @@ function pickTickIndices(n: number, maxTicks = 6): number[] {
   return [...new Set(ticks)];
 }
 
+// Full number with thousands separators (e.g. "1,000"), not K/M-abbreviated
+// -- Werner's call 2026-09-05: the abbreviated form ("1.0K") hid the real
+// count on the dashboard's stat tiles.
 export function formatCompact(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
+  return n.toLocaleString("en-US");
 }
 
 // ---------------------------------------------------------------------------

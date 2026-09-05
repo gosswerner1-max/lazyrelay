@@ -5,6 +5,7 @@ import type {
   VerifyResult,
   OAuthExchangeResult,
 } from "./types.js";
+import { fetchMediaForStreaming, buildStreamingMultipartBody, type RequestInitWithDuplex } from "./streamUpload.js";
 
 // Real, confirmed architectural gap: Telegram has no OAuth "authorize this
 // app" flow at all for channels — bots are created once via BotFather and
@@ -76,6 +77,36 @@ export class TelegramAdapter implements PlatformAdapter {
     return (await res.json()) as TelegramApiResponse<T>;
   }
 
+  // sendVideo via real multipart upload rather than passing mediaUrl
+  // directly as Telegram's `video` field -- confirmed live 2026-09-05
+  // (core.telegram.org/bots/api#sending-files): Telegram fetching a URL
+  // itself caps at 20MB, while a genuine multipart upload allows the real
+  // 50MB ceiling. Streamed rather than buffered (see streamUpload.ts) so
+  // this doesn't reintroduce the whole-file-in-memory problem the rest of
+  // this build is fixing.
+  private async sendVideoFile(chatId: string, mediaUrl: string, caption: string): Promise<TelegramApiResponse<TelegramMessage>> {
+    const media = await fetchMediaForStreaming(mediaUrl);
+    if (!media) {
+      return { ok: false, description: `Could not fetch video from ${mediaUrl}` };
+    }
+    const { body, contentType, contentLength } = buildStreamingMultipartBody([
+      { fieldName: "chat_id", value: chatId },
+      { fieldName: "caption", value: caption },
+      { fieldName: "video", value: { filename: "video.mp4", contentType: media.contentType, data: media.body, sizeBytes: media.sizeBytes } },
+    ]);
+    // Content-Length set whenever known -- some upload endpoints reject a
+    // chunked-transfer body outright (confirmed on Pinterest's S3-style
+    // upload, HTTP 411); passing sizeBytes above lets it be computed
+    // without buffering the file (see buildStreamingMultipartBody).
+    const res = await fetch(`${API_BASE}/bot${this.botToken}/sendVideo`, {
+      method: "POST",
+      headers: { "Content-Type": contentType, ...(contentLength != null ? { "Content-Length": String(contentLength) } : {}) },
+      body,
+      duplex: "half",
+    } as RequestInitWithDuplex);
+    return (await res.json()) as TelegramApiResponse<TelegramMessage>;
+  }
+
   async getAuthorizeUrl(state: string): Promise<string> {
     const params = new URLSearchParams({ state });
     return `${this.connectPageUrl}?${params.toString()}`;
@@ -126,16 +157,20 @@ export class TelegramAdapter implements PlatformAdapter {
 
   async post(request: PostRequest): Promise<PostAttemptResult> {
     const chatId = request.accessToken;
+    const isVideo = !!request.mediaUrl && /\.(mp4|mov|m4v|webm)(\?.*)?$/i.test(request.mediaUrl);
 
-    if (request.mediaUrl && /\.(mp4|mov|m4v|webm)(\?.*)?$/i.test(request.mediaUrl)) {
-      // sendVideo exists on Telegram's real API but isn't implemented here
-      // yet — honest failure rather than a half-built video path, same
-      // shape as Pinterest's/Bluesky's video gaps.
-      return {
-        success: false,
-        platformPostId: null,
-        errorMessage: "Telegram video posts are not yet supported by this adapter",
-      };
+    // Video support added 2026-09-05 (core.telegram.org/bots/api#sendvideo,
+    // confirmed live): real multipart upload via sendVideoFile, not the
+    // shared JSON callApi() path every other method here uses. Real hard
+    // ceiling: 50MB -- Telegram's own, not LazyRelay's, and not liftable by
+    // raising LazyRelay's app-wide cap (enforced pre-flight by
+    // mediaLimits.ts).
+    if (isVideo) {
+      const res = await this.sendVideoFile(chatId, request.mediaUrl!, request.content);
+      if (!res.ok || !res.result) {
+        return { success: false, platformPostId: null, errorMessage: res.description ?? "Telegram sendVideo failed" };
+      }
+      return { success: true, platformPostId: String(res.result.message_id), errorMessage: null };
     }
 
     const method = request.mediaUrl ? "sendPhoto" : "sendMessage";

@@ -113,14 +113,18 @@ const TEAM_INVITE_EXPIRY_MS = 72 * 60 * 60 * 1000;
 // (see migration 0007_post_media_bucket.sql) and deleted afterward either
 // way (found 2026-09-04 while raising this from its original 20MB).
 //
-// 45MB is a deliberate margin under Supabase Storage's own hard ceiling for
-// this project, not a number chosen for its own sake: the project is on
-// Supabase's Free plan, which caps every object at 50MB project-wide
-// (confirmed live via the Management API's /config/storage endpoint) — no
-// code change here can exceed that without upgrading Supabase itself, which
-// Werner declined for now (most customers cross-post one video sized for
-// multiple platforms, not a YouTube-native long-form upload).
-const MEDIA_UPLOAD_MAX_BYTES = 45 * 1024 * 1024;
+// Raised to 1GB 2026-09-05 (was 45MB). The old 45MB cap was tied to a stale
+// assumption that this project was on Supabase's Free plan (50MB/object
+// ceiling) -- it isn't; the org is actually on Pro (confirmed live via the
+// Management API), which allows the bucket's fileSizeLimit up to 500GB and a
+// single non-multipart upload up to 5GB. 1GB comfortably covers a real
+// multi-minute customer video with wide margin (competitor benchmarking:
+// Sprout Social 3GB, Vista Social 2GB, Hootsuite/Loomly 1GB flat caps -- this
+// puts LazyRelay in the same band, not at the back of it). The Supabase
+// Storage bucket's own fileSizeLimit was raised to match via the Management
+// API the same day. Real protection against a platform's own lower ceiling
+// (e.g. Telegram's hard 50MB) lives in mediaLimits.ts, not here.
+const MEDIA_UPLOAD_MAX_BYTES = 1024 * 1024 * 1024;
 const ALLOWED_MEDIA_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",

@@ -482,7 +482,7 @@ const FAQ = [
   },
   {
     q: "Are there limits on post length, images, or videos?",
-    a: "LazyRelay doesn't set its own limits. We follow whatever the platform you're posting to requires and allows at the time. See the disclaimer below for details.",
+    a: "LazyRelay accepts files up to 1GB. Beyond that, each platform has its own limits on top — some allow much more (TikTok up to 4GB), others less (Telegram caps at 50MB). If your file is too big for a platform you're posting to, we'll tell you before it's scheduled. See the disclaimer below for details.",
   },
 ];
 
@@ -852,10 +852,10 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
             platform's own Terms of Service.
           </p>
           <p>
-            LazyRelay doesn't set its own limits on post length, images, or videos. We follow whatever
-            each connected platform requires and allows at the time of posting. These limits can change on
-            the platform's side at any time. It's your responsibility to make sure your content complies
-            with each platform's own guidelines and terms.
+            LazyRelay accepts media up to 1GB per file. On top of that, each connected platform applies
+            its own limits on size, duration, and format, which can be lower than LazyRelay's own cap and
+            can change on the platform's side at any time. It's your responsibility to make sure your
+            content complies with each platform's own guidelines and terms.
           </p>
         </div>
         <p className="landing-footer-links">

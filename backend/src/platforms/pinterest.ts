@@ -5,6 +5,7 @@ import type {
   VerifyResult,
   OAuthExchangeResult,
 } from "./types.js";
+import { fetchMediaForStreaming, buildStreamingMultipartBody, type RequestInitWithDuplex } from "./streamUpload.js";
 
 // The browser-facing consent page always stays on the real pinterest.com
 // host — only the API calls below move to the Sandbox subdomain.
@@ -269,19 +270,39 @@ export class PinterestAdapter implements PlatformAdapter {
     uploadParameters: Record<string, string>,
     videoUrl: string,
   ): Promise<string | null> {
-    const videoRes = await fetch(videoUrl);
-    if (!videoRes.ok) {
-      return `Failed to fetch video from ${videoUrl} (HTTP ${videoRes.status})`;
+    // Streamed instead of buffered via .blob() (2026-09-05) -- see
+    // streamUpload.ts. This endpoint is Pinterest's S3-style presigned
+    // upload, which needs the signed form fields (key/policy/signature)
+    // ahead of the actual file part in the same multipart body --
+    // buildStreamingMultipartBody supports mixed string + file parts for
+    // exactly this shape.
+    const media = await fetchMediaForStreaming(videoUrl);
+    if (!media) {
+      return `Failed to fetch video from ${videoUrl}`;
     }
-    const videoBlob = await videoRes.blob();
-
-    const form = new FormData();
-    for (const [key, value] of Object.entries(uploadParameters)) {
-      form.append(key, value);
+    const parts: Parameters<typeof buildStreamingMultipartBody>[0] = Object.entries(uploadParameters).map(
+      ([key, value]) => ({ fieldName: key, value }),
+    );
+    parts.push({
+      fieldName: "file",
+      value: { filename: "video.mp4", contentType: media.contentType, data: media.body, sizeBytes: media.sizeBytes },
+    });
+    const { body, contentType, contentLength } = buildStreamingMultipartBody(parts);
+    // CAUGHT LIVE 2026-09-05: Pinterest's S3-style upload rejects a
+    // chunked-transfer body with 411 Length Required -- it needs a real
+    // Content-Length, which is why sizeBytes is passed above (see
+    // buildStreamingMultipartBody's own comment for how this is computed
+    // without buffering the file).
+    if (contentLength == null) {
+      return "Could not determine video size from storage (missing Content-Length) — Pinterest's upload requires a known content length";
     }
-    form.append("file", videoBlob, "video.mp4");
 
-    const uploadRes = await fetch(uploadUrl, { method: "POST", body: form });
+    const uploadRes = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "Content-Type": contentType, "Content-Length": String(contentLength) },
+      body,
+      duplex: "half",
+    } as RequestInitWithDuplex);
     if (!uploadRes.ok && uploadRes.status !== 204) {
       return `Pinterest video upload to S3 failed (HTTP ${uploadRes.status})`;
     }

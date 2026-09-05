@@ -8,6 +8,7 @@ import type {
   PostMetrics,
   CommentPostResult,
 } from "./types.js";
+import { fetchMediaForStreaming, buildStreamingMultipartBody, type RequestInitWithDuplex } from "./streamUpload.js";
 
 // Real, confirmed platform gotcha: Mastodon is decentralized — every
 // instance (mastodon.social, hachyderm.io, ...) is its own OAuth server
@@ -182,27 +183,42 @@ export class MastodonAdapter implements PlatformAdapter {
   // when null, same as not passing it at all — no behavior change for
   // uploads that don't have one.
   private async uploadMedia(mediaUrl: string, accessToken: string, altText: string | null): Promise<string | null> {
-    // redirect: "manual" — mediaUrl already passed isSafeMediaUrl at write
-    // time (routes.ts), but that only checked the URL itself, not wherever
-    // it might redirect to. The default "follow" would happily chase a 3xx
-    // into a private/internal address; refusing to follow (res.ok is false
-    // for any 3xx here, so the existing failure path below already handles
-    // it) closes that gap without re-resolving every hop. Same fix as
-    // webhook.ts's sendVerifiedWebhook.
-    const mediaRes = await fetch(mediaUrl, { redirect: "manual" });
-    if (!mediaRes.ok || !mediaRes.body) return null;
-    const buffer = Buffer.from(await mediaRes.arrayBuffer());
-    const contentType = mediaRes.headers.get("content-type") ?? "application/octet-stream";
+    // Streamed instead of buffered (2026-09-05) -- see streamUpload.ts.
+    // redirect: "manual" is applied inside fetchMediaForStreaming (mediaUrl
+    // already passed isSafeMediaUrl at write time in routes.ts, but that only
+    // checked the URL itself, not wherever it might redirect to -- the
+    // default "follow" would happily chase a 3xx into a private/internal
+    // address; res.ok is false for any 3xx, so the existing null-return
+    // below still closes it). Same fix as webhook.ts's sendVerifiedWebhook.
+    //
+    // Mastodon's endpoint needs real multipart/form-data, which the
+    // standard Blob/FormData APIs can't build without buffering the whole
+    // file into a Blob first -- buildStreamingMultipartBody hand-builds the
+    // multipart body instead, so the file streams through in chunks the
+    // same way the other adapters' raw PUT/POST bodies do.
+    const media = await fetchMediaForStreaming(mediaUrl);
+    if (!media) return null;
 
-    const form = new FormData();
-    form.append("file", new Blob([buffer], { type: contentType }), "media");
-    if (altText) form.append("description", altText);
+    const parts: Parameters<typeof buildStreamingMultipartBody>[0] = [
+      { fieldName: "file", value: { filename: "media", contentType: media.contentType, data: media.body, sizeBytes: media.sizeBytes } },
+    ];
+    if (altText) parts.push({ fieldName: "description", value: altText });
+    const { body, contentType: multipartContentType, contentLength } = buildStreamingMultipartBody(parts);
 
+    // Content-Length set whenever known -- some upload endpoints reject a
+    // chunked-transfer body outright (confirmed on Pinterest's S3-style
+    // upload, HTTP 411); Mastodon itself accepted chunked fine in testing,
+    // but there's no reason not to send a real length whenever it's known.
     const res = await fetch(`${DEFAULT_INSTANCE}/api/v2/media`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}` },
-      body: form,
-    });
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": multipartContentType,
+        ...(contentLength != null ? { "Content-Length": String(contentLength) } : {}),
+      },
+      body,
+      duplex: "half",
+    } as RequestInitWithDuplex);
     if (res.status !== 200 && res.status !== 202) return null;
     const json = (await res.json()) as MastodonMedia;
     return json.id ?? null;

@@ -5,6 +5,11 @@ import type {
   VerifyResult,
   OAuthExchangeResult,
 } from "./types.js";
+import { fetchMediaForStreaming, buildStreamingMultipartBody, type RequestInitWithDuplex } from "./streamUpload.js";
+
+function isVideoUrl(url: string): boolean {
+  return /\.(mp4|mov|m4v|webm)(\?.*)?$/i.test(url);
+}
 
 // Discord posting uses a channel webhook URL, not OAuth — a customer
 // creates one in their own server (Channel Settings -> Integrations ->
@@ -66,6 +71,46 @@ export class DiscordAdapter implements PlatformAdapter {
 
   async post(request: PostRequest): Promise<PostAttemptResult> {
     const params = new URLSearchParams({ wait: "true" });
+
+    // Video support added 2026-09-05 (confirmed live via Discord's own
+    // current docs): unlike images, Discord will NOT inline-render a remote
+    // video URL through an embed -- it must be a genuine attachment, sent
+    // as real multipart/form-data with a `files[n]` binary part alongside a
+    // `payload_json` field carrying the rest of the body. Streamed rather
+    // than buffered (see streamUpload.ts). Real ceiling is NOT one number:
+    // it depends on the destination server's own boost tier (20MB
+    // unboosted, up to 100MB at max boost) -- something this adapter has no
+    // way to know in advance from just a webhook URL, so mediaLimits.ts
+    // uses a conservative default rather than a real per-server check.
+    if (request.mediaUrl && isVideoUrl(request.mediaUrl)) {
+      const media = await fetchMediaForStreaming(request.mediaUrl);
+      if (!media) {
+        return { success: false, platformPostId: null, errorMessage: `Could not fetch video from ${request.mediaUrl}` };
+      }
+      const { body, contentType, contentLength } = buildStreamingMultipartBody([
+        {
+          fieldName: "payload_json",
+          value: JSON.stringify({ content: request.content, attachments: [{ id: 0, filename: "video.mp4" }] }),
+        },
+        { fieldName: "files[0]", value: { filename: "video.mp4", contentType: media.contentType, data: media.body, sizeBytes: media.sizeBytes } },
+      ]);
+      // Content-Length set whenever known -- some upload endpoints reject a
+      // chunked-transfer body outright (confirmed on Pinterest's S3-style
+      // upload, HTTP 411); passing sizeBytes above lets it be computed
+      // without buffering the file (see buildStreamingMultipartBody).
+      const res = await fetch(`${request.accessToken}?${params.toString()}`, {
+        method: "POST",
+        headers: { "Content-Type": contentType, ...(contentLength != null ? { "Content-Length": String(contentLength) } : {}) },
+        body,
+        duplex: "half",
+      } as RequestInitWithDuplex);
+      const json = (await res.json()) as { id?: string; message?: string };
+      if (!res.ok || !json.id) {
+        return { success: false, platformPostId: null, errorMessage: json.message ?? `Discord video post failed (HTTP ${res.status})` };
+      }
+      return { success: true, platformPostId: json.id, errorMessage: null };
+    }
+
     const body: { content: string; embeds?: Array<{ image: { url: string } }> } = {
       content: request.content,
     };

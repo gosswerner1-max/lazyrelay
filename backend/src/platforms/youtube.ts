@@ -8,6 +8,7 @@ import type {
   PostMetrics,
   PendingConnectSelection,
 } from "./types.js";
+import { fetchMediaForStreaming, type RequestInitWithDuplex } from "./streamUpload.js";
 
 const AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -267,25 +268,29 @@ export class YouTubeAdapter implements PlatformAdapter {
       return { success: false, platformPostId: null, errorMessage: "YouTube did not return a resumable upload URL" };
     }
 
-    // redirect: "manual" — see mastodon.ts's uploadMedia for the full
-    // rationale (closes the adapter-side redirect-following SSRF gap).
-    const videoRes = await fetch(request.mediaUrl, { redirect: "manual" });
-    if (!videoRes.ok || !videoRes.body) {
+    // Streamed instead of buffered (2026-09-05) -- see streamUpload.ts.
+    // YouTube's resumable-upload protocol tolerates one large streamed PUT
+    // fine (Google's own docs actively discourage manual chunking as
+    // "rarely necessary"), so this needed only the buffer swap, no chunking
+    // loop like TikTok's.
+    const media = await fetchMediaForStreaming(request.mediaUrl);
+    if (!media) {
       return { success: false, platformPostId: null, errorMessage: `Could not fetch video from ${request.mediaUrl}` };
     }
-    const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
-    const contentType = videoRes.headers.get("content-type")?.startsWith("video/")
-      ? videoRes.headers.get("content-type")!
-      : "video/mp4";
+    if (media.sizeBytes == null) {
+      return { success: false, platformPostId: null, errorMessage: "Could not determine video size from storage (missing Content-Length)" };
+    }
+    const contentType = media.contentType.startsWith("video/") ? media.contentType : "video/mp4";
 
     const uploadRes = await fetch(uploadUrl, {
       method: "PUT",
       headers: {
         "Content-Type": contentType,
-        "Content-Length": String(videoBuffer.byteLength),
+        "Content-Length": String(media.sizeBytes),
       },
-      body: videoBuffer,
-    });
+      body: media.body,
+      duplex: "half",
+    } as RequestInitWithDuplex);
     const uploadJson = (await uploadRes.json().catch(() => ({}))) as YouTubeVideoResource & YouTubeErrorBody;
 
     if (!uploadRes.ok || !uploadJson.id) {

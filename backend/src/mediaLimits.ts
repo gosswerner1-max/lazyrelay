@@ -45,9 +45,11 @@ export type Platform =
 
 // Platforms without a researched, bespoke rule yet fall back to the same
 // 20MB size cap + mime allowlist LazyRelay's own /media/upload endpoint
-// already enforces (see MEDIA_UPLOAD_MAX_BYTES/ALLOWED_MEDIA_MIME_TYPES in
-// routes.ts) — a real, working floor rather than pretending full
-// platform-specific validation exists for all 13 platforms.
+// used to enforce app-wide (the app-wide cap itself was raised to 1GB
+// 2026-09-05 — this fallback stays at the old, conservative 20MB rather than
+// following it up, since a platform on this list has NOT been individually
+// researched and 20MB is a safer floor than silently allowing up to 1GB
+// against an unresearched real limit).
 const GENERIC_FALLBACK_RULES: PlatformRules = {
   image: {
     maxSizeBytes: 20 * 1024 * 1024,
@@ -58,18 +60,10 @@ const GENERIC_FALLBACK_RULES: PlatformRules = {
     allowedMimeTypes: ["video/mp4", "video/quicktime", "video/webm"],
   },
 };
-const PLATFORMS_WITH_GENERIC_RULES: Platform[] = [
-  "youtube",
-  "mastodon",
-  "bluesky",
-  "telegram",
-  "linkedin",
-  "threads",
-  "facebook",
-  "instagram",
-  "discord",
-  "tumblr",
-];
+// LinkedIn genuinely still unresearched for video (no video-posting code
+// exists yet — see project-media-pipeline-video-support-2026-09-05, gated
+// on its own Community Management API partner-tier approval).
+const PLATFORMS_WITH_GENERIC_RULES: Platform[] = ["linkedin"];
 
 export interface MediaMeta {
   mimeType: string;
@@ -97,50 +91,134 @@ interface PlatformRules {
 }
 
 const RULES: Record<Platform, PlatformRules> = {
-  // Instagram Graph API, IG User Media reference (developers.facebook.com).
+  // Instagram Graph API, IG User Media / Reels reference — re-verified live
+  // 2026-09-05 (developers.facebook.com/docs/instagram-platform/...). Real
+  // accounts are stored as platform "meta" today, not split into separate
+  // "facebook"/"instagram" rows (see file header) — this rule is what
+  // actually governs every real Meta post right now. It uses Instagram's
+  // numbers specifically because Facebook Page video has NO fixed published
+  // limit at all (Meta's own docs point to a live `video-upload-limits`
+  // Graph API node that must be queried per-account, not a static figure) —
+  // Instagram's real 300MB/15min ceiling is used as the safer of the two
+  // known real numbers until the "meta" schema splits and Facebook's own
+  // live-queried limit can be wired in separately.
   meta: {
     image: { maxSizeBytes: 8 * MB, allowedMimeTypes: ["image/jpeg", "image/png"] },
-    // Reels: 300MB max, MP4/MOV — but LazyRelay's own upload endpoint caps
-    // ALL uploads at 20MB today (see MEDIA_UPLOAD_MAX_BYTES in routes.ts),
-    // far below this — a real video Reel would already be rejected by our
-    // own cap long before reaching this platform-specific one.
     video: { maxSizeBytes: 300 * MB, allowedMimeTypes: ["video/mp4", "video/quicktime"] },
   },
-  // TikTok Content Posting API media transfer guide (developers.tiktok.com).
+  // TikTok Content Posting API media transfer guide (developers.tiktok.com)
+  // — re-verified live 2026-09-05, unchanged: 4GB max, 10min max duration.
   tiktok: {
     image: { maxSizeBytes: 20 * MB, allowedMimeTypes: ["image/jpeg", "image/webp"] },
     video: { maxSizeBytes: 4 * 1024 * MB, allowedMimeTypes: ["video/mp4", "video/quicktime", "video/webm"] },
   },
-  // Pinterest consumer help center (help.pinterest.com) — the actual
-  // developers.pinterest.com media-create API reference didn't render
-  // extractable content when researched; treat these as lower-confidence
-  // than the TikTok/Meta numbers above and spot-check before relying on
-  // them for anything beyond a customer-facing pre-flight warning.
+  // Pinterest — re-checked live 2026-09-05. The v5 API reference itself
+  // (developers.pinterest.com/docs/api/v5/media-create) still documents no
+  // numeric limit; the ~2GB figure below comes from Pinterest's own linked
+  // "Pin specs" help-center page (help.pinterest.com), which the dev docs
+  // cross-reference as the real source — same lower-confidence caveat as
+  // before, now with a real (if softer-sourced) number instead of reusing
+  // the image cap as a placeholder.
   pinterest: {
     image: {
       maxSizeBytes: 20 * MB,
       allowedMimeTypes: ["image/bmp", "image/jpeg", "image/png", "image/tiff", "image/webp"],
     },
-    video: { maxSizeBytes: 20 * MB, allowedMimeTypes: ["video/mp4", "video/quicktime"] }, // video Pin max size unconfirmed — using the image cap as a conservative floor, not a sourced number
+    video: { maxSizeBytes: 2 * 1024 * MB, allowedMimeTypes: ["video/mp4", "video/quicktime"] },
+  },
+  // YouTube Data API v3 (developers.google.com/youtube/v3/guides/uploading_a_video)
+  // — researched live 2026-09-05. Real ceiling is 256GB/12hr for a verified
+  // channel, far above anything relevant here; LazyRelay's own 1GB app-wide
+  // cap binds first in every real case, so this rule exists mainly to stop
+  // falling through to the (lower) generic floor. Real caveat that isn't a
+  // size/format check this file can express: an UNVERIFIED YouTube channel
+  // is hard-capped at 15 minutes by YouTube itself, with no API field to
+  // check that in advance — worth a customer-facing warning when YouTube's
+  // real upload code gets built, not something mediaLimits.ts can catch.
+  youtube: {
+    image: { maxSizeBytes: 20 * MB, allowedMimeTypes: ["image/jpeg", "image/png"] },
+    video: { maxSizeBytes: 256 * 1024 * MB, allowedMimeTypes: ["video/mp4", "video/quicktime", "video/webm"] },
+  },
+  // Mastodon — researched live 2026-09-05. Real limit is genuinely
+  // PER-INSTANCE (each server admin sets its own `video_size_limit` via
+  // `GET /api/v2/instance`), not a protocol constant — federation means
+  // there is no single correct static number here. 99MB (the documented
+  // reference/flagship-instance default) is used as a reasonable static
+  // floor for now; the real fix is a live per-connected-account instance
+  // query, tracked as a known follow-up rather than silently assumed
+  // correct for every instance a customer might connect.
+  mastodon: {
+    image: { maxSizeBytes: 20 * MB, allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] },
+    video: { maxSizeBytes: 99 * MB, allowedMimeTypes: ["video/mp4", "video/webm", "video/quicktime"] },
+  },
+  // Bluesky (docs.bsky.app / bsky.network) — researched live 2026-09-05.
+  // Real limit raised from 100MB/3min to 300MB/10min on 2026-08-25, ~2 weeks
+  // before this check — the previous planning note's "100MB/3min" was
+  // already stale. No video-posting code exists yet for Bluesky (see
+  // project-media-pipeline-video-support-2026-09-05) — this rule is ready
+  // for when that gets built.
+  bluesky: {
+    image: { maxSizeBytes: 20 * MB, allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] },
+    video: { maxSizeBytes: 300 * MB, allowedMimeTypes: ["video/mp4"] },
+  },
+  // Telegram Bot API sendVideo (core.telegram.org/bots/api) — researched
+  // live 2026-09-05. Real, HARD, sourced ceiling on the standard hosted Bot
+  // API: 50MB, no way around it short of self-hosting a Bot API server
+  // (out of scope). Must surface to the customer as Telegram's own limit,
+  // not LazyRelay's, same pattern as this file already does for TikTok/X.
+  telegram: {
+    image: { maxSizeBytes: 10 * MB, allowedMimeTypes: ["image/jpeg", "image/png"] },
+    video: { maxSizeBytes: 50 * MB, allowedMimeTypes: ["video/mp4"] },
+  },
+  // Threads (developers.facebook.com/documentation/threads/posts,
+  // researched live 2026-09-05): 1GB max, 5min max duration. Video support
+  // built the same day (see threads.ts).
+  threads: {
+    image: { maxSizeBytes: 8 * MB, allowedMimeTypes: ["image/jpeg", "image/png"] },
+    video: { maxSizeBytes: 1024 * MB, allowedMimeTypes: ["video/mp4", "video/quicktime"] },
+  },
+  // Tumblr — genuinely unconfirmed for video, same honesty pattern already
+  // used for Pinterest above. The only documented number (500MB/10min) is
+  // stated for a LEGACY endpoint, not the NPF video block this adapter
+  // actually uses (tumblr.ts, built 2026-09-05) -- Tumblr's own docs never
+  // confirm it applies there. Used as a conservative-but-unverified working
+  // number rather than inventing a different one; spot-check against a real
+  // post before trusting it for anything beyond a customer-facing warning.
+  tumblr: {
+    image: { maxSizeBytes: 20 * MB, allowedMimeTypes: ["image/jpeg", "image/png", "image/gif"] },
+    video: { maxSizeBytes: 500 * MB, allowedMimeTypes: ["video/mp4", "video/quicktime"] },
+  },
+  // Discord (discord.com/developers/docs, researched live 2026-09-05):
+  // there is no single real ceiling -- it depends entirely on the
+  // DESTINATION SERVER's own boost tier (20MB unboosted, up to 100MB at max
+  // boost, occasionally 250MB/500MB with a purchased add-on), which this
+  // adapter has no way to know in advance from just a webhook URL. 20MB
+  // (the real, universal floor every server supports) is used as the
+  // conservative default so a customer is warned before scheduling rather
+  // than finding out only when Discord itself rejects a bigger file at
+  // send time -- their real server may well allow more.
+  discord: {
+    image: { maxSizeBytes: 20 * MB, allowedMimeTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"] },
+    video: { maxSizeBytes: 20 * MB, allowedMimeTypes: ["video/mp4", "video/webm", "video/quicktime"] },
   },
   // The remaining platforms don't have a researched, bespoke rule yet — see
   // GENERIC_FALLBACK_RULES above. validateMediaForPlatform() surfaces this
   // via the `unchecked` field rather than pretending real limits exist.
-  youtube: GENERIC_FALLBACK_RULES,
-  mastodon: GENERIC_FALLBACK_RULES,
-  bluesky: GENERIC_FALLBACK_RULES,
-  telegram: GENERIC_FALLBACK_RULES,
   linkedin: GENERIC_FALLBACK_RULES,
-  threads: GENERIC_FALLBACK_RULES,
   facebook: GENERIC_FALLBACK_RULES,
   instagram: GENERIC_FALLBACK_RULES,
-  discord: GENERIC_FALLBACK_RULES,
-  tumblr: GENERIC_FALLBACK_RULES,
-  // X's own media help center (help.x.com/en/using-x/x-photos, .../x-videos):
-  // 5MB per image (GIF included), 512MB per video via chunked upload.
+  // X's own current v2 media API (docs.x.com/x-api/media/...) — RE-VERIFIED
+  // live 2026-09-05 and CORRECTED: the old v1.1 chunked media-upload
+  // endpoints this file's numbers were based on were sunset June 2025. Real
+  // v2 numbers: 8GB default / 16GB for Premium/verified accounts. The `x`
+  // adapter itself (platforms/x.ts) still calls the dead v1.1 endpoint as of
+  // 2026-09-05 — X posting is not live for customers (not funded, see
+  // registry.ts gating), so this is a real but not customer-impacting bug
+  // today. Flagged for a full v2 migration + real chunking rebuild whenever
+  // X gets funded, not patched here.
   x: {
     image: { maxSizeBytes: 5 * MB, allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] },
-    video: { maxSizeBytes: 512 * MB, allowedMimeTypes: ["video/mp4", "video/quicktime"] },
+    video: { maxSizeBytes: 8 * 1024 * MB, allowedMimeTypes: ["video/mp4", "video/quicktime"] },
   },
   // support.google.com/business/answer/6103862 (verified 2026-08-17, never
   // tested against a real account — API access itself is still gated, see

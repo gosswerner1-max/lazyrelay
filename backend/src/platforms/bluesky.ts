@@ -8,6 +8,7 @@ import type {
   PostMetrics,
   CommentPostResult,
 } from "./types.js";
+import { fetchMediaForStreaming, type RequestInitWithDuplex } from "./streamUpload.js";
 
 // Real, confirmed platform gotcha: AT Protocol's real OAuth (PAR + DPoP +
 // self-hosted client-metadata document) issues DPoP-bound sessions that
@@ -29,6 +30,25 @@ const GET_RECORD_URL = `${DEFAULT_PDS}/xrpc/com.atproto.repo.getRecord`;
 const UPLOAD_BLOB_URL = `${DEFAULT_PDS}/xrpc/com.atproto.repo.uploadBlob`;
 const GET_PROFILE_URL = "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile";
 const GET_POST_THREAD_URL = "https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread";
+const GET_SERVICE_AUTH_URL = `${DEFAULT_PDS}/xrpc/com.atproto.server.getServiceAuth`;
+
+// Video lives on a separate service from the rest of the AT Protocol API.
+// Real limits raised 2026-08-25 from 100MB/3min to 300MB/10min
+// (mediaLimits.ts already reflects the new numbers).
+//
+// CORRECTED LIVE 2026-09-05, during the real test pass -- two wrong
+// assumptions caught by the actual API's own error messages, neither
+// guessable from the general docs alone:
+//   1. getServiceAuth's `aud` is NOT video.bsky.app's own DID -- it must be
+//      the user's own PDS DID (derived below from their session's didDoc),
+//      confirmed by video.bsky.app's real error: "invalid token audience
+//      ...should be the user's PDS DID".
+//   2. getServiceAuth's `lxm` must be "com.atproto.repo.uploadBlob", not
+//      "app.bsky.video.uploadVideo" (the endpoint's own name) -- confirmed
+//      by the real error: "invalid token lexicon method...should be
+//      com.atproto.repo.uploadBlob".
+const VIDEO_UPLOAD_URL = "https://video.bsky.app/xrpc/app.bsky.video.uploadVideo";
+const VIDEO_JOB_STATUS_URL = "https://video.bsky.app/xrpc/app.bsky.video.getJobStatus";
 
 const POST_COLLECTION = "app.bsky.feed.post";
 
@@ -99,6 +119,41 @@ interface BlueskyGetPostThreadResponse {
 interface BlueskyThreadRef {
   uri?: string;
   cid?: string;
+}
+
+interface BlueskyGetSessionResponse {
+  did?: string;
+  emailConfirmed?: boolean;
+  // Needed to derive the user's own PDS DID for getServiceAuth's `aud`
+  // (see uploadVideo below) -- confirmed live 2026-09-05 this is NOT
+  // video.bsky.app's own DID, despite video being a separate service.
+  didDoc?: { service?: Array<{ id?: string; serviceEndpoint?: string }> };
+  message?: string;
+  error?: string;
+}
+
+interface BlueskyServiceAuthResponse {
+  token?: string;
+  message?: string;
+  error?: string;
+}
+
+// uploadVideo's own immediate response is flat (did/jobId/state at the top
+// level); getJobStatus's response nests the same fields one level down
+// under `jobStatus` -- confirmed live 2026-09-05, two genuinely different
+// shapes for what looks like the same data. Modeled as one type covering
+// both, rather than two near-identical interfaces.
+interface BlueskyVideoJobStatus {
+  jobId?: string;
+  state?: "JOB_STATE_COMPLETED" | "JOB_STATE_FAILED" | string;
+  blob?: BlueskyBlobRef;
+  jobStatus?: {
+    jobId?: string;
+    state?: "JOB_STATE_COMPLETED" | "JOB_STATE_FAILED" | string;
+    blob?: BlueskyBlobRef;
+  };
+  error?: string;
+  message?: string;
 }
 
 interface BlueskyThreadViewNode {
@@ -217,43 +272,154 @@ export class BlueskyAdapter implements PlatformAdapter {
   }
 
   private async uploadBlob(mediaUrl: string, accessToken: string): Promise<BlueskyBlobRef | null> {
-    // redirect: "manual" — see mastodon.ts's uploadMedia for the full
-    // rationale (closes the adapter-side redirect-following SSRF gap;
-    // res.ok is false for any 3xx here, so the existing failure path below
-    // already handles it).
-    const mediaRes = await fetch(mediaUrl, { redirect: "manual" });
-    if (!mediaRes.ok || !mediaRes.body) return null;
-    const buffer = Buffer.from(await mediaRes.arrayBuffer());
-    const contentType = mediaRes.headers.get("content-type") ?? "application/octet-stream";
+    // Streamed instead of buffered (2026-09-05) -- see streamUpload.ts.
+    // redirect: "manual" is applied inside fetchMediaForStreaming, same
+    // SSRF-closing rationale as mastodon.ts's original uploadMedia.
+    const media = await fetchMediaForStreaming(mediaUrl);
+    if (!media) return null;
 
     const res = await fetch(UPLOAD_BLOB_URL, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "Content-Type": contentType,
+        "Content-Type": media.contentType,
       },
-      body: buffer,
-    });
+      body: media.body,
+      duplex: "half",
+    } as RequestInitWithDuplex);
     if (!res.ok) return null;
     const json = (await res.json()) as BlueskyUploadBlobResponse;
     return json.blob ?? null;
   }
 
+  // Video support added 2026-09-05 (docs.bsky.app / bsky.network, confirmed
+  // live) -- the most complex of the platforms built this session, per the
+  // approved plan's own note to build this one last and verify it carefully
+  // against the real dogfooding account rather than assume it works for
+  // every account. Real flow, genuinely different from every other
+  // adapter's media upload:
+  //   1. Confirm the account's email is verified -- Bluesky requires this
+  //      before video upload works at all, and getSession's own response
+  //      exposes emailConfirmed for exactly this check.
+  //   2. Mint a short-lived service-auth token scoped to the SEPARATE video
+  //      service (com.atproto.server.getServiceAuth, aud=video service DID,
+  //      lxm=app.bsky.video.uploadVideo) -- a normal PDS session token is
+  //      not accepted by video.bsky.app directly.
+  //   3. Upload the raw video bytes (streamed, not buffered) to
+  //      video.bsky.app -- this starts an async processing job, it does not
+  //      return a usable blob immediately.
+  //   4. Poll getJobStatus until the job completes, which is where the real
+  //      blob ref (usable in a post embed, same shape as an image blob)
+  //      actually comes from.
+  // Exact job-status state strings and query param names are reconstructed
+  // from AT Protocol's documented conventions rather than a field-by-field
+  // spec dump -- this is the one platform in this build most worth a real,
+  // careful live test before trusting it, not just tsc passing.
+  private async uploadVideo(mediaUrl: string, accessToken: string, did: string, pdsDid: string): Promise<BlueskyBlobRef | null> {
+    const serviceAuthUrl = new URL(GET_SERVICE_AUTH_URL);
+    serviceAuthUrl.searchParams.set("aud", pdsDid);
+    serviceAuthUrl.searchParams.set("lxm", "com.atproto.repo.uploadBlob");
+    const serviceAuthRes = await fetch(serviceAuthUrl.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const serviceAuthJson = (await serviceAuthRes.json()) as BlueskyServiceAuthResponse;
+    if (!serviceAuthRes.ok || !serviceAuthJson.token) return null;
+
+    const media = await fetchMediaForStreaming(mediaUrl);
+    if (!media) return null;
+
+    const uploadUrl = new URL(VIDEO_UPLOAD_URL);
+    uploadUrl.searchParams.set("did", did);
+    uploadUrl.searchParams.set("name", "video.mp4");
+    const uploadRes = await fetch(uploadUrl.toString(), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceAuthJson.token}`,
+        "Content-Type": media.contentType,
+      },
+      body: media.body,
+      duplex: "half",
+    } as RequestInitWithDuplex);
+    // uploadVideo's own response is FLAT (state/jobId/did at the top level)
+    // -- confirmed live 2026-09-05, genuinely different from getJobStatus's
+    // nested-under-jobStatus shape polled below.
+    //
+    // CAUGHT LIVE 2026-09-05: uploading video bytes that exactly match an
+    // already-processed upload returns HTTP 409 "already_exists" -- NOT a
+    // real failure, the response body still carries a valid, already-
+    // completed jobId (`{"error":"already_exists","jobId":"...",
+    // "state":"JOB_STATE_COMPLETED", "message":"Video already processed"}`).
+    // A real customer could hit this legitimately (e.g. a recurring post
+    // reusing the same media file), so this can't just be dismissed as a
+    // test-only artifact -- gate on whether the body has a usable jobId,
+    // not on uploadRes.ok.
+    const uploadJson = (await uploadRes.json()) as BlueskyVideoJobStatus;
+    if (!uploadJson.jobId) return null;
+    if (uploadJson.state === "JOB_STATE_COMPLETED" && uploadJson.blob) return uploadJson.blob;
+
+    // Real observed processing time for a ~1MB test video was ~6 seconds
+    // (2 polls at a 3s interval) -- polled reasonably quickly rather than
+    // the once-a-minute cadence Instagram/Threads' much larger Reels
+    // containers need, capped at 5 minutes total to match this build's
+    // other async-publish timeouts.
+    for (let attempt = 0; attempt < 100; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      const statusUrl = new URL(VIDEO_JOB_STATUS_URL);
+      statusUrl.searchParams.set("jobId", uploadJson.jobId);
+      const statusRes = await fetch(statusUrl.toString(), {
+        headers: { Authorization: `Bearer ${serviceAuthJson.token}` },
+      });
+      const statusJson = (await statusRes.json()) as BlueskyVideoJobStatus;
+      if (!statusRes.ok) return null;
+      const status = statusJson.jobStatus ?? statusJson;
+      if (status.state === "JOB_STATE_COMPLETED" && status.blob) return status.blob;
+      if (status.state === "JOB_STATE_FAILED") return null;
+    }
+    return null;
+  }
+
   async post(request: PostRequest): Promise<PostAttemptResult> {
-    if (request.mediaUrl && isVideoUrl(request.mediaUrl)) {
-      // Video embeds need app.bsky.embed.video plus a separate processing/
-      // status-poll step this adapter doesn't implement yet — an honest
-      // failure rather than a broken video-post attempt, same shape as
-      // Pinterest's video-Pin gap.
-      return {
-        success: false,
-        platformPostId: null,
-        errorMessage: "Bluesky video posts are not yet supported by this adapter",
-      };
+    // repo must be a did/handle — the access token's owner is looked up
+    // once here rather than threading platformAccountId through
+    // PostRequest, matching how every other adapter derives what it needs
+    // from the access token alone. Moved earlier in post() (2026-09-05) so
+    // video upload -- which needs the did too, for getServiceAuth's
+    // audience-scoped token -- can reuse this same lookup instead of a
+    // second one.
+    const sessionRes = await fetch(
+      `${DEFAULT_PDS}/xrpc/com.atproto.server.getSession`,
+      { headers: { Authorization: `Bearer ${request.accessToken}` } },
+    );
+    const sessionJson = (await sessionRes.json()) as BlueskyGetSessionResponse;
+    if (!sessionRes.ok || !sessionJson.did) {
+      return { success: false, platformPostId: null, errorMessage: sessionJson.message ?? "Bluesky session lookup failed" };
     }
 
     let embed: unknown;
-    if (request.mediaUrl) {
+    if (request.mediaUrl && isVideoUrl(request.mediaUrl)) {
+      if (sessionJson.emailConfirmed !== true) {
+        return {
+          success: false,
+          platformPostId: null,
+          errorMessage: "Bluesky requires a verified account email before video can be uploaded — this account's email is not confirmed",
+        };
+      }
+      // The user's own PDS DID (NOT video.bsky.app's) is getServiceAuth's
+      // required audience -- see uploadVideo's comment above for why.
+      // Derived from didDoc's #atproto_pds service entry, confirmed live
+      // 2026-09-05 this is per-account (different accounts can be hosted on
+      // different PDS instances), not a fixed value.
+      const pdsEndpoint = sessionJson.didDoc?.service?.find((s) => s.id === "#atproto_pds")?.serviceEndpoint;
+      if (!pdsEndpoint) {
+        return { success: false, platformPostId: null, errorMessage: "Could not resolve this account's PDS from its session (needed for video upload)" };
+      }
+      const pdsDid = `did:web:${new URL(pdsEndpoint).hostname}`;
+      const blob = await this.uploadVideo(request.mediaUrl, request.accessToken, sessionJson.did, pdsDid);
+      if (!blob) {
+        return { success: false, platformPostId: null, errorMessage: `Could not upload video from ${request.mediaUrl}` };
+      }
+      embed = { $type: "app.bsky.embed.video", video: blob, alt: request.mediaAltText ?? "" };
+    } else if (request.mediaUrl) {
       const blob = await this.uploadBlob(request.mediaUrl, request.accessToken);
       if (!blob) {
         return { success: false, platformPostId: null, errorMessage: `Could not upload media from ${request.mediaUrl}` };
@@ -266,19 +432,6 @@ export class BlueskyAdapter implements PlatformAdapter {
         // never reached Bluesky with no error telling them it didn't work.
         images: [{ alt: request.mediaAltText ?? "", image: blob }],
       };
-    }
-
-    // repo must be a did/handle — the access token's owner is looked up
-    // once here rather than threading platformAccountId through
-    // PostRequest, matching how every other adapter derives what it needs
-    // from the access token alone.
-    const sessionRes = await fetch(
-      `${DEFAULT_PDS}/xrpc/com.atproto.server.getSession`,
-      { headers: { Authorization: `Bearer ${request.accessToken}` } },
-    );
-    const sessionJson = (await sessionRes.json()) as { did?: string; message?: string };
-    if (!sessionRes.ok || !sessionJson.did) {
-      return { success: false, platformPostId: null, errorMessage: sessionJson.message ?? "Bluesky session lookup failed" };
     }
 
     const res = await fetch(CREATE_RECORD_URL, {

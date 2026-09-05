@@ -5,6 +5,7 @@ import type {
   VerifyResult,
   OAuthExchangeResult,
 } from "./types.js";
+import { fetchMediaForStreaming, createStreamCursor, createChunkStream, type RequestInitWithDuplex } from "./streamUpload.js";
 
 const AUTHORIZE_URL = "https://www.tiktok.com/v2/auth/authorize/";
 const TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/";
@@ -40,17 +41,18 @@ interface CreatorInfo {
   privacy_level_options?: string[];
 }
 
-// TikTok's real single-PUT ceiling (developers.tiktok.com/doc/content-posting-api-media-transfer-guide,
-// confirmed 2026-09-05): a chunk may be up to 64MB, and a video under 5MB
-// must go up as one whole "chunk" too (chunk_size === video_size). So ANY
-// video from 0 to 64MB can be sent as a single chunk_size=video_size,
-// total_chunk_count=1 request -- true multi-chunk splitting is only needed
-// past 64MB. Previously this constant was wrongly set to 5MB (misreading
-// the under-5MB exception as a general ceiling), which rejected every real
-// video between 5MB and LazyRelay's own 45MB app-wide cap -- i.e. almost
-// every real TikTok video -- even though the single-PUT code below already
-// handled them correctly. Since 45MB < 64MB, this fix alone closes the gap
-// with no actual chunking loop needed.
+// TikTok's real per-chunk ceiling (developers.tiktok.com/doc/content-posting-api-media-transfer-guide,
+// confirmed live 2026-09-05): a chunk may be up to 64MB, and a video under
+// 5MB must go up as one whole "chunk" too (chunk_size === video_size). So
+// ANY video from 0 to 64MB can be sent as a single chunk_size=video_size,
+// total_chunk_count=1 request; above 64MB, real sequential multi-chunk
+// upload is required (see post() below, built 2026-09-05 alongside the
+// app-wide cap raise to 1GB). Previously this was wrongly treated as a hard
+// ceiling with no chunking above it (a 5MB-then-64MB single-request-only
+// misreading) -- fine while LazyRelay's own app-wide cap was 45MB (always
+// under 64MB), but would have silently broken the moment that cap was
+// raised, which is exactly why the real chunking loop was built at the same
+// time as the cap increase rather than after.
 const SINGLE_CHUNK_MAX_BYTES = 64 * 1024 * 1024;
 
 function sleep(ms: number): Promise<void> {
@@ -223,31 +225,56 @@ export class TikTokAdapter implements PlatformAdapter {
     // can never verify — so pull-by-url would fail for every post, not just
     // this one. Uploading the bytes directly sidesteps domain verification
     // entirely.
-    // redirect: "manual" — see mastodon.ts's uploadMedia for the full
-    // rationale (closes the adapter-side redirect-following SSRF gap).
-    const videoRes = await fetch(request.mediaUrl, { redirect: "manual" });
-    if (!videoRes.ok) {
+    const media = await fetchMediaForStreaming(request.mediaUrl);
+    if (!media) {
       return {
         success: false,
         platformPostId: null,
-        errorMessage: `Failed to fetch video from storage for upload (HTTP ${videoRes.status})`,
+        errorMessage: "Failed to fetch video from storage for upload",
       };
     }
-    const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
-    const videoSize = videoBuffer.byteLength;
-
-    // Checked before calling TikTok's init endpoint at all: no point
-    // burning a publish_id on a file this adapter can't actually send.
-    // LazyRelay's own media-upload endpoint already caps every file at
-    // 45MB, well under this 64MB ceiling, so this should never trigger in
-    // real usage -- it's a defensive check in case that cap is ever raised
-    // without updating this adapter too.
-    if (videoSize > SINGLE_CHUNK_MAX_BYTES) {
+    if (media.sizeBytes == null) {
       return {
         success: false,
         platformPostId: null,
-        errorMessage: `Video is ${videoSize} bytes — this adapter only supports single-chunk uploads up to ${SINGLE_CHUNK_MAX_BYTES} bytes`,
+        errorMessage: "Could not determine video size from storage (missing Content-Length) — cannot build a TikTok chunk plan without a known size",
       };
+    }
+    const videoSize = media.sizeBytes;
+
+    // Real multi-chunk upload above TikTok's 64MB single-PUT ceiling, built
+    // 2026-09-05 alongside the app-wide cap raise to 1GB -- raising the cap
+    // without this would have silently reintroduced the exact bug already
+    // found and fixed once today (mediaLimits.ts approving a video this
+    // adapter then can't actually send).
+    //
+    // CAUGHT LIVE 2026-09-05 during the real test pass, before this ever
+    // reached TikTok: choosing chunkSize = min(videoSize, 64MB) and then
+    // total_chunk_count = floor(videoSize/chunkSize) is WRONG whenever
+    // videoSize is just over 64MB -- e.g. an 83MB video gives
+    // chunkSize=64MB, floor(83/64)=1, meaning "1 chunk" for a video TikTok's
+    // own docs say "must be uploaded in multiple chunks" once over 64MB.
+    // The fix: pick the SMALLEST chunk count N that keeps every chunk at or
+    // under 64MB (N = ceil(videoSize / 64MB)), then set chunkSize =
+    // floor(videoSize / N) -- choosing chunkSize this way (not by simply
+    // capping at 64MB) is what makes TikTok's own floor-division formula
+    // land on exactly N chunks, with the last chunk absorbing only the
+    // small remainder floor() leaves over (well under the 128MB final-chunk
+    // allowance), rather than ballooning back up to the whole file.
+    // developers.tiktok.com/doc/content-posting-api-media-transfer-guide,
+    // confirmed live 2026-09-05: "at least 5 MB but no greater than 64 MB,
+    // except for the final chunk, which can be greater... (up to 128 MB)",
+    // "total_chunk_count ... equal to video_size divided by chunk_size,
+    // rounded down", "chunks must be uploaded sequentially."
+    let chunkSize: number;
+    let totalChunkCount: number;
+    if (videoSize <= SINGLE_CHUNK_MAX_BYTES) {
+      chunkSize = videoSize;
+      totalChunkCount = 1;
+    } else {
+      const chunkCountNeeded = Math.ceil(videoSize / SINGLE_CHUNK_MAX_BYTES);
+      chunkSize = Math.floor(videoSize / chunkCountNeeded);
+      totalChunkCount = Math.floor(videoSize / chunkSize);
     }
 
     const res = await fetch(POST_INIT_URL, {
@@ -279,12 +306,8 @@ export class TikTokAdapter implements PlatformAdapter {
         source_info: {
           source: "FILE_UPLOAD",
           video_size: videoSize,
-          // Any video up to 64MB (TikTok's real single-PUT ceiling, checked
-          // above) can go up as one whole chunk -- chunk_size === video_size
-          // is valid for the whole 0-64MB range, not just under 5MB. See the
-          // comment on SINGLE_CHUNK_MAX_BYTES above.
-          chunk_size: videoSize,
-          total_chunk_count: 1,
+          chunk_size: chunkSize,
+          total_chunk_count: totalChunkCount,
         },
       }),
     });
@@ -298,20 +321,39 @@ export class TikTokAdapter implements PlatformAdapter {
       };
     }
 
-    const uploadRes = await fetch(json.data.upload_url, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "video/mp4",
-        "Content-Range": `bytes 0-${videoSize - 1}/${videoSize}`,
-      },
-      body: videoBuffer,
-    });
-    if (!uploadRes.ok) {
-      return {
-        success: false,
-        platformPostId: json.data.publish_id,
-        errorMessage: `TikTok video upload failed (HTTP ${uploadRes.status})`,
-      };
+    // Chunks must be uploaded sequentially (TikTok's own requirement) --
+    // one shared cursor over the single source stream, each chunk's PUT
+    // consuming exactly its own byte range before the next one starts, so
+    // memory never holds more than one underlying read()'s worth of data
+    // regardless of total video size. See streamUpload.ts's
+    // createChunkStream for how a continuous stream gets split this way.
+    const cursor = createStreamCursor(media.body);
+    for (let i = 0; i < totalChunkCount; i++) {
+      const start = i * chunkSize;
+      // Last chunk absorbs the remainder (including TikTok's own floor
+      // division leaving bytes unaccounted for) -- matches
+      // video_size/chunk_size/total_chunk_count semantics from the init
+      // call above.
+      const end = i === totalChunkCount - 1 ? videoSize - 1 : start + chunkSize - 1;
+      const thisChunkBytes = end - start + 1;
+      const chunkStream = createChunkStream(cursor, thisChunkBytes);
+      const uploadRes = await fetch(json.data.upload_url, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "video/mp4",
+          "Content-Length": String(thisChunkBytes),
+          "Content-Range": `bytes ${start}-${end}/${videoSize}`,
+        },
+        body: chunkStream,
+        duplex: "half",
+      } as RequestInitWithDuplex);
+      if (!uploadRes.ok) {
+        return {
+          success: false,
+          platformPostId: json.data.publish_id,
+          errorMessage: `TikTok video upload failed on chunk ${i + 1}/${totalChunkCount} (HTTP ${uploadRes.status})`,
+        };
+      }
     }
 
     return { success: true, platformPostId: json.data.publish_id, errorMessage: null };
