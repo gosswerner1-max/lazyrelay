@@ -4126,8 +4126,11 @@ export function Dashboard() {
                   <span className="section-note">
                     Posting as {tiktokAccount.display_name ?? tiktokAccount.platform_account_id} on TikTok
                   </span>
+                  <span className="section-note">
+                    <strong style={{ color: "var(--error)" }}>*</strong> required. Everything else below is optional and off by default.
+                  </span>
                   <label>
-                    Who can view this on TikTok
+                    Who can view this on TikTok <strong style={{ color: "var(--error)" }}>*</strong>
                     <select
                       value={tiktokPrivacyLevel ?? ""}
                       onChange={(e) => setTiktokPrivacyLevel(e.target.value || null)}
@@ -4146,6 +4149,8 @@ export function Dashboard() {
                       <span className="section-note">Branded content visibility cannot be set to private — choose a different option.</span>
                     )}
                   </label>
+
+                  <span className="section-note">Optional — leave unchecked if none of these apply:</span>
                   <label className="approval-checkbox-label">
                     <input type="checkbox" checked={tiktokAllowComment} onChange={(e) => setTiktokAllowComment(e.target.checked)} />
                     Allow comments
@@ -4198,13 +4203,16 @@ export function Dashboard() {
                       )}
                     </>
                   )}
-                  <label className="approval-checkbox-label">
+
+                  <label className="approval-checkbox-label tiktok-consent-required">
                     <input
                       type="checkbox"
                       checked={tiktokConsentGiven}
                       onChange={(e) => setTiktokConsentGiven(e.target.checked)}
                     />
-                    By posting, you agree to TikTok's{tiktokBrandContent ? " Branded Content Policy and" : ""} Music Usage Confirmation.
+                    <strong>
+                      <span style={{ color: "var(--error)" }}>*</span> By posting, you agree to TikTok's{tiktokBrandContent ? " Branded Content Policy and" : ""} Music Usage Confirmation.
+                    </strong>
                   </label>
                 </div>
               );

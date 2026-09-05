@@ -2523,6 +2523,18 @@
   letter-spacing: normal !important;
 }
 
+/* Visually separates the one checkbox that actually blocks submitting a
+   TikTok post from the optional toggles above it (2026-09-05) -- without
+   this, all five checkboxes looked identical and it was unclear which one
+   was actually required. */
+.tiktok-consent-required {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--error);
+  border-radius: 6px;
+  background: var(--error-bg);
+}
+
 /* TikTok's own Content Sharing Guidelines require a real privacy choice
    (no default) plus interaction toggles, shown only once a TikTok account
    is selected in the compose form (2026-09-05). */
