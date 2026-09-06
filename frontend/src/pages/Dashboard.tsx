@@ -46,15 +46,11 @@ const MAIN_TABS: Tab[] = ["Overview", "Posts", "Calendar", "Social Platforms", "
 const MORE_TABS: Tab[] = ["Analytics", "Mentions", "DMs", "Bio Page"];
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-// Both Google integrations are built and working, but Google's own app
-// verification review is still pending for both -- a real customer trying
-// to connect would hit Google's "unverified app" warning screen mid-consent,
-// which reads as untrustworthy on a product whose whole pitch is proof and
-// verification. Greyed out for everyone (including this account) rather
-// than a real-customer-only gate, on purpose -- simpler, and this is a
-// temporary state that reverses the moment Google clears review. Flip back
-// to true to resume internal testing before then. 2026-09-04, Werner's call.
-const GOOGLE_INTEGRATIONS_LIVE = false;
+// Both Google integrations are built and working. Google's app verification
+// review (set to false 2026-09-04 to hide both behind a "Coming soon" badge
+// while it was pending) cleared 2026-09-05 -- flipped back to true so real
+// customers can connect Google Calendar and Google Sheets.
+const GOOGLE_INTEGRATIONS_LIVE = true;
 
 // Multi-brand filtering (2026-08-08) — matches the backend's
 // UNBRANDED_FILTER_VALUE sentinel in routes.ts, used wherever a customer

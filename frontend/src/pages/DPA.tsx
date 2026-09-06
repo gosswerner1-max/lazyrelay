@@ -7,7 +7,7 @@ interface DPAProps {
   onBack: () => void;
 }
 
-const LAST_UPDATED = "11 August 2026";
+const LAST_UPDATED = "6 September 2026";
 
 export function DPA({ onBack }: DPAProps) {
   useEffect(() => {
@@ -114,9 +114,11 @@ export function DPA({ onBack }: DPAProps) {
           <ul>
             <li><strong>Supabase</strong> (database and authentication) — EU-hosted (Ireland), SOC 2 Type II certified.</li>
             <li><strong>Render</strong> (application hosting) — US-hosted (Oregon), SOC 2 Type II certified.</li>
+            <li><strong>Cloudflare</strong> (content delivery network and edge security, proxying all traffic to lazyrelay.com) — SOC 2 Type II and ISO 27001 certified.</li>
             <li><strong>Anthropic</strong> (AI features: support assistant, caption/hashtag suggestions, comment classification) — SOC 2 Type II certified; does not train its models on this data, and API inputs/outputs are deleted within 30 days by default.</li>
             <li><strong>Resend</strong> (transactional email) — US-hosted, SOC 2 Type II certified.</li>
             <li><strong>Paddle.com</strong> (billing, as merchant of record) — SOC 2 Type II and PCI-DSS certified; card details are handled entirely by Paddle and never reach LazyRelay's own systems.</li>
+            <li><strong>PostHog</strong> (product analytics, session replay, error tracking; only if you accept analytics cookies) — SOC 2 Type II and ISO 27001 certified; EU-hosted, with sensitive dashboard fields masked by default.</li>
           </ul>
           <p>
             If LazyRelay adds or replaces a sub-processor that would materially change how your personal data
@@ -129,7 +131,8 @@ export function DPA({ onBack }: DPAProps) {
           <h3>International transfers</h3>
           <p>
             Personal data processed under this DPA may be transferred to and processed in the United States (via
-            Render, Anthropic, Resend, and Paddle) as well as the EU (via Supabase). Each such transfer is
+            Render, Anthropic, Resend, and Paddle), the EU (via Supabase and PostHog), and, for Cloudflare's edge
+            network, a range of countries worldwide as needed to route traffic efficiently. Each such transfer is
             covered by Standard Contractual Clauses under that sub-processor's own data processing agreement, as
             referenced above.
           </p>
