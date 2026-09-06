@@ -119,6 +119,20 @@
   margin: 0;
 }
 
+.auth-consent {
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
+/* .link's base rule assumes a standalone full-width link button (adds its
+   own 20px top margin) -- inline links inside a sentence need to sit flush
+   with the surrounding text instead. */
+.auth-consent .link {
+  margin-top: 0;
+  font-size: inherit;
+  padding: 0;
+}
+
 .name-suggestions {
   display: flex;
   flex-wrap: wrap;
@@ -1026,6 +1040,19 @@ button[type="submit"]:not(.btn-outline),
 }
 
 .landing-section h2 {
+  font-size: 26px;
+  margin-bottom: 32px;
+}
+
+/* The legal/docs pages (Privacy, Terms, DPA, Data Deletion, Contact, API
+   docs) each had only an <h2> as their page title, with no <h1> anywhere on
+   the page -- a real accessibility gap found in the 2026-09-06 compliance
+   audit (a page with no <h1> has no unambiguous main heading for assistive
+   tech). Fixed by promoting each page's title to a real <h1>; this rule
+   keeps its visual size/spacing identical to the .landing-section h2 style
+   above, scoped narrowly to .legal-page so it can never affect Landing.tsx's
+   own hero <h1> (a different class, not present on this page type). */
+.legal-page h1 {
   font-size: 26px;
   margin-bottom: 32px;
 }

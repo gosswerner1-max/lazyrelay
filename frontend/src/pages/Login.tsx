@@ -9,11 +9,13 @@ interface LoginProps {
   initialMode?: "signin" | "signup";
   onBack: () => void;
   onForgotPassword?: () => void;
+  onPrivacy?: () => void;
+  onTerms?: () => void;
 }
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
 
-export function Login({ initialMode = "signin", onBack, onForgotPassword }: LoginProps) {
+export function Login({ initialMode = "signin", onBack, onForgotPassword, onPrivacy, onTerms }: LoginProps) {
   const { signIn, signUp, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -153,6 +155,12 @@ export function Login({ initialMode = "signin", onBack, onForgotPassword }: Logi
         </div>
       ) : (
         <div className="auth-card">
+          {/* Visually hidden -- the card's real visible heading is the
+              wordmark + subtitle below, which already communicate "sign in"
+              vs "create account" at a glance. This exists only so the page
+              has a genuine <h1>, which it previously lacked entirely
+              (found in the 2026-09-06 compliance audit). */}
+          <h1 className="sr-only">{mode === "signin" ? "Sign in to LazyRelay" : "Create your LazyRelay account"}</h1>
           <div className="wordmark">
             <BrandMark size={36} />
             <span style={{ fontSize: 22 }}>LazyRelay</span>
@@ -239,6 +247,28 @@ export function Login({ initialMode = "signin", onBack, onForgotPassword }: Logi
               />
             )}
             {error && <p className="error">{error}</p>}
+            {mode === "signup" && (
+              // Real disclosure at the actual point of data collection --
+              // Terms/Privacy existed on the site already, but nothing on
+              // the signup form itself linked to them or said agreement was
+              // required (found in the 2026-09-06 compliance audit). A
+              // linked sentence next to the submit button, not a separate
+              // mandatory checkbox, matching how most SaaS signup forms
+              // handle ToS/Privacy agreement (as opposed to the cookie
+              // banner's own opt-in checkboxes, which are a different kind
+              // of consent).
+              <p className="field-hint auth-consent">
+                By signing up, you agree to our{" "}
+                <button type="button" className="link" onClick={onTerms}>
+                  Terms of Service
+                </button>{" "}
+                and{" "}
+                <button type="button" className="link" onClick={onPrivacy}>
+                  Privacy Policy
+                </button>
+                .
+              </p>
+            )}
             <button type="submit" disabled={submitting || !captchaToken}>
               {submitting ? "..." : mode === "signin" ? "Sign in" : "Sign up"}
             </button>

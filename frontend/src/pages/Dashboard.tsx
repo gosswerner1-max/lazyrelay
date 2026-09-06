@@ -5018,7 +5018,7 @@ export function Dashboard() {
                       const isPromoting = promotingPlanId === p.id;
                       return (
                         <li key={p.id} className="post-status-draft">
-                          {p.media_url && <img className="media-list-thumb" src={p.media_url} alt="" />}
+                          {p.media_url && <img className="media-list-thumb" src={p.media_url} alt="Media attached to this planned post" />}
                           <div className="post-content">{p.content}</div>
                           {plannedAccounts.length > 0 && (
                             <div className="post-platform">
@@ -5289,7 +5289,11 @@ export function Dashboard() {
               return (
                 <li key={m.id}>
                   {m.mime_type.startsWith("image/") ? (
-                    <img className="media-list-thumb" src={m.url} alt="" />
+                    // Real per-file alt text if the customer set one in the
+                    // field below (the whole point of that field), rather
+                    // than the hardcoded alt="" this thumbnail used to have
+                    // regardless -- found in the 2026-09-06 compliance audit.
+                    <img className="media-list-thumb" src={m.url} alt={m.alt_text || "Uploaded media, no alt text set yet"} />
                   ) : (
                     <div className="media-list-thumb" />
                   )}

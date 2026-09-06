@@ -144,8 +144,7 @@ export function OAuthConsentPage({ authorizationId }: { authorizationId: string 
       <div className="oauth-consent-card">
         <BrandMark size={32} />
         {details.client.logo_uri && (
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          <img src={details.client.logo_uri} alt="" className="oauth-consent-client-logo" />
+          <img src={details.client.logo_uri} alt={`${details.client.name} logo`} className="oauth-consent-client-logo" />
         )}
         <h1>{details.client.name} wants to connect to your LazyRelay account</h1>
         <p className="section-note">Signed in as {session.user.email}</p>

@@ -424,7 +424,13 @@ function Root() {
   return (
     <>
       {authErrorBanner}
-      <Login initialMode={view} onBack={() => setView("landing")} onForgotPassword={() => setView("forgot-password")} />
+      <Login
+        initialMode={view}
+        onBack={() => setView("landing")}
+        onForgotPassword={() => setView("forgot-password")}
+        onPrivacy={() => setView("privacy")}
+        onTerms={() => setView("terms")}
+      />
     </>
   );
 }

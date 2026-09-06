@@ -56,7 +56,7 @@ export function Contact({ onBack }: ContactProps) {
       </header>
 
       <section className="landing-section legal-page">
-        <h2>Contact us</h2>
+        <h1>Contact us</h1>
         <p className="section-note">
           Pick whichever fits best. We read all three, but the right inbox gets you a faster answer.
         </p>

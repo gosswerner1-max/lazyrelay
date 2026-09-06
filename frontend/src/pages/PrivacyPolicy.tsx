@@ -35,7 +35,7 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
       </header>
 
       <section className="landing-section legal-page">
-        <h2>Privacy Policy</h2>
+        <h1>Privacy Policy</h1>
         <p className="section-note">Last updated {LAST_UPDATED}</p>
 
         <div className="about-text legal-body">
@@ -71,8 +71,13 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
             reports, and session replay (a recording of your on-screen activity, not audio or video of you). Every
             page and input on the dashboard is masked in these recordings by default, and anything showing a real
             secret (an API key, a webhook secret, MFA recovery codes) is always masked regardless of that setting.
-            If you decline analytics cookies, none of this is collected. We do not use tracking cookies for
-            advertising.
+            If you decline analytics cookies, none of this is collected.
+          </p>
+          <p>
+            <strong>Advertising.</strong> We do not currently run any advertising campaigns, so no advertising
+            cookies are actually in use today. The cookie banner still offers a separate "Targeted Advertising"
+            preference, covering the consent signal that would apply the moment any future ad campaign goes live
+            — so your choice is already respected in advance rather than something we'd need to ask again later.
           </p>
 
           <h3>How we use your information</h3>

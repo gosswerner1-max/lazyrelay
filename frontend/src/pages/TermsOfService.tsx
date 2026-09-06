@@ -35,7 +35,7 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
       </header>
 
       <section className="landing-section legal-page">
-        <h2>Terms of Service</h2>
+        <h1>Terms of Service</h1>
         <p className="section-note">Last updated {LAST_UPDATED}</p>
 
         <div className="about-text legal-body">

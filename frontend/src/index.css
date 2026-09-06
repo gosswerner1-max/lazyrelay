@@ -90,6 +90,24 @@ body {
   min-height: 100svh;
 }
 
+/* Standard visually-hidden pattern -- present for screen readers/assistive
+   tech only, no visual footprint. Added 2026-09-06 for the login/signup
+   form, which had no <h1> at all (just a brand-mark span + a subtitle
+   paragraph) -- a real <h1> is needed there but a big visible one would
+   change that page's compact design, which wasn't part of what this fix
+   was asked to touch. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 h1,
 h2 {
   font-family: var(--font-display);

@@ -35,7 +35,7 @@ export function BioPage({ slug }: { slug: string }) {
   return (
     <div className="bio-page-shell">
       <div className="bio-page-card">
-        {page.avatarUrl && <img src={page.avatarUrl} alt="" className="bio-page-avatar" />}
+        {page.avatarUrl && <img src={page.avatarUrl} alt={page.title ? `${page.title} profile photo` : "Profile photo"} className="bio-page-avatar" />}
         {page.title && <h1>{page.title}</h1>}
         {page.bio && <p className="bio-page-bio">{page.bio}</p>}
         <div className="bio-page-links">

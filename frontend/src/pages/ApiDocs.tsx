@@ -35,7 +35,7 @@ export function ApiDocs({ onBack }: ApiDocsProps) {
       </header>
 
       <section className="landing-section legal-page api-docs">
-        <h2>API &amp; MCP server</h2>
+        <h1>API &amp; MCP server</h1>
         <p className="section-note">
           Everything below is real and live today: the same API LazyRelay's own dashboard runs on. Already have
           an account? The same docs live inside your dashboard's API Keys tab, with no need to sign back in.

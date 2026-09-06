@@ -35,7 +35,7 @@ export function DataDeletion({ onBack }: DataDeletionProps) {
       </header>
 
       <section className="landing-section legal-page">
-        <h2>Data Deletion Instructions</h2>
+        <h1>Data Deletion Instructions</h1>
         <p className="section-note">Last updated {LAST_UPDATED}</p>
 
         <div className="about-text legal-body">

@@ -35,7 +35,7 @@ export function DPA({ onBack }: DPAProps) {
       </header>
 
       <section className="landing-section legal-page">
-        <h2>Data Processing Addendum</h2>
+        <h1>Data Processing Addendum</h1>
         <p className="section-note">Last updated {LAST_UPDATED}</p>
 
         <div className="about-text legal-body">
