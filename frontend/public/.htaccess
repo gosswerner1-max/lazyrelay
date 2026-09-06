@@ -133,6 +133,28 @@
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
 </IfModule>
 
+# frame-ancestors scoping added 2026-09-06: the rankinpublic.xyz exception
+# above (added 2026-09-01) was site-wide because the dashboard had no URL of
+# its own to scope it away from -- confirmed by reading App.tsx, the
+# authenticated view rendered at whatever path a session happened to resolve
+# on, almost always "/". Fixed on the React side first (App.tsx now
+# canonicalizes any authenticated session onto a real "/dashboard" URL via
+# history.replaceState), which makes this LocationMatch possible: it matches
+# the ORIGINAL request path even though mod_rewrite below serves the same
+# physical index.html everywhere. This ADDS a second, narrower
+# Content-Security-Policy header for exactly "/dashboard" rather than
+# replacing the one above -- per the CSP spec, when a response carries
+# multiple CSP headers, each directive is enforced as the INTERSECTION of
+# every header that sets it, so frame-ancestors here (no rankinpublic.xyz)
+# tightens the effective policy on the dashboard without needing to repeat
+# the entire policy string. RankInPublic's iframe still works on every
+# marketing/legal page, which is the only place it was ever meant to.
+<IfModule mod_headers.c>
+  <LocationMatch "^/dashboard">
+    Header always add Content-Security-Policy "frame-ancestors 'self'"
+  </LocationMatch>
+</IfModule>
+
 # Real gap found 2026-08-26: no Cache-Control header existed anywhere on the
 # site, so every HTML response (the SPA shell, every static crawler page)
 # fell back to browser heuristic caching. Confirmed live: a real returning

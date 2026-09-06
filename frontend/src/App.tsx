@@ -168,6 +168,14 @@ function Root() {
   }, [session]);
 
   useEffect(() => {
+    // While a session exists, the dashboard-canonicalization effect below
+    // owns the URL instead -- this effect's whole job (sync `view` to a
+    // marketing/legal path) doesn't apply once Dashboard is what's actually
+    // rendering. Without this guard, the two effects fought each other:
+    // this one would push VIEW_TO_PATH[view] (often "/", since `view` still
+    // holds whatever it was before login) right after the other one had
+    // just set the URL to "/dashboard".
+    if (session) return;
     // Connect-form pages own their own URL (/connect/<platform>?state=...)
     // outside this view/path state machine — syncing it back to whatever
     // `view` resolves to (usually "/") would silently strip the `state`
@@ -203,7 +211,40 @@ function Root() {
     if (window.location.pathname !== path) {
       window.history.pushState({}, "", path);
     }
-  }, [view]);
+  }, [view, session]);
+
+  // Canonicalizes the authenticated dashboard onto its own real URL
+  // ("/dashboard") instead of wherever a logged-in session happens to be
+  // sitting -- usually "/", but could be any marketing/legal path if the
+  // tab was already open there when the session resolved. Added 2026-09-06
+  // specifically so Apache can scope the CSP frame-ancestors exception
+  // (added for the RankInPublic badge-verification widget) to the
+  // marketing pages only, never the authenticated dashboard -- before this,
+  // the dashboard and the marketing homepage were indistinguishable by URL,
+  // so that CSP exception necessarily applied to both. Skips the same
+  // self-owned-URL exceptions as the effect above, for the same reason --
+  // those pages must never be redirected away from even for a logged-in
+  // visitor. Uses replaceState, not pushState, so logging in doesn't leave
+  // a phantom history entry the back button would just bounce off of.
+  useEffect(() => {
+    if (!session) return;
+    const pathname = window.location.pathname;
+    if (
+      pathname.startsWith("/connect/") ||
+      pathname.startsWith("/bio/") ||
+      pathname.startsWith("/verify/") ||
+      pathname.startsWith("/feedback/") ||
+      pathname === "/oauth/consent" ||
+      pathname === "/team/accept" ||
+      pathname === "/docs" ||
+      pathname === "/reset-password"
+    ) {
+      return;
+    }
+    if (normalizePath(pathname) !== "/dashboard") {
+      window.history.replaceState({}, "", "/dashboard");
+    }
+  }, [session]);
 
   useEffect(() => {
     const onPopState = () => setView(PATH_TO_VIEW[normalizePath(window.location.pathname)] ?? "landing");
