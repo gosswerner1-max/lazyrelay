@@ -139,20 +139,36 @@
 # authenticated view rendered at whatever path a session happened to resolve
 # on, almost always "/". Fixed on the React side first (App.tsx now
 # canonicalizes any authenticated session onto a real "/dashboard" URL via
-# history.replaceState), which makes this LocationMatch possible: it matches
-# the ORIGINAL request path even though mod_rewrite below serves the same
-# physical index.html everywhere. This ADDS a second, narrower
-# Content-Security-Policy header for exactly "/dashboard" rather than
-# replacing the one above -- per the CSP spec, when a response carries
-# multiple CSP headers, each directive is enforced as the INTERSECTION of
-# every header that sets it, so frame-ancestors here (no rankinpublic.xyz)
-# tightens the effective policy on the dashboard without needing to repeat
-# the entire policy string. RankInPublic's iframe still works on every
-# marketing/legal page, which is the only place it was ever meant to.
+# history.replaceState).
+#
+# REAL OUTAGE, caught within minutes by a live curl check right after this
+# deployed: the first version of this fix used <LocationMatch "^/dashboard">
+# to scope the header. <Location>/<LocationMatch> are not permitted inside
+# .htaccess at all (only in main server/vhost config) -- Apache refuses to
+# even parse the file, which took the ENTIRE site down with a 500 on every
+# path, not just /dashboard. Reverted to the .htaccess-legal equivalent
+# below: mod_rewrite sets an environment variable when the real request path
+# is /dashboard, and Header's own `env=` condition (a directive .htaccess
+# does allow) reads it. RewriteRule runs during URL-rewriting, before
+# response headers are ever sent, so the order relative to the mod_rewrite
+# block further down doesn't matter -- the env var set there is still
+# readable by the Header directive here.
+#
+# This ADDS a second, narrower Content-Security-Policy header for exactly
+# "/dashboard" rather than replacing the one above -- per the CSP spec, when
+# a response carries multiple CSP headers, each directive is enforced as the
+# INTERSECTION of every header that sets it, so frame-ancestors here (no
+# rankinpublic.xyz) tightens the effective policy on the dashboard without
+# needing to repeat the entire policy string. RankInPublic's iframe still
+# works on every marketing/legal page, which is the only place it was ever
+# meant to.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_URI} ^/dashboard
+  RewriteRule ^ - [E=LAZYRELAY_DASHBOARD:1]
+</IfModule>
 <IfModule mod_headers.c>
-  <LocationMatch "^/dashboard">
-    Header always add Content-Security-Policy "frame-ancestors 'self'"
-  </LocationMatch>
+  Header always add Content-Security-Policy "frame-ancestors 'self'" env=LAZYRELAY_DASHBOARD
 </IfModule>
 
 # Real gap found 2026-08-26: no Cache-Control header existed anywhere on the
