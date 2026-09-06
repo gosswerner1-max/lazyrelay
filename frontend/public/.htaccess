@@ -181,6 +181,11 @@
 </IfModule>
 <IfModule mod_headers.c>
   Header edit Content-Security-Policy "frame-ancestors 'self' https://rankinpublic\.xyz" "frame-ancestors 'self'" env=LAZYRELAY_DASHBOARD
+  # TEMPORARY, round 2 -- THE_REQUEST fix still didn't scope the header live.
+  # Isolating further: does LAZYRELAY_DASHBOARD reach mod_headers now (fixes
+  # the RewriteCond), separately from whether Header edit's regex itself
+  # actually matches the live header value.
+  Header always set X-Debug-Dashboard-Env "yes" env=LAZYRELAY_DASHBOARD
 </IfModule>
 
 # Real gap found 2026-08-26: no Cache-Control header existed anywhere on the
