@@ -157,33 +157,30 @@
 # SECOND real bug, also caught live: the first fix here added a SECOND
 # Content-Security-Policy header instance (Header ... add ..., relying on
 # the CSP spec's rule that multiple policy headers enforce as an
-# intersection) instead of editing the one header. curl showed only ever
-# one CSP header on both "/" and "/dashboard", identical -- whether that's
-# Cloudflare deduplicating same-name headers at the edge, or mod_rewrite's
-# env var not surviving the internal rewrite to /index.html that both paths
-# go through, the two-header approach is fragile either way. Rewritten to
-# edit the SINGLE existing header's value in place instead: no second
-# header instance to be merged or lost anywhere in the chain, so this can't
-# silently no-op the same way again. RankInPublic's iframe still works on
-# every marketing/legal page, which is the only place it was ever meant to.
+# intersection) instead of editing the one header, then switched to
+# Header edit -- neither one actually scoped the policy live, curl kept
+# showing the identical CSP on both "/" and "/dashboard".
+#
+# ROOT CAUSE, found with temporary debug headers rather than a third blind
+# guess: %{REQUEST_URI} in the RewriteCond below only matches on mod_rewrite's
+# FIRST pass. The SPA-fallback rule further down rewrites every non-file
+# request to /index.html with [L], which restarts per-directory rewrite
+# processing for the NEW uri -- so by the second pass %{REQUEST_URI} is
+# "/index.html", the "^/dashboard" match fails, and the env var this rule
+# sets never survives to when mod_headers reads it (confirmed:
+# env=REDIRECT_STATUS-gated header fired on /dashboard, proving env=
+# conditions work fine here; env=LAZYRELAY_DASHBOARD-gated header did not,
+# isolating the bug to this RewriteCond specifically). %{THE_REQUEST} is the
+# fix -- it holds the client's original raw request line (e.g.
+# "GET /dashboard HTTP/1.1") and, unlike REQUEST_URI, is never rewritten by
+# an internal redirect, so it still matches on every subsequent pass.
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteCond %{REQUEST_URI} ^/dashboard
+  RewriteCond %{THE_REQUEST} \s/dashboard[\s?/]
   RewriteRule ^ - [E=LAZYRELAY_DASHBOARD:1]
 </IfModule>
 <IfModule mod_headers.c>
   Header edit Content-Security-Policy "frame-ancestors 'self' https://rankinpublic\.xyz" "frame-ancestors 'self'" env=LAZYRELAY_DASHBOARD
-  # TEMPORARY diagnostic headers, added 2026-09-06 -- the edit above isn't
-  # taking effect live and neither did the add-a-second-header attempt
-  # before it, so this checks two things in one deploy instead of guessing
-  # again: does Header's env= condition work AT ALL in this hosting
-  # environment (env=REDIRECT_STATUS is set by Apache/LiteSpeed itself on
-  # every internally-rewritten request, which is every request here), and
-  # separately, did the RewriteCond/RewriteRule above actually set
-  # LAZYRELAY_DASHBOARD for this specific request. Remove both once the
-  # real cause is found and the fix above is confirmed working.
-  Header always set X-Debug-Env-Works "yes" env=REDIRECT_STATUS
-  Header always set X-Debug-Dashboard-Env "yes" env=LAZYRELAY_DASHBOARD
 </IfModule>
 
 # Real gap found 2026-08-26: no Cache-Control header existed anywhere on the
