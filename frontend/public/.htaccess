@@ -154,21 +154,25 @@
 # block further down doesn't matter -- the env var set there is still
 # readable by the Header directive here.
 #
-# This ADDS a second, narrower Content-Security-Policy header for exactly
-# "/dashboard" rather than replacing the one above -- per the CSP spec, when
-# a response carries multiple CSP headers, each directive is enforced as the
-# INTERSECTION of every header that sets it, so frame-ancestors here (no
-# rankinpublic.xyz) tightens the effective policy on the dashboard without
-# needing to repeat the entire policy string. RankInPublic's iframe still
-# works on every marketing/legal page, which is the only place it was ever
-# meant to.
+# SECOND real bug, also caught live: the first fix here added a SECOND
+# Content-Security-Policy header instance (Header ... add ..., relying on
+# the CSP spec's rule that multiple policy headers enforce as an
+# intersection) instead of editing the one header. curl showed only ever
+# one CSP header on both "/" and "/dashboard", identical -- whether that's
+# Cloudflare deduplicating same-name headers at the edge, or mod_rewrite's
+# env var not surviving the internal rewrite to /index.html that both paths
+# go through, the two-header approach is fragile either way. Rewritten to
+# edit the SINGLE existing header's value in place instead: no second
+# header instance to be merged or lost anywhere in the chain, so this can't
+# silently no-op the same way again. RankInPublic's iframe still works on
+# every marketing/legal page, which is the only place it was ever meant to.
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteCond %{REQUEST_URI} ^/dashboard
   RewriteRule ^ - [E=LAZYRELAY_DASHBOARD:1]
 </IfModule>
 <IfModule mod_headers.c>
-  Header always add Content-Security-Policy "frame-ancestors 'self'" env=LAZYRELAY_DASHBOARD
+  Header edit Content-Security-Policy "frame-ancestors 'self' https://rankinpublic\.xyz" "frame-ancestors 'self'" env=LAZYRELAY_DASHBOARD
 </IfModule>
 
 # Real gap found 2026-08-26: no Cache-Control header existed anywhere on the
