@@ -173,6 +173,17 @@
 </IfModule>
 <IfModule mod_headers.c>
   Header edit Content-Security-Policy "frame-ancestors 'self' https://rankinpublic\.xyz" "frame-ancestors 'self'" env=LAZYRELAY_DASHBOARD
+  # TEMPORARY diagnostic headers, added 2026-09-06 -- the edit above isn't
+  # taking effect live and neither did the add-a-second-header attempt
+  # before it, so this checks two things in one deploy instead of guessing
+  # again: does Header's env= condition work AT ALL in this hosting
+  # environment (env=REDIRECT_STATUS is set by Apache/LiteSpeed itself on
+  # every internally-rewritten request, which is every request here), and
+  # separately, did the RewriteCond/RewriteRule above actually set
+  # LAZYRELAY_DASHBOARD for this specific request. Remove both once the
+  # real cause is found and the fix above is confirmed working.
+  Header always set X-Debug-Env-Works "yes" env=REDIRECT_STATUS
+  Header always set X-Debug-Dashboard-Env "yes" env=LAZYRELAY_DASHBOARD
 </IfModule>
 
 # Real gap found 2026-08-26: no Cache-Control header existed anywhere on the
