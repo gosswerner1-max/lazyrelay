@@ -214,6 +214,27 @@ async function resolveAccountForUser(userId: string): Promise<{ accountId: strin
   return { accountId: preferred.account_id, role: preferred.role as "owner" | "member" };
 }
 
+/** Deliberately NOT cached, unlike rateLimit.ts's tier cache — a real test
+ *  (test-mfa-enforcement.ts) caught exactly why: caching "does this user
+ *  have MFA" for even a short window means someone who *just* enrolled a
+ *  factor could still get through on a stale "no MFA" answer for the rest
+ *  of that window, on this exact security gate. Enrollment is rare enough
+ *  (once per user, essentially ever) that an extra admin-API round trip
+ *  per request is the right trade against that. */
+async function hasVerifiedMfaFactor(userId: string): Promise<boolean> {
+  const { data, error } = await supabase.auth.admin.mfa.listFactors({ userId });
+  // Fail CLOSED on an error resolving factor state — this check exists
+  // specifically to close a real MFA-bypass gap (2026-09-06), so "can't
+  // tell if this account has MFA" must not silently mean "treat it as if
+  // it doesn't." A transient admin-API hiccup denies this one request;
+  // the client's normal 401-retry path (re-auth) recovers it.
+  if (error) {
+    recordSecurityEvent("auth_denied", `MFA factor lookup failed for user ${userId}: ${error.message}`);
+    throw error;
+  }
+  return (data?.factors ?? []).some((f) => f.status === "verified");
+}
+
 /** Verifies the caller's Supabase JWT (browser dashboard), a LazyRelay API
  *  key (bring-your-own-agent, headless), OR an admin key (Claude/internal
  *  ops, acts across every account) and attaches the account id to the
@@ -304,6 +325,39 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
   if (data.user.aud !== "authenticated") {
     res.status(401).json({ error: "This token isn't a valid dashboard session." });
     return;
+  }
+
+  // Server-side MFA enforcement -- real gap found and fixed 2026-09-06.
+  // Supabase issues a valid, fully-signed session token at aal1 the instant
+  // a password is verified, BEFORE any TOTP challenge completes. Until this
+  // check existed, MFA was enforced only client-side (App.tsx's Root() gates
+  // its UI on aal2), so anyone holding that earlier aal1 token -- via XSS,
+  // a compromised browser extension, a leaked log, or simply calling the
+  // API directly instead of using the web app -- could reach every
+  // requireAuth-gated route on an MFA-enrolled account without ever
+  // supplying the second factor. `aal` is a REQUIRED claim on every
+  // Supabase JWT (auth-js's RequiredClaims type), and its authenticity is
+  // already established by the getUser() call above, which verified this
+  // token against Supabase's own server -- decoding the payload here reads
+  // an already-authenticated claim, it doesn't need re-verification.
+  // Accounts with no verified MFA factor are completely unaffected: aal1 is
+  // their normal, expected level. mfaRecovery.ts's own redeem route
+  // deliberately bypasses requireAuth entirely (see its own doc comment) so
+  // this check can never block the one legitimate path meant to work below
+  // aal2 -- a lost-authenticator recovery.
+  const [, tokenPayloadB64] = token.split(".");
+  let tokenAal: string | undefined;
+  try {
+    tokenAal = JSON.parse(Buffer.from(tokenPayloadB64 ?? "", "base64url").toString("utf8"))?.aal;
+  } catch {
+    tokenAal = undefined;
+  }
+  if (await hasVerifiedMfaFactor(data.user.id)) {
+    if (tokenAal !== "aal2") {
+      recordSecurityEvent("auth_denied", `aal1 token on MFA-enrolled account for ${req.method} ${req.path}`);
+      res.status(401).json({ error: "This session hasn't completed multi-factor authentication yet." });
+      return;
+    }
   }
 
   const membership = await resolveAccountForUser(data.user.id);
