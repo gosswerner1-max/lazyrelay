@@ -1,0 +1,22 @@
+-- Real policy decided 2026-09-06 (Werner): a genuinely abandoned account --
+-- signed up, connected zero social accounts, created zero posts, ever -- is
+-- deleted entirely (not just its content) after 6 months, with 2 warning
+-- emails first. This is a DIFFERENT policy from the existing 08-15
+-- cancellation-deletion system (data_retention_ops.js), which only wipes
+-- content for a formerly-active customer who cancelled -- that system never
+-- touches the account row itself, and only ever fires after a real
+-- subscription.canceled webhook. This one only ever fires for an account
+-- that NEVER had a subscription lifecycle at all (accounts.cancelled_at IS
+-- NULL is part of the eligibility check in abandoned_account_ops.js), so the
+-- two systems can't double-process the same row. Paid accounts are exempt
+-- no matter what, per Werner's explicit instruction.
+--
+-- Two reminder columns, not one, since this policy sends 2 warnings
+-- (day -14 and day -3 before the 6-month mark) rather than the cancellation
+-- system's 1. No "deleted_at" column is needed here -- unlike the
+-- cancellation system, this one deletes the accounts row and the auth.users
+-- row entirely (there is nothing else to wipe: an abandoned account has zero
+-- social_accounts and zero scheduled_posts by definition), so once deleted
+-- the row simply no longer exists to mark.
+alter table accounts add column abandonment_reminder_1_sent_at timestamptz;
+alter table accounts add column abandonment_reminder_2_sent_at timestamptz;

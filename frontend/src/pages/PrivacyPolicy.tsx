@@ -7,7 +7,7 @@ interface PrivacyPolicyProps {
   onBack: () => void;
 }
 
-const LAST_UPDATED = "4 September 2026";
+const LAST_UPDATED = "6 September 2026";
 
 export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
   useEffect(() => {
@@ -119,6 +119,12 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
             We keep your account and connected-account data for as long as your account is active. If you
             disconnect a social account or delete your LazyRelay account, we remove the associated access
             tokens and stored content within a reasonable time.
+          </p>
+          <p>
+            <strong>Abandoned accounts.</strong> If you sign up but never connect a social account or schedule
+            a post, we'll delete the account after 6 months of inactivity, with two email warnings first (14
+            days and 3 days before deletion) — logging in and connecting a platform or scheduling a post at any
+            point cancels the deletion. This never applies to a paid subscription, regardless of activity.
           </p>
 
           <h3>Your choices</h3>
