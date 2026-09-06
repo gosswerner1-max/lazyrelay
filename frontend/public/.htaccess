@@ -139,54 +139,34 @@
 # authenticated view rendered at whatever path a session happened to resolve
 # on, almost always "/". Fixed on the React side first (App.tsx now
 # canonicalizes any authenticated session onto a real "/dashboard" URL via
-# history.replaceState).
+# history.replaceState). Three real bugs found live before this settled,
+# each caught by an actual curl check rather than assumed correct from
+# reading the config:
+# 1. <LocationMatch "^/dashboard"> isn't permitted inside .htaccess at all
+#    (server/vhost config only) -- Apache refused to parse the file, taking
+#    the whole site down with a 500 on every path for a few minutes.
+# 2. Replaced with mod_rewrite setting an env var + Header env=, but keyed
+#    the RewriteCond on %{REQUEST_URI} -- which the SPA-fallback rule below
+#    rewrites to "/index.html" before mod_headers ever reads it, so the
+#    match silently failed every time. Fixed with %{THE_REQUEST} instead,
+#    which holds the client's original request line and survives that
+#    internal rewrite.
+# 3. Header edit's env= condition wasn't taking effect even once the env var
+#    was confirmed reaching mod_headers correctly -- narrowed down to a
+#    missing "always" keyword (an unconditional `Header always edit` worked
+#    as a live test; the same directive without "always" did not).
 #
-# REAL OUTAGE, caught within minutes by a live curl check right after this
-# deployed: the first version of this fix used <LocationMatch "^/dashboard">
-# to scope the header. <Location>/<LocationMatch> are not permitted inside
-# .htaccess at all (only in main server/vhost config) -- Apache refuses to
-# even parse the file, which took the ENTIRE site down with a 500 on every
-# path, not just /dashboard. Reverted to the .htaccess-legal equivalent
-# below: mod_rewrite sets an environment variable when the real request path
-# is /dashboard, and Header's own `env=` condition (a directive .htaccess
-# does allow) reads it. RewriteRule runs during URL-rewriting, before
-# response headers are ever sent, so the order relative to the mod_rewrite
-# block further down doesn't matter -- the env var set there is still
-# readable by the Header directive here.
-#
-# SECOND real bug, also caught live: the first fix here added a SECOND
-# Content-Security-Policy header instance (Header ... add ..., relying on
-# the CSP spec's rule that multiple policy headers enforce as an
-# intersection) instead of editing the one header, then switched to
-# Header edit -- neither one actually scoped the policy live, curl kept
-# showing the identical CSP on both "/" and "/dashboard".
-#
-# ROOT CAUSE, found with temporary debug headers rather than a third blind
-# guess: %{REQUEST_URI} in the RewriteCond below only matches on mod_rewrite's
-# FIRST pass. The SPA-fallback rule further down rewrites every non-file
-# request to /index.html with [L], which restarts per-directory rewrite
-# processing for the NEW uri -- so by the second pass %{REQUEST_URI} is
-# "/index.html", the "^/dashboard" match fails, and the env var this rule
-# sets never survives to when mod_headers reads it (confirmed:
-# env=REDIRECT_STATUS-gated header fired on /dashboard, proving env=
-# conditions work fine here; env=LAZYRELAY_DASHBOARD-gated header did not,
-# isolating the bug to this RewriteCond specifically). %{THE_REQUEST} is the
-# fix -- it holds the client's original raw request line (e.g.
-# "GET /dashboard HTTP/1.1") and, unlike REQUEST_URI, is never rewritten by
-# an internal redirect, so it still matches on every subsequent pass.
+# End state: mod_rewrite tags the request, `Header always edit` rewrites the
+# one existing CSP header's frame-ancestors value in place for /dashboard
+# only. RankInPublic's iframe still works on every marketing/legal page,
+# which is the only place it was ever meant to.
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteCond %{THE_REQUEST} \s/dashboard[\s?/]
   RewriteRule ^ - [E=LAZYRELAY_DASHBOARD:1]
 </IfModule>
 <IfModule mod_headers.c>
-  Header edit Content-Security-Policy "frame-ancestors 'self' https://rankinpublic\.xyz" "frame-ancestors 'self'" env=LAZYRELAY_DASHBOARD
-  # TEMPORARY, round 3 -- round 2 confirmed the env var now reaches
-  # mod_headers correctly (X-Debug-Dashboard-Env fired), which isolates the
-  # remaining bug to the Header edit directive itself. This unconditional
-  # edit (no env=, applies to every response) checks whether `Header edit`
-  # works at all in this hosting stack, independent of any condition.
-  Header always edit Content-Security-Policy "object-src 'none'" "object-src 'self'"
+  Header always edit Content-Security-Policy "frame-ancestors 'self' https://rankinpublic\.xyz" "frame-ancestors 'self'" env=LAZYRELAY_DASHBOARD
 </IfModule>
 
 # Real gap found 2026-08-26: no Cache-Control header existed anywhere on the
