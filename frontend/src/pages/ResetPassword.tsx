@@ -68,10 +68,17 @@ export function ResetPassword() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  minLength={6}
+                  // Matches Supabase's actual project policy (10 chars, full
+                  // complexity, since 2026-09-01) -- this form always creates
+                  // a brand-new password, so unlike the signin field there's
+                  // no existing-shorter-password case to protect here.
+                  minLength={10}
+                  pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{10,}"
+                  title="At least 10 characters, with uppercase, lowercase, a number, and a symbol."
                   required
                   autoFocus
                 />
+                <p className="field-hint">At least 10 characters, with uppercase, lowercase, a number, and a symbol.</p>
               </label>
               <label>
                 Confirm password

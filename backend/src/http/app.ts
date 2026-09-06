@@ -5,6 +5,7 @@ import multer from "multer";
 import { buildRouter } from "./routes.js";
 import { buildMfaRecoveryRouter } from "./mfaRecovery.js";
 import { buildWebhookHandler } from "./webhook.js";
+import { publicRateLimit } from "./rateLimit.js";
 import { mountMcp } from "./mcpRoutes.js";
 import { isKnownAdminKey } from "./auth.js";
 import { supabase } from "../supabase.js";
@@ -34,7 +35,21 @@ export function buildApp(
 
   // Webhook route needs the raw body for signature verification — mounted
   // BEFORE express.json() so the JSON parser never touches it.
-  app.post("/api/webhooks/mor", express.raw({ type: "application/json" }), buildWebhookHandler(morAdapter));
+  // publicRateLimit added 2026-09-06 (security audit finding) — this was
+  // the one public/pre-auth endpoint in the whole API with no coarse abuse
+  // protection at all. Signature verification (buildWebhookHandler, real
+  // HMAC via Paddle's own SDK) already stops a forged event from being
+  // trusted, but nothing stopped high-volume junk POSTs from burning CPU on
+  // the isSignatureValid/unmarshal calls before that rejection happens.
+  // Real Paddle webhook traffic comes from Paddle's own servers and is
+  // nowhere near this limit; this only bites an attacker hammering the
+  // endpoint from one IP.
+  app.post(
+    "/api/webhooks/mor",
+    publicRateLimit,
+    express.raw({ type: "application/json" }),
+    buildWebhookHandler(morAdapter),
+  );
 
   // Hosted MCP is mounted BEFORE the frontend CORS policy below on purpose.
   // That policy allows only the LazyRelay web origins, which is right for

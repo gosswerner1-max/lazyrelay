@@ -22,6 +22,7 @@
 
 import { randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
+import { isSafeMediaUrl } from "../urlSafety.js";
 
 export interface FetchedMedia {
   /** The source media's body as a stream. Do NOT call .arrayBuffer() or
@@ -45,8 +46,28 @@ export interface FetchedMedia {
  *  uploadMedia comment for the full rationale) -- res.ok is false for any
  *  3xx, so the existing null-on-failure convention below still closes it.
  *  Returns null on any failure, matching every adapter's existing
- *  null-on-failure convention for this step. */
+ *  null-on-failure convention for this step.
+ *
+ *  Re-validates the URL's safety (isSafeMediaUrl) immediately before
+ *  fetching, not just once at post-creation time (postCreation.ts's own
+ *  validatePostFields) -- real gap found in the 2026-09-06 security audit.
+ *  Posts are scheduled ahead of time, sometimes days ahead, so the gap
+ *  between the write-time check and this actual fetch is the practically
+ *  exploitable window here: a customer controlling their own DNS could
+ *  point a hostname at a genuinely public address when the post is
+ *  created, then repoint it at an internal/metadata address any time
+ *  before the scheduled send. Re-checking right here, at the one shared
+ *  choke point every adapter already calls through, closes that window
+ *  without needing to touch any of the 9 call sites individually.
+ *  Doesn't fully close a sub-second DNS-rebinding race between this check
+ *  and the fetch() call two lines below -- that would need this fetch
+ *  pinned to the exact address just resolved (a real dispatcher-level
+ *  change, and a new dependency, for closing a residual window this much
+ *  narrower than the one being fixed here). Documented, not silently
+ *  dropped -- isSafeMediaUrl's own comment already named this. */
 export async function fetchMediaForStreaming(mediaUrl: string): Promise<FetchedMedia | null> {
+  const safety = await isSafeMediaUrl(mediaUrl);
+  if (!safety.safe) return null;
   const res = await fetch(mediaUrl, { redirect: "manual" });
   if (!res.ok || !res.body) return null;
   const contentLength = res.headers.get("content-length");

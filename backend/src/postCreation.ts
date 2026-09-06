@@ -24,6 +24,19 @@ import { syncAccountSheet } from "./googleSheets/outboundSync.js";
 export const FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT = 10;
 
 export const MAX_POST_CONTENT_LENGTH = 5000;
+// The four generic optional fields below were type-checked (must be a
+// string) but never length-checked, unlike content -- a real gap found in
+// the 2026-09-06 security audit. Low severity (still behind auth + rate
+// limiting), but a genuine inconsistency with the rest of this file's
+// pattern of validating every field the same way. Caps are generous but
+// real: boardId/destinationLink are IDs/URLs (short by nature), firstComment
+// matches Instagram/Facebook's own real comment-length ceiling (the two
+// adapters that consume it), mediaAltText matches the alt-text field's
+// existing client-side cap (Dashboard.tsx's per-post alt-text input).
+export const MAX_BOARD_ID_LENGTH = 200;
+export const MAX_DESTINATION_LINK_LENGTH = 2048;
+export const MAX_FIRST_COMMENT_LENGTH = 2200;
+export const MAX_MEDIA_ALT_TEXT_LENGTH = 1000;
 
 export type PostFieldsError = { status: number; body: Record<string, unknown> };
 export type PostFieldsOk = {
@@ -129,10 +142,16 @@ export async function validatePostFields(
   if (boardId !== undefined && boardId !== null && typeof boardId !== "string") {
     return { status: 400, body: { error: "boardId must be a string" } };
   }
+  if (typeof boardId === "string" && boardId.length > MAX_BOARD_ID_LENGTH) {
+    return { status: 400, body: { error: `boardId must be ${MAX_BOARD_ID_LENGTH} characters or fewer` } };
+  }
   // Only meaningful for Pinterest today (see PostRequest.destinationLink) —
   // same generic-column pattern as boardId.
   if (destinationLink !== undefined && destinationLink !== null && typeof destinationLink !== "string") {
     return { status: 400, body: { error: "destinationLink must be a string" } };
+  }
+  if (typeof destinationLink === "string" && destinationLink.length > MAX_DESTINATION_LINK_LENGTH) {
+    return { status: 400, body: { error: `destinationLink must be ${MAX_DESTINATION_LINK_LENGTH} characters or fewer` } };
   }
   // Only consumed by adapters that declare postComment (Facebook,
   // Instagram today) — every other adapter's post() simply ignores it,
@@ -140,10 +159,16 @@ export async function validatePostFields(
   if (firstComment !== undefined && firstComment !== null && typeof firstComment !== "string") {
     return { status: 400, body: { error: "firstComment must be a string" } };
   }
+  if (typeof firstComment === "string" && firstComment.length > MAX_FIRST_COMMENT_LENGTH) {
+    return { status: 400, body: { error: `firstComment must be ${MAX_FIRST_COMMENT_LENGTH} characters or fewer` } };
+  }
   // Only consumed by Mastodon today (see PostRequest.mediaAltText) — every
   // other adapter simply ignores it, same generic-column pattern as above.
   if (mediaAltText !== undefined && mediaAltText !== null && typeof mediaAltText !== "string") {
     return { status: 400, body: { error: "mediaAltText must be a string" } };
+  }
+  if (typeof mediaAltText === "string" && mediaAltText.length > MAX_MEDIA_ALT_TEXT_LENGTH) {
+    return { status: 400, body: { error: `mediaAltText must be ${MAX_MEDIA_ALT_TEXT_LENGTH} characters or fewer` } };
   }
   // TikTok-only (see PostRequest.tiktokPrivacyLevel) — validated against
   // TikTok's own real enum, not passed through as an arbitrary string.

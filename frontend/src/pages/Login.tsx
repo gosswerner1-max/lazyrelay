@@ -228,9 +228,24 @@ export function Login({ initialMode = "signin", onBack, onForgotPassword, onPriv
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                minLength={6}
+                // Only enforced on signup -- a signin field holds an EXISTING
+                // password, which may predate the 2026-09-01 policy change
+                // (raised from 6 to 10 chars + full complexity in Supabase's
+                // own project settings). Applying this to signin too would
+                // have blocked a legitimate shorter-but-still-valid password
+                // from ever submitting the form at all, even though Supabase
+                // itself would happily accept it -- a real gap found and
+                // fixed 2026-09-06 (the field previously said minLength={6}
+                // unconditionally, which no longer matched Supabase's actual
+                // policy for new passwords).
+                minLength={mode === "signup" ? 10 : undefined}
+                pattern={mode === "signup" ? "(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{10,}" : undefined}
+                title={mode === "signup" ? "At least 10 characters, with uppercase, lowercase, a number, and a symbol." : undefined}
                 required
               />
+              {mode === "signup" && (
+                <p className="field-hint">At least 10 characters, with uppercase, lowercase, a number, and a symbol.</p>
+              )}
             </label>
             {mode === "signin" && onForgotPassword && (
               <button type="button" className="link" style={{ fontSize: "0.82em", textAlign: "right", marginTop: "-0.25rem" }} onClick={onForgotPassword}>

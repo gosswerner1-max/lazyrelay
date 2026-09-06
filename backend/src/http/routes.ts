@@ -48,6 +48,9 @@ import {
   validateScheduledFor,
   checkFreeTierPostLimit,
   MAX_POST_CONTENT_LENGTH,
+  MAX_BOARD_ID_LENGTH,
+  MAX_DESTINATION_LINK_LENGTH,
+  MAX_FIRST_COMMENT_LENGTH,
   TIKTOK_PRIVACY_LEVELS,
 } from "../postCreation.js";
 import { checkQuotaForNewUpload, getStorageUsage } from "../storageQuota.js";
@@ -811,6 +814,27 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (typeof bio !== "string" || bio.length > 500) {
       res.status(400).json({ error: "bio must be a string, 500 characters or fewer" });
       return;
+    }
+    // Nothing server-side fetches avatarUrl today (it's only ever rendered
+    // client-side as an <img src>, per BioPage.tsx), so this wasn't
+    // exploitable in practice -- but every other customer-supplied URL
+    // field in this file gets this same check, and this one didn't, found
+    // in the 2026-09-06 security audit. Closing it now, before this field
+    // is ever consumed server-side (an image proxy/resize step, say),
+    // rather than waiting for that to be the reason it gets found again.
+    if (avatarUrl !== undefined && avatarUrl !== null) {
+      if (typeof avatarUrl !== "string") {
+        res.status(400).json({ error: "avatarUrl must be a string" });
+        return;
+      }
+      const trimmedAvatarUrl = avatarUrl.trim();
+      if (trimmedAvatarUrl.length > 0) {
+        const avatarSafety = await isSafeMediaUrl(trimmedAvatarUrl);
+        if (!avatarSafety.safe) {
+          res.status(400).json({ error: `avatarUrl ${avatarSafety.reason}` });
+          return;
+        }
+      }
     }
 
     // bio_pages/bio_links: service-role only, see the comment on GET
@@ -3826,11 +3850,20 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (input.boardId !== undefined && input.boardId !== null && typeof input.boardId !== "string") {
       return "boardId must be a string";
     }
+    if (typeof input.boardId === "string" && input.boardId.length > MAX_BOARD_ID_LENGTH) {
+      return `boardId must be ${MAX_BOARD_ID_LENGTH} characters or fewer`;
+    }
     if (input.destinationLink !== undefined && input.destinationLink !== null && typeof input.destinationLink !== "string") {
       return "destinationLink must be a string";
     }
+    if (typeof input.destinationLink === "string" && input.destinationLink.length > MAX_DESTINATION_LINK_LENGTH) {
+      return `destinationLink must be ${MAX_DESTINATION_LINK_LENGTH} characters or fewer`;
+    }
     if (input.firstComment !== undefined && input.firstComment !== null && typeof input.firstComment !== "string") {
       return "firstComment must be a string";
+    }
+    if (typeof input.firstComment === "string" && input.firstComment.length > MAX_FIRST_COMMENT_LENGTH) {
+      return `firstComment must be ${MAX_FIRST_COMMENT_LENGTH} characters or fewer`;
     }
     if (input.tiktokPrivacyLevel !== undefined && input.tiktokPrivacyLevel !== null) {
       if (typeof input.tiktokPrivacyLevel !== "string" || !TIKTOK_PRIVACY_LEVELS.includes(input.tiktokPrivacyLevel)) {
