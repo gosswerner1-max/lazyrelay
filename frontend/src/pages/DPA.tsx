@@ -7,7 +7,7 @@ interface DPAProps {
   onBack: () => void;
 }
 
-const LAST_UPDATED = "6 September 2026";
+const LAST_UPDATED = "7 September 2026";
 
 export function DPA({ onBack }: DPAProps) {
   useEffect(() => {
@@ -159,6 +159,9 @@ export function DPA({ onBack }: DPAProps) {
             If LazyRelay becomes aware of a personal data breach affecting your data, we'll notify you without
             undue delay, with what we know at the time (nature of the breach, likely consequences, and measures
             taken or proposed) — promptly enough for you to meet your own regulatory notification deadlines.
+            Where POPIA applies (see South Africa / POPIA below), we'll notify you immediately of any actual or
+            reasonably suspected unauthorized access to, or acquisition of, personal information, as section
+            21(2) of POPIA requires.
           </p>
 
           <h3>Data return and deletion</h3>
@@ -175,6 +178,19 @@ export function DPA({ onBack }: DPAProps) {
             <a href="/terms">Terms of Service</a>. If LazyRelay materially breaches this DPA and doesn't fix
             it within a reasonable time after you notify us, you may terminate the affected Service at no
             further cost, regardless of your plan's usual cancellation terms.
+          </p>
+
+          <h3>South Africa / POPIA</h3>
+          <p>
+            Where the Protection of Personal Information Act 4 of 2013 ("POPIA") applies to personal
+            information processed under this DPA — including because IPE Projects (Pty) Ltd, trading as
+            LazyRelay, is a South African company — this DPA also serves as the written contract required by
+            section 21 of POPIA. In this context, "Customer" is the responsible party and "LazyRelay" is the
+            operator, and the commitments above under "LazyRelay's obligations as processor," "Security," and
+            "Personal data breach notification" apply equally as LazyRelay's obligations as operator — including
+            the security measures required by section 19 of POPIA, and immediate notification of any actual or
+            reasonably suspected unauthorized access to or acquisition of personal information, as required by
+            section 21(2) of POPIA.
           </p>
 
           <h3>Governing law</h3>
