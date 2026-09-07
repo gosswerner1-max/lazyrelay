@@ -36,7 +36,7 @@ const TOUR_STEPS = [
     target: '[data-tour="tab-api-keys"]',
     closeButtonAction: "skip" as const,
     content:
-      "On a paid plan, generate an API key here to automate scheduling through LazyRelay's REST API or MCP server.",
+      "Generate an API key here to automate scheduling through LazyRelay's REST API or MCP server — available on every plan, including free.",
   },
   {
     target: '[data-tour="tab-settings"]',
