@@ -2,7 +2,7 @@
 
 LazyRelay is a social media scheduler built around one idea: publishing shouldn't just look successful, it should be provable. Where most schedulers mark a post "sent" the moment an API call succeeds, LazyRelay's Proof-of-Publish independently verifies the post actually went live before it's marked confirmed. If verification fails, the post is flagged instead of silently marked successful.
 
-Schedule to Facebook, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, and Tumblr — 11 platforms today (Instagram publishing is in Meta's app review process). Manage multiple brands from one account, with per-brand caps instead of a separate workspace fee for each one.
+Schedule to Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, and Tumblr — 12 platforms today. Manage multiple brands from one account, with per-brand caps instead of a separate workspace fee for each one.
 
 **Live product:** [lazyrelay.com](https://lazyrelay.com)
 

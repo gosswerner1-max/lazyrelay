@@ -47,7 +47,7 @@ const FEATURES = [
 // example). Refresh this list if any of these accounts is ever disconnected.
 const PROOF_POSTS = [
   { platform: "pinterest", handle: "lazydownload", content: "Simplify your life with LazyRelay: schedule once, post everywhere, with real Proof-of-Publish verification." },
-  { platform: "mastodon", handle: "lazyrelay", content: "Real talk: scheduling posts across 13+ platforms should not mean logging into 13+ dashboards. LazyRelay handles it from one place, with Proof-of-Publish confirming every post actually went live." },
+  { platform: "mastodon", handle: "lazyrelay", content: "Real talk: scheduling posts across 12 platforms should not mean logging into 12 dashboards. LazyRelay handles it from one place, with Proof-of-Publish confirming every post actually went live." },
   { platform: "bluesky", handle: "lazyrelay.bsky.social", content: "Schedule once, publish everywhere. LazyRelay verifies every post actually went live, not just accepted." },
   { platform: "telegram", handle: "LazyRelay", content: "LazyRelay update: schedule your content once and publish it across every platform your business runs on, with real Proof-of-Publish verification confirming it actually went live." },
   { platform: "discord", handle: "LazyRelay", content: "New from LazyRelay: schedule a post once, publish it everywhere, and know for certain it went live with real Proof-of-Publish verification." },

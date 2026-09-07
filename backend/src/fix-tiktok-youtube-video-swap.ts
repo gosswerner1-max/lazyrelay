@@ -18,7 +18,7 @@ const IMAGE_ROOT = "C:\\Users\\werne\\Claude\\LazyRelay-social-posts\\by-platfor
 
 const CAPTIONS = [
   "Simplify your life with LazyRelay: schedule once, post everywhere, with real Proof-of-Publish verification.",
-  "Real talk: scheduling posts across 13+ platforms should not mean logging into 13+ dashboards. LazyRelay handles it from one place, with Proof-of-Publish confirming every post actually went live.",
+  "Real talk: scheduling posts across 12 platforms should not mean logging into 12 dashboards. LazyRelay handles it from one place, with Proof-of-Publish confirming every post actually went live.",
   "Schedule once, publish everywhere. LazyRelay verifies every post actually went live, not just accepted.",
   "LazyRelay update: schedule your content once and publish it across every platform your business runs on, with real Proof-of-Publish verification confirming it actually went live.",
   "New from LazyRelay: schedule a post once, publish it everywhere, and know for certain it went live with real Proof-of-Publish verification.",
