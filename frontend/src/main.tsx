@@ -22,26 +22,30 @@ const tree = (
 )
 
 // The prerender build step (scripts/prerender.mjs) fills #root with real
-// static markup for the logged-out homepage and marks it with this
+// static markup for a fixed set of public routes and marks it with this
 // attribute. Hydrating onto that markup lets the browser keep showing it
 // immediately instead of blanking the page and re-rendering from scratch
 // -- that swap-from-scratch is exactly the flash a plain createRoot().render()
 // would cause here. Every other route (no prerendered markup, root starts
 // empty) keeps the original createRoot behavior unchanged.
 //
-// Also requires pathname === "/": the .htaccess SPA fallback serves this
-// SAME physical index.html (baked for the landing page only) for literally
-// any unmatched path -- /login, /signup, /forgot-password, /contact all
-// have no static file of their own, so a fresh load of any of those was
-// hydrating the Login/Contact component tree onto the *landing page's*
-// markup. That's a real structural mismatch, not a same-page conditional --
-// confirmed live via a thrown "Minified React error #418" on every one of
-// those routes' fresh loads (found 2026-08-26). The page still recovered
-// (React discards the bad hydration and falls back to a full client
-// render), but only after throwing and likely a visible content flash.
-// Checking the URL here is cheap insurance: the baked snapshot is only ever
-// valid for "/", so only attempt to hydrate onto it there.
-//
+// Also requires the path to be one of the routes that script actually
+// prerenders: each of those has its own dedicated dist/<route>/index.html
+// (added 2026-09-07 for /privacy, /terms, /dpa alongside the original "/"),
+// so what's baked into #root always matches what this same pathname would
+// render anyway -- unlike routes with no static file of their own, where
+// the .htaccess SPA fallback serves the *homepage's* baked index.html for
+// literally any unmatched path (/login, /signup, /forgot-password, /contact
+// among them). Hydrating one component tree onto another route's markup is
+// a real structural mismatch, not a same-page conditional -- confirmed live
+// via a thrown "Minified React error #418" on every one of those routes'
+// fresh loads (found 2026-08-26) before this check existed. The page still
+// recovered (React discards the bad hydration and falls back to a full
+// client render), but only after throwing and likely a visible content
+// flash. Checking the URL here is cheap insurance: only attempt to hydrate
+// where the baked snapshot is guaranteed to be for the exact page loading.
+const PRERENDERED_PATHS = ['/', '/privacy', '/terms', '/dpa']
+
 // /login and /signup were deliberately NOT added to this list despite also
 // getting a real first-visit blank-flash finding (Browser-Aware Web Design
 // audit, 2026-08-26) -- attempting the same prerender-and-bake technique for
@@ -54,7 +58,7 @@ const tree = (
 // ignore Turnstile's own noise would mean silently swallowing a real
 // bot-detection signal on a security-sensitive auth flow. See
 // scripts/prerender.mjs's header comment for the full writeup.
-if (root.hasAttribute('data-prerendered') && window.location.pathname === '/') {
+if (root.hasAttribute('data-prerendered') && PRERENDERED_PATHS.includes(window.location.pathname)) {
   hydrateRoot(root, tree)
 } else {
   createRoot(root).render(tree)

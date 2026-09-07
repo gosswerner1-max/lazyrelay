@@ -1,13 +1,27 @@
-// Prerenders the public homepage ("/") into dist/index.html after the
-// normal Vite build, so a crawler that never executes JavaScript (many
-// AI-search bots, per the real gap found 2026-08-25: raw HTML for "/" was
-// just <div id="root"></div>, nothing else) still sees the real marketing
-// content instead of an empty page.
+// Prerenders a fixed set of public, no-auth routes into their own
+// dist/<route>/index.html after the normal Vite build, so a crawler that
+// never executes JavaScript (many AI-search bots, per the real gap found
+// 2026-08-25: raw HTML for "/" was just <div id="root"></div>, nothing
+// else) still sees the real content instead of an empty page.
 //
-// Scoped to "/" only, deliberately -- it's the one page every crawler and
-// every real visitor hits, has no per-user data, and is the exact page the
-// gap was found on. The dashboard and every other authenticated route are
-// untouched; they still render however they always have.
+// Originally scoped to "/" only. Extended 2026-09-07 to also cover
+// /privacy, /terms, /dpa: those three used to be served by hand-typed
+// static HTML files in frontend/public/{route}/index.html, kept in sync
+// with PrivacyPolicy.tsx/TermsOfService.tsx/DPA.tsx by hand -- and one of
+// them (the /dpa mirror) was found stale the very first time it mattered
+// (a real POPIA compliance addition shipped to the React page and silently
+// never reached the file a plain `curl` actually sees). This script now
+// generates all four straight from the live rendered component instead,
+// so there is no hand-maintained copy left to drift. The old static files
+// under public/{privacy,terms,dpa}/ have been deleted -- this script's
+// dist/<route>/index.html output is now the only source for those routes'
+// non-JS content, regenerated fresh on every build.
+//
+// Scoped to these four routes, deliberately -- each is a real page every
+// crawler/real visitor can hit directly, has no per-user data, and (for
+// the legal three) no interactive elements. The dashboard and every other
+// authenticated route are untouched; they still render however they
+// always have.
 //
 // Tried extending this same technique to "/login" and "/signup" too
 // (2026-08-26, Browser-Aware Web Design audit flagged the same blank-flash
@@ -37,7 +51,7 @@
 // preinstalled at a standard Linux path -- PRERENDER_CHROME_PATH is an
 // escape hatch if either ever moves.
 import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join } from "node:path";
 import puppeteer from "puppeteer-core";
@@ -73,57 +87,136 @@ const MIME = {
   ".mp4": "video/mp4",
 };
 
-function startStaticServer() {
+// `pristineShell` is the real Vite-built dist/index.html, captured once
+// into memory before any route has written anything -- it's what every
+// route (including "/" itself) actually gets served here for its
+// document request, mirroring the real production Apache config: serve a
+// real static asset if one exists (JS/CSS/images/fonts), otherwise fall
+// back to the SPA shell so React can boot and client-route off the
+// pathname. Serving it from memory rather than re-reading dist/index.html
+// from disk is deliberate -- once the "/" route runs and overwrites that
+// file with its own prerendered output, a disk re-read would hand every
+// later route an already-baked homepage instead of an empty shell.
+function startStaticServer(pristineShell) {
   return new Promise((resolve) => {
     const server = createServer(async (req, res) => {
-      try {
-        const urlPath = req.url === "/" ? "/index.html" : req.url.split("?")[0];
-        const filePath = join(DIST_DIR, decodeURIComponent(urlPath));
-        const body = await readFile(filePath);
-        res.writeHead(200, { "Content-Type": MIME[extname(filePath)] ?? "application/octet-stream" });
-        res.end(body);
-      } catch {
-        res.writeHead(404);
-        res.end("Not found");
+      const urlPath = req.url.split("?")[0];
+      if (urlPath !== "/") {
+        try {
+          const filePath = join(DIST_DIR, decodeURIComponent(urlPath));
+          const body = await readFile(filePath);
+          res.writeHead(200, { "Content-Type": MIME[extname(filePath)] ?? "application/octet-stream" });
+          res.end(body);
+          return;
+        } catch {
+          // Not a real static asset -- fall through to the SPA shell below.
+        }
       }
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end(pristineShell);
     });
     server.listen(PORT, () => resolve(server));
   });
 }
 
-async function main() {
-  const server = await startStaticServer();
-  const browser = await puppeteer.launch({ executablePath: CHROME_PATH, headless: true });
-  try {
-    const page = await browser.newPage();
-    const consoleErrors = [];
-    page.on("pageerror", (e) => consoleErrors.push(String(e)));
-    page.on("console", (msg) => {
-      if (msg.type() === "error") consoleErrors.push(msg.text());
-    });
+// Each route's real content gate is a live DOM check, not a fixed timeout
+// -- so a broken/blank render fails the build loudly instead of silently
+// baking in a stale or empty snapshot. outDir "" means the route writes to
+// dist/index.html itself (the homepage, whose own <title>/canonical are
+// already correct in the built template); every other route gets its own
+// dist/<outDir>/index.html, built from that same homepage template but
+// with <title> and canonical swapped for the values the page's own hooks
+// actually set live (so those two are sourced from the real render too,
+// never hand-typed) and the homepage-only hero banner preload hint
+// stripped, since it doesn't apply to any other page.
+const ROUTES = [
+  {
+    path: "/",
+    outDir: "",
+    waitFor: () => document.querySelector(".landing-hero-headline")?.textContent?.includes("Schedule everywhere"),
+  },
+  {
+    path: "/privacy",
+    outDir: "privacy",
+    waitFor: () => document.querySelector(".legal-page h1")?.textContent === "Privacy Policy",
+  },
+  {
+    path: "/terms",
+    outDir: "terms",
+    waitFor: () => document.querySelector(".legal-page h1")?.textContent === "Terms of Service",
+  },
+  {
+    path: "/dpa",
+    outDir: "dpa",
+    waitFor: () => document.querySelector(".legal-page h1")?.textContent === "Data Processing Addendum",
+  },
+];
 
-    await page.goto(`http://localhost:${PORT}/`, { waitUntil: "networkidle0" });
-    // Real content gate, not a fixed timeout -- waits for the actual
-    // headline text Landing.tsx renders, so this fails loudly instead of
-    // silently baking in a blank/loading snapshot if something regresses.
-    await page.waitForFunction(
-      () => document.querySelector(".landing-hero-headline")?.textContent?.includes("Schedule everywhere"),
-      { timeout: 15000 },
-    );
+async function prerenderRoute(page, pristineShell, { path, outDir, waitFor }) {
+  const consoleErrors = [];
+  const onPageError = (e) => consoleErrors.push(String(e));
+  const onConsole = (msg) => {
+    if (msg.type() === "error") consoleErrors.push(msg.text());
+  };
+  page.on("pageerror", onPageError);
+  page.on("console", onConsole);
+
+  try {
+    await page.goto(`http://localhost:${PORT}${path}`, { waitUntil: "networkidle0" });
+    await page.waitForFunction(waitFor, { timeout: 15000 });
 
     if (consoleErrors.length > 0) {
-      throw new Error(`Prerender page threw errors, refusing to bake a broken snapshot:\n${consoleErrors.join("\n")}`);
+      throw new Error(`Prerender of ${path} threw errors, refusing to bake a broken snapshot:\n${consoleErrors.join("\n")}`);
     }
 
     const rootHtml = await page.$eval("#root", (el) => el.innerHTML);
-    const indexPath = join(DIST_DIR, "index.html");
-    const indexHtml = await readFile(indexPath, "utf8");
-    if (!indexHtml.includes('<div id="root"></div>')) {
-      throw new Error('Expected exactly <div id="root"></div> in dist/index.html -- template changed, update this script.');
+    const title = await page.title();
+    const canonical = await page.$eval('link[rel="canonical"]', (el) => el.href).catch(() => null);
+
+    let outPath;
+    let template;
+    if (outDir === "") {
+      outPath = join(DIST_DIR, "index.html");
+      template = pristineShell;
+    } else {
+      const dir = join(DIST_DIR, outDir);
+      await mkdir(dir, { recursive: true });
+      outPath = join(dir, "index.html");
+      template = pristineShell
+        .replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`)
+        .replace(/<link rel="canonical" href="[^"]*" ?\/?>/, canonical ? `<link rel="canonical" href="${canonical}" />` : "")
+        // The homepage-only hero banner preload hint doesn't apply to any
+        // other page and would just waste bandwidth + trigger a real
+        // "preloaded but not used" browser warning on every one of them.
+        .replace(/<link rel="preload" as="image"[^>]*\/>\s*/, "");
     }
-    const updated = indexHtml.replace('<div id="root"></div>', `<div id="root" data-prerendered="true">${rootHtml}</div>`);
-    await writeFile(indexPath, updated, "utf8");
-    console.log(`Prerendered homepage written to ${indexPath} (${rootHtml.length} chars)`);
+
+    if (!template.includes('<div id="root"></div>')) {
+      throw new Error(`Expected exactly <div id="root"></div> in the template for ${path} -- template changed, update this script.`);
+    }
+    const updated = template.replace('<div id="root"></div>', `<div id="root" data-prerendered="true">${rootHtml}</div>`);
+    await writeFile(outPath, updated, "utf8");
+    console.log(`Prerendered ${path} written to ${outPath} (${rootHtml.length} chars)`);
+  } finally {
+    page.off("pageerror", onPageError);
+    page.off("console", onConsole);
+  }
+}
+
+async function main() {
+  // Captured once, before the server starts or any route writes -- see
+  // startStaticServer()'s and prerenderRoute()'s comments for why this
+  // single in-memory copy (never re-read from disk) is what keeps every
+  // route's render and every route's output template correct regardless
+  // of write order.
+  const pristineShell = await readFile(join(DIST_DIR, "index.html"), "utf8");
+  const server = await startStaticServer(pristineShell);
+  const browser = await puppeteer.launch({ executablePath: CHROME_PATH, headless: true });
+  try {
+    const page = await browser.newPage();
+    for (const route of ROUTES) {
+      await prerenderRoute(page, pristineShell, route);
+    }
   } finally {
     await browser.close();
     server.close();
