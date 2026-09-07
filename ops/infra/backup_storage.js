@@ -23,26 +23,40 @@ const BUCKET = "post-media";
 const BACKUP_ROOT = path.join(__dirname, "..", "..", "backups", "storage");
 const KEEP_SNAPSHOTS = 4;
 
+const LIST_PAGE_SIZE = 1000;
+
+// Supabase Storage's list endpoint caps each response at `limit` rows with
+// no indication a page was truncated -- a full page (exactly `limit` rows)
+// looks identical to a bucket that just happens to hold exactly that many
+// objects. So we always page until a response comes back short, rather
+// than trusting a single call.
+async function listPage(supabaseUrl, headers, prefix) {
+  const entries = [];
+  let offset = 0;
+  for (;;) {
+    const res = await fetch(`${supabaseUrl}/storage/v1/object/list/${BUCKET}`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ limit: LIST_PAGE_SIZE, offset, prefix }),
+    });
+    const page = await res.json();
+    entries.push(...page);
+    if (page.length < LIST_PAGE_SIZE) break;
+    offset += LIST_PAGE_SIZE;
+  }
+  return entries;
+}
+
 async function listAllFiles(supabaseUrl, serviceKey) {
   const headers = { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey };
-  const topRes = await fetch(`${supabaseUrl}/storage/v1/object/list/${BUCKET}`, {
-    method: "POST",
-    headers: { ...headers, "Content-Type": "application/json" },
-    body: JSON.stringify({ limit: 1000, prefix: "" }),
-  });
-  const top = await topRes.json();
+  const top = await listPage(supabaseUrl, headers, "");
 
   const files = [];
   for (const entry of top) {
     if (entry.id === null) {
       // Folder — one level deep is enough, every upload path in this repo
       // is accountId/filename, never nested further.
-      const subRes = await fetch(`${supabaseUrl}/storage/v1/object/list/${BUCKET}`, {
-        method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ limit: 1000, prefix: `${entry.name}/` }),
-      });
-      const sub = await subRes.json();
+      const sub = await listPage(supabaseUrl, headers, `${entry.name}/`);
       for (const f of sub) {
         if (f.id !== null) files.push(`${entry.name}/${f.name}`);
       }
