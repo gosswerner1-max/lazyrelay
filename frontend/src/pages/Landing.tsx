@@ -681,7 +681,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
         <h2>Works with</h2>
         <p className="section-note">
           <strong>Mastodon (mastodon.social), Bluesky, Telegram, Discord, and Tumblr, all first-class.</strong> Most
-          schedulers cover the big four or five and stop. We checked seventeen of them. Not one covers
+          schedulers cover the big four or five and stop. We checked eighteen of them. Not one covers
           all five of these.
         </p>
         <div className="platform-row">
