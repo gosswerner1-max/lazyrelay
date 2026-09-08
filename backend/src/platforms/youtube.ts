@@ -5,6 +5,7 @@ import type {
   VerifyResult,
   OAuthExchangeResult,
   CommentsResult,
+  CommentPostResult,
   PostMetrics,
   PendingConnectSelection,
 } from "./types.js";
@@ -17,10 +18,19 @@ const UPLOAD_INIT_URL = "https://www.googleapis.com/upload/youtube/v3/videos?upl
 const VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos";
 const THUMBNAILS_SET_URL = "https://www.googleapis.com/upload/youtube/v3/thumbnails/set";
 const COMMENT_THREADS_URL = "https://www.googleapis.com/youtube/v3/commentThreads";
+const COMMENTS_URL = "https://www.googleapis.com/youtube/v3/comments";
 
 // youtube.upload lets us post videos; youtube.readonly lets us look up the
-// authenticated channel's id/title for OAuthExchangeResult.
-const SCOPES = "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly";
+// authenticated channel's id/title for OAuthExchangeResult and read
+// comments. youtube.force-ssl (added 2026-09-08) is required specifically
+// for comments.insert -- replying to a comment is a write action and
+// youtube.readonly's read-only grant returns 403 insufficientPermissions
+// for it, confirmed against Google's own Data API docs. Existing connected
+// accounts authorized under the old two-scope list will need to reconnect
+// once to pick up this scope before reply works for them -- posting keeps
+// working on the old token in the meantime, this is additive.
+const SCOPES =
+  "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.force-ssl";
 
 // People & Blogs — a real, valid YouTube category id. PostRequest has no
 // category field, so this is a fixed default rather than a per-post choice.
@@ -417,6 +427,35 @@ export class YouTubeAdapter implements PlatformAdapter {
       ];
     });
     return { comments, errorMessage: null };
+  }
+
+  // commentId here is the top-level comment thread's id from getComments,
+  // matching every other platform's replyToComment shape. YouTube's Data
+  // API takes a *parentId* on the comments.insert endpoint (a different
+  // resource from commentThreads.insert, which starts a new thread rather
+  // than replying within one) -- needs youtube.force-ssl, not just
+  // youtube.readonly. Real, confirmed error if that scope is missing:
+  // HTTP 403 { reason: "insufficientPermissions" }, surfaced below as a
+  // normal errorMessage rather than a special case, same as every other
+  // adapter's auth failures.
+  async replyToComment(commentId: string, text: string, accessToken: string): Promise<CommentPostResult> {
+    const url = new URL(COMMENTS_URL);
+    url.searchParams.set("part", "snippet");
+
+    const res = await fetch(url.toString(), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ snippet: { parentId: commentId, textOriginal: text } }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { id?: string } & YouTubeErrorBody;
+
+    if (!res.ok || !json.id) {
+      return { success: false, errorMessage: json.error?.message ?? `YouTube reply failed (HTTP ${res.status})` };
+    }
+    return { success: true, errorMessage: null };
   }
 
   // Same VIDEOS_URL as verifyPublished, different `part`. YouTube returns

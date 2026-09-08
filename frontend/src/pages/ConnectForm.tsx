@@ -24,6 +24,7 @@ export function ConnectForm({ platform, state }: ConnectFormProps) {
   const [handle, setHandle] = useState("");
   const [appPassword, setAppPassword] = useState("");
   const [channelUsername, setChannelUsername] = useState("");
+  const [botToken, setBotToken] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +39,7 @@ export function ConnectForm({ platform, state }: ConnectFormProps) {
         platform === "bluesky"
           ? JSON.stringify({ identifier: handle, password: appPassword })
           : platform === "telegram"
-            ? JSON.stringify({ channelUsername })
+            ? JSON.stringify({ botToken, channelUsername })
             : JSON.stringify({ webhookUrl });
       await api.completeManualConnect(code, state);
       setDone(true);
@@ -105,6 +106,16 @@ export function ConnectForm({ platform, state }: ConnectFormProps) {
           {platform === "telegram" && (
             <>
               <label>
+                Bot token
+                <input
+                  type="password"
+                  placeholder="123456789:AAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  value={botToken}
+                  onChange={(e) => setBotToken(e.target.value)}
+                  required
+                />
+              </label>
+              <label>
                 Channel username
                 <input
                   type="text"
@@ -115,7 +126,7 @@ export function ConnectForm({ platform, state }: ConnectFormProps) {
                 />
               </label>
               <p className="field-hint">
-                The channel must be public, and @lazyrelay_bot must already be added as an admin with post permission.
+                Create your own bot by messaging @BotFather on Telegram (send /newbot and follow the prompts) — it gives you a token to paste above. The channel must be public, and your bot must be added as an admin there with "Post Messages" permission.
               </p>
             </>
           )}

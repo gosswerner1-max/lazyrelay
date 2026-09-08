@@ -48,11 +48,11 @@ export function buildPlatformRegistry(): Map<string, PlatformAdapter> {
   if (process.env.BLUESKY_CONNECT_PAGE_URL) {
     registry.set("bluesky", new BlueskyAdapter(process.env.BLUESKY_CONNECT_PAGE_URL));
   }
-  if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CONNECT_PAGE_URL) {
-    registry.set(
-      "telegram",
-      new TelegramAdapter(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CONNECT_PAGE_URL, process.env.TELEGRAM_LOG_CHAT_ID),
-    );
+  // TELEGRAM_BOT_TOKEN/TELEGRAM_LOG_CHAT_ID retired 2026-09-08 -- the
+  // shared-bot model they supported is gone, each customer now supplies
+  // their own bot token at connect time (see telegram.ts's class comment).
+  if (process.env.TELEGRAM_CONNECT_PAGE_URL) {
+    registry.set("telegram", new TelegramAdapter(process.env.TELEGRAM_CONNECT_PAGE_URL));
   }
   if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET && process.env.LINKEDIN_REDIRECT_URI) {
     registry.set(
