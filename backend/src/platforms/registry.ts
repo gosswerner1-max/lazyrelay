@@ -71,7 +71,10 @@ export function buildPlatformRegistry(): Map<string, PlatformAdapter> {
     registry.set("instagram", new InstagramAdapter(process.env.META_APP_ID, process.env.META_APP_SECRET, process.env.META_REDIRECT_URI));
   }
   if (process.env.DISCORD_CONNECT_PAGE_URL) {
-    registry.set("discord", new DiscordAdapter(process.env.DISCORD_CONNECT_PAGE_URL));
+    // DISCORD_BOT_TOKEN is optional -- posting via webhook works without
+    // it (see discord.ts's class comment); reply/comments just no-op
+    // cleanly until it's set.
+    registry.set("discord", new DiscordAdapter(process.env.DISCORD_CONNECT_PAGE_URL, process.env.DISCORD_BOT_TOKEN));
   }
   if (process.env.TUMBLR_CLIENT_ID && process.env.TUMBLR_CLIENT_SECRET && process.env.TUMBLR_REDIRECT_URI) {
     registry.set(

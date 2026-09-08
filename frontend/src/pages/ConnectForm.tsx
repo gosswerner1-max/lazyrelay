@@ -11,6 +11,16 @@ const PLATFORM_LABELS: Record<ManualPlatform, string> = {
   discord: "Discord",
 };
 
+// Client IDs are public by design (they're embedded in every OAuth URL),
+// unlike the client secret/bot token, which stay server-side only.
+// Permissions integer 68608 = View Channels + Send Messages + Read
+// Message History, matching DISCORD_BOT_PERMISSIONS in discord.ts and
+// exactly what the bot's Discord Developer Portal page was configured
+// with 2026-09-08. scope=bot is a plain add-to-server flow -- no redirect
+// or code exchange needed, so this can be a static link.
+const DISCORD_BOT_INVITE_URL =
+  "https://discord.com/oauth2/authorize?client_id=1546826540627529729&permissions=68608&scope=bot";
+
 interface ConnectFormProps {
   platform: ManualPlatform;
   state: string;
@@ -144,6 +154,11 @@ export function ConnectForm({ platform, state }: ConnectFormProps) {
               </label>
               <p className="field-hint">
                 Create one in your server under Channel Settings &rarr; Integrations &rarr; Webhooks &rarr; New Webhook, then copy the webhook URL.
+                {" "}
+                <a href={DISCORD_BOT_INVITE_URL} target="_blank" rel="noreferrer">
+                  Also invite the LazyRelay bot to this server
+                </a>{" "}
+                if you want to reply to comments from LazyRelay too — posting works either way.
               </p>
             </>
           )}
