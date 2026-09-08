@@ -60,13 +60,11 @@ const PROOF_POSTS = [
 const MORE_FEATURES = [
   "Analytics dashboard: total posts, per-platform success rates, and a daily volume trend",
   "Content calendar: plan by day, pick the platform(s) and add media, then schedule it with one tick — no re-entry",
-  "Notification bell: a header alert for new mentions and DMs, so nothing sits unread in a tab you never opened",
   "Bulk CSV import: schedule up to 200 posts at once, with a per-row preview first",
   "AI captions & hashtags: generate wording or tags from your draft in one click",
   "Best-time suggestions: general, platform-by-platform posting-time guidance",
   "Approval workflow: mark a post as needing sign-off before it goes out",
   "Link-in-bio page: a simple, hosted link page you can share as one URL",
-  "Comment tracking: see comments on your own Facebook, Instagram, YouTube, Mastodon, and Bluesky posts",
   "Browser extension: right-click any page, link, or image to send it to LazyRelay",
   "Two-factor authentication: optional TOTP-based 2FA plus one-time recovery codes, for extra account security",
 ];
@@ -639,7 +637,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
       <section className="landing-section" id="features">
         <h2>What you get</h2>
         <p className="section-note">
-          Everything works from a real dashboard, not just an API. Comments, DMs, auto-replies, and analytics
+          Everything works from a real dashboard, not just an API. Scheduling, the calendar, and analytics
           are all clickable, not command-line only.
         </p>
         <div className="landing-features">

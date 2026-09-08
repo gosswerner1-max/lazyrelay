@@ -46,6 +46,16 @@ const MAIN_TABS: Tab[] = ["Overview", "Posts", "Calendar", "Social Platforms", "
 const MORE_TABS: Tab[] = ["Analytics", "Mentions", "DMs", "Bio Page"];
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+// Reply-to-comment and DM read/reply/automation for Facebook and Instagram
+// depend on pages_manage_engagement / instagram_manage_comments / pages_messaging
+// / instagram_manage_messages -- all still "Ready for testing" (Standard access,
+// admin/tester accounts only) on Meta's app, not approved for real customers.
+// Set 2026-09-08 to hide both tabs behind "Coming soon" rather than advertise
+// a capability that would silently fail for any real customer. Flip back to
+// true once those permissions clear Meta's App Review.
+const COMMENTS_DMS_LIVE = false;
+const DISABLED_TABS: Tab[] = COMMENTS_DMS_LIVE ? [] : ["Mentions", "DMs"];
+
 // Both Google integrations are built and working. Google's app verification
 // review (set to false 2026-09-04 to hide both behind a "Coming soon" badge
 // while it was pending) cleared 2026-09-05 -- flipped back to true so real
@@ -2998,7 +3008,7 @@ export function Dashboard() {
           <span>{account?.businessName ? `Welcome, ${account.businessName}` : "LazyRelay"}</span>
         </div>
         <div className="header-actions">
-          <NotificationBell onOpenTab={setTab} />
+          {COMMENTS_DMS_LIVE && <NotificationBell onOpenTab={setTab} />}
           <a href="/guides" className="link">
             Guides
           </a>
@@ -3028,18 +3038,24 @@ export function Dashboard() {
           </button>
           {moreMenuOpen && (
             <div className="tab-more-menu">
-              {MORE_TABS.map((t) => (
-                <button
-                  key={t}
-                  className={t === tab ? "tab-active" : ""}
-                  onClick={() => {
-                    setTab(t);
-                    setMoreMenuOpen(false);
-                  }}
-                >
-                  {t}
-                </button>
-              ))}
+              {MORE_TABS.map((t) => {
+                const disabled = DISABLED_TABS.includes(t);
+                return (
+                  <button
+                    key={t}
+                    className={`${t === tab ? "tab-active" : ""} ${disabled ? "tab-disabled" : ""}`.trim()}
+                    disabled={disabled}
+                    onClick={() => {
+                      if (disabled) return;
+                      setTab(t);
+                      setMoreMenuOpen(false);
+                    }}
+                  >
+                    {t}
+                    {disabled && <span className="coming-soon-badge">Coming soon</span>}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

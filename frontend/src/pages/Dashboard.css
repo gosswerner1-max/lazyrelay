@@ -324,6 +324,19 @@
   color: var(--ink);
 }
 
+/* Mentions/DMs, greyed out with a "Coming soon" badge while Facebook/Instagram
+   reply and DM permissions are unapproved -- see DISABLED_TABS in Dashboard.tsx. */
+.tab-more-menu button.tab-disabled,
+.tab-bar button.tab-disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.tab-more-menu button.tab-disabled:hover,
+.tab-bar button.tab-disabled:hover {
+  color: var(--wire);
+}
+
 .tab-bar button.tab-active {
   color: var(--signal);
   border-bottom-color: var(--signal);
