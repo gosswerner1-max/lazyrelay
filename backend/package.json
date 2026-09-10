@@ -40,7 +40,7 @@
     "@types/express": "^5.0.6",
     "@types/luxon": "^3.7.2",
     "@types/multer": "^2.2.0",
-    "@types/node": "^20.14.0",
+    "@types/node": "^26.4.1",
     "prettier": "^3.9.6",
     "tsx": "^4.16.0",
     "typescript": "^5.5.0"
