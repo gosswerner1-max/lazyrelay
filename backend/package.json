@@ -27,9 +27,12 @@
     "image-size": "^1.2.1",
     "jose": "^6.2.9",
     "luxon": "^3.7.2",
-    "multer": "^2.2.0",
+    "multer": "^2.3.0",
     "posthog-node": "^5.51.6",
     "resend": "^6.18.1"
+  },
+  "overrides": {
+    "hono": "^4.13.5"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
