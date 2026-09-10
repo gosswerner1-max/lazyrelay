@@ -22,7 +22,8 @@
   "overrides": {
     "serialize-javascript": "^7.1.0",
     "form-data": "$form-data",
-    "diff": "^8.0.3"
+    "diff": "^8.0.3",
+    "js-yaml": "^4.3.2"
   },
   "private": true
 }
