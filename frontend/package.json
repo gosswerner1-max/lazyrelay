@@ -18,13 +18,13 @@
     "@paddle/paddle-js": "^1.6.4",
     "@supabase/supabase-js": "^2.110.7",
     "posthog-js": "^1.425.1",
-    "react": "^19.2.7",
+    "react": "^19.2.8",
     "react-dom": "^19.2.7",
     "react-joyride": "^3.2.0"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",
-    "@types/react": "^19.2.17",
+    "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
     "oxlint": "^1.71.0",
