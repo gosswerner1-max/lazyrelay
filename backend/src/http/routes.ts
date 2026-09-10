@@ -1983,9 +1983,22 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       // server-measured metadata, not anything a client could misreport.
       // image-size reads a file path directly (just enough of the header,
       // not the whole file) — no need to load it ourselves.
+      // image-size's ICNS/JXL/HEIF parsers have an unpatched (as of
+      // 2026-09-10, no fix released) infinite-loop DoS on crafted input --
+      // a synchronous hang a try/catch can't rescue. None of these are
+      // real formats any customer uploads, so they're excluded from
+      // measurement entirely rather than trusting the library on them.
+      const IMAGE_SIZE_UNSAFE_MIMES = new Set([
+        "image/icns",
+        "image/jxl",
+        "image/heif",
+        "image/heif-sequence",
+        "image/heic",
+        "image/heic-sequence",
+      ]);
       let width: number | null = null;
       let height: number | null = null;
-      if (detected.mime.startsWith("image/")) {
+      if (detected.mime.startsWith("image/") && !IMAGE_SIZE_UNSAFE_MIMES.has(detected.mime)) {
         try {
           const dims = imageSize(file.path);
           width = dims.width ?? null;
