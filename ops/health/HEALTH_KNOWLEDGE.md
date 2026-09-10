@@ -23,6 +23,42 @@ Render's free tier, or the frontend being unreachable while the API is fine).
    promise breaking. Does NOT read the in-process circuit breaker state
    (that lives only inside the running backend, not the DB) — this is a
    genuinely different, externally-observable signal.
+
+   **KNOWN FALSE-POSITIVE CLASS — a paused batch used to read exactly like a
+   dead scheduler (found 2026-09-05, FIXED 2026-09-05, Werner's go-ahead,
+   commit `330052a`).** `checkSchedulerLag()`
+   filters only on `status = 'pending'` and `scheduled_for < cutoff`. It
+   never excludes `scheduled_posts.paused_at`, so posts that were
+   deliberately paused still count as "overdue" forever. Pausing sets
+   `paused_at` and deliberately leaves `status` as `pending` (see
+   `routes.ts:3504-3541` and migration note: pause is a timestamp, not a new
+   status value), so the two states are indistinguishable to this check.
+
+   Hit for real on 2026-09-05: `overall: critical`, 41 overdue — all 41
+   carrying one identical `paused_at` of `2026-09-04T18:52:21.914Z`, from
+   Werner's "stop all ads until we get tiktoks approval" pause of the whole
+   1,160-post batch. Exact counts: 1,160 pending / 1,160 paused / **0
+   unpaused overdue**. Nothing was wrong — `scheduler.ts:155,177` filters
+   `.is("paused_at", null)` on its claim queries, so the scheduler was
+   correctly declining to publish paused rows.
+
+   **How to triage this in one query** before reporting a scheduler
+   critical: count overdue pending rows split by `paused_at` null vs
+   not-null. If `overdueUnpaused` is 0, the scheduler is fine and the batch
+   is paused — say so plainly rather than reporting an outage. If it is
+   non-zero, *that* is the real number and the scheduler genuinely is
+   behind.
+
+   Also worth knowing when investigating this table: a plain PostgREST
+   `select` caps at 1,000 rows, so a raw `.length` on the result silently
+   under-reports a queue this size and can look like a draining backlog.
+   Use `{ count: "exact", head: true }` for any figure you intend to report.
+
+   **Fixed 2026-09-05, Werner's go-ahead**: added `.is("paused_at", null)` to
+   the query at `health_ops.js:121` (commit `330052a`, pushed). The check now
+   only counts posts that are actually supposed to have gone out. Not yet
+   proven against a real digest run — the next `lazyrelay-daily-ops-digest`
+   firing with the batch still paused is the live test.
 5. **Media storage overage** (reuses the same real query as the weekly
    report) — reported for visibility, but **excluded from `overall`
    severity** (changed 2026-08-05): Supabase meters/auto-scales storage past

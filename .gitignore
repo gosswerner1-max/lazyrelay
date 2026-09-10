@@ -16,6 +16,11 @@ ops/oversight/state/system_overseer_state.json
 ops/incident-response/state/incident_response_state.json
 ops/tests/selftest_results/accounts_auditor.json
 ops/tests/selftest_results/billing_auditor.json
+backend/youtube-sandbox-test-state.json
+
+# TypeScript incremental build cache, not source
+backend/tsconfig.tsbuildinfo
 
 # Large binary marketing assets, tracked in the vault instead
 /marketing/
+/deliverables/

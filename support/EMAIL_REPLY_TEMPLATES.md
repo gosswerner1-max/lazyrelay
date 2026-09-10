@@ -26,11 +26,15 @@ Thanks for flagging this — [one-sentence restatement of what they're seeing, i
 Let me know once you've tried that and I'll help if it's still not working.
 ```
 
-## 2. "It's not live yet" premise mismatch — **RETIRED 2026-09-04, do not send**
+## 2. "It's not live yet" premise mismatch — **STILL RETIRED, but the 09-04 reasoning below was wrong — corrected 2026-09-05**
 
-**Every platform LazyRelay integrates is now at production access**, so there is no surface left for which this template's premise is true: Pinterest (2026-08-04), TikTok (2026-08-14), YouTube (2026-08-14), Facebook Pages (2026-08-24) and **Instagram publishing (2026-09-04, the last one)**. Sending it now would tell a customer their platform isn't live when it is — the exact stale-premise failure this file's maintenance rule exists to catch.
+**The 09-04 claim that every platform is at production access does not hold for TikTok.** TikTok's *app* was approved 2026-08-14, but the client is **unaudited for the Content Posting API**, so a customer with a public TikTok account gets `403 unaudited_client_can_only_post_to_private_accounts`. An audit application went in **2026-09-05** (TikTok's estimate: 2-4 weeks). Genuinely live: Pinterest (2026-08-04), YouTube (2026-08-14), Facebook Pages (2026-08-24), Instagram publishing (2026-09-04). **Not live for customers: TikTok.** See `SUPPORT_KNOWLEDGE.md`'s 2026-09-05 Part 2 entry.
 
-**A reported posting failure on ANY platform is now a real issue.** Troubleshoot it against `SUPPORT_KNOWLEDGE.md` Part 1 (Template 1 is the right starting structure), never with a premise mismatch.
+**This template stays retired anyway — do not send it for TikTok.** Its body asks the customer to confirm their account because *"[Platform] posting should be fully live"*, and for TikTok that premise is now known-false in the opposite direction: we know exactly why it fails, so asking them to double-check their own account would waste their time and imply the fault is theirs. Answer a TikTok posting report directly instead: it is awaiting TikTok's own approval, **give no date beyond "under review"** (the 2-4 weeks is TikTok's estimate to us, not a promise to make a customer), and never suggest they change their account privacy. Use Template 1's structure with that as the cause.
+
+**A reported posting failure on Pinterest, YouTube, Facebook Pages or Instagram is a real issue.** Troubleshoot it against `SUPPORT_KNOWLEDGE.md` Part 1 (Template 1 is the right starting structure), never with a premise mismatch.
+
+**What this cost, worth keeping:** the 09-04 sweep correctly retired this template on the evidence available, and was still wrong within 24 hours — because "every platform is approved" was read off *app-approval* mail, and TikTok's Direct Post gate is a second, narrower audit invisible from those mails. **Never restate a whole-product claim ("every platform is live") from a per-platform approval; state it per platform, with the specific gate named.**
 
 Kept here rather than deleted for one reason only: if a *new* platform integration ships and is awaiting review, this is the correct shape for that case. **Before ever reusing it, re-read `SUPPORT_KNOWLEDGE.md`'s "Current product state" line and confirm the specific platform genuinely is not live** — don't trust this paragraph's date, and don't reuse it for any of the five platforms named above.
 
