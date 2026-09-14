@@ -8,6 +8,12 @@ import { describeScopes } from "../lib/oauthScopes";
 import { api, type SocialAccount, type Brand, type BrandCapacity, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation, type Triage, type TeamMember, type SeatCapacity } from "../lib/api";
 import { API_BASE_URL, API_ENDPOINTS, MCP_CONFIG_EXAMPLE, HOSTED_MCP_URL, HOSTED_MCP_REMOTE_CONFIG_EXAMPLE, MCP_TOOLS } from "../lib/apiDocsContent";
 import { isTiktokDisclosureIncomplete } from "../lib/tiktokDisclosure";
+import {
+  isVideoTooLongForTiktok,
+  tiktokVideoTooLongMessage,
+  TIKTOK_PROCESSING_NOTICE,
+  type TiktokCreatorInfo,
+} from "../lib/tiktokPostChecks";
 import { CodeBlock } from "../components/CodeBlock";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
@@ -642,6 +648,12 @@ export function Dashboard() {
   const [pinterestBoards, setPinterestBoards] = useState<{ id: string; name: string }[]>([]);
   const [boardsLoading, setBoardsLoading] = useState(false);
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
+  // TikTok creator info (nickname, max video length, can-post-right-now) for
+  // the selected TikTok account, and the attached video's length as read by
+  // the browser from the media preview -- remembered together with the file
+  // it belongs to, so a replaced or removed file never reuses an old length.
+  const [tiktokCreatorInfo, setTiktokCreatorInfo] = useState<TiktokCreatorInfo | null>(null);
+  const [mediaDuration, setMediaDuration] = useState<{ url: string; sec: number } | null>(null);
   // Pinterest's own "Destination Link" -- where a click on the Pin takes
   // someone, distinct from the image/video itself. Found completely missing
   // in a 2026-08-19 security review: the compose form never had a field for
@@ -1310,6 +1322,27 @@ export function Dashboard() {
       .finally(() => setBoardsLoading(false));
   }, [selectedPinterestAccountId]);
 
+  // TikTok's "Required UX Implementation" point 1 -- load the selected TikTok
+  // account's live creator info. A failed lookup leaves it null, so the form
+  // never blocks on a TikTok hiccup (the backend re-checks at posting time).
+  const tiktokInfoAccountId = selectedAccountIds.find((id) => accounts.find((a) => a.id === id)?.platform === "tiktok");
+  useEffect(() => {
+    setTiktokCreatorInfo(null);
+    if (!tiktokInfoAccountId) return;
+    let cancelled = false;
+    api
+      .getTiktokCreatorInfo(tiktokInfoAccountId)
+      .then((info) => {
+        if (!cancelled) setTiktokCreatorInfo(info);
+      })
+      .catch(() => {
+        if (!cancelled) setTiktokCreatorInfo(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tiktokInfoAccountId]);
+
   async function pollUntilUpgraded() {
     const expectedTier = pendingTierRef.current;
     setFinalizingUpgrade(true);
@@ -1676,6 +1709,25 @@ export function Dashboard() {
     tiktokBrandOrganic,
     tiktokBrandContent,
   );
+  // TikTok's "Required UX Implementation" point 1: stop when TikTok says this
+  // account can't post more right now, and when the video is longer than
+  // TikTok allows for this account.
+  const tiktokSelected = selectedAccountIds.some((id) => accounts.find((a) => a.id === id)?.platform === "tiktok");
+  const mediaDurationSec = mediaDuration && mediaDuration.url === mediaUrl ? mediaDuration.sec : null;
+  const tiktokCantPostReason =
+    tiktokSelected && tiktokCreatorInfo && !tiktokCreatorInfo.canPost ? tiktokCreatorInfo.cantPostReason : null;
+  const tiktokMaxVideoSec = tiktokCreatorInfo?.maxVideoDurationSec ?? null;
+  const tiktokVideoTooLongText =
+    tiktokSelected &&
+    mediaDurationSec !== null &&
+    tiktokMaxVideoSec !== null &&
+    isVideoTooLongForTiktok(mediaDurationSec, tiktokMaxVideoSec)
+      ? tiktokVideoTooLongMessage(mediaDurationSec, tiktokMaxVideoSec)
+      : null;
+  // Whichever TikTok rule currently blocks Schedule/Post Now, most serious
+  // first; null when nothing does.
+  const tiktokPublishBlockedText =
+    tiktokCantPostReason ?? tiktokVideoTooLongText ?? (tiktokDisclosureIncomplete ? TIKTOK_DISCLOSURE_HOVER : null);
 
   async function submitPost(scheduledForIso: string, requiresApprovalOverride = requiresApproval) {
     if (selectedAccountIds.length === 0) {
@@ -1686,8 +1738,8 @@ export function Dashboard() {
       setError("Choose who can see this post on TikTok before scheduling.");
       return;
     }
-    if (isTiktokDisclosureIncomplete(selectedAccountIds, accounts, tiktokDiscloseCommercial, tiktokBrandOrganic, tiktokBrandContent)) {
-      setError(TIKTOK_DISCLOSURE_HOVER);
+    if (tiktokPublishBlockedText) {
+      setError(tiktokPublishBlockedText);
       return;
     }
     if (selectedAccountIds.some((id) => accounts.find((a) => a.id === id)?.platform === "tiktok") && !tiktokConsentGiven) {
@@ -4030,7 +4082,14 @@ export function Dashboard() {
                 ) : mediaUrl ? (
                   <div className="media-preview">
                     {mediaUrl.match(/\.(mp4|mov)$/i) ? (
-                      <video src={mediaUrl} muted />
+                      <video
+                        src={mediaUrl}
+                        muted
+                        onLoadedMetadata={(e) => {
+                          const sec = e.currentTarget.duration;
+                          if (Number.isFinite(sec)) setMediaDuration({ url: mediaUrl, sec });
+                        }}
+                      />
                     ) : (
                       <img src={mediaUrl} alt="Attached media preview" />
                     )}
@@ -4144,8 +4203,21 @@ export function Dashboard() {
               return (
                 <div className="tiktok-post-settings">
                   <span className="section-note">
-                    Posting as {tiktokAccount.display_name ?? tiktokAccount.platform_account_id} on TikTok
+                    Posting as{" "}
+                    {tiktokCreatorInfo?.nickname ?? tiktokAccount.display_name ?? tiktokAccount.platform_account_id} on
+                    TikTok
                   </span>
+                  {tiktokCantPostReason && (
+                    <span className="section-note" style={{ color: "var(--error)" }}>
+                      {tiktokCantPostReason}
+                    </span>
+                  )}
+                  {tiktokVideoTooLongText && (
+                    <span className="section-note" style={{ color: "var(--error)" }}>
+                      {tiktokVideoTooLongText}
+                    </span>
+                  )}
+                  <span className="section-note">{TIKTOK_PROCESSING_NOTICE}</span>
                   <span className="section-note">
                     <strong style={{ color: "var(--error)" }}>*</strong> required. Everything else below is optional and off by default.
                   </span>
@@ -4263,16 +4335,16 @@ export function Dashboard() {
               </p>
             )}
             <div className="schedule-form-actions">
-              <span title={tiktokDisclosureIncomplete ? TIKTOK_DISCLOSURE_HOVER : undefined}>
-                <button type="submit" disabled={submitting || tiktokDisclosureIncomplete}>
+              <span title={tiktokPublishBlockedText ?? undefined}>
+                <button type="submit" disabled={submitting || tiktokPublishBlockedText !== null}>
                   {submitting ? "Scheduling..." : "Schedule"}
                 </button>
               </span>
-              <span title={tiktokDisclosureIncomplete ? TIKTOK_DISCLOSURE_HOVER : undefined}>
+              <span title={tiktokPublishBlockedText ?? undefined}>
                 <button
                   type="button"
                   className="post-now-btn"
-                  disabled={submitting || tiktokDisclosureIncomplete}
+                  disabled={submitting || tiktokPublishBlockedText !== null}
                   onClick={handlePostNow}
                 >
                   {submitting ? "Posting..." : "Post Now"}
@@ -4282,7 +4354,7 @@ export function Dashboard() {
                 {draftBusy ? "Saving..." : editingDraftId ? "Update draft" : "Save as draft"}
               </button>
             </div>
-            {tiktokDisclosureIncomplete && <p className="section-note">{TIKTOK_DISCLOSURE_HOVER}</p>}
+            {tiktokPublishBlockedText && <p className="section-note">{tiktokPublishBlockedText}</p>}
           </form>
         )}
       </section>

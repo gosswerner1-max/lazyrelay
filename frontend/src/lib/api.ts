@@ -562,6 +562,18 @@ export const api = {
   getBoards: (socialAccountId: string): Promise<{ id: string; name: string }[]> =>
     authedFetch(`/social-accounts/${socialAccountId}/boards`),
 
+  // Live TikTok creator info for one connected account (see
+  // GET /social-accounts/:id/tiktok-creator-info): the nickname, the longest
+  // video TikTok lets this account post, and whether it can post right now.
+  getTiktokCreatorInfo: (
+    socialAccountId: string,
+  ): Promise<{
+    nickname: string | null;
+    maxVideoDurationSec: number | null;
+    canPost: boolean;
+    cantPostReason: string | null;
+  }> => authedFetch(`/social-accounts/${socialAccountId}/tiktok-creator-info`),
+
   bulkCreateScheduledPosts: (
     posts: Array<{ socialAccountId: string; content: string; mediaUrl?: string; coverImageUrl?: string; scheduledFor: string }>,
   ): Promise<{ succeeded: number; failed: number; results: Array<{ row: number; status: number; body: { error?: string } }> }> =>

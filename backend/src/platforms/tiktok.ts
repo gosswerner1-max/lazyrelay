@@ -6,6 +6,7 @@ import type {
   OAuthExchangeResult,
 } from "./types.js";
 import { fetchMediaForStreaming, createStreamCursor, createChunkStream, type RequestInitWithDuplex } from "./streamUpload.js";
+import { parseCreatorInfo } from "./tiktokCreatorInfo.js";
 
 const AUTHORIZE_URL = "https://www.tiktok.com/v2/auth/authorize/";
 const TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/";
@@ -35,10 +36,6 @@ interface TikTokTokenResponse {
 interface TikTokApiEnvelope<T> {
   data?: T;
   error?: { code: string; message: string; log_id?: string };
-}
-
-interface CreatorInfo {
-  privacy_level_options?: string[];
 }
 
 // TikTok's real per-chunk ceiling (developers.tiktok.com/doc/content-posting-api-media-transfer-guide,
@@ -158,6 +155,25 @@ export class TikTokAdapter implements PlatformAdapter {
     };
   }
 
+  // Live creator info for the compose form (GET /social-accounts/:id/tiktok-creator-info):
+  // nickname, max video length, and whether this creator can post right now.
+  // Unlike checkDirectPostEligible below, this does not fail open -- a failed
+  // lookup throws so the route can report it, and the form simply doesn't block.
+  async getCreatorInfo(accessToken: string) {
+    const res = await fetch(CREATOR_INFO_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8",
+      },
+    });
+    const info = parseCreatorInfo(await res.json());
+    if (!res.ok && info.canPost) {
+      throw new Error(`TikTok creator_info failed with HTTP ${res.status}`);
+    }
+    return info;
+  }
+
   // Real TikTok accounts can have Direct Post unavailable to them entirely —
   // confirmed via TikTok's own docs, not assumed: certain account
   // types/regions/settings return no usable privacy_level_options at all.
@@ -180,7 +196,17 @@ export class TikTokAdapter implements PlatformAdapter {
         "Content-Type": "application/json; charset=UTF-8",
       },
     });
-    const json = (await res.json()) as TikTokApiEnvelope<CreatorInfo>;
+    const json = (await res.json()) as TikTokApiEnvelope<{ privacy_level_options?: string[] }>;
+
+    // TikTok Content Sharing Guidelines, "Required UX Implementation" point 1:
+    // when creator_info says this creator can't make more posts right now,
+    // stop the publishing attempt and tell the customer to try again later.
+    // TikTok reports these as HTTP 200 with an error code, so this has to be
+    // checked before the fail-open branch below would wave it through.
+    const creatorInfo = parseCreatorInfo(json);
+    if (!creatorInfo.canPost) {
+      return { eligible: false, errorMessage: creatorInfo.cantPostReason };
+    }
 
     if (!res.ok || !json.data) {
       // Can't confirm eligibility either way — fail open rather than block

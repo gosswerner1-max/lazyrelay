@@ -59,6 +59,7 @@ import { checkBrandLimit, getBrandCapacity } from "../brandLimits.js";
 import { checkSeatLimit, getSeatCapacity, MAX_SEAT_ADDONS_PER_ACCOUNT } from "../seatLimits.js";
 import { resolveTier, TIER_DISPLAY_NAMES, RECURRING_SCHEDULE_SLOT_LIMITS, type Tier } from "../tier.js";
 import { cancelFuturePendingOccurrences } from "../recurringScheduler.js";
+import { getAccessToken } from "../scheduler.js";
 import { checkGenerationLimit, recordGeneration } from "../aiUsage.js";
 import { buildSupportSystemPrompt, type SupportAccountContext } from "../support/chatKnowledge.js";
 import { extractSelfReportedEmail, SELF_REPORTED_EMAIL } from "../support/escalationIdentity.js";
@@ -1899,6 +1900,38 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
     const boards = await adapter.listBoards(accessToken as string);
     res.json(boards);
+  });
+
+  // TikTok Content Sharing Guidelines, "Required UX Implementation" point 1:
+  // the compose form must show the creator's nickname, stop a post when TikTok
+  // says the creator can't post more right now, and check the video's length
+  // against max_video_post_duration_sec. This returns those live values for
+  // one connected account. Uses getAccessToken (not a raw token read like the
+  // boards route above) because TikTok access tokens expire within ~24h.
+  router.get("/social-accounts/:id/tiktok-creator-info", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const { data: account, error } = await req.db!
+      .from("social_accounts")
+      .select("account_id, platform")
+      .eq("id", req.params.id)
+      .single();
+    if (error || !account || account.account_id !== req.accountId) {
+      res.status(403).json({ error: "Social account not found or not owned by this caller" });
+      return;
+    }
+
+    const adapter = registry.get(account.platform);
+    if (!adapter?.getCreatorInfo) {
+      res.status(404).json({ error: "Creator info is only available for TikTok accounts" });
+      return;
+    }
+
+    try {
+      const accessToken = await getAccessToken(req.params.id as string, adapter);
+      res.json(await adapter.getCreatorInfo(accessToken));
+    } catch (err) {
+      console.warn(`tiktok-creator-info ${req.params.id}: ${err instanceof Error ? err.message : String(err)}`);
+      res.status(502).json({ error: "Couldn't check this TikTok account right now" });
+    }
   });
 
   // Uploads a single image/video for use as a scheduled post's media_url.

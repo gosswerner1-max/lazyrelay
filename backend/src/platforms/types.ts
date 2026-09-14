@@ -201,6 +201,18 @@ export interface PlatformAdapter {
    *  its absence as "this platform has nothing to pick," not an error. */
   listBoards?(accessToken: string): Promise<{ id: string; name: string }[]>;
 
+  /** Optional — live creator info the compose form needs before posting
+   *  (currently only TikTok, per its Content Sharing Guidelines point 1):
+   *  the creator's nickname, the longest video they may post, and whether
+   *  they can post right now. Callers must treat its absence as "this
+   *  platform has no such requirement," not an error. */
+  getCreatorInfo?(accessToken: string): Promise<{
+    nickname: string | null;
+    maxVideoDurationSec: number | null;
+    canPost: boolean;
+    cantPostReason: string | null;
+  }>;
+
   /** Optional — exchanges a stored refresh token for a fresh access token.
    *  Only declared by adapters whose access tokens actually expire and
    *  support a refresh grant (TikTok confirmed as a real, live gap — access
