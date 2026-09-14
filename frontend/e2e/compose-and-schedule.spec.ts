@@ -1,7 +1,6 @@
 import { test, expect } from "@playwright/test";
-import fs from "node:fs";
-import { seedSocialAccount } from "./fixtures/backendAdmin";
-import { ACCOUNT_INFO_PATH } from "./global-setup";
+import { seedSocialAccount, deleteDisposableAccount, type DisposableAccount } from "./fixtures/backendAdmin";
+import { loginAsDisposableAccount } from "./fixtures/auth";
 
 // Real OAuth (Meta, TikTok, etc.) can't be driven from a browser test --
 // it goes through the actual platform's own login screens. So the
@@ -14,14 +13,21 @@ import { ACCOUNT_INFO_PATH } from "./global-setup";
 // attempt to publish to the real Mastodon API with a fake token.
 test.describe("Compose and schedule a post", () => {
   const displayName = `E2E Mastodon ${Date.now()}`;
+  let account: DisposableAccount;
 
-  test.beforeAll(async () => {
-    const { accountId } = JSON.parse(fs.readFileSync(ACCOUNT_INFO_PATH, "utf-8"));
-    await seedSocialAccount(accountId, "mastodon", displayName);
+  // One disposable account per spec FILE, not shared across the suite --
+  // see fixtures/auth.ts's own doc comment for why this changed.
+  test.beforeEach(async ({ page }) => {
+    account = await loginAsDisposableAccount(page);
+    await seedSocialAccount(account.accountId, "mastodon", displayName);
+    await page.reload();
+  });
+
+  test.afterEach(async () => {
+    await deleteDisposableAccount(account.accountId);
   });
 
   test("schedules a post to a connected account and it appears under Upcoming", async ({ page }) => {
-    await page.goto("/");
     await page.getByRole("button", { name: "Posts", exact: true }).click();
 
     // Two other forms on this tab share the same .schedule-form class (the

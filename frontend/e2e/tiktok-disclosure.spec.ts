@@ -1,7 +1,6 @@
 import { test, expect } from "@playwright/test";
-import fs from "node:fs";
-import { seedSocialAccount } from "./fixtures/backendAdmin";
-import { ACCOUNT_INFO_PATH } from "./global-setup";
+import { seedSocialAccount, deleteDisposableAccount, type DisposableAccount } from "./fixtures/backendAdmin";
+import { loginAsDisposableAccount } from "./fixtures/auth";
 
 // Real end-to-end proof of the rule tiktokDisclosure.test.ts already covers
 // in isolation (unit-tested against isTiktokDisclosureIncomplete() directly)
@@ -12,14 +11,20 @@ const HOVER_TEXT = "You need to indicate if your content promotes yourself, a th
 
 test.describe("TikTok commercial-disclosure gate", () => {
   const displayName = `E2E TikTok ${Date.now()}`;
+  let account: DisposableAccount;
 
-  test.beforeAll(async () => {
-    const { accountId } = JSON.parse(fs.readFileSync(ACCOUNT_INFO_PATH, "utf-8"));
-    await seedSocialAccount(accountId, "tiktok", displayName);
+  // One disposable account per spec FILE -- see fixtures/auth.ts.
+  test.beforeEach(async ({ page }) => {
+    account = await loginAsDisposableAccount(page);
+    await seedSocialAccount(account.accountId, "tiktok", displayName);
+    await page.reload();
+  });
+
+  test.afterEach(async () => {
+    await deleteDisposableAccount(account.accountId);
   });
 
   test("locks Schedule/Post Now until a disclosure option is picked, unlocks once one is", async ({ page }) => {
-    await page.goto("/");
     await page.getByRole("button", { name: "Posts", exact: true }).click();
 
     // Same scoping as compose-and-schedule.spec.ts: .schedule-form is

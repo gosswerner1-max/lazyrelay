@@ -92,8 +92,27 @@ export async function seedSocialAccount(accountId: string, platform: string, dis
   return row.id;
 }
 
-/** Deletes the account row + auth user. social_accounts and
- *  scheduled_posts both cascade on accounts(id), so nothing seeded during
+/** Seeds a real subscriptions row so resolveTier() (backend/src/tier.ts)
+ *  sees a paid tier instead of the free-tier default a disposable account
+ *  otherwise gets -- needed for anything gated above free (recurring
+ *  schedules are free:0 slots, pro:3). Bypasses real Paddle entirely, same
+ *  spirit as seedSocialAccount bypassing real OAuth. "pro" here is the DB
+ *  code, which displays to customers as "Starter" (see tier.ts's own
+ *  comment on the naming split) -- 3 recurring-schedule slots, plenty for
+ *  a test that only creates one. */
+export async function seedProSubscription(accountId: string): Promise<void> {
+  const { error } = await supabaseAdmin.from("subscriptions").insert({
+    account_id: accountId,
+    tier: "pro",
+    status: "active",
+    mor_subscription_id: `e2e-fixture-${Date.now()}`,
+    current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  });
+  if (error) throw error;
+}
+
+/** Deletes the account row + auth user. social_accounts, scheduled_posts,
+ *  and subscriptions all cascade on accounts(id), so nothing seeded during
  *  a test needs tracking or deleting separately. */
 export async function deleteDisposableAccount(accountId: string): Promise<void> {
   await supabaseAdmin.from("accounts").delete().eq("id", accountId);
