@@ -4460,52 +4460,70 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    // storage_addons: service-role only, see GET /storage-addons above.
-    const { count: activeAddonCount, error: countError } = await supabase
-      .from("storage_addons")
-      .select("id", { count: "exact", head: true })
-      .eq("account_id", req.accountId)
-      .in("status", ["active", "trialing"]);
-    if (countError) {
-      dbError(res, countError, "POST /storage-addons/checkout active-count");
+    // SECURITY FIX (2026-09-14): this route had the exact same
+    // check-then-act shape as /subscription/checkout with no lock at
+    // all -- two concurrent requests (double-click, two tabs) could both
+    // pass the active-count check below and both create a real Paddle
+    // transaction, exceeding MAX_ACTIVE_STORAGE_ADDONS and/or resulting
+    // in two real charges. Reusing pendingTierChanges (see its own doc
+    // comment) rather than a separate lock, since a tier-change racing
+    // an add-on checkout for the same account is the same underlying bug.
+    if (pendingTierChanges.has(req.accountId!)) {
+      res.status(409).json({ error: "A billing change is already in progress for this account. Please wait for it to finish." });
       return;
     }
-    if ((activeAddonCount ?? 0) >= MAX_ACTIVE_STORAGE_ADDONS) {
-      res.status(403).json({
-        error: `You already have ${MAX_ACTIVE_STORAGE_ADDONS} storage add-ons — cancel one before adding another.`,
-      });
-      return;
-    }
+    pendingTierChanges.add(req.accountId!);
 
-    const apiKey = process.env.MOR_API_KEY;
-    const priceId = ADDON_PRICE_ID_ENV_VAR[gbAmount as StorageAddonGb] ? process.env[ADDON_PRICE_ID_ENV_VAR[gbAmount as StorageAddonGb]] : undefined;
-    if (!apiKey || !priceId) {
-      res.status(503).json({ error: "Billing isn't live yet — no Paddle account/price configured for this add-on." });
-      return;
-    }
-
-    const { data: account, error: accountError } = await req.db!
-      .from("accounts")
-      .select("email")
-      .eq("id", req.accountId)
-      .single();
-    if (accountError || !account) {
-      res.status(404).json({ error: "Account not found" });
-      return;
-    }
-
-    const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
     try {
-      const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
-        kind: "storage_addon",
-        accountEmail: account.email,
-        accountId: req.accountId!,
-        gbAmount,
-        priceId,
-      });
-      res.json({ transactionId, checkoutUrl });
-    } catch (err) {
-      res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+      // storage_addons: service-role only, see GET /storage-addons above.
+      const { count: activeAddonCount, error: countError } = await supabase
+        .from("storage_addons")
+        .select("id", { count: "exact", head: true })
+        .eq("account_id", req.accountId)
+        .in("status", ["active", "trialing"]);
+      if (countError) {
+        dbError(res, countError, "POST /storage-addons/checkout active-count");
+        return;
+      }
+      if ((activeAddonCount ?? 0) >= MAX_ACTIVE_STORAGE_ADDONS) {
+        res.status(403).json({
+          error: `You already have ${MAX_ACTIVE_STORAGE_ADDONS} storage add-ons — cancel one before adding another.`,
+        });
+        return;
+      }
+
+      const apiKey = process.env.MOR_API_KEY;
+      const priceId = ADDON_PRICE_ID_ENV_VAR[gbAmount as StorageAddonGb] ? process.env[ADDON_PRICE_ID_ENV_VAR[gbAmount as StorageAddonGb]] : undefined;
+      if (!apiKey || !priceId) {
+        res.status(503).json({ error: "Billing isn't live yet — no Paddle account/price configured for this add-on." });
+        return;
+      }
+
+      const { data: account, error: accountError } = await req.db!
+        .from("accounts")
+        .select("email")
+        .eq("id", req.accountId)
+        .single();
+      if (accountError || !account) {
+        res.status(404).json({ error: "Account not found" });
+        return;
+      }
+
+      const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
+      try {
+        const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
+          kind: "storage_addon",
+          accountEmail: account.email,
+          accountId: req.accountId!,
+          gbAmount,
+          priceId,
+        });
+        res.json({ transactionId, checkoutUrl });
+      } catch (err) {
+        res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+      }
+    } finally {
+      pendingTierChanges.delete(req.accountId!);
     }
   });
 
@@ -4556,51 +4574,63 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    // brand_addons: service-role only, see GET /brand-addons above.
-    const { count: activeAddonCount, error: countError } = await supabase
-      .from("brand_addons")
-      .select("id", { count: "exact", head: true })
-      .eq("account_id", req.accountId)
-      .in("status", ["active", "trialing"]);
-    if (countError) {
-      dbError(res, countError, "POST /brand-addons/checkout active-count");
+    // SECURITY FIX (2026-09-14): same missing-lock race as
+    // /storage-addons/checkout above -- see that fix's comment.
+    if (pendingTierChanges.has(req.accountId!)) {
+      res.status(409).json({ error: "A billing change is already in progress for this account. Please wait for it to finish." });
       return;
     }
-    if ((activeAddonCount ?? 0) >= MAX_ACTIVE_BRAND_ADDONS) {
-      res.status(403).json({
-        error: `You already have ${MAX_ACTIVE_BRAND_ADDONS} brand add-ons — cancel one before adding another, or talk to us about an Agency plan.`,
-      });
-      return;
-    }
+    pendingTierChanges.add(req.accountId!);
 
-    const apiKey = process.env.MOR_API_KEY;
-    const priceId = process.env[BRAND_ADDON_PRICE_ID_ENV_VAR];
-    if (!apiKey || !priceId) {
-      res.status(503).json({ error: "Billing isn't live yet — no Paddle price configured for this add-on." });
-      return;
-    }
-
-    const { data: account, error: accountError } = await req.db!
-      .from("accounts")
-      .select("email")
-      .eq("id", req.accountId)
-      .single();
-    if (accountError || !account) {
-      res.status(404).json({ error: "Account not found" });
-      return;
-    }
-
-    const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
     try {
-      const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
-        kind: "brand_addon",
-        accountEmail: account.email,
-        accountId: req.accountId!,
-        priceId,
-      });
-      res.json({ transactionId, checkoutUrl });
-    } catch (err) {
-      res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+      // brand_addons: service-role only, see GET /brand-addons above.
+      const { count: activeAddonCount, error: countError } = await supabase
+        .from("brand_addons")
+        .select("id", { count: "exact", head: true })
+        .eq("account_id", req.accountId)
+        .in("status", ["active", "trialing"]);
+      if (countError) {
+        dbError(res, countError, "POST /brand-addons/checkout active-count");
+        return;
+      }
+      if ((activeAddonCount ?? 0) >= MAX_ACTIVE_BRAND_ADDONS) {
+        res.status(403).json({
+          error: `You already have ${MAX_ACTIVE_BRAND_ADDONS} brand add-ons — cancel one before adding another, or talk to us about an Agency plan.`,
+        });
+        return;
+      }
+
+      const apiKey = process.env.MOR_API_KEY;
+      const priceId = process.env[BRAND_ADDON_PRICE_ID_ENV_VAR];
+      if (!apiKey || !priceId) {
+        res.status(503).json({ error: "Billing isn't live yet — no Paddle price configured for this add-on." });
+        return;
+      }
+
+      const { data: account, error: accountError } = await req.db!
+        .from("accounts")
+        .select("email")
+        .eq("id", req.accountId)
+        .single();
+      if (accountError || !account) {
+        res.status(404).json({ error: "Account not found" });
+        return;
+      }
+
+      const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
+      try {
+        const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
+          kind: "brand_addon",
+          accountEmail: account.email,
+          accountId: req.accountId!,
+          priceId,
+        });
+        res.json({ transactionId, checkoutUrl });
+      } catch (err) {
+        res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+      }
+    } finally {
+      pendingTierChanges.delete(req.accountId!);
     }
   });
 
@@ -4647,51 +4677,63 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    // seat_addons: service-role only, see GET /seat-addons above.
-    const { count: activeAddonCount, error: countError } = await supabase
-      .from("seat_addons")
-      .select("id", { count: "exact", head: true })
-      .eq("account_id", req.accountId)
-      .in("status", ["active", "trialing"]);
-    if (countError) {
-      dbError(res, countError, "POST /seat-addons/checkout active-count");
+    // SECURITY FIX (2026-09-14): same missing-lock race as
+    // /storage-addons/checkout above -- see that fix's comment.
+    if (pendingTierChanges.has(req.accountId!)) {
+      res.status(409).json({ error: "A billing change is already in progress for this account. Please wait for it to finish." });
       return;
     }
-    if ((activeAddonCount ?? 0) >= MAX_SEAT_ADDONS_PER_ACCOUNT) {
-      res.status(403).json({
-        error: `You already have ${MAX_SEAT_ADDONS_PER_ACCOUNT} seat add-ons — cancel one before adding another.`,
-      });
-      return;
-    }
+    pendingTierChanges.add(req.accountId!);
 
-    const apiKey = process.env.MOR_API_KEY;
-    const priceId = process.env[SEAT_ADDON_PRICE_ID_ENV_VAR];
-    if (!apiKey || !priceId) {
-      res.status(503).json({ error: "Billing isn't live yet — no Paddle price configured for this add-on." });
-      return;
-    }
-
-    const { data: account, error: accountError } = await req.db!
-      .from("accounts")
-      .select("email")
-      .eq("id", req.accountId)
-      .single();
-    if (accountError || !account) {
-      res.status(404).json({ error: "Account not found" });
-      return;
-    }
-
-    const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
     try {
-      const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
-        kind: "seat_addon",
-        accountEmail: account.email,
-        accountId: req.accountId!,
-        priceId,
-      });
-      res.json({ transactionId, checkoutUrl });
-    } catch (err) {
-      res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+      // seat_addons: service-role only, see GET /seat-addons above.
+      const { count: activeAddonCount, error: countError } = await supabase
+        .from("seat_addons")
+        .select("id", { count: "exact", head: true })
+        .eq("account_id", req.accountId)
+        .in("status", ["active", "trialing"]);
+      if (countError) {
+        dbError(res, countError, "POST /seat-addons/checkout active-count");
+        return;
+      }
+      if ((activeAddonCount ?? 0) >= MAX_SEAT_ADDONS_PER_ACCOUNT) {
+        res.status(403).json({
+          error: `You already have ${MAX_SEAT_ADDONS_PER_ACCOUNT} seat add-ons — cancel one before adding another.`,
+        });
+        return;
+      }
+
+      const apiKey = process.env.MOR_API_KEY;
+      const priceId = process.env[SEAT_ADDON_PRICE_ID_ENV_VAR];
+      if (!apiKey || !priceId) {
+        res.status(503).json({ error: "Billing isn't live yet — no Paddle price configured for this add-on." });
+        return;
+      }
+
+      const { data: account, error: accountError } = await req.db!
+        .from("accounts")
+        .select("email")
+        .eq("id", req.accountId)
+        .single();
+      if (accountError || !account) {
+        res.status(404).json({ error: "Account not found" });
+        return;
+      }
+
+      const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
+      try {
+        const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
+          kind: "seat_addon",
+          accountEmail: account.email,
+          accountId: req.accountId!,
+          priceId,
+        });
+        res.json({ transactionId, checkoutUrl });
+      } catch (err) {
+        res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
+      }
+    } finally {
+      pendingTierChanges.delete(req.accountId!);
     }
   });
 

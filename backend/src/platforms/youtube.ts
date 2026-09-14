@@ -319,12 +319,17 @@ export class YouTubeAdapter implements PlatformAdapter {
     // fine — YouTube's own auto-generated thumbnail is the fallback.
     if (request.coverImageUrl) {
       try {
-        const thumbRes = await fetch(request.coverImageUrl);
-        if (thumbRes.ok && thumbRes.body) {
-          const thumbBuffer = Buffer.from(await thumbRes.arrayBuffer());
-          const thumbContentType = thumbRes.headers.get("content-type")?.startsWith("image/")
-            ? thumbRes.headers.get("content-type")!
-            : "image/jpeg";
+        // SECURITY FIX (2026-09-14): this was a bare fetch() with no
+        // isSafeMediaUrl re-check and no redirect guard -- every other
+        // adapter's media fetch goes through fetchMediaForStreaming for
+        // exactly this reason (see that file's own doc comment). A
+        // customer repointing this URL's DNS after scheduling could have
+        // made LazyRelay's server fetch an internal address and upload
+        // the response as this video's public thumbnail.
+        const thumbMedia = await fetchMediaForStreaming(request.coverImageUrl);
+        if (thumbMedia) {
+          const thumbBuffer = Buffer.from(await new Response(thumbMedia.body).arrayBuffer());
+          const thumbContentType = thumbMedia.contentType.startsWith("image/") ? thumbMedia.contentType : "image/jpeg";
           const setRes = await fetch(
             `${THUMBNAILS_SET_URL}?videoId=${encodeURIComponent(uploadJson.id)}`,
             {

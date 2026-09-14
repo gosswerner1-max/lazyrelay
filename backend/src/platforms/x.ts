@@ -1,5 +1,6 @@
 import { randomBytes, createHash } from "node:crypto";
 import { supabase } from "../supabase.js";
+import { fetchMediaForStreaming } from "./streamUpload.js";
 import type {
   PlatformAdapter,
   PostRequest,
@@ -142,12 +143,18 @@ export class XAdapter implements PlatformAdapter {
   // this endpoint accepts an OAuth 2.0 user-context Bearer token, not just
   // OAuth 1.0a, despite living under the legacy /1.1/ path.
   private async uploadMedia(mediaUrl: string, accessToken: string): Promise<string | null> {
-    // redirect: "manual" — see mastodon.ts's uploadMedia for the full
-    // rationale (closes the adapter-side redirect-following SSRF gap).
-    const mediaRes = await fetch(mediaUrl, { redirect: "manual" });
-    if (!mediaRes.ok || !mediaRes.body) return null;
-    const buffer = Buffer.from(await mediaRes.arrayBuffer());
-    const mimeType = mediaRes.headers.get("content-type") ?? "application/octet-stream";
+    // SECURITY FIX (2026-09-14): this used a bare fetch() with only the
+    // redirect guard, never re-checking isSafeMediaUrl at the actual
+    // fetch point the way every other adapter does via
+    // fetchMediaForStreaming -- x.ts predates the 2026-09-05 streaming
+    // refactor and was missed. Still buffers into memory here (X's v1.1
+    // chunked-upload protocol needs an upfront total_bytes count, same
+    // constraint streamUpload.ts's own comment notes for Pinterest), so
+    // this only closes the SSRF gap, not the separate memory-scaling one.
+    const media = await fetchMediaForStreaming(mediaUrl);
+    if (!media) return null;
+    const buffer = Buffer.from(await new Response(media.body).arrayBuffer());
+    const mimeType = media.contentType;
     const authHeader = { Authorization: `Bearer ${accessToken}` };
 
     const initParams = new URLSearchParams({
