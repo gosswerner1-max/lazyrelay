@@ -15,7 +15,7 @@
     "zapier-platform-core": "19.1.0"
   },
   "devDependencies": {
-    "dotenv": "^16.4.5",
+    "dotenv": "^17.4.2",
     "mocha": "^11.8.0",
     "should": "^13.2.3"
   },
