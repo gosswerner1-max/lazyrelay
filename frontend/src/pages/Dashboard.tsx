@@ -4501,7 +4501,7 @@ export function Dashboard() {
 
       {(() => {
         const brandFiltered = posts.filter((p) => accountMatchesBrand(accounts.find((a) => a.id === p.social_account_id), brandFilter));
-        const upcoming = brandFiltered.filter((p) => p.status === "pending" || p.status === "posting" || p.status === "needs_approval");
+        const upcoming = brandFiltered.filter((p) => p.status === "pending" || p.status === "posting" || p.status === "needs_approval" || p.status === "draft");
         // Drafts have no scheduled_for (nullable, migration 0049) and must
         // never land in History — explicit posted/failed match (not a
         // negative "isn't pending/posting/needs_approval" filter, which
