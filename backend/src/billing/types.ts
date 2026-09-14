@@ -49,6 +49,12 @@ export interface StorageAddonEvent {
   gbAmount: number;
   status: "trialing" | "active" | "past_due" | "cancelled";
   currentPeriodEnd: string; // ISO timestamp
+  // SECURITY FIX (2026-09-14): added so sync.ts can guard against an
+  // out-of-order webhook delivery the same way SubscriptionEvent.occurredAt
+  // already does -- see that field's own comment. Previously silently
+  // dropped in buildEventFromCustomData even though the real value was
+  // already flowing through that function's own parameter.
+  occurredAt: string; // ISO timestamp
 }
 
 /** A completed Paddle transaction ("a sale") — captured for IPE Projects'
@@ -103,6 +109,7 @@ export interface BrandAddonEvent {
   accountId?: string; // see SubscriptionEvent.accountId
   status: "trialing" | "active" | "past_due" | "cancelled";
   currentPeriodEnd: string; // ISO timestamp
+  occurredAt: string; // ISO timestamp -- see StorageAddonEvent.occurredAt
 }
 
 /** A seat add-on (Agency pricing pass, 2026-08-17) — same "own Paddle
@@ -115,6 +122,7 @@ export interface SeatAddonEvent {
   accountId?: string; // see SubscriptionEvent.accountId
   status: "trialing" | "active" | "past_due" | "cancelled";
   currentPeriodEnd: string; // ISO timestamp
+  occurredAt: string; // ISO timestamp -- see StorageAddonEvent.occurredAt
 }
 
 export type BillingEvent = SubscriptionEvent | StorageAddonEvent | BrandAddonEvent | SeatAddonEvent | SaleRecordEvent | RefundRecordEvent;

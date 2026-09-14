@@ -37,6 +37,7 @@ async function main() {
     gbAmount: 5,
     status: "active",
     currentPeriodEnd: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+    occurredAt: new Date().toISOString(),
   };
   await syncSubscriptionFromWebhook(addonEvent);
 

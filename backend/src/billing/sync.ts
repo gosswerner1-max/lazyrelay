@@ -79,6 +79,45 @@ async function resolveAccountId(event: { accountId?: string; accountEmail: strin
   return data.id;
 }
 
+/** Applies a storage/brand/seat add-on webhook event with the same
+ *  out-of-order-delivery guard the tier subscription path already has
+ *  (SECURITY FIX, 2026-09-14) -- an atomic conditional UPDATE keyed on
+ *  last_webhook_occurred_at, falling back to a plain upsert only for this
+ *  specific add-on's genuine first-ever event. Simpler than the tier
+ *  subscription's own version of this pattern: that one upserts on
+ *  account_id (one row per account, so a brand-new mor_subscription_id
+ *  from a resubscribe is ambiguous with an existing row) and needs an
+ *  extra insert-race retry to resolve that ambiguity. Add-ons upsert on
+ *  mor_subscription_id itself, which already uniquely identifies the
+ *  target row, so normal upsert-with-onConflict semantics are inherently
+ *  race-safe for the "does a row exist yet" question -- only the ordering
+ *  of *updates to an existing row* needed a fix. */
+async function applyAddonEvent(
+  table: "storage_addons" | "brand_addons" | "seat_addons",
+  morSubscriptionId: string,
+  occurredAt: string,
+  row: Record<string, unknown>,
+): Promise<void> {
+  const fullRow = { ...row, last_webhook_occurred_at: occurredAt, updated_at: new Date().toISOString() };
+
+  const { data: updated, error: updateError } = await supabase
+    .from(table)
+    .update(fullRow)
+    .eq("mor_subscription_id", morSubscriptionId)
+    .or(`last_webhook_occurred_at.is.null,last_webhook_occurred_at.lt.${occurredAt}`)
+    .select("mor_subscription_id");
+  if (updateError) throw updateError;
+  if ((updated ?? []).length > 0) return;
+
+  // No row was updated: either this is the add-on's genuine first-ever
+  // event (no row exists yet), or an existing row is already same-or-newer
+  // (genuinely stale, correctly a no-op). ignoreDuplicates makes the
+  // upsert a no-op in the second case rather than clobbering a newer row
+  // that just didn't match the WHERE clause above by definition.
+  const { error: upsertError } = await supabase.from(table).upsert(fullRow, { onConflict: "mor_subscription_id", ignoreDuplicates: true });
+  if (upsertError) throw upsertError;
+}
+
 /** Called by the webhook HTTP handler after signature verification. Keeps
  *  our local `subscriptions` row in sync with what the MoR actually thinks
  *  the state is — this table is the source of truth for what a customer
@@ -93,42 +132,32 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
     // Upserted on mor_subscription_id, NOT account_id — unlike the tier
     // subscription, a customer can legitimately stack several active
     // add-ons at once, so each Paddle subscription gets its own row.
-    const { error } = await supabase.from("storage_addons").upsert(
-      {
-        account_id: accountId,
-        mor_subscription_id: event.morSubscriptionId,
-        gb_amount: event.gbAmount,
-        status: event.status,
-        current_period_end: event.currentPeriodEnd,
-        // A real webhook always reflects Paddle's current authoritative
-        // state, which supersedes our own local "customer clicked cancel,
-        // waiting for period end" flag — clears it whether this event is a
-        // fresh resubscribe or the real end-of-period cancellation finally
-        // landing (see cancel_at_period_end migration 0043).
-        cancel_at_period_end: false,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "mor_subscription_id" },
-    );
-    if (error) throw error;
+    await applyAddonEvent("storage_addons", event.morSubscriptionId, event.occurredAt, {
+      account_id: accountId,
+      mor_subscription_id: event.morSubscriptionId,
+      gb_amount: event.gbAmount,
+      status: event.status,
+      current_period_end: event.currentPeriodEnd,
+      // A real webhook always reflects Paddle's current authoritative
+      // state, which supersedes our own local "customer clicked cancel,
+      // waiting for period end" flag — clears it whether this event is a
+      // fresh resubscribe or the real end-of-period cancellation finally
+      // landing (see cancel_at_period_end migration 0043).
+      cancel_at_period_end: false,
+    });
     return;
   }
 
   if (event.kind === "brand_addon") {
     // Same upsert-on-mor_subscription_id reasoning as storage_addons above —
     // a customer can stack several active brand add-ons at once.
-    const { error } = await supabase.from("brand_addons").upsert(
-      {
-        account_id: accountId,
-        mor_subscription_id: event.morSubscriptionId,
-        status: event.status,
-        current_period_end: event.currentPeriodEnd,
-        cancel_at_period_end: false,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "mor_subscription_id" },
-    );
-    if (error) throw error;
+    await applyAddonEvent("brand_addons", event.morSubscriptionId, event.occurredAt, {
+      account_id: accountId,
+      mor_subscription_id: event.morSubscriptionId,
+      status: event.status,
+      current_period_end: event.currentPeriodEnd,
+      cancel_at_period_end: false,
+    });
     return;
   }
 
@@ -136,18 +165,13 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
     // Same upsert-on-mor_subscription_id reasoning as brand_addons above —
     // a customer can stack up to MAX_SEAT_ADDONS_PER_ACCOUNT active seat
     // add-ons at once (see seatLimits.ts).
-    const { error } = await supabase.from("seat_addons").upsert(
-      {
-        account_id: accountId,
-        mor_subscription_id: event.morSubscriptionId,
-        status: event.status,
-        current_period_end: event.currentPeriodEnd,
-        cancel_at_period_end: false,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "mor_subscription_id" },
-    );
-    if (error) throw error;
+    await applyAddonEvent("seat_addons", event.morSubscriptionId, event.occurredAt, {
+      account_id: accountId,
+      mor_subscription_id: event.morSubscriptionId,
+      status: event.status,
+      current_period_end: event.currentPeriodEnd,
+      cancel_at_period_end: false,
+    });
     return;
   }
 

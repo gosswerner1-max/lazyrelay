@@ -94,15 +94,15 @@ function buildEventFromCustomData(sub: SubscriptionLike, status: SubscriptionEve
     if (typeof gbAmount !== "number" || gbAmount <= 0) {
       throw new Error(`Subscription ${sub.id} has invalid/missing customData.gbAmount "${String(gbAmount)}"`);
     }
-    return { kind: "storage_addon", morSubscriptionId: sub.id, accountEmail, accountId, gbAmount, status, currentPeriodEnd };
+    return { kind: "storage_addon", morSubscriptionId: sub.id, accountEmail, accountId, gbAmount, status, currentPeriodEnd, occurredAt };
   }
 
   if (customData.kind === "brand_addon") {
-    return { kind: "brand_addon", morSubscriptionId: sub.id, accountEmail, accountId, status, currentPeriodEnd };
+    return { kind: "brand_addon", morSubscriptionId: sub.id, accountEmail, accountId, status, currentPeriodEnd, occurredAt };
   }
 
   if (customData.kind === "seat_addon") {
-    return { kind: "seat_addon", morSubscriptionId: sub.id, accountEmail, accountId, status, currentPeriodEnd };
+    return { kind: "seat_addon", morSubscriptionId: sub.id, accountEmail, accountId, status, currentPeriodEnd, occurredAt };
   }
 
   const tier = customData.tier;
