@@ -1,5 +1,6 @@
 import { supabase } from "../supabase.js";
 import { ACCOUNT_LIMITS } from "../accountLimits.js";
+import { normalizeOccurredAt } from "./occurredAt.js";
 import type { Tier } from "../tier.js";
 import type {
   SubscriptionEvent,
@@ -98,13 +99,16 @@ async function applyAddonEvent(
   occurredAt: string,
   row: Record<string, unknown>,
 ): Promise<void> {
-  const fullRow = { ...row, last_webhook_occurred_at: occurredAt, updated_at: new Date().toISOString() };
+  // SECURITY FIX (2026-09-14): see occurredAt.ts -- validated/normalized
+  // before it reaches the raw .or() filter string below.
+  const safeOccurredAt = normalizeOccurredAt(occurredAt);
+  const fullRow = { ...row, last_webhook_occurred_at: safeOccurredAt, updated_at: new Date().toISOString() };
 
   const { data: updated, error: updateError } = await supabase
     .from(table)
     .update(fullRow)
     .eq("mor_subscription_id", morSubscriptionId)
-    .or(`last_webhook_occurred_at.is.null,last_webhook_occurred_at.lt.${occurredAt}`)
+    .or(`last_webhook_occurred_at.is.null,last_webhook_occurred_at.lt.${safeOccurredAt}`)
     .select("mor_subscription_id");
   if (updateError) throw updateError;
   if ((updated ?? []).length > 0) return;
@@ -191,6 +195,10 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
   // and the second one's WHERE clause is evaluated against whatever the
   // first one just committed -- so an older event can never overwrite a
   // newer one no matter which request's JS reached this line first.
+  // SECURITY FIX (2026-09-14): validated/normalized before it ever reaches
+  // the raw .or() filter string below -- see occurredAt.ts's own comment
+  // for why this matters regardless of today's reachability.
+  const safeOccurredAt = normalizeOccurredAt(event.occurredAt);
   const subscriptionRow = {
     account_id: accountId,
     mor_subscription_id: event.morSubscriptionId,
@@ -199,7 +207,7 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
     current_period_end: event.currentPeriodEnd,
     // See the matching comment on the storage_addons upsert above.
     cancel_at_period_end: false,
-    last_webhook_occurred_at: event.occurredAt,
+    last_webhook_occurred_at: safeOccurredAt,
     updated_at: new Date().toISOString(),
   };
 
@@ -208,7 +216,7 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
       .from("subscriptions")
       .update(subscriptionRow)
       .eq("account_id", accountId)
-      .or(`last_webhook_occurred_at.is.null,last_webhook_occurred_at.lt.${event.occurredAt}`)
+      .or(`last_webhook_occurred_at.is.null,last_webhook_occurred_at.lt.${safeOccurredAt}`)
       .select("account_id");
     if (error) throw error;
     return data ?? [];
