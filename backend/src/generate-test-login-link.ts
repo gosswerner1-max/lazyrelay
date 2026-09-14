@@ -48,10 +48,14 @@ async function main() {
   const accountId = user.user.id;
   await supabase.from("accounts").upsert({ id: accountId, email });
 
+  // Overridable so the Playwright E2E setup (frontend/e2e/) can point the
+  // link back at a local dev server instead of production -- defaults
+  // unchanged for the manual-UI-check use case this script was built for.
+  const redirectTo = process.env.TEST_LOGIN_REDIRECT_TO ?? "https://lazyrelay.com";
   const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
     type: "magiclink",
     email,
-    options: { redirectTo: "https://lazyrelay.com" },
+    options: { redirectTo },
   });
   if (linkError || !linkData) throw linkError ?? new Error("no link returned");
 
