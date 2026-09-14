@@ -7,6 +7,7 @@ import type { OAuthGrant } from "@supabase/supabase-js";
 import { describeScopes } from "../lib/oauthScopes";
 import { api, type SocialAccount, type Brand, type BrandCapacity, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation, type Triage, type TeamMember, type SeatCapacity } from "../lib/api";
 import { API_BASE_URL, API_ENDPOINTS, MCP_CONFIG_EXAMPLE, HOSTED_MCP_URL, HOSTED_MCP_REMOTE_CONFIG_EXAMPLE, MCP_TOOLS } from "../lib/apiDocsContent";
+import { isTiktokDisclosureIncomplete } from "../lib/tiktokDisclosure";
 import { CodeBlock } from "../components/CodeBlock";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
@@ -1668,11 +1669,13 @@ export function Dashboard() {
   // disclosure toggle on + neither option ticked => publish is disabled, and
   // hovering must show exactly this message.
   const TIKTOK_DISCLOSURE_HOVER = "You need to indicate if your content promotes yourself, a third party, or both.";
-  const tiktokDisclosureIncomplete =
-    selectedAccountIds.some((id) => accounts.find((a) => a.id === id)?.platform === "tiktok") &&
-    tiktokDiscloseCommercial &&
-    !tiktokBrandOrganic &&
-    !tiktokBrandContent;
+  const tiktokDisclosureIncomplete = isTiktokDisclosureIncomplete(
+    selectedAccountIds,
+    accounts,
+    tiktokDiscloseCommercial,
+    tiktokBrandOrganic,
+    tiktokBrandContent,
+  );
 
   async function submitPost(scheduledForIso: string, requiresApprovalOverride = requiresApproval) {
     if (selectedAccountIds.length === 0) {
@@ -1683,12 +1686,7 @@ export function Dashboard() {
       setError("Choose who can see this post on TikTok before scheduling.");
       return;
     }
-    if (
-      selectedAccountIds.some((id) => accounts.find((a) => a.id === id)?.platform === "tiktok") &&
-      tiktokDiscloseCommercial &&
-      !tiktokBrandOrganic &&
-      !tiktokBrandContent
-    ) {
+    if (isTiktokDisclosureIncomplete(selectedAccountIds, accounts, tiktokDiscloseCommercial, tiktokBrandOrganic, tiktokBrandContent)) {
       setError(TIKTOK_DISCLOSURE_HOVER);
       return;
     }
