@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { Login } from "./Login";
 import { Spinner } from "../components/Spinner";
 import { BrandMark } from "../components/BrandMark";
+import { MfaChallenge } from "../components/MfaChallenge";
 import { describeScopes } from "../lib/oauthScopes";
 
 type Details = {
@@ -31,6 +32,33 @@ export function OAuthConsentPage({ authorizationId }: { authorizationId: string 
   const [loadingDetails, setLoadingDetails] = useState(true);
   const [redirecting, setRedirecting] = useState(false);
   const [deciding, setDeciding] = useState<"approve" | "deny" | null>(null);
+
+  // SECURITY FIX (2026-09-14): this screen had no MFA step-up check of
+  // its own, unlike App.tsx's main dashboard gate -- an aal1 session
+  // (valid password auth, TOTP not yet completed this session) could
+  // reach and click Approve here. This is the same client-side gate
+  // App.tsx already uses (see its own comment), applied to this screen
+  // too. It's real defense-in-depth, not a substitute for server-side
+  // enforcement -- approveAuthorization calls directly into Supabase's
+  // own managed OAuth 2.1 server (see this file's header comment), so
+  // whether THAT endpoint itself rejects an aal1 call on an MFA-enrolled
+  // account is Supabase platform behavior this codebase has no visibility
+  // into and this fix does not verify either way.
+  const [needsMfaChallenge, setNeedsMfaChallenge] = useState<boolean | undefined>(undefined);
+  useEffect(() => {
+    if (!session) {
+      setNeedsMfaChallenge(undefined);
+      return;
+    }
+    let cancelled = false;
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel().then(({ data, error }) => {
+      if (cancelled) return;
+      setNeedsMfaChallenge(!error && data.nextLevel !== data.currentLevel);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
 
   useEffect(() => {
     if (!session || !authorizationId) return;
@@ -112,6 +140,14 @@ export function OAuthConsentPage({ authorizationId }: { authorizationId: string 
     // earlier version wrapping it in .oauth-consent-shell double-stacked
     // two full-page shells (Werner caught the visible dead space live).
     return <Login onBack={() => window.location.assign("/")} />;
+  }
+
+  // Deliberately checked before anything else that could reveal or act on
+  // the authorization request -- an aal1 session on an MFA-enrolled
+  // account completes the TOTP challenge here before it can even see
+  // what it's being asked to approve.
+  if (needsMfaChallenge) {
+    return <MfaChallenge />;
   }
 
   if (redirecting || loadingDetails) {

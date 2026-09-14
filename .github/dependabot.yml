@@ -12,3 +12,15 @@ updates:
     directory: "/mcp-server"
     schedule:
       interval: "weekly"
+  # SECURITY FIX (2026-09-14): both have their own package.json/lockfile
+  # and were getting zero automatic vulnerability alerts -- npm audit was
+  # clean for both at the time this was found, but that's a point-in-time
+  # fact, not a standing guarantee.
+  - package-ecosystem: "npm"
+    directory: "/ops"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "npm"
+    directory: "/zapier-integration"
+    schedule:
+      interval: "weekly"

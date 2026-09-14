@@ -1,4 +1,5 @@
 import express from "express";
+import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import multer from "multer";
@@ -27,6 +28,15 @@ export function buildApp(
   // response for free, telling an attacker which framework-specific
   // vulnerabilities to try first.
   app.disable("x-powered-by");
+
+  // SECURITY FIX (2026-09-14): this backend sent no security headers at
+  // all -- confirmed live via curl, not assumed. CSP off for the same
+  // reason TimeAJob's own backend already documents: this is a pure
+  // JSON/PDF API that never serves HTML, so CSP (built for HTML-serving
+  // apps) has nothing to protect and only risks blocking a legitimate
+  // response. crossOriginResourcePolicy allows cross-origin since the
+  // frontend lives on a different origin and fetches this API directly.
+  app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: "cross-origin" } }));
 
   // Render sits in front of the app behind exactly one reverse proxy hop,
   // which sets X-Forwarded-For. Without this, express-rate-limit can't

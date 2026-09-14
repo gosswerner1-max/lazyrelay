@@ -13,12 +13,20 @@ on:
   pull_request:
     branches: [main]
 
+# Read-only by default -- neither job pushes, deploys, or publishes
+# anything, so the default GITHUB_TOKEN scope has nothing to use.
+permissions:
+  contents: read
+
 jobs:
   backend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Pinned to a real commit SHA (v4.4.0), not a mutable tag -- a tag
+      # can be moved to point at different code without any diff showing
+      # up in this repo.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           # 22, not 20 -- found 2026-09-04 wiring in the security test:
           # @supabase/supabase-js's realtime client requires a native
@@ -106,8 +114,8 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           # Bumped from 20 to 22 on 2026-09-14, same day node-version was
           # added to this job's test step: jsdom@30 (added for RTL/Vitest)

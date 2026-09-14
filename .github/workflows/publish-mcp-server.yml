@@ -42,11 +42,13 @@ jobs:
       run:
         working-directory: mcp-server
     steps:
+      # Pinned to real commit SHAs, not mutable tags -- see ci.yml's own
+      # comment for the full rationale.
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           # npm trusted publishing needs npm CLI 11.5.1+ / Node 22.14+;
           # 24 comfortably clears both and matches what's already

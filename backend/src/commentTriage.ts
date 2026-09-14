@@ -49,13 +49,23 @@ async function classifyBatch(items: TriageItem[]): Promise<Map<string, TriageRes
   if (!client || items.length === 0) return out;
 
   const batch = items.slice(0, MAX_ITEMS_PER_BATCH);
+  // Third-party-controlled text (a comment/DM author's own name and
+  // message, from people who never signed up for LazyRelay) was
+  // interpolated unescaped into this numbered list with no defense
+  // against embedded newlines -- a crafted comment could inject fake
+  // numbered lines to desync the batch's own numbering. Stripping
+  // newlines from each field closes that without changing the format
+  // the model already reliably parses; impact was already bounded to a
+  // UI attention-filter badge, not an executed action, so this is
+  // belt-and-suspenders, not a fix for something exploitable further.
+  const sanitizeForPrompt = (s: string) => s.replace(/[\r\n]+/g, " ").trim();
   const prompt =
     `You triage incoming social media comments and DMs for a small business owner. ` +
     `For each numbered item, decide whether it genuinely needs the owner's personal attention, or is routine content ` +
     `that's safe to skip (generic praise, emojis, spam, bot replies).\n\n` +
     `Return ONLY a JSON array, one object per item in the same order, no other text. Each object:\n` +
     `{"needsAttention": boolean, "category": "angry_customer" | "sales_question" | "question" | "routine", "reason": "<8 words or fewer>"}\n\n` +
-    batch.map((item, i) => `${i + 1}. ${item.author}: ${item.text}`).join("\n");
+    batch.map((item, i) => `${i + 1}. ${sanitizeForPrompt(item.author)}: ${sanitizeForPrompt(item.text)}`).join("\n");
 
   try {
     const message = await client.messages.create({

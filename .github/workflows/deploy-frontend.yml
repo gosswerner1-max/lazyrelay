@@ -12,15 +12,25 @@ on:
       - ".github/workflows/deploy-frontend.yml"
   workflow_dispatch: {}
 
+# Read-only -- the only "write" this job does is the FTP push itself,
+# which uses the FTP secrets, not the GITHUB_TOKEN.
+permissions:
+  contents: read
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
+      # Pinned to real commit SHAs, not mutable tags -- a tag can be
+      # moved to point at different code without any diff showing up in
+      # this repo. The FTP-Deploy-Action below is the highest-value one
+      # to pin here specifically: it's the one step with real, live
+      # credentials (FTP_HOST/USERNAME/PASSWORD) in scope.
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "20"
           cache: "npm"
@@ -53,7 +63,7 @@ jobs:
         run: npm run build
 
       - name: Deploy to cPanel via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        uses: SamKirkland/FTP-Deploy-Action@8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65 # v4.3.5
         with:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
