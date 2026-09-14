@@ -4,9 +4,20 @@
 
 ## The working method (use this)
 
-1. Bump the version in `package.json` (e.g. `npm version patch --no-git-tag-version`).
+1. Bump the version in `package.json` (e.g. `npm version patch --no-git-tag-version`) **and set both `version` fields in `server.json` to the same number**.
 2. Commit and push to `main`, touching something under `mcp-server/`.
-3. That's it. `.github/workflows/publish-mcp-server.yml` builds and publishes automatically via **npm trusted publishing (OIDC)** — no token anywhere, nothing to leak, nothing that expires.
+3. That's it. `.github/workflows/publish-mcp-server.yml` builds and publishes automatically via **npm trusted publishing (OIDC)** — no token anywhere, nothing to leak, nothing that expires. The same run then publishes `server.json` to the official **MCP Registry** (`registry.modelcontextprotocol.io`), also via GitHub OIDC. If `server.json` doesn't match `package.json`, the run fails **before** npm publishes, so nothing goes out half-released.
+
+### MCP Registry fallback (if the Registry steps fail)
+
+Re-running the workflow won't retry the Registry, because npm already has that version. Publish it by hand instead, using the [`mcp-publisher`](https://github.com/modelcontextprotocol/registry/releases) CLI from this folder:
+
+1. `mcp-publisher validate server.json`
+2. `mcp-publisher login github`. This is a device login: enter the printed code at github.com/login/device as `gosswerner1-max`.
+3. `mcp-publisher publish server.json` **immediately**, because the login token only lasts about 5 minutes.
+4. Confirm the new version is live: `https://registry.modelcontextprotocol.io/v0/servers?search=lazyrelay` should show it with `isLatest: true`.
+
+This is how `0.1.3` (2026-08-28) and `0.2.1` (2026-09-14) reached the Registry.
 
 The workflow only actually publishes if the version you bumped to differs from what's already live on npm (`npm view @lazyrelay/mcp-server version`) — so pushing without a real version bump is a harmless no-op, not an error. If you want to watch it run: `gh run list --repo gosswerner1-max/lazyrelay --workflow=publish-mcp-server.yml`.
 
