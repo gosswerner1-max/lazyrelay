@@ -35,6 +35,17 @@ jobs:
         run: npm ci
       - working-directory: backend
         run: npm run build
+      # Vitest unit/integration suite, added 2026-09-14 alongside
+      # test-runner-setup — currently just app.test.ts's real /health check
+      # (hits live Supabase via the same two secrets as the steps below, so
+      # it needs them here too). Runs before the security test boots a real
+      # server, since Vitest builds its own app instance and needs no
+      # running process.
+      - working-directory: backend
+        run: npm test
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       # security-test.ts already existed (auth bypass, cross-account IDOR,
       # upload spoofing, input validation, webhook forgery, CORS) but was
       # never run anywhere until 2026-09-04 -- wired in after a security
@@ -103,6 +114,10 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - working-directory: frontend
         run: npm ci
+      # Vitest/RTL unit suite, added 2026-09-14 — currently just
+      # format.test.ts. No env vars needed, runs before the build.
+      - working-directory: frontend
+        run: npm test
       # Same VITE_* placeholders as deploy-frontend.yml's real secrets —
       # `vite build`'s type-check step needs these env vars to exist, but
       # their actual values don't matter for a build-only run (no deploy
