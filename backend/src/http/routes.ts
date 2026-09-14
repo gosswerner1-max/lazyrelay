@@ -2635,10 +2635,36 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // Naturally-small assumption above breaks down once one account shares a
   // login across multiple brands (2026-09-14) — a brand filter (same
   // resolveBrandFilterSocialAccountIds() used by /analytics/summary) scopes
-  // "upcoming" to the brand the frontend actually asked for, and an explicit
-  // limit stops an unfiltered request from silently hitting Supabase's
-  // default ~1000-row cap, which was masking real posts on accounts with a
-  // large combined post pool.
+  // "upcoming" to the brand the frontend actually asked for.
+  //
+  // A same-day follow-up found that filter alone wasn't enough: Supabase's
+  // own project settings cap every single REST request at 1000 rows no
+  // matter what .limit()/.range() the query asks for (confirmed directly —
+  // a request for 5000 still came back Content-Range: 0-999/1415). An
+  // unfiltered request on an account whose combined post pool exceeds 1000
+  // silently lost real posts to this cap, ordered out by date rather than
+  // by relevance. The only way past a cap enforced per-request by the
+  // platform itself is more requests — fetchAllRows below pages with
+  // .range() until a page comes back short of a full page.
+  const SUPABASE_ROW_PAGE_SIZE = 1000;
+  async function fetchAllRows<T>(
+    queryFactory: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+    maxRows: number,
+  ): Promise<T[]> {
+    const all: T[] = [];
+    let offset = 0;
+    while (offset < maxRows) {
+      const to = Math.min(offset + SUPABASE_ROW_PAGE_SIZE, maxRows) - 1;
+      const { data, error } = await queryFactory(offset, to);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      all.push(...data);
+      if (data.length < to - offset + 1) break;
+      offset += data.length;
+    }
+    return all;
+  }
+
   const SCHEDULED_POSTS_UPCOMING_MAX = 5000;
   router.get("/scheduled-posts", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const brand = typeof req.query.brand === "string" && req.query.brand.length > 0 ? req.query.brand : undefined;
@@ -2650,19 +2676,29 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    let upcomingQuery = req.db!
-      .from("scheduled_posts")
-      .select("*, post_results(*)")
-      .eq("account_id", req.accountId)
-      .in("status", ["pending", "posting", "needs_approval", "draft"])
-      .order("scheduled_for", { ascending: true })
-      // Now that every retry attempt (not just verification failures) can
-      // leave its own post_results row, the frontend's `post_results?.[0]`
-      // needs the MOST RECENT attempt first — without this, a post that
-      // failed once and later succeeded on retry could still show its
-      // stale first-attempt failure reason instead of the real outcome.
-      .order("created_at", { ascending: false, referencedTable: "post_results" })
-      .limit(SCHEDULED_POSTS_UPCOMING_MAX);
+    let upcoming: unknown[];
+    try {
+      upcoming = await fetchAllRows((from, to) => {
+        let q = req
+          .db!.from("scheduled_posts")
+          .select("*, post_results(*)")
+          .eq("account_id", req.accountId)
+          .in("status", ["pending", "posting", "needs_approval", "draft"])
+          .order("scheduled_for", { ascending: true })
+          // Now that every retry attempt (not just verification failures) can
+          // leave its own post_results row, the frontend's `post_results?.[0]`
+          // needs the MOST RECENT attempt first — without this, a post that
+          // failed once and later succeeded on retry could still show its
+          // stale first-attempt failure reason instead of the real outcome.
+          .order("created_at", { ascending: false, referencedTable: "post_results" });
+        if (matchingSocialAccountIds) q = q.in("social_account_id", matchingSocialAccountIds);
+        return q.range(from, to);
+      }, SCHEDULED_POSTS_UPCOMING_MAX);
+    } catch (err) {
+      dbError(res, err as { message: string }, "GET /scheduled-posts upcoming");
+      return;
+    }
+
     let historyQuery = req.db!
       .from("scheduled_posts")
       .select("*, post_results(*)")
@@ -2672,23 +2708,14 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       .order("created_at", { ascending: false, referencedTable: "post_results" })
       .limit(SCHEDULED_POSTS_HISTORY_DEFAULT_LIMIT);
     if (matchingSocialAccountIds) {
-      upcomingQuery = upcomingQuery.in("social_account_id", matchingSocialAccountIds);
       historyQuery = historyQuery.in("social_account_id", matchingSocialAccountIds);
     }
-
-    const [{ data: upcoming, error: upcomingError }, { data: history, error: historyError }] = await Promise.all([
-      upcomingQuery,
-      historyQuery,
-    ]);
-    if (upcomingError) {
-      dbError(res, upcomingError, "GET /scheduled-posts upcoming");
-      return;
-    }
+    const { data: history, error: historyError } = await historyQuery;
     if (historyError) {
       dbError(res, historyError, "GET /scheduled-posts history");
       return;
     }
-    res.json([...(upcoming ?? []), ...(history ?? [])]);
+    res.json([...upcoming, ...(history ?? [])]);
   });
 
   // Additional pages of history, older than `before` (an ISO scheduled_for
@@ -3231,22 +3258,37 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
-    let scheduledPostsQuery = req.db!
-      .from("scheduled_posts")
-      .select(
-        "id, status, scheduled_for, social_accounts(platform), post_results(verified_live, error_message), post_metrics(checkpoint, likes, comments, shares, views)"
-      )
-      .eq("account_id", req.accountId)
-      .gte("scheduled_for", since)
-      .order("scheduled_for", { ascending: true })
-      // Same silent-~1000-row-cap issue as /scheduled-posts (2026-09-14) —
-      // without this, every aggregate below (byStatus, byPlatform,
-      // dailyCounts, engagement) was quietly truncated on any account whose
-      // combined post pool for the range exceeded Supabase's default cap.
-      .limit(ANALYTICS_SCHEDULED_POSTS_MAX);
-    if (matchingSocialAccountIds) {
-      scheduledPostsQuery = scheduledPostsQuery.in("social_account_id", matchingSocialAccountIds);
-    }
+    // Same real per-request row cap as /scheduled-posts (2026-09-14, see
+    // fetchAllRows above) — a single .limit(ANALYTICS_SCHEDULED_POSTS_MAX)
+    // looked right but Supabase's project settings still truncated it to
+    // 1000 regardless, quietly truncating every aggregate below (byStatus,
+    // byPlatform, dailyCounts, engagement) on any account whose combined
+    // post pool for the range exceeded that. Paged with fetchAllRows instead.
+    type AnalyticsPostRow = {
+      id: string;
+      status: string;
+      scheduled_for: string;
+      social_accounts: { platform?: string } | { platform?: string }[] | null;
+      post_results: { verified_live: boolean; error_message: string | null } | { verified_live: boolean; error_message: string | null }[] | null;
+      post_metrics:
+        | { checkpoint: string; likes: number | null; comments: number | null; shares: number | null; views: number | null }
+        | { checkpoint: string; likes: number | null; comments: number | null; shares: number | null; views: number | null }[]
+        | null;
+    };
+    const scheduledPostsPromise = fetchAllRows<AnalyticsPostRow>((from, to) => {
+      let q = req
+        .db!.from("scheduled_posts")
+        .select(
+          "id, status, scheduled_for, social_accounts(platform), post_results(verified_live, error_message), post_metrics(checkpoint, likes, comments, shares, views)"
+        )
+        .eq("account_id", req.accountId)
+        .gte("scheduled_for", since)
+        .order("scheduled_for", { ascending: true });
+      if (matchingSocialAccountIds) q = q.in("social_account_id", matchingSocialAccountIds);
+      return q.range(from, to);
+    }, ANALYTICS_SCHEDULED_POSTS_MAX)
+      .then((data) => ({ data, error: null as unknown }))
+      .catch((error) => ({ data: null as AnalyticsPostRow[] | null, error }));
     // Real total, independent of the row cap above — data.length silently
     // matched the cap instead of the true count once an account passed it.
     let totalPostsCountQuery = req.db!
@@ -3278,7 +3320,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       { count: accountsConnectedCount },
       { data: audienceSnapshotRows, error: audienceError },
     ] = await Promise.all([
-      scheduledPostsQuery,
+      scheduledPostsPromise,
       totalPostsCountQuery,
       req.db!.from("dm_automations").select("id").eq("account_id", req.accountId),
       req.db!.from("social_accounts").select("id", { count: "exact", head: true }).eq("account_id", req.accountId).is("disconnected_at", null),
