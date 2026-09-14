@@ -1664,6 +1664,16 @@ export function Dashboard() {
     }
   }
 
+  // TikTok Content Sharing Guidelines, "Required UX Implementation" point 3a:
+  // disclosure toggle on + neither option ticked => publish is disabled, and
+  // hovering must show exactly this message.
+  const TIKTOK_DISCLOSURE_HOVER = "You need to indicate if your content promotes yourself, a third party, or both.";
+  const tiktokDisclosureIncomplete =
+    selectedAccountIds.some((id) => accounts.find((a) => a.id === id)?.platform === "tiktok") &&
+    tiktokDiscloseCommercial &&
+    !tiktokBrandOrganic &&
+    !tiktokBrandContent;
+
   async function submitPost(scheduledForIso: string, requiresApprovalOverride = requiresApproval) {
     if (selectedAccountIds.length === 0) {
       setError("Select at least one connected account to post to.");
@@ -1679,7 +1689,7 @@ export function Dashboard() {
       !tiktokBrandOrganic &&
       !tiktokBrandContent
     ) {
-      setError("Choose whether this content promotes yourself, a third party, or both.");
+      setError(TIKTOK_DISCLOSURE_HOVER);
       return;
     }
     if (selectedAccountIds.some((id) => accounts.find((a) => a.id === id)?.platform === "tiktok") && !tiktokConsentGiven) {
@@ -4255,16 +4265,26 @@ export function Dashboard() {
               </p>
             )}
             <div className="schedule-form-actions">
-              <button type="submit" disabled={submitting}>
-                {submitting ? "Scheduling..." : "Schedule"}
-              </button>
-              <button type="button" className="post-now-btn" disabled={submitting} onClick={handlePostNow}>
-                {submitting ? "Posting..." : "Post Now"}
-              </button>
+              <span title={tiktokDisclosureIncomplete ? TIKTOK_DISCLOSURE_HOVER : undefined}>
+                <button type="submit" disabled={submitting || tiktokDisclosureIncomplete}>
+                  {submitting ? "Scheduling..." : "Schedule"}
+                </button>
+              </span>
+              <span title={tiktokDisclosureIncomplete ? TIKTOK_DISCLOSURE_HOVER : undefined}>
+                <button
+                  type="button"
+                  className="post-now-btn"
+                  disabled={submitting || tiktokDisclosureIncomplete}
+                  onClick={handlePostNow}
+                >
+                  {submitting ? "Posting..." : "Post Now"}
+                </button>
+              </span>
               <button type="button" className="btn-outline" disabled={draftBusy || submitting} onClick={handleSaveDraft}>
                 {draftBusy ? "Saving..." : editingDraftId ? "Update draft" : "Save as draft"}
               </button>
             </div>
+            {tiktokDisclosureIncomplete && <p className="section-note">{TIKTOK_DISCLOSURE_HOVER}</p>}
           </form>
         )}
       </section>
