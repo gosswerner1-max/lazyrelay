@@ -27,6 +27,23 @@ function applyConsent(choices: ConsentChoices) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(choices));
 }
 
+/** SECURITY/PRIVACY FIX (2026-09-14): the backend's AI-usage telemetry
+ *  (posthogClient.ts) fired unconditionally on every Anthropic call
+ *  regardless of this exact consent choice -- a real gap, since that
+ *  client is backend-to-backend and had no way to know this browser's
+ *  choice at all. Exported so api.ts can attach the real current choice
+ *  as a request header on every AI-touching call, rather than the
+ *  backend silently always sending. */
+export function hasAnalyticsConsent(): boolean {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return false;
+  try {
+    return (JSON.parse(raw) as ConsentChoices).analytics === true;
+  } catch {
+    return false;
+  }
+}
+
 /** Reads a stored choice and re-applies it to Consent Mode — every fresh
  *  page load starts back at index.html's "denied" default, since consent
  *  state itself isn't persisted by gtag.js, only the choices object here

@@ -52,10 +52,28 @@ export function getPostHogClient(): PostHog | null {
  *  redacted nothing. Verified end-to-end with a real Anthropic call and a
  *  real (intercepted, not sent) PostHog event: test-posthog-privacy-mode.ts.
  *  Cost/latency/token/model metrics are unaffected -- only input/output
- *  text is redacted. */
-export function createAnthropicClient(apiKey: string, timeout: number): AnthropicOriginal {
+ *  text is redacted.
+ *
+ *  `analyticsConsent` (SECURITY/PRIVACY FIX, 2026-09-14): even with
+ *  content redacted, the usage EVENT ITSELF (model, token counts,
+ *  latency, cost -- no prompt/completion text) still fired on every call
+ *  regardless of whether the calling browser's cookie-consent banner had
+ *  analytics granted or denied -- this client is backend-to-backend, so
+ *  it had no way to know that choice at all. Defaults to true (today's
+ *  existing always-on behavior) so a caller that hasn't been updated
+ *  yet to pass a real per-request value doesn't silently change
+ *  behavior; the 5 interactive HTTP routes now pass the real value read
+ *  from the X-Analytics-Consent request header (see api.ts's
+ *  authedFetch). commentTriage.ts's background call is deliberately left
+ *  on the default -- it processes third-party comment/DM text on the
+ *  account owner's behalf, not a live end-user request with a consent
+ *  banner of its own to read from. When false, this returns a plain,
+ *  unwrapped Anthropic client identical to the no-POSTHOG_API_KEY
+ *  fallback path below -- PostHog never sees the call at all, not just
+ *  a redacted version of it. */
+export function createAnthropicClient(apiKey: string, timeout: number, analyticsConsent = true): AnthropicOriginal {
   const posthog = getPostHogClient();
-  if (!posthog) return new AnthropicOriginal({ apiKey, timeout });
+  if (!posthog || !analyticsConsent) return new AnthropicOriginal({ apiKey, timeout });
 
   // @posthog/ai bundles its own copy of @anthropic-ai/sdk, so its
   // PostHogAnthropic (which only overrides .messages) is structurally

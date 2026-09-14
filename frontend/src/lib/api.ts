@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { hasAnalyticsConsent } from "../components/CookieConsent";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -18,6 +19,13 @@ async function authedFetch(path: string, options: RequestInit = {}) {
     headers: {
       ...options.headers,
       Authorization: `Bearer ${token}`,
+      // SECURITY/PRIVACY FIX (2026-09-14): lets the backend's AI-usage
+      // telemetry (posthogClient.ts) honor this exact browser's real
+      // consent choice instead of always sending regardless of it. A
+      // no-op for every non-AI route, which is fine -- one attachment
+      // point here beats remembering it at each of the several AI call
+      // sites individually.
+      "X-Analytics-Consent": hasAnalyticsConsent() ? "granted" : "denied",
       ...(options.body ? { "Content-Type": "application/json" } : {}),
     },
   });
@@ -638,6 +646,8 @@ export const api = {
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        // See authedFetch's own comment on this header.
+        "X-Analytics-Consent": hasAnalyticsConsent() ? "granted" : "denied",
       },
       body: JSON.stringify({ messages }),
     });

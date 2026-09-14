@@ -1,4 +1,4 @@
-import { Router, type Response } from "express";
+import { Router, type Request, type Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAnthropicClient } from "../posthogClient.js";
 import multer from "multer";
@@ -186,6 +186,13 @@ function dbError(res: Response, err: { message: string }, context: string): void
   res.status(500).json({ error: "Something went wrong on our end. Please try again." });
 }
 
+// See createAnthropicClient's own comment (posthogClient.ts) for why this
+// exists. Fails closed (treats a missing/malformed header as denied) --
+// the safe default for a consent signal is "not granted," not "granted."
+function readAnalyticsConsent(req: Request): boolean {
+  return req.headers["x-analytics-consent"] === "granted";
+}
+
 // Deleting a scheduled_posts row never touches the underlying media_uploads
 // row/storage file on its own — the same uploaded file can be attached to
 // several scheduled posts (e.g. one fan-out schedule to 3 platforms). Only
@@ -326,7 +333,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       // proxy timeout instead of this route's own clean error response.
       // 20s is generous headroom for Haiku + max_tokens 400 (normally a
       // couple seconds) while still failing well before that.
-      const client = createAnthropicClient(apiKey, 20_000);
+      const client = createAnthropicClient(apiKey, 20_000, readAnalyticsConsent(req));
       const message = await client.messages.create({
         model: "claude-haiku-4-5",
         max_tokens: 400,
@@ -393,7 +400,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     try {
       // Same timeout reasoning as /ai/caption above — bounded failure
       // instead of an indefinitely open request.
-      const client = createAnthropicClient(apiKey, 20_000);
+      const client = createAnthropicClient(apiKey, 20_000, readAnalyticsConsent(req));
       const message = await client.messages.create({
         model: "claude-haiku-4-5",
         max_tokens: 200,
@@ -465,7 +472,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
     try {
       // Same timeout reasoning as /ai/caption and /ai/hashtags above.
-      const client = createAnthropicClient(apiKey, 20_000);
+      const client = createAnthropicClient(apiKey, 20_000, readAnalyticsConsent(req));
       const message = await client.messages.create({
         model: "claude-haiku-4-5",
         max_tokens: 500,
@@ -630,7 +637,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       // Longer timeout than the caption/hashtag routes — this is a real
       // conversational reply grounded in a much bigger system prompt, not a
       // short generation. Still bounded so a hung call fails cleanly.
-      const client = createAnthropicClient(apiKey, 30_000);
+      const client = createAnthropicClient(apiKey, 30_000, readAnalyticsConsent(req));
       const message = await client.messages.create({
         model: "claude-haiku-4-5",
         max_tokens: 500,
@@ -3442,7 +3449,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
     try {
       // Same timeout reasoning as the other Anthropic-backed routes above.
-      const client = createAnthropicClient(apiKey, 20_000);
+      const client = createAnthropicClient(apiKey, 20_000, readAnalyticsConsent(req));
       const message = await client.messages.create({
         model: "claude-haiku-4-5",
         max_tokens: 400,
