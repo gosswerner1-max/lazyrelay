@@ -2250,7 +2250,7 @@ export function Dashboard() {
   }
 
   async function handleDelete(id: string, isHistory: boolean) {
-    if (isHistory && !window.confirm("Delete this post from history? This can't be undone.")) return;
+    if (isHistory && !window.confirm("Delete this post? This can't be undone.")) return;
     try {
       await api.deleteScheduledPost(id);
       await refresh();
