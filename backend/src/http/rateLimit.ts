@@ -93,6 +93,29 @@ export const publicRateLimit = rateLimit({
   handler: onRateLimited,
 });
 
+/** SECURITY FIX (2026-09-14): POST /support/chat's only per-day backstop
+ *  was a single GLOBAL cap (SUPPORT_CHAT_DAILY_CAP, migration 0056)
+ *  shared across every visitor combined. Combined with publicRateLimit's
+ *  30/min-per-IP ceiling, one actor at the maximum allowed rate could
+ *  exhaust the entire day's shared budget in well under 17 minutes
+ *  (30 * 17 ≈ 500), denying the feature to every other real visitor for
+ *  the rest of the day -- the global cap alone can't tell "one visitor
+ *  asking a lot of questions" from "one script draining the budget for
+ *  everyone else." This is a second, per-IP daily ceiling layered on top
+ *  of both existing limits: in-memory is correct here for the same
+ *  reason pendingTierChanges (routes.ts) already documents -- confirmed
+ *  single Render instance today. 50/day per IP is generous for a real
+ *  visitor (the 16-message-per-conversation cap already bounds a single
+ *  real conversation well under that) while keeping any one IP from
+ *  dominating the shared 500/day total. */
+export const supportChatPerIpDailyLimit = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 50,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: onRateLimited,
+});
+
 /** POST /mfa/recovery-codes/redeem (mfaRecovery.ts) is the one deliberately
  *  weaker-than-normal-auth endpoint in the whole API — it has to work for
  *  someone who by definition doesn't have their second factor, so all it

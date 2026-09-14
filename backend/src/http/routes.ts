@@ -41,7 +41,7 @@ import {
   API_KEY_PREFIX,
   hashApiKey,
 } from "./auth.js";
-import { tieredRateLimit, publicRateLimit } from "./rateLimit.js";
+import { tieredRateLimit, publicRateLimit, supportChatPerIpDailyLimit } from "./rateLimit.js";
 import {
   scheduleOnePost,
   validatePostFields,
@@ -559,11 +559,13 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // original limit.
   const MAX_CHAT_MESSAGES = 16;
   // Global backstop across EVERY conversation combined, not per-visitor —
-  // this route costs real Anthropic spend per call and has no daily total
-  // otherwise (publicRateLimit is per-IP-per-minute only, easily multiplied
-  // across many source IPs). At today's near-zero real traffic this should
-  // never actually trigger; it exists purely to cap a scripted abuse
-  // attempt. See increment_support_chat_usage in migration 0056.
+  // this route costs real Anthropic spend per call. At today's near-zero
+  // real traffic this should never actually trigger; it exists purely to
+  // cap a scripted abuse attempt. See increment_support_chat_usage in
+  // migration 0056. SECURITY FIX (2026-09-14): this alone couldn't stop
+  // one actor from draining the whole day's shared budget -- see
+  // supportChatPerIpDailyLimit (rateLimit.ts) for the per-IP daily
+  // ceiling now layered on top of this global one.
   const SUPPORT_CHAT_DAILY_CAP = 500;
   const MAX_CHAT_MESSAGE_LENGTH = 2000;
   // SELF_REPORTED_EMAIL and extractSelfReportedEmail live in
@@ -575,7 +577,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   // words together: a reply that merely mentions email (failure alerts, say)
   // must not match, or a real question would get skipped.
   const ASKED_FOR_CONTACT = /name and (?:an? )?email|email and (?:your )?name/i;
-  router.post("/support/chat", publicRateLimit, async (req, res) => {
+  router.post("/support/chat", publicRateLimit, supportChatPerIpDailyLimit, async (req, res) => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       res.status(503).json({ error: "The support assistant isn't set up on this deploy yet." });
