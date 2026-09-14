@@ -679,8 +679,8 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
         <h2>Works with</h2>
         <p className="section-note">
           <strong>Mastodon (mastodon.social), Bluesky, Telegram, Discord, and Tumblr, all first-class.</strong> Most
-          schedulers cover the big four or five and stop. We checked eighteen of them. Not one covers
-          all five of these.
+          schedulers cover the big four or five and stop. Here they sit right next to Facebook, Instagram, TikTok
+          and the rest, in the same dashboard.
         </p>
         <div className="platform-row">
           <PlatformIcon platform="facebook" size={40} />
