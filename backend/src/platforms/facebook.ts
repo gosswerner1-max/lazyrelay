@@ -164,6 +164,7 @@ export class FacebookAdapter implements PlatformAdapter {
       expiresAt: null,
       platformAccountId: page.id,
       displayName: page.name,
+      metaPageSubscription: { pageId: page.id, pageAccessToken: page.access_token },
     };
   }
 
@@ -190,6 +191,7 @@ export class FacebookAdapter implements PlatformAdapter {
       expiresAt: null,
       platformAccountId: page.id,
       displayName: page.name,
+      metaPageSubscription: { pageId: page.id, pageAccessToken: page.access_token },
     };
   }
 

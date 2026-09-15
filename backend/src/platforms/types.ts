@@ -129,6 +129,14 @@ export interface OAuthExchangeResult {
   expiresAt: string | null; // ISO timestamp, null if the platform doesn't expire tokens
   platformAccountId: string;
   displayName: string | null;
+  /** Facebook/Instagram only: the underlying Facebook Page id and its own
+   *  access token. Needed to subscribe the Page to messaging webhooks
+   *  (POST /{page-id}/subscribed_apps) — a separate step from the OAuth
+   *  permissions grant, and without it Instagram's Messaging API refuses
+   *  every call with "(#3) Application does not have the capability",
+   *  confirmed live 2026-09-15. See connect.ts's storeConnectedAccount and
+   *  http/metaWebhook.ts. */
+  metaPageSubscription?: { pageId: string; pageAccessToken: string };
 }
 
 export interface ConnectOption {

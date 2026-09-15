@@ -1,5 +1,6 @@
 import { supabase } from "../supabase.js";
 import { checkNewDistinctAccountLimit } from "../accountLimits.js";
+import { subscribePageToMessaging } from "../http/metaWebhook.js";
 import type { PlatformAdapter, OAuthExchangeResult, ConnectOption } from "./types.js";
 
 export type PlatformAdapterRegistry = Map<string, PlatformAdapter>;
@@ -80,6 +81,14 @@ async function storeConnectedAccount(
     .select("id")
     .single();
   if (insertError || !socialAccount) throw insertError;
+
+  // Facebook/Instagram only. Confirmed live 2026-09-15: without this,
+  // Instagram's Messaging API refuses every call outright regardless of
+  // OAuth permissions already granted — see metaWebhook.ts. Best-effort:
+  // logs and moves on rather than failing an otherwise-successful connect.
+  if (result.metaPageSubscription) {
+    await subscribePageToMessaging(result.metaPageSubscription.pageId, result.metaPageSubscription.pageAccessToken);
+  }
 
   return socialAccount.id;
 }

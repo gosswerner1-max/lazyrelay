@@ -203,6 +203,7 @@ export class InstagramAdapter implements PlatformAdapter {
       expiresAt: null,
       platformAccountId: igId,
       displayName: username ?? page.name,
+      metaPageSubscription: { pageId: page.id, pageAccessToken: page.access_token },
     };
   }
 
@@ -238,6 +239,7 @@ export class InstagramAdapter implements PlatformAdapter {
       expiresAt: null,
       platformAccountId: igId,
       displayName: username ?? page.name,
+      metaPageSubscription: { pageId: page.id, pageAccessToken: page.access_token },
     };
   }
 

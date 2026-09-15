@@ -6,6 +6,7 @@ import multer from "multer";
 import { buildRouter } from "./routes.js";
 import { buildMfaRecoveryRouter } from "./mfaRecovery.js";
 import { buildWebhookHandler } from "./webhook.js";
+import { handleMetaWebhookVerification, handleMetaWebhookEvent } from "./metaWebhook.js";
 import { publicRateLimit } from "./rateLimit.js";
 import { mountMcp } from "./mcpRoutes.js";
 import { isKnownAdminKey } from "./auth.js";
@@ -59,6 +60,20 @@ export function buildApp(
     publicRateLimit,
     express.raw({ type: "application/json" }),
     buildWebhookHandler(morAdapter),
+  );
+
+  // Meta's product-activation webhook -- see metaWebhook.ts's file-level
+  // comment for why this exists even though nothing else in this codebase
+  // processes real-time events (mentionsAndDmsPoller.ts polls instead).
+  // GET is Meta's one-time verify handshake (no signature, just a shared
+  // token); POST is real deliveries and needs the raw body for HMAC
+  // verification, same reason as the MOR webhook above.
+  app.get("/api/webhooks/meta", publicRateLimit, handleMetaWebhookVerification);
+  app.post(
+    "/api/webhooks/meta",
+    publicRateLimit,
+    express.raw({ type: "application/json" }),
+    handleMetaWebhookEvent,
   );
 
   // Hosted MCP is mounted BEFORE the frontend CORS policy below on purpose.
