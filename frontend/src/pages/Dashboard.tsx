@@ -19,6 +19,7 @@ import { CodeBlock } from "../components/CodeBlock";
 import { RelaySignal } from "../components/RelaySignal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon, BRAND_COLORS } from "../components/PlatformIcon";
+import { TikTokPreview } from "../components/TikTokPreview";
 import { AccountPicker, AccountGroupList } from "../components/AccountPicker";
 import { MediaStorageList } from "../components/MediaStorageList";
 import { NotificationBell } from "../components/NotificationBell";
@@ -4214,6 +4215,8 @@ export function Dashboard() {
               if (!tiktokAccount) return null;
               return (
                 <div className="tiktok-post-settings">
+                  <div className="tiktok-post-settings-layout">
+                  <div className="tiktok-post-settings-fields">
                   <div className="tiktok-post-heading">
                     <PlatformIcon platform="tiktok" size={16} />
                     Posting as{" "}
@@ -4334,6 +4337,13 @@ export function Dashboard() {
                       <span style={{ color: "var(--error)" }}>*</span> By posting, you agree to TikTok's{tiktokBrandContent ? " Branded Content Policy and" : ""} Music Usage Confirmation.
                     </strong>
                   </label>
+                  </div>
+                  <TikTokPreview
+                    mediaUrl={mediaUrl}
+                    caption={content}
+                    nickname={tiktokCreatorInfo?.nickname ?? tiktokAccount.display_name ?? tiktokAccount.platform_account_id}
+                  />
+                  </div>
                 </div>
               );
             })()}
