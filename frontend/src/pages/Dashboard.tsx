@@ -4214,11 +4214,12 @@ export function Dashboard() {
               if (!tiktokAccount) return null;
               return (
                 <div className="tiktok-post-settings">
-                  <span className="section-note">
+                  <div className="tiktok-post-heading">
+                    <PlatformIcon platform="tiktok" size={16} />
                     Posting as{" "}
                     {tiktokCreatorInfo?.nickname ?? tiktokAccount.display_name ?? tiktokAccount.platform_account_id} on
                     TikTok
-                  </span>
+                  </div>
                   {tiktokCantPostReason && (
                     <span className="section-note" style={{ color: "var(--error)" }}>
                       {tiktokCantPostReason}

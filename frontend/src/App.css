@@ -1492,6 +1492,20 @@ button[type="submit"]:not(.btn-outline),
   font-weight: 600;
 }
 
+/* "Posting as X on TikTok" used to be a .section-note like everything else
+   below it, which made it read as just another line of small print rather
+   than the section's own heading -- Werner flagged it as easy to miss.
+   Same accent as the primary buttons/links, not a new color. */
+.tiktok-post-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--signal);
+  font-weight: 700;
+  font-size: 15px;
+  margin: 4px 0 12px;
+}
+
 /* Storage add-on cards have no feature <ul> between the price and the
    button (unlike the tier cards, which get their gap from the list's own
    margin) -- the button sat flush against the price with no breathing
