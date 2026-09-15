@@ -63,9 +63,27 @@ function formatWithPrettier(projectDir, filePath) {
 }
 
 function typecheckErrorsFor(tsconfigDir, filePath) {
+  // A "solution-style" tsconfig (files: [], only `references`) checks ZERO
+  // files under a plain `tsc --noEmit` -- confirmed live 2026-09-15 after
+  // this exact blind spot let a real type error through this hook
+  // undetected on a frontend edit. frontend/tsconfig.json is one of these;
+  // `tsc -b` is the only invocation that actually builds/checks the
+  // referenced projects (tsconfig.app.json / tsconfig.node.json), both of
+  // which already set `noEmit: true` themselves, so `-b` here still never
+  // writes output files.
+  let isSolutionStyle = false;
+  try {
+    const raw = fs.readFileSync(path.join(tsconfigDir, "tsconfig.json"), "utf8");
+    const parsed = JSON.parse(raw.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, ""));
+    isSolutionStyle = Array.isArray(parsed.references) && (!parsed.files || parsed.files.length === 0) && !parsed.include;
+  } catch {
+    // Unreadable/malformed tsconfig -- fall through to the plain invocation
+    // below, same as before this check existed.
+  }
+
   let output = "";
   try {
-    execFileSync("npx", ["tsc", "--noEmit", "--pretty", "false"], {
+    execFileSync("npx", isSolutionStyle ? ["tsc", "-b", "--pretty", "false"] : ["tsc", "--noEmit", "--pretty", "false"], {
       cwd: tsconfigDir,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
