@@ -21,15 +21,34 @@ const authClient = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_
   auth: { persistSession: false },
 });
 
+// Deletes a user whose setup failed after createUser() succeeded. The caller
+// only gets a throw, never the id, so without this the user leaks into
+// PRODUCTION (found 2026-09-15). account_members goes first so an accepted
+// grant on another account can't outlive the user.
+async function discardHalfCreatedUser(userId: string) {
+  const warnIfError = (label: string, error: { message: string } | null) => {
+    if (error) console.error(`[security-test cleanup] ${label} for half-created user ${userId} failed: ${error.message}`);
+  };
+  warnIfError("delete memberships", (await supabase.from("account_members").delete().eq("user_id", userId)).error);
+  warnIfError("delete account row", (await supabase.from("accounts").delete().eq("id", userId)).error);
+  warnIfError("delete auth user", (await supabase.auth.admin.deleteUser(userId)).error);
+}
+
 async function makeAccount(prefix: string): Promise<{ accountId: string; jwt: string }> {
   const email = `sectest-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}@lazyrelay.invalid`;
   const password = "SecTest123!";
   const { data: user, error } = await supabase.auth.admin.createUser({ email, password, email_confirm: true });
   if (error || !user.user) throw error ?? new Error("no user");
-  await supabase.from("accounts").upsert({ id: user.user.id, email });
-  const { data: signIn, error: signInError } = await authClient.auth.signInWithPassword({ email, password });
-  if (signInError || !signIn.session) throw signInError ?? new Error("no session");
-  return { accountId: user.user.id, jwt: signIn.session.access_token };
+  const userId = user.user.id;
+  try {
+    await supabase.from("accounts").upsert({ id: userId, email });
+    const { data: signIn, error: signInError } = await authClient.auth.signInWithPassword({ email, password });
+    if (signInError || !signIn.session) throw signInError ?? new Error("no session");
+    return { accountId: userId, jwt: signIn.session.access_token };
+  } catch (err) {
+    await discardHalfCreatedUser(userId);
+    throw err;
+  }
 }
 
 // Added for the RLS rework (2026-09-04) -- creates a real second user and
@@ -43,13 +62,19 @@ async function makeTeammate(ownerAccountId: string, prefix: string): Promise<{ u
   const password = "SecTest123!";
   const { data: user, error } = await supabase.auth.admin.createUser({ email, password, email_confirm: true });
   if (error || !user.user) throw error ?? new Error("no user");
-  const { error: memberError } = await supabase
-    .from("account_members")
-    .insert({ account_id: ownerAccountId, user_id: user.user.id, role: "member", accepted_at: new Date().toISOString() });
-  if (memberError) throw memberError;
-  const { data: signIn, error: signInError } = await authClient.auth.signInWithPassword({ email, password });
-  if (signInError || !signIn.session) throw signInError ?? new Error("no session");
-  return { userId: user.user.id, jwt: signIn.session.access_token };
+  const userId = user.user.id;
+  try {
+    const { error: memberError } = await supabase
+      .from("account_members")
+      .insert({ account_id: ownerAccountId, user_id: userId, role: "member", accepted_at: new Date().toISOString() });
+    if (memberError) throw memberError;
+    const { data: signIn, error: signInError } = await authClient.auth.signInWithPassword({ email, password });
+    if (signInError || !signIn.session) throw signInError ?? new Error("no session");
+    return { userId, jwt: signIn.session.access_token };
+  } catch (err) {
+    await discardHalfCreatedUser(userId);
+    throw err;
+  }
 }
 
 async function seedSocialAccount(accountId: string): Promise<string> {
@@ -178,63 +203,87 @@ async function testIDOR(accountA: { accountId: string; jwt: string }, accountB: 
 // this proves the RLS layer itself is correct independent of API rollout
 // progress.
 async function testTeamAccess(owner: { accountId: string; jwt: string }) {
-  const teammate = await makeTeammate(owner.accountId, "team");
-  const outsider = await makeAccount("outsider");
+  // Declared outside the try so the finally below cleans up whatever was
+  // actually created, even when a later step throws. Found 2026-09-15: the
+  // cleanup used to sit at the end of the function body, and main() only
+  // tracks the owner's id -- so any throw between creating these two
+  // accounts and the cleanup (e.g. the fetch below failing because the local
+  // backend wasn't running) cleaned up the owner but leaked the teammate and
+  // outsider into PRODUCTION. Three runs on 2026-09-14 left exactly one such
+  // pair each (accounts checked: 8 instead of the real 2).
+  let teammate: { userId: string; jwt: string } | undefined;
+  let outsider: { accountId: string; jwt: string } | undefined;
+  let brandId: string | undefined;
 
-  const socialAccountId = await seedSocialAccount(owner.accountId);
-  const postId = await seedScheduledPost(owner.accountId, socialAccountId);
-  const { data: brand, error: brandError } = await supabase
-    .from("brands")
-    .insert({ account_id: owner.accountId, name: "Sec Test Brand" })
-    .select("id")
-    .single();
-  if (brandError || !brand) throw brandError ?? new Error("no brand");
+  try {
+    teammate = await makeTeammate(owner.accountId, "team");
+    outsider = await makeAccount("outsider");
 
-  const teammateClient = createUserClient(teammate.jwt);
-  const { data: postsAsTeammate, error: postsError } = await teammateClient
-    .from("scheduled_posts")
-    .select("id")
-    .eq("id", postId);
-  report(
-    "An accepted teammate CAN see the owner's scheduled_posts via RLS directly",
-    !postsError && !!postsAsTeammate && postsAsTeammate.length === 1,
-    postsError ? postsError.message : `rows: ${postsAsTeammate?.length}`,
-  );
+    const socialAccountId = await seedSocialAccount(owner.accountId);
+    const postId = await seedScheduledPost(owner.accountId, socialAccountId);
+    const { data: brand, error: brandError } = await supabase
+      .from("brands")
+      .insert({ account_id: owner.accountId, name: "Sec Test Brand" })
+      .select("id")
+      .single();
+    if (brandError || !brand) throw brandError ?? new Error("no brand");
+    brandId = brand.id;
 
-  const { data: socialAsTeammate, error: socialError } = await teammateClient
-    .from("social_accounts")
-    .select("id")
-    .eq("id", socialAccountId);
-  report(
-    "An accepted teammate CAN see the owner's social_accounts via RLS directly",
-    !socialError && !!socialAsTeammate && socialAsTeammate.length === 1,
-    socialError ? socialError.message : `rows: ${socialAsTeammate?.length}`,
-  );
+    const teammateClient = createUserClient(teammate.jwt);
+    const { data: postsAsTeammate, error: postsError } = await teammateClient
+      .from("scheduled_posts")
+      .select("id")
+      .eq("id", postId);
+    report(
+      "An accepted teammate CAN see the owner's scheduled_posts via RLS directly",
+      !postsError && !!postsAsTeammate && postsAsTeammate.length === 1,
+      postsError ? postsError.message : `rows: ${postsAsTeammate?.length}`,
+    );
 
-  const { data: brandsAsTeammate, error: brandsError } = await teammateClient.from("brands").select("id").eq("id", brand.id);
-  report(
-    "An accepted teammate CAN see the owner's brands via RLS directly",
-    !brandsError && !!brandsAsTeammate && brandsAsTeammate.length === 1,
-    brandsError ? brandsError.message : `rows: ${brandsAsTeammate?.length}`,
-  );
+    const { data: socialAsTeammate, error: socialError } = await teammateClient
+      .from("social_accounts")
+      .select("id")
+      .eq("id", socialAccountId);
+    report(
+      "An accepted teammate CAN see the owner's social_accounts via RLS directly",
+      !socialError && !!socialAsTeammate && socialAsTeammate.length === 1,
+      socialError ? socialError.message : `rows: ${socialAsTeammate?.length}`,
+    );
 
-  // Negative control -- a real, unrelated third account (no account_members
-  // row at all for this owner) must NOT see any of it via the same RLS
-  // path. Without this, a policy that's simply wide-open (e.g. `using
-  // (true)`) would pass every check above too.
-  const outsiderClient = createUserClient(outsider.jwt);
-  const { data: postsAsOutsider } = await outsiderClient.from("scheduled_posts").select("id").eq("id", postId);
-  report("An unrelated account CANNOT see the owner's scheduled_posts via RLS directly", (postsAsOutsider?.length ?? 0) === 0);
-  const { data: brandsAsOutsider } = await outsiderClient.from("brands").select("id").eq("id", brand.id);
-  report("An unrelated account CANNOT see the owner's brands via RLS directly", (brandsAsOutsider?.length ?? 0) === 0);
+    const { data: brandsAsTeammate, error: brandsError } = await teammateClient.from("brands").select("id").eq("id", brand.id);
+    report(
+      "An accepted teammate CAN see the owner's brands via RLS directly",
+      !brandsError && !!brandsAsTeammate && brandsAsTeammate.length === 1,
+      brandsError ? brandsError.message : `rows: ${brandsAsTeammate?.length}`,
+    );
 
-  // End-to-end through the actual API too, for the one route already
-  // switched to the per-request client -- proves the whole wire, not just
-  // the raw policy.
-  const listViaApi = await fetch(`${API_URL}/social-accounts`, { headers: { Authorization: `Bearer ${teammate.jwt}` } }).then((r) => r.json());
-  const teammateSeesItViaApi = Array.isArray(listViaApi) && listViaApi.some((a: { id: string }) => a.id === socialAccountId);
-  report("An accepted teammate sees the owner's connected account via GET /social-accounts (the piloted route)", teammateSeesItViaApi);
+    // Negative control -- a real, unrelated third account (no account_members
+    // row at all for this owner) must NOT see any of it via the same RLS
+    // path. Without this, a policy that's simply wide-open (e.g. `using
+    // (true)`) would pass every check above too.
+    const outsiderClient = createUserClient(outsider.jwt);
+    const { data: postsAsOutsider } = await outsiderClient.from("scheduled_posts").select("id").eq("id", postId);
+    report("An unrelated account CANNOT see the owner's scheduled_posts via RLS directly", (postsAsOutsider?.length ?? 0) === 0);
+    const { data: brandsAsOutsider } = await outsiderClient.from("brands").select("id").eq("id", brand.id);
+    report("An unrelated account CANNOT see the owner's brands via RLS directly", (brandsAsOutsider?.length ?? 0) === 0);
 
+    // End-to-end through the actual API too, for the one route already
+    // switched to the per-request client -- proves the whole wire, not just
+    // the raw policy.
+    const listViaApi = await fetch(`${API_URL}/social-accounts`, { headers: { Authorization: `Bearer ${teammate.jwt}` } }).then((r) => r.json());
+    const teammateSeesItViaApi = Array.isArray(listViaApi) && listViaApi.some((a: { id: string }) => a.id === socialAccountId);
+    report("An accepted teammate sees the owner's connected account via GET /social-accounts (the piloted route)", teammateSeesItViaApi);
+  } finally {
+    await cleanupTeamAccess(owner.accountId, teammate, outsider, brandId);
+  }
+}
+
+async function cleanupTeamAccess(
+  ownerAccountId: string,
+  teammate: { userId: string } | undefined,
+  outsider: { accountId: string } | undefined,
+  brandId: string | undefined,
+) {
   // Cleanup, with every call's error actually checked and surfaced.
   // Previously these were fire-and-forget `await`s -- found 2026-09-04 when
   // a real run left two fake accounts behind in PRODUCTION (checked: 4
@@ -250,23 +299,30 @@ async function testTeamAccess(owner: { accountId: string; jwt: string }) {
   // against. `warnIfError` logs to stderr without failing the overall
   // suite -- a cleanup hiccup doesn't invalidate the security assertions
   // already made above, but it must never again be invisible.
+  // Each step only runs for what was actually created before any throw.
   const warnIfError = (label: string, error: { message: string } | null) => {
     if (error) console.error(`[security-test cleanup] ${label} failed: ${error.message}`);
   };
-  warnIfError("delete test brand", (await supabase.from("brands").delete().eq("id", brand.id)).error);
-  warnIfError(
-    "delete teammate's membership grant",
-    (await supabase.from("account_members").delete().eq("user_id", teammate.userId).eq("account_id", owner.accountId)).error,
-  );
-  // Also delete the teammate's own self-owned account explicitly (auto-
-  // created by the handle_new_user() trigger alongside a self-ownership
-  // account_members row neither of which the grant-delete above touches) --
-  // relying solely on deleteUser's cascade is the same assumption that
-  // apparently didn't hold on 2026-09-04's stray run.
-  warnIfError("delete teammate's own account row", (await supabase.from("accounts").delete().eq("id", teammate.userId)).error);
-  warnIfError("delete teammate auth user", (await supabase.auth.admin.deleteUser(teammate.userId)).error);
-  warnIfError("delete outsider account row", (await supabase.from("accounts").delete().eq("id", outsider.accountId)).error);
-  warnIfError("delete outsider auth user", (await supabase.auth.admin.deleteUser(outsider.accountId)).error);
+  if (brandId) {
+    warnIfError("delete test brand", (await supabase.from("brands").delete().eq("id", brandId)).error);
+  }
+  if (teammate) {
+    warnIfError(
+      "delete teammate's membership grant",
+      (await supabase.from("account_members").delete().eq("user_id", teammate.userId).eq("account_id", ownerAccountId)).error,
+    );
+    // Also delete the teammate's own self-owned account explicitly (auto-
+    // created by the handle_new_user() trigger alongside a self-ownership
+    // account_members row neither of which the grant-delete above touches) --
+    // relying solely on deleteUser's cascade is the same assumption that
+    // apparently didn't hold on 2026-09-04's stray run.
+    warnIfError("delete teammate's own account row", (await supabase.from("accounts").delete().eq("id", teammate.userId)).error);
+    warnIfError("delete teammate auth user", (await supabase.auth.admin.deleteUser(teammate.userId)).error);
+  }
+  if (outsider) {
+    warnIfError("delete outsider account row", (await supabase.from("accounts").delete().eq("id", outsider.accountId)).error);
+    warnIfError("delete outsider auth user", (await supabase.auth.admin.deleteUser(outsider.accountId)).error);
+  }
 }
 
 // --- 3. Upload validation: spoofed content-type / disguised extension ---
@@ -375,9 +431,12 @@ async function main() {
   }
 
   try {
+    // Push each id the moment it exists -- pushing both after B was created
+    // leaked A whenever creating B threw.
     const accountA = await makeAccount("a");
+    cleanupIds.push(accountA.accountId);
     const accountB = await makeAccount("b");
-    cleanupIds.push(accountA.accountId, accountB.accountId);
+    cleanupIds.push(accountB.accountId);
     await testIDOR(accountA, accountB);
 
     const socialAccountA = await seedSocialAccount(accountA.accountId);
