@@ -1506,55 +1506,64 @@ button[type="submit"]:not(.btn-outline),
   margin: 4px 0 12px;
 }
 
-/* Live phone-mockup preview next to the TikTok fields -- built 2026-09-15
-   so customers can see the actual post (media + caption together) before
-   publishing, not just an isolated media thumbnail. Row layout with wrap so
-   the phone drops below the fields on narrow screens instead of squeezing
-   them. */
-.tiktok-post-settings-layout {
+/* Live phone-mockup preview of the actual post -- built 2026-09-15, first
+   scoped to TikTok only (a dedicated block inside its own settings), then
+   generalized the same day to work for every connected platform: one
+   mockup per distinct platform among the currently selected accounts, in
+   its own "Preview" row rather than nested in any one platform's fields. */
+.field-label {
+  /* Matches .schedule-form's plain <label> styling (uppercase section
+     headers like "Media (optional)") without misusing <label> semantics
+     for something with no associated form control. */
+  display: block;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 13px;
+  letter-spacing: 0.52px;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.social-preview-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 20px;
-  align-items: flex-start;
+  gap: 12px;
 }
 
-.tiktok-post-settings-fields {
-  /* Reproduces .tiktok-post-settings's own column layout -- that class no
-     longer directly wraps these fields now that .tiktok-post-settings-layout
-     sits between them, and its children (several plain <label>/<span>
-     elements) have no layout of their own without this, which collapsed
-     into an unstyled inline run when this was missing. */
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 1 1 260px;
-  min-width: 0;
-}
-
-.tiktok-preview-phone {
+.social-preview-phone {
   position: relative;
-  width: 200px;
+  width: 150px;
   aspect-ratio: 9 / 16;
   flex: 0 0 auto;
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
   background: #000;
-  border: 4px solid var(--ink);
+  border: 3px solid var(--ink);
 }
 
-.tiktok-preview-media {
+.social-preview-media {
   position: absolute;
   inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.tiktok-preview-media img,
-.tiktok-preview-media video {
+.social-preview-media img,
+.social-preview-media video {
+  /* contain, not cover -- a customer's real attachment is often not a
+     clean 9:16 crop (a square product photo, a landscape marketing
+     graphic), and cover was cropping into whatever happened to sit in the
+     center of the source image rather than showing the whole thing.
+     Flagged live by Werner as "ratio is not right" against a real wide
+     graphic. contain always shows the full frame, letterboxed on the
+     phone's own black background rather than an unpredictable crop. */
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
-.tiktok-preview-empty {
+.social-preview-empty {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1565,7 +1574,7 @@ button[type="submit"]:not(.btn-outline),
   text-align: center;
 }
 
-.tiktok-preview-overlay {
+.social-preview-overlay {
   position: absolute;
   left: 0;
   right: 40px;
@@ -1575,13 +1584,13 @@ button[type="submit"]:not(.btn-outline),
   color: #fff;
 }
 
-.tiktok-preview-username {
+.social-preview-username {
   font-size: 12px;
   font-weight: 700;
   margin-bottom: 4px;
 }
 
-.tiktok-preview-caption {
+.social-preview-caption {
   font-size: 12px;
   line-height: 1.3;
   overflow: hidden;
@@ -1591,7 +1600,7 @@ button[type="submit"]:not(.btn-outline),
   opacity: 0.95;
 }
 
-.tiktok-preview-sidebar {
+.social-preview-sidebar {
   position: absolute;
   right: 6px;
   bottom: 14px;
@@ -1601,10 +1610,24 @@ button[type="submit"]:not(.btn-outline),
   gap: 14px;
 }
 
-.tiktok-preview-icon {
+.social-preview-icon {
   color: #fff;
   font-size: 18px;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.social-preview-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 /* Storage add-on cards have no feature <ul> between the price and the
