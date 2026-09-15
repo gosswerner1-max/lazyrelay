@@ -12,6 +12,7 @@ import {
   isVideoTooLongForTiktok,
   tiktokVideoTooLongMessage,
   TIKTOK_PROCESSING_NOTICE,
+  TIKTOK_PRIVACY_LEVEL_LABELS,
   type TiktokCreatorInfo,
 } from "../lib/tiktokPostChecks";
 import { CodeBlock } from "../components/CodeBlock";
@@ -1333,7 +1334,18 @@ export function Dashboard() {
     api
       .getTiktokCreatorInfo(tiktokInfoAccountId)
       .then((info) => {
-        if (!cancelled) setTiktokCreatorInfo(info);
+        if (cancelled) return;
+        setTiktokCreatorInfo(info);
+        // The privacy dropdown's real options only arrive with this call. If
+        // the customer already picked one (e.g. from a prior account
+        // selection) and it turns out this creator doesn't actually have
+        // that option -- a private account never gets PUBLIC_TO_EVERYONE --
+        // clear it rather than let an invalid value reach submit.
+        setTiktokPrivacyLevel((current) =>
+          current && info.privacyLevelOptions.length > 0 && !info.privacyLevelOptions.includes(current)
+            ? null
+            : current,
+        );
       })
       .catch(() => {
         if (!cancelled) setTiktokCreatorInfo(null);
@@ -4231,11 +4243,26 @@ export function Dashboard() {
                       <option value="" disabled>
                         Choose who can see this post
                       </option>
-                      <option value="PUBLIC_TO_EVERYONE">Everyone</option>
-                      <option value="MUTUAL_FOLLOW_FRIENDS">Friends (mutual followers)</option>
-                      <option value="SELF_ONLY" disabled={tiktokBrandContent} title={tiktokBrandContent ? "Branded content visibility cannot be set to private." : undefined}>
-                        Only me
-                      </option>
+                      {/* TikTok's own guidelines require these options to follow
+                          privacy_level_options from the creator_info API rather than
+                          a fixed list -- e.g. a private account never gets
+                          PUBLIC_TO_EVERYONE, and gets FOLLOWER_OF_CREATOR instead.
+                          Falls back to every documented value while creator info
+                          hasn't loaded yet (or a lookup failed), matching this form's
+                          existing fail-open pattern rather than blocking on it. */}
+                      {(tiktokCreatorInfo?.privacyLevelOptions?.length
+                        ? tiktokCreatorInfo.privacyLevelOptions
+                        : Object.keys(TIKTOK_PRIVACY_LEVEL_LABELS)
+                      ).map((level) => (
+                        <option
+                          key={level}
+                          value={level}
+                          disabled={level === "SELF_ONLY" && tiktokBrandContent}
+                          title={level === "SELF_ONLY" && tiktokBrandContent ? "Branded content visibility cannot be set to private." : undefined}
+                        >
+                          {TIKTOK_PRIVACY_LEVEL_LABELS[level] ?? level}
+                        </option>
+                      ))}
                     </select>
                     {tiktokBrandContent && tiktokPrivacyLevel === "SELF_ONLY" && (
                       <span className="section-note">Branded content visibility cannot be set to private — choose a different option.</span>

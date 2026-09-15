@@ -580,6 +580,7 @@ export const api = {
     maxVideoDurationSec: number | null;
     canPost: boolean;
     cantPostReason: string | null;
+    privacyLevelOptions: string[];
   }> => authedFetch(`/social-accounts/${socialAccountId}/tiktok-creator-info`),
 
   bulkCreateScheduledPosts: (

@@ -8,7 +8,24 @@ export interface TiktokCreatorInfo {
   maxVideoDurationSec: number | null;
   canPost: boolean;
   cantPostReason: string | null;
+  privacyLevelOptions: string[];
 }
+
+// TikTok Content Sharing Guidelines, "Required UX Implementation" point 2:
+// "The options listed in the UX must follow the privacy_level_options
+// returned in the creator_info API" -- confirmed live 2026-09-15 that this
+// was NOT being followed (a static 3-option list was shown regardless of
+// what TikTok actually returned for the connected creator), even though the
+// backend already parsed and sent the real values. Human-readable labels for
+// the values TikTok's docs document; an option value that isn't in this map
+// still renders (using the raw value as its own label) rather than being
+// silently dropped, since TikTok could add a new one before this map does.
+export const TIKTOK_PRIVACY_LEVEL_LABELS: Record<string, string> = {
+  PUBLIC_TO_EVERYONE: "Everyone",
+  MUTUAL_FOLLOW_FRIENDS: "Friends (mutual followers)",
+  FOLLOWER_OF_CREATOR: "Followers",
+  SELF_ONLY: "Only me",
+};
 
 export const TIKTOK_PROCESSING_NOTICE =
   "After you post, it can take a few minutes for your video to process and appear on your TikTok profile.";

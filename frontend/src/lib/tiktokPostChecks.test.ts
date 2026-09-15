@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { formatDuration, isVideoTooLongForTiktok, tiktokVideoTooLongMessage } from "./tiktokPostChecks";
+import {
+  formatDuration,
+  isVideoTooLongForTiktok,
+  tiktokVideoTooLongMessage,
+  TIKTOK_PRIVACY_LEVEL_LABELS,
+} from "./tiktokPostChecks";
 
 describe("isVideoTooLongForTiktok", () => {
   it("is true when the video is longer than TikTok's limit", () => {
@@ -38,5 +43,17 @@ describe("tiktokVideoTooLongMessage", () => {
     expect(tiktokVideoTooLongMessage(750, 600)).toBe(
       "This video is 12:30 long, but TikTok lets this account post videos up to 10:00. Choose a shorter video.",
     );
+  });
+});
+
+// Confirmed live 2026-09-15 against TikTok's own creator_info API reference:
+// public accounts return PUBLIC_TO_EVERYONE/MUTUAL_FOLLOW_FRIENDS/SELF_ONLY,
+// private accounts return FOLLOWER_OF_CREATOR/MUTUAL_FOLLOW_FRIENDS/SELF_ONLY
+// instead — a fixed dropdown can never show the right set for both.
+describe("TIKTOK_PRIVACY_LEVEL_LABELS", () => {
+  it("covers every value TikTok's creator_info API can return", () => {
+    for (const value of ["PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "SELF_ONLY", "FOLLOWER_OF_CREATOR"]) {
+      expect(TIKTOK_PRIVACY_LEVEL_LABELS[value]).toBeTypeOf("string");
+    }
   });
 });
