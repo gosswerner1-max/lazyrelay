@@ -108,7 +108,19 @@
   # rather than separate files; font-src 'self' alone doesn't cover data:
   # URIs, so those specific character ranges were silently falling back to a
   # substitute monospace font.
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-R+9jP645iC2aAQGgX33J5akLs/LFrAkSCq8iA7w+F6s=' https://www.googletagmanager.com https://challenges.cloudflare.com https://cdn.paddle.com https://public.profitwell.com https://*.posthog.com https://b.sf-syn.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://startupfa.me https://smollaunch.com https://img.turbo0.com https://saascubes.com https://listmysaas.xyz https://findly.tools https://fazier.com https://twelve.tools https://wired.business https://cdn-b.saashub.com https://web-review.com https://www.scrolllaunch.com https://saasbison.com https://www.foundrlist.com https://nicklaunches.com https://goodaitools.com https://cdn.openhunts.com https://tinylaunch.com https://www.tinylaunch.com https://viberank.dev https://b.sf-syn.com; font-src 'self' data:; connect-src 'self' https://qbmejnmyqogotdzzzyvj.supabase.co https://lazyrelaylazyrelay-backend.onrender.com https://www.google-analytics.com https://region1.google-analytics.com https://buy.paddle.com https://*.posthog.com; worker-src 'self' blob: data:; frame-src 'self' https://challenges.cloudflare.com https://buy.paddle.com; frame-ancestors 'self' https://rankinpublic.xyz; object-src 'none'; base-uri 'self'"
+  # img-src widened again 2026-09-15, and media-src added (didn't exist at
+  # all before) -- same bug class as every badge-image note above, but this
+  # time hitting the actual product, not a marketing footer: every post's
+  # own attached image/video preview in the compose form (Dashboard.tsx's
+  # <img>/<video src={mediaUrl}>, and the cover-image preview) points at
+  # Supabase Storage, which was only ever allowlisted in connect-src (so
+  # fetch() succeeded) and never in img-src, and media-src didn't exist so
+  # video fell back to default-src 'self' -- confirmed live by fetching the
+  # exact broken preview's URL directly (a real 200 JPEG) while the <img>
+  # tag rendered broken, then curl -I confirming the header. TikTok's own
+  # Content Posting API audit requires a working preview of the to-be-posted
+  # content, so this was silently undermining that too.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-R+9jP645iC2aAQGgX33J5akLs/LFrAkSCq8iA7w+F6s=' https://www.googletagmanager.com https://challenges.cloudflare.com https://cdn.paddle.com https://public.profitwell.com https://*.posthog.com https://b.sf-syn.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://qbmejnmyqogotdzzzyvj.supabase.co https://startupfa.me https://smollaunch.com https://img.turbo0.com https://saascubes.com https://listmysaas.xyz https://findly.tools https://fazier.com https://twelve.tools https://wired.business https://cdn-b.saashub.com https://web-review.com https://www.scrolllaunch.com https://saasbison.com https://www.foundrlist.com https://nicklaunches.com https://goodaitools.com https://cdn.openhunts.com https://tinylaunch.com https://www.tinylaunch.com https://viberank.dev https://b.sf-syn.com; media-src 'self' https://qbmejnmyqogotdzzzyvj.supabase.co; font-src 'self' data:; connect-src 'self' https://qbmejnmyqogotdzzzyvj.supabase.co https://lazyrelaylazyrelay-backend.onrender.com https://www.google-analytics.com https://region1.google-analytics.com https://buy.paddle.com https://*.posthog.com; worker-src 'self' blob: data:; frame-src 'self' https://challenges.cloudflare.com https://buy.paddle.com; frame-ancestors 'self' https://rankinpublic.xyz; object-src 'none'; base-uri 'self'"
   # Forces HTTPS on every future visit, including the very first navigation
   # typed as http://. 1 year, includeSubDomains — the site has no non-HTTPS
   # subdomains that need to stay reachable over plain http.
