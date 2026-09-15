@@ -4903,17 +4903,28 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
     // Reserved-prefix check (2026-08-30, see the signup-time check above
-    // for the reasoning) — exempts a no-op re-save of the account's OWN
-    // already-set name, since LazyRelay's own dogfooding account is
-    // literally named "LazyRelay" and would otherwise be unable to hit
-    // Save on its own Settings page without changing anything.
-    if (typeof businessName === "string" && businessName.trim() && isReservedBusinessName(businessName.trim())) {
-      const { data: current } = await req.db!.from("accounts").select("business_name").eq("id", req.accountId).maybeSingle();
-      const currentNormalized = current?.business_name?.trim().toLowerCase();
-      if (businessName.trim().toLowerCase() !== currentNormalized) {
-        res.status(400).json({ error: "That name isn't available — try a different one." });
-        return;
-      }
+    // for the reasoning) — exempts Werner's own accounts (same
+    // OPERATOR_ACCOUNT_IDS allowlist as POST /admin/announce below), since
+    // LazyRelay's own dogfooding account is literally named "LazyRelay"
+    // and needs to be able to use that name. Previously this compared
+    // against the account's current DB value instead (a no-op-only
+    // exemption), which meant the moment that account's name changed away
+    // from "LazyRelay" — even to test the Save button — there was no way
+    // back through this endpoint, since "LazyRelay" was then just another
+    // blocked name (2026-09-15 incident: exactly this happened during a
+    // Settings-page test pass). Keying off the account id instead means
+    // the exemption survives any temporary rename.
+    const reservedNameExemptAccountIds = new Set(
+      (process.env.OPERATOR_ACCOUNT_IDS ?? "").split(",").map((id) => id.trim()).filter(Boolean),
+    );
+    if (
+      typeof businessName === "string" &&
+      businessName.trim() &&
+      isReservedBusinessName(businessName.trim()) &&
+      !(req.accountId && reservedNameExemptAccountIds.has(req.accountId))
+    ) {
+      res.status(400).json({ error: "That name isn't available — try a different one." });
+      return;
     }
     if (emailFailureAlertsEnabled !== undefined && typeof emailFailureAlertsEnabled !== "boolean") {
       res.status(400).json({ error: "emailFailureAlertsEnabled must be a boolean" });
