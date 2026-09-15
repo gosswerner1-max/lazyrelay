@@ -2445,10 +2445,18 @@
 
 .media-preview img,
 .media-preview video {
-  max-height: 64px;
-  max-width: 96px;
-  border-radius: 6px;
-  object-fit: cover;
+  /* Was 64x96 with object-fit: cover -- too small to actually see what
+     you're about to post, and cropped a vertical (9:16) video instead of
+     showing the whole frame. Werner flagged this live 2026-09-15 while
+     prepping the TikTok audit recording: TikTok's own required-UX point 5
+     is "display a preview of the to-be-posted content", which a
+     thumbnail this small doesn't meaningfully satisfy. This is the quick
+     sizing fix, not the full TikTok-Studio-style redesign (phone mockup,
+     caption overlay) discussed and deliberately deferred separately. */
+  max-height: 320px;
+  max-width: 220px;
+  border-radius: 8px;
+  object-fit: contain;
 }
 
 .media-remove {
