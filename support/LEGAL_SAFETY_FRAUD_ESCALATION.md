@@ -81,7 +81,7 @@ The LazyRelay Team
 **Covers two different directions — handle separately.**
 
 ### 3a. A customer accuses LazyRelay of being a scam/fraud
-Often overlaps with the "customer claims to be paying" case already in SUPPORT_KNOWLEDGE.md (billing isn't live yet, so payment claims are unverifiable). Don't improvise a defense of the business or dispute their claim.
+Often overlaps with the billing-dispute case in SUPPORT_KNOWLEDGE.md's "Billing disputes, refunds and 'I was charged'" section. **Billing has been live since 2026-08-11, so a customer saying they were charged is most likely telling the truth.** Never tell them they can't have been charged. Don't improvise a defense of the business or dispute their claim.
 
 **Template: Fraud Accusation (against us) Acknowledgment**
 **Use when:** a customer states or implies LazyRelay is fraudulent, a scam, or is taking their money improperly.
