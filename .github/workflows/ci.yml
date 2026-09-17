@@ -164,3 +164,84 @@ jobs:
           EOF
       - working-directory: frontend
         run: npm run build
+
+  # mcp-server, ops, and zapier-integration had zero CI coverage until
+  # 2026-09-17 -- every prior green check on a PR touching them was just
+  # the unrelated backend/frontend jobs passing. Found while triaging a
+  # pile of stale Dependabot PRs: 9 majors in these three directories
+  # couldn't be trusted from CI at all, and had to be verified by hand
+  # (build/test/live-query, one at a time) before merging.
+  #
+  # None of the three jobs below ever touch a repo secret, unlike backend
+  # above -- same reasoning as that job's Dependabot skip, generalized:
+  # an unreviewed dependency bump's install/runtime code should never have
+  # a live path to a production credential, Dependabot-triggered or not.
+  # That's a real limit on what these jobs can catch (ops has no build
+  # step at all, and zapier-integration's actual test suite needs a live
+  # LAZYRELAY_API_KEY it deliberately isn't given here -- see that job's
+  # own comment) but a real, secret-free check beats the zero coverage
+  # that was here before.
+  mcp-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: mcp-server/package-lock.json
+      - working-directory: mcp-server
+        run: npm ci
+      # This alone is a real check, not a formality -- it's exactly what
+      # caught the 2026-09-17 TypeScript 7 break (stopped auto-including
+      # @types/* packages, silently broke every Node global) before this
+      # job existed to catch it automatically.
+      - working-directory: mcp-server
+        run: npm run build
+
+  ops:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: ops/package-lock.json
+      - working-directory: ops
+        run: npm ci
+      # No build step or test suite exists for this directory -- these are
+      # plain runtime scripts (scheduled tasks, one-off ops), and their
+      # real behavior can only be verified against a live Supabase/Resend
+      # credential this job deliberately never gets (see the jobs-level
+      # comment above). Parse-only (node --check never executes the file)
+      # catches a bad bump breaking the syntax/require graph outright --
+      # a real but low floor, not a substitute for a live check before
+      # anything user-facing changes.
+      - name: Syntax-check every .js file (parse only, no execution, no credentials)
+        working-directory: ops
+        run: find . -name "*.js" -not -path "./node_modules/*" -print0 | xargs -0 -n1 node --check
+
+  zapier-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: zapier-integration/package-lock.json
+      - working-directory: zapier-integration
+        run: npm ci
+      # This directory's real test suite (`npm test`) hits the live
+      # LazyRelay API and needs a real LAZYRELAY_API_KEY -- the
+      # authentication-success test has no self-skip guard, it just fails
+      # without one. Deliberately NOT wired into CI: that would mean
+      # handing a live production API key to every push and PR, including
+      # Dependabot's, the exact exposure the jobs-level comment above
+      # explains. The live suite stays a manual check (run by hand, most
+      # recently 2026-09-17 verifying the mocha/dotenv bumps) instead.
+      # Parse-only catches a bad bump breaking the file outright.
+      - name: Syntax-check every .js file (parse only, no execution, no credentials)
+        working-directory: zapier-integration
+        run: find . -name "*.js" -not -path "./node_modules/*" -print0 | xargs -0 -n1 node --check
