@@ -425,6 +425,94 @@ export function PlatformBarChart({
 }
 
 // ---------------------------------------------------------------------------
+// Platform distribution donut — a proportion-of-whole view (share of total
+// posts) to sit alongside PlatformBarChart's ranking view above; the two are
+// complementary reads of the same data, not duplicates (a bar answers "who's
+// biggest," a donut answers "how much of the pie is any one platform").
+// Built for OverviewPanel specifically, same forceDark reasoning as
+// PlatformBarChart -- real, own SVG arithmetic (stroke-dasharray segments
+// around a circle), not a third-party charting library.
+// ---------------------------------------------------------------------------
+
+export function PlatformDonutChart({
+  data,
+  forceDark,
+}: {
+  data: { platform: string; total: number }[];
+  forceDark?: boolean;
+}) {
+  const systemDark = usePrefersDark();
+  const dark = forceDark ?? systemDark;
+  const sorted = resolveColorCollisions([...data].filter((d) => d.total > 0).sort((a, b) => b.total - a.total));
+  const total = sorted.reduce((sum, d) => sum + d.total, 0);
+
+  if (sorted.length === 0 || total === 0) return null;
+
+  const size = 176;
+  const strokeWidth = 26;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  let cumulativeFraction = 0;
+  const segments = sorted.map((d) => {
+    const fraction = d.total / total;
+    const dash = fraction * circumference;
+    // Each segment's own starting offset around the circle, in circumference
+    // units -- stroke-dashoffset is negative-direction, so subtracting the
+    // running total (not adding) places each slice right after the last.
+    const offset = -cumulativeFraction * circumference;
+    cumulativeFraction += fraction;
+    return { ...d, color: barColor(d.platform, dark), dash, offset, pct: Math.round(fraction * 100) };
+  });
+
+  return (
+    <div className="chart-donut">
+      <svg
+        viewBox={`0 0 ${size} ${size}`}
+        className="chart-donut-svg"
+        role="img"
+        aria-label={`Post distribution by platform: ${segments.map((s) => `${s.platform} ${s.pct}%`).join(", ")}`}
+      >
+        {/* Rotated -90deg so the first segment starts at 12 o'clock, the
+            conventional donut-chart start point, rather than SVG's own
+            0deg-is-3-o'clock default. */}
+        <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
+          {segments.map((s) => (
+            <circle
+              key={s.platform}
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke={s.color}
+              strokeWidth={strokeWidth}
+              strokeDasharray={`${s.dash} ${circumference - s.dash}`}
+              strokeDashoffset={s.offset}
+            />
+          ))}
+        </g>
+        <text x={size / 2} y={size / 2 - 6} textAnchor="middle" className="chart-donut-total-value">
+          {formatCompact(total)}
+        </text>
+        <text x={size / 2} y={size / 2 + 16} textAnchor="middle" className="chart-donut-total-label">
+          posts
+        </text>
+      </svg>
+      <ul className="chart-donut-legend">
+        {segments.map((s) => (
+          <li key={s.platform} className="chart-donut-legend-item">
+            <span className="chart-legend-swatch" style={{ background: s.color }} />
+            <PlatformIcon platform={s.platform} size={13} />
+            <span className="chart-donut-legend-name">{s.platform}</span>
+            <strong>{s.pct}%</strong>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Daily volume trend line — replaces the old CSS-bar hack. Single series,
 // so no legend box (the title already says what's plotted); crosshair +
 // per-point tooltip on hover/focus, reduced-motion respected.
@@ -826,33 +914,49 @@ export function OverviewPanel({
             </div>
           )}
 
-          <div className="chart-section">
-            <h3>Post status</h3>
-            <StatusStackedBar
-              posted={analytics.byStatus.posted ?? 0}
-              verifiedLive={Object.values(analytics.byPlatform).reduce((sum, s) => sum + s.verifiedLive, 0)}
-              failed={analytics.byStatus.failed ?? 0}
-              pending={(analytics.byStatus.pending ?? 0) + (analytics.byStatus.posting ?? 0) + (analytics.byStatus.needs_approval ?? 0)}
-              dmCount={analytics.dmCount ?? 0}
-              accountsConnected={analytics.accountsConnected ?? 0}
-            />
+          {/* Two-panel rows -- a big chart paired with a donut, then a
+              status bar paired with a ranked list -- same pattern as the
+              reference dashboard Werner asked to match (its "Performance
+              Overview + Traffic Sources" row, then "Channel Comparison"
+              row), built from LazyRelay's own real analytics fields
+              rather than that reference's fabricated Ad Spend/ROI/
+              Impressions numbers, which don't correspond to anything
+              LazyRelay actually tracks. */}
+          <div className="overview-grid-2col">
+            <div className="chart-section">
+              <h3>Daily volume, last 30 days</h3>
+              <TrendLine
+                data={Object.entries(analytics.dailyCounts)
+                  .sort((a, b) => a[0].localeCompare(b[0]))
+                  .map(([day, count]) => ({ day, count }))}
+              />
+            </div>
+            <div className="chart-section">
+              <h3>Posts by platform</h3>
+              <PlatformDonutChart
+                data={Object.entries(analytics.byPlatform).map(([platform, stats]) => ({ platform, total: stats.total }))}
+              />
+            </div>
           </div>
 
-          <div className="chart-section">
-            <h3>Posts by platform</h3>
-            <PlatformBarChart
-              data={Object.entries(analytics.byPlatform).map(([platform, stats]) => ({ platform, total: stats.total }))}
-              forceDark
-            />
-          </div>
-
-          <div className="chart-section">
-            <h3>Daily volume, last 30 days</h3>
-            <TrendLine
-              data={Object.entries(analytics.dailyCounts)
-                .sort((a, b) => a[0].localeCompare(b[0]))
-                .map(([day, count]) => ({ day, count }))}
-            />
+          <div className="overview-grid-2col">
+            <div className="chart-section">
+              <h3>Post status</h3>
+              <StatusStackedBar
+                posted={analytics.byStatus.posted ?? 0}
+                verifiedLive={Object.values(analytics.byPlatform).reduce((sum, s) => sum + s.verifiedLive, 0)}
+                failed={analytics.byStatus.failed ?? 0}
+                pending={(analytics.byStatus.pending ?? 0) + (analytics.byStatus.posting ?? 0) + (analytics.byStatus.needs_approval ?? 0)}
+                dmCount={analytics.dmCount ?? 0}
+                accountsConnected={analytics.accountsConnected ?? 0}
+              />
+            </div>
+            <div className="chart-section">
+              <h3>Posts by platform, ranked</h3>
+              <PlatformBarChart
+                data={Object.entries(analytics.byPlatform).map(([platform, stats]) => ({ platform, total: stats.total }))}
+              />
+            </div>
           </div>
         </>
       )}

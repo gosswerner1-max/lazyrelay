@@ -692,74 +692,43 @@
   background: color-mix(in srgb, var(--error) 14%, transparent);
 }
 
-/* Overview gets a deliberately dark, branded card (matching the landing
-   page's own hero) rather than following --surface/--paper's light/dark
-   theme flip like the rest of the dashboard -- this is a showcase page,
-   same reasoning as .plan-banner already using --hero-bg unconditionally.
-   Every color used underneath still needs to read against a dark
-   background regardless of the visitor's real OS theme, which is why
-   PlatformBarChart takes an explicit forceDark prop here instead of
-   relying on its own system-preference detection (see that component's
-   own comment for the concrete failure mode this avoids: a black-branded
-   platform bar going invisible). */
-.overview-panel {
-  background: var(--hero-bg);
-  border-radius: 20px;
-  padding: 32px;
-  color: #fff;
-  position: relative;
-  overflow: hidden;
-}
-
-.overview-panel h2 {
-  color: #fff;
-  font-size: 22px;
-}
-
+/* REVERTED 2026-09-17, same session -- Werner's actual reference turned
+   out to be a light-themed multi-panel dashboard (stat cards + a 2-column
+   grid of chart panels), not a dark showcase card. The dark version above
+   this comment was wrong; keeping the class name but redefining it rather
+   than deleting the history here would hide that this was a real,
+   corrected mistake, not the first draft of the same idea. */
 .overview-panel .chart-stat-tile {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: none;
-  transition: border-color 0.25s ease, transform 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .overview-panel .chart-stat-tile:hover {
-  border-color: var(--signal-solid);
   transform: translateY(-2px);
+  box-shadow: var(--shadow-lg, var(--shadow));
 }
 
-.overview-panel .chart-stat-value {
-  color: #fff;
+/* The 2-column panel grid -- "Daily volume" + "Posts by platform" (donut)
+   as one row, "Post status" + "Posts by platform" (ranked bars) as the
+   next -- mirrors the reference's own "big chart + donut" then
+   "bar chart + list" row pairing, using LazyRelay's real analytics data
+   in place of the reference's fabricated marketing-campaign numbers
+   (Ad Spend, ROI, Impressions) which don't correspond to anything
+   LazyRelay actually tracks. */
+.overview-grid-2col {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 20px;
+  align-items: start;
 }
 
-.overview-panel .chart-stat-label {
-  color: rgba(255, 255, 255, 0.55);
+.overview-grid-2col .chart-section {
+  margin-bottom: 0;
 }
 
-.overview-panel .chart-section {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: none;
-}
-
-.overview-panel .chart-section h3 {
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.overview-panel .chart-meter-label,
-.overview-panel .chart-meter-value,
-.overview-panel .chart-stacked-bar-legend-item strong,
-.overview-panel .chart-platform-bar-name {
-  color: #fff;
-}
-
-.overview-panel .chart-stacked-bar-legend,
-.overview-panel .chart-platform-bar-value {
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.overview-panel .chart-platform-bar-track {
-  background: rgba(255, 255, 255, 0.08);
+@media (max-width: 720px) {
+  .overview-grid-2col {
+    grid-template-columns: 1fr;
+  }
 }
 
 .overview-panel .chart-meter-track,
@@ -1093,6 +1062,73 @@
 .chart-multitrend-tooltip-row strong {
   margin-left: auto;
   font-variant-numeric: tabular-nums;
+}
+
+.chart-donut {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.chart-donut-svg {
+  width: 140px;
+  height: 140px;
+  flex-shrink: 0;
+}
+
+.chart-donut-svg circle {
+  transition: stroke-width 0.2s ease;
+}
+
+.chart-donut-total-value {
+  font-size: 22px;
+  font-weight: 700;
+  fill: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-donut-total-label {
+  font-size: 11px;
+  fill: var(--wire);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.chart-donut-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 140px;
+}
+
+.chart-donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink);
+  text-transform: capitalize;
+}
+
+.chart-donut-legend-name {
+  flex: 1;
+}
+
+.chart-donut-legend-item strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--wire);
+}
+
+@media (max-width: 560px) {
+  .chart-donut {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .chart-section {
