@@ -611,7 +611,67 @@ original one.
   the true state is genuinely unknown" clause here was stale from before the
   token was widened on 2026-09-01 — removed 2026-09-04.)* *(2026-09-04)*
 
----
+## 13. Reconciled Against External Checklist (2026-09-16)
+
+Werner shared a Notion "Pre-Launch Security Checklist for Vibe-Coded Apps"
+(30 items + a mobile-only section). Checked every item against this list —
+27 of 30 were already covered above under a different heading; the items
+below are the ones that either needed their own explicit line for the first
+time, or came back as a genuine gap. Mobile section: not applicable, no
+LazyRelay mobile app exists.
+
+- ✅ **Security headers, as their own checked item.** The control already
+  existed (`frontend/public/.htaccess`) but had no dedicated checklist line
+  — it was only ever referenced in passing under §1/§10/§12. Confirmed live
+  in the file: `Content-Security-Policy`, `Strict-Transport-Security`
+  (`includeSubDomains`, 1yr), `X-Frame-Options: SAMEORIGIN`,
+  `X-Content-Type-Options: nosniff`, `Referrer-Policy:
+  strict-origin-when-cross-origin`, `Permissions-Policy` (camera/mic/geo all
+  denied). *(2026-09-16)*
+- ✅ **Debug mode / source maps / `.git` not exposed in production.**
+  Live-checked, not assumed: `curl -I https://lazyrelay.com/.git/HEAD` and
+  `/.git/config` both return **403**. `frontend/vite.config.ts` sets no
+  `build.sourcemap`, so Vite's production default (`false`) applies — no
+  `.map` files ship. Backend's error handler already confirmed generic-only
+  responses (§2/§8). *(2026-09-16)*
+- ✅ **Prices are set server-side, never trusted from the client.** Every
+  `paddle.Checkout.open()` call in `Dashboard.tsx` passes only a
+  server-created `transactionId` (Paddle resolves the real price from that
+  transaction) — grepped for any client-submitted `price`/`amount` field
+  reaching the backend and found none. *(2026-09-16)*
+- ✅ **Payment webhook signatures are verified** — already built and covered
+  by the IDOR/webhook work in §2 and the security-test suite (`fc87949`
+  fixed the one real gap, the stub billing adapter never checking a
+  signature). Adding this line so it's findable under "Payments" rather than
+  only under §2. *(2026-09-16)*
+- ⚠️ **Mass assignment — spot-checked, not yet a full endpoint audit.**
+  Grepped `routes.ts` for the classic anti-patterns (`...req.body` or
+  `.update(req.body)` passed straight through) and found none — update
+  routes destructure named fields. **Not yet checked**: the platform adapter
+  files (`backend/src/platforms/*.ts`) and the MCP server's own write paths.
+  Worth a full pass at the next monthly re-check rather than calling this
+  closed on one grep. *(2026-09-16)*
+- ⚠️ **Session tokens use Supabase's default storage (`localStorage`), not
+  an httpOnly secure cookie.** `frontend/src/lib/supabase.ts` calls
+  `createClient()` with no `auth.storage` override, so Supabase JS v2's
+  default applies — the session (including the refresh token) sits in
+  `localStorage`, readable by any script that runs on the page. The
+  compensating fact: the XSS audit (§4, and the 2026-09-06 deep audit) found
+  **zero** exploitable injection point anywhere in the app — the one
+  `dangerouslySetInnerHTML` is a hardcoded empty string — so there is
+  currently no known vector that could read it. But that is a "no known way
+  in today" argument, not "the token is protected," and a future feature
+  (rich text, markdown rendering, a new third-party widget) could open one
+  without this line ever getting re-examined. Moving session storage to
+  Supabase's cookie-based auth flow is a real, non-trivial migration — not
+  something to do reflexively — so this is recorded as a known trade-off,
+  not silently treated as covered. *(2026-09-16)*
+- — **Encryption at rest, beyond the OAuth-token case already covered.**
+  Connected-platform OAuth tokens are the one field genuinely sensitive
+  enough to need it, and they're already Supabase-Vault-encrypted (§2/§7).
+  Supabase's own disk-level encryption covers the rest of the database. No
+  other field in the schema (business name, email, post content) rises to
+  needing its own field-level encryption. *(2026-09-16)*
 
 ## Open Items (as of 2026-09-04)
 
@@ -679,6 +739,54 @@ original one.
    still empty. Not a gap in itself; the reminder is that two of the three
    previous keys died to the auto-revoke guard, so the first real consumer
    must register its job **in the same change**, not after.
+14. **CHECKED LIVE 2026-09-16, in Werner's own logged-in dashboards (via
+   Claude in Chrome) — three of four vendors are genuinely fine, one has a
+   real small gap, one is unchecked.** This item is about LazyRelay's own
+   vendor bills (distinct from the customer-facing AI usage caps in §9,
+   which protect against a customer running up cost):
+   - ✅ **Anthropic Console — real protection already in place.** Billing
+     page confirmed: prepaid credit balance model, **auto-reload is off**
+     ("API requests will stop when your balance runs out") — so there is no
+     way for this to produce a surprise invoice, full stop. The "$200,000
+     monthly spend limit" shown is the platform's unconfigured default and
+     is meaningless given auto-reload is off; not a real exposure.
+   - ⚠️ **Anthropic Console — no notification configured before the balance
+     runs out** (credit balance was $9.75 at check time, $0.06 spent this
+     cycle). This isn't a billing-overrun risk (see above) but it is a
+     silent-outage risk: LazyRelay's AI features (support chat,
+     caption/hashtag generation) would just start failing with no advance
+     warning once the balance hits zero. Cheap fix, Werner's to do: Billing
+     → Spend limits → Add notification.
+   - — **Render — no spend-cap feature exists on the platform**, confirmed
+     by reading the actual Billing page (`Monthly Included Usage`: "You will
+     be charged for usage beyond your included limits" — no cap/alert toggle
+     anywhere on the page or in Notifications settings). Real exposure is
+     low regardless: Render bills flat per-instance plus metered
+     bandwidth/build-minute overage, not a per-request multiplier the way an
+     LLM API is, so there's no realistic "runaway loop = huge bill" vector
+     here the way there is for Anthropic.
+   - ✅ **Supabase — LazyRelay's org has Spend Cap enabled**, confirmed live
+     on the org's own Billing page: "You won't be charged any extra for
+     usage. However, your projects could become unresponsive or enter read
+     only mode if you exceed the included quota." No billing-overrun risk;
+     the trade-off is an availability one (read-only mode) instead, which is
+     already the kind of thing the existing health-check monitoring (§8)
+     would surface. A separate project on the same Supabase account is on
+     the Free plan — no overage billing possible there either, nothing to
+     configure.
+   - ❌ **Resend — not checked, still open.** Werner isn't logged into
+     Resend in the Chrome profile used for this check (landed on the logged-
+     out marketing page). Needs Werner to check `resend.com/settings/billing`
+     himself for any spend-limit setting.
+15. **NEW 2026-09-16 — two-factor authentication on LazyRelay's own
+   infrastructure accounts is untracked.** Everything in §1 is about
+   *customer* MFA. This is the separate question of whether Render,
+   Supabase, GitHub, Cloudflare, npm, the domain registrar, and the Google
+   account behind `lazyrelay@gmail.com`/`hello@lazyrelay.com` each have 2FA
+   turned on — attackers go after the accounts that control the
+   infrastructure, not just the product. Needs Werner: confirm 2FA per
+   account (most of these can't be read back via API, this is a per-vendor
+   dashboard check).
 13. **PostHog session-replay masking is not headlessly verifiable** (§10) —
    the code-level `ph-mask` layer on all four secret reveals *is* verified;
    the project-level "Total privacy" setting is not, and needs either a
@@ -688,6 +796,22 @@ original one.
 
 ## Re-check log
 
+- **2026-09-16** — reconciled against a new external source (see below), not
+  a scheduled monthly re-check. 27 of 30 items were already covered by
+  existing sections; 5 got their own explicit line for the first time (2 as
+  new ✅ verified controls, 3 as ⚠️/— honest partial-coverage notes); 2
+  genuine new gaps opened (14, 15 — vendor billing caps and infra-account
+  2FA, neither of which the checklist had ever tracked). Nothing that
+  previously passed regressed. See §13 for the full diff and evidence.
+  **Separately noted, not yet folded into this file:** a 2026-09-06 deep
+  audit (`[[reference-security-deep-audit-2026-09-06]]` in the vault) found
+  and fixed two real, active findings that aren't reflected above yet — MFA
+  was enforceable client-side only (server never checked the `aal2` claim,
+  fixed `f37c832`) and PostHog's AI wrapper was capturing full prompt/
+  completion content including third-party commenters' PII (fixed `3e94b36`,
+  `posthogPrivacyMode: true` on every Anthropic call). Both proven live with
+  dedicated tests. §1 and §9 above should get these folded in in the next
+  full monthly pass rather than left to be rediscovered.
 - **2026-09-04** — monthly drift check. **No regressions. Five
   evidence-line corrections and one new surface.** 46 ✅ items re-verified
   against live code/infra; nothing that genuinely passed before fails now.
@@ -772,6 +896,8 @@ original one.
 - NxCode's 10-item checklist (`nxcode.io`)
 - astoj/vibe-security's 17-category checklist (GitHub, MIT licensed)
 - The original TikTok-sourced checklist that started the 2026-08-26 sweep
+- Notion's "The Complete Pre-Launch Security Checklist for Vibe-Coded Apps"
+  (30 items + mobile section), reconciled 2026-09-16 — see §13
 
 Full detail and evidence trail for everything above:
 `03 - LazyRelay/project-pre-launch-hardening-2026-08-25.md` and the

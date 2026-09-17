@@ -49,7 +49,17 @@ jobs:
       # it needs them here too). Runs before the security test boots a real
       # server, since Vitest builds its own app instance and needs no
       # running process.
+      #
+      # Skipped for Dependabot-triggered runs (added 2026-09-17): GitHub
+      # doesn't grant repo secrets to dependabot[bot] PR runs by default,
+      # and deliberately not overridden here -- putting the production
+      # Supabase service-role key (bypasses RLS) within reach of whatever
+      # postinstall code an unreviewed dependency bump brings in is a real
+      # supply-chain exposure, not a hypothetical one. This job still runs
+      # `npm ci && npm run build` for every Dependabot PR (catches real
+      # breakage); a human re-runs the full suite before merging anything.
       - working-directory: backend
+        if: github.actor != 'dependabot[bot]'
         run: npm test
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -70,7 +80,11 @@ jobs:
       # stub billing adapter, no Paddle secrets required (index.ts only
       # refuses to start when PADDLE_ENVIRONMENT=production without real
       # MOR credentials).
+      # Skipped for Dependabot-triggered runs -- same reasoning as npm test
+      # above, none of these should hand a bumped, unreviewed dependency's
+      # install/runtime code a live path to production Supabase secrets.
       - working-directory: backend
+        if: github.actor != 'dependabot[bot]'
         run: node dist/index.js &
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -84,6 +98,7 @@ jobs:
           # consistency with how it's already handled locally/on Render.
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       - name: Wait for backend to be ready
+        if: github.actor != 'dependabot[bot]'
         run: |
           for i in $(seq 1 30); do
             if curl -sf http://localhost:3000/health > /dev/null; then
@@ -95,6 +110,7 @@ jobs:
           echo "backend never became healthy" >&2
           exit 1
       - working-directory: backend
+        if: github.actor != 'dependabot[bot]'
         run: npm run test:security
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
