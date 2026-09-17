@@ -963,14 +963,37 @@ button[type="submit"]:not(.btn-outline),
 
 .landing-hero-headline {
   font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 44px;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
+  font-weight: 800;
+  /* Scaled up from 44px -- oversized editorial type is the actual
+     "modern SaaS" signal per the 2026 research (see
+     09 - Resources/reference-2026-saas-design-trends in the vault), more
+     load-bearing than any single visual effect. CircuitBackground already
+     gives this page real ambient motion/depth, so the redesign gap here
+     was typography scale, not another glow layered on top of it. */
+  font-size: 68px;
+  line-height: 1.02;
+  letter-spacing: -0.025em;
   color: #fff;
   text-align: center;
-  max-width: 720px;
+  max-width: 820px;
   margin: 0;
+}
+
+/* Scoped to the hero's own CTA (descendant selector, not a new class on
+   .cta itself) -- .cta is shared with every pricing card's button, and a
+   glow that looks right once in the hero would look noisy repeated six
+   times in the pricing grid. */
+.landing-hero .cta {
+  box-shadow: 0 0 0 1px rgba(252, 55, 36, 0.35), 0 0 0 rgba(252, 55, 36, 0);
+  transition: box-shadow 0.25s ease, transform 0.15s ease, background 0.2s ease;
+}
+
+.landing-hero .cta:hover {
+  box-shadow: 0 0 0 1px rgba(252, 55, 36, 0.5), 0 0 36px rgba(252, 55, 36, 0.5);
+}
+
+.landing-hero .cta:active {
+  transform: scale(0.96);
 }
 
 .landing-hero-subtext {
@@ -992,7 +1015,7 @@ button[type="submit"]:not(.btn-outline),
 
 @media (max-width: 600px) {
   .landing-hero-headline {
-    font-size: 32px;
+    font-size: 38px;
   }
 
   .landing-hero-subtext {
@@ -1088,6 +1111,80 @@ button[type="submit"]:not(.btn-outline),
   font-size: 14px;
   line-height: 1.5;
   margin: 0;
+}
+
+/* A separate bento layout for the 4-item FEATURES list, deliberately not
+   reusing .landing-features/.landing-feature above -- those classes are
+   shared with .landing-steps (the "How it works" section), so changing
+   their layout here would have changed that section too. minmax(0, 1fr)
+   on the row, not a fixed height, so a tile's content always decides its
+   own height -- the exact bug (fixed row height, content overflowing the
+   card) found and fixed on TimeAJob's own version of this same pattern. */
+.landing-bento {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: minmax(140px, auto);
+  gap: 20px;
+  text-align: left;
+}
+
+.landing-bento-tile {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.landing-bento-tile:hover {
+  transform: translateY(-4px);
+  border-color: var(--signal-solid);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(252, 55, 36, 0.15);
+}
+
+/* The one differentiator feature (Proof-of-Publish) gets the anchor
+   treatment -- full width, tinted background -- same "the real
+   differentiator gets the special tile" pattern as TimeAJob's bento
+   grid, not an arbitrary pick. */
+.landing-bento-tile--wide {
+  grid-column: 1 / -1;
+  background: linear-gradient(120deg, rgba(252, 55, 36, 0.08), var(--surface) 55%);
+  flex-direction: row;
+  align-items: center;
+  gap: 24px;
+}
+
+.landing-bento-tile h3 {
+  font-family: var(--font-display);
+  color: var(--ink);
+  font-size: 18px;
+  margin: 0;
+}
+
+.landing-bento-tile--wide h3 {
+  font-size: 22px;
+}
+
+.landing-bento-tile p {
+  color: var(--wire);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .landing-bento {
+    grid-template-columns: 1fr;
+  }
+  .landing-bento-tile--wide {
+    grid-column: 1;
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .landing-proof-caption {

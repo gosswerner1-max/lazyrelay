@@ -640,9 +640,9 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           Everything works from a real dashboard, not just an API. Scheduling, the calendar, and analytics
           are all clickable, not command-line only.
         </p>
-        <div className="landing-features">
+        <div className="landing-bento">
           {FEATURES.map((f) => (
-            <div className="landing-feature" key={f.title}>
+            <div className={`landing-bento-tile${f.title === "Proof-of-Publish" ? " landing-bento-tile--wide" : ""}`} key={f.title}>
               <h3>{f.title}</h3>
               <p>{f.body}</p>
             </div>
