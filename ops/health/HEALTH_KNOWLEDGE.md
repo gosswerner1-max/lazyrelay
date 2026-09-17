@@ -17,7 +17,17 @@ Render's free tier, or the frontend being unreachable while the API is fine).
 3. **SSL certificate expiry** — a lapsed cert takes the whole site down for
    every visitor at once; days-remaining is checked directly via a TLS
    handshake, not assumed from "it auto-renews."
-4. **Scheduler lag** (real Supabase read: `scheduled_posts` rows still
+4. **Domain registration expiry** (added 2026-09-17) — a lapsed domain takes
+   down the site *and* every `@lazyrelay.com` mailbox at once, and isn't a
+   same-day fix like an SSL reissue. Checked via Verisign's public RDAP
+   endpoint (`rdap.verisign.com`, the ICANN-mandated WHOIS successor,
+   structured JSON, no credentials) since no API/MCP exists for the real
+   registrar (`domains.co.za` — confirmed in `reference-infra-quick-facts.md`
+   in the vault). Surfaced by comparing against a PieMonitor cold-pitch email
+   that offered this exact check for $2/mo — this closes the one real gap
+   that comparison found; the other four features it advertised were already
+   covered.
+5. **Scheduler lag** (real Supabase read: `scheduled_posts` rows still
    `pending` well past their `scheduled_for` time) — the most direct proxy
    for "the scheduler is falling behind," which is the core Proof-of-Publish
    promise breaking. Does NOT read the in-process circuit breaker state
@@ -59,7 +69,7 @@ Render's free tier, or the frontend being unreachable while the API is fine).
    only counts posts that are actually supposed to have gone out. Not yet
    proven against a real digest run — the next `lazyrelay-daily-ops-digest`
    firing with the batch still paused is the live test.
-5. **Media storage overage** (reuses the same real query as the weekly
+6. **Media storage overage** (reuses the same real query as the weekly
    report) — reported for visibility, but **excluded from `overall`
    severity** (changed 2026-08-05): Supabase meters/auto-scales storage past
    the included amount rather than hard-blocking (confirmed live on the
@@ -68,12 +78,12 @@ Render's free tier, or the frontend being unreachable while the API is fine).
    signal — whether storage add-on revenue still covers the real Supabase
    cost — is `billing_ops.js::checkStorageMargin()`, a pricing question, not
    a health question.
-6. **Database disk size** (`ops_db_size_bytes()` RPC, migration 0031, added
+7. **Database disk size** (`ops_db_size_bytes()` RPC, migration 0031, added
    2026-08-05) — direct read of the real Postgres disk size against
    Supabase Pro's 8GB included allowance. Added after finding the original 5
    checks were all *proxies* for capacity strain (latency, lag) rather than
    a direct read of the actual documented cap.
-7. **Monthly Active Users** (`ops_monthly_active_users()` RPC, same
+8. **Monthly Active Users** (`ops_monthly_active_users()` RPC, same
    migration) — direct-ish read against Supabase Pro's 100k included MAU.
    This is a conservative proxy (distinct sign-ins in the current calendar
    month via `auth.users.last_sign_in_at`), not Supabase's exact billing
@@ -88,6 +98,7 @@ Render's free tier, or the frontend being unreachable while the API is fine).
 | Backend health latency | < 3s | 3-10s | no response / non-200 / >10s |
 | Frontend reachability | 200 OK | — | non-200 or unreachable |
 | SSL days remaining | > 14 days | 7-14 days | < 7 days or invalid |
+| Domain days remaining | > 30 days | 14-30 days | < 14 days or lookup failed |
 | Overdue pending posts | 0 | 1-4 | 5+ |
 | Storage overage | 0 GB | > 0 GB (informational only, never affects `overall`) | — |
 | Database disk size | < 6GB | 6-8GB | > 8GB (Pro plan included amount) |

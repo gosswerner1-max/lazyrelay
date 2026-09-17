@@ -12,12 +12,23 @@ const tls = require("tls");
 const BACKEND_HEALTH_URL = "https://lazyrelaylazyrelay-backend.onrender.com/health";
 const FRONTEND_URL = "https://lazyrelay.com";
 const SSL_CHECK_HOST = "lazyrelay.com";
+// Verisign's public RDAP endpoint for .com/.net -- the ICANN-mandated
+// successor to WHOIS, structured JSON, no credentials needed. There's no
+// API/MCP for the actual registrar (domains.co.za, confirmed in
+// reference-infra-quick-facts.md), so this is genuinely the only headless
+// way to read the real expiry date. Would need a different RDAP base if
+// this domain ever changed TLD.
+const RDAP_DOMAIN_URL = "https://rdap.verisign.com/com/v1/domain/lazyrelay.com";
 
 const THRESHOLDS = {
   backendLatencyWarnMs: 3000,
   backendLatencyCriticalMs: 10000,
   sslDaysWarn: 14,
   sslDaysCritical: 7,
+  // Wider window than SSL -- a lapsed domain takes down email too, and
+  // registrar renewal isn't a same-day fix the way a cert reissue can be.
+  domainDaysWarn: 30,
+  domainDaysCritical: 14,
   overduePostsWarn: 1,
   overduePostsCritical: 5,
   // Supabase Pro plan (confirmed live 2026-08-05): 8GB disk included,
@@ -108,6 +119,33 @@ function checkSslExpiry(host = SSL_CHECK_HOST) {
   });
 }
 
+/** Real registrar expiry via RDAP -- no registrar API/MCP exists (confirmed
+ *  in reference-infra-quick-facts.md), so this is the only headless way to
+ *  read the actual expiry date rather than trusting "auto-renew is on" or a
+ *  vault note that could drift stale. */
+async function checkDomainExpiry() {
+  try {
+    const res = await fetch(RDAP_DOMAIN_URL, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) {
+      return { check: "domain_expiry", status: "critical", detail: `RDAP lookup failed: HTTP ${res.status}` };
+    }
+    const body = await res.json();
+    const expirationEvent = (body.events || []).find((e) => e.eventAction === "expiration");
+    if (!expirationEvent) {
+      return { check: "domain_expiry", status: "critical", detail: "RDAP response had no expiration event" };
+    }
+    const daysRemaining = Math.floor((new Date(expirationEvent.eventDate).getTime() - Date.now()) / (24 * 3600 * 1000));
+    return {
+      check: "domain_expiry",
+      status: severity(daysRemaining, THRESHOLDS.domainDaysWarn, THRESHOLDS.domainDaysCritical, false),
+      detail: `${daysRemaining} days remaining (expires ${expirationEvent.eventDate})`,
+      daysRemaining,
+    };
+  } catch (err) {
+    return { check: "domain_expiry", status: "critical", detail: `RDAP lookup error: ${err.message}` };
+  }
+}
+
 /** Real Supabase read: posts still 'pending' well past their scheduled_for
  *  time is the most direct externally-observable proxy for "the scheduler
  *  is falling behind" — the in-process circuit breaker state isn't visible
@@ -189,6 +227,7 @@ async function runAllChecks(supabase, storageUsage) {
     checkBackendHealth(),
     checkFrontendUp(),
     checkSslExpiry(),
+    checkDomainExpiry(),
     checkSchedulerLag(supabase),
     checkStorageOverage(storageUsage),
     checkDatabaseSize(supabase),
@@ -206,6 +245,7 @@ module.exports = {
   checkBackendHealth,
   checkFrontendUp,
   checkSslExpiry,
+  checkDomainExpiry,
   checkSchedulerLag,
   checkStorageOverage,
   checkDatabaseSize,
