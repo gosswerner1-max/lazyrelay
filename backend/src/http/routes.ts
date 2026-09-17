@@ -5,7 +5,7 @@ import multer from "multer";
 import { randomUUID, randomBytes, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
-import { imageSize } from "image-size";
+import { imageSizeFromFile } from "image-size/fromFile";
 import { fileTypeFromFile } from "file-type";
 import { supabase } from "../supabase.js";
 import { cancelSubscription, cancelStorageAddon, cancelBrandAddon, cancelSeatAddon } from "../billing/sync.js";
@@ -2023,17 +2023,21 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       // not added yet, see mediaLimits.ts) so /scheduled-posts can validate
       // against the TARGET platform's actual requirements later using
       // server-measured metadata, not anything a client could misreport.
-      // image-size reads a file path directly (just enough of the header,
-      // not the whole file) — no need to load it ourselves. image-size's
-      // ICNS/JXL/HEIF parsers carry an unpatched infinite-loop DoS, but
-      // those mime types are already rejected by ALLOWED_MEDIA_MIME_TYPES
-      // above, long before detected.mime can ever reach here — see the
-      // 2026-08-11 Dependabot dismissal on this exact CVE for the record.
+      // image-size's fromFile entry point reads a file path directly (just
+      // enough of the header, not the whole file) — no need to load it
+      // ourselves. image-size 2.x dropped the old sync file-path API in
+      // favor of this async one (main `imageSize` export now takes only a
+      // Uint8Array — see the image-size 1→2 Dependabot bump for the diff).
+      // image-size's ICNS/JXL/HEIF parsers carry an unpatched infinite-loop
+      // DoS, but those mime types are already rejected by
+      // ALLOWED_MEDIA_MIME_TYPES above, long before detected.mime can ever
+      // reach here — see the 2026-08-11 Dependabot dismissal on this exact
+      // CVE for the record.
       let width: number | null = null;
       let height: number | null = null;
       if (detected.mime.startsWith("image/")) {
         try {
-          const dims = imageSize(file.path);
+          const dims = await imageSizeFromFile(file.path);
           width = dims.width ?? null;
           height = dims.height ?? null;
         } catch {
