@@ -245,3 +245,21 @@ jobs:
       - name: Syntax-check every .js file (parse only, no execution, no credentials)
         working-directory: zapier-integration
         run: find . -name "*.js" -not -path "./node_modules/*" -print0 | xargs -0 -n1 node --check
+
+  # Added 2026-09-17 after a security audit flagged that nothing in CI
+  # would catch an accidentally-committed real secret going forward (a
+  # manual grep at audit time found none, but that's a point-in-time
+  # result, not a standing control). No license key needed -- this repo
+  # is on a personal GitHub account, not an organization, which
+  # gitleaks-action only requires a (free) license for.
+  secret-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

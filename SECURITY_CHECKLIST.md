@@ -260,6 +260,12 @@ original one.
   nowhere in history (`git log --all -S`). It is a local-only credentials
   file, same class as `.env`. Future greps will hit it; this is the
   sanctioned file, not a regression. *(2026-09-01)*
+- ✅ **Automated secret-scanning now runs in CI, not just point-in-time
+  manual greps** — a `secret-scan` job (`gitleaks/gitleaks-action`,
+  `.github/workflows/ci.yml`) runs on every push/PR from 2026-09-17,
+  closing the standing gap every manual audit above could only say "clean
+  today," not "will stay clean." No license key needed (personal GitHub
+  account, not an organization).
 - ✅ **`.env` never committed** — checked full git history
   (`git log --all -p -- '*.env'`), only `.env.example` files were ever
   tracked. *(2026-08-26)*
@@ -348,7 +354,21 @@ original one.
   (`backend/src/urlSafety.ts`) against private/loopback/link-local/
   cloud-metadata ranges before the server ever fetches them, and every
   platform adapter's own media fetch refuses redirects (`redirect: "manual"`,
-  commit `86bcbb1`). *(2026-08-21)*
+  commit `86bcbb1`). *(2026-08-21)* **Hardened further 2026-09-17**: the
+  DNS-rebinding residual gap this section's own comment already named
+  (hostname could re-resolve differently between the safety check and the
+  actual `fetch()`, even though they're one function call apart) is now
+  closed — `fetchMediaForStreaming` (`backend/src/platforms/streamUpload.ts`)
+  pins the fetch to the exact IP `isSafeMediaUrl` just validated, via a
+  per-call `undici` Agent with a custom `connect.lookup`, instead of letting
+  `fetch()` re-resolve the hostname independently. Verified live via the
+  existing `test-url-safety.ts`/`test-stream-upload-safety.ts` scripts (all
+  cases pass, including a real public HTTPS fetch still succeeding
+  normally) — found and fixed a real bug in the process: Node's
+  `autoSelectFamily`/Happy-Eyeballs connection logic calls a custom `lookup`
+  expecting an array-of-addresses callback shape, not the single-address
+  one, which the first version of this fix got wrong and only surfaced by
+  actually running the test, not by typechecking alone.
 
 ## 5. Database & Storage Security
 

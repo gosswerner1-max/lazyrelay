@@ -31,7 +31,8 @@
     "luxon": "^3.7.2",
     "multer": "^2.3.0",
     "posthog-node": "^5.51.6",
-    "resend": "^6.18.1"
+    "resend": "^6.18.1",
+    "undici": "^7.29.1"
   },
   "overrides": {
     "hono": "^4.13.5"

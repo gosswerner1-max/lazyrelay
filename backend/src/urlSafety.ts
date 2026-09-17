@@ -11,12 +11,14 @@ import { isIP } from "node:net";
  *
  *  Resolves the hostname itself (rather than only pattern-matching it)
  *  since a customer could point a public-looking hostname at a private IP
- *  via their own DNS. This doesn't fully close DNS-rebinding (a hostname
- *  could still resolve differently between this check and the adapter's
- *  later fetch()) — that would need every adapter's fetch to reuse this
- *  same resolved address, which is a larger change. Fail-closed on any DNS
+ *  via their own DNS. On success, returns the exact resolved address(es) so
+ *  the caller can pin the actual fetch() to one of them (fetchMediaForStreaming
+ *  does this) — closing the DNS-rebinding gap that existed when the caller's
+ *  own fetch() re-resolved the hostname independently. Fail-closed on any DNS
  *  lookup failure rather than assuming safety. */
-export async function isSafeMediaUrl(rawUrl: string): Promise<{ safe: true } | { safe: false; reason: string }> {
+export async function isSafeMediaUrl(
+  rawUrl: string,
+): Promise<{ safe: true; addresses: string[] } | { safe: false; reason: string }> {
   let parsed: URL;
   try {
     parsed = new URL(rawUrl);
@@ -52,7 +54,7 @@ export async function isSafeMediaUrl(rawUrl: string): Promise<{ safe: true } | {
     }
   }
 
-  return { safe: true };
+  return { safe: true, addresses: addressesToCheck };
 }
 
 function isPrivateOrReservedIp(address: string): boolean {

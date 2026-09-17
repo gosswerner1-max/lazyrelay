@@ -22,7 +22,50 @@
 
 import { randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
+import { isIP } from "node:net";
+import { Agent, type Dispatcher } from "undici";
 import { isSafeMediaUrl } from "../urlSafety.js";
+
+/** Builds a one-off undici Agent whose connect.lookup always answers with
+ *  the exact address(es) isSafeMediaUrl already validated, instead of
+ *  letting the connection re-resolve the hostname (undici's default
+ *  behavior) -- this is what actually pins the fetch below to a known-safe
+ *  IP rather than trusting DNS to answer the same way twice. Deliberately
+ *  a fresh Agent per call, not a shared module-level one: the pinned
+ *  address is only valid for this one already-validated mediaUrl, and
+ *  reusing an Agent across different hostnames would either pin the wrong
+ *  host or require per-hostname bookkeeping for no real benefit here (this
+ *  function is called once per media send, not in a hot loop). */
+function pinnedDispatcher(addresses: string[]): Dispatcher {
+  const candidates = addresses
+    .map((address) => ({ address, family: isIP(address) }))
+    .filter((c): c is { address: string; family: 4 | 6 } => c.family === 4 || c.family === 6);
+
+  return new Agent({
+    connect: {
+      // Node's net.connect calls this with `options.all: true` when
+      // autoSelectFamily (Happy Eyeballs) is active -- the default since
+      // Node 20 -- which expects the *array* callback form, not the
+      // single-address one. Caught live: the single-address form threw
+      // "Invalid IP address: undefined" the first time this was actually
+      // run, not just typechecked, since Node called this function
+      // expecting an array and got a bare string instead. Both forms are
+      // handled here so this doesn't silently break if that default
+      // setting ever changes back.
+      lookup(_hostname, options, callback) {
+        if (candidates.length === 0) {
+          callback(new Error("no valid pinned address"), "", 0);
+          return;
+        }
+        if (options.all) {
+          callback(null, candidates);
+        } else {
+          callback(null, candidates[0].address, candidates[0].family);
+        }
+      },
+    },
+  });
+}
 
 export interface FetchedMedia {
   /** The source media's body as a stream. Do NOT call .arrayBuffer() or
@@ -59,16 +102,20 @@ export interface FetchedMedia {
  *  before the scheduled send. Re-checking right here, at the one shared
  *  choke point every adapter already calls through, closes that window
  *  without needing to touch any of the 9 call sites individually.
- *  Doesn't fully close a sub-second DNS-rebinding race between this check
- *  and the fetch() call two lines below -- that would need this fetch
- *  pinned to the exact address just resolved (a real dispatcher-level
- *  change, and a new dependency, for closing a residual window this much
- *  narrower than the one being fixed here). Documented, not silently
- *  dropped -- isSafeMediaUrl's own comment already named this. */
+ *
+ *  Also pins this fetch() to the exact IP isSafeMediaUrl just validated
+ *  (via a per-call undici Agent with a custom connect.lookup), rather than
+ *  letting fetch() re-resolve the hostname itself -- closes the remaining
+ *  DNS-rebinding race (a TTL=0 attacker-controlled record could otherwise
+ *  answer differently between the check two lines above and fetch's own
+ *  independent lookup, even though the two calls are back-to-back). The
+ *  original Host header / TLS SNI still use the real hostname -- only the
+ *  raw TCP connection target is pinned, so this works transparently for
+ *  any HTTPS host, virtual-hosted or not. */
 export async function fetchMediaForStreaming(mediaUrl: string): Promise<FetchedMedia | null> {
   const safety = await isSafeMediaUrl(mediaUrl);
   if (!safety.safe) return null;
-  const res = await fetch(mediaUrl, { redirect: "manual" });
+  const res = await fetch(mediaUrl, { redirect: "manual", dispatcher: pinnedDispatcher(safety.addresses) } as RequestInitWithDuplex);
   if (!res.ok || !res.body) return null;
   const contentLength = res.headers.get("content-length");
   return {
@@ -82,8 +129,14 @@ export async function fetchMediaForStreaming(mediaUrl: string): Promise<FetchedM
  *  request body -- without it, fetch throws "RequestInit: duplex option is
  *  required when sending a body." The DOM RequestInit type this project's TS
  *  lib pulls in doesn't declare that field yet, so this is the one, documented
- *  place that gap gets bridged -- no adapter needs its own `as any` for it. */
-export type RequestInitWithDuplex = RequestInit & { duplex?: "half" };
+ *  place that gap gets bridged -- no adapter needs its own `as any` for it.
+ *  `dispatcher` is the same kind of gap: Node's fetch (undici under the hood)
+ *  accepts it to override which Agent/connection a request uses -- used by
+ *  fetchMediaForStreaming's own DNS-pinning fetch() call above, not by any
+ *  adapter's outgoing upload request, but declared here alongside `duplex`
+ *  since both are undici-specific RequestInit extensions the DOM type is
+ *  missing. */
+export type RequestInitWithDuplex = RequestInit & { duplex?: "half"; dispatcher?: Dispatcher };
 
 interface MultipartPart {
   fieldName: string;
