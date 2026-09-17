@@ -587,6 +587,15 @@ original one.
   `crawler_protection`, `ai_bots_protection` and `content_bots_protection`
   all `disabled` — consistent with keeping crawlers unblocked.
   *(2026-09-01)*
+  **Re-checked 2026-09-17** after Cloudflare emailed `werner@` about
+  splitting "Block AI Bots" into separate Search/Training/Agent controls,
+  auto-migrating existing settings from 2026-09-15. The same live endpoint
+  now also returns three new fields — `ai_training`, `ai_search`,
+  `ai_user` — all `"disabled"`, and `ai_bots_migration_opt_out: false`
+  (this zone went through the automatic migration normally). Since
+  nothing here was ever set to Block, the migration correctly landed in
+  the same all-off state — **no new blocking was introduced**, backlink
+  and badge-verification crawlers are unaffected. *(2026-09-17)*
 - ✅ **WAF and DDoS protection are genuinely deployed** — confirmed 2026-09-01
   via `GET /zones/{id}/rulesets` (after the token was widened). Three managed
   rulesets are live: **Cloudflare Managed Free Ruleset**
