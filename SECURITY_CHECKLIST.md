@@ -402,6 +402,14 @@ original one.
   one high (`image-size`, `fixAvailable: false` — still no upstream fix),
   frontend and mcp-server both zero at every severity, and the GitHub API
   still reports **0 open Dependabot alerts** repo-wide. *(2026-09-04)*
+  **Re-checked 2026-09-17** after bumping `backend`'s `image-size` 1.2.1 →
+  2.0.2 (a separate breaking-change fix, `routes.ts`'s dimension check
+  needed rewriting for the new async `image-size/fromFile` API — see
+  `project-deploy-gate-2026-08-04` for that detail): `npm audit` at 2.0.2
+  still reports the exact same ICNS/JXL/HEIF DoS, `fixAvailable: false` —
+  **the major-version bump did not fix the CVE**, so this line's substance
+  is unchanged, only the version number in the title is now stale
+  (2.0.2, not 1.2.1). *(2026-09-17)*
 - ✅ **No auto-merge of dependency updates.** *(2026-08-26)*
 - ✅ **`package.json` deps use caret ranges, but the lockfile pins exact
   versions** — reproducibility holds via the lockfile even though the
