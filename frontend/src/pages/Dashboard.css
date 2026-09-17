@@ -692,6 +692,86 @@
   background: color-mix(in srgb, var(--error) 14%, transparent);
 }
 
+/* Overview gets a deliberately dark, branded card (matching the landing
+   page's own hero) rather than following --surface/--paper's light/dark
+   theme flip like the rest of the dashboard -- this is a showcase page,
+   same reasoning as .plan-banner already using --hero-bg unconditionally.
+   Every color used underneath still needs to read against a dark
+   background regardless of the visitor's real OS theme, which is why
+   PlatformBarChart takes an explicit forceDark prop here instead of
+   relying on its own system-preference detection (see that component's
+   own comment for the concrete failure mode this avoids: a black-branded
+   platform bar going invisible). */
+.overview-panel {
+  background: var(--hero-bg);
+  border-radius: 20px;
+  padding: 32px;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+
+.overview-panel h2 {
+  color: #fff;
+  font-size: 22px;
+}
+
+.overview-panel .chart-stat-tile {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  transition: border-color 0.25s ease, transform 0.2s ease;
+}
+
+.overview-panel .chart-stat-tile:hover {
+  border-color: var(--signal-solid);
+  transform: translateY(-2px);
+}
+
+.overview-panel .chart-stat-value {
+  color: #fff;
+}
+
+.overview-panel .chart-stat-label {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.overview-panel .chart-section {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+.overview-panel .chart-section h3 {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.overview-panel .chart-meter-label,
+.overview-panel .chart-meter-value,
+.overview-panel .chart-stacked-bar-legend-item strong,
+.overview-panel .chart-platform-bar-name {
+  color: #fff;
+}
+
+.overview-panel .chart-stacked-bar-legend,
+.overview-panel .chart-platform-bar-value {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.overview-panel .chart-platform-bar-track {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.overview-panel .chart-meter-track,
+.overview-panel .chart-stacked-bar-track {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.overview-panel .onboarding-nudge,
+.overview-panel .empty {
+  color: rgba(255, 255, 255, 0.72);
+}
+
 .chart-meter {
   margin-bottom: 20px;
 }

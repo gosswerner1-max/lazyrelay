@@ -282,7 +282,6 @@ export function Meter({
         aria-valuemin={0}
         aria-valuemax={max}
         aria-label={label}
-        style={{ background: "rgba(0,0,0,0.08)" }}
       >
         <div
           className="chart-meter-fill"
@@ -371,8 +370,24 @@ export function StatusStackedBar({
 // icon), never relies on a legend to decode 12 colors.
 // ---------------------------------------------------------------------------
 
-export function PlatformBarChart({ data }: { data: { platform: string; total: number }[] }) {
-  const dark = usePrefersDark();
+export function PlatformBarChart({
+  data,
+  forceDark,
+}: {
+  data: { platform: string; total: number }[];
+  /** Renders as if dark mode is active regardless of the OS's real
+   *  preference -- for a caller (OverviewPanel) that always shows this
+   *  chart on a dark, branded background rather than the theme-following
+   *  --surface. Without this, a black-branded platform (TikTok/Threads/X)
+   *  would render its real light-mode black and disappear against that
+   *  dark background whenever the visitor's OS is actually in light mode
+   *  -- usePrefersDark() only reflects the OS, not what this chart is
+   *  actually being drawn on top of. Undefined preserves every existing
+   *  caller's real system-preference behavior. */
+  forceDark?: boolean;
+}) {
+  const systemDark = usePrefersDark();
+  const dark = forceDark ?? systemDark;
   const sorted = resolveColorCollisions([...data].sort((a, b) => b.total - a.total));
   const max = Math.max(...sorted.map((d) => d.total), 1);
 
@@ -758,7 +773,7 @@ export function OverviewPanel({
   onConnectAccount?: () => void;
 }) {
   return (
-    <section>
+    <section className="overview-panel">
       <h2>Overview</h2>
       {loading && !analytics && <Spinner />}
       {!loading && !hasAccounts && (
@@ -827,6 +842,7 @@ export function OverviewPanel({
             <h3>Posts by platform</h3>
             <PlatformBarChart
               data={Object.entries(analytics.byPlatform).map(([platform, stats]) => ({ platform, total: stats.total }))}
+              forceDark
             />
           </div>
 
