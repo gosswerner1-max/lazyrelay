@@ -15,7 +15,11 @@ const path = require("path");
 const dotenv = require("dotenv");
 
 const BACKEND_ENV_PATH = path.join(__dirname, "..", "..", "backend", ".env");
-dotenv.config({ path: BACKEND_ENV_PATH });
+// quiet: true -- dotenv 17 (2026-09-17 bump) started logging an "injected
+// env (N) from ..." tip line by default on every load. Every ops script
+// runs unattended via a scheduled task, so that's pure noise in logs meant
+// to be scanned for real problems.
+dotenv.config({ path: BACKEND_ENV_PATH, quiet: true });
 
 const EMAIL_AGENT_CREDS_PATH = path.join(
   __dirname,
