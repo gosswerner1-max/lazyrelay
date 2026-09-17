@@ -238,19 +238,18 @@ async function releaseMediaIfOrphaned(mediaUrl: string, accountId: string): Prom
 // registered, but X's API is pay-per-use (Basic tier $200/mo just for write
 // access), and the user decided 2026-08-04 to hold off funding it until
 // there's real customer demand, rather than pay for an untested, unused
-// integration. "google-business" is also comingSoon: true, added 2026-08-17
-// — the adapter is code-complete (platforms/googleBusiness.ts) but has never
-// been tested against a real API response, and Google Business Profile APIs
-// are fully gated: the API isn't even visible in the Cloud Console until
-// Google approves a separate access-request form, a stricter gate than a
-// standard OAuth-scope review. Real credentials + the access-request
-// approval are both required before this can go live for any customer.
+// integration. Google Business Profile was dropped entirely 2026-09-17
+// (Werner's call): LazyRelay itself can't get its own Business Profile
+// verified (Google's only offered method, a video walkthrough, requires
+// branded documentation and a branded vehicle LazyRelay doesn't have and
+// never will), and the API access application was abandoned as a result
+// rather than resubmitted — the adapter (platforms/googleBusiness.ts) was
+// removed rather than left dark, same treatment Snapchat got.
 const ALL_PLATFORMS = [
   "tiktok", "pinterest", "youtube", "mastodon", "bluesky", "telegram",
   "linkedin", "threads", "facebook", "instagram", "discord", "tumblr", "x",
-  "google-business",
 ] as const;
-const COMING_SOON_PLATFORMS = new Set<string>(["x", "google-business"]);
+const COMING_SOON_PLATFORMS = new Set<string>(["x"]);
 
 export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: PlatformAdapterRegistry): Router {
   const router = Router();

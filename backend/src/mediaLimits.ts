@@ -40,8 +40,7 @@ export type Platform =
   | "instagram"
   | "discord"
   | "tumblr"
-  | "x"
-  | "google-business";
+  | "x";
 
 // Platforms without a researched, bespoke rule yet fall back to the same
 // 20MB size cap + mime allowlist LazyRelay's own /media/upload endpoint
@@ -219,16 +218,6 @@ const RULES: Record<Platform, PlatformRules> = {
   x: {
     image: { maxSizeBytes: 5 * MB, allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] },
     video: { maxSizeBytes: 8 * 1024 * MB, allowedMimeTypes: ["video/mp4", "video/quicktime"] },
-  },
-  // support.google.com/business/answer/6103862 (verified 2026-08-17, never
-  // tested against a real account — API access itself is still gated, see
-  // platforms/googleBusiness.ts). Local Posts document photo media only, no
-  // video path, so the video rule here exists only so
-  // validateMediaForPlatform() returns a clear rejection rather than an
-  // undefined-rule crash if a customer tries to attach one.
-  "google-business": {
-    image: { maxSizeBytes: 5 * MB, allowedMimeTypes: ["image/jpeg", "image/png"] },
-    video: { maxSizeBytes: 0, allowedMimeTypes: [] },
   },
 };
 

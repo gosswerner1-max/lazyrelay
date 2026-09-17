@@ -15,7 +15,6 @@ import { InstagramAdapter } from "./instagram.js";
 import { DiscordAdapter } from "./discord.js";
 import { TumblrAdapter } from "./tumblr.js";
 import { XAdapter } from "./x.js";
-import { GoogleBusinessAdapter } from "./googleBusiness.js";
 import type { PlatformAdapter } from "./types.js";
 
 // Every configured platform gets its own live PlatformAdapter in the
@@ -84,12 +83,6 @@ export function buildPlatformRegistry(): Map<string, PlatformAdapter> {
   }
   if (process.env.X_CLIENT_ID && process.env.X_CLIENT_SECRET && process.env.X_REDIRECT_URI) {
     registry.set("x", new XAdapter(process.env.X_CLIENT_ID, process.env.X_CLIENT_SECRET, process.env.X_REDIRECT_URI));
-  }
-  if (process.env.GOOGLE_BUSINESS_CLIENT_ID && process.env.GOOGLE_BUSINESS_CLIENT_SECRET && process.env.GOOGLE_BUSINESS_REDIRECT_URI) {
-    registry.set(
-      "google-business",
-      new GoogleBusinessAdapter(process.env.GOOGLE_BUSINESS_CLIENT_ID, process.env.GOOGLE_BUSINESS_CLIENT_SECRET, process.env.GOOGLE_BUSINESS_REDIRECT_URI),
-    );
   }
   if (registry.size === 0) {
     registry.set("tiktok", new StubAdapter());

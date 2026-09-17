@@ -7,7 +7,7 @@ function accountLabel(a: SocialAccount): string {
 }
 
 export function platformLabel(platform: string): string {
-  return platform === "google-business" ? "Google Business" : platform;
+  return platform;
 }
 
 /** The collapse/expand indicator shared by every collapsible group header
