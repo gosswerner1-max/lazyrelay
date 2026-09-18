@@ -14,7 +14,7 @@ export function useCanonical(path: string) {
     const link = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
     if (!link) return;
     const previous = link.getAttribute("href");
-    link.setAttribute("href", `https://lazyrelay.com${path}`);
+    link.setAttribute("href", `https://lazyrelay.com${path}/`);
     return () => {
       if (previous !== null) link.setAttribute("href", previous);
     };
