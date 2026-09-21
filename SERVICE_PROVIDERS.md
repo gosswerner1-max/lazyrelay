@@ -2,6 +2,8 @@
 
 Running list of every external service LazyRelay depends on: what it costs, what tier we're on, why we need it, and the trade-offs. Building this one provider at a time.
 
+**Placeholder.** This repo is public, so `<other business>` stands for one of Werner's other businesses rather than naming it; it resolves in the vault via `09 - Resources/Ops-QA/reference-werner-mailbox-other-businesses.md`. Same convention as the ops/support knowledge docs.
+
 ---
 
 ## Render (backend hosting)
@@ -55,22 +57,22 @@ Running list of every external service LazyRelay depends on: what it costs, what
 
 **What it's for**: Two jobs — (1) hosts the static built React frontend (`lazyrelay.com`), and (2) hosts all 4 real email mailboxes (`hello@`, `support@`, `accounts@`, `werner@lazyrelay.com`) via standard IMAP/SMTP.
 
-**Current tier**: Shared hosting account on `s55.registerdomain.net.za` — the same cPanel account already used for The Lazy Download, not a dedicated LazyRelay account.
+**Current tier**: Shared hosting account on `s55.registerdomain.net.za` — the same cPanel account already used for `<other business>`, not a dedicated LazyRelay account.
 
-**Cost**: $0 marginal cost for LazyRelay — this hosting is already paid for as part of The Lazy Download's existing plan, so adding LazyRelay's site + mailboxes onto it cost nothing extra.
+**Cost**: $0 marginal cost for LazyRelay — this hosting is already paid for as part of `<other business>`'s existing plan, so adding LazyRelay's site + mailboxes onto it cost nothing extra.
 
 **Why we need it**: The frontend is just a static build (HTML/CSS/JS from `vite build`) — it doesn't need a real server, just somewhere to serve files with SSL. Reusing existing paid hosting for that, plus 4 mailboxes, is free.
 
 **Pros**:
 - Genuinely $0 — no new vendor bill at all
-- Already-known environment (File Manager, SSL, DNS) from running The Lazy Download on it for years
+- Already-known environment (File Manager, SSL, DNS) from running `<other business>` on it for years
 - Real mailboxes on our own domain, not a third-party inbox-as-a-service tool
 - **Deploy is fully automated as of 2026-07-28** (corrected 2026-08-05 — this doc previously said manual, which was stale): `.github/workflows/deploy-frontend.yml` builds and FTP-deploys `frontend/dist/` straight to the cPanel document root on every push to `main` that touches `frontend/`. Verified live: 36/36 runs green, most recent same-week. No human upload step anymore.
 
 **Cons**:
-- **Shared account with The Lazy Download** — an issue on one product (a spam flag, a resource limit, a billing lapse) can affect the other. No isolation between the two businesses at the infrastructure level.
+- **Shared account with `<other business>`** — an issue on one product (a spam flag, a resource limit, a billing lapse) can affect the other. No isolation between the two businesses at the infrastructure level.
 - No CDN — static assets are served straight from the shared host, not edge-cached, so global load times aren't as fast as a CDN-backed static host (Vercel/Netlify/Cloudflare Pages) would give for free.
-- Mailbox spam filtering has to be configured carefully so account-wide settings (like auto-delete spam) don't inadvertently affect The Lazy Download's mailboxes too — already hit this exact issue when designing the email cleanup automation.
+- Mailbox spam filtering has to be configured carefully so account-wide settings (like auto-delete spam) don't inadvertently affect `<other business>`'s mailboxes too — already hit this exact issue when designing the email cleanup automation.
 
 **Verdict**: Reasonable while both products are small and cost matters more than polish — it's free and it works, and deploy is already automated (see above). The remaining reason to reconsider moving to Vercel/Netlify/Cloudflare Pages later is the cross-product coupling and lack of a real CDN, not the deploy step, which is already solved.
 
@@ -232,7 +234,7 @@ Running list of every external service LazyRelay depends on: what it costs, what
 **Pros**:
 - Flat cost regardless of usage volume — no surprise bill from a busy building month
 - Replaces what would otherwise be a much larger cost (hiring an engineer or agency to build and maintain all of this)
-- Also covers all your other work (Lazy Download, other products), so the cost isn't LazyRelay-specific overhead
+- Also covers all your other work (`<other business>`, other products), so the cost isn't LazyRelay-specific overhead
 
 **Cons**:
 - Not a LazyRelay-specific line item — hard to cleanly attribute "how much of this subscription is LazyRelay's cost" versus everything else it's used for
@@ -248,7 +250,7 @@ Running list of every external service LazyRelay depends on: what it costs, what
 |---|---|---|
 | Render | ~$7/mo (Starter, confirmed live) | Standard ($25/mo) if RAM/CPU becomes a bottleneck |
 | Supabase | $25/mo (Pro, confirmed live) | Disk overage at $0.125/GB/month past the included 8GB |
-| cPanel hosting | $0 (bundled with Lazy Download's existing plan) | Only if that shared plan itself needs upgrading |
+| cPanel hosting | $0 (bundled with `<other business>`'s existing plan) | Only if that shared plan itself needs upgrading |
 | Domain (domains.co.za) | ~R200-300/year (not monthly) | Standard annual renewal |
 | Let's Encrypt SSL | $0 | Never — free forever |
 | Paddle | $0 (no monthly fee; ~5%+$0.50 per transaction once live) | Scales with revenue, not a fixed cost |

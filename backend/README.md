@@ -2,12 +2,14 @@
 
 Phase 1 foundation, per `project-social-automation-mvp-scope.md`. Connected to a live Supabase project (LazyRelay org, Free tier, eu-west-1). Security Advisor clean (0 errors, only Supabase's own managed `rls_auto_enable()` warnings remain, which are not ours to fix).
 
+**Placeholder.** This repo is public, so `<other business>` stands for one of Werner's other businesses rather than naming it; it resolves in the vault via `09 - Resources/Ops-QA/reference-werner-mailbox-other-businesses.md`.
+
 ## What's built and verified working (not just written — actually run against the real database)
 
 - **Schema** (`0001_init_schema.sql`): `accounts`, `subscriptions`, `social_accounts`, `scheduled_posts`, `post_results`. RLS on every table. OAuth tokens via Supabase Vault, never plaintext.
 - **Grants fix** (`0002_grants.sql`): raw-SQL-created tables don't inherit Supabase's default role grants — fixed, applied.
 - **Function-grant fix** (`0003_fix_function_grants.sql`): Security Advisor caught that the Vault helper functions were still callable by `anon`/`authenticated` despite an earlier revoke, because Postgres grants EXECUTE to the implicit `PUBLIC` role by default and both roles inherit through it. Fixed, applied, verified clean in Security Advisor.
-- **Scheduling engine** (`src/scheduler.ts`): claim-before-act discipline (same pattern as the race-condition fix already proven necessary in Lazy Download's own social automation), dispatches to a pluggable platform adapter, treats `verifyPublished()` (Proof-of-Publish) as a separate mandatory step, never inferred from a successful post call.
+- **Scheduling engine** (`src/scheduler.ts`): claim-before-act discipline (same pattern as the race-condition fix already proven necessary in `<other business>`'s own social automation), dispatches to a pluggable platform adapter, treats `verifyPublished()` (Proof-of-Publish) as a separate mandatory step, never inferred from a successful post call.
 - **Platform adapter interface** (`src/platforms/`): real Meta/TikTok/Pinterest integrations slot in later without scheduler changes. Stub adapter in use — Phase 0 (developer app registration) hasn't started.
 - **Billing/cancellation logic** (`src/billing/`): MoR-agnostic adapter interface (Paddle vs Lemon Squeezy undecided). `cancelSubscription()` cancels with the MoR first, only marks locally cancelled on success — verified with both succeeding and **failing** mock adapters, confirming a failed MoR cancellation never silently shows as cancelled.
 - **HTTP API** (`src/http/`): real Express app — `POST/GET /api/scheduled-posts`, `DELETE /api/scheduled-posts/:id`, `POST /api/subscription/cancel`, `GET /api/social-accounts`, `POST /api/webhooks/mor` (raw-body, signature-verified). `requireAuth` middleware verifies a real Supabase JWT per request, resolves the caller's `account_id` server-side — never trusts a client-supplied account id.
