@@ -468,7 +468,7 @@ const FAQ = [
   },
   {
     q: "Does LazyRelay write or generate content for me?",
-    a: "No. You write the post. LazyRelay only handles scheduling and publishing.",
+    a: "You write the post, and LazyRelay handles scheduling and publishing. If you want a hand, optional AI tools can suggest post ideas, captions and hashtags. Nothing is generated unless you ask for it.",
   },
   {
     q: "Which platforms are supported?",
