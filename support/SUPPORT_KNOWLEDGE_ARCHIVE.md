@@ -8,12 +8,14 @@
 
 Line references like "uid 123" still refer to the real mailbox uids.
 
+**Placeholder.** This repo is public, so `<other business>` stands for one of Werner's other businesses rather than naming it; it resolves in the vault via `09 - Resources/Ops-QA/reference-werner-mailbox-other-businesses.md`. This is a redaction, not a rewording — the "nothing was reworded" rule above still holds for content.
+
 ---
 
 <!-- source lines 1-22 -->
 # LazyRelay Support Knowledge Base
 
-Living document for the `hello@` / `support@` / `accounts@lazyrelay.com` email agent. Read this file every run before drafting any reply. Update it whenever a genuinely new issue type is handled that isn't covered here yet — same discipline as The Lazy Download's knowledge files.
+Living document for the `hello@` / `support@` / `accounts@lazyrelay.com` email agent. Read this file every run before drafting any reply. Update it whenever a genuinely new issue type is handled that isn't covered here yet — same discipline as `<other business>`'s knowledge files.
 
 **Current product state (keep this current — it changes what's actually possible to answer):**
 - **Pinterest is now on Standard access as of 2026-08-04** (App ID 1593837 — approved, see the API Ops entry in Part 2). Pins posted via LazyRelay are no longer sandboxed to the creator; the Trial-tier rows in the Pinterest table below are historical and must not be quoted to customers any more.

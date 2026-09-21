@@ -2,7 +2,7 @@
 
 Living document for the Accounts Operator/Auditor. Read every run before doing anything else. Update whenever a genuinely new account-state scenario is handled that isn't covered here yet — same discipline as `support/SUPPORT_KNOWLEDGE.md`.
 
-**Placeholders in this file.** This repo is public, so two things are deliberately not written here: `<other-business domain>` stands for one of Werner's other businesses' domains, and `<first external signup address>` stands for a real customer's email address. Both resolve in the vault — the domain in `09 - Resources/Ops-QA/reference-werner-mailbox-other-businesses.md`, the address in the 2026-09-21 daily note and `Active Priorities`. Same convention as `support/SUPPORT_KNOWLEDGE.md`. Note `ops/shared/internalTestAccounts.js` still matches the real domain and must keep doing so.
+**Placeholders in this file.** This repo is public, so three things are deliberately not written here: `<other business>` stands for one of Werner's other businesses, `<other-business domain>` for that business's domain, and `<first external signup address>` for a real customer's email address. All three resolve in the vault — the business and its domain in `09 - Resources/Ops-QA/reference-werner-mailbox-other-businesses.md`, the address in the 2026-09-21 daily note and `Active Priorities`. Same convention as `support/SUPPORT_KNOWLEDGE.md`. Note `ops/shared/internalTestAccounts.js` still matches the real domain and must keep doing so.
 
 ## Domain boundary (decided 2026-07-22)
 

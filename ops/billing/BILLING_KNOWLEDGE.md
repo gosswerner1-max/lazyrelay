@@ -2,7 +2,7 @@
 
 Living document for the Billing Operator/Auditor. Read every run before doing anything else.
 
-**Placeholders in this file.** This repo is public, so two things are deliberately not written here: `<other-business domain>` stands for one of Werner's other businesses' domains, and `<first external signup address>` stands for a real customer's email address. Both resolve in the vault — the domain in `09 - Resources/Ops-QA/reference-werner-mailbox-other-businesses.md`, the address in the 2026-09-21 daily note and `Active Priorities`. Same convention as `support/SUPPORT_KNOWLEDGE.md`. Note `ops/shared/internalTestAccounts.js` still matches the real domain and must keep doing so.
+**Placeholders in this file.** This repo is public, so three things are deliberately not written here: `<other business>` stands for one of Werner's other businesses, `<other-business domain>` for that business's domain, and `<first external signup address>` for a real customer's email address. All three resolve in the vault — the business and its domain in `09 - Resources/Ops-QA/reference-werner-mailbox-other-businesses.md`, the address in the 2026-09-21 daily note and `Active Priorities`. Same convention as `support/SUPPORT_KNOWLEDGE.md`. Note `ops/shared/internalTestAccounts.js` still matches the real domain and must keep doing so.
 
 ## Domain boundary
 
@@ -88,7 +88,7 @@ Database `subscriptions.tier` was `solo`/`pro`/`agency`, mismatched with the loc
 
 ## Dunning cadence
 
-Same reasoning as The Lazy Download's vendor-issue follow-up policy: standard issues get 1-2 days before follow-up; money-impacting issues (a `past_due` subscription is inherently money-impacting) get a tighter 24-hour window. `billing_ops.js::findPastDueNeedingFollowup()` implements this.
+Same reasoning as `<other business>`'s vendor-issue follow-up policy: standard issues get 1-2 days before follow-up; money-impacting issues (a `past_due` subscription is inherently money-impacting) get a tighter 24-hour window. `billing_ops.js::findPastDueNeedingFollowup()` implements this.
 
 **Return shape — it is NOT a bare array.** `findPastDueNeedingFollowup()` returns `{handled, reason, environment, candidates[]}`; the count is `result.candidates.length`. Calling `.length` on the result itself yields `undefined` silently, which reads as "no data" rather than an error — worth knowing since every scheduled run needs this count. (`findStuckOnboardingAccounts()` and `findReviewRequestCandidates()` in `accounts_ops.js` *do* return plain arrays, so the two sides are inconsistent — don't assume one from the other.)
 

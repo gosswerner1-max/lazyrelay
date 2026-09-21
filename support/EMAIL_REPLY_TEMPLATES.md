@@ -1,10 +1,12 @@
 # LazyRelay Email Reply Templates
 
-Ready-to-send templates for `lazyrelay-email-operations`, the equivalent of The Lazy Download's Thunderbird Templates folder. The agent runs in full autonomy (see `SKILL.md` in the scheduled task) — for anything matching a template below, fill in the bracketed specifics from the customer's actual message and `SUPPORT_KNOWLEDGE.md`'s troubleshooting tables, then send directly via `imap-tool.js send-mail`. Don't invent a new structure/tone for a scenario that already has a template here — consistency matters more than novelty for routine replies.
+Ready-to-send templates for `lazyrelay-email-operations`, the equivalent of `<other business>`'s Thunderbird Templates folder. The agent runs in full autonomy (see `SKILL.md` in the scheduled task) — for anything matching a template below, fill in the bracketed specifics from the customer's actual message and `SUPPORT_KNOWLEDGE.md`'s troubleshooting tables, then send directly via `imap-tool.js send-mail`. Don't invent a new structure/tone for a scenario that already has a template here — consistency matters more than novelty for routine replies.
+
+**Placeholders in this file.** This repo is public, so `<other business>` stands for one of Werner's other businesses rather than naming it. It resolves in the vault via `09 - Resources/Ops-QA/reference-werner-mailbox-other-businesses.md`. Same convention as `support/SUPPORT_KNOWLEDGE.md`.
 
 **Tone rules for every template**: plain, direct, no corporate filler ("we value your business," "rest assured," "please don't hesitate"). Acknowledge frustration in one sentence max if the customer was upset — don't over-apologize. Always end with an actual next step, not just "let us know if you have questions." The signature is added automatically by `send-mail` — never write your own sign-off block, just end the body content itself.
 
-If a real email doesn't fit any template below closely enough to reuse structure, that's a genuinely new scenario — write the reply from `SUPPORT_KNOWLEDGE.md`'s guidance directly, then add a new template here afterward so the next occurrence has one. Living document, same discipline as `SUPPORT_KNOWLEDGE.md` and The Lazy Download's `ETSY_KNOWLEDGE.md`.
+If a real email doesn't fit any template below closely enough to reuse structure, that's a genuinely new scenario — write the reply from `SUPPORT_KNOWLEDGE.md`'s guidance directly, then add a new template here afterward so the next occurrence has one. Living document, same discipline as `SUPPORT_KNOWLEDGE.md` and `<other business>`'s own knowledge files.
 
 ---
 

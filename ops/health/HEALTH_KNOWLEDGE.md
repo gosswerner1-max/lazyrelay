@@ -7,6 +7,10 @@ vantage point a real customer or an uptime monitor would have — so it can
 catch problems the backend itself might not notice (e.g. it being asleep on
 Render's free tier, or the frontend being unreachable while the API is fine).
 
+**Placeholder.** This repo is public, so `<other business>` stands for one of
+Werner's other businesses rather than naming it; it resolves in the vault via
+`09 - Resources/Ops-QA/reference-werner-mailbox-other-businesses.md`.
+
 ## What it checks and why
 
 1. **Backend health + latency** (`GET {RENDER_BACKEND_URL}/health`) — the
@@ -121,7 +125,7 @@ describing free-tier assumptions that were no longer true.
 ## cPanel disk quota — deliberately NOT automated
 
 The shared cPanel account (5GB quota, ~39% used as of 2026-07-28, mostly
-The Lazy Download's `public_html`, not LazyRelay) has no visible "API
+`<other business>`'s `public_html`, not LazyRelay) has no visible "API
 Tokens" feature — this host restricts/hides cPanel API access for this
 account. Rather than build a fragile workaround (e.g. scraping an
 authenticated browser session), this is intentionally left as a periodic
