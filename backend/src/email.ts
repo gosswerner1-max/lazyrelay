@@ -222,6 +222,51 @@ export function sendReviewFeedbackNotification(ratingsSummary: string, comment: 
     .catch((err) => console.error("[email] sendReviewFeedbackNotification threw:", err instanceof Error ? err.message : err));
 }
 
+/** Instant welcome email, sent by signupWebhook.ts the moment an account row
+ *  is created (2026-09-21). Unlike every other sender in this file this one is
+ *  AWAITED and reports success/failure, because the caller marks the account
+ *  as welcomed only if the email really went out and un-marks it if it did
+ *  not — that is what lets the hourly ops sweep
+ *  (ops/accounts/welcome_onboarding_ops.js) act as a safety net for anything
+ *  this misses. The wording and layout are deliberately identical to that
+ *  sweep's welcome email (a customer must never get two different ones);
+ *  KEEP THE TWO IN SYNC. */
+export async function sendWelcomeEmailNow(to: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const client = getClient();
+  if (!client) return { ok: false, error: "RESEND_API_KEY is not configured" };
+  try {
+    const result = await client.emails.send({
+      from: `LazyRelay <${FROM_ADDRESS}>`,
+      to,
+      subject: "Welcome to LazyRelay",
+      html: `<body style="margin:0;padding:0;background-color:#0b0c10;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#0b0c10;padding:40px 0;">
+<tr><td align="center">
+<table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#15171c;border-radius:12px;overflow:hidden;">
+<tr><td style="padding:32px 40px 0 40px;"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
+<td width="32" height="32" style="background-color:#ff5a1f;width:32px;height:32px;border-radius:8px;text-align:center;">
+<font color="#0b0c10" style="color:#0b0c10;font-size:16px;font-weight:800;font-family:Arial,sans-serif;line-height:32px;">L</font></td>
+<td style="padding-left:10px;color:#ffffff;font-size:18px;font-weight:600;">LazyRelay</td>
+</tr></table></td></tr>
+<tr><td style="padding:28px 40px 8px 40px;color:#ffffff;font-size:22px;font-weight:700;">You're in</td></tr>
+<tr><td style="padding:0 40px 28px 40px;color:#a3a7b0;font-size:15px;line-height:1.6;">
+Two things get you posting: connect a social account, then write your first post and schedule it. LazyRelay checks in every 30 seconds and posts it the moment it's due -- then verifies it actually went live, not just "sent."</td></tr>
+<tr><td style="padding:0 40px 36px 40px;">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr>
+<td style="background-color:#ffffff;border-radius:8px;padding:14px 28px;">
+<a href="https://lazyrelay.com/dashboard" style="font-size:15px;font-weight:700;color:#0b0c10;text-decoration:none;">Connect your first account &#8594;</a>
+</td></tr></table></td></tr>
+<tr><td style="padding:0 40px 32px 40px;border-top:1px solid #2a2d35;padding-top:20px;color:#6b6f78;font-size:13px;line-height:1.5;">
+Questions any time -- just reply to this email, or use the chat on your dashboard.</td></tr>
+</table></td></tr></table></body>`,
+    });
+    if (result.error) return { ok: false, error: result.error.message };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 /** Same alert, worded for the account-paused case (retrying won't help —
  *  the customer needs to reconnect the account or upgrade, not wait). */
 export function sendAccountPausedAlert(to: string, content: string): void {

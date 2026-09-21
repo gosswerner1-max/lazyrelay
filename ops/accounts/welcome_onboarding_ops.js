@@ -30,7 +30,36 @@ async function findAccountsNeedingWelcome(supabase) {
   return (data ?? []).filter((a) => !isInternalTestAccount(a.email));
 }
 
+// 2026-09-21: since the instant on-signup welcome email exists (backend
+// signupWebhook.ts, migration 0088), THIS sweep is the safety net for anything
+// that path missed -- and the two must never both email the same person. So
+// this now CLAIMS the account first with the same atomic UPDATE ... WHERE
+// welcome_email_sent_at IS NULL the backend uses, sends only if it won the
+// claim, and releases the claim if the send fails (so the next run retries).
+// Returns true if this call sent (or, with no Resend configured, handled) the
+// account; false if someone else had already welcomed it.
+// KEEP the email wording below identical to sendWelcomeEmailNow() in
+// backend/src/email.ts.
 async function sendWelcomeEmail(supabase, resend, fromAddress, account) {
+  const { data: claimed, error: claimError } = await supabase
+    .from("accounts")
+    .update({ welcome_email_sent_at: new Date().toISOString() })
+    .eq("id", account.id)
+    .is("welcome_email_sent_at", null)
+    .select("id");
+  if (claimError) throw claimError;
+  if (!claimed || claimed.length === 0) return false;
+
+  try {
+    await sendWelcomeEmailBody(resend, fromAddress, account);
+  } catch (err) {
+    await supabase.from("accounts").update({ welcome_email_sent_at: null }).eq("id", account.id);
+    throw err;
+  }
+  return true;
+}
+
+async function sendWelcomeEmailBody(resend, fromAddress, account) {
   if (resend) {
     const result = await resend.emails.send({
       from: `LazyRelay <${fromAddress}>`,
@@ -60,11 +89,6 @@ Questions any time -- just reply to this email, or use the chat on your dashboar
     if (result.error) throw new Error(`Resend error for ${account.email}: ${result.error.message}`);
   }
 
-  const { error } = await supabase
-    .from("accounts")
-    .update({ welcome_email_sent_at: new Date().toISOString() })
-    .eq("id", account.id);
-  if (error) throw error;
 }
 
 /** Accounts ONBOARDING_NUDGE_DAYS+ old, zero connected accounts, never
@@ -144,8 +168,9 @@ async function runWelcomeOnboardingSweep(supabase, resend, fromAddress) {
   const welcomeErrors = [];
   for (const account of welcomeCandidates) {
     try {
-      await sendWelcomeEmail(supabase, resend, fromAddress, account);
-      welcomeSent++;
+      // false = the instant on-signup path (or another run) already welcomed
+      // this account between our read and our claim; not an error, not a send.
+      if (await sendWelcomeEmail(supabase, resend, fromAddress, account)) welcomeSent++;
     } catch (err) {
       welcomeErrors.push({ email: account.email, error: err instanceof Error ? err.message : String(err) });
     }

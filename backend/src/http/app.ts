@@ -7,6 +7,7 @@ import { buildRouter } from "./routes.js";
 import { buildMfaRecoveryRouter } from "./mfaRecovery.js";
 import { buildWebhookHandler } from "./webhook.js";
 import { handleMetaWebhookVerification, handleMetaWebhookEvent } from "./metaWebhook.js";
+import { handleSignupWebhook } from "./signupWebhook.js";
 import { publicRateLimit } from "./rateLimit.js";
 import { mountMcp } from "./mcpRoutes.js";
 import { isKnownAdminKey } from "./auth.js";
@@ -74,6 +75,18 @@ export function buildApp(
     publicRateLimit,
     express.raw({ type: "application/json" }),
     handleMetaWebhookEvent,
+  );
+
+  // Instant welcome email: a Supabase database trigger (migration 0088)
+  // POSTs the new account's id here the moment a signup creates the row. Not
+  // a browser route, so it sits before the CORS policy like the webhooks
+  // above. Small body limit -- the payload is one id. See signupWebhook.ts
+  // for why this carries no shared secret and is safe without one.
+  app.post(
+    "/api/webhooks/signup",
+    publicRateLimit,
+    express.json({ limit: "10kb" }),
+    handleSignupWebhook,
   );
 
   // Hosted MCP is mounted BEFORE the frontend CORS policy below on purpose.
