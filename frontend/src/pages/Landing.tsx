@@ -45,8 +45,17 @@ const FEATURES = [
 // see project-lazyrelay-vs-socialbee-feature-roadmap-2026-08-16 in the vault
 // for why this exists (deliberate cross-platform credibility, not just one
 // example). Refresh this list if any of these accounts is ever disconnected.
+//
+// The Pinterest and Threads rows were REMOVED 2026-09-21. Their proof posts were
+// published to another of Werner's businesses' accounts, not LazyRelay's own, so
+// the handles both contradicted the caption above and named that business on a
+// public page. Do NOT restore them by renaming the handle: LazyRelay's own
+// Pinterest account has zero posted posts, and no LazyRelay Threads account
+// exists at all, so a renamed row would be an unverified "Confirmed live" claim
+// next to a verification badge. To genuinely restore Pinterest, publish real
+// content from LazyRelay's own Pinterest account, confirm it live, then add it
+// back with its real handle.
 const PROOF_POSTS = [
-  { platform: "pinterest", handle: "lazydownload", content: "Simplify your life with LazyRelay: schedule once, post everywhere, with real Proof-of-Publish verification." },
   { platform: "mastodon", handle: "lazyrelay", content: "Real talk: scheduling posts across 12 platforms should not mean logging into 12 dashboards. LazyRelay handles it from one place, with Proof-of-Publish confirming every post actually went live." },
   { platform: "bluesky", handle: "lazyrelay.bsky.social", content: "Schedule once, publish everywhere. LazyRelay verifies every post actually went live, not just accepted." },
   { platform: "telegram", handle: "LazyRelay", content: "LazyRelay update: schedule your content once and publish it across every platform your business runs on, with real Proof-of-Publish verification confirming it actually went live." },
@@ -54,7 +63,6 @@ const PROOF_POSTS = [
   { platform: "tumblr", handle: "lazyrelay", content: "Simplify your social media: schedule your posts once with LazyRelay and publish everywhere, with real Proof-of-Publish verification confirming they actually went live." },
   { platform: "youtube", handle: "LazyRelay", content: "LazyRelay: schedule once, publish everywhere. Real Proof-of-Publish verification confirms every post actually went live." },
   { platform: "tiktok", handle: "LazyRelay", content: "Schedule once. Publish everywhere. LazyRelay." },
-  { platform: "threads", handle: "thelazydownload", content: "Schedule once. Publish everywhere. LazyRelay confirms every post actually went live with real Proof-of-Publish verification." },
 ];
 
 const MORE_FEATURES = [
