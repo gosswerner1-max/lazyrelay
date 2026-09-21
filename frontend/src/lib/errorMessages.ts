@@ -22,12 +22,32 @@ function annotateByteCounts(text: string): string {
   return text.replace(/(\d{3,})\s*bytes?\b/gi, (match, digits) => `${bytesToMB(Number(digits))} (${match})`);
 }
 
+// Pinterest's own two most common rejections, which a new account or a new
+// website hits early: it blocks a link it thinks may be spam, and it caps how
+// many pins one account may post in 24 hours. Raw text seen live from
+// Pinterest: "Sorry! We blocked this link because it may lead to spam." and
+// "maximum number of 10 posts for the last 24 hours for this account".
+export const PINTEREST_BLOCKED_LINK_MESSAGE =
+  "Pinterest blocked the link in this pin. This is a Pinterest decision about the website address, not something LazyRelay can change. You can ask Pinterest to review it in Pinterest's Help Center (Appeals, then Pinterest blocked my site). New websites are checked more closely, so start slowly and vary your captions.";
+export const PINTEREST_DAILY_LIMIT_MESSAGE =
+  "Pinterest limits how many pins one account can post in a day. Try again tomorrow, or spread your pins across more days.";
+
 export function humanizeErrorMessage(raw: string | null, platform?: string): { friendly: string; technical: string | null } {
   if (!raw) return { friendly: "Something went wrong and no further detail was given.", technical: null };
 
   const platformLabel = platform ? platform.charAt(0).toUpperCase() + platform.slice(1) : "this platform";
   const lower = raw.toLowerCase();
   const technical = annotateByteCounts(raw);
+
+  // Checked first, and matched on the raw text rather than on `platform`:
+  // the wording is specific enough, and the daily-limit text contains "24"
+  // and "posts" that the generic rate-limit rule below could otherwise claim.
+  if (/blocked this link because it may lead to spam/.test(lower)) {
+    return { friendly: PINTEREST_BLOCKED_LINK_MESSAGE, technical };
+  }
+  if (/maximum number of[\s\S]{0,60}posts?[\s\S]{0,60}24 hours/.test(lower)) {
+    return { friendly: PINTEREST_DAILY_LIMIT_MESSAGE, technical };
+  }
 
   if (/\bbytes?\b/.test(lower) && /(exceed|limit|too large|under \d)/.test(lower)) {
     // Pull the actual numbers out so the friendly line can say a real size

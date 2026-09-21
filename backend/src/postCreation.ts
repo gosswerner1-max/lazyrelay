@@ -19,6 +19,14 @@ import { isSafeMediaUrl } from "./urlSafety.js";
 import { validateMediaForPlatform, type Platform } from "./mediaLimits.js";
 import { syncPostToCalendar } from "./googleCalendar/outboundSync.js";
 import { syncAccountSheet } from "./googleSheets/outboundSync.js";
+import {
+  COUNTED_POST_STATUSES,
+  ROLLING_WINDOW_MS,
+  getRolling24hPostLimit,
+  nextAllowedTime,
+  platformLimitMessage,
+  wouldExceedRolling24hLimit,
+} from "./platformPostLimits.js";
 
 /** Free tier: 10 posts per connected account per calendar month. */
 export const FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT = 10;
@@ -344,6 +352,99 @@ export async function checkFreeTierPostLimit(accountId: string | undefined, soci
   return null;
 }
 
+export interface CountedPostRow {
+  id: string;
+  scheduled_for: string;
+  recurring_schedule_id: string | null;
+}
+
+/** Every post of one connected account that counts toward a platform's
+ *  rolling-24h limit (see COUNTED_POST_STATUSES in platformPostLimits.ts:
+ *  pending/posting/posted/needs_approval, and never a paused one) whose
+ *  scheduled_for falls strictly between the two bounds. Throws on a DB
+ *  error -- each caller decides whether that fails closed or open. */
+export async function fetchCountedPosts(
+  socialAccountId: string,
+  afterExclusive: Date,
+  beforeExclusive: Date,
+  excludePostId?: string,
+): Promise<CountedPostRow[]> {
+  let query = supabase
+    .from("scheduled_posts")
+    .select("id, scheduled_for, recurring_schedule_id")
+    .eq("social_account_id", socialAccountId)
+    .in("status", [...COUNTED_POST_STATUSES])
+    .is("paused_at", null)
+    .gt("scheduled_for", afterExclusive.toISOString())
+    .lt("scheduled_for", beforeExclusive.toISOString());
+  if (excludePostId) query = query.neq("id", excludePostId);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as CountedPostRow[];
+}
+
+// How far past the requested time to look for the next free slot when a day
+// is full. A month is far beyond any realistic run of completely booked days
+// at a cap of 10 a day.
+const PLATFORM_LIMIT_LOOKAHEAD_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** Enforces a platform's rolling-24h posting cap (today only Pinterest, see
+ *  platformPostLimits.ts) for ONE post about to occupy `scheduledFor` on
+ *  `socialAccountId`. The single async check every writer of
+ *  scheduled_posts.scheduled_for calls -- scheduleOnePost (POST
+ *  /scheduled-posts, /bulk, /:id/duplicate, the MCP tools and Zapier, all of
+ *  which go through it), the draft-promotion route, reschedule and resume --
+ *  so the rule can't drift between them. Returns null when the post is fine
+ *  (including every platform with no cap), or a 422 error object carrying
+ *  { code: "platform_daily_limit", platform, limit, nextAvailable }.
+ *
+ *  Pass excludePostId when an existing post is being moved so it doesn't
+ *  count against itself. */
+export async function checkPlatformPostLimit(input: {
+  socialAccountId: string;
+  platform: string;
+  scheduledFor: string | Date;
+  excludePostId?: string;
+}): Promise<PostFieldsError | null> {
+  const limit = getRolling24hPostLimit(input.platform);
+  if (limit === null) return null;
+  const desired = new Date(input.scheduledFor);
+  if (Number.isNaN(desired.getTime())) return null;
+
+  try {
+    const nearby = await fetchCountedPosts(
+      input.socialAccountId,
+      new Date(desired.getTime() - ROLLING_WINDOW_MS),
+      new Date(desired.getTime() + ROLLING_WINDOW_MS),
+      input.excludePostId,
+    );
+    if (!wouldExceedRolling24hLimit(nearby.map((r) => new Date(r.scheduled_for)), desired, limit)) return null;
+
+    // Over the limit: look further ahead so the "next free time" we quote is
+    // a real one, not just the end of the window we already checked.
+    const ahead = await fetchCountedPosts(
+      input.socialAccountId,
+      new Date(desired.getTime() - ROLLING_WINDOW_MS),
+      new Date(desired.getTime() + PLATFORM_LIMIT_LOOKAHEAD_MS),
+      input.excludePostId,
+    );
+    const nextAvailable = nextAllowedTime(ahead.map((r) => new Date(r.scheduled_for)), desired, limit);
+    return {
+      status: 422,
+      body: {
+        error: platformLimitMessage(input.platform, limit, nextAvailable),
+        code: "platform_daily_limit",
+        platform: input.platform,
+        limit,
+        nextAvailable: nextAvailable.toISOString(),
+      },
+    };
+  } catch (err) {
+    console.error("[postCreation] checkPlatformPostLimit:", err instanceof Error ? err.message : err);
+    return { status: 500, body: { error: "Something went wrong on our end. Please try again." } };
+  }
+}
+
 export async function scheduleOnePost(
   accountId: string | undefined,
   input: {
@@ -387,6 +488,15 @@ export async function scheduleOnePost(
 
   const limitError = await checkFreeTierPostLimit(accountId, socialAccountId);
   if (limitError) return limitError;
+
+  // A post created with requiresApproval (needs_approval) counts toward the
+  // platform's rolling-24h cap just like a pending one, so both get checked.
+  const platformLimitError = await checkPlatformPostLimit({
+    socialAccountId,
+    platform: validated.account.platform,
+    scheduledFor,
+  });
+  if (platformLimitError) return platformLimitError;
 
   const { data, error } = await supabase
     .from("scheduled_posts")

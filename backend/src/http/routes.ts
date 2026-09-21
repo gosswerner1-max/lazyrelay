@@ -47,6 +47,7 @@ import {
   validatePostFields,
   validateScheduledFor,
   checkFreeTierPostLimit,
+  checkPlatformPostLimit,
   MAX_POST_CONTENT_LENGTH,
   MAX_BOARD_ID_LENGTH,
   MAX_DESTINATION_LINK_LENGTH,
@@ -2584,6 +2585,20 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       return;
     }
 
+    // Promoting a draft is the moment it starts counting toward a
+    // platform's rolling-24h cap (drafts never count) -- the draft itself
+    // is excluded, though it wouldn't be counted anyway.
+    const platformLimitError = await checkPlatformPostLimit({
+      socialAccountId,
+      platform: validated.account.platform,
+      scheduledFor,
+      excludePostId: existing.id,
+    });
+    if (platformLimitError) {
+      res.status(platformLimitError.status).json(platformLimitError.body);
+      return;
+    }
+
     const { data, error } = await req.db!
       .from("scheduled_posts")
       .update({
@@ -3621,7 +3636,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
     const { data: existing, error: fetchError } = await req.db!
       .from("scheduled_posts")
-      .select("id, status")
+      .select("id, status, paused_at, social_account_id, social_accounts(platform)")
       .eq("id", req.params.id)
       .eq("account_id", req.accountId)
       .maybeSingle();
@@ -3636,6 +3651,24 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     if (existing.status !== "pending") {
       res.status(409).json({ error: "Only a pending post can be rescheduled." });
       return;
+    }
+
+    // A platform's rolling-24h cap (platformPostLimits.ts). A paused post
+    // isn't counted, so moving it can't break the cap here -- resuming it is
+    // re-checked in /resume instead. The post itself is excluded so it never
+    // counts against its own new time.
+    const socialAccount = Array.isArray(existing.social_accounts) ? existing.social_accounts[0] : existing.social_accounts;
+    if (!existing.paused_at && existing.social_account_id && socialAccount?.platform) {
+      const platformLimitError = await checkPlatformPostLimit({
+        socialAccountId: existing.social_account_id,
+        platform: socialAccount.platform,
+        scheduledFor: scheduledForCheck.scheduledFor,
+        excludePostId: existing.id,
+      });
+      if (platformLimitError) {
+        res.status(platformLimitError.status).json(platformLimitError.body);
+        return;
+      }
     }
 
     const { data, error, count } = await req.db!
@@ -3710,6 +3743,36 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   });
 
   router.patch("/scheduled-posts/:id/resume", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    // Resuming puts a paused post back into a platform's rolling-24h count
+    // (platformPostLimits.ts -- paused posts aren't counted), so it needs
+    // the same check a new post gets. A resumed post whose time already
+    // passed goes out right away, so "now" is its effective time then.
+    const { data: paused, error: pausedFetchError } = await req.db!
+      .from("scheduled_posts")
+      .select("id, scheduled_for, social_account_id, social_accounts(platform)")
+      .eq("id", req.params.id)
+      .eq("account_id", req.accountId)
+      .eq("status", "pending")
+      .not("paused_at", "is", null)
+      .maybeSingle();
+    if (pausedFetchError) {
+      dbError(res, pausedFetchError, "PATCH /scheduled-posts/:id/resume lookup");
+      return;
+    }
+    const pausedAccount = paused && (Array.isArray(paused.social_accounts) ? paused.social_accounts[0] : paused.social_accounts);
+    if (paused && paused.social_account_id && paused.scheduled_for && pausedAccount?.platform) {
+      const platformLimitError = await checkPlatformPostLimit({
+        socialAccountId: paused.social_account_id,
+        platform: pausedAccount.platform,
+        scheduledFor: new Date(Math.max(new Date(paused.scheduled_for).getTime(), Date.now())),
+        excludePostId: paused.id,
+      });
+      if (platformLimitError) {
+        res.status(platformLimitError.status).json(platformLimitError.body);
+        return;
+      }
+    }
+
     const { data, error, count } = await req.db!
       .from("scheduled_posts")
       .update({ paused_at: null }, { count: "exact" })

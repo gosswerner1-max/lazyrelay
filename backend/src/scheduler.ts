@@ -4,6 +4,12 @@ import type { PlatformAdapter } from "./platforms/types.js";
 import { notifyOps } from "./notify.js";
 import { sendFailureAlert, sendAccountPausedAlert } from "./email.js";
 import { sendVerifiedWebhook } from "./webhook.js";
+import {
+  ROLLING_WINDOW_MS,
+  getRolling24hPostLimit,
+  nextAllowedTime,
+  wouldExceedRolling24hLimit,
+} from "./platformPostLimits.js";
 
 // How many due posts one scheduler cycle claims and processes. Combined
 // with index.ts's POLL_INTERVAL_MS, this is the real throughput ceiling —
@@ -348,9 +354,53 @@ async function handleFailure(post: DuePost, message: string): Promise<void> {
 
 /** Reverts a claimed post back to pending without counting it as a retry —
  *  used when a post's platform breaker is open, since this isn't a failed
- *  attempt, just a post that hasn't been tried yet this cycle. */
-async function unclaimPost(post: DuePost): Promise<void> {
-  await supabase.from("scheduled_posts").update({ status: "pending" }).eq("id", post.id);
+ *  attempt, just a post that hasn't been tried yet this cycle. With
+ *  `deferUntil`, also pushes scheduled_for out so it isn't re-claimed until
+ *  then (the platform daily-limit backstop below). */
+async function unclaimPost(post: DuePost, deferUntil?: Date): Promise<void> {
+  await supabase
+    .from("scheduled_posts")
+    .update(deferUntil ? { status: "pending", scheduled_for: deferUntil.toISOString() } : { status: "pending" })
+    .eq("id", post.id);
+}
+
+/** Send-time backstop for a platform's rolling-24h posting cap
+ *  (platformPostLimits.ts -- today only Pinterest). The real enforcement is
+ *  at scheduling time; this only catches what got past it (posts scheduled
+ *  before the cap existed, a race between two simultaneous requests, or a
+ *  retry landing on top of a full day). Returns when this post can next go
+ *  out if the account already has `limit` or more posted/posting posts in
+ *  the last 24h, or null when it's fine to send. The post itself is
+ *  excluded -- it's already 'posting' from the claim. Other posts claimed in
+ *  the same cycle count, which can only over-defer, never over-send.
+ *
+ *  Fails open (null): a failed lookup must not turn into a post failure,
+ *  and the scheduling-time check already ran. */
+export async function getPlatformLimitDeferral(post: DuePost): Promise<Date | null> {
+  const limit = getRolling24hPostLimit(post.platform);
+  if (limit === null) return null;
+  try {
+    const now = new Date();
+    const { data, error } = await supabase
+      .from("scheduled_posts")
+      .select("scheduled_for")
+      .eq("social_account_id", post.social_account_id)
+      .in("status", ["posted", "posting"])
+      .is("paused_at", null)
+      .neq("id", post.id)
+      .gt("scheduled_for", new Date(now.getTime() - ROLLING_WINDOW_MS).toISOString())
+      .lte("scheduled_for", now.toISOString());
+    if (error) throw error;
+    const recent = (data ?? []).map((r) => new Date(r.scheduled_for as string));
+    if (!wouldExceedRolling24hLimit(recent, now, limit)) return null;
+    return nextAllowedTime(recent, now, limit);
+  } catch (err) {
+    console.warn(
+      `[scheduler] couldn't check the ${post.platform} daily posting limit for post ${post.id}, sending anyway:`,
+      err instanceof Error ? err.message : err,
+    );
+    return null;
+  }
 }
 
 async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Promise<void> {
@@ -377,6 +427,19 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
       console.warn(`Post ${post.id} failed: connected account is paused (plan downgrade).`);
       await notifyOps(`Post ${post.id} failed: social account ${post.social_account_id} is paused (plan downgrade past connected-account limit).`);
       await maybeSendFailureAlert(post, post.content, "connected account is paused", true);
+      return;
+    }
+
+    // Platform daily-limit backstop. Not a failure of any kind, so it skips
+    // handleFailure's retry count, the post_results row and the circuit
+    // breaker entirely -- the post just goes back to pending, pushed out to
+    // when the window frees up, via the same un-claim the breaker uses.
+    const deferUntil = await getPlatformLimitDeferral(post);
+    if (deferUntil) {
+      console.warn(
+        `Deferring post ${post.id} to ${deferUntil.toISOString()} — social account ${post.social_account_id} is at its ${post.platform} posting limit for the last 24 hours.`,
+      );
+      await unclaimPost(post, deferUntil);
       return;
     }
 

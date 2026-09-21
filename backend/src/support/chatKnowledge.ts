@@ -3,6 +3,7 @@ import { BRAND_LIMITS } from "../brandLimits.js";
 import { SEAT_LIMITS } from "../seatLimits.js";
 import { STORAGE_QUOTA_BYTES } from "../storageQuota.js";
 import { RECURRING_SCHEDULE_SLOT_LIMITS, TIER_DISPLAY_NAMES, type Tier } from "../tier.js";
+import { PLATFORM_ROLLING_24H_POST_LIMIT } from "../platformPostLimits.js";
 
 // Flipped 2026-08-11 -- Render's deployed Paddle credentials and the
 // deployed frontend's live client-side token were both confirmed live the
@@ -153,6 +154,7 @@ PLATFORM TROUBLESHOOTING
 - LinkedIn posting is personal-profile only today -- no Company Page posting, no polls, no articles, no document/PDF posts, and no tagging people in the caption.
 - Threads has its own separate connection from Instagram/Facebook -- reconnecting Instagram does not refresh or affect the Threads connection. No thread "chains" (multiple connected posts) -- one post at a time.
 - Pinterest: choosing a destination link (where a click on the Pin leads) and choosing which board to post to are both supported from the compose form. Video Pins are supported (need a cover image). There's no "section" picker within a board yet.
+- Pinterest daily limit, new accounts, and blocked links: LazyRelay allows up to ${PLATFORM_ROLLING_24H_POST_LIMIT.pinterest} pins a day per connected Pinterest account, counted over any rolling 24 hours (not a calendar day). Scheduling a pin that would go over is refused with a message giving the next free time. Paused pins don't count until they're resumed. Pinterest is strict with brand-new accounts and brand-new websites. For a new Pinterest account, warm it up by hand first: post 1 pin a day for the first week, then 2, then 3, until it reaches 100+ monthly views (about 2 weeks), then connect it to LazyRelay. For a brand-new website, start slowly and vary the captions. If Pinterest says it "blocked this link because it may lead to spam", that is Pinterest's own decision about the website address. LazyRelay can't lift, override, or change a Pinterest block. The customer can ask Pinterest to review it in Pinterest's Help Center: Appeals, then "Pinterest blocked my site". If Pinterest reports the account reached its maximum number of posts in 24 hours, the advice is to try again the next day or spread pins across more days.
 - Mastodon connects to mastodon.social only today -- an account on a different real instance (e.g. hachyderm.io) can't be connected yet. No Content Warning (CW) label support.
 - Bluesky: alt-text on images is supported (same field as Mastodon's). Connecting works fine for a custom-domain handle as long as the account is still hosted on Bluesky's own servers (bsky.social) -- a self-hosted/third-party server isn't supported. "Invalid App Password" is a real error from Bluesky itself -- double-check the app password (not the main account password) was entered correctly.
 - Telegram: no bot token or chat ID needed from the customer -- add LazyRelay's own bot as an Administrator (with "Post Messages" rights) to a public Channel using its @username. Private groups aren't supported, only public Channels.

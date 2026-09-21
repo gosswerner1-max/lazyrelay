@@ -3,6 +3,8 @@ import { supabase } from "./supabase.js";
 import { resolveTier } from "./tier.js";
 import { syncPostToCalendar } from "./googleCalendar/outboundSync.js";
 import { syncAccountSheet } from "./googleSheets/outboundSync.js";
+import { fetchCountedPosts } from "./postCreation.js";
+import { ROLLING_WINDOW_MS, getRolling24hPostLimit, wouldExceedRolling24hLimit } from "./platformPostLimits.js";
 
 // How far ahead to keep scheduled_posts populated from active recurring
 // schedules. Short enough that an outage under a week never silently loses
@@ -68,6 +70,82 @@ export function computeOccurrencesInWindow(
   return occurrences;
 }
 
+/** Drops generated rows that would put a connected account over its
+ *  platform's rolling-24h posting cap (platformPostLimits.ts -- today only
+ *  Pinterest); rows for every other platform pass straight through. The cap
+ *  is enforced here instead of at POST/PATCH /recurring-schedules because
+ *  those routes only store a template, one slot yields at most one post per
+ *  day per account, and what actually collides is whatever else already sits
+ *  on the account's calendar when an occurrence materializes.
+ *
+ *  An over-limit occurrence is skipped with a console.warn and never throws
+ *  -- one full day must not abort the generator loop for every other slot. A
+ *  failed lookup skips that account's rows for this run too (fails closed);
+ *  the next run retries since generation is idempotent. Rows this slot
+ *  already materialized on an earlier run are kept as-is: the upsert's
+ *  ignoreDuplicates turns them into no-ops, and they're already counted. */
+export async function dropRowsOverPlatformLimit<T extends { social_account_id: string; scheduled_for: string | null }>(
+  slotId: string,
+  rows: T[],
+  platformByAccountId: Map<string, string>,
+): Promise<T[]> {
+  const kept: T[] = [];
+  const cappedRowsByAccount = new Map<string, T[]>();
+  for (const row of rows) {
+    const platform = platformByAccountId.get(row.social_account_id);
+    if (!platform || getRolling24hPostLimit(platform) === null) {
+      kept.push(row);
+      continue;
+    }
+    const list = cappedRowsByAccount.get(row.social_account_id) ?? [];
+    list.push(row);
+    cappedRowsByAccount.set(row.social_account_id, list);
+  }
+
+  for (const [socialAccountId, accountRows] of cappedRowsByAccount) {
+    const limit = getRolling24hPostLimit(platformByAccountId.get(socialAccountId) as string) as number;
+    const sorted = [...accountRows].sort(
+      (a, b) => new Date(a.scheduled_for as string).getTime() - new Date(b.scheduled_for as string).getTime(),
+    );
+    const earliest = new Date(sorted[0].scheduled_for as string).getTime();
+    const latest = new Date(sorted[sorted.length - 1].scheduled_for as string).getTime();
+    let existing;
+    try {
+      existing = await fetchCountedPosts(
+        socialAccountId,
+        new Date(earliest - ROLLING_WINDOW_MS),
+        new Date(latest + ROLLING_WINDOW_MS),
+      );
+    } catch (err) {
+      console.warn(
+        `[recurringScheduler] slot ${slotId}: couldn't check the daily posting limit for account ${socialAccountId}, skipping its occurrences this run:`,
+        err instanceof Error ? err.message : err,
+      );
+      continue;
+    }
+    const alreadyMaterialized = new Set(
+      existing.filter((e) => e.recurring_schedule_id === slotId).map((e) => new Date(e.scheduled_for).getTime()),
+    );
+    const times = existing.map((e) => new Date(e.scheduled_for));
+    for (const row of sorted) {
+      const at = new Date(row.scheduled_for as string);
+      if (alreadyMaterialized.has(at.getTime())) {
+        kept.push(row);
+        continue;
+      }
+      if (wouldExceedRolling24hLimit(times, at, limit)) {
+        console.warn(
+          `[recurringScheduler] slot ${slotId}: skipping the ${at.toISOString()} occurrence for account ${socialAccountId}, it would exceed the platform's ${limit} posts per 24 hours.`,
+        );
+        continue;
+      }
+      times.push(at);
+      kept.push(row);
+    }
+  }
+  return kept;
+}
+
 /** Materializes due occurrences from every active recurring schedule into
  *  real scheduled_posts rows. Deliberately a separate job from
  *  runSchedulerCycle() in scheduler.ts, which stays untouched and keeps
@@ -111,14 +189,15 @@ export async function generateDuePosts(): Promise<void> {
     // "skip a paused connected account up front" behavior as before --
     // avoids generating a post the existing scheduler would just fail
     // anyway, same check processPost() already does at drain-time.
-    const { data: accounts } = await supabase.from("social_accounts").select("id, paused_at").in("id", targetIds);
+    const { data: accounts } = await supabase.from("social_accounts").select("id, paused_at, platform").in("id", targetIds);
     const pausedIds = new Set((accounts ?? []).filter((a) => a.paused_at).map((a) => a.id));
+    const platformByAccountId = new Map<string, string>((accounts ?? []).map((a) => [a.id as string, a.platform as string]));
 
     // Batched insert too -- was one upsert call per (occurrence x target)
     // pair; now one bulk upsert per slot. ignoreDuplicates still makes
     // already-materialized rows a no-op, it just costs one round trip for
     // the whole slot instead of one per row.
-    const rows = [];
+    let rows = [];
     for (const occurrenceAt of occurrences) {
       for (const target of slot.recurring_schedule_targets) {
         if (pausedIds.has(target.social_account_id)) continue;
@@ -142,6 +221,9 @@ export async function generateDuePosts(): Promise<void> {
         });
       }
     }
+    // Skip (never crash on) an occurrence that would push a capped platform's
+    // account over its rolling-24h limit -- see dropRowsOverPlatformLimit.
+    rows = await dropRowsOverPlatformLimit(slot.id, rows, platformByAccountId);
     if (rows.length === 0) continue;
 
     // .select("id") after an ignoreDuplicates upsert returns only the rows

@@ -24,6 +24,7 @@
 import { supabase } from "../supabase.js";
 import { getGoogleAccessToken } from "./tokens.js";
 import { calendarEventToPost, type CalendarEventForPost } from "./eventMapper.js";
+import { checkPlatformPostLimit } from "../postCreation.js";
 
 const CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3";
 
@@ -94,12 +95,18 @@ interface LinkedPostRow {
   account_id: string;
   status: string;
   google_updated_at: string | null;
+  scheduled_for: string | null;
+  paused_at: string | null;
+  social_account_id: string | null;
+  // PostgREST types a to-one embed as an array even though the FK
+  // guarantees at most one row (same as scheduler.ts's claimDuePosts).
+  social_accounts: { platform: string } | { platform: string }[] | null;
 }
 
 async function findLinkedPost(googleEventId: string): Promise<LinkedPostRow | null> {
   const { data, error } = await supabase
     .from("scheduled_posts")
-    .select("id, account_id, status, google_updated_at")
+    .select("id, account_id, status, google_updated_at, scheduled_for, paused_at, social_account_id, social_accounts(platform)")
     .eq("google_event_id", googleEventId)
     .maybeSingle();
   if (error) {
@@ -169,6 +176,29 @@ async function handleExistingEvent(event: CalendarEventForPost, linked: LinkedPo
     update.planned_date = mapped.scheduledFor ? mapped.scheduledFor.slice(0, 10) : null;
   } else if (mapped.scheduledFor) {
     update.scheduled_for = mapped.scheduledFor;
+
+    // Moving a post on the Calendar is a writer of scheduled_for like any
+    // other, so a platform's rolling-24h cap (platformPostLimits.ts) applies
+    // here too. A move that would break it is not applied -- the rest of the
+    // edit (content) still is, and the customer's own LazyRelay time stands.
+    // Unchanged times and paused posts (which aren't counted) skip the check.
+    const account = Array.isArray(linked.social_accounts) ? linked.social_accounts[0] : linked.social_accounts;
+    const timeChanged =
+      !linked.scheduled_for || new Date(linked.scheduled_for).getTime() !== new Date(mapped.scheduledFor).getTime();
+    if (timeChanged && !linked.paused_at && linked.social_account_id && account?.platform) {
+      const limitError = await checkPlatformPostLimit({
+        socialAccountId: linked.social_account_id,
+        platform: account.platform,
+        scheduledFor: mapped.scheduledFor,
+        excludePostId: linked.id,
+      });
+      if (limitError) {
+        console.warn(
+          `[googleCalendar/inboundSync] not moving post ${linked.id} from event ${event.id}: ${String(limitError.body.error)}`,
+        );
+        delete update.scheduled_for;
+      }
+    }
   }
   const { error } = await supabase.from("scheduled_posts").update(update).eq("id", linked.id);
   if (error) {

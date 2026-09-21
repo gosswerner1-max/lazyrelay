@@ -33,6 +33,7 @@ import { OverviewPanel, KpiRow, StatTile, TrendLine, MultiTrendLine, PlatformBar
 import { CircuitBackground } from "../components/CircuitBackground";
 import { SupportWidget } from "../components/SupportWidget";
 import { PostErrorDetail } from "../components/PostErrorDetail";
+import { PinterestConnectModal } from "../components/PinterestConnectModal";
 import "./Dashboard.css";
 
 const ProductTour = lazy(() => import("../components/ProductTour").then((m) => ({ default: m.ProductTour })));
@@ -640,6 +641,9 @@ export function Dashboard() {
   const [rsSubmitting, setRsSubmitting] = useState(false);
   const [rsBusyId, setRsBusyId] = useState<string | null>(null);
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
+  // Guidance dialog shown before every Pinterest connect (see
+  // PinterestConnectModal.tsx) -- not persisted, appears on each press.
+  const [showPinterestConnectModal, setShowPinterestConnectModal] = useState(false);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [mediaUploading, setMediaUploading] = useState(false);
   const [mediaUploadProgress, setMediaUploadProgress] = useState(0);
@@ -3903,7 +3907,7 @@ export function Dashboard() {
                         ? "Connected: click to connect another account"
                         : undefined
                 }
-                onClick={() => handleConnect(p.platform)}
+                onClick={() => (p.platform === "pinterest" ? setShowPinterestConnectModal(true) : handleConnect(p.platform))}
               >
                 <PlatformIcon platform={p.platform} size={20} comingSoon={disabled} />
                 <span className="platform-tile-name">{p.platform}</span>
@@ -4030,6 +4034,11 @@ export function Dashboard() {
                 />
                 <span className="section-note">Pinterest-only — where a click on the Pin leads to, separate from the image itself.</span>
               </label>
+            )}
+            {selectedPinterestAccountId && (
+              <p className="section-note">
+                Pinterest: up to 10 pins a day per account. New account or new website? Start with 1 to 3 a day.
+              </p>
             )}
             <div className="content-ideas-row">
               <button type="button" className="btn-outline" disabled={ideasGenerating} onClick={handleGetContentIdeas}>
@@ -6461,6 +6470,15 @@ export function Dashboard() {
             </div>
           </div>
         </div>
+      )}
+      {showPinterestConnectModal && (
+        <PinterestConnectModal
+          onCancel={() => setShowPinterestConnectModal(false)}
+          onConnect={() => {
+            setShowPinterestConnectModal(false);
+            handleConnect("pinterest");
+          }}
+        />
       )}
       <SupportWidget />
     </>
