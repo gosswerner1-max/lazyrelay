@@ -119,31 +119,51 @@ function checkSslExpiry(host = SSL_CHECK_HOST) {
   });
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /** Real registrar expiry via RDAP -- no registrar API/MCP exists (confirmed
  *  in reference-infra-quick-facts.md), so this is the only headless way to
  *  read the actual expiry date rather than trusting "auto-renew is on" or a
- *  vault note that could drift stale. */
+ *  vault note that could drift stale.
+ *
+ *  Retries once on any failure (real incident 2026-09-18: a transient RDAP
+ *  blip returned `critical` -- the one severity that pages Werner's phone --
+ *  while the domain was actually 305 days from expiry; a re-run a minute
+ *  later came back clean). Any outcome short of a confirmed reading
+ *  (fetch failure, non-200, or a malformed response with no expiration
+ *  event) is now `warn`, not `critical` -- it means the check couldn't
+ *  confirm an answer, not that the domain is actually expiring. Only a
+ *  genuine <14-days-remaining reading stays `critical`. */
 async function checkDomainExpiry() {
-  try {
-    const res = await fetch(RDAP_DOMAIN_URL, { signal: AbortSignal.timeout(15000) });
-    if (!res.ok) {
-      return { check: "domain_expiry", status: "critical", detail: `RDAP lookup failed: HTTP ${res.status}` };
+  let lastFailureDetail;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch(RDAP_DOMAIN_URL, { signal: AbortSignal.timeout(15000) });
+      if (!res.ok) {
+        lastFailureDetail = `RDAP lookup failed: HTTP ${res.status}`;
+      } else {
+        const body = await res.json();
+        const expirationEvent = (body.events || []).find((e) => e.eventAction === "expiration");
+        if (!expirationEvent) {
+          lastFailureDetail = "RDAP response had no expiration event";
+        } else {
+          const daysRemaining = Math.floor((new Date(expirationEvent.eventDate).getTime() - Date.now()) / (24 * 3600 * 1000));
+          return {
+            check: "domain_expiry",
+            status: severity(daysRemaining, THRESHOLDS.domainDaysWarn, THRESHOLDS.domainDaysCritical, false),
+            detail: `${daysRemaining} days remaining (expires ${expirationEvent.eventDate})`,
+            daysRemaining,
+          };
+        }
+      }
+    } catch (err) {
+      lastFailureDetail = `RDAP lookup error: ${err.message}`;
     }
-    const body = await res.json();
-    const expirationEvent = (body.events || []).find((e) => e.eventAction === "expiration");
-    if (!expirationEvent) {
-      return { check: "domain_expiry", status: "critical", detail: "RDAP response had no expiration event" };
-    }
-    const daysRemaining = Math.floor((new Date(expirationEvent.eventDate).getTime() - Date.now()) / (24 * 3600 * 1000));
-    return {
-      check: "domain_expiry",
-      status: severity(daysRemaining, THRESHOLDS.domainDaysWarn, THRESHOLDS.domainDaysCritical, false),
-      detail: `${daysRemaining} days remaining (expires ${expirationEvent.eventDate})`,
-      daysRemaining,
-    };
-  } catch (err) {
-    return { check: "domain_expiry", status: "critical", detail: `RDAP lookup error: ${err.message}` };
+    if (attempt === 1) await sleep(3000);
   }
+  return { check: "domain_expiry", status: "warn", detail: `${lastFailureDetail} (after retry)` };
 }
 
 /** Real Supabase read: posts still 'pending' well past their scheduled_for

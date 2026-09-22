@@ -31,6 +31,28 @@ Werner's other businesses rather than naming it; it resolves in the vault via
    that offered this exact check for $2/mo — this closes the one real gap
    that comparison found; the other four features it advertised were already
    covered.
+
+   **KNOWN FALSE-POSITIVE CLASS — a transient RDAP blip used to page Werner's
+   phone as if the domain were expiring (found 2026-09-18, FIXED 2026-09-22,
+   Werner's go-ahead).** `checkDomainExpiry()` treated ANY fetch failure —
+   a timeout, a non-200, a malformed response — as `critical`, the one
+   severity wired to both Slack and a phone push, with no retry. Hit for
+   real 2026-09-18 20:11 SAST: `overall: critical` on `"RDAP lookup error:
+   fetch failed"` while every customer-facing check was green. Verified it
+   was a false alarm, not assumed: pulled the same RDAP URL directly (200,
+   domain expires 2027-07-21, 305 days out at the time) and a re-run a
+   minute later came back clean. The check was one day old; this was its
+   first real outing.
+
+   **Fixed 2026-09-22**: `checkDomainExpiry()` now retries once (3s delay)
+   before giving up, and any outcome short of a confirmed reading — fetch
+   failure, non-200, or a response with no expiration event — is `warn`,
+   not `critical`, even after the retry. Only a genuinely confirmed
+   <14-days-remaining reading stays `critical`. Verified both paths for
+   real: the happy path against the live RDAP endpoint (still returns `ok`,
+   302 days), and the failure path with a simulated network error
+   (retries once, ~3s elapsed, then returns `warn` with `"(after retry)"`
+   in the detail). Full health check re-run clean, `overall: ok`.
 5. **Scheduler lag** (real Supabase read: `scheduled_posts` rows still
    `pending` well past their `scheduled_for` time) — the most direct proxy
    for "the scheduler is falling behind," which is the core Proof-of-Publish
