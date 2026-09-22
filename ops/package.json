@@ -7,7 +7,7 @@
     "@supabase/supabase-js": "^2.116.0",
     "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
-    "resend": "^6.28.0"
+    "resend": "^6.28.1"
   },
   "overrides": {
     "uuid": "^11.1.1"
