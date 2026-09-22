@@ -174,7 +174,15 @@ async function checkSchedulerLag(supabase, graceMinutes = 5) {
 // operational emergency. It's reported for visibility only; the real
 // dollar-vs-revenue question lives in billing_ops.js::checkStorageMargin,
 // since margin is a pricing decision, not a site-down signal.
-async function checkStorageOverage(storageUsage) {
+async function checkStorageOverage(storageUsage, storageUsageError) {
+  if (!storageUsage) {
+    return {
+      check: "storage_overage",
+      status: "warn",
+      detail: `Could not read storage usage: ${storageUsageError || "unknown error"} — informational only, never a Slack trigger`,
+      excludeFromOverall: true,
+    };
+  }
   const status = storageUsage.overageGb > 0 ? "warn" : "ok";
   return {
     check: "storage_overage",
@@ -221,18 +229,29 @@ async function checkMonthlyActiveUsers(supabase) {
 
 /** Runs every check and returns a flat results array plus an overall
  *  worst-case status ("ok" | "warn" | "critical"), so a caller can decide
- *  whether to alert without re-deriving the severity logic. */
-async function runAllChecks(supabase, storageUsage) {
-  const results = await Promise.all([
-    checkBackendHealth(),
-    checkFrontendUp(),
-    checkSslExpiry(),
-    checkDomainExpiry(),
-    checkSchedulerLag(supabase),
-    checkStorageOverage(storageUsage),
-    checkDatabaseSize(supabase),
-    checkMonthlyActiveUsers(supabase),
-  ]);
+ *  whether to alert without re-deriving the severity logic.
+ *
+ *  Checks run SEQUENTIALLY, not via Promise.all (changed 2026-09-22).
+ *  Firing all eight concurrently sends several requests to Supabase at
+ *  once, and Supabase's Cloudflare edge intermittently stalls a concurrent
+ *  connection ~20s then returns a 522 (measured 2026-09-22: concurrent
+ *  ~6% failure rate vs. 0/12 sequential). Sequential is slightly slower
+ *  wall-clock but has proven zero-failure in testing. */
+async function runAllChecks(supabase, storageUsage, storageUsageError) {
+  const checkFns = [
+    checkBackendHealth,
+    checkFrontendUp,
+    checkSslExpiry,
+    checkDomainExpiry,
+    () => checkSchedulerLag(supabase),
+    () => checkStorageOverage(storageUsage, storageUsageError),
+    () => checkDatabaseSize(supabase),
+    () => checkMonthlyActiveUsers(supabase),
+  ];
+  const results = [];
+  for (const checkFn of checkFns) {
+    results.push(await checkFn());
+  }
   const rank = { ok: 0, warn: 1, critical: 2 };
   const overall = results
     .filter((r) => !r.excludeFromOverall)

@@ -95,6 +95,45 @@ Werner's other businesses rather than naming it; it resolves in the vault via
    under-count the real figure, never over-count, so it's safe to alert on
    without risking a false "all clear."
 
+## KNOWN ISSUE CLASS — concurrent Supabase requests intermittently hit Cloudflare 522s (found + measured 2026-09-22, fixed 2026-09-22, Werner's go-ahead)
+
+`run_health_check.js` crashed outright 4 times across 2 runs on 2026-09-22
+(04:09, 04:10, 04:11, then again 05:09 SAST), each printing a Cloudflare 522
+HTML page from `qbmejnmyqogotdzzzyvj.supabase.co` and dying on a libuv
+`UV_HANDLE_CLOSING` assertion, producing **zero check results**. The same
+window also broke 4 of 5 step-sets across 2 runs of the metrics-poller task.
+
+Measured root cause: it's concurrency, not availability. Sequential requests
+to Supabase: 0/12 failures (~250ms each). Concurrent requests (3 at a time,
+`Promise.all`): 1/18 (~6%), each failure stalling ~19.5-21.5s (Cloudflare's
+origin-connect timeout) before returning 522. Backend `/health` (its own
+separate Supabase-query code path) had 0 failures in 20 samples over the same
+window, and Supabase's REST endpoint answered correctly (401) when hit
+directly — ruling out a real outage. Per-run, not per-request, is the number
+that matters operationally: every Supabase-touching scheduled run that day
+hit at least one 522 on first attempt (4 of 4), because firing 8 checks
+concurrently makes hitting at least one ~20s stall close to certain even at a
+6% per-request rate.
+
+Two separate bugs this exposed, both fixed same day:
+
+1. **A single Supabase hiccup aborted the whole run.** `gatherStorageUsage()`
+   ran before `runAllChecks()` in `run_health_check.js` with no error
+   handling, so its failure threw past `main()` before any of the 8 checks
+   ran. Fixed: wrapped in try/catch; a failure is now surfaced as its own
+   `storage_overage` check result (`status: warn`, `excludeFromOverall:
+   true`) instead of killing the run.
+2. **`runAllChecks()` fired all 8 checks concurrently via `Promise.all`,
+   which is exactly the pattern that triggers the 522.** Fixed: checks now
+   run sequentially (a plain `for` loop with `await`), matching the 0/12
+   sequential failure rate measured above. Slightly slower wall-clock, zero
+   measured failures.
+
+A Supabase support ticket was filed the same day (2026-09-22, "Intermittent
+Cloudflare 522s on concurrent REST/RPC requests") with the full measurements
+above, asking whether this is expected edge behavior under light concurrency
+or something to adjust on our side.
+
 ## Thresholds (the actual "limits" — tune these as real usage teaches us more)
 
 | Check | OK | Warn | Critical |

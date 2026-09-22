@@ -11,8 +11,20 @@ const { runAllChecks } = require("./health_ops.js");
 
 async function main() {
   const supabase = getSupabaseClient();
-  const storageUsage = await gatherStorageUsage(supabase);
-  const { overall, results } = await runAllChecks(supabase, storageUsage);
+
+  // Storage usage is fetched separately (not inside runAllChecks) but a
+  // failure here must not abort the whole run and produce zero results
+  // (real incident 2026-09-22: a Supabase 522 here killed 3 runs outright).
+  // Failure is instead surfaced as its own failed check by checkStorageOverage.
+  let storageUsage = null;
+  let storageUsageError = null;
+  try {
+    storageUsage = await gatherStorageUsage(supabase);
+  } catch (err) {
+    storageUsageError = err.message || String(err);
+  }
+
+  const { overall, results } = await runAllChecks(supabase, storageUsage, storageUsageError);
 
   console.log(JSON.stringify({ overall, checkedAt: new Date().toISOString(), results }, null, 2));
 
