@@ -18,10 +18,26 @@ import type { MerchantOfRecordAdapter } from "./billing/types.js";
 const POLL_INTERVAL_MS = Number(process.env.SCHEDULER_POLL_INTERVAL_MS) || 30_000;
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 
+// A transient gateway failure (e.g. Cloudflare fronting Supabase returning a
+// 522 during a brief outage) makes supabase-js's error .message the raw HTML
+// of the provider's error page, sometimes tens of KB — logged as-is, that
+// buries the actual signal ("something failed") under a wall of markup. This
+// collapses that specific shape into a one-line summary; anything else logs
+// unchanged. Real incident, 2026-09-23: a Supabase compute resize's brief
+// restart window did exactly this to the scheduler's own error logs.
+function summarizeIfHtmlError(err: unknown): unknown {
+  const message = err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : null;
+  if (!message) return err;
+  const looksLikeHtmlErrorPage = /^\s*<(!doctype html|html)/i.test(message) || (message.length > 2000 && /<\/?(html|div|span)[\s>]/i.test(message));
+  if (!looksLikeHtmlErrorPage) return err;
+  const firstLine = message.trim().split("\n")[0].slice(0, 200);
+  return `Non-JSON (HTML) error response, ${message.length} chars — likely a gateway error page from a transient outage. First line: ${firstLine}`;
+}
+
 async function main() {
   const { error } = await supabase.from("accounts").select("id").limit(1);
   if (error) {
-    console.error("Supabase connection failed:", error.message);
+    console.error("Supabase connection failed:", summarizeIfHtmlError(error));
     process.exit(1);
   }
   console.log("Connected to Supabase.");
@@ -100,7 +116,7 @@ async function main() {
   app.listen(PORT, () => console.log(`HTTP API listening on :${PORT}`));
 
   setInterval(() => {
-    runSchedulerCycle(registry).catch((err) => console.error("Scheduler cycle error:", err));
+    runSchedulerCycle(registry).catch((err) => console.error("Scheduler cycle error:", summarizeIfHtmlError(err)));
   }, POLL_INTERVAL_MS);
   // This first, immediate call was the one gap the interval version above
   // didn't have: unlike the setInterval callback, it was `await`ed directly
@@ -110,7 +126,7 @@ async function main() {
   // process on the very first poll cycle after a fresh deploy. That's
   // exactly what happened 2026-08-30 (see project-calendar-redesign's
   // Phase 0 notes). Same .catch() as the interval version closes it.
-  await runSchedulerCycle(registry).catch((err) => console.error("Scheduler cycle error:", err));
+  await runSchedulerCycle(registry).catch((err) => console.error("Scheduler cycle error:", summarizeIfHtmlError(err)));
 
   // Materializes due recurring-schedule occurrences into scheduled_posts —
   // a sibling job to runSchedulerCycle(), not a replacement. Runs on a much
@@ -119,10 +135,10 @@ async function main() {
   // would just mean 7 days' worth of near-identical no-op queries.
   const RECURRING_GENERATION_INTERVAL_MS = 15 * 60_000;
   setInterval(() => {
-    generateDuePosts().catch((err) => console.error("Recurring schedule generation error:", err));
+    generateDuePosts().catch((err) => console.error("Recurring schedule generation error:", summarizeIfHtmlError(err)));
   }, RECURRING_GENERATION_INTERVAL_MS);
   // Same gap as runSchedulerCycle's initial call above, same fix.
-  await generateDuePosts().catch((err) => console.error("Recurring schedule generation error:", err));
+  await generateDuePosts().catch((err) => console.error("Recurring schedule generation error:", summarizeIfHtmlError(err)));
 }
 
 main();
