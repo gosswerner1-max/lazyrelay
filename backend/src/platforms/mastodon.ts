@@ -24,6 +24,16 @@ import { fetchMediaForStreaming, buildStreamingMultipartBody, type RequestInitWi
 // a backend one) and register/cache per-instance client credentials.
 const DEFAULT_INSTANCE = "https://mastodon.social";
 
+// Video uploads (and sometimes large images) come back 202 "still
+// processing" from POST /api/v2/media -- GET /api/v1/media/:id then returns
+// 206 until it's ready and 200 once it is. Posting a status with a media_id
+// that's still 206 fails every time with "Cannot attach files that have not
+// finished processing" (real incident, 2026-09-23: the first-ever Mastodon
+// video post), so uploadMedia polls before returning a media_id born from a
+// 202 response.
+const MEDIA_PROCESSING_TIMEOUT_MS = 60_000;
+const MEDIA_PROCESSING_POLL_MS = 3_000;
+
 // write:statuses lets us post; write:media is a SEPARATE granular scope
 // required by POST /api/v2/media, and read:statuses is a separate scope
 // again required by GET /api/v1/statuses/:id (verifyPublished) — all three
@@ -221,7 +231,28 @@ export class MastodonAdapter implements PlatformAdapter {
     } as RequestInitWithDuplex);
     if (res.status !== 200 && res.status !== 202) return null;
     const json = (await res.json()) as MastodonMedia;
-    return json.id ?? null;
+    const mediaId = json.id ?? null;
+    if (!mediaId) return null;
+
+    if (res.status === 202) {
+      const ready = await this.waitForMediaReady(mediaId, accessToken);
+      if (!ready) return null;
+    }
+
+    return mediaId;
+  }
+
+  private async waitForMediaReady(mediaId: string, accessToken: string): Promise<boolean> {
+    const deadline = Date.now() + MEDIA_PROCESSING_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, MEDIA_PROCESSING_POLL_MS));
+      const res = await fetch(`${DEFAULT_INSTANCE}/api/v1/media/${mediaId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (res.status === 200) return true;
+      if (res.status !== 206) return false; // unexpected status -- stop polling, treat as failed
+    }
+    return false;
   }
 
   async post(request: PostRequest): Promise<PostAttemptResult> {
