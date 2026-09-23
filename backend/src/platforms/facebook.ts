@@ -248,21 +248,36 @@ export class FacebookAdapter implements PlatformAdapter {
     return { success: true, platformPostId: postId, errorMessage: null };
   }
 
-  // requesting `status` is harmless for a photo/text post -- Meta simply
-  // omits the field from the response, since it only applies to videos.
   // Video uploads process asynchronously server-side even though the id
   // exists immediately (confirmed live in Meta's Graph API docs: `status`
   // -> `video_status` is `ready | processing | expired | error`), so
   // "the object exists" and "the content is actually live" are NOT the
-  // same fact for a video -- same bug class as the 2026-09-23 Mastodon
-  // fix, found the same day by auditing every adapter for this pattern.
+  // same fact for a video -- same bug class as the 2026-09-23 Mastodon fix.
+  //
+  // CORRECTION 2026-09-23 19:13 SAST: `status` is NOT harmless for a
+  // photo/text post as originally assumed here -- Meta returns a hard
+  // error, "(#100) Tried accessing nonexisting field (status)", instead
+  // of omitting it, which fails verification for the ENTIRE object, not
+  // just the video check. Confirmed live against a real Page post. That
+  // made every non-video post retry-and-repost on each cycle (verified
+  // Graph API returns a NEW post id per retry, so this created duplicate
+  // live posts on the Page, not just a spurious retry). Fallback below:
+  // retry once without `status` on that exact error.
   async verifyPublished(platformPostId: string, accessToken: string): Promise<VerifyResult> {
     const url = new URL(`${GRAPH_BASE}/${platformPostId}`);
     url.searchParams.set("fields", "id,permalink_url,status");
     url.searchParams.set("access_token", accessToken);
 
-    const res = await fetch(url.toString());
-    const json = (await res.json()) as FacebookPostDetail;
+    let res = await fetch(url.toString());
+    let json = (await res.json()) as FacebookPostDetail;
+
+    if (!res.ok && json.error?.message?.includes("nonexisting field (status)")) {
+      const fallbackUrl = new URL(`${GRAPH_BASE}/${platformPostId}`);
+      fallbackUrl.searchParams.set("fields", "id,permalink_url");
+      fallbackUrl.searchParams.set("access_token", accessToken);
+      res = await fetch(fallbackUrl.toString());
+      json = (await res.json()) as FacebookPostDetail;
+    }
 
     if (!res.ok || !json.id) {
       return {
