@@ -56,7 +56,17 @@ interface XTweetMetricsResponse {
 interface XMediaUploadResponse {
   media_id_string?: string;
   errors?: { message?: string }[];
+  processing_info?: { state?: string; check_after_secs?: number; progress_percent?: number };
 }
+
+// Video/GIF uploads don't finish processing at FINALIZE -- X's own docs say
+// a FINALIZE response carrying a `processing_info` field means the caller
+// must poll `command: STATUS` until `state` reaches "succeeded" before the
+// media_id can be attached to a tweet; using it before then fails outright.
+// Same bug class as the 2026-09-23 Mastodon fix, found the same day by
+// auditing every adapter for this exact pattern.
+const MEDIA_PROCESSING_TIMEOUT_MS = 60_000;
+const MEDIA_PROCESSING_POLL_MS = 3_000;
 
 export class XAdapter implements PlatformAdapter {
   readonly platform: "x" = "x";
@@ -184,8 +194,30 @@ export class XAdapter implements PlatformAdapter {
       headers: authHeader,
     });
     if (!finalizeRes.ok) return null;
+    const finalizeJson = (await finalizeRes.json()) as XMediaUploadResponse;
+
+    if (finalizeJson.processing_info) {
+      const ready = await this.waitForMediaReady(mediaId, authHeader);
+      if (!ready) return null;
+    }
 
     return mediaId;
+  }
+
+  private async waitForMediaReady(mediaId: string, authHeader: Record<string, string>): Promise<boolean> {
+    const deadline = Date.now() + MEDIA_PROCESSING_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, MEDIA_PROCESSING_POLL_MS));
+      const statusParams = new URLSearchParams({ command: "STATUS", media_id: mediaId });
+      const res = await fetch(`${MEDIA_UPLOAD_URL}?${statusParams.toString()}`, { headers: authHeader });
+      if (!res.ok) return false;
+      const json = (await res.json()) as XMediaUploadResponse;
+      const state = json.processing_info?.state;
+      if (state === "succeeded") return true;
+      if (state === "failed") return false;
+      // "pending" / "in_progress" -- keep polling.
+    }
+    return false;
   }
 
   async post(request: PostRequest): Promise<PostAttemptResult> {

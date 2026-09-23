@@ -54,6 +54,7 @@ interface FacebookPostResponse {
 interface FacebookPostDetail {
   id?: string;
   permalink_url?: string;
+  status?: { video_status?: string };
   error?: { message?: string };
 }
 
@@ -247,9 +248,17 @@ export class FacebookAdapter implements PlatformAdapter {
     return { success: true, platformPostId: postId, errorMessage: null };
   }
 
+  // requesting `status` is harmless for a photo/text post -- Meta simply
+  // omits the field from the response, since it only applies to videos.
+  // Video uploads process asynchronously server-side even though the id
+  // exists immediately (confirmed live in Meta's Graph API docs: `status`
+  // -> `video_status` is `ready | processing | expired | error`), so
+  // "the object exists" and "the content is actually live" are NOT the
+  // same fact for a video -- same bug class as the 2026-09-23 Mastodon
+  // fix, found the same day by auditing every adapter for this pattern.
   async verifyPublished(platformPostId: string, accessToken: string): Promise<VerifyResult> {
     const url = new URL(`${GRAPH_BASE}/${platformPostId}`);
-    url.searchParams.set("fields", "id,permalink_url");
+    url.searchParams.set("fields", "id,permalink_url,status");
     url.searchParams.set("access_token", accessToken);
 
     const res = await fetch(url.toString());
@@ -260,6 +269,15 @@ export class FacebookAdapter implements PlatformAdapter {
         verifiedLive: false,
         platformPostUrl: null,
         errorMessage: json.error?.message ?? `Facebook post could not be independently confirmed (HTTP ${res.status})`,
+      };
+    }
+
+    const videoStatus = json.status?.video_status;
+    if (videoStatus && videoStatus !== "ready") {
+      return {
+        verifiedLive: false,
+        platformPostUrl: json.permalink_url ?? null,
+        errorMessage: `Facebook video is not ready yet (status: ${videoStatus})`,
       };
     }
 
