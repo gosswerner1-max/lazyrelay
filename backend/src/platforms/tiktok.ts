@@ -311,13 +311,12 @@ export class TikTokAdapter implements PlatformAdapter {
       },
       body: JSON.stringify({
         post_info: {
-          // A real customer choice now (2026-09-05), not hardcoded -- see
-          // PostRequest.tiktokPrivacyLevel. While this app remains
-          // unaudited with TikTok, only SELF_ONLY will actually succeed
-          // regardless of what's requested here (confirmed via the real API
-          // error unaudited_client_can_only_post_to_private_accounts) --
-          // that's TikTok's own account-level restriction, not something
-          // this adapter enforces.
+          // A real customer choice (2026-09-05), not hardcoded -- see
+          // PostRequest.tiktokPrivacyLevel. TikTok approved LazyRelay for
+          // public posting on 2026-09-21, so this privacy level is honored
+          // as requested rather than being downgraded to SELF_ONLY by
+          // TikTok's own unaudited-client restriction, which no longer
+          // applies to this app.
           privacy_level: request.tiktokPrivacyLevel,
           title: request.content.slice(0, 2200),
           disable_duet: request.tiktokDisableDuet ?? true,
@@ -423,8 +422,9 @@ export class TikTokAdapter implements PlatformAdapter {
 
       if (json.data.status === "PUBLISH_COMPLETE") {
         // publicaly_available_post_id is only ever populated for public
-        // (non-SELF_ONLY) posts that passed moderation — always empty for
-        // the SELF_ONLY posts this adapter currently creates (see post()).
+        // (non-SELF_ONLY) posts that passed moderation — empty when the
+        // customer chose a non-public privacy level (SELF_ONLY /
+        // MUTUAL_FOLLOW_FRIENDS) for that post (see post()).
         const publicId = json.data.publicaly_available_post_id?.[0] ?? null;
         return {
           verifiedLive: true,

@@ -472,7 +472,7 @@ const FAQ = [
   },
   {
     q: "Which platforms are supported?",
-    a: "Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, and Tumblr. Mastodon support today connects to mastodon.social specifically — other Mastodon instances aren't supported yet. YouTube uploads through LazyRelay top out at 45MB, which comfortably covers a Shorts-length clip but not a full-length video — great for cross-posting the same short-form video you're already sending everywhere else, not a replacement for uploading a longer video directly on YouTube.",
+    a: "Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, and Tumblr. Mastodon support today connects to mastodon.social specifically — other Mastodon instances aren't supported yet. YouTube uploads through LazyRelay accept files up to 1GB, so full-length videos work too, not just Shorts-length clips.",
   },
   {
     q: "Can I set up a recurring posting schedule instead of scheduling each post one at a time?",
