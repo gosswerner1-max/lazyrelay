@@ -23,6 +23,16 @@ const AUTHORIZE_URL = "https://www.facebook.com/v25.0/dialog/oauth";
 const TOKEN_URL = "https://graph.facebook.com/v25.0/oauth/access_token";
 const GRAPH_BASE = "https://graph.facebook.com/v25.0";
 
+// Polling budget for verifyPublished()'s read-after-write lag — see the
+// comment on verifyPublished() for the incident that added this. Same
+// pattern as tiktok.ts's STATUS_POLL_ATTEMPTS/DELAY.
+const VERIFY_POLL_ATTEMPTS = 6;
+const VERIFY_POLL_DELAY_MS = 5000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // pages_manage_engagement added 2026-08-07 for postComment() (first-comment
 // auto-posting) — a distinct permission from pages_manage_posts, which only
 // covers creating the post itself, not commenting on it.
@@ -263,40 +273,64 @@ export class FacebookAdapter implements PlatformAdapter {
   // Graph API returns a NEW post id per retry, so this created duplicate
   // live posts on the Page, not just a spurious retry). Fallback below:
   // retry once without `status` on that exact error.
+  //
+  // CORRECTION 2026-09-24: found live via a real customer-reported
+  // "failed" Reel that had actually posted -- FOUR TIMES. A single
+  // scheduled post retried through the scheduler's normal backoff path
+  // (handleFailure -> re-runs post() from scratch) every time this
+  // function returned verifiedLive: false, exactly the "known gap"
+  // tiktok.ts's own comment already warned about for its platform. Two
+  // distinct causes, both now handled by polling before giving up instead
+  // of failing on the first check: (1) video_status stuck at
+  // uploading/processing for longer than one check, and (2) a harder
+  // failure -- Graph API returning "(#100) Object with ID '...' does not
+  // exist" for a GET made seconds after post() succeeded, even though the
+  // object was already fully published server-side (confirmed by
+  // re-querying the same id minutes later -- 200, status.publishing_phase
+  // .publish_status: "published"). That is read-after-write lag on
+  // Graph API's own read path, not a permission or connection problem --
+  // but it produces the exact same customer-facing message as a genuinely
+  // broken connection ("couldn't be found... try reconnecting"), which is
+  // actively misleading. This is now checked within the polling budget
+  // below rather than surfaced as a hard failure on the first attempt.
   async verifyPublished(platformPostId: string, accessToken: string): Promise<VerifyResult> {
-    const url = new URL(`${GRAPH_BASE}/${platformPostId}`);
-    url.searchParams.set("fields", "id,permalink_url,status");
-    url.searchParams.set("access_token", accessToken);
+    let lastErrorMessage: string | null = null;
+    let lastPermalink: string | null = null;
 
-    let res = await fetch(url.toString());
-    let json = (await res.json()) as FacebookPostDetail;
+    for (let attempt = 0; attempt < VERIFY_POLL_ATTEMPTS; attempt++) {
+      const url = new URL(`${GRAPH_BASE}/${platformPostId}`);
+      url.searchParams.set("fields", "id,permalink_url,status");
+      url.searchParams.set("access_token", accessToken);
 
-    if (!res.ok && json.error?.message?.includes("nonexisting field (status)")) {
-      const fallbackUrl = new URL(`${GRAPH_BASE}/${platformPostId}`);
-      fallbackUrl.searchParams.set("fields", "id,permalink_url");
-      fallbackUrl.searchParams.set("access_token", accessToken);
-      res = await fetch(fallbackUrl.toString());
-      json = (await res.json()) as FacebookPostDetail;
+      let res = await fetch(url.toString());
+      let json = (await res.json()) as FacebookPostDetail;
+
+      if (!res.ok && json.error?.message?.includes("nonexisting field (status)")) {
+        const fallbackUrl = new URL(`${GRAPH_BASE}/${platformPostId}`);
+        fallbackUrl.searchParams.set("fields", "id,permalink_url");
+        fallbackUrl.searchParams.set("access_token", accessToken);
+        res = await fetch(fallbackUrl.toString());
+        json = (await res.json()) as FacebookPostDetail;
+      }
+
+      if (!res.ok || !json.id) {
+        lastErrorMessage = json.error?.message ?? `Facebook post could not be independently confirmed (HTTP ${res.status})`;
+        if (attempt < VERIFY_POLL_ATTEMPTS - 1) await sleep(VERIFY_POLL_DELAY_MS);
+        continue;
+      }
+
+      const videoStatus = json.status?.video_status;
+      if (videoStatus && videoStatus !== "ready") {
+        lastErrorMessage = `Facebook video is not ready yet (status: ${videoStatus})`;
+        lastPermalink = json.permalink_url ?? null;
+        if (attempt < VERIFY_POLL_ATTEMPTS - 1) await sleep(VERIFY_POLL_DELAY_MS);
+        continue;
+      }
+
+      return { verifiedLive: true, platformPostUrl: json.permalink_url ?? null, errorMessage: null };
     }
 
-    if (!res.ok || !json.id) {
-      return {
-        verifiedLive: false,
-        platformPostUrl: null,
-        errorMessage: json.error?.message ?? `Facebook post could not be independently confirmed (HTTP ${res.status})`,
-      };
-    }
-
-    const videoStatus = json.status?.video_status;
-    if (videoStatus && videoStatus !== "ready") {
-      return {
-        verifiedLive: false,
-        platformPostUrl: json.permalink_url ?? null,
-        errorMessage: `Facebook video is not ready yet (status: ${videoStatus})`,
-      };
-    }
-
-    return { verifiedLive: true, platformPostUrl: json.permalink_url ?? null, errorMessage: null };
+    return { verifiedLive: false, platformPostUrl: lastPermalink, errorMessage: lastErrorMessage };
   }
 
   // Basic post-field counts only (likes/comments/shares) — already covered
