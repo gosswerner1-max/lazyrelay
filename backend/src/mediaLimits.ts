@@ -226,6 +226,26 @@ const RULES: Record<Platform, PlatformRules> = {
 const INSTAGRAM_IMAGE_WIDTH_RANGE = { min: 320, max: 1440 };
 const INSTAGRAM_IMAGE_ASPECT_RATIO_RANGE = { min: 0.8, max: 1.91 }; // 4:5 to 1.91:1
 
+// Pinterest minimum image dimensions — added 2026-09-25 after a QA pass
+// reproduced a real gap: an undersized (favicon-sized) image passed this
+// file's own validation (mime type + 20MB size were both fine) and only
+// failed once it reached Pinterest's live v5 API, so the customer found out
+// hours later instead of at scheduling time. Pinterest's v5 create_pin API
+// reference (developers.pinterest.com/docs/api/v5/create_pin) documents NO
+// numeric minimum — same lower-confidence gap already noted above for
+// Pinterest's size/format rule. The one real, sourced minimum Pinterest
+// publishes anywhere on developers.pinterest.com is on its Save-button page
+// (developers.pinterest.com/docs/web-features/buttons/, checked 2026-09-25):
+// "Images need to be at least 100px by 200px to be saved to Pinterest by the
+// Save button." That's a different code path (the browser Save button, not
+// the Pins API this adapter posts through), but it's the closest thing to an
+// official Pinterest-published floor rather than a third-party blog's
+// guess, and it comfortably catches the actual failure this QA pass found
+// (a favicon-sized image, tens of pixels per side) — flagged here with the
+// same honesty as the rest of this file's Pinterest numbers rather than
+// presented as an exact API-documented ceiling.
+const PINTEREST_IMAGE_MIN_DIMENSIONS = { width: 100, height: 200 };
+
 export function validateMediaForPlatform(platform: Platform, media: MediaMeta): MediaValidationResult {
   const unchecked: string[] = [];
   if (PLATFORMS_WITH_GENERIC_RULES.includes(platform)) {
@@ -261,6 +281,14 @@ export function validateMediaForPlatform(platform: Platform, media: MediaMeta): 
         return {
           valid: false,
           reason: `Image aspect ratio (${aspectRatio.toFixed(2)}:1) is outside Instagram's accepted range (4:5 to 1.91:1).`,
+          unchecked,
+        };
+      }
+    } else if (platform === "pinterest" && media.width != null && media.height != null) {
+      if (media.width < PINTEREST_IMAGE_MIN_DIMENSIONS.width || media.height < PINTEREST_IMAGE_MIN_DIMENSIONS.height) {
+        return {
+          valid: false,
+          reason: `Image is ${media.width}x${media.height}px — Pinterest requires at least ${PINTEREST_IMAGE_MIN_DIMENSIONS.width}x${PINTEREST_IMAGE_MIN_DIMENSIONS.height}px.`,
           unchecked,
         };
       }

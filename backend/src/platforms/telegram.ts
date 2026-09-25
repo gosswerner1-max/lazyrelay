@@ -101,14 +101,13 @@ export class TelegramAdapter implements PlatformAdapter {
   readonly platform: "telegram" = "telegram";
 
   // connectPageUrl mirrors Bluesky's not-yet-built connect-form pattern.
-  // logChatId is optional and now customer-specific rather than global
-  // (see exchangeCode) — a private chat *that customer's own bot* can
-  // copyMessage into for real per-message Proof-of-Publish verification
-  // (see verifyPublished below for why this matters) — Telegram's Bot API
-  // has no GET-by-message-id endpoint, confirmed live, so without a
-  // configured log chat this adapter is honest about only being able to
-  // confirm the *channel* is still reachable, not that a specific message
-  // still exists.
+  // A future per-customer log chat (a private chat *that customer's own
+  // bot* can copyMessage into) would let verifyPublished below re-check a
+  // SPECIFIC message id, not just the channel — Telegram's Bot API has no
+  // GET-by-message-id endpoint, confirmed live, so that's the only way to
+  // ever get per-message confirmation. Not built here (see verifyPublished's
+  // 2026-09-25 fix comment for why this adapter treats a successful post()
+  // plus a reachable channel as sufficient in the meantime).
   constructor(private readonly connectPageUrl: string) {}
 
   private async callApi<T>(botToken: string, method: string, params: Record<string, string>): Promise<TelegramApiResponse<T>> {
@@ -237,14 +236,46 @@ export class TelegramAdapter implements PlatformAdapter {
     return { success: true, platformPostId: String(res.result.message_id), errorMessage: null };
   }
 
-  // Real, documented Telegram Bot API limitation: there is no endpoint to
-  // fetch an arbitrary message back by id, so "did it actually go live"
-  // can't be checked the direct way every other adapter uses. getChat
-  // confirms the channel is still reachable and public-URL-able -- a
-  // per-message copyMessage probe (the old global-log-chat approach) was
-  // dropped in the 2026-09-08 redesign since there's no longer a single
-  // shared log chat every customer's bot can reach; a customer-specific
-  // log chat would need its own connect-flow field, not built here.
+  // FIXED 2026-09-25 -- confirmed live, real customer-impacting bug: this
+  // hardcoded verifiedLive: false on every call (see the git history for the
+  // old comment), which scheduler.ts treats exactly like a failed post --
+  // handleFailure() re-runs post() from scratch, up to 3 more times on a
+  // 2/4/8min backoff. A Telegram post that genuinely succeeded on the FIRST
+  // post() call got reposted up to 4 times total, and since every retry's
+  // verification also structurally "fails" the same way, the post ends up
+  // marked permanently `failed` and the customer gets a false failure-alert
+  // email for content that is actually live on their channel.
+  //
+  // Real, documented Telegram Bot API limitation (unchanged, still true):
+  // there is no endpoint to fetch an arbitrary message back by id, so "does
+  // this SPECIFIC message id still exist" can't be checked the direct way
+  // every other adapter's verifyPublished() uses. A per-message copyMessage
+  // probe into a log chat (the old global-log-chat approach) was dropped in
+  // the 2026-09-08 redesign since there's no longer a single shared log chat
+  // every customer's bot can reach; a customer-specific log chat would need
+  // its own connect-flow field -- a real future improvement, but out of
+  // scope for this fix (see reference-autonomous-production-fix-authority
+  // scope notes for why this stays narrow).
+  //
+  // Given that structural gap, the honest fix is NOT to poll longer (there's
+  // nothing that would ever resolve -- unlike Facebook's read-after-write
+  // lag, this isn't a timing problem) and NOT to weaken verifyPublished()
+  // generally (the Proof-of-Publish differentiator in types.ts stays a real,
+  // independent check for every platform where one is actually possible).
+  // It's to recognize that by the time this method is ever called, post()
+  // has ALREADY gotten a confirmed synchronous success from Telegram's own
+  // API -- a real message_id in the response body, not a fire-and-forget
+  // queued/pending state (scheduler.ts only calls verifyPublished() when
+  // attempt.success && attempt.platformPostId are both already true). So
+  // this method's own real, independent check is exactly what it's always
+  // done -- re-confirm the CHANNEL is still reachable and the bot still has
+  // access via a fresh getChat call -- and now correctly reports success
+  // when that's true, instead of manufacturing a failure out of a check
+  // Telegram simply doesn't expose. A genuine problem (bot removed as admin,
+  // channel deleted, chat unreachable) still surfaces as verifiedLive: false
+  // exactly as before -- only the "post succeeded and the channel is still
+  // fine, but the specific message id can't be re-checked" case stops being
+  // treated as a failure.
   async verifyPublished(platformPostId: string, accessToken: string): Promise<VerifyResult> {
     const { botToken, chatId } = parseCredentials(accessToken);
 
@@ -260,9 +291,9 @@ export class TelegramAdapter implements PlatformAdapter {
     const platformPostUrl = chat.username ? `https://t.me/${chat.username}/${platformPostId}` : null;
 
     return {
-      verifiedLive: false,
+      verifiedLive: true,
       platformPostUrl,
-      errorMessage: "Channel is reachable, but Telegram's Bot API has no get-message-by-id endpoint, so a specific message's existence can't be independently confirmed",
+      errorMessage: null,
     };
   }
 
