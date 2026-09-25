@@ -40,10 +40,10 @@ export function buildApp(
   // frontend lives on a different origin and fetches this API directly.
   app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: "cross-origin" } }));
 
-  // Render sits in front of the app behind exactly one reverse proxy hop,
-  // which sets X-Forwarded-For. Without this, express-rate-limit can't
-  // tell real client IPs from the proxy's and throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
-  app.set("trust proxy", 1);
+  // TEMP DIAGNOSTIC EXPERIMENT (2026-09-25): was `1`, testing `2` live against
+  // /debug/rate-limit-diag before committing to the real fix -- see that
+  // route's comment for why.
+  app.set("trust proxy", 2);
 
   // TEMPORARY DIAGNOSTIC — added 2026-09-25, to be removed in the very next
   // commit once real evidence is captured. Root-causing the rate-limiter
