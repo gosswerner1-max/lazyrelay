@@ -16,16 +16,16 @@ Phase 1 foundation, per `project-social-automation-mvp-scope.md`. Connected to a
 - **OAuth connect flow** (`src/platforms/connect.ts`, `0004_oauth_states.sql`): `GET /api/social-accounts/connect` (authed, returns the authorize URL) and `GET /api/social-accounts/callback` (unauthenticated by necessity — the platform redirects the browser here directly — identity instead comes from a one-time, 15-minute state token minted server-side per account). The `oauth_states` table has no client-facing RLS policies at all — fail-closed by omission, only the backend service ever touches it.
 
 **All of the above was actually run and tested against the live database, not just compiled:**
-- `src/test-e2e.ts` — scheduler end to end.
-- `src/test-cancel.ts` — cancellation, success + failure paths.
-- `src/test-http.ts` — full HTTP layer: health check, 401 on unauthenticated requests, authenticated create/list with a real JWT, scheduler processing an API-created post, clean 502 on cancel-with-no-subscription.
-- `src/test-connect.ts` — OAuth connect flow end to end, including a real security check: replaying a used state token is correctly rejected, proving the one-time-use mechanism actually works, not just that the happy path does.
+- `scripts/test-e2e.ts` — scheduler end to end.
+- `scripts/test-cancel.ts` — cancellation, success + failure paths.
+- `scripts/test-http.ts` — full HTTP layer: health check, 401 on unauthenticated requests, authenticated create/list with a real JWT, scheduler processing an API-created post, clean 502 on cancel-with-no-subscription.
+- `scripts/test-connect.ts` — OAuth connect flow end to end, including a real security check: replaying a used state token is correctly rejected, proving the one-time-use mechanism actually works, not just that the happy path does.
 
 All four self-clean their test data (delete the test user at the end) and can be re-run any time.
 
 **Real bug found and fixed during this testing** (worth knowing, not just historical): calling `supabase.auth.signInWithPassword()` on the shared service-role client mutates that client's session state, silently switching all its subsequent requests to run as the signed-in user instead of service_role — caused a real permission-denied failure in `test-http.ts`. Fixed by using a separate client instance for that sign-in step. The actual app code (`requireAuth` in `src/http/auth.ts`) is **not** affected — it calls `auth.getUser(explicitToken)`, which is stateless when a token is passed explicitly, unlike `signInWithPassword`. Worth remembering if any future code ever needs to sign in as a user for testing: always use a throwaway client, never the shared service-role one.
 
-- `src/test-signup-trigger.ts` — proves the `0005_account_on_signup.sql` Postgres trigger actually fires: creates an auth user with no manual `accounts` insert (exactly how a real frontend signup works), confirms the row was created automatically.
+- `scripts/test-signup-trigger.ts` — proves the `0005_account_on_signup.sql` Postgres trigger actually fires: creates an auth user with no manual `accounts` insert (exactly how a real frontend signup works), confirms the row was created automatically.
 
 ## Frontend now exists and is verified working
 

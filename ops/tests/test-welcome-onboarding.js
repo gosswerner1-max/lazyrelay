@@ -97,7 +97,7 @@ async function main() {
   // Test 3: account created 4 days ago but WITH a connected social
   // account -- should NOT be a nudge candidate. access_token_vault_id is a
   // real not-null FK into vault.secrets (migration 0001) -- store_social_token
-  // is the real RPC the product itself uses (backend/src/security-test.ts),
+  // is the real RPC the product itself uses (backend/scripts/security-test.ts),
   // not a raw insert, since vault.secrets can't be written to directly.
   {
     const { accountId } = await seedAccount("connected-test", 4);

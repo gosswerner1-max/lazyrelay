@@ -1,7 +1,7 @@
 // Working out who an escalated support-widget conversation actually came from.
 //
 // Pulled out of http/routes.ts so it can be tested without booting the app or
-// calling the Anthropic API -- see src/test-support-chat.ts. Three separate
+// calling the Anthropic API -- see scripts/test-support-chat.ts. Three separate
 // defects landed in this logic on a single day (2026-08-17) precisely because
 // it was only ever verifiable by pushing a real escalation through production,
 // which costs a deploy and a row in the support inbox each time.

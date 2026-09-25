@@ -1,5 +1,5 @@
 // Live, real-database verification for data_retention_ops.js (2026-08-15) —
-// same discipline as backend/src/test-cancel.ts: seeds a genuine throwaway
+// same discipline as backend/scripts/test-cancel.ts: seeds a genuine throwaway
 // account via the real Supabase admin API, runs the real functions against
 // it, checks real results, cleans up after itself. Not wired into
 // runSelfTest.js's harness (different shape) — run directly:

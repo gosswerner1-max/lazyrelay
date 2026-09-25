@@ -1,0 +1,17 @@
+{
+  // Type-check only (never emits). The manual/verification scripts under
+  // scripts/ (test-*.ts, stress-test.ts, load-test.ts, security-test.ts) used
+  // to live directly in src/ and were compiled into dist/ -- shipped in every
+  // production build -- because tsconfig.json only excluded *.test.ts. They
+  // were moved out of src/ on 2026-09-25 so the production build no longer
+  // includes them; this config keeps them type-checked against the real
+  // src/ code they import (run: npm run typecheck:scripts). They still run
+  // exactly as before via tsx, e.g. `npx tsx scripts/test-support-chat.ts`.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true
+  },
+  "include": ["src", "scripts"],
+  "exclude": ["src/**/*.test.ts"]
+}

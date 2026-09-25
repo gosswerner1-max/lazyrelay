@@ -5,7 +5,7 @@ import { loginAsDisposableAccount } from "./fixtures/auth";
 // Real OAuth (Meta, TikTok, etc.) can't be driven from a browser test --
 // it goes through the actual platform's own login screens. So the
 // realistic scope here is: seed a connected account directly (bypassing
-// OAuth, same technique backend/src/test-account-limits.ts already uses),
+// OAuth, same technique backend/scripts/test-account-limits.ts already uses),
 // then drive the real compose-and-schedule UI end to end. Mastodon is the
 // platform (not TikTok -- that's tiktok-disclosure.spec.ts, which needs
 // its own extra fields). "Schedule" is used deliberately, never "Post
