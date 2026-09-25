@@ -54,30 +54,46 @@ async function main() {
     pass = false;
   }
 
-  const result = await cancelSubscription(accountId, morAdapter);
+  // acknowledgedDataDeletion=true (2026-08-15 fix — cancelSubscription now
+  // requires this as a real server-side precondition, see billing/sync.ts).
+  const result = await cancelSubscription(accountId, morAdapter, undefined, true);
   if (!result.success) {
     console.error("FAIL: cancelSubscription should succeed against the stub MoR adapter.");
     pass = false;
   }
 
-  const { data: tierRow } = await supabase.from("subscriptions").select("status").eq("account_id", accountId).single();
-  if (tierRow?.status !== "cancelled") {
-    console.error("FAIL: main tier subscription should be cancelled.");
+  // Cancellation is deferred to the end of the paid period (2026-08-11 fix,
+  // see billing/sync.ts around line 520+): status stays "active" right after
+  // cancelling — only cancel_at_period_end flips true immediately. The real
+  // status: "cancelled" flip happens later, driven by the genuine
+  // subscription.canceled webhook when Paddle's deferred cancellation
+  // actually takes effect.
+  const { data: tierRow } = await supabase
+    .from("subscriptions")
+    .select("status, cancel_at_period_end")
+    .eq("account_id", accountId)
+    .single();
+  if (tierRow?.status !== "active" || tierRow?.cancel_at_period_end !== true) {
+    console.error(
+      `FAIL: main tier subscription should stay active with cancel_at_period_end=true, got status=${tierRow?.status} cancel_at_period_end=${tierRow?.cancel_at_period_end}`,
+    );
     pass = false;
   } else {
-    console.log("PASS: main tier subscription cancelled.");
+    console.log("PASS: main tier subscription deferred-cancelled (still active, cancel_at_period_end=true).");
   }
 
   const { data: addonRow } = await supabase
     .from("storage_addons")
-    .select("status")
+    .select("status, cancel_at_period_end")
     .eq("account_id", accountId)
     .single();
-  if (addonRow?.status !== "cancelled") {
-    console.error(`FAIL: storage add-on should also be cancelled, got status: ${addonRow?.status}`);
+  if (addonRow?.status !== "active" || addonRow?.cancel_at_period_end !== true) {
+    console.error(
+      `FAIL: storage add-on should also be deferred-cancelled (still active, cancel_at_period_end=true), got status=${addonRow?.status} cancel_at_period_end=${addonRow?.cancel_at_period_end}`,
+    );
     pass = false;
   } else {
-    console.log("PASS: cancelling the main plan cascaded to cancel the active storage add-on too.");
+    console.log("PASS: cancelling the main plan cascaded to deferred-cancel the active storage add-on too.");
   }
 
   await supabase.auth.admin.deleteUser(accountId);

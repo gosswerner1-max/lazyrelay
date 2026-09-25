@@ -9,8 +9,10 @@ import type { StorageAddonEvent } from "./billing/types.js";
 // end to end against the real Supabase project: a fresh Starter-tier account
 // starts at the Starter quota, a simulated storage_addon webhook event grows
 // the quota by the add-on's GB amount (not the tier's own quota), a second
-// add-on stacks on top, and cancelling one add-on shrinks the quota back down
-// without touching the other add-on or the account's main tier subscription.
+// add-on stacks on top, and cancelling one add-on marks it cancel_at_period_end
+// (2026-08-11 deferred-cancellation fix — the quota only drops later, when the
+// real period-end webhook lands) without touching the other add-on or the
+// account's main tier subscription.
 
 const GB = 1024 * 1024 * 1024;
 const morAdapter = new StubMorAdapter();
@@ -88,8 +90,13 @@ async function main() {
   }
 
   // Cancel the first add-on via the real cancelStorageAddon() path (calls
-  // the MoR adapter first, same discipline as cancelSubscription) — quota
-  // should drop back to just the 20GB add-on, not zero.
+  // the MoR adapter first, same discipline as cancelSubscription). Per the
+  // 2026-08-11 deferred-cancellation fix (see billing/sync.ts around line
+  // 510+), this only flips cancel_at_period_end=true — status stays
+  // "active" and getActiveAddonBytes() (storageQuota.ts) counts by status
+  // alone, so the quota does NOT drop yet. The real removal happens later,
+  // driven by the genuine webhook at period end, same as the main-plan
+  // cancellation flow.
   const { data: addonRow } = await supabase
     .from("storage_addons")
     .select("id")
@@ -102,13 +109,28 @@ async function main() {
     console.error("FAIL: cancelStorageAddon should succeed against the stub MoR adapter.");
     pass = false;
   }
-  const usageAfterCancel = await getStorageUsage(accountId);
-  console.log("Usage after cancelling the +5GB add-on:", usageAfterCancel);
-  if (usageAfterCancel.quotaBytes !== STORAGE_QUOTA_BYTES.pro + 20 * GB || usageAfterCancel.addonBytes !== 20 * GB) {
-    console.error("FAIL: cancelling one add-on should only remove ITS bytes, leaving the other add-on active.");
+
+  const { data: cancelledAddonRow } = await supabase
+    .from("storage_addons")
+    .select("status, cancel_at_period_end")
+    .eq("id", addonRow.id)
+    .single();
+  if (cancelledAddonRow?.status !== "active" || cancelledAddonRow?.cancel_at_period_end !== true) {
+    console.error(
+      `FAIL: cancelled add-on should stay active with cancel_at_period_end=true (deferred to period end), got status=${cancelledAddonRow?.status} cancel_at_period_end=${cancelledAddonRow?.cancel_at_period_end}`,
+    );
     pass = false;
   } else {
-    console.log("PASS: cancelling one add-on leaves the other add-on's bytes intact — not a blanket reset.");
+    console.log("PASS: cancelled add-on marked cancel_at_period_end=true without flipping status yet.");
+  }
+
+  const usageAfterCancel = await getStorageUsage(accountId);
+  console.log("Usage right after cancelling the +5GB add-on (should be unchanged until period end):", usageAfterCancel);
+  if (usageAfterCancel.quotaBytes !== STORAGE_QUOTA_BYTES.pro + 25 * GB || usageAfterCancel.addonBytes !== 25 * GB) {
+    console.error("FAIL: quota should stay unchanged immediately after cancelling — it only counts status, not cancel_at_period_end.");
+    pass = false;
+  } else {
+    console.log("PASS: quota is untouched immediately after cancelling — deferred to the real period-end webhook, not dropped early.");
   }
 
   // Confirm the main tier subscription was untouched by the add-on cancel.

@@ -59,7 +59,9 @@ async function cleanup(accountId: string) {
 
 async function testCancelSucceeds() {
   const accountId = await seedAccountWithSubscription(`mor_sub_ok_${Date.now()}`);
-  const result = await cancelSubscription(accountId, new MockAdapterSucceeds());
+  // acknowledgedDataDeletion=true (2026-08-15 fix — cancelSubscription now
+  // requires this as a real server-side precondition, see billing/sync.ts).
+  const result = await cancelSubscription(accountId, new MockAdapterSucceeds(), undefined, true);
 
   const { data: sub } = await supabase
     .from("subscriptions")
@@ -89,7 +91,9 @@ async function testCancelSucceeds() {
 
 async function testCancelFailsAtMor() {
   const accountId = await seedAccountWithSubscription(`mor_sub_fail_${Date.now()}`);
-  const result = await cancelSubscription(accountId, new MockAdapterFails());
+  // Acknowledgement given, so the MoR failure below is the actual thing
+  // under test, not a false failure from the unrelated precondition.
+  const result = await cancelSubscription(accountId, new MockAdapterFails(), undefined, true);
 
   const { data: sub } = await supabase
     .from("subscriptions")
