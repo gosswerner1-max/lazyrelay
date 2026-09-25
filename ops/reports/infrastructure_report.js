@@ -18,15 +18,9 @@ const { getSupabaseClient } = require("../shared/supabaseClient.js");
 const { gatherStorageUsage, computeStorageMargin } = require("../shared/storageUsage.js");
 const { checkStorageMargin } = require("../billing/billing_ops.js");
 const { runAllChecks } = require("../health/health_ops.js");
+const { getLiveInfraCosts } = require("../shared/liveInfraCosts.js");
 
-// Fixed infra costs — mirrors SERVICE_PROVIDERS.md, confirmed live 2026-08-05.
-const INFRA_COSTS_USD = [
-  { provider: "Render", tier: "Starter (0.5 CPU / 512MB)", monthlyCost: 7.0, notes: "Confirmed live via Render billing. No free-tier spin-down." },
-  { provider: "Supabase", tier: "Pro", monthlyCost: 25.0, notes: "Confirmed live via Supabase dashboard. 8GB disk / 100k MAU included." },
-  { provider: "cPanel hosting", tier: "Shared (bundled)", monthlyCost: 0.0, notes: "Bundled with The Lazy Download's existing plan — no marginal cost." },
-];
-
-async function buildWorkbook(healthResult, marginResult, storageUsage, generatedAt) {
+async function buildWorkbook(healthResult, marginResult, storageUsage, generatedAt, infraCosts) {
   const NAVY = "14171F";
   const ACCENT = "FF5630";
   const wb = new ExcelJS.Workbook();
@@ -63,7 +57,7 @@ async function buildWorkbook(healthResult, marginResult, storageUsage, generated
   sectionHeader("INFRASTRUCTURE COSTS");
   dataHeaderRow(["Provider", "Tier", "Monthly Cost (USD)", "Notes"]);
   const infraStartRow = ws.rowCount + 1;
-  for (const item of INFRA_COSTS_USD) {
+  for (const item of infraCosts) {
     const r = ws.addRow([item.provider, item.tier, item.monthlyCost, item.notes]);
     r.getCell(3).numberFormat = '$#,##0.00;($#,##0.00);"-"';
   }
@@ -117,8 +111,9 @@ async function main() {
   const storageUsage = await gatherStorageUsage(supabase);
   const healthResult = await runAllChecks(supabase, storageUsage);
   const marginResult = await checkStorageMargin(supabase);
+  const infraCosts = await getLiveInfraCosts();
 
-  const wb = await buildWorkbook(healthResult, marginResult, storageUsage, generatedAt);
+  const wb = await buildWorkbook(healthResult, marginResult, storageUsage, generatedAt, infraCosts);
 
   const filename = `LazyRelay_Infrastructure_Report_${generatedAt.toISOString().slice(0, 10)}.xlsx`;
   const outPath = path.join(outputDir, filename);
@@ -130,7 +125,7 @@ async function main() {
         saved: outPath,
         healthOverall: healthResult.overall,
         storageMarginStatus: marginResult.status,
-        totalInfraCostUsd: INFRA_COSTS_USD.reduce((s, i) => s + i.monthlyCost, 0),
+        totalInfraCostUsd: infraCosts.reduce((s, i) => s + i.monthlyCost, 0),
       },
       null,
       2

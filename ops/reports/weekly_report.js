@@ -169,20 +169,21 @@ async function gatherPlatformActivity(supabase, weekStart, weekEnd) {
     }));
 }
 
-// Fixed infra costs — mirrors SERVICE_PROVIDERS.md / LazyRelay_Launch_Cost.xlsx.
-// Kept as plain data here so this report always shows the same cost side
-// by side with the revenue side, without re-deriving it each week.
-const INFRA_COSTS_USD = [
-  { provider: "Render (backend hosting)", tierNeeded: "Starter (no spin-down)", monthlyCost: 7 },
-  { provider: "Supabase (DB/auth/vault)", tierNeeded: "Pro (8GB/100k MAU)", monthlyCost: 25 },
-  { provider: "cPanel hosting (frontend+email)", tierNeeded: "Bundled, no change", monthlyCost: 0 },
+const { getLiveInfraCosts } = require("../shared/liveInfraCosts.js");
+
+// The zero-cost free-tier services below never drift (nothing to check
+// live), so they stay as plain data. Render/Supabase are fetched live at
+// report-build time instead — see getLiveInfraCosts() — after the fixed
+// $32/mo figure here silently understated the real ~$50/mo cost for weeks
+// following the 2026-09-05 Render Standard upgrade (caught 2026-09-22).
+const FREE_INFRA_ITEMS = [
   { provider: "Let's Encrypt SSL", tierNeeded: "Free, no change", monthlyCost: 0 },
   { provider: "Google Analytics 4", tierNeeded: "Free, no change", monthlyCost: 0 },
   { provider: "Slack (ops alerting)", tierNeeded: "Free, no change", monthlyCost: 0 },
   { provider: "Roundcube / IMAP-SMTP", tierNeeded: "Bundled, no change", monthlyCost: 0 },
 ];
 
-async function buildWorkbook(summary, platformActivity, morStatus, storageUsage) {
+async function buildWorkbook(summary, platformActivity, morStatus, storageUsage, infraCosts) {
   const NAVY = "14171F";
   const ACCENT = "FF5630";
   const wb = new ExcelJS.Workbook();
@@ -275,8 +276,8 @@ async function buildWorkbook(summary, platformActivity, morStatus, storageUsage)
   sectionHeader("INFRASTRUCTURE COST (fixed monthly, if on launch-ready tiers)");
   dataHeaderRow(["Provider", "Tier needed", "Monthly cost (USD)", "", "", ""]);
   const infraStartRow = ws.rowCount + 1;
-  for (const item of INFRA_COSTS_USD) {
-    const r = ws.addRow([item.provider, item.tierNeeded, item.monthlyCost]);
+  for (const item of [...infraCosts, ...FREE_INFRA_ITEMS]) {
+    const r = ws.addRow([item.provider, item.tierNeeded ?? item.tier, item.monthlyCost]);
     r.getCell(3).numberFormat = '$#,##0;($#,##0);"-"';
   }
   const infraEndRow = ws.rowCount;
@@ -290,7 +291,7 @@ async function buildWorkbook(summary, platformActivity, morStatus, storageUsage)
   // Render/Supabase's own compute+DB tiers are flat until you outgrow them
   // (see SERVICE_PROVIDERS.md), but customer-uploaded media directly grows
   // Supabase Storage usage, which is metered beyond the Pro plan's included
-  // 100GB. Tracked separately from INFRA_COSTS_USD (which is fixed) so the
+  // 100GB. Tracked separately from the live infra-cost figures (which are flat) so the
   // report is honest about which cost is flat and which one moves.
   sectionHeader("SUPABASE MEDIA STORAGE (usage-based — scales with customers)");
   dataHeaderRow(["Metric", "Value", "", "", "", ""]);
@@ -334,8 +335,9 @@ async function main() {
   const summary = await gatherAccountsAndRevenue(supabase);
   const platformActivity = await gatherPlatformActivity(supabase, summary.weekStart, summary.weekEnd);
   const storageUsage = await gatherStorageUsage(supabase);
+  const infraCosts = await getLiveInfraCosts();
 
-  const wb = await buildWorkbook(summary, platformActivity, morStatus, storageUsage);
+  const wb = await buildWorkbook(summary, platformActivity, morStatus, storageUsage, infraCosts);
 
   const filename = `LazyRelay_Weekly_Report_${summary.weekEnd.toISOString().slice(0, 10)}.xlsx`;
   const outPath = path.join(outputDir, filename);
