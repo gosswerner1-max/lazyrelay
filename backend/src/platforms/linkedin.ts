@@ -219,11 +219,33 @@ export class LinkedInAdapter implements PlatformAdapter {
   // available to approved users only" — NOT part of the self-serve "Share
   // on LinkedIn" product this adapter uses (w_member_social only grants
   // write access). Confirmed live via a real 403 "Not enough permissions
-  // to access: partnerApiPostsExternal.GET" when attempted. Since every
-  // post here is created with visibility: PUBLIC, the honest available
-  // verification is fetching the public post page directly (no auth,
-  // no scope needed) and checking it actually resolves — a genuine
-  // existence probe, not a fabricated confidence check.
+  // to access: partnerApiPostsExternal.GET" when attempted.
+  //
+  // RE-VERIFIED LIVE 2026-09-25 (platform-wide Telegram-bug audit): the
+  // public post-page fetch below is NOT the genuine per-post existence
+  // probe the old version of this comment claimed. LinkedIn login-walls
+  // every anonymous request to /feed/update/{urn}/ with an identical 307
+  // to /signup/cold-join regardless of whether that specific post exists —
+  // confirmed by curling both an obviously-nonexistent numeric activity id
+  // and a large, plausible-but-unverified one and getting the same 307.
+  // Only a syntactically malformed urn 404s, and platformPostId is never
+  // malformed in practice — it always comes straight from LinkedIn's own
+  // x-restli-id response header in post() above, never user input. So this
+  // fetch can only ever catch gross malformation; it can never detect a
+  // genuine post-publish removal or spam-filter takedown.
+  //
+  // Given that, the same reasoning as the Telegram fix applies: by the
+  // time this is ever called, post() has ALREADY gotten a confirmed
+  // synchronous success from LinkedIn's own API (a real urn in the
+  // x-restli-id header, not a queued/pending state) — so a non-
+  // discriminating weak check must never be allowed to manufacture a false
+  // failure out of that. Treating any non-404 response as verifiedLive:
+  // true is therefore the CORRECT behavior here, not a bug — it just isn't
+  // the strong "independently confirmed still live" guarantee the old
+  // comment implied. A post removed or spam-filtered after publish
+  // genuinely can't be detected this way, or any way, within this
+  // adapter's current scope — that would need the restricted
+  // r_member_social product, not built here.
   async verifyPublished(platformPostId: string, _accessToken: string): Promise<VerifyResult> {
     const platformPostUrl = `https://www.linkedin.com/feed/update/${platformPostId}/`;
 

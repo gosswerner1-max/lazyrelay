@@ -21,8 +21,25 @@ const SCOPES = "user.info.basic,video.publish";
 
 // Polling budget for the async publish flow — see the comment on
 // verifyPublished() for why this exists and its known limitation.
-const STATUS_POLL_ATTEMPTS = 5;
-const STATUS_POLL_DELAY_MS = 3000;
+//
+// FIXED 2026-09-25 (platform-wide Telegram-bug audit): this was 5 attempts
+// * 3s = 15s total, confirmed too short against LazyRelay's own
+// SUPPORT_KNOWLEDGE.md ("Publish call succeeds immediately... but real
+// moderation happens async"). A genuinely successful post() that hadn't
+// reached PUBLISH_COMPLETE within 15s got verifiedLive: false, which
+// scheduler.ts's handleFailure() treats exactly like a failed post: it
+// reruns post() from scratch — a brand-new chunked video upload with a
+// brand-new publish_id — up to 3 more times. Same shape as the Telegram bug
+// this audit started from: a real success getting duplicated because
+// verification couldn't keep up, not because the post actually failed.
+// Raised to match YouTube's own already-proven fix for the identical
+// "verification timed out" false negative (2026-08-04, see youtube.ts) —
+// 30 attempts * 10s = 5 minutes of real headroom. This does NOT fully close
+// the gap documented in verifyPublished() below (a distinct "pending
+// verification" state on scheduled_posts is the real complete fix, not
+// built here) — it only makes the window that gap can bite in much rarer.
+const STATUS_POLL_ATTEMPTS = 30;
+const STATUS_POLL_DELAY_MS = 10000;
 
 interface TikTokTokenResponse {
   access_token?: string;
@@ -393,9 +410,11 @@ export class TikTokAdapter implements PlatformAdapter {
   // verifiedLive: false, which sends the post through the scheduler's
   // normal retry path — but a retry re-runs post() from scratch, which
   // would create a duplicate publish_id for content TikTok is still
-  // working on. This is a known gap or short videos it should rarely
-  // trigger in practice; a real fix needs a distinct "pending verification"
-  // state on scheduled_posts rather than reusing the post-retry path.
+  // working on. Poll window widened 2026-09-25 (see STATUS_POLL_ATTEMPTS
+  // above) to make this genuinely rare instead of assumed rare; the
+  // residual gap is unchanged and a real complete fix still needs a
+  // distinct "pending verification" state on scheduled_posts rather than
+  // reusing the post-retry path.
   async verifyPublished(platformPostId: string, accessToken: string): Promise<VerifyResult> {
     for (let attempt = 0; attempt < STATUS_POLL_ATTEMPTS; attempt++) {
       const res = await fetch(POST_STATUS_URL, {
