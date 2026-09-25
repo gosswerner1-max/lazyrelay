@@ -40,35 +40,45 @@ export function buildApp(
   // frontend lives on a different origin and fetches this API directly.
   app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: "cross-origin" } }));
 
-  // TEMP DIAGNOSTIC EXPERIMENT (2026-09-25): was `1`, testing `2` live against
-  // /debug/rate-limit-diag before committing to the real fix -- see that
-  // route's comment for why.
+  // SECURITY FIX (2026-09-25): was `1`, confirmed WRONG by live diagnostic
+  // evidence, not a guess. A QA finding showed 60 concurrent requests to
+  // the documented 30/min `/public/status` all returning 200, with
+  // `RateLimit-Remaining` bouncing non-monotonically -- express-rate-limit's
+  // key (req.ip) wasn't resolving to a stable per-caller value.
+  //
+  // A temporary diagnostic route (`/debug/rate-limit-diag`, removed in the
+  // very next commit after this one) echoed req.ip/req.ips/the raw
+  // X-Forwarded-For header on real live requests, deployed and hit
+  // directly from the same known public IP several times. Evidence:
+  //   - X-Forwarded-For always carried exactly TWO entries: the real
+  //     client IP (stable, leftmost), then a SECOND hop IP that changed
+  //     on almost every single request (172.71.146.134, 172.68.247.31,
+  //     172.71.151.234, ... -- all in Cloudflare's published ranges).
+  //     This holds even hitting the bare onrender.com URL directly, so
+  //     it's Render's own platform-level edge (Cloudflare-based CDN in
+  //     front of Render's internal load balancer), not just this
+  //     project's own lazyrelay.com Cloudflare zone.
+  //   - With trust proxy=1, Express trusted only the innermost hop
+  //     (Render's own LB) and resolved req.ip to that rotating Cloudflare
+  //     edge IP -- explaining BOTH symptoms: 60 concurrent requests from
+  //     one real caller landing on many different "IPs" (so no single
+  //     rate-limit bucket ever filled), and Remaining bouncing around
+  //     (different buckets at different fill levels).
+  //   - With trust proxy=2, req.ip resolved to the real, stable client IP
+  //     across every request, while the rotating Cloudflare IP and
+  //     Render's internal LB IP (remoteAddress, a private 10.x address)
+  //     both kept changing underneath it -- confirming 2 is the real hop
+  //     count, not a number picked to match the old comment's assumption.
+  //   - Spoofing check: sent requests with a forged, attacker-supplied
+  //     X-Forwarded-For prefix (fake IPs prepended by curl) directly at
+  //     the live endpoint. Render's edge does NOT strip or replace a
+  //     client-supplied XFF -- it appends its own two hops onto whatever
+  //     arrives. req.ip still resolved correctly to the real caller IP
+  //     regardless, because proxy-addr with a numeric trust count reads
+  //     from the trusted (server) end inward and ignores anything an
+  //     untrusted client prepended. trust proxy=2 is therefore both
+  //     correct AND not an IP-spoofing hole for this rate limiter.
   app.set("trust proxy", 2);
-
-  // TEMPORARY DIAGNOSTIC — added 2026-09-25, to be removed in the very next
-  // commit once real evidence is captured. Root-causing the rate-limiter
-  // QA finding (60 concurrent requests to a documented 30/min endpoint all
-  // returned 200, RateLimit-Remaining bounced non-monotonically). Suspected
-  // cause is "trust proxy" not matching Render's real proxy hop count, so
-  // req.ip (the limiter's key) doesn't resolve to a stable per-caller value.
-  // This route echoes exactly what Express sees on a real live request so
-  // the correct hop count can be confirmed from evidence, not guessed.
-  // Unauthenticated on purpose (no session/JWT exists pre-auth to gate it
-  // with) but harmless: it only reflects the caller's own connection
-  // metadata back to them, nothing about any other account or request.
-  app.get("/debug/rate-limit-diag", (req, res) => {
-    const diag = {
-      ip: req.ip,
-      ips: req.ips,
-      xForwardedFor: req.headers["x-forwarded-for"] ?? null,
-      xForwardedProto: req.headers["x-forwarded-proto"] ?? null,
-      xForwardedHost: req.headers["x-forwarded-host"] ?? null,
-      remoteAddress: req.socket.remoteAddress,
-      trustProxySetting: app.get("trust proxy"),
-    };
-    console.log("RATE_LIMIT_DIAG", JSON.stringify(diag));
-    res.json(diag);
-  });
 
   // Webhook route needs the raw body for signature verification — mounted
   // BEFORE express.json() so the JSON parser never touches it.
