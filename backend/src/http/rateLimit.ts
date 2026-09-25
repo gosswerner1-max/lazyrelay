@@ -102,9 +102,14 @@ export const publicRateLimit = rateLimit({
  *  the rest of the day -- the global cap alone can't tell "one visitor
  *  asking a lot of questions" from "one script draining the budget for
  *  everyone else." This is a second, per-IP daily ceiling layered on top
- *  of both existing limits: in-memory is correct here for the same
- *  reason pendingTierChanges (routes.ts) already documents -- confirmed
- *  single Render instance today. 50/day per IP is generous for a real
+ *  of both existing limits: in-memory is an accepted tradeoff here (unlike
+ *  the five billing double-purchase locks that used to live in routes.ts's
+ *  old in-memory pendingTierChanges Set -- SECURITY FIX 2026-09-25 moved
+ *  those to a durable Supabase-backed lock, see billing/locks.ts, since a
+ *  Render deploy overlap briefly running two processes could reopen a real
+ *  double-charge; a rate limiter merely resetting early on deploy is a far
+ *  smaller, tolerable gap in a per-IP abuse backstop, not a money bug).
+ *  50/day per IP is generous for a real
  *  visitor (the 16-message-per-conversation cap already bounds a single
  *  real conversation well under that) while keeping any one IP from
  *  dominating the shared 500/day total. */

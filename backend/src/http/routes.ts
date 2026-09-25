@@ -9,6 +9,7 @@ import { imageSizeFromFile } from "image-size/fromFile";
 import { fileTypeFromFile } from "file-type";
 import { supabase } from "../supabase.js";
 import { cancelSubscription, cancelStorageAddon, cancelBrandAddon, cancelSeatAddon } from "../billing/sync.js";
+import { acquireBillingLock, releaseBillingLock } from "../billing/locks.js";
 import { buildCheckoutTransaction } from "../billing/paddle.js";
 import { Environment } from "@paddle/paddle-node-sdk";
 import type { MerchantOfRecordAdapter } from "../billing/types.js";
@@ -160,10 +161,7 @@ const PUBLIC_SITE_URL = "https://lazyrelay.com";
 // Two concurrent requests for the same account (a double-click, two open
 // tabs, a client retry after a slow response) can both pass the check and
 // both trigger a real Paddle charge; this is the exact failure class behind
-// the real $59.97 unintended-charge incident on 2026-08-21. Single Render
-// instance today (confirmed in the same audit), so a plain in-process lock
-// is sufficient -- revisit with a DB-level lock (e.g. a Postgres advisory
-// lock keyed on account_id) if this backend is ever scaled horizontally.
+// the real $59.97 unintended-charge incident on 2026-08-21.
 //
 // 2026-09-01 audit fix: /subscription/checkout had the exact same
 // check-then-act shape and no lock at all -- a double-click or two open
@@ -171,11 +169,20 @@ const PUBLIC_SITE_URL = "https://lazyrelay.com";
 // subscriptions, both actually charged, with the local row only ever
 // tracking one (onConflict: account_id) -- the other bills the customer
 // indefinitely with no way for the app or the customer to see or cancel it.
-// Reusing this same set for both routes is correct: both represent "this
-// account has an in-flight subscription-lifecycle mutation," and there's no
-// legitimate reason to allow a checkout and a change-tier to race each
-// other either.
-const pendingTierChanges = new Set<string>();
+// Sharing one lock across both routes (and the three add-on checkout routes
+// below) is correct: all five represent "this account has an in-flight
+// subscription-lifecycle mutation," and there's no legitimate reason to let
+// any two of them race each other either.
+//
+// SECURITY FIX (2026-09-25): this used to be a plain in-process
+// `new Set<string>()`, correct only for "single Render instance today"
+// (the original comment's own words) -- Render's zero-downtime deploys
+// briefly run the old and new process side by side, each with its own
+// independent, empty Set, reopening the exact double-purchase race these
+// locks exist to close for the length of that overlap. Replaced with a
+// durable, cross-process lock backed by a short-lived Supabase row (every
+// process already shares that database) -- see billing/locks.ts and
+// migration 0091_billing_action_locks.sql for the full mechanism.
 
 // Postgres/Supabase error messages can name internal detail (constraint
 // names, column names, query shape) that shouldn't reach a customer. Log the
@@ -4412,15 +4419,14 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
 
     // Real gap found in the 2026-09-01 audit: this route had the same
-    // check-then-act shape as /subscription/change-tier (see
-    // pendingTierChanges' doc comment above) with no lock at all -- reject a
-    // second concurrent checkout for this account outright, before touching
-    // the DB or Paddle at all, same as change-tier already does.
-    if (pendingTierChanges.has(req.accountId!)) {
+    // check-then-act shape as /subscription/change-tier (see the durable
+    // billing-action lock's doc comment above) with no lock at all -- reject
+    // a second concurrent checkout for this account outright, before
+    // touching the DB or Paddle at all, same as change-tier already does.
+    if (!(await acquireBillingLock(req.accountId!, "subscription/checkout"))) {
       res.status(409).json({ error: "A subscription change is already in progress for this account. Please wait for it to finish." });
       return;
     }
-    pendingTierChanges.add(req.accountId!);
 
     try {
       const { data: account, error: accountError } = await req.db!
@@ -4444,6 +4450,24 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       // keeps billing the customer indefinitely. Existing customers upgrading
       // between paid tiers already have their own dedicated endpoint
       // (/subscription/change-tier) -- this one is Free-to-paid only.
+      //
+      // SECURITY FIX (2026-09-25): this guard used to only check for
+      // active/trialing, missing past_due entirely -- a past_due subscription
+      // is still nominally alive at Paddle (not yet cancelled), so a
+      // past_due customer hitting this route the same way (e.g. a stale tab
+      // still showing this account's original tier, or a direct API replay)
+      // could open a brand-new second Paddle subscription while the first
+      // one was still failing to charge. That second subscription's webhook
+      // would then upsert onto the exact same account_id row as the first,
+      // silently overwriting mor_subscription_id and orphaning the past_due
+      // subscription -- identical outcome to the active/trialing case this
+      // guard already covered, just reached from a different status. No
+      // self-serve "update payment method" flow exists in this codebase
+      // (confirmed: no billing-portal route, no card-update UI) -- past_due
+      // recovery today is handled manually via ops/billing/billing_ops.js's
+      // findPastDueNeedingFollowup() dunning cadence, so this blocks outright
+      // and points the customer at support rather than fabricating a
+      // self-serve flow that doesn't exist yet.
       const { data: existingSub, error: existingSubError } = await req.db!
         .from("subscriptions")
         .select("status")
@@ -4451,6 +4475,13 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         .maybeSingle();
       if (existingSubError) {
         dbError(res, existingSubError, "POST /subscription/checkout");
+        return;
+      }
+      if (existingSub && existingSub.status === "past_due") {
+        res.status(400).json({
+          error:
+            "Your existing plan has a payment problem (past due) that needs to be resolved first -- starting a new plan now would leave the old one still charging in the background. Email support@lazyrelay.com and we'll help sort out your payment method.",
+        });
         return;
       }
       if (existingSub && (existingSub.status === "active" || existingSub.status === "trialing")) {
@@ -4474,7 +4505,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
       }
     } finally {
-      pendingTierChanges.delete(req.accountId!);
+      await releaseBillingLock(req.accountId!);
     }
   });
 
@@ -4516,13 +4547,12 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     }
 
     // Reject a second concurrent change-tier request for this account
-    // outright, before touching the DB or Paddle at all -- see
-    // pendingTierChanges' doc comment above for why this exists.
-    if (pendingTierChanges.has(req.accountId!)) {
+    // outright, before touching the DB or Paddle at all -- see the durable
+    // billing-action lock's doc comment above for why this exists.
+    if (!(await acquireBillingLock(req.accountId!, "subscription/change-tier"))) {
       res.status(409).json({ error: "A tier change is already in progress for this account. Please wait for it to finish." });
       return;
     }
-    pendingTierChanges.add(req.accountId!);
 
     try {
       const { data: account, error: accountError } = await req.db!
@@ -4560,7 +4590,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
       }
       res.json({ changed: true });
     } finally {
-      pendingTierChanges.delete(req.accountId!);
+      await releaseBillingLock(req.accountId!);
     }
   });
 
@@ -4630,14 +4660,14 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
     // all -- two concurrent requests (double-click, two tabs) could both
     // pass the active-count check below and both create a real Paddle
     // transaction, exceeding MAX_ACTIVE_STORAGE_ADDONS and/or resulting
-    // in two real charges. Reusing pendingTierChanges (see its own doc
-    // comment) rather than a separate lock, since a tier-change racing
-    // an add-on checkout for the same account is the same underlying bug.
-    if (pendingTierChanges.has(req.accountId!)) {
+    // in two real charges. Reusing the same durable billing-action lock
+    // (see its own doc comment above) rather than a separate lock, since a
+    // tier-change racing an add-on checkout for the same account is the
+    // same underlying bug.
+    if (!(await acquireBillingLock(req.accountId!, "storage-addons/checkout"))) {
       res.status(409).json({ error: "A billing change is already in progress for this account. Please wait for it to finish." });
       return;
     }
-    pendingTierChanges.add(req.accountId!);
 
     try {
       // storage_addons: service-role only, see GET /storage-addons above.
@@ -4688,7 +4718,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
       }
     } finally {
-      pendingTierChanges.delete(req.accountId!);
+      await releaseBillingLock(req.accountId!);
     }
   });
 
@@ -4741,11 +4771,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
     // SECURITY FIX (2026-09-14): same missing-lock race as
     // /storage-addons/checkout above -- see that fix's comment.
-    if (pendingTierChanges.has(req.accountId!)) {
+    if (!(await acquireBillingLock(req.accountId!, "brand-addons/checkout"))) {
       res.status(409).json({ error: "A billing change is already in progress for this account. Please wait for it to finish." });
       return;
     }
-    pendingTierChanges.add(req.accountId!);
 
     try {
       // brand_addons: service-role only, see GET /brand-addons above.
@@ -4795,7 +4824,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
       }
     } finally {
-      pendingTierChanges.delete(req.accountId!);
+      await releaseBillingLock(req.accountId!);
     }
   });
 
@@ -4844,11 +4873,10 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
 
     // SECURITY FIX (2026-09-14): same missing-lock race as
     // /storage-addons/checkout above -- see that fix's comment.
-    if (pendingTierChanges.has(req.accountId!)) {
+    if (!(await acquireBillingLock(req.accountId!, "seat-addons/checkout"))) {
       res.status(409).json({ error: "A billing change is already in progress for this account. Please wait for it to finish." });
       return;
     }
-    pendingTierChanges.add(req.accountId!);
 
     try {
       // seat_addons: service-role only, see GET /seat-addons above.
@@ -4898,7 +4926,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
         res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
       }
     } finally {
-      pendingTierChanges.delete(req.accountId!);
+      await releaseBillingLock(req.accountId!);
     }
   });
 

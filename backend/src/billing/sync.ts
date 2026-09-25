@@ -13,48 +13,88 @@ import type {
   RefundRecordEvent,
 } from "./types.js";
 
-/** Reverses a prior downgrade-pause (ops/accounts/accounts_ops.js's
- *  planDowngradePause/enforceDowngradePause) when a webhook brings a
- *  subscription back to "active" — e.g. an upgrade, or a past_due account
- *  paying up. Without this, an account that was paused for exceeding its
- *  old tier's limit stayed paused forever after upgrading, since nothing
- *  called the JS ops module's unpauseAccounts() from the real webhook path
- *  (confirmed gap, 2026-07-28 — that function only ever ran in its own
- *  smoke test). Unpauses oldest-paused-first, up to the new tier's limit,
- *  mirroring the pause side's oldest-connected-stays-active convention. */
-async function unpausePausedAccountsUpToLimit(accountId: string, tier: Tier): Promise<void> {
+/** Enforces the connected-account cap for `tier` against reality, in both
+ *  directions, any time a webhook lands the account on that tier while
+ *  active — an upgrade, a downgrade between paid tiers, or a past_due
+ *  account paying back up. Both directions come from the exact same webhook
+ *  shape: /subscription/change-tier (routes.ts) never writes the local DB
+ *  itself, only the resulting subscription.updated webhook does, and that
+ *  webhook looks identical whether the tier went up or down.
+ *
+ *  - room > 0 (upgrade, or paying up from past_due): reverses a prior
+ *    downgrade-pause, oldest-paused-first, mirroring the pause side's
+ *    oldest-connected-stays-active convention. This used to be this
+ *    function's entire job (it was named unpausePausedAccountsUpToLimit) —
+ *    see the paused-if-over-limit case below for why that was only half the
+ *    fix.
+ *  - room < 0 (downgrade to a tier whose cap is below what's currently
+ *    connected): pauses the newest-connected accounts down to the new
+ *    limit. SECURITY FIX (2026-09-25): this half never existed here.
+ *    ops/accounts/accounts_ops.js has real, tested planDowngradePause()/
+ *    enforceDowngradePause() functions for exactly this (see
+ *    ops/accounts/test-downgrade-pause.js) — a repo-wide grep found zero
+ *    callers of either on any real code path, only that smoke test. That
+ *    JS pair also lives in a separate CommonJS package (ops/) the TS
+ *    backend doesn't import from, so a downgrade landing via the real
+ *    Paddle webhook never paused anything: an account that downgraded from
+ *    Business (50 accounts) to Starter (20) kept posting from all 50
+ *    indefinitely, with nothing ever enforcing the new tier's lower cap.
+ *    Ported the same oldest-stays-active logic here in TS, at the one real
+ *    call site, rather than reaching across the package boundary. */
+async function enforceAccountLimitForTier(accountId: string, tier: Tier): Promise<void> {
   const limit = ACCOUNT_LIMITS[tier];
 
-  const { count: activeCount, error: activeError } = await supabase
+  const { data: connected, error: connectedError } = await supabase
     .from("social_accounts")
-    .select("id", { count: "exact", head: true })
+    .select("id, paused_at")
     .eq("account_id", accountId)
     .is("disconnected_at", null)
-    .is("paused_at", null);
-  if (activeError) throw activeError;
+    .order("connected_at", { ascending: true });
+  if (connectedError) throw connectedError;
 
-  const room = limit - (activeCount ?? 0);
-  if (room <= 0) return;
+  const activeIds = (connected ?? []).filter((a) => !a.paused_at).map((a) => a.id);
+  const room = limit - activeIds.length;
 
-  const { data: paused, error: pausedError } = await supabase
-    .from("social_accounts")
-    .select("id")
-    .eq("account_id", accountId)
-    .is("disconnected_at", null)
-    .not("paused_at", "is", null)
-    .order("paused_at", { ascending: true })
-    .limit(room);
-  if (pausedError) throw pausedError;
-  if (!paused || paused.length === 0) return;
+  if (room > 0) {
+    const { data: paused, error: pausedError } = await supabase
+      .from("social_accounts")
+      .select("id")
+      .eq("account_id", accountId)
+      .is("disconnected_at", null)
+      .not("paused_at", "is", null)
+      .order("paused_at", { ascending: true })
+      .limit(room);
+    if (pausedError) throw pausedError;
+    if (!paused || paused.length === 0) return;
 
-  const { error: unpauseError } = await supabase
-    .from("social_accounts")
-    .update({ paused_at: null })
-    .in(
-      "id",
-      paused.map((p) => p.id),
-    );
-  if (unpauseError) throw unpauseError;
+    const { error: unpauseError } = await supabase
+      .from("social_accounts")
+      .update({ paused_at: null })
+      .in(
+        "id",
+        paused.map((p) => p.id),
+      );
+    if (unpauseError) throw unpauseError;
+    return;
+  }
+
+  if (room < 0) {
+    // `connected` is already ordered oldest-first (connected_at ascending);
+    // activeIds inherits that order. Keep the oldest `limit` active ids,
+    // pause the rest -- same oldest-connected-stays-active convention as
+    // ops/accounts/accounts_ops.js's planDowngradePause. is("paused_at",
+    // null) makes this idempotent if a retried/duplicate webhook re-runs it.
+    const keepIds = new Set(activeIds.slice(0, Math.max(limit, 0)));
+    const pauseIds = activeIds.filter((id) => !keepIds.has(id));
+    if (pauseIds.length === 0) return;
+
+    const { error: pauseError } = await supabase
+      .from("social_accounts")
+      .update({ paused_at: new Date().toISOString() })
+      .in("id", pauseIds)
+      .is("paused_at", null);
+    if (pauseError) throw pauseError;
+  }
 }
 
 /** Resolves the account a webhook event belongs to. Prefers the stable
@@ -304,7 +344,7 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
       .from("accounts")
       .update({ cancelled_at: null, data_deletion_ack_at: null, data_deletion_reminder_sent_at: null })
       .eq("id", accountId);
-    await unpausePausedAccountsUpToLimit(accountId, event.tier as Tier);
+    await enforceAccountLimitForTier(accountId, event.tier as Tier);
   }
 }
 
@@ -410,6 +450,42 @@ async function recordRefund(event: RefundRecordEvent, morAdapter: MerchantOfReco
       );
     } else {
       console.log(`Chargeback ${event.paddleAdjustmentId}: revoked subscription ${event.paddleSubscriptionId} immediately.`);
+    }
+
+    // SECURITY FIX (2026-09-25): voluntary cancellation (cancelSubscription
+    // below) already cascades to every active/trialing storage/brand/seat
+    // add-on -- this forced chargeback-revocation path used to only revoke
+    // the main subscription above, leaving every add-on active and still
+    // billing indefinitely even though the customer has already reversed
+    // their payment via their bank. A chargeback is at least as urgent as a
+    // voluntary cancel, so it gets the same cascade, just immediate rather
+    // than deferred-to-period-end -- consistent with why the main
+    // subscription itself uses revokeSubscriptionImmediately here instead of
+    // cancelSubscription's deferred cancelSubscription() call. Best-effort
+    // per add-on and per table, same discipline as the voluntary path: one
+    // add-on's transient MoR failure must not block the others, and none of
+    // this may throw past the bookkeeping record already written above.
+    for (const table of ["storage_addons", "brand_addons", "seat_addons"] as const) {
+      const { data: addons, error: addonsError } = await supabase
+        .from(table)
+        .select("id, mor_subscription_id")
+        .eq("account_id", saleRecord.account_id)
+        .in("status", ["active", "trialing"]);
+      if (addonsError) {
+        console.error(`Chargeback ${event.paddleAdjustmentId}: failed to look up ${table} for cascade revocation:`, addonsError.message);
+        continue;
+      }
+      for (const addon of addons ?? []) {
+        const addonRevoke = await morAdapter.revokeSubscriptionImmediately(addon.mor_subscription_id);
+        if (!addonRevoke.success) {
+          console.error(
+            `Chargeback ${event.paddleAdjustmentId}: failed to revoke ${table} add-on ${addon.id} at Paddle — needs manual follow-up:`,
+            addonRevoke.errorMessage,
+          );
+        } else {
+          console.log(`Chargeback ${event.paddleAdjustmentId}: revoked ${table} add-on ${addon.id} immediately.`);
+        }
+      }
     }
   }
 }
