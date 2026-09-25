@@ -71,6 +71,7 @@ async function main() {
     status: "active",
     currentPeriodEnd: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
     occurredAt: new Date().toISOString(),
+    cancelAtPeriodEnd: false,
   };
   const brandEvent: BrandAddonEvent = {
     kind: "brand_addon",
@@ -79,6 +80,7 @@ async function main() {
     status: "active",
     currentPeriodEnd: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
     occurredAt: new Date().toISOString(),
+    cancelAtPeriodEnd: false,
   };
   const seatEvent: SeatAddonEvent = {
     kind: "seat_addon",
@@ -87,6 +89,7 @@ async function main() {
     status: "active",
     currentPeriodEnd: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
     occurredAt: new Date().toISOString(),
+    cancelAtPeriodEnd: false,
   };
   await syncSubscriptionFromWebhook(storageEvent);
   await syncSubscriptionFromWebhook(brandEvent);

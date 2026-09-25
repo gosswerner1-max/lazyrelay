@@ -71,6 +71,35 @@ interface SubscriptionLike {
   status: string;
   customData: Record<string, unknown> | null;
   currentBillingPeriod: { endsAt: string } | null;
+  // Paddle sets this on the subscription itself the moment a deferred
+  // cancellation (or pause/resume) is scheduled -- null once nothing is
+  // scheduled (a fresh subscription, or one whose scheduled change already
+  // took effect or was reversed). This is the real, race-proof source of
+  // truth for "is this subscription set to cancel," independent of which
+  // event type happened to deliver it. Same field TimeAJob's identical fix
+  // added to its own equivalent interface (commit c077ce4).
+  scheduledChange: { action: string } | null;
+}
+
+/** The webhook race this exists to close: calling subscriptions.cancel()
+ *  with effectiveFrom "next_billing_period" doesn't just eventually fire
+ *  subscription.canceled at period end -- it ALSO fires a subscription.
+ *  updated for the very act of scheduling that cancellation, with status
+ *  still "active" (or "trialing") and scheduledChange.action === "cancel".
+ *  The old code ignored scheduledChange entirely and unconditionally forced
+ *  cancel_at_period_end to false on every subscription-event upsert
+ *  (reasoning: "a real webhook is authoritative, so it clears our local
+ *  guess") -- true for status, but wrong for cancel_at_period_end
+ *  specifically, since Paddle's own "cancellation scheduled" webhook was
+ *  exactly the event that flag needs to survive. If that update webhook
+ *  arrived at all (Paddle doesn't guarantee delivery order), it would
+ *  silently un-cancel the subscription in our DB while the customer stays
+ *  billed. Deriving the flag from Paddle's own scheduledChange on every
+ *  event -- instead of hardcoding it -- makes the sync idempotent no matter
+ *  what order these two webhooks land in. SECURITY FIX (2026-09-25) —
+ *  mirrors TimeAJob's identical fix for the identical bug (commit c077ce4). */
+export function deriveCancelAtPeriodEnd(sub: Pick<SubscriptionLike, "scheduledChange">): boolean {
+  return sub.scheduledChange?.action === "cancel";
 }
 
 /** Branches on customData.kind to build either a tier SubscriptionEvent or
@@ -88,28 +117,29 @@ function buildEventFromCustomData(sub: SubscriptionLike, status: SubscriptionEve
   // transaction created before this fix has no accountId in its customData.
   const accountId = typeof customData.accountId === "string" && customData.accountId ? customData.accountId : undefined;
   const currentPeriodEnd = sub.currentBillingPeriod?.endsAt ?? new Date().toISOString();
+  const cancelAtPeriodEnd = deriveCancelAtPeriodEnd(sub);
 
   if (customData.kind === "storage_addon") {
     const gbAmount = customData.gbAmount;
     if (typeof gbAmount !== "number" || gbAmount <= 0) {
       throw new Error(`Subscription ${sub.id} has invalid/missing customData.gbAmount "${String(gbAmount)}"`);
     }
-    return { kind: "storage_addon", morSubscriptionId: sub.id, accountEmail, accountId, gbAmount, status, currentPeriodEnd, occurredAt };
+    return { kind: "storage_addon", morSubscriptionId: sub.id, accountEmail, accountId, gbAmount, status, currentPeriodEnd, occurredAt, cancelAtPeriodEnd };
   }
 
   if (customData.kind === "brand_addon") {
-    return { kind: "brand_addon", morSubscriptionId: sub.id, accountEmail, accountId, status, currentPeriodEnd, occurredAt };
+    return { kind: "brand_addon", morSubscriptionId: sub.id, accountEmail, accountId, status, currentPeriodEnd, occurredAt, cancelAtPeriodEnd };
   }
 
   if (customData.kind === "seat_addon") {
-    return { kind: "seat_addon", morSubscriptionId: sub.id, accountEmail, accountId, status, currentPeriodEnd, occurredAt };
+    return { kind: "seat_addon", morSubscriptionId: sub.id, accountEmail, accountId, status, currentPeriodEnd, occurredAt, cancelAtPeriodEnd };
   }
 
   const tier = customData.tier;
   if (typeof tier !== "string" || !(VALID_TIERS as readonly string[]).includes(tier)) {
     throw new Error(`Subscription ${sub.id} has invalid/missing customData.tier "${String(tier)}"`);
   }
-  return { kind: "tier", morSubscriptionId: sub.id, accountEmail, accountId, tier: tier as SubscriptionEvent["tier"], status, currentPeriodEnd, occurredAt };
+  return { kind: "tier", morSubscriptionId: sub.id, accountEmail, accountId, tier: tier as SubscriptionEvent["tier"], status, currentPeriodEnd, occurredAt, cancelAtPeriodEnd };
 }
 
 interface TransactionTotalsLike {

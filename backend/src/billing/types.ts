@@ -35,6 +35,18 @@ export interface SubscriptionEvent {
   // the tier event, not the add-on kinds below — those don't drive the
   // cancelled_at/data-deletion-clock logic this exists to protect.
   occurredAt: string; // ISO timestamp
+  // SECURITY FIX (2026-09-25): derived fresh from Paddle's own
+  // scheduledChange field on every event (see billing/paddle.ts's
+  // deriveCancelAtPeriodEnd) instead of sync.ts hardcoding this to false.
+  // cancelSubscription() cancels with effectiveFrom "next_billing_period",
+  // which makes Paddle fire a subscription.updated for the act of
+  // SCHEDULING that cancellation (status still active/trialing,
+  // scheduledChange.action === "cancel") before the eventual terminal
+  // subscription.canceled at period end. Hardcoding false used to silently
+  // un-cancel the subscription in our DB if that update webhook landed,
+  // while the customer stayed billed. Same fix applied to TimeAJob's
+  // identical bug, see that repo's commit c077ce4.
+  cancelAtPeriodEnd: boolean;
 }
 
 /** A storage add-on (2026-07-23) is deliberately its OWN Paddle
@@ -55,6 +67,10 @@ export interface StorageAddonEvent {
   // dropped in buildEventFromCustomData even though the real value was
   // already flowing through that function's own parameter.
   occurredAt: string; // ISO timestamp
+  // SECURITY FIX (2026-09-25): see SubscriptionEvent.cancelAtPeriodEnd's
+  // doc comment -- same webhook race, same fix, applies identically to
+  // every add-on kind since each is its own independent Paddle subscription.
+  cancelAtPeriodEnd: boolean;
 }
 
 /** A completed Paddle transaction ("a sale") — captured for IPE Projects'
@@ -110,6 +126,7 @@ export interface BrandAddonEvent {
   status: "trialing" | "active" | "past_due" | "cancelled";
   currentPeriodEnd: string; // ISO timestamp
   occurredAt: string; // ISO timestamp -- see StorageAddonEvent.occurredAt
+  cancelAtPeriodEnd: boolean; // see SubscriptionEvent.cancelAtPeriodEnd
 }
 
 /** A seat add-on (Agency pricing pass, 2026-08-17) — same "own Paddle
@@ -123,6 +140,7 @@ export interface SeatAddonEvent {
   status: "trialing" | "active" | "past_due" | "cancelled";
   currentPeriodEnd: string; // ISO timestamp
   occurredAt: string; // ISO timestamp -- see StorageAddonEvent.occurredAt
+  cancelAtPeriodEnd: boolean; // see SubscriptionEvent.cancelAtPeriodEnd
 }
 
 export type BillingEvent = SubscriptionEvent | StorageAddonEvent | BrandAddonEvent | SeatAddonEvent | SaleRecordEvent | RefundRecordEvent;

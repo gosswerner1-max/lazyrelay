@@ -182,12 +182,24 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
       gb_amount: event.gbAmount,
       status: event.status,
       current_period_end: event.currentPeriodEnd,
-      // A real webhook always reflects Paddle's current authoritative
-      // state, which supersedes our own local "customer clicked cancel,
-      // waiting for period end" flag — clears it whether this event is a
-      // fresh resubscribe or the real end-of-period cancellation finally
-      // landing (see cancel_at_period_end migration 0043).
-      cancel_at_period_end: false,
+      // SECURITY FIX (2026-09-25): a real webhook always reflects Paddle's
+      // current authoritative state, which supersedes our own local
+      // "customer clicked cancel, waiting for period end" flag -- but
+      // "authoritative" means read straight from Paddle's own
+      // scheduledChange field (see billing/paddle.ts's
+      // deriveCancelAtPeriodEnd), not "always false." Hardcoding false here
+      // used to silently un-cancel this add-on: cancelSubscription() below
+      // cancels with effectiveFrom "next_billing_period," which makes
+      // Paddle fire a subscription.updated for the act of SCHEDULING that
+      // cancellation (status still active/trialing, scheduledChange.action
+      // === "cancel") before the eventual subscription.canceled at period
+      // end -- if that update webhook landed here, it would flip the flag
+      // back to false while the customer stayed billed.
+      // event.cancelAtPeriodEnd is derived fresh from Paddle's own state on
+      // every event, so it's correct (and idempotent) regardless of which
+      // webhook arrives first: true while a cancellation is scheduled,
+      // false on a genuine resubscribe/resume.
+      cancel_at_period_end: event.cancelAtPeriodEnd,
     });
     return;
   }
@@ -200,7 +212,8 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
       mor_subscription_id: event.morSubscriptionId,
       status: event.status,
       current_period_end: event.currentPeriodEnd,
-      cancel_at_period_end: false,
+      // See the matching comment on the storage_addons upsert above.
+      cancel_at_period_end: event.cancelAtPeriodEnd,
     });
     return;
   }
@@ -214,7 +227,8 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
       mor_subscription_id: event.morSubscriptionId,
       status: event.status,
       current_period_end: event.currentPeriodEnd,
-      cancel_at_period_end: false,
+      // See the matching comment on the storage_addons upsert above.
+      cancel_at_period_end: event.cancelAtPeriodEnd,
     });
     return;
   }
@@ -246,7 +260,7 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
     status: event.status,
     current_period_end: event.currentPeriodEnd,
     // See the matching comment on the storage_addons upsert above.
-    cancel_at_period_end: false,
+    cancel_at_period_end: event.cancelAtPeriodEnd,
     last_webhook_occurred_at: safeOccurredAt,
     updated_at: new Date().toISOString(),
   };

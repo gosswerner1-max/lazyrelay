@@ -82,6 +82,7 @@ async function main() {
       status: "active",
       currentPeriodEnd: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
       occurredAt: new Date(Date.now() - 60_000).toISOString(),
+      cancelAtPeriodEnd: false,
     };
     await syncSubscriptionFromWebhook(firstEvent);
 
