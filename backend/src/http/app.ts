@@ -45,6 +45,31 @@ export function buildApp(
   // tell real client IPs from the proxy's and throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
   app.set("trust proxy", 1);
 
+  // TEMPORARY DIAGNOSTIC — added 2026-09-25, to be removed in the very next
+  // commit once real evidence is captured. Root-causing the rate-limiter
+  // QA finding (60 concurrent requests to a documented 30/min endpoint all
+  // returned 200, RateLimit-Remaining bounced non-monotonically). Suspected
+  // cause is "trust proxy" not matching Render's real proxy hop count, so
+  // req.ip (the limiter's key) doesn't resolve to a stable per-caller value.
+  // This route echoes exactly what Express sees on a real live request so
+  // the correct hop count can be confirmed from evidence, not guessed.
+  // Unauthenticated on purpose (no session/JWT exists pre-auth to gate it
+  // with) but harmless: it only reflects the caller's own connection
+  // metadata back to them, nothing about any other account or request.
+  app.get("/debug/rate-limit-diag", (req, res) => {
+    const diag = {
+      ip: req.ip,
+      ips: req.ips,
+      xForwardedFor: req.headers["x-forwarded-for"] ?? null,
+      xForwardedProto: req.headers["x-forwarded-proto"] ?? null,
+      xForwardedHost: req.headers["x-forwarded-host"] ?? null,
+      remoteAddress: req.socket.remoteAddress,
+      trustProxySetting: app.get("trust proxy"),
+    };
+    console.log("RATE_LIMIT_DIAG", JSON.stringify(diag));
+    res.json(diag);
+  });
+
   // Webhook route needs the raw body for signature verification — mounted
   // BEFORE express.json() so the JSON parser never touches it.
   // publicRateLimit added 2026-09-06 (security audit finding) — this was
