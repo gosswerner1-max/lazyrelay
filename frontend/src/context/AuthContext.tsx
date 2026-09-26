@@ -43,14 +43,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(hasStoredSessionToken);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        // A stored session that can no longer be validated (its refresh
+        // token already rotated out or revoked, most often from a second
+        // tab refreshing first) should not sit in storage waiting to be
+        // retried -- clear it locally so this tab is cleanly logged out
+        // instead of leaving a dead session for the auto-refresh timer to
+        // keep hammering /oauth/token against, indefinitely, every time it
+        // ticks. Seen live in Supabase's Auth logs: repeated 400 "Invalid
+        // Refresh Token: Refresh Token Not Found" warnings from this exact
+        // path, all day, from a single stale local session.
+        void supabase.auth.signOut({ scope: "local" });
+        setSession(null);
+        setLoading(false);
+        return;
+      }
       setSession(data.session);
       setLoading(false);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
     });
-    return () => sub.subscription.unsubscribe();
+
+    // Background/hidden tabs have no reason to keep refreshing a session
+    // nobody is looking at. Supabase's own recommended fix for exactly
+    // this failure mode (multiple tabs racing to refresh the same rotated
+    // token, one wins and the other's refresh token stops existing) is to
+    // pause auto-refresh while a tab isn't visible and resume it when it
+    // is -- see supabase.com/docs/reference/javascript/auth-startautorefresh.
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void supabase.auth.startAutoRefresh();
+      } else {
+        void supabase.auth.stopAutoRefresh();
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    handleVisibilityChange();
+
+    return () => {
+      sub.subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   const signUp = async (email: string, password: string, captchaToken: string, businessName?: string) => {
