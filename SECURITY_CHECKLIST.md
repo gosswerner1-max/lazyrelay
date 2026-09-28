@@ -442,14 +442,30 @@ original one.
 - ✅ **Storage**: weekly local backup of the `post-media` bucket
   (`lazyrelay-storage-backup-weekly`) — ⚠️ laptop-only, no off-site copy yet;
   revisit once real customer volume justifies the cost.
-- ✅ **Restore genuinely proven, not assumed** — a full real restore drill
-  2026-08-26: created a temporary Supabase project, restored all 69
+- ✅ **Database restore genuinely proven, not assumed** — a full real restore
+  drill 2026-08-26: created a temporary Supabase project, restored all 69
   migrations + every real table's data, verified byte-for-byte on a real row,
   deleted the scratch project after. Two real findings recorded: `accounts`
   depends on `auth.users` (restore that first), and Vault-encrypted tokens
   are **provably non-portable across projects** — a cross-project disaster
   recovery would need every customer to reconnect their social accounts;
   restoring into the *same* project doesn't hit this. *(2026-08-26)*
+- ✅ **Storage restore genuinely proven too, not assumed** — the weekly
+  `post-media` backup had only ever been proven to download successfully,
+  never proven to restore. A full real restore drill 2026-09-22
+  (`ops/infra/restore_storage_test.js`): every one of the 1,146 files in the
+  2026-09-21 local snapshot (259 MB) uploaded to a throwaway Supabase Storage
+  bucket, downloaded back, and verified byte-for-byte via SHA-256 —
+  **1,146/1,146 restored, 1,146/1,146 verified, 0 failures.** The throwaway
+  bucket was deleted after and independently re-confirmed gone (live API
+  404), same discipline as the DB drill's scratch-project cleanup. Two real
+  bugs found and fixed by the drill itself, both now permanent fixes in the
+  script rather than one-off workarounds: the bucket-level `/empty` endpoint
+  is asynchronous (queues, doesn't complete immediately), so cleanup now
+  deletes every object explicitly first instead of racing the async empty;
+  and one real file in the live bucket (`pinterest-demo-1785844820.mp4`)
+  sits at the bucket root with no account folder, which the restore script's
+  filename parser didn't originally handle. *(2026-09-22)*
 
 ## 8. Logging & Monitoring
 
