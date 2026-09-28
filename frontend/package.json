@@ -37,7 +37,7 @@
     "jsdom": "^30.1.0",
     "oxlint": "^1.82.0",
     "prettier": "^3.9.8",
-    "puppeteer-core": "^25.9.0",
+    "puppeteer-core": "^25.11.0",
     "typescript": "~6.0.2",
     "vite": "^8.1.1",
     "vitest": "^5.0.0"
