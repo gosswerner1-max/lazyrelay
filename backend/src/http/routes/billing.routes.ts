@@ -112,7 +112,7 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
   // (see BILLING_KNOWLEDGE.md) — reports a clear error rather than a
   // confusing Paddle SDK exception if they don't.
   router.post("/subscription/checkout", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { tier } = req.body ?? {};
+    const { tier, promoCode } = req.body ?? {};
     if (tier !== "pro" && tier !== "business" && tier !== "enterprise" && tier !== "agency" && tier !== "agency_plus") {
       res.status(400).json({
         error:
@@ -120,6 +120,11 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
       });
       return;
     }
+    // Launch-discount promo code (2026-09-28), captured client-side from a
+    // ?promo= link -- optional, and resolveDiscountId in billing/paddle.ts
+    // fails open on anything short of a real match, so an absent/garbage
+    // value here just means checkout proceeds at full price.
+    const discountCode = typeof promoCode === "string" && promoCode.trim() ? promoCode.trim() : undefined;
 
     const apiKey = process.env.MOR_API_KEY;
     // Internal tier codes were kept stable across the Starter/Pro/Business
@@ -224,6 +229,7 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
           accountId: req.accountId!,
           tier,
           priceId,
+          discountCode,
         });
         res.json({ transactionId, checkoutUrl });
       } catch (err) {

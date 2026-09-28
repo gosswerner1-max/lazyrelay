@@ -369,11 +369,35 @@ async function getOrCreateCustomerId(paddle: Paddle, email: string): Promise<str
   return created.id;
 }
 
-type CheckoutParams =
+type CheckoutParams = (
   | { kind: "tier"; accountEmail: string; accountId: string; tier: "pro" | "business" | "enterprise" | "agency" | "agency_plus"; priceId: string }
   | { kind: "storage_addon"; accountEmail: string; accountId: string; gbAmount: number; priceId: string }
   | { kind: "brand_addon"; accountEmail: string; accountId: string; priceId: string }
-  | { kind: "seat_addon"; accountEmail: string; accountId: string; priceId: string };
+  | { kind: "seat_addon"; accountEmail: string; accountId: string; priceId: string }
+) & {
+  // Launch-discount promo code (2026-09-28), captured client-side from a
+  // ?promo= link -- resolved to Paddle's own discount id just below. Never
+  // blocks checkout: an invalid/expired/exhausted code just means the
+  // transaction proceeds at full price, same as if none was supplied.
+  discountCode?: string;
+};
+
+/** Resolves a customer-facing discount code (e.g. "LAUNCH20") to Paddle's
+ *  own internal discount id (`dsc_...`) -- transactions.create() only
+ *  accepts the id, not the code (confirmed against Paddle's real API docs
+ *  2026-09-28: POST /transactions takes discount_id, never a bare code).
+ *  Returns null rather than throwing on anything short of success (not
+ *  found, disabled, expired, past its usage_limit) -- resolution failing is
+ *  never a reason to block a real checkout. */
+async function resolveDiscountId(paddle: Paddle, code: string): Promise<string | null> {
+  try {
+    const matches = await paddle.discounts.list({ code: [code] }).next();
+    return matches[0]?.id ?? null;
+  } catch (err) {
+    console.error(`[paddle] resolveDiscountId("${code}") failed:`, err instanceof Error ? err.message : err);
+    return null;
+  }
+}
 
 /** Creates a Paddle transaction to check out. Returns the transactionId,
  * which the frontend passes to Paddle.js's `Paddle.Checkout.open({
@@ -403,10 +427,12 @@ export async function buildCheckoutTransaction(
         : params.kind === "seat_addon"
           ? { accountEmail: params.accountEmail, accountId: params.accountId, kind: "seat_addon" }
           : { accountEmail: params.accountEmail, accountId: params.accountId, kind: "tier", tier: params.tier };
+  const discountId = params.discountCode ? await resolveDiscountId(paddle, params.discountCode) : null;
   const transaction = await paddle.transactions.create({
     items: [{ priceId: params.priceId, quantity: 1 }],
     customerId,
     customData,
+    ...(discountId ? { discountId } : {}),
     // Explicit checkout.url avoids requiring a "default payment link" to be
     // configured in the Paddle dashboard (a real gap found 2026-07-22 while
     // testing the live checkout flow — Paddle rejects transaction creation

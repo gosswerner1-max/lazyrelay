@@ -20,6 +20,7 @@ import { Spinner } from "./components/Spinner";
 import { CookieConsent } from "./components/CookieConsent";
 import { MfaChallenge } from "./components/MfaChallenge";
 import { readRefParam, captureReferralCode } from "./lib/referral";
+import { readPromoParam, capturePromoCode } from "./lib/promo";
 import "./App.css";
 
 // Lazy-loaded (2026-08-20) — by far the two biggest chunks in the app
@@ -107,6 +108,10 @@ const INITIAL_AUTH_HASH_ERROR = parseAuthHashError();
 // needs to react to, so it happens directly here rather than in a
 // render-time hook.
 captureReferralCode(readRefParam(window.location.search));
+// Same reasoning as the referral capture just above -- a launch-discount
+// ?promo= link needs to survive from landing-page click-through to
+// whenever the customer actually upgrades, possibly days later.
+capturePromoCode(readPromoParam(window.location.search));
 
 function Root() {
   const { session, loading } = useAuth();
