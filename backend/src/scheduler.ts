@@ -10,6 +10,8 @@ import {
   nextAllowedTime,
   wouldExceedRolling24hLimit,
 } from "./platformPostLimits.js";
+import { resolveTier, type Tier } from "./tier.js";
+import { MAX_FIRST_COMMENT_LENGTH } from "./postCreation.js";
 
 // How many due posts one scheduler cycle claims and processes. Combined
 // with index.ts's POLL_INTERVAL_MS, this is the real throughput ceiling —
@@ -327,6 +329,58 @@ async function maybeSendWebhook(post: DuePost, platformPostUrl: string | null, v
   }
 }
 
+// Free-tier "Scheduled via LazyRelay" branding, default ON with a
+// removable opt-out (accounts.show_branding_tag, migration 0092) -- one of
+// two real gaps found auditing a Gemini growth-prompt Werner brought
+// 2026-09-28. Paid tiers never see it regardless of the column's value.
+const BRANDING_TAG = "— scheduled via LazyRelay (lazyrelay.com)";
+
+// Conservative shared cap for the platforms that get the tag appended to
+// their actual caption (see hasCommentChannel below) -- deliberately
+// Bluesky's real ~300-character limit, the tightest of the 10 platforms in
+// that bucket, so appending the tag can never push ANY of them over their
+// own real limit, not just whichever one is being posted to right now.
+// Facebook/Instagram use their own much larger MAX_FIRST_COMMENT_LENGTH
+// instead, since the tag goes into a first comment there, not the caption.
+const BRANDING_TAG_CAPTION_BUDGET = 300;
+
+// Pure decision, kept separate from the DB lookups in resolveBrandingTag
+// below purely so it's directly unit-testable without mocking supabase or
+// resolveTier -- same "test the logic, not the plumbing" split already used
+// for wouldExceedRolling24hLimit in platformPostLimits.ts.
+export function shouldShowBrandingTag(tier: Tier, showBrandingTagColumn: boolean | null | undefined): boolean {
+  if (tier !== "free") return false;
+  // Explicit === false, not just falsy -- an unexpected null/missing value
+  // must default to showing the tag (the column's own real default), never
+  // to silently suppressing it.
+  return showBrandingTagColumn !== false;
+}
+
+async function resolveBrandingTag(accountId: string): Promise<string | null> {
+  try {
+    const [tier, { data: account }] = await Promise.all([
+      resolveTier(accountId),
+      supabase.from("accounts").select("show_branding_tag").eq("id", accountId).maybeSingle(),
+    ]);
+    return shouldShowBrandingTag(tier, account?.show_branding_tag) ? BRANDING_TAG : null;
+  } catch (err) {
+    console.error("[scheduler] resolveBrandingTag lookup failed:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+// Never truncates or displaces the customer's own real content -- if the
+// tag doesn't fit within budget alongside what they wrote, the tag is
+// dropped silently and their content goes out completely unchanged. A
+// missed promotional line is an acceptable cost; a customer's own post
+// being cut off or rejected over it is not.
+export function appendTagWithinBudget(base: string | null, tag: string, budget: number): string {
+  const trimmedBase = (base ?? "").trim();
+  if (!trimmedBase) return tag.length <= budget ? tag : "";
+  const combined = `${trimmedBase}\n\n${tag}`;
+  return combined.length <= budget ? combined : trimmedBase;
+}
+
 /** A failure that hasn't exhausted its retries goes back to `pending` with
  *  an exponential backoff delay instead of being marked `failed` outright.
  *  Only once MAX_RETRIES is exhausted does this become a real, alerted
@@ -445,9 +499,19 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
 
     const accessToken = await getAccessToken(post.social_account_id, adapter);
 
+    // Platforms with a real first-comment channel (adapter.postComment,
+    // currently Facebook/Instagram only) keep their own caption untouched
+    // -- the tag goes into the comment instead, below, once the post is
+    // verified live. Every other platform has no separate comment channel
+    // to use, so the tag is appended to the caption itself when it fits.
+    const brandingTag = await resolveBrandingTag(post.account_id);
+    const hasCommentChannel = !!adapter.postComment;
+    const outgoingContent =
+      !hasCommentChannel && brandingTag ? appendTagWithinBudget(post.content, brandingTag, BRANDING_TAG_CAPTION_BUDGET) : post.content;
+
     const attempt = await adapter.post({
       socialAccountId: post.social_account_id,
-      content: post.content,
+      content: outgoingContent,
       mediaUrl: post.media_url,
       coverImageUrl: post.cover_image_url,
       boardId: post.board_id,
@@ -523,10 +587,13 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     // post's own status or trigger handleFailure's retry path — the post
     // itself is already live and verified, which is the promise that
     // matters. Only attempted for platforms that declare postComment (see
-    // PlatformAdapter.postComment) and only when the customer set one.
-    if (post.first_comment && adapter.postComment && resultRow) {
+    // PlatformAdapter.postComment) and only when there's something to post
+    // -- the customer's own first comment, the branding tag appended after
+    // it, or the tag standing alone if they didn't set one.
+    const effectiveFirstComment = hasCommentChannel && brandingTag ? appendTagWithinBudget(post.first_comment, brandingTag, MAX_FIRST_COMMENT_LENGTH) : post.first_comment;
+    if (effectiveFirstComment && adapter.postComment && resultRow) {
       try {
-        const commentResult = await adapter.postComment(attempt.platformPostId, post.first_comment, accessToken);
+        const commentResult = await adapter.postComment(attempt.platformPostId, effectiveFirstComment, accessToken);
         await supabase
           .from("post_results")
           .update({

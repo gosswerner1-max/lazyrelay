@@ -25,7 +25,7 @@ export function buildAccountRouter(): Router {
   router.get("/account", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data, error } = await req.db!
       .from("accounts")
-      .select("email, business_name, email_failure_alerts_enabled, webhook_url, webhook_secret, voice_profile")
+      .select("email, business_name, email_failure_alerts_enabled, webhook_url, webhook_secret, voice_profile, show_branding_tag")
       .eq("id", req.accountId)
       .single();
     if (error || !data) {
@@ -45,6 +45,10 @@ export function buildAccountRouter(): Router {
       // brand when the account being posted from belongs to one with its
       // own voice_profile set; see resolveVoiceProfile in the /ai/* routes.
       voiceProfile: data.voice_profile,
+      // Free-tier "Scheduled via LazyRelay" branding (migration 0092) --
+      // only actually shown on free tier regardless of this value; the
+      // toggle lives here so a customer can opt out before ever upgrading.
+      showBrandingTag: data.show_branding_tag,
     });
   });
 
@@ -64,6 +68,7 @@ export function buildAccountRouter(): Router {
   const accountSettingsBodySchema = z.object({
     emailFailureAlertsEnabled: optionalBoolean("emailFailureAlertsEnabled must be a boolean"),
     webhookUrl: optionalNullableString("webhookUrl must be a string or null"),
+    showBrandingTag: optionalBoolean("showBrandingTag must be a boolean"),
   });
   router.patch("/account", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const profile = validateBody(accountProfileBodySchema, req.body);
@@ -110,7 +115,7 @@ export function buildAccountRouter(): Router {
       res.status(400).json({ error: settings.error });
       return;
     }
-    const { emailFailureAlertsEnabled, webhookUrl } = settings.data;
+    const { emailFailureAlertsEnabled, webhookUrl, showBrandingTag } = settings.data;
     // A leaked/compromised API key silently repointing the webhook would be
     // a persistent, ongoing exfiltration channel for every future verified
     // post — same escalation-risk shape as API key creation itself, so this
@@ -150,6 +155,7 @@ export function buildAccountRouter(): Router {
     const update: Record<string, unknown> = {};
     if (businessName !== undefined) update.business_name = businessName?.trim() || null;
     if (emailFailureAlertsEnabled !== undefined) update.email_failure_alerts_enabled = emailFailureAlertsEnabled;
+    if (showBrandingTag !== undefined) update.show_branding_tag = showBrandingTag;
     if (voiceProfile !== undefined) update.voice_profile = voiceProfile?.trim() || null;
     if (normalizedWebhookUrl !== undefined) {
       update.webhook_url = normalizedWebhookUrl;
@@ -164,7 +170,7 @@ export function buildAccountRouter(): Router {
       .from("accounts")
       .update(update)
       .eq("id", req.accountId)
-      .select("email, business_name, email_failure_alerts_enabled, webhook_url, webhook_secret, voice_profile")
+      .select("email, business_name, email_failure_alerts_enabled, webhook_url, webhook_secret, voice_profile, show_branding_tag")
       .single();
     if (error) {
       // 23505 = the case-insensitive unique index on lower(business_name)
@@ -187,6 +193,7 @@ export function buildAccountRouter(): Router {
       webhookUrl: data.webhook_url,
       webhookConfigured: !!data.webhook_secret,
       voiceProfile: data.voice_profile,
+      showBrandingTag: data.show_branding_tag,
       // Only present the one time a secret is newly generated — same
       // "shown once, save it now" pattern as API key creation.
       ...(newWebhookSecret ? { webhookSecret: newWebhookSecret } : {}),

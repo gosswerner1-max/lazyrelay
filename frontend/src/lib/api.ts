@@ -236,6 +236,10 @@ export interface Account {
   // account being posted from isn't linked to a brand with its own
   // voice_profile override.
   voiceProfile: string | null;
+  // Free-tier "Scheduled via LazyRelay" branding (migration 0092) --
+  // default true, removable here regardless of tier so it's already off
+  // if/when the account upgrades.
+  showBrandingTag: boolean;
 }
 
 export interface RecurringSchedule {
@@ -752,6 +756,8 @@ export const api = {
     authedFetch("/account", { method: "PATCH", body: JSON.stringify({ voiceProfile }) }),
   setEmailFailureAlerts: (enabled: boolean): Promise<Account> =>
     authedFetch("/account", { method: "PATCH", body: JSON.stringify({ emailFailureAlertsEnabled: enabled }) }),
+  setShowBrandingTag: (enabled: boolean): Promise<Account> =>
+    authedFetch("/account", { method: "PATCH", body: JSON.stringify({ showBrandingTag: enabled }) }),
   setWebhookUrl: (webhookUrl: string | null): Promise<Account> =>
     authedFetch("/account", { method: "PATCH", body: JSON.stringify({ webhookUrl }) }),
   regenerateWebhookSecret: (): Promise<{ webhookSecret: string }> =>

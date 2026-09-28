@@ -65,6 +65,7 @@ export function useDashboardState() {
   const [announcingAdmin, setAnnouncingAdmin] = useState(false);
   const [adminWindowExpiresAt, setAdminWindowExpiresAt] = useState<string | null>(null);
   const [savingFailureAlerts, setSavingFailureAlerts] = useState(false);
+  const [savingBrandingTag, setSavingBrandingTag] = useState(false);
   const [webhookUrlInput, setWebhookUrlInput] = useState("");
   const [savingWebhook, setSavingWebhook] = useState(false);
   const [regeneratingWebhookSecret, setRegeneratingWebhookSecret] = useState(false);
@@ -2230,6 +2231,19 @@ export function useDashboardState() {
     }
   }
 
+  async function handleToggleBrandingTag(enabled: boolean) {
+    setSavingBrandingTag(true);
+    setError(null);
+    try {
+      const updated = await api.setShowBrandingTag(enabled);
+      setAccount(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingBrandingTag(false);
+    }
+  }
+
   async function handleSaveWebhook(e: FormEvent) {
     e.preventDefault();
     setSavingWebhook(true);
@@ -2655,6 +2669,7 @@ export function useDashboardState() {
     announcingAdmin,
     adminWindowExpiresAt,
     savingFailureAlerts,
+    savingBrandingTag,
     webhookUrlInput,
     setWebhookUrlInput,
     savingWebhook,
@@ -2957,6 +2972,7 @@ export function useDashboardState() {
     handleResendTeamInvite,
     handleRevokeGrant,
     handleToggleFailureAlerts,
+    handleToggleBrandingTag,
     handleSaveWebhook,
     handleClearWebhook,
     handleRegenerateWebhookSecret,

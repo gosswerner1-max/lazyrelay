@@ -35,6 +35,7 @@ export function SettingsTab() {
     announcingAdmin,
     adminWindowExpiresAt,
     savingFailureAlerts,
+    savingBrandingTag,
     webhookUrlInput,
     setWebhookUrlInput,
     savingWebhook,
@@ -82,6 +83,7 @@ export function SettingsTab() {
     handleRemoveTeamMember,
     handleResendTeamInvite,
     handleToggleFailureAlerts,
+    handleToggleBrandingTag,
     handleSaveWebhook,
     handleClearWebhook,
     handleRegenerateWebhookSecret,
@@ -342,6 +344,27 @@ export function SettingsTab() {
             onChange={(e) => handleToggleFailureAlerts(e.target.checked)}
           />
           Email me if a scheduled post fails
+        </label>
+      </section>
+      )}
+
+      {(
+      <section>
+        <h2>LazyRelay branding</h2>
+        <p className="section-note">
+          On the Free plan, posts published through LazyRelay carry a small "scheduled via LazyRelay" credit
+          (in the first comment on Facebook/Instagram, or appended to the caption itself where a platform
+          doesn't support a separate first comment). Turn this off any time — it never shows on a paid plan
+          either way.
+        </p>
+        <label className="api-key-share-proof-toggle">
+          <input
+            type="checkbox"
+            checked={account?.showBrandingTag ?? true}
+            disabled={savingBrandingTag || !account}
+            onChange={(e) => handleToggleBrandingTag(e.target.checked)}
+          />
+          Show the LazyRelay branding credit on my posts
         </label>
       </section>
       )}
