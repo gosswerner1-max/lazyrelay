@@ -130,6 +130,15 @@ export function sendPartnerConversionAlert(to: string, partnerName: string, code
 export function sendNewsletterWelcomeEmail(to: string, code: string, unsubscribeUrl: string): void {
   const client = getClient();
   if (!client) return;
+  // Checkout has no manual "enter a code" field -- the ONLY redemption path
+  // is the existing ?promo= auto-apply link (frontend/src/lib/promo.ts),
+  // captured client-side and attached at checkout time. A bare code with
+  // nowhere to type it would be a dead end, so this links straight to the
+  // same mechanism instead of just stating the code. The discount's real
+  // percentage/duration lives in Paddle itself (whatever Werner sets it to)
+  // -- deliberately not restated here, so this email can never drift out of
+  // sync with the actual configured terms.
+  const redeemUrl = `https://lazyrelay.com/?promo=${encodeURIComponent(code)}`;
   client.emails
     .send({
       from: `LazyRelay <${FROM_ADDRESS}>`,
@@ -137,8 +146,8 @@ export function sendNewsletterWelcomeEmail(to: string, code: string, unsubscribe
       subject: "Your LazyRelay discount code",
       html: wrapEmailHtml(
         "Here's your code",
-        `Thanks for subscribing. Your discount code is <strong style="color:#ffffff;">${escapeHtml(code)}</strong> — ` +
-          `20% off your first 3 months on any paid plan, just enter it at checkout.<br><br>` +
+        `Thanks for subscribing. Your code is <strong style="color:#ffffff;">${escapeHtml(code)}</strong> — ` +
+          `it applies automatically when you sign up through <a href="${escapeHtml(redeemUrl)}" style="color:#ff5a1f;">this link</a>, no need to type it in anywhere.<br><br>` +
           `We'll only email you with real product updates — new features, that kind of thing. Nothing else.`,
         `You're getting this because you subscribed for updates at lazyrelay.com. <a href="${escapeHtml(unsubscribeUrl)}" style="color:#a3a7b0;">Unsubscribe any time</a>.`
       ),

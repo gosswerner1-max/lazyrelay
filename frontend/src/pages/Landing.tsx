@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../lib/api";
+import { capturePromoCode } from "../lib/promo";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
 import { RelaySignal } from "../components/RelaySignal";
@@ -507,6 +508,12 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
     setNewsletterError("");
     try {
       const { code } = await api.subscribeToNewsletter(newsletterEmail);
+      // No manual "enter a code" field exists anywhere in checkout -- the
+      // only redemption path is the same ?promo= auto-apply mechanism the
+      // launch-discount link uses (lib/promo.ts), so this stores it exactly
+      // the same way a click on that link would, right now, rather than
+      // showing a bare code with nowhere to type it.
+      capturePromoCode(code);
       setNewsletterCode(code);
       setNewsletterStatus("done");
     } catch (err) {
@@ -829,9 +836,15 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           Subscribe for occasional product updates (no spam) and get a discount code for your first few months.
         </p>
         {newsletterStatus === "done" ? (
-          <p className="newsletter-code">
-            You're in. Your code is <strong>{newsletterCode}</strong> — enter it at checkout.
-          </p>
+          <div className="newsletter-code">
+            <p>
+              You're in. Your code (<strong>{newsletterCode}</strong>) is saved to this browser — it'll apply automatically
+              when you sign up.
+            </p>
+            <button className="cta" onClick={onGetStarted}>
+              Continue to sign up
+            </button>
+          </div>
         ) : (
           <form className="newsletter-form" onSubmit={handleNewsletterSubmit}>
             <input

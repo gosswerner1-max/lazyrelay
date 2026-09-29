@@ -333,7 +333,7 @@ export function buildPublicRouter(): Router {
     res.json({ code });
   });
 
-  router.get("/newsletter/unsubscribe", publicRateLimit, async (req, res) => {
+  router.get("/public/newsletter/unsubscribe", publicRateLimit, async (req, res) => {
     const token = typeof req.query.token === "string" ? req.query.token : "";
     if (!token) {
       res.status(400).type("html").send(simpleNewsletterPage("That unsubscribe link looks incomplete."));
