@@ -251,6 +251,7 @@ const SIGNATURE_DEPARTMENT = {
   "hello@lazyrelay.com": "General Enquiries",
   "support@lazyrelay.com": "Customer Support",
   "accounts@lazyrelay.com": "Accounts & Billing",
+  "werner@lazyrelay.com": "Founder",
 };
 
 // A name per mailbox (Werner's call, 2026-08-21) — same pattern as vendor
@@ -261,6 +262,7 @@ const SIGNATURE_NAME = {
   "hello@lazyrelay.com": "Priya",
   "support@lazyrelay.com": "Jordan",
   "accounts@lazyrelay.com": "Sam",
+  "werner@lazyrelay.com": "Werner",
 };
 
 function escapeHtml(text) {
