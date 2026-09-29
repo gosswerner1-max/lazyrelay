@@ -8,6 +8,7 @@ import { TermsOfService } from "./pages/TermsOfService";
 import { DPA } from "./pages/DPA";
 import { DataDeletion } from "./pages/DataDeletion";
 import { Contact } from "./pages/Contact";
+import { Partners } from "./pages/Partners";
 import { ConnectForm } from "./pages/ConnectForm";
 import { BioPage } from "./pages/BioPage";
 import { VerifyPage } from "./pages/VerifyPage";
@@ -44,7 +45,7 @@ const MANUAL_CONNECT_PLATFORMS = ["bluesky", "telegram", "discord"] as const;
 // visitor actually navigated to.
 const INITIAL_PATH = window.location.pathname;
 
-type View = "landing" | "signin" | "signup" | "privacy" | "terms" | "dpa" | "data-deletion" | "contact" | "docs" | "forgot-password";
+type View = "landing" | "signin" | "signup" | "privacy" | "terms" | "dpa" | "data-deletion" | "contact" | "partners" | "docs" | "forgot-password";
 
 const PATH_TO_VIEW: Record<string, View> = {
   "/terms": "terms",
@@ -52,6 +53,7 @@ const PATH_TO_VIEW: Record<string, View> = {
   "/dpa": "dpa",
   "/data-deletion": "data-deletion",
   "/contact": "contact",
+  "/partners": "partners",
   "/docs": "docs",
   "/login": "signin",
   "/signup": "signup",
@@ -76,6 +78,7 @@ const VIEW_TO_PATH: Partial<Record<View, string>> = {
   dpa: "/dpa",
   "data-deletion": "/data-deletion",
   contact: "/contact",
+  partners: "/partners",
   docs: "/docs",
   signin: "/login",
   signup: "/signup",
@@ -400,6 +403,10 @@ function Root() {
     return <Contact onBack={() => setView("landing")} />;
   }
 
+  if (view === "partners") {
+    return <Partners onBack={() => setView("landing")} />;
+  }
+
   if (view === "docs") {
     // Suspense-wrapped for the same reason the pathname-guarded branch
     // above is: ApiDocs is lazy(). This branch is reachable on the VERY
@@ -460,6 +467,7 @@ function Root() {
           onTerms={() => setView("terms")}
           onDpa={() => setView("dpa")}
           onContact={() => setView("contact")}
+          onPartners={() => setView("partners")}
           onDocs={() => setView("docs")}
           scrollToPricing={normalizePath(INITIAL_PATH) === "/pricing"}
         />

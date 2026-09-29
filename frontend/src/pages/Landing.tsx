@@ -16,6 +16,7 @@ interface LandingProps {
   onTerms: () => void;
   onDpa: () => void;
   onContact: () => void;
+  onPartners: () => void;
   onDocs: () => void;
   // Whether the visitor's ORIGINAL url (captured in App.tsx before Root's
   // own path-sync effect rewrites it back to "/") was /pricing. Can't be
@@ -495,7 +496,7 @@ const FAQ = [
   },
 ];
 
-export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onContact, onDocs, scrollToPricing }: LandingProps) {
+export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onContact, onPartners, onDocs, scrollToPricing }: LandingProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showAgencyPricing, setShowAgencyPricing] = useState(false);
   const [referralModalOpen, setReferralModalOpen] = useState(false);
@@ -908,6 +909,11 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
         <button type="button" className="cta" onClick={() => setReferralModalOpen(true)}>
           Apply to become a partner
         </button>
+        <p className="section-note">
+          <button type="button" className="link" onClick={onPartners} style={{ marginTop: 0 }}>
+            See how the program works &rarr;
+          </button>
+        </p>
       </section>
 
       {referralModalOpen && <ReferralApplicationModal onClose={() => setReferralModalOpen(false)} />}
@@ -943,6 +949,9 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
         <p className="landing-footer-links">
           <button className="link" onClick={onContact}>
             Contact
+          </button>
+          <button className="link" onClick={onPartners}>
+            Partner Program
           </button>
           <button className="link" onClick={onDocs}>
             API &amp; MCP docs
