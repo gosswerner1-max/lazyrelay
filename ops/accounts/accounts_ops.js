@@ -26,6 +26,10 @@ function getReviewRequestStateStore() {
   return new StateStore(path.join(__dirname, "state", "review_requests.json"));
 }
 
+function getStuckOnboardingNudgeStateStore() {
+  return new StateStore(path.join(__dirname, "state", "stuck_onboarding_nudges.json"));
+}
+
 /** Accounts that signed up N+ days ago with zero connected social accounts —
  * candidates for a nudge, sent directly to the customer via Template 11 in
  * EMAIL_REPLY_TEMPLATES.md from support@lazyrelay.com (send-authority
@@ -46,7 +50,12 @@ async function findStuckOnboardingAccounts(supabase, daysThreshold = STUCK_ONBOA
     .is("cancelled_at", null);
   if (error) throw error;
 
-  const candidates = (accounts ?? []).filter((a) => !isInternalTestAccount(a.email)); // never nudge our own test/internal accounts
+  // 2026-09-28: dedup added before the first real send -- without it the same
+  // still-stuck customer got Template 11 again on every daily run.
+  const store = getStuckOnboardingNudgeStateStore();
+  const candidates = (accounts ?? []).filter(
+    (a) => !isInternalTestAccount(a.email) && !store.check(a.id).ok, // never nudge our own test/internal accounts, or anyone already nudged
+  );
   if (candidates.length === 0) return [];
 
   const { data: connected, error: connectedError } = await supabase
@@ -188,6 +197,13 @@ function markReviewRequested(accountId) {
   getReviewRequestStateStore().mark(accountId, { reviewRequested: true });
 }
 
+/** Marks an account as having had the Template 11 stuck-onboarding nudge
+ * sent -- call only after send-mail confirms savedToSent, same rule as
+ * markReviewRequested(), so each account is nudged at most once. */
+function markStuckOnboardingNudged(accountId) {
+  getStuckOnboardingNudgeStateStore().mark(accountId, { stuckOnboardingNudged: true });
+}
+
 /** Creates the row backing the public star-rating feedback form (migration
  * 0063) and returns its token for the email link — call this once per
  * candidate, immediately before sending Template 12, then embed
@@ -245,6 +261,7 @@ async function getReviewFeedbackSummary(supabase) {
 
 module.exports = {
   findStuckOnboardingAccounts,
+  markStuckOnboardingNudged,
   planDowngradePause,
   enforceDowngradePause,
   unpauseAccounts,

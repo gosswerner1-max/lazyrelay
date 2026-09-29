@@ -9,6 +9,7 @@ backups/
 
 # Auto-generated runtime state, not source - churns every run
 ops/accounts/state/accounts_overseer_flags.json
+ops/accounts/state/stuck_onboarding_nudges.json
 ops/advertising/state/advertising_overseer_flags.json
 ops/billing/state/billing_overseer_flags.json
 ops/marketing/state/marketing_overseer_flags.json
