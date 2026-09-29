@@ -8,6 +8,7 @@ import { PaddleMorAdapter } from "./billing/paddle.js";
 import { Environment } from "@paddle/paddle-node-sdk";
 import { buildApp } from "./http/app.js";
 import { fetchSupabaseOAuthMetadata } from "./http/mcpAuth.js";
+import { checkProductionConfig } from "./startupConfigCheck.js";
 import type { MerchantOfRecordAdapter } from "./billing/types.js";
 
 // How often the scheduler checks for due posts. Combined with scheduler.ts's
@@ -105,6 +106,11 @@ async function main() {
       `X_REDIRECT_URI=${process.env.X_REDIRECT_URI ? "set" : "MISSING"}; ` +
       `ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? "set" : "MISSING"}`,
   );
+
+  // Catches config that's present but WRONG (missing FRONTEND_URL, a
+  // leftover Sandbox TikTok key) -- the log line above only ever checked
+  // set-vs-missing. See startupConfigCheck.ts.
+  await checkProductionConfig();
 
   // Hosted MCP needs Supabase's OAuth 2.1 server to be enabled on the
   // project (Authentication -> OAuth Server). If it isn't, this returns
