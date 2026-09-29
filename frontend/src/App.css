@@ -26,6 +26,32 @@
   flex-shrink: 0;
 }
 
+/* Launch-discount top banner (2026-09-29) -- Werner's own feedback: the
+   newsletter signup section further down the page was too easy to miss on
+   a normal scroll-through, even for him, knowing the site. This is the
+   highest-visibility spot on the page (above the nav, seen on load,
+   present regardless of how far anyone scrolls before leaving) rather
+   than relying on the section itself being noticed. Deliberately NOT
+   sticky/fixed -- a persistent bar covering content while scrolling is a
+   bigger interruption than the visibility problem it would solve, and a
+   plain top banner already fixes "seen on arrival," which is the actual
+   complaint. */
+.promo-banner {
+  display: block;
+  width: 100%;
+  padding: 12px 20px;
+  background: var(--hero-accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+
+.promo-banner:hover {
+  background: var(--hero-accent-hover);
+}
+
 /* Brand lockup */
 .wordmark {
   display: inline-flex;
@@ -1521,6 +1547,25 @@ button[type="submit"]:not(.btn-outline),
   margin: 28px 0 0;
 }
 
+/* Same visibility feedback as .promo-banner above -- the section itself
+   used to look like every other plain .landing-section (same background,
+   same weight), so someone scrolling normally had nothing to catch their
+   eye even after the top banner. This gives it the same kind of visual
+   weight pricing-card-featured already uses to draw the eye on this page. */
+.landing-newsletter {
+  background: var(--hero-bg);
+  border: 1px solid var(--hero-accent);
+  border-radius: 14px;
+  max-width: 720px;
+  margin: 56px auto;
+  padding: 40px 28px;
+}
+
+.landing-newsletter h2,
+.landing-newsletter .section-note {
+  color: #fff;
+}
+
 .newsletter-form {
   display: flex;
   gap: 12px;
@@ -1544,17 +1589,10 @@ button[type="submit"]:not(.btn-outline),
   outline-offset: 1px;
 }
 
-.landing-newsletter .cta {
-  background: var(--signal-solid);
-}
-
-.landing-newsletter .cta:hover {
-  background: var(--signal);
-}
-
 .newsletter-code {
   font-size: 16px;
   margin-top: 8px;
+  color: #fff;
 }
 
 .pricing-card-wrap {

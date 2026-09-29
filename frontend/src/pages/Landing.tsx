@@ -553,6 +553,9 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
   return (
     <div className="landing">
       <CircuitBackground />
+      <a href="#newsletter" className="promo-banner">
+        Launch discount: 20% off your first 3 months &mdash; subscribe for the code &rarr;
+      </a>
       <header className="landing-nav">
         <div className="wordmark">
           <BrandMark size={40} />
