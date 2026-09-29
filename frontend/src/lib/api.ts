@@ -839,6 +839,20 @@ export const api = {
     if (!res.ok) throw new Error(body.error ?? "Couldn't submit feedback.");
   },
 
+  // Public, unauthenticated — landing-page newsletter signup that reveals
+  // the launch discount code (2026-09-29). A 503 means the code isn't set
+  // yet on the backend (NEWSLETTER_DISCOUNT_CODE), not a real failure.
+  subscribeToNewsletter: async (email: string): Promise<{ code: string }> => {
+    const res = await fetch(`${API_URL}/public/newsletter/subscribe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error ?? "Couldn't sign up right now.");
+    return body;
+  },
+
   // Opens a 10-minute window for the NEXT admin-key request to go through.
   // Only works signed in as yourself — never with an API key. See
   // migration 0037_admin_key_guard.sql.

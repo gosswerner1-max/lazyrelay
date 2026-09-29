@@ -9,7 +9,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { supabase } from "../../supabase.js";
 import { publicRateLimit } from "../rateLimit.js";
-import { sendReviewFeedbackNotification } from "../../email.js";
+import { sendReviewFeedbackNotification, sendNewsletterWelcomeEmail } from "../../email.js";
 import tls from "node:tls";
 import { dbError, isReservedBusinessName } from "./shared.js";
 import { validateBody } from "../validation.js";
@@ -257,5 +257,111 @@ export function buildPublicRouter(): Router {
     });
   });
 
+  // Newsletter signup, gated to reveal a discount code (2026-09-29,
+  // migration 0094) -- Werner's own idea for reaching organic/ad-driven
+  // traffic that isn't coming through a partner: give an email for a real,
+  // low-volume "what's new" list, get the launch discount code immediately.
+  const newsletterSubscribeBodySchema = z.object({
+    email: z.string({ error: "email is required" }).email("That doesn't look like a valid email address"),
+  });
+  router.post("/public/newsletter/subscribe", publicRateLimit, async (req, res) => {
+    const body = validateBody(newsletterSubscribeBodySchema, req.body);
+    if (!body.ok) {
+      res.status(400).json({ error: body.error });
+      return;
+    }
+    const email = body.data.email.trim();
+
+    // Set once the real discount actually exists in Paddle (Werner's own
+    // action, not something this route can do). Fails closed with a clear
+    // message rather than silently subscribing someone to a list with no
+    // discount to show for it.
+    const code = process.env.NEWSLETTER_DISCOUNT_CODE;
+    if (!code) {
+      res.status(503).json({ error: "Newsletter signup isn't live yet -- check back shortly." });
+      return;
+    }
+
+    // ilike with no wildcards is PostgREST's case-insensitive exact match --
+    // mirrors the case-insensitive unique index on lower(email) (migration
+    // 0094) without needing a raw SQL filter.
+    const { data: existing, error: lookupError } = await supabase
+      .from("newsletter_subscribers")
+      .select("id, unsubscribed_at, unsubscribe_token")
+      .ilike("email", email)
+      .maybeSingle();
+    if (lookupError) {
+      dbError(res, lookupError, "POST /newsletter/subscribe lookup");
+      return;
+    }
+
+    if (existing && !existing.unsubscribed_at) {
+      // Already subscribed -- idempotent success, same code, but no repeat
+      // email. Someone re-clicking "subscribe" (or trying to farm the
+      // discount twice) shouldn't get spammed or see an error either way.
+      res.json({ code });
+      return;
+    }
+
+    let unsubscribeToken = existing?.unsubscribe_token;
+    if (existing) {
+      // Re-subscribing after a genuine prior unsubscribe -- a real new
+      // signup event, so it does get a fresh welcome email.
+      const { error: updateError } = await supabase
+        .from("newsletter_subscribers")
+        .update({ unsubscribed_at: null, subscribed_at: new Date().toISOString() })
+        .eq("id", existing.id);
+      if (updateError) {
+        dbError(res, updateError, "POST /newsletter/subscribe resubscribe");
+        return;
+      }
+    } else {
+      const { data: inserted, error: insertError } = await supabase
+        .from("newsletter_subscribers")
+        .insert({ email })
+        .select("unsubscribe_token")
+        .single();
+      if (insertError) {
+        dbError(res, insertError, "POST /newsletter/subscribe insert");
+        return;
+      }
+      unsubscribeToken = inserted.unsubscribe_token;
+    }
+
+    const unsubscribeUrl = `https://lazyrelaylazyrelay-backend.onrender.com/api/public/newsletter/unsubscribe?token=${unsubscribeToken}`;
+    sendNewsletterWelcomeEmail(email, code, unsubscribeUrl);
+    res.json({ code });
+  });
+
+  router.get("/newsletter/unsubscribe", publicRateLimit, async (req, res) => {
+    const token = typeof req.query.token === "string" ? req.query.token : "";
+    if (!token) {
+      res.status(400).type("html").send(simpleNewsletterPage("That unsubscribe link looks incomplete."));
+      return;
+    }
+    const { error } = await supabase
+      .from("newsletter_subscribers")
+      .update({ unsubscribed_at: new Date().toISOString() })
+      .eq("unsubscribe_token", token)
+      .is("unsubscribed_at", null);
+    if (error) {
+      dbError(res, error, "GET /newsletter/unsubscribe");
+      return;
+    }
+    // Whether this token matched a row just now, or matched one that was
+    // already unsubscribed earlier, the end state is the same and the
+    // customer-visible message should be too -- no need to distinguish
+    // "already done" from "just did it" for someone clicking an old link.
+    res.type("html").send(simpleNewsletterPage("You're unsubscribed. You won't get any more emails from this list."));
+  });
+
   return router;
+}
+
+function simpleNewsletterPage(message: string): string {
+  return (
+    `<!doctype html><html><head><meta charset="utf-8"><title>LazyRelay</title></head>` +
+    `<body style="font-family:system-ui,-apple-system,sans-serif;background:#0b0c10;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">` +
+    `<p style="max-width:420px;text-align:center;padding:0 24px;">${message}</p></body></html>`
+  );
 }

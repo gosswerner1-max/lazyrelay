@@ -121,6 +121,34 @@ export function sendPartnerConversionAlert(to: string, partnerName: string, code
     .catch((err) => console.error("[email] sendPartnerConversionAlert threw:", err instanceof Error ? err.message : err));
 }
 
+/** Newsletter signup discount (2026-09-29, migration 0094) -- fires once,
+ *  right after a real subscribe (or re-subscribe) succeeds. Fire-and-forget,
+ *  same reasoning as every other sender here -- a failed email must never
+ *  turn an otherwise-successful signup into an error response. The code
+ *  itself is shown on the page too (see newsletter.routes.ts), so a failed
+ *  send doesn't strand the person without it. */
+export function sendNewsletterWelcomeEmail(to: string, code: string, unsubscribeUrl: string): void {
+  const client = getClient();
+  if (!client) return;
+  client.emails
+    .send({
+      from: `LazyRelay <${FROM_ADDRESS}>`,
+      to,
+      subject: "Your LazyRelay discount code",
+      html: wrapEmailHtml(
+        "Here's your code",
+        `Thanks for subscribing. Your discount code is <strong style="color:#ffffff;">${escapeHtml(code)}</strong> — ` +
+          `20% off your first 3 months on any paid plan, just enter it at checkout.<br><br>` +
+          `We'll only email you with real product updates — new features, that kind of thing. Nothing else.`,
+        `You're getting this because you subscribed for updates at lazyrelay.com. <a href="${escapeHtml(unsubscribeUrl)}" style="color:#a3a7b0;">Unsubscribe any time</a>.`
+      ),
+    })
+    .then((result) => {
+      if (result.error) console.error("[email] sendNewsletterWelcomeEmail failed:", result.error.message);
+    })
+    .catch((err) => console.error("[email] sendNewsletterWelcomeEmail threw:", err instanceof Error ? err.message : err));
+}
+
 const ESCALATION_ADDRESSES = {
   hello: "hello@lazyrelay.com",
   support: "support@lazyrelay.com",

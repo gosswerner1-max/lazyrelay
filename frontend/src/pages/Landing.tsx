@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
+import { api } from "../lib/api";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
 import { RelaySignal } from "../components/RelaySignal";
@@ -495,6 +496,24 @@ const FAQ = [
 export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onContact, onDocs, scrollToPricing }: LandingProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showAgencyPricing, setShowAgencyPricing] = useState(false);
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [newsletterCode, setNewsletterCode] = useState("");
+  const [newsletterError, setNewsletterError] = useState("");
+
+  async function handleNewsletterSubmit(e: FormEvent) {
+    e.preventDefault();
+    setNewsletterStatus("loading");
+    setNewsletterError("");
+    try {
+      const { code } = await api.subscribeToNewsletter(newsletterEmail);
+      setNewsletterCode(code);
+      setNewsletterStatus("done");
+    } catch (err) {
+      setNewsletterError(err instanceof Error ? err.message : "Couldn't sign up right now.");
+      setNewsletterStatus("error");
+    }
+  }
 
   // Anyone arriving at /pricing (e.g. the "See plans" links used across
   // every guide/tool page) should land ON the pricing section, not the
@@ -802,6 +821,33 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
             ))}
           </div>
         )}
+      </section>
+
+      <section className="landing-section landing-newsletter" id="newsletter">
+        <h2>Get a launch discount</h2>
+        <p className="section-note">
+          Subscribe for occasional product updates (no spam) and get a discount code for your first few months.
+        </p>
+        {newsletterStatus === "done" ? (
+          <p className="newsletter-code">
+            You're in. Your code is <strong>{newsletterCode}</strong> — enter it at checkout.
+          </p>
+        ) : (
+          <form className="newsletter-form" onSubmit={handleNewsletterSubmit}>
+            <input
+              type="email"
+              required
+              placeholder="you@example.com"
+              value={newsletterEmail}
+              onChange={(e) => setNewsletterEmail(e.target.value)}
+              disabled={newsletterStatus === "loading"}
+            />
+            <button type="submit" className="cta" disabled={newsletterStatus === "loading"}>
+              {newsletterStatus === "loading" ? "Signing up..." : "Get my code"}
+            </button>
+          </form>
+        )}
+        {newsletterStatus === "error" && <p className="error">{newsletterError}</p>}
       </section>
 
       <section className="landing-section" id="faq">

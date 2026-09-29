@@ -1521,6 +1521,42 @@ button[type="submit"]:not(.btn-outline),
   margin: 28px 0 0;
 }
 
+.newsletter-form {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.newsletter-form input {
+  font: 15px/1 var(--font-body);
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  min-width: 260px;
+}
+
+.newsletter-form input:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 1px;
+}
+
+.landing-newsletter .cta {
+  background: var(--signal-solid);
+}
+
+.landing-newsletter .cta:hover {
+  background: var(--signal);
+}
+
+.newsletter-code {
+  font-size: 16px;
+  margin-top: 8px;
+}
+
 .pricing-card-wrap {
   position: relative;
   display: flex;
