@@ -52,6 +52,102 @@
   background: var(--hero-accent-hover);
 }
 
+/* "Become a partner" application modal (2026-09-29) -- same light-card-on-
+   dark-overlay convention as the Dashboard's own .modal-overlay/.modal-card
+   (PinterestConnectModal), reimplemented here under its own class names
+   because that pair lives in Dashboard.css, which Landing.tsx never loads. */
+.referral-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 12, 16, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+.referral-modal-card {
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 14px;
+  padding: 28px;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  text-align: left;
+}
+
+.referral-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.referral-modal-header h2 {
+  font-size: 20px;
+  margin: 0;
+  color: var(--ink);
+}
+
+.referral-modal-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--wire);
+  padding: 4px;
+}
+
+.referral-modal-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.referral-modal-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.referral-modal-card input,
+.referral-modal-card textarea {
+  font: 15px/1.4 var(--font-body);
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.referral-modal-card input:focus-visible,
+.referral-modal-card textarea:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 1px;
+}
+
+.referral-modal-card textarea {
+  resize: vertical;
+}
+
+.referral-modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.referral-modal-done {
+  color: var(--ink);
+}
+
 /* Brand lockup */
 .wordmark {
   display: inline-flex;

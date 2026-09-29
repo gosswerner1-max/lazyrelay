@@ -9,10 +9,10 @@ import { Router } from "express";
 import { z } from "zod";
 import { supabase } from "../../supabase.js";
 import { publicRateLimit } from "../rateLimit.js";
-import { sendReviewFeedbackNotification, sendNewsletterWelcomeEmail } from "../../email.js";
+import { sendReviewFeedbackNotification, sendNewsletterWelcomeEmail, sendReferralApplicationNotification } from "../../email.js";
 import tls from "node:tls";
 import { dbError, isReservedBusinessName } from "./shared.js";
-import { validateBody } from "../validation.js";
+import { validateBody, nonEmptyString } from "../validation.js";
 
 export function buildPublicRouter(): Router {
   const router = Router();
@@ -353,6 +353,37 @@ export function buildPublicRouter(): Router {
     // customer-visible message should be too -- no need to distinguish
     // "already done" from "just did it" for someone clicking an old link.
     res.type("html").send(simpleNewsletterPage("You're unsubscribed. You won't get any more emails from this list."));
+  });
+
+  // Referral-partner application form (2026-09-29) -- Werner's own call:
+  // start simple. No DB table, no review queue -- this just emails the
+  // applicant's details to hello@lazyrelay.com (same internal-handoff
+  // pattern as sendReviewFeedbackNotification above), and Werner runs the
+  // existing `--add-partner` CLI himself once he's reviewed it. There are
+  // zero partners today (referral_partners is empty), so a queue/admin
+  // screen would be solving a volume problem that doesn't exist yet --
+  // easy to add later if real volume shows up.
+  const referralApplicationBodySchema = z.object({
+    name: nonEmptyString("Name is required").max(200, "Name is too long"),
+    channel: nonEmptyString("Channel or handle name is required").max(200, "Channel/handle name is too long"),
+    platform: nonEmptyString("Platform is required").max(100, "Platform is too long"),
+    email: z.string({ error: "email is required" }).email("That doesn't look like a valid email address"),
+    message: z.string({ error: "Message must be text" }).max(2000, "Message is too long").nullish(),
+  });
+  router.post("/public/referral/apply", publicRateLimit, async (req, res) => {
+    const body = validateBody(referralApplicationBodySchema, req.body);
+    if (!body.ok) {
+      res.status(400).json({ error: body.error });
+      return;
+    }
+    sendReferralApplicationNotification(
+      body.data.name.trim(),
+      body.data.channel.trim(),
+      body.data.platform.trim(),
+      body.data.email.trim(),
+      body.data.message?.trim() || null
+    );
+    res.json({ received: true });
   });
 
   return router;

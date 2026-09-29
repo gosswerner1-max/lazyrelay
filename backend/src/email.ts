@@ -158,6 +158,44 @@ export function sendNewsletterWelcomeEmail(to: string, code: string, unsubscribe
     .catch((err) => console.error("[email] sendNewsletterWelcomeEmail threw:", err instanceof Error ? err.message : err));
 }
 
+/** Referral-partner application form (2026-09-29) -- Werner's own call to
+ *  keep this simple: no DB table, no admin queue, just an email landing in
+ *  hello@lazyrelay.com with what the applicant filled in. He reviews it and
+ *  runs the existing `--add-partner` CLI himself. `replyTo` is set to the
+ *  applicant's own address (unlike sendReviewFeedbackNotification, which is
+ *  anonymous by design) so Werner can hit reply and respond directly.
+ *  Fire-and-forget, same reasoning as every other sender here. */
+export function sendReferralApplicationNotification(
+  name: string,
+  channel: string,
+  platform: string,
+  email: string,
+  message: string | null
+): void {
+  const client = getClient();
+  if (!client) return;
+  client.emails
+    .send({
+      from: `LazyRelay Partner Applications <${FROM_ADDRESS}>`,
+      to: "hello@lazyrelay.com",
+      replyTo: email,
+      subject: `New referral partner application: ${name}`,
+      html: wrapEmailHtml(
+        "New partner application",
+        `<strong style="color:#ffffff;">Name:</strong> ${escapeHtml(name)}<br>` +
+          `<strong style="color:#ffffff;">Channel/handle:</strong> ${escapeHtml(channel)}<br>` +
+          `<strong style="color:#ffffff;">Platform:</strong> ${escapeHtml(platform)}<br>` +
+          `<strong style="color:#ffffff;">Email:</strong> ${escapeHtml(email)}` +
+          (message ? `<br><br><strong style="color:#ffffff;">Message:</strong><br>${escapeHtml(message)}` : ""),
+        "Internal notification from the LazyRelay referral-partner application form. Reply directly to this email to reach the applicant."
+      ),
+    })
+    .then((result) => {
+      if (result.error) console.error("[email] sendReferralApplicationNotification failed:", result.error.message);
+    })
+    .catch((err) => console.error("[email] sendReferralApplicationNotification threw:", err instanceof Error ? err.message : err));
+}
+
 const ESCALATION_ADDRESSES = {
   hello: "hello@lazyrelay.com",
   support: "support@lazyrelay.com",

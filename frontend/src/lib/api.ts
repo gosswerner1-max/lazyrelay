@@ -853,6 +853,25 @@ export const api = {
     return body;
   },
 
+  // Public, unauthenticated — the "Become a partner" form on the landing
+  // page (2026-09-29). No DB table on the backend: this just emails the
+  // details to Werner, who reviews and creates the partner's code by hand.
+  applyForReferralProgram: async (input: {
+    name: string;
+    channel: string;
+    platform: string;
+    email: string;
+    message: string;
+  }): Promise<void> => {
+    const res = await fetch(`${API_URL}/public/referral/apply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error ?? "Couldn't send your application right now.");
+  },
+
   // Opens a 10-minute window for the NEXT admin-key request to go through.
   // Only works signed in as yourself — never with an API key. See
   // migration 0037_admin_key_guard.sql.

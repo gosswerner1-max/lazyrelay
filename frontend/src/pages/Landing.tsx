@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../lib/api";
 import { capturePromoCode } from "../lib/promo";
+import { ReferralApplicationModal } from "../components/ReferralApplicationModal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
 import { RelaySignal } from "../components/RelaySignal";
@@ -497,6 +498,7 @@ const FAQ = [
 export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onContact, onDocs, scrollToPricing }: LandingProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showAgencyPricing, setShowAgencyPricing] = useState(false);
+  const [referralModalOpen, setReferralModalOpen] = useState(false);
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [newsletterCode, setNewsletterCode] = useState("");
@@ -897,6 +899,18 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           to trust.
         </p>
       </section>
+
+      <section className="landing-section" id="partner">
+        <h2>Become a partner</h2>
+        <p className="section-note">
+          Have an audience? Partner with LazyRelay and earn a commission for every subscriber you bring in.
+        </p>
+        <button type="button" className="cta" onClick={() => setReferralModalOpen(true)}>
+          Apply to become a partner
+        </button>
+      </section>
+
+      {referralModalOpen && <ReferralApplicationModal onClose={() => setReferralModalOpen(false)} />}
 
       <footer className="landing-footer">
         <div className="wordmark">
