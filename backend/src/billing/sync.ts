@@ -1,6 +1,7 @@
 import { supabase } from "../supabase.js";
 import { ACCOUNT_LIMITS } from "../accountLimits.js";
 import { normalizeOccurredAt } from "./occurredAt.js";
+import { sendPartnerConversionAlert } from "../email.js";
 import type { Tier } from "../tier.js";
 import type {
   SubscriptionEvent,
@@ -118,6 +119,47 @@ async function resolveAccountId(event: { accountId?: string; accountEmail: strin
     throw new Error(`No account found for email ${event.accountEmail}: ${error?.message}`);
   }
   return data.id;
+}
+
+/** Referral-partner program v2 (2026-09-29, migration 0093). Records which
+ *  partner's code was redeemed on a genuinely first-ever subscription, and
+ *  emails the partner once. Deliberately validates the code against a real,
+ *  approved referral_partners row here rather than trusting customData
+ *  outright -- the same code could be the generic launch-discount code
+ *  (matches no partner, silently ignored) or a partner who's since been
+ *  paused. `.is("partner_code_redeemed", null)` in the update is the actual
+ *  guard against ever overwriting this on a later call -- the caller only
+ *  invokes this on a first-insert anyway, but a second layer of protection
+ *  here costs nothing and survives future refactors of the caller.
+ *
+ *  Entirely non-fatal by design: any failure here must never break the
+ *  subscription-sync webhook it's attached to -- a lost commission
+ *  attribution is a real problem, but a much smaller one than the customer's
+ *  own subscription state failing to sync. */
+export async function recordPartnerAttribution(accountId: string, code: string): Promise<void> {
+  try {
+    const { data: partner } = await supabase
+      .from("referral_partners")
+      .select("code, name, email")
+      .eq("code", code)
+      .eq("status", "approved")
+      .maybeSingle();
+    if (!partner) return;
+
+    const { data: updated, error } = await supabase
+      .from("accounts")
+      .update({ partner_code_redeemed: partner.code, partner_code_redeemed_at: new Date().toISOString() })
+      .eq("id", accountId)
+      .is("partner_code_redeemed", null)
+      .select("id")
+      .maybeSingle();
+    if (error) throw error;
+    if (updated) {
+      sendPartnerConversionAlert(partner.email, partner.name, partner.code);
+    }
+  } catch (err) {
+    console.error(`[referral] recordPartnerAttribution failed for code "${code}" on account ${accountId}:`, err instanceof Error ? err.message : err);
+  }
 }
 
 /** Applies a storage/brand/seat add-on webhook event with the same
@@ -300,6 +342,15 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
       if (insertError) throw insertError;
       if ((inserted ?? []).length > 0) {
         winningRow = inserted!;
+        // Referral-partner program v2 (2026-09-29): only ever reached here,
+        // on a genuinely first-ever subscription row for this account (a
+        // real INSERT, not the UPDATE path above) -- a renewal/update event
+        // for the same subscription still carries the same customData.
+        // partnerCode (Paddle preserves it for the subscription's life),
+        // but must never re-trigger or re-date this.
+        if (event.kind === "tier" && event.partnerCode) {
+          await recordPartnerAttribution(accountId, event.partnerCode);
+        }
       } else {
         // The insert no-op'd, meaning a row already existed at that moment
         // too. Closes one remaining gap: a concurrent request could have

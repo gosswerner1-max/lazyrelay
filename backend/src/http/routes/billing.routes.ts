@@ -112,7 +112,7 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
   // (see BILLING_KNOWLEDGE.md) — reports a clear error rather than a
   // confusing Paddle SDK exception if they don't.
   router.post("/subscription/checkout", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { tier, promoCode } = req.body ?? {};
+    const { tier, promoCode, referralCode } = req.body ?? {};
     if (tier !== "pro" && tier !== "business" && tier !== "enterprise" && tier !== "agency" && tier !== "agency_plus") {
       res.status(400).json({
         error:
@@ -125,6 +125,16 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
     // fails open on anything short of a real match, so an absent/garbage
     // value here just means checkout proceeds at full price.
     const discountCode = typeof promoCode === "string" && promoCode.trim() ? promoCode.trim() : undefined;
+    // Referral-partner program v2 (2026-09-29) -- captured client-side from
+    // a ?ref= link (lib/referral.ts). Only used for commission attribution
+    // (Option B partners have no Paddle discount at all), never resolved or
+    // validated here -- that happens at webhook time, in
+    // billing/sync.ts's recordPartnerAttribution. discountCode wins if both
+    // are somehow present: it's the more specific signal (an actively
+    // redeemed, Paddle-verified code), and it's also itself a valid partner
+    // code for Option A partners, so nothing is lost by preferring it.
+    const referral = typeof referralCode === "string" && referralCode.trim() ? referralCode.trim() : undefined;
+    const partnerCode = discountCode ?? referral;
 
     const apiKey = process.env.MOR_API_KEY;
     // Internal tier codes were kept stable across the Starter/Pro/Business
@@ -230,6 +240,7 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
           tier,
           priceId,
           discountCode,
+          partnerCode,
         });
         res.json({ transactionId, checkoutUrl });
       } catch (err) {

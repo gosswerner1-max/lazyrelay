@@ -12,6 +12,7 @@ import type { OAuthGrant } from "@supabase/supabase-js";
 import { api, type SocialAccount, type Brand, type BrandCapacity, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation, type TeamMember, type SeatCapacity } from "../../lib/api";
 import { isTiktokDisclosureIncomplete } from "../../lib/tiktokDisclosure";
 import { getStoredPromoCode } from "../../lib/promo";
+import { getStoredReferralCode } from "../../lib/referral";
 import { isVideoTooLongForTiktok, tiktokVideoTooLongMessage, type TiktokCreatorInfo } from "../../lib/tiktokPostChecks";
 import { type Tab, TOUR_SEEN_KEY, GCAL_PROMPT_SEEN_KEY, useIsMobile, connectParams, parseCsv } from "./dashboardHelpers";
 
@@ -1918,7 +1919,7 @@ export function useDashboardState() {
     setBillingBusy(tier);
     setError(null);
     try {
-      const { transactionId, checkoutUrl } = await api.startCheckout(tier, getStoredPromoCode());
+      const { transactionId, checkoutUrl } = await api.startCheckout(tier, getStoredPromoCode(), getStoredReferralCode());
       if (paddle && transactionId) {
         pendingTierRef.current = tier;
         paddle.Checkout.open({ transactionId });

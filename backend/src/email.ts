@@ -94,6 +94,33 @@ export function sendFailureAlert(to: string, content: string, reason: string): v
     .catch((err) => console.error("[email] sendFailureAlert threw:", err instanceof Error ? err.message : err));
 }
 
+/** Referral-partner program v2 (2026-09-29) -- fires once, the moment a
+ *  partner's code is credited on a genuinely first-ever subscription (see
+ *  sync.ts's recordPartnerAttribution). Fire-and-forget, same reasoning as
+ *  sendFailureAlert above -- a failed notification email must never break
+ *  the subscription-sync webhook it's attached to. */
+export function sendPartnerConversionAlert(to: string, partnerName: string, code: string): void {
+  const client = getClient();
+  if (!client) return;
+  client.emails
+    .send({
+      from: `LazyRelay <${FROM_ADDRESS}>`,
+      to,
+      subject: "Someone just joined LazyRelay using your code",
+      html: wrapEmailHtml(
+        "Your code just converted a new customer",
+        `Hi ${escapeHtml(partnerName)},<br><br>` +
+          `Someone just signed up for LazyRelay using your code <strong style="color:#ffffff;">${escapeHtml(code)}</strong>. ` +
+          `It'll show up in your next commission report.`,
+        "You're getting this because you're a LazyRelay referral partner. Reach out if you'd rather not get these per-signup."
+      ),
+    })
+    .then((result) => {
+      if (result.error) console.error("[email] sendPartnerConversionAlert failed:", result.error.message);
+    })
+    .catch((err) => console.error("[email] sendPartnerConversionAlert threw:", err instanceof Error ? err.message : err));
+}
+
 const ESCALATION_ADDRESSES = {
   hello: "hello@lazyrelay.com",
   support: "support@lazyrelay.com",

@@ -47,6 +47,13 @@ export interface SubscriptionEvent {
   // while the customer stayed billed. Same fix applied to TimeAJob's
   // identical bug, see that repo's commit c077ce4.
   cancelAtPeriodEnd: boolean;
+  // Referral-partner program v2 (2026-09-29, migration 0093) -- the code
+  // actually used at checkout, embedded in customData by
+  // buildCheckoutTransaction. Only ever acted on for a genuinely first-ever
+  // subscription row (see syncSubscriptionFromWebhook) -- a renewal/update
+  // event still carries this same value (Paddle preserves customData for
+  // the life of the subscription), but must never re-trigger attribution.
+  partnerCode?: string;
 }
 
 /** A storage add-on (2026-07-23) is deliberately its OWN Paddle

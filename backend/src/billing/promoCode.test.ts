@@ -70,3 +70,46 @@ describe("buildCheckoutTransaction -- launch-discount promo code", () => {
     expect(mockTransactionsCreate).toHaveBeenCalledWith(expect.not.objectContaining({ discountId: expect.anything() }));
   });
 });
+
+describe("buildCheckoutTransaction -- referral-partner program v2 (customData.partnerCode)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCustomersList.mockReturnValue({ next: vi.fn().mockResolvedValue([{ id: "ctm_existing" }]) });
+    mockTransactionsCreate.mockResolvedValue({ id: "txn_123", checkout: { url: "https://lazyrelay.com" } });
+  });
+
+  it("embeds no partnerCode in customData when none was given", async () => {
+    await buildCheckoutTransaction("key", Environment.production, BASE_PARAMS);
+    const call = mockTransactionsCreate.mock.calls[0][0];
+    expect(call.customData).not.toHaveProperty("partnerCode");
+  });
+
+  it("embeds partnerCode in customData for an Option B code (no Paddle discount involved at all)", async () => {
+    await buildCheckoutTransaction("key", Environment.production, { ...BASE_PARAMS, partnerCode: "bigboyslzy" });
+    expect(mockDiscountsList).not.toHaveBeenCalled();
+    const call = mockTransactionsCreate.mock.calls[0][0];
+    expect(call.customData).toMatchObject({ partnerCode: "bigboyslzy" });
+    expect(call).not.toHaveProperty("discountId");
+  });
+
+  it("embeds the SAME code as both discountId (resolved) and customData.partnerCode for an Option A code", async () => {
+    mockDiscountsList.mockReturnValue({ next: vi.fn().mockResolvedValue([{ id: "dsc_bigboys" }]) });
+    await buildCheckoutTransaction("key", Environment.production, { ...BASE_PARAMS, discountCode: "bigboyslzy", partnerCode: "bigboyslzy" });
+    const call = mockTransactionsCreate.mock.calls[0][0];
+    expect(call.discountId).toBe("dsc_bigboys");
+    expect(call.customData).toMatchObject({ partnerCode: "bigboyslzy" });
+  });
+
+  it("never embeds partnerCode on an add-on purchase (storage/brand/seat), only on a tier checkout", async () => {
+    await buildCheckoutTransaction("key", Environment.production, {
+      kind: "storage_addon",
+      accountEmail: "test@example.com",
+      accountId: "acct_test",
+      gbAmount: 20,
+      priceId: "pri_test_storage",
+      partnerCode: "bigboyslzy",
+    });
+    const call = mockTransactionsCreate.mock.calls[0][0];
+    expect(call.customData).not.toHaveProperty("partnerCode");
+  });
+});

@@ -739,9 +739,13 @@ export const api = {
   getSubscription: (): Promise<Subscription> => authedFetch("/subscription"),
   startCheckout: (
     tier: "pro" | "business" | "enterprise" | "agency" | "agency_plus",
-    promoCode?: string | null
+    promoCode?: string | null,
+    referralCode?: string | null
   ): Promise<{ transactionId: string; checkoutUrl: string | null }> =>
-    authedFetch("/subscription/checkout", { method: "POST", body: JSON.stringify({ tier, ...(promoCode ? { promoCode } : {}) }) }),
+    authedFetch("/subscription/checkout", {
+      method: "POST",
+      body: JSON.stringify({ tier, ...(promoCode ? { promoCode } : {}), ...(referralCode ? { referralCode } : {}) }),
+    }),
   // For a customer already on an active paid tier -- real proration on the
   // existing subscription, not a fresh checkout. startCheckout above is for
   // Free/lapsed -> paid only; this is for moving between paid tiers.

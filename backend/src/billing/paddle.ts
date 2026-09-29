@@ -139,7 +139,8 @@ function buildEventFromCustomData(sub: SubscriptionLike, status: SubscriptionEve
   if (typeof tier !== "string" || !(VALID_TIERS as readonly string[]).includes(tier)) {
     throw new Error(`Subscription ${sub.id} has invalid/missing customData.tier "${String(tier)}"`);
   }
-  return { kind: "tier", morSubscriptionId: sub.id, accountEmail, accountId, tier: tier as SubscriptionEvent["tier"], status, currentPeriodEnd, occurredAt, cancelAtPeriodEnd };
+  const partnerCode = typeof customData.partnerCode === "string" && customData.partnerCode ? customData.partnerCode : undefined;
+  return { kind: "tier", morSubscriptionId: sub.id, accountEmail, accountId, tier: tier as SubscriptionEvent["tier"], status, currentPeriodEnd, occurredAt, cancelAtPeriodEnd, partnerCode };
 }
 
 interface TransactionTotalsLike {
@@ -380,6 +381,15 @@ type CheckoutParams = (
   // blocks checkout: an invalid/expired/exhausted code just means the
   // transaction proceeds at full price, same as if none was supplied.
   discountCode?: string;
+  // Referral-partner program v2 (2026-09-29) -- the code to record for
+  // commission attribution, embedded in customData below regardless of
+  // whether it's also a real Paddle discount. Option A (gives_viewer_discount)
+  // partners: this is the SAME value as discountCode. Option B partners:
+  // this is set with no discountCode at all, since there's no customer
+  // price effect to apply. Resolved against real referral_partners rows
+  // later, at webhook time (sync.ts) -- never validated here, same
+  // fail-open reasoning as discountCode.
+  partnerCode?: string;
 };
 
 /** Resolves a customer-facing discount code (e.g. "LAUNCH20") to Paddle's
@@ -426,7 +436,16 @@ export async function buildCheckoutTransaction(
         ? { accountEmail: params.accountEmail, accountId: params.accountId, kind: "brand_addon" }
         : params.kind === "seat_addon"
           ? { accountEmail: params.accountEmail, accountId: params.accountId, kind: "seat_addon" }
-          : { accountEmail: params.accountEmail, accountId: params.accountId, kind: "tier", tier: params.tier };
+          : {
+              accountEmail: params.accountEmail,
+              accountId: params.accountId,
+              kind: "tier",
+              tier: params.tier,
+              // Referral-partner attribution only makes sense on a
+              // brand-new subscription, not an add-on purchase by an
+              // existing paying customer -- add-on kinds above never get it.
+              ...(params.partnerCode ? { partnerCode: params.partnerCode } : {}),
+            };
   const discountId = params.discountCode ? await resolveDiscountId(paddle, params.discountCode) : null;
   const transaction = await paddle.transactions.create({
     items: [{ priceId: params.priceId, quantity: 1 }],
