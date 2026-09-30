@@ -116,6 +116,8 @@ describe("client: what the link shows", () => {
     expect(JSON.stringify(r.body)).not.toContain("SOMEONE ELSE'S SECRET");
     expect(JSON.stringify(r.body)).not.toContain("Already scheduled");
     expect(r.body.posts.find((p: { id: string }) => p.id === "p1").state).toBe("waiting");
+    // opening the link is recorded (this once silently never happened: the update was created but never sent)
+    expect(tables.review_links.find((l) => l.id === (link as { id: string }).id)!.last_viewed_at).toBeTruthy();
   });
 
   it("a brand link shows only that brand's posts, and refuses to act on another brand's", async () => {

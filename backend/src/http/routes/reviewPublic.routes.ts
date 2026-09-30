@@ -90,7 +90,7 @@ export function buildReviewPublicRouter(): Router {
       }
 
       const { data: account } = await supabase.from("accounts").select("business_name").eq("id", link.account_id).maybeSingle();
-      void supabase.from("review_links").update({ last_viewed_at: new Date().toISOString() }).eq("id", link.id);
+      await supabase.from("review_links").update({ last_viewed_at: new Date().toISOString() }).eq("id", link.id);
 
       res.json({
         businessName: (account?.business_name as string | null) ?? null,
