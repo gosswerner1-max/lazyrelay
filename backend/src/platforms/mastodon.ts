@@ -263,6 +263,15 @@ export class MastodonAdapter implements PlatformAdapter {
         return { success: false, platformPostId: null, errorMessage: `Could not upload media from ${request.mediaUrl}` };
       }
       mediaIds = [mediaId];
+      // Extra images (multi-image post): uploaded in order, no alt text.
+      // Any failed upload aborts before the status is created.
+      for (const extraUrl of request.mediaUrls ?? []) {
+        const extraId = await this.uploadMedia(extraUrl, request.accessToken, null);
+        if (!extraId) {
+          return { success: false, platformPostId: null, errorMessage: `Could not upload media from ${extraUrl}` };
+        }
+        mediaIds.push(extraId);
+      }
     }
 
     const res = await fetch(`${DEFAULT_INSTANCE}/api/v1/statuses`, {

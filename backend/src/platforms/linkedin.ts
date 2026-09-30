@@ -137,43 +137,49 @@ export class LinkedInAdapter implements PlatformAdapter {
     return `urn:li:person:${json.sub}`;
   }
 
+  // Images API: initializeUpload, fetch the source (streamed), PUT it. Returns the image urn or an error message.
+  private async uploadImage(accessToken: string, memberUrn: string, mediaUrl: string): Promise<{ urn: string } | { error: string }> {
+    const initRes = await fetch(IMAGES_INIT_URL, {
+      method: "POST",
+      headers: this.restHeaders(accessToken),
+      body: JSON.stringify({ initializeUploadRequest: { owner: memberUrn } }),
+    });
+    const initJson = (await initRes.json().catch(() => ({}))) as LinkedInImageInitResponse & LinkedInErrorBody;
+    if (!initRes.ok || !initJson.value?.uploadUrl || !initJson.value?.image) {
+      return { error: initJson.message ?? `LinkedIn image upload init failed (HTTP ${initRes.status})` };
+    }
+
+    // Streamed instead of buffered (2026-09-05) -- see streamUpload.ts.
+    // redirect: "manual" is applied inside fetchMediaForStreaming, same
+    // SSRF-closing rationale as mastodon.ts's original uploadMedia.
+    const media = await fetchMediaForStreaming(mediaUrl);
+    if (!media) return { error: `Could not fetch image from ${mediaUrl}` };
+
+    const uploadRes = await fetch(initJson.value.uploadUrl, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: media.body,
+      duplex: "half",
+    } as RequestInitWithDuplex);
+    if (!uploadRes.ok) return { error: `LinkedIn image upload failed (HTTP ${uploadRes.status})` };
+    return { urn: initJson.value.image };
+  }
+
   async post(request: PostRequest): Promise<PostAttemptResult> {
     const memberUrn = await this.getMemberUrn(request.accessToken);
 
     let mediaUrn: string | null = null;
+    const extraImageUrns: string[] = [];
     if (request.mediaUrl) {
-      const initRes = await fetch(IMAGES_INIT_URL, {
-        method: "POST",
-        headers: this.restHeaders(request.accessToken),
-        body: JSON.stringify({ initializeUploadRequest: { owner: memberUrn } }),
-      });
-      const initJson = (await initRes.json().catch(() => ({}))) as LinkedInImageInitResponse & LinkedInErrorBody;
-      if (!initRes.ok || !initJson.value?.uploadUrl || !initJson.value?.image) {
-        return {
-          success: false,
-          platformPostId: null,
-          errorMessage: initJson.message ?? `LinkedIn image upload init failed (HTTP ${initRes.status})`,
-        };
+      const first = await this.uploadImage(request.accessToken, memberUrn, request.mediaUrl);
+      if ("error" in first) return { success: false, platformPostId: null, errorMessage: first.error };
+      mediaUrn = first.urn;
+      // Multi-image: upload the rest the same way; any refusal aborts before a post is created.
+      for (const extra of request.mediaUrls ?? []) {
+        const next = await this.uploadImage(request.accessToken, memberUrn, extra);
+        if ("error" in next) return { success: false, platformPostId: null, errorMessage: next.error };
+        extraImageUrns.push(next.urn);
       }
-
-      // Streamed instead of buffered (2026-09-05) -- see streamUpload.ts.
-      // redirect: "manual" is applied inside fetchMediaForStreaming, same
-      // SSRF-closing rationale as mastodon.ts's original uploadMedia.
-      const media = await fetchMediaForStreaming(request.mediaUrl);
-      if (!media) {
-        return { success: false, platformPostId: null, errorMessage: `Could not fetch image from ${request.mediaUrl}` };
-      }
-
-      const uploadRes = await fetch(initJson.value.uploadUrl, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${request.accessToken}` },
-        body: media.body,
-        duplex: "half",
-      } as RequestInitWithDuplex);
-      if (!uploadRes.ok) {
-        return { success: false, platformPostId: null, errorMessage: `LinkedIn image upload failed (HTTP ${uploadRes.status})` };
-      }
-      mediaUrn = initJson.value.image;
     }
 
     const postBody: Record<string, unknown> = {
@@ -184,7 +190,10 @@ export class LinkedInAdapter implements PlatformAdapter {
       lifecycleState: "PUBLISHED",
       isReshareDisabledByAuthor: false,
     };
-    if (mediaUrn) {
+    if (mediaUrn && extraImageUrns.length > 0) {
+      // Posts API multiImage content (2-20 images, images only).
+      postBody.content = { multiImage: { images: [mediaUrn, ...extraImageUrns].map((id) => ({ id })) } };
+    } else if (mediaUrn) {
       postBody.content = { media: { id: mediaUrn } };
     }
 

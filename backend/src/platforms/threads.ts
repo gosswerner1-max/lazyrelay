@@ -180,8 +180,8 @@ export class ThreadsAdapter implements PlatformAdapter {
   // minute, for no more than 5 minutes." This waits the recommended 30s
   // once, then polls if it's still not ready, rather than always burning
   // the full 5-minute budget on every video post.
-  private async waitForVideoContainerReady(containerId: string, accessToken: string): Promise<string | null> {
-    await new Promise((resolve) => setTimeout(resolve, 30_000));
+  private async waitForVideoContainerReady(containerId: string, accessToken: string, initialDelayMs = 30_000): Promise<string | null> {
+    if (initialDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, initialDelayMs));
     for (let attempt = 0; attempt < 5; attempt++) {
       const url = new URL(`${GRAPH_BASE}/${containerId}`);
       url.searchParams.set("fields", "status");
@@ -200,8 +200,71 @@ export class ThreadsAdapter implements PlatformAdapter {
     return "Threads media container did not finish processing in time";
   }
 
+  private async publishContainer(meId: string, creationId: string, accessToken: string): Promise<PostAttemptResult> {
+    const publishRes = await fetch(`${GRAPH_BASE}/${meId}/threads_publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ creation_id: creationId, access_token: accessToken }).toString(),
+    });
+    const publishJson = (await publishRes.json()) as ThreadsMediaResponse & ThreadsErrorBody;
+    if (!publishRes.ok || !publishJson.id) {
+      return {
+        success: false,
+        platformPostId: null,
+        errorMessage: publishJson.error?.message ?? `Threads publish failed (HTTP ${publishRes.status})`,
+      };
+    }
+    return { success: true, platformPostId: publishJson.id, errorMessage: null };
+  }
+
+  // Carousel (2026-09-30): one item container per media (is_carousel_item,
+  // IMAGE or VIDEO), then a CAROUSEL parent with comma-separated children and
+  // the text, then the normal threads_publish. Per Meta's Threads docs the
+  // text goes on the parent.
+  private async postCarousel(request: PostRequest, meId: string): Promise<PostAttemptResult> {
+    const urls = [request.mediaUrl as string, ...(request.mediaUrls ?? [])];
+    const childIds: string[] = [];
+    for (const itemUrl of urls) {
+      const itemIsVideo = isVideoUrl(itemUrl);
+      const res = await fetch(`${GRAPH_BASE}/${meId}/threads`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          media_type: itemIsVideo ? "VIDEO" : "IMAGE",
+          [itemIsVideo ? "video_url" : "image_url"]: itemUrl,
+          is_carousel_item: "true",
+          access_token: request.accessToken,
+        }).toString(),
+      });
+      const json = (await res.json()) as ThreadsContainerResponse & ThreadsErrorBody;
+      if (!res.ok || !json.id) {
+        return { success: false, platformPostId: null, errorMessage: json.error?.message ?? `Threads carousel item ${childIds.length + 1} failed (HTTP ${res.status})` };
+      }
+      if (itemIsVideo) {
+        const childError = await this.waitForVideoContainerReady(json.id, request.accessToken);
+        if (childError) return { success: false, platformPostId: null, errorMessage: childError };
+      }
+      childIds.push(json.id);
+    }
+    const parentRes = await fetch(`${GRAPH_BASE}/${meId}/threads`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ media_type: "CAROUSEL", children: childIds.join(","), text: request.content, access_token: request.accessToken }).toString(),
+    });
+    const parentJson = (await parentRes.json()) as ThreadsContainerResponse & ThreadsErrorBody;
+    if (!parentRes.ok || !parentJson.id) {
+      return { success: false, platformPostId: null, errorMessage: parentJson.error?.message ?? `Threads carousel container failed (HTTP ${parentRes.status})` };
+    }
+    // Docs advise ~30s before publishing a container; the parent is only
+    // status-polled (no fixed sleep) so it is not slowed when already ready.
+    const parentError = await this.waitForVideoContainerReady(parentJson.id, request.accessToken, 0);
+    if (parentError) return { success: false, platformPostId: null, errorMessage: parentError };
+    return this.publishContainer(meId, parentJson.id, request.accessToken);
+  }
+
   async post(request: PostRequest): Promise<PostAttemptResult> {
     const me = await this.getMe(request.accessToken);
+    if (request.mediaUrl && request.mediaUrls && request.mediaUrls.length > 0) return this.postCarousel(request, me.id);
     const isVideo = !!request.mediaUrl && isVideoUrl(request.mediaUrl);
 
     // Two-step publish, per Threads API design: create a media container,

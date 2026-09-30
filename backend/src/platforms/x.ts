@@ -221,11 +221,20 @@ export class XAdapter implements PlatformAdapter {
   }
 
   async post(request: PostRequest): Promise<PostAttemptResult> {
-    let mediaId: string | null = null;
+    const mediaIds: string[] = [];
     if (request.mediaUrl) {
-      mediaId = await this.uploadMedia(request.mediaUrl, request.accessToken);
+      const mediaId = await this.uploadMedia(request.mediaUrl, request.accessToken);
       if (!mediaId) {
         return { success: false, platformPostId: null, errorMessage: `Could not upload media from ${request.mediaUrl}` };
+      }
+      mediaIds.push(mediaId);
+      // Extra images (X allows up to 4 photos per post, images only).
+      for (const extraUrl of request.mediaUrls ?? []) {
+        const extraId = await this.uploadMedia(extraUrl, request.accessToken);
+        if (!extraId) {
+          return { success: false, platformPostId: null, errorMessage: `Could not upload media from ${extraUrl}` };
+        }
+        mediaIds.push(extraId);
       }
     }
 
@@ -237,7 +246,7 @@ export class XAdapter implements PlatformAdapter {
       },
       body: JSON.stringify({
         text: request.content,
-        ...(mediaId ? { media: { media_ids: [mediaId] } } : {}),
+        ...(mediaIds.length > 0 ? { media: { media_ids: mediaIds } } : {}),
       }),
     });
     const json = (await res.json()) as XTweetResponse;

@@ -13,7 +13,7 @@ import { AccountPicker } from "../../components/AccountPicker";
 import { SnippetPicker } from "../../components/SnippetPicker";
 import { isoToLocalDateTime } from "../../lib/postingSlots";
 import { supportsSelfReply } from "../../lib/selfReply";
-import { canShowCarousel } from "../../lib/carousel";
+import { canShowCarousel, carouselPlan } from "../../lib/carousel";
 import { MoreImages } from "../../components/MoreImages";
 import { DateTimePicker, TimeOfDayPicker } from "../../components/DateTimePicker";
 import { DayOfWeekPicker } from "../../components/DayOfWeekPicker";
@@ -391,7 +391,12 @@ export function PostsTab() {
             </div>
           </label>
           {canShowCarousel(selectedAccountIds.map((id) => accounts.find((x) => x.id === id)?.platform), mediaUrl) && (
-            <MoreImages urls={extraMediaUrls} setUrls={setExtraMediaUrls} onError={setError} />
+            <MoreImages
+              plan={carouselPlan(selectedAccountIds.map((id) => accounts.find((x) => x.id === id)?.platform))}
+              urls={extraMediaUrls}
+              setUrls={setExtraMediaUrls}
+              onError={setError}
+            />
           )}
           {mediaUrl && !mediaUrl.match(/\.(mp4|mov)$/i) && (
             <label>

@@ -9,6 +9,7 @@ import { MAX_POST_CONTENT_LENGTH, MAX_BOARD_ID_LENGTH, MAX_DESTINATION_LINK_LENG
 import { resolveTier, RECURRING_SCHEDULE_SLOT_LIMITS } from "../../tier.js";
 import { cancelFuturePendingOccurrences } from "../../recurringScheduler.js";
 import { isSafeMediaUrl } from "../../urlSafety.js";
+import { normalizeDraftExtras, extrasToColumns, type PostExtras } from "../../postExtras.js";
 import { dbError } from "./shared.js";
 
 export function buildRecurringSchedulesRouter(): Router {
@@ -35,6 +36,10 @@ export function buildRecurringSchedulesRouter(): Router {
     boardId?: unknown;
     destinationLink?: unknown;
     firstComment?: unknown;
+    tags?: unknown;
+    mediaUrls?: unknown;
+    selfReplyText?: unknown;
+    selfReplyAtLikes?: unknown;
     tiktokPrivacyLevel?: unknown;
     tiktokDisableComment?: unknown;
     tiktokDisableDuet?: unknown;
@@ -213,6 +218,12 @@ export function buildRecurringSchedulesRouter(): Router {
       return;
     }
 
+    const extrasCheck = await normalizeDraftExtras(input);
+    if (!extrasCheck.ok) {
+      res.status(extrasCheck.failure.status).json(extrasCheck.failure.body);
+      return;
+    }
+
     const { data: slot, error } = await req.db!
       .from("recurring_schedules")
       .insert({
@@ -223,6 +234,7 @@ export function buildRecurringSchedulesRouter(): Router {
         board_id: input.boardId ?? null,
         destination_link: input.destinationLink ?? null,
         first_comment: input.firstComment ?? null,
+        ...extrasToColumns(extrasCheck.extras),
         tiktok_privacy_level: (input.tiktokPrivacyLevel as string | undefined) ?? null,
         tiktok_disable_comment: (input.tiktokDisableComment as boolean | undefined) ?? true,
         tiktok_disable_duet: (input.tiktokDisableDuet as boolean | undefined) ?? true,
@@ -279,7 +291,7 @@ export function buildRecurringSchedulesRouter(): Router {
   router.patch("/recurring-schedules/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data: existing, error: fetchError } = await req.db!
       .from("recurring_schedules")
-      .select("id, status")
+      .select("id, status, tags, media_urls, self_reply_text, self_reply_at_likes")
       .eq("id", req.params.id)
       .eq("account_id", req.accountId)
       .maybeSingle();
@@ -303,6 +315,22 @@ export function buildRecurringSchedulesRouter(): Router {
       return;
     }
 
+    // Tags, extra images and the self-reply are checked BEFORE anything is cancelled or changed.
+    let patchExtras: PostExtras | null = null;
+    if (input.tags !== undefined || input.mediaUrls !== undefined || input.selfReplyText !== undefined || input.selfReplyAtLikes !== undefined) {
+      const extrasCheck = await normalizeDraftExtras({
+        tags: input.tags !== undefined ? input.tags : existing.tags,
+        mediaUrls: input.mediaUrls !== undefined ? input.mediaUrls : existing.media_urls,
+        selfReplyText: input.selfReplyText !== undefined ? input.selfReplyText : existing.self_reply_text,
+        selfReplyAtLikes: input.selfReplyAtLikes !== undefined ? input.selfReplyAtLikes : existing.self_reply_at_likes,
+      });
+      if (!extrasCheck.ok) {
+        res.status(extrasCheck.failure.status).json(extrasCheck.failure.body);
+        return;
+      }
+      patchExtras = extrasCheck.extras;
+    }
+
     // Resuming (paused -> active, nothing else changing) never needs to
     // cancel anything — there's nothing stale to invalidate. Every other
     // change — pausing, or editing any content/schedule field while
@@ -312,6 +340,7 @@ export function buildRecurringSchedulesRouter(): Router {
     const isPureResume = input.status === "active" && existing.status === "paused" &&
       input.content === undefined && input.mediaUrl === undefined && input.coverImageUrl === undefined &&
       input.boardId === undefined && input.destinationLink === undefined && input.firstComment === undefined &&
+      input.tags === undefined && input.mediaUrls === undefined && input.selfReplyText === undefined && input.selfReplyAtLikes === undefined &&
       input.socialAccountIds === undefined &&
       input.daysOfWeek === undefined && input.timeOfDay === undefined && input.timezone === undefined &&
       input.startsOn === undefined && input.endsOn === undefined;
@@ -351,6 +380,7 @@ export function buildRecurringSchedulesRouter(): Router {
     if (input.boardId !== undefined) updates.board_id = input.boardId;
     if (input.destinationLink !== undefined) updates.destination_link = input.destinationLink;
     if (input.firstComment !== undefined) updates.first_comment = input.firstComment;
+    if (patchExtras) Object.assign(updates, extrasToColumns(patchExtras));
     if (input.tiktokPrivacyLevel !== undefined) updates.tiktok_privacy_level = input.tiktokPrivacyLevel;
     if (input.tiktokDisableComment !== undefined) updates.tiktok_disable_comment = input.tiktokDisableComment;
     if (input.tiktokDisableDuet !== undefined) updates.tiktok_disable_duet = input.tiktokDisableDuet;

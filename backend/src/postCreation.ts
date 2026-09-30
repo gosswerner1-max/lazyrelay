@@ -14,9 +14,7 @@
 // Pure extraction, not a rewrite: every function's behavior is unchanged
 // from its original routes.ts version.
 
-import { normalizeTags } from "./postTags.js";
-import { normalizeSelfReply } from "./selfReply.js";
-import { normalizeCarousel } from "./carousel.js";
+import { resolvePostExtras, extrasToColumns } from "./postExtras.js";
 import { supabase } from "./supabase.js";
 import { isSafeMediaUrl } from "./urlSafety.js";
 import { validateMediaForPlatform, type Platform } from "./mediaLimits.js";
@@ -483,16 +481,8 @@ export async function scheduleOnePost(
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   const validated = await validatePostFields(accountId, input);
   if ("status" in validated) return validated;
-  const tagResult = normalizeTags(input.tags);
-  if (!tagResult.ok) return { status: 400, body: { error: tagResult.error } };
-  const carousel = normalizeCarousel(validated.mediaUrl, input.mediaUrls, validated.account.platform);
-  if (!carousel.ok) return { status: 400, body: { error: carousel.error } };
-  for (const extra of carousel.urls) {
-    const safe = await isSafeMediaUrl(extra);
-    if (!safe.safe) return { status: 400, body: { error: `mediaUrls ${safe.reason}` } };
-  }
-  const selfReply = normalizeSelfReply(input.selfReplyText, input.selfReplyAtLikes, validated.account.platform);
-  if (!selfReply.ok) return { status: 400, body: { error: selfReply.error } };
+  const extrasResult = await resolvePostExtras(input, validated.account.platform, validated.mediaUrl);
+  if (!extrasResult.ok) return extrasResult.failure;
   const {
     socialAccountId,
     content,
@@ -542,10 +532,7 @@ export async function scheduleOnePost(
       tiktok_brand_organic: tiktokBrandOrganic,
       tiktok_brand_content: tiktokBrandContent,
       scheduled_for: scheduledFor,
-      tags: tagResult.tags,
-      media_urls: carousel.urls,
-      self_reply_text: selfReply.value?.text ?? null,
-      self_reply_at_likes: selfReply.value?.atLikes ?? null,
+      ...extrasToColumns(extrasResult.extras),
       // A post created with requiresApproval sits in needs_approval —
       // invisible to the scheduler (claimDuePosts only ever selects
       // status='pending') — until explicitly approved via

@@ -1,15 +1,34 @@
-// Instagram carousels (master list #19, first version: Instagram, images only).
-// A carousel is the post's main image (mediaUrl) plus 1 to 9 more (mediaUrls),
-// so 2 to 10 images in all, which is Instagram's own limit.
+// Multi-image posts (master list #19). A post's main media (mediaUrl) plus extra
+// media (mediaUrls), up to each platform's own limit in total. Instagram and
+// Threads allow videos among the slides; every other platform is images only.
 
+export interface MultiMediaRule {
+  /** Most items in total, including the main one. */
+  max: number;
+  /** Whether videos may be among them. */
+  videos: boolean;
+}
+
+export const MULTI_MEDIA_RULES: Record<string, MultiMediaRule> = {
+  instagram: { max: 10, videos: true },
+  threads: { max: 10, videos: true },
+  facebook: { max: 10, videos: false },
+  tumblr: { max: 10, videos: false },
+  linkedin: { max: 9, videos: false },
+  bluesky: { max: 4, videos: false },
+  mastodon: { max: 4, videos: false },
+  x: { max: 4, videos: false },
+};
+
+export const CAROUSEL_PLATFORMS = Object.keys(MULTI_MEDIA_RULES);
+/** Largest number of EXTRA items any platform takes (the frontend's overall cap). */
 export const MAX_EXTRA_CAROUSEL_IMAGES = 9;
-export const CAROUSEL_PLATFORMS = ["instagram"];
 
 export function isVideoFile(url: string): boolean {
   return /\.(mp4|mov|m4v|webm)(\?.*)?$/i.test(url);
 }
 
-/** Checks the shape of a carousel request. URL safety is checked separately (it needs DNS). */
+/** Checks the shape of a multi-media request. URL safety and file rules are checked separately (they need DNS and the database). */
 export function normalizeCarousel(
   mediaUrl: unknown,
   mediaUrls: unknown,
@@ -17,21 +36,22 @@ export function normalizeCarousel(
 ): { ok: true; urls: string[] } | { ok: false; error: string } {
   if (mediaUrls === undefined || mediaUrls === null) return { ok: true, urls: [] };
   if (!Array.isArray(mediaUrls) || mediaUrls.some((u) => typeof u !== "string" || u.trim() === "")) {
-    return { ok: false, error: "mediaUrls must be a list of image addresses" };
+    return { ok: false, error: "mediaUrls must be a list of file addresses" };
   }
   if (mediaUrls.length === 0) return { ok: true, urls: [] };
-  if (!CAROUSEL_PLATFORMS.includes(platform)) {
-    return { ok: false, error: "Posts with several images are only available for Instagram right now" };
+  const rule = MULTI_MEDIA_RULES[platform];
+  if (!rule) {
+    return { ok: false, error: "This platform does not take several images in one post" };
   }
   if (typeof mediaUrl !== "string" || mediaUrl === "") {
-    return { ok: false, error: "A carousel needs a main image (mediaUrl) as well as mediaUrls" };
+    return { ok: false, error: "A post with several images needs a main image (mediaUrl) as well as mediaUrls" };
   }
-  if (mediaUrls.length > MAX_EXTRA_CAROUSEL_IMAGES) {
-    return { ok: false, error: `A carousel can have up to ${MAX_EXTRA_CAROUSEL_IMAGES + 1} images in total` };
+  if (mediaUrls.length + 1 > rule.max) {
+    return { ok: false, error: `This platform allows up to ${rule.max} images in one post` };
   }
   const urls = (mediaUrls as string[]).map((u) => u.trim());
-  if (isVideoFile(mediaUrl) || urls.some(isVideoFile)) {
-    return { ok: false, error: "Carousels can only contain images for now, not videos" };
+  if (!rule.videos && (isVideoFile(mediaUrl) || urls.some(isVideoFile))) {
+    return { ok: false, error: "This platform only takes images in a multi-image post, not videos" };
   }
   return { ok: true, urls };
 }

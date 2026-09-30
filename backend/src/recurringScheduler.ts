@@ -1,3 +1,4 @@
+import { extrasForPlatform } from "./postExtras.js";
 import { DateTime } from "luxon";
 import { supabase } from "./supabase.js";
 import { resolveTier } from "./tier.js";
@@ -22,6 +23,10 @@ interface RecurringScheduleRow {
   board_id: string | null;
   destination_link: string | null;
   first_comment: string | null;
+  tags: string[] | null;
+  media_urls: string[] | null;
+  self_reply_text: string | null;
+  self_reply_at_likes: number | null;
   tiktok_privacy_level: string | null;
   tiktok_disable_comment: boolean;
   tiktok_disable_duet: boolean;
@@ -221,6 +226,7 @@ export async function generateDuePosts(): Promise<void> {
           tiktok_disable_stitch: slot.tiktok_disable_stitch,
           tiktok_brand_organic: slot.tiktok_brand_organic,
           tiktok_brand_content: slot.tiktok_brand_content,
+          ...extrasForPlatform(slot, platformByAccountId.get(target.social_account_id) ?? "", slot.media_url),
           scheduled_for: occurrenceAt.toUTC().toISO(),
           recurring_schedule_id: slot.id,
         });

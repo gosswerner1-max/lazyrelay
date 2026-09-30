@@ -299,22 +299,31 @@ export class InstagramAdapter implements PlatformAdapter {
   // limits: 300MB max, 15min max / 3s min duration (enforced pre-flight by
   // mediaLimits.ts, not re-checked here).
   // Carousel (2026-09-30, master list #19): one container per image
-  // (is_carousel_item), then a CAROUSEL container listing them, then the same
-  // publish call. Images only in this version.
+  // (is_carousel_item; videos too, 2026-09-30), then a CAROUSEL container listing
+  // them, then the same publish call.
   private async postCarousel(request: PostRequest, igId: string): Promise<PostAttemptResult> {
     const urls = [request.mediaUrl as string, ...(request.mediaUrls ?? [])];
     const childIds: string[] = [];
-    for (const imageUrl of urls) {
+    for (const mediaItemUrl of urls) {
+      const itemIsVideo = isVideoUrl(mediaItemUrl);
+      // Per Meta's ig-user/media reference: carousel children may be images or
+      // videos; a video child is media_type=VIDEO (NOT REELS -- Reels cannot
+      // appear in carousels) + video_url, both with is_carousel_item=true.
+      const childParams = new URLSearchParams({
+        ...(itemIsVideo ? { media_type: "VIDEO", video_url: mediaItemUrl } : { image_url: mediaItemUrl }),
+        is_carousel_item: "true",
+        access_token: request.accessToken,
+      });
       const res = await fetch(`${GRAPH_BASE}/${igId}/media`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ image_url: imageUrl, is_carousel_item: "true", access_token: request.accessToken }).toString(),
+        body: childParams.toString(),
       });
       const json = (await res.json()) as InstagramContainerResponse;
       if (!res.ok || !json.id) {
-        return { success: false, platformPostId: null, errorMessage: json.error?.message ?? `Instagram carousel image ${childIds.length + 1} failed (HTTP ${res.status})` };
+        return { success: false, platformPostId: null, errorMessage: json.error?.message ?? `Instagram carousel item ${childIds.length + 1} failed (HTTP ${res.status})` };
       }
-      const childError = await this.waitForContainerReady(json.id, request.accessToken, false);
+      const childError = await this.waitForContainerReady(json.id, request.accessToken, itemIsVideo);
       if (childError) return { success: false, platformPostId: null, errorMessage: childError };
       childIds.push(json.id);
     }

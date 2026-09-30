@@ -258,6 +258,11 @@ export class TumblrAdapter implements PlatformAdapter {
       ];
       if (request.mediaUrl) {
         content.push({ type: "image", media: [{ url: request.mediaUrl, type: "image/jpeg" }] });
+        // Multi-image: one more image block per extra image, in order. Tumblr's
+        // NPF renders consecutive image blocks as a multi-image post.
+        for (const extra of request.mediaUrls ?? []) {
+          content.push({ type: "image", media: [{ url: extra, type: "image/jpeg" }] });
+        }
       }
       res = await fetch(postUrl, {
         method: "POST",

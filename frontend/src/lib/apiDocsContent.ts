@@ -30,8 +30,19 @@ export const API_ENDPOINTS: ApiEndpointDoc[] = [
   "socialAccountId": "…",
   "content": "Your post text",
   "scheduledFor": "2026-08-10T09:00:00Z",
-  "mediaUrl": "https://example.com/image.jpg"
+  "mediaUrl": "https://example.com/image.jpg",
+  "mediaUrls": ["https://example.com/second.jpg"],
+  "tags": ["launch"],
+  "selfReplyText": "Thank you all!",
+  "selfReplyAtLikes": 50
 }`,
+  },
+  {
+    method: "GET",
+    path: "/posting-slots/next?socialAccountId=…",
+    summary:
+      "The next free time from the posting times saved in Settings for one account, as an ISO timestamp to use as scheduledFor. Optional post fields: mediaUrls adds extra images after mediaUrl (Instagram and Threads 10 in total, videos allowed; Facebook and Tumblr 10, LinkedIn 9, Bluesky, Mastodon and X 4, images only); tags are up to 5 labels you can filter analytics by; selfReplyText is a comment added once the post reaches selfReplyAtLikes likes (Facebook and Instagram, added at the next engagement check).",
+    body: null,
   },
   {
     method: "GET",
@@ -48,7 +59,7 @@ export const API_ENDPOINTS: ApiEndpointDoc[] = [
   {
     method: "GET",
     path: "/analytics/summary?days=30",
-    summary: "Post counts, verified-live rate, per-platform breakdown, engagement totals",
+    summary: "Post counts, verified-live rate, per-platform breakdown, engagement totals. Add &tag=launch to count only posts with that tag; availableTags lists the tags you have used.",
     body: null,
   },
   {
@@ -109,7 +120,8 @@ export interface McpToolDoc {
 
 export const MCP_TOOLS: McpToolDoc[] = [
   { name: "list_connected_accounts", summary: "List your connected social accounts and their ids" },
-  { name: "schedule_post", summary: "Schedule a post to one connected account" },
+  { name: "schedule_post", summary: "Schedule a post to one connected account, with optional extra images, tags and a self-reply" },
+  { name: "get_next_free_slot", summary: "Find the next free posting time for an account, from the posting times saved in Settings" },
   { name: "list_scheduled_posts", summary: "See upcoming and recent posts, with status and Proof-of-Publish verification" },
   { name: "delete_scheduled_post", summary: "Cancel a pending post" },
   { name: "get_analytics_summary", summary: "Post counts, verified-live rate, per-platform breakdown, engagement totals" },

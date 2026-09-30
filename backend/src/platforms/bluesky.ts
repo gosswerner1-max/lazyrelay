@@ -427,14 +427,24 @@ export class BlueskyAdapter implements PlatformAdapter {
       if (!blob) {
         return { success: false, platformPostId: null, errorMessage: `Could not upload media from ${request.mediaUrl}` };
       }
-      embed = {
-        $type: "app.bsky.embed.images",
+      // Multi-image (app.bsky.embed.images allows up to 4, alt required per
+      // image; verified against the atproto lexicon). Extra images are
+      // uploaded in order; alt text applies to the first image only.
+      const images: Array<{ alt: string; image: BlueskyBlobRef }> = [
         // Was hardcoded to "" (found in a 2026-08-19 security review) —
         // PostRequest.mediaAltText already existed and worked for Mastodon,
         // but this adapter never read it, so a customer's alt text silently
         // never reached Bluesky with no error telling them it didn't work.
-        images: [{ alt: request.mediaAltText ?? "", image: blob }],
-      };
+        { alt: request.mediaAltText ?? "", image: blob },
+      ];
+      for (const extraUrl of request.mediaUrls ?? []) {
+        const extraBlob = await this.uploadBlob(extraUrl, request.accessToken);
+        if (!extraBlob) {
+          return { success: false, platformPostId: null, errorMessage: `Could not upload media from ${extraUrl}` };
+        }
+        images.push({ alt: "", image: extraBlob });
+      }
+      embed = { $type: "app.bsky.embed.images", images };
     }
 
     const res = await fetch(CREATE_RECORD_URL, {

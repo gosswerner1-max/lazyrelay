@@ -218,8 +218,42 @@ export class FacebookAdapter implements PlatformAdapter {
     return json.id;
   }
 
+  // Multi-photo (2026-09-30), per Meta's Page photos reference: upload each
+  // photo unpublished (published=false -> id), then one /feed post with
+  // attached_media[i]={"media_fbid":"<id>"}. Returns the feed post id
+  // ("pageid_postid"), which verifyPublished can fetch back directly.
+  private async postMultiPhoto(request: PostRequest, pageId: string): Promise<PostAttemptResult> {
+    const urls = [request.mediaUrl as string, ...(request.mediaUrls ?? [])];
+    const photoIds: string[] = [];
+    for (const photoUrl of urls) {
+      const res = await fetch(`${GRAPH_BASE}/${pageId}/photos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ url: photoUrl, published: "false", access_token: request.accessToken }).toString(),
+      });
+      const json = (await res.json()) as FacebookPostResponse;
+      if (!res.ok || !json.id) {
+        return { success: false, platformPostId: null, errorMessage: json.error?.message ?? `Facebook photo ${photoIds.length + 1} upload failed (HTTP ${res.status})` };
+      }
+      photoIds.push(json.id);
+    }
+    const feedParams = new URLSearchParams({ message: request.content, access_token: request.accessToken });
+    photoIds.forEach((id, i) => feedParams.set(`attached_media[${i}]`, JSON.stringify({ media_fbid: id })));
+    const feedRes = await fetch(`${GRAPH_BASE}/${pageId}/feed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: feedParams.toString(),
+    });
+    const feedJson = (await feedRes.json()) as FacebookPostResponse;
+    if (!feedRes.ok || !feedJson.id) {
+      return { success: false, platformPostId: null, errorMessage: feedJson.error?.message ?? `Facebook multi-photo post failed (HTTP ${feedRes.status})` };
+    }
+    return { success: true, platformPostId: feedJson.id, errorMessage: null };
+  }
+
   async post(request: PostRequest): Promise<PostAttemptResult> {
     const pageId = await this.getPageId(request.accessToken);
+    if (request.mediaUrl && request.mediaUrls && request.mediaUrls.length > 0) return this.postMultiPhoto(request, pageId);
 
     const isVideo = request.mediaUrl ? /\.(mp4|mov|avi|mkv|webm|m4v|3gp|ogv|flv|wmv)(\?|#|$)/i.test(request.mediaUrl) : false;
     const params = new URLSearchParams({ access_token: request.accessToken });

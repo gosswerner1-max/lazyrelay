@@ -1480,6 +1480,10 @@ export function useDashboardState() {
         tiktokDisableStitch: !tiktokAllowStitch,
         tiktokBrandOrganic: tiktokDiscloseCommercial && tiktokBrandOrganic,
         tiktokBrandContent: tiktokDiscloseCommercial && tiktokBrandContent,
+        tags: parseTags(postTagsText) ?? [],
+        mediaUrls: extraMediaUrls,
+        selfReplyText: selfReplyText.trim() || null,
+        selfReplyAtLikes: selfReplyText.trim() && Number.isInteger(Number(selfReplyLikes)) && Number(selfReplyLikes) >= 1 ? Number(selfReplyLikes) : null,
       };
       if (editingDraftId) {
         await api.updateDraft(editingDraftId, fields);
@@ -1489,6 +1493,9 @@ export function useDashboardState() {
       setContent("");
       setMediaUrl(null);
       setExtraMediaUrls([]);
+      setPostTagsText("");
+      setSelfReplyText("");
+      setSelfReplyLikes("");
       setCoverImageUrl(null);
       setFirstComment(null);
       setMediaAltText(null);
@@ -1515,6 +1522,10 @@ export function useDashboardState() {
   function handleEditDraft(p: ScheduledPost) {
     setContent(p.content);
     setMediaUrl(p.media_url);
+    setExtraMediaUrls(p.media_urls ?? []);
+    setPostTagsText((p.tags ?? []).join(", "));
+    setSelfReplyText(p.self_reply_text ?? "");
+    setSelfReplyLikes(p.self_reply_at_likes ? String(p.self_reply_at_likes) : "");
     setCoverImageUrl(p.cover_image_url);
     setDestinationLink(p.destination_link);
     setFirstComment(p.first_comment);
@@ -1534,6 +1545,9 @@ export function useDashboardState() {
     setContent("");
     setMediaUrl(null);
     setExtraMediaUrls([]);
+    setPostTagsText("");
+    setSelfReplyText("");
+    setSelfReplyLikes("");
     setCoverImageUrl(null);
     setDestinationLink(null);
     setFirstComment(null);

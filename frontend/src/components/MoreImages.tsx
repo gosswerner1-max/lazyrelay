@@ -1,26 +1,28 @@
 import { useState } from "react";
 import { api } from "../lib/api";
-import { MAX_EXTRA_IMAGES } from "../lib/carousel";
+import { isVideoFile, type CarouselPlan } from "../lib/carousel";
 
-// Composer control for an Instagram carousel: the main image is the first
-// slide, these are the rest (up to 9 more). Uploads go straight to the media
-// library like any other image.
+// Composer control for a multi-image post: the main file is the first item, these
+// are the rest. Uploads go straight to the media library like any other file. The
+// limits come from the platforms selected (see lib/carousel.ts).
 
 interface Props {
+  plan: CarouselPlan;
   urls: string[];
   setUrls: (urls: string[]) => void;
   onError: (message: string | null) => void;
 }
 
-export function MoreImages({ urls, setUrls, onError }: Props) {
+export function MoreImages({ plan, urls, setUrls, onError }: Props) {
   const [uploading, setUploading] = useState(false);
+  const room = Math.max(0, plan.maxExtra - urls.length);
 
   async function handleFiles(files: FileList) {
     onError(null);
     setUploading(true);
     try {
       const added: string[] = [];
-      for (const file of Array.from(files).slice(0, MAX_EXTRA_IMAGES - urls.length)) {
+      for (const file of Array.from(files).slice(0, room)) {
         const { url } = await api.uploadMedia(file);
         added.push(url);
       }
@@ -35,25 +37,25 @@ export function MoreImages({ urls, setUrls, onError }: Props) {
   return (
     <div>
       <p className="section-note">
-        Instagram carousel (optional): add up to {MAX_EXTRA_IMAGES} more images after the main one. They show as slides in the
-        order added. Images only, no videos.
+        More images (optional). {plan.note} They show in the order added.
+        {urls.length > plan.maxExtra && " You have more than these platforms allow, so remove some before posting."}
       </p>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {urls.map((u, i) => (
           <div key={u + i} className="media-preview" style={{ width: 90 }}>
-            <img src={u} alt={`Carousel image ${i + 2}`} />
+            {isVideoFile(u) ? <video src={u} muted /> : <img src={u} alt={`Item ${i + 2}`} />}
             <button type="button" className="media-remove" onClick={() => setUrls(urls.filter((_, j) => j !== i))}>
               Remove
             </button>
           </div>
         ))}
       </div>
-      {urls.length < MAX_EXTRA_IMAGES && (
+      {room > 0 && (
         <label className="btn-outline" style={{ display: "inline-block", marginTop: 8, cursor: "pointer" }}>
-          {uploading ? "Uploading..." : "Add more images"}
+          {uploading ? "Uploading..." : "Add more"}
           <input
             type="file"
-            accept="image/jpeg,image/png"
+            accept={plan.videosAllowed ? "image/jpeg,image/png,video/mp4,video/quicktime" : "image/jpeg,image/png"}
             multiple
             hidden
             disabled={uploading}

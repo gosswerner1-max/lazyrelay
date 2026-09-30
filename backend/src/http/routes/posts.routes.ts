@@ -15,6 +15,7 @@ import { tieredRateLimit } from "../rateLimit.js";
 import { scheduleOnePost, validatePostFields, validateScheduledFor, checkFreeTierPostLimit, checkPlatformPostLimit, MAX_POST_CONTENT_LENGTH } from "../../postCreation.js";
 import { dbError, resolveBrandFilterSocialAccountIds, fetchAllRows } from "./shared.js";
 import { validateBody, nonEmptyString, optionalNullableString, optionalBoolean, unvalidated } from "../validation.js";
+import { resolvePostExtras, normalizeDraftExtras, extrasToColumns } from "../../postExtras.js";
 
 // Used to build the public Proof-of-Publish share link returned by
 // GET /scheduled-posts/:id/proof-link (see migration
@@ -145,6 +146,10 @@ export function buildPostsRouter(): Router {
     tiktokBrandOrganic: draftBooleanField("tiktokBrandOrganic"),
     tiktokBrandContent: draftBooleanField("tiktokBrandContent"),
     plannedDate: draftPlannedDateField(),
+    tags: unvalidated(),
+    mediaUrls: unvalidated(),
+    selfReplyText: unvalidated(),
+    selfReplyAtLikes: unvalidated(),
     scheduledFor: z
       .string({ error: SCHEDULED_FOR_ERROR })
       .refine((s) => !Number.isNaN(new Date(s).getTime()), SCHEDULED_FOR_ERROR)
@@ -177,6 +182,11 @@ export function buildPostsRouter(): Router {
       plannedAccountIds,
       scheduledFor,
     } = body.data;
+    const draftExtras = await normalizeDraftExtras(body.data);
+    if (!draftExtras.ok) {
+      res.status(draftExtras.failure.status).json(draftExtras.failure.body);
+      return;
+    }
     // Pre-selected platform(s) for this plan item (2026-08-20) — advisory
     // only while status stays 'draft'; ownership is verified here so a
     // customer can't stash an id they don't own, but the real safety check
@@ -223,6 +233,7 @@ export function buildPostsRouter(): Router {
         planned_date: plannedDate ?? null,
         planned_account_ids: validatedPlannedAccountIds,
         scheduled_for: scheduledFor ?? null,
+        ...extrasToColumns(draftExtras.extras),
         status: "draft",
       })
       .select()
@@ -254,11 +265,15 @@ export function buildPostsRouter(): Router {
     tiktokBrandOrganic: draftBooleanField("tiktokBrandOrganic"),
     tiktokBrandContent: draftBooleanField("tiktokBrandContent"),
     plannedDate: draftPlannedDateField(),
+    tags: unvalidated(),
+    mediaUrls: unvalidated(),
+    selfReplyText: unvalidated(),
+    selfReplyAtLikes: unvalidated(),
   });
   router.patch("/scheduled-posts/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data: existing, error: fetchError } = await req.db!
       .from("scheduled_posts")
-      .select("id, status")
+      .select("id, status, media_url, tags, media_urls, self_reply_text, self_reply_at_likes, social_accounts(platform)")
       .eq("id", req.params.id)
       .eq("account_id", req.accountId)
       .maybeSingle();
@@ -333,6 +348,30 @@ export function buildPostsRouter(): Router {
     if (plannedDate !== undefined) {
       update.planned_date = plannedDate;
     }
+    // Tags, extra images and the self-reply are edited as a set: whichever the
+    // caller sends is checked against the platform (for a scheduled post) and
+    // the rest keep their stored values.
+    const touchesExtras = [body.data.tags, body.data.mediaUrls, body.data.selfReplyText, body.data.selfReplyAtLikes].some((v) => v !== undefined);
+    if (touchesExtras) {
+      const merged = {
+        tags: body.data.tags !== undefined ? body.data.tags : existing.tags,
+        mediaUrls: body.data.mediaUrls !== undefined ? body.data.mediaUrls : existing.media_urls,
+        selfReplyText: body.data.selfReplyText !== undefined ? body.data.selfReplyText : existing.self_reply_text,
+        selfReplyAtLikes: body.data.selfReplyAtLikes !== undefined ? body.data.selfReplyAtLikes : existing.self_reply_at_likes,
+      };
+      const sa = existing.social_accounts as { platform?: string } | { platform?: string }[] | null;
+      const platform = (Array.isArray(sa) ? sa[0]?.platform : sa?.platform) ?? null;
+      const effectiveMedia = mediaUrl !== undefined ? mediaUrl : existing.media_url;
+      const checked =
+        existing.status === "pending" && platform
+          ? await resolvePostExtras(merged, platform, (effectiveMedia as string | null) ?? null)
+          : await normalizeDraftExtras(merged);
+      if (!checked.ok) {
+        res.status(checked.failure.status).json(checked.failure.body);
+        return;
+      }
+      Object.assign(update, extrasToColumns(checked.extras));
+    }
 
     const { data, error, count } = await req.db!
       .from("scheduled_posts")
@@ -405,6 +444,12 @@ export function buildPostsRouter(): Router {
       scheduledFor,
     } = validated;
 
+    const promoteExtras = await resolvePostExtras(req.body ?? {}, validated.account.platform, mediaUrl);
+    if (!promoteExtras.ok) {
+      res.status(promoteExtras.failure.status).json(promoteExtras.failure.body);
+      return;
+    }
+
     const limitError = await checkFreeTierPostLimit(req.accountId, socialAccountId);
     if (limitError) {
       res.status(limitError.status).json(limitError.body);
@@ -443,6 +488,7 @@ export function buildPostsRouter(): Router {
         tiktok_brand_organic: tiktokBrandOrganic,
         tiktok_brand_content: tiktokBrandContent,
         scheduled_for: scheduledFor,
+        ...extrasToColumns(promoteExtras.extras),
         status: req.body?.requiresApproval === true ? "needs_approval" : "pending",
       })
       .eq("id", req.params.id)
@@ -790,7 +836,7 @@ export function buildPostsRouter(): Router {
     const { data: existing, error: fetchError } = await req.db!
       .from("scheduled_posts")
       .select(
-        "social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, tiktok_brand_organic, tiktok_brand_content, status",
+        "social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, tiktok_brand_organic, tiktok_brand_content, tags, media_urls, self_reply_text, self_reply_at_likes, status",
       )
       .eq("id", req.params.id)
       .eq("account_id", req.accountId)
@@ -823,6 +869,10 @@ export function buildPostsRouter(): Router {
       tiktokDisableStitch: existing.tiktok_disable_stitch,
       tiktokBrandOrganic: existing.tiktok_brand_organic,
       tiktokBrandContent: existing.tiktok_brand_content,
+      tags: existing.tags,
+      mediaUrls: existing.media_urls,
+      selfReplyText: existing.self_reply_text,
+      selfReplyAtLikes: existing.self_reply_at_likes,
       scheduledFor: (req.body ?? {}).scheduledFor,
       requiresApproval: (req.body ?? {}).requiresApproval,
     });

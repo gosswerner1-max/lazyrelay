@@ -128,6 +128,13 @@ export interface ScheduledPost {
   destination_link: string | null;
   first_comment: string | null;
   media_alt_text: string | null;
+  // Optional extras (backend 0101, 0102, 0104).
+  tags?: string[] | null;
+  media_urls?: string[] | null;
+  self_reply_text?: string | null;
+  self_reply_at_likes?: number | null;
+  self_reply_done_at?: string | null;
+  self_reply_error?: string | null;
   // TikTok-only (migration 0083) — the compose form's own privacy/
   // interaction choices, required for a real TikTok post (see
   // postCreation.ts), null/default on every other platform's rows.
@@ -183,6 +190,11 @@ export interface DraftFields {
   tiktokBrandContent?: boolean;
   plannedAccountIds?: string[] | null;
   scheduledFor?: string | null;
+  // Kept on the draft so they survive until it is scheduled.
+  tags?: string[];
+  mediaUrls?: string[];
+  selfReplyText?: string | null;
+  selfReplyAtLikes?: number | null;
 }
 
 // Internal tier codes are stable across the Starter/Pro/Business rename
@@ -573,6 +585,10 @@ export const api = {
       tiktokDisableStitch?: boolean;
       tiktokBrandOrganic?: boolean;
       tiktokBrandContent?: boolean;
+      tags?: string[];
+      mediaUrls?: string[];
+      selfReplyText?: string;
+      selfReplyAtLikes?: number;
       scheduledFor: string;
       requiresApproval?: boolean;
     },

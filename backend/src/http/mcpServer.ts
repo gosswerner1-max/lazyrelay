@@ -142,13 +142,20 @@ export function buildMcpServer(): McpServer {
         .string()
         .optional()
         .describe("Optional first comment posted immediately after publishing (Facebook and Instagram only)"),
+      tags: z.array(z.string()).optional().describe("Up to 5 short labels for filtering analytics by campaign (for example [\"launch\"])"),
+      mediaUrls: z
+        .array(z.string())
+        .optional()
+        .describe("Extra image URLs after mediaUrl for a multi-image post. Instagram and Threads take 10 in total (videos allowed), Facebook and Tumblr 10, LinkedIn 9, Bluesky, Mastodon and X 4 (images only)"),
+      selfReplyText: z.string().optional().describe("A follow-up comment to add once the post reaches selfReplyAtLikes likes (Facebook and Instagram only)"),
+      selfReplyAtLikes: z.number().int().optional().describe("Like count that triggers selfReplyText"),
     },
-    async ({ socialAccountId, content, scheduledFor, mediaUrl, firstComment }, extra) => {
+    async ({ socialAccountId, content, scheduledFor, mediaUrl, firstComment, tags, mediaUrls, selfReplyText, selfReplyAtLikes }, extra) => {
       const { auth, accountId } = requireAuthInfo(extra);
       return textResult(
         await callLazyRelayApi(auth, accountId, "/scheduled-posts", {
           method: "POST",
-          body: JSON.stringify({ socialAccountId, content, scheduledFor, mediaUrl, firstComment }),
+          body: JSON.stringify({ socialAccountId, content, scheduledFor, mediaUrl, firstComment, tags, mediaUrls, selfReplyText, selfReplyAtLikes }),
         })
       );
     }
@@ -177,13 +184,20 @@ export function buildMcpServer(): McpServer {
         .string()
         .optional()
         .describe("New first comment posted immediately after publishing (Facebook and Instagram only)"),
+      tags: z.array(z.string()).optional().describe("Up to 5 short labels for filtering analytics by campaign (for example [\"launch\"])"),
+      mediaUrls: z
+        .array(z.string())
+        .optional()
+        .describe("Extra image URLs after mediaUrl for a multi-image post. Instagram and Threads take 10 in total (videos allowed), Facebook and Tumblr 10, LinkedIn 9, Bluesky, Mastodon and X 4 (images only)"),
+      selfReplyText: z.string().optional().describe("A follow-up comment to add once the post reaches selfReplyAtLikes likes (Facebook and Instagram only)"),
+      selfReplyAtLikes: z.number().int().optional().describe("Like count that triggers selfReplyText"),
     },
-    async ({ id, content, mediaUrl, firstComment }, extra) => {
+    async ({ id, content, mediaUrl, firstComment, tags, mediaUrls, selfReplyText, selfReplyAtLikes }, extra) => {
       const { auth, accountId } = requireAuthInfo(extra);
       return textResult(
         await callLazyRelayApi(auth, accountId, `/scheduled-posts/${id}`, {
           method: "PATCH",
-          body: JSON.stringify({ content, mediaUrl, firstComment }),
+          body: JSON.stringify({ content, mediaUrl, firstComment, tags, mediaUrls, selfReplyText, selfReplyAtLikes }),
         })
       );
     }
