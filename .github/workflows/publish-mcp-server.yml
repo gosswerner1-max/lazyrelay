@@ -76,12 +76,25 @@ jobs:
           else
             echo "should_publish=true" >> "$GITHUB_OUTPUT"
           fi
+          # The Registry is checked on its own (added 2026-09-30): a release whose npm step worked but
+          # whose Registry step failed (npm's CDN can take minutes to show a new version, which the
+          # Registry checks at once) used to be stuck for good, because "already on npm" skipped
+          # everything. Now the Registry step runs whenever the Registry lacks this version.
+          NAME=$(jq -r '.name' server.json)
+          REGISTRY_VERSION=$(curl -s "https://registry.modelcontextprotocol.io/v0/servers?search=$NAME" | jq -r --arg n "$NAME" '[.servers[]?.server | select(.name == $n)][0].version // "none"')
+          echo "Registry version:  $REGISTRY_VERSION"
+          SERVER_VERSION=$(jq -r '.version' server.json)
+          if [ "$SERVER_VERSION" = "$REGISTRY_VERSION" ]; then
+            echo "registry_needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "registry_needed=true" >> "$GITHUB_OUTPUT"
+          fi
 
       # server.json must carry the same version as package.json, or the
       # Registry would get a stale manifest. Checked BEFORE npm publish so a
       # forgotten bump stops the release before anything goes live.
       - name: Check server.json version matches package.json
-        if: steps.version_check.outputs.should_publish == 'true'
+        if: steps.version_check.outputs.should_publish == 'true' || steps.version_check.outputs.registry_needed == 'true'
         run: |
           PKG=$(node -p "require('./package.json').version")
           SRV=$(jq -r '.version' server.json)
@@ -102,17 +115,32 @@ jobs:
       # MCP Registry: GitHub OIDC login, no stored token (uses the same
       # id-token permission npm already uses). mcp-publisher pinned to v1.8.1
       # and checked against that release's own checksums file.
+      # The Registry verifies the npm package exists at this exact version the moment it is asked, and
+      # npm's CDN can take a few minutes to show a fresh release. Wait for it (up to 15 minutes).
+      - name: Wait for npm to show this version
+        if: steps.version_check.outputs.registry_needed == 'true'
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          for i in $(seq 1 60); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://registry.npmjs.org/@lazyrelay%2fmcp-server/$VERSION")
+            if [ "$CODE" = "200" ]; then echo "npm shows $VERSION"; exit 0; fi
+            echo "npm does not show $VERSION yet (HTTP $CODE), waiting..."
+            sleep 15
+          done
+          echo "::error::npm still does not show $VERSION after 15 minutes"
+          exit 1
+
       - name: Install mcp-publisher
-        if: steps.version_check.outputs.should_publish == 'true'
+        if: steps.version_check.outputs.registry_needed == 'true'
         run: |
           curl -sSfL -o mcp-publisher.tar.gz https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz
           echo "a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc  mcp-publisher.tar.gz" | sha256sum -c -
           tar xzf mcp-publisher.tar.gz mcp-publisher
 
       - name: Log in to MCP Registry
-        if: steps.version_check.outputs.should_publish == 'true'
+        if: steps.version_check.outputs.registry_needed == 'true'
         run: ./mcp-publisher login github-oidc
 
       - name: Publish to MCP Registry
-        if: steps.version_check.outputs.should_publish == 'true'
+        if: steps.version_check.outputs.registry_needed == 'true'
         run: ./mcp-publisher publish server.json
