@@ -26,7 +26,9 @@ vi.mock("../../supabase.js", async () => {
       from: (t: string) => f.makeBuilder(t),
       storage: {
         from: () => ({
-          upload: async (path: string, _body: unknown, opts: { contentType: string }) => {
+          upload: async (path: string, body: AsyncIterable<unknown>, opts: { contentType: string }) => {
+            // Read the stream to the end like the real storage client does, so the temp file is not deleted mid-read.
+            for await (const _chunk of body) void _chunk;
             uploads.calls.push({ path, contentType: opts.contentType });
             return { error: null };
           },
