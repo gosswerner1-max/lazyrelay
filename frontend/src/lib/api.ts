@@ -534,6 +534,8 @@ export const api = {
     destinationLink?: string;
     firstComment?: string;
     tags?: string[];
+    selfReplyText?: string;
+    selfReplyAtLikes?: number;
     mediaAltText?: string;
     tiktokPrivacyLevel?: string;
     tiktokDisableComment?: boolean;

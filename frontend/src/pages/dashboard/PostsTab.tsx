@@ -12,6 +12,7 @@ import { SocialPostPreview } from "../../components/SocialPostPreview";
 import { AccountPicker } from "../../components/AccountPicker";
 import { SnippetPicker } from "../../components/SnippetPicker";
 import { isoToLocalDateTime } from "../../lib/postingSlots";
+import { supportsSelfReply } from "../../lib/selfReply";
 import { DateTimePicker, TimeOfDayPicker } from "../../components/DateTimePicker";
 import { DayOfWeekPicker } from "../../components/DayOfWeekPicker";
 import { bestTimeFor } from "../../lib/bestTimes";
@@ -32,6 +33,10 @@ export function PostsTab() {
     setError,
     postTagsText,
     setPostTagsText,
+    selfReplyText,
+    setSelfReplyText,
+    selfReplyLikes,
+    setSelfReplyLikes,
     setTab,
     brandFilter,
     setBrandFilter,
@@ -304,6 +309,19 @@ export function PostsTab() {
             Tags (optional, up to 5, separated by commas)
             <input type="text" placeholder="e.g. launch, giveaway" value={postTagsText} onChange={(e) => setPostTagsText(e.target.value)} />
           </label>
+          {selectedAccountIds.some((id) => supportsSelfReply(accounts.find((a) => a.id === id)?.platform)) && (
+            <div>
+              <label>
+                Add a reply once this post gets likes (Facebook and Instagram, optional)
+                <textarea placeholder="e.g. Thank you all! Link in our bio." maxLength={2200} value={selfReplyText} onChange={(e) => setSelfReplyText(e.target.value)} />
+              </label>
+              <label>
+                Reply when the post reaches this many likes
+                <input type="number" min={1} placeholder="e.g. 50" value={selfReplyLikes} onChange={(e) => setSelfReplyLikes(e.target.value)} />
+              </label>
+              <p className="section-note">The reply is added at the next engagement check after the target is reached, so it can be a few hours after the like count is hit.</p>
+            </div>
+          )}
           <div className="hashtag-suggest-row">
             <button type="button" className="btn-outline" disabled={hashtagGenerating} onClick={handleSuggestHashtags}>
               {hashtagGenerating ? "Suggesting..." : "Suggest hashtags"}

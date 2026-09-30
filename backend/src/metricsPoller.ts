@@ -14,6 +14,7 @@ import { supabase } from "./supabase.js";
 import { buildPlatformRegistry } from "./platforms/registry.js";
 import { getAccessToken } from "./scheduler.js";
 import type { PlatformAdapter, PostMetrics } from "./platforms/types.js";
+import { runSelfReply, type SelfReplyPost } from "./selfReply.js";
 
 const CHECKPOINTS: { key: string; ms: number }[] = [
   { key: "1h", ms: 3600_000 },
@@ -38,6 +39,7 @@ interface CandidateRow {
   platformPostId: string;
   verificationCheckedAt: string;
   dueCheckpoints: string[];
+  selfReply: SelfReplyPost;
 }
 
 function extractPlatform(social_accounts: unknown): string | null {
@@ -59,7 +61,7 @@ async function main() {
   const { data: results, error } = await supabase
     .from("post_results")
     .select(
-      "scheduled_post_id, account_id, platform_post_id, verification_checked_at, scheduled_posts(social_account_id, social_accounts(platform))"
+      "scheduled_post_id, account_id, platform_post_id, verification_checked_at, scheduled_posts(social_account_id, self_reply_text, self_reply_at_likes, self_reply_done_at, social_accounts(platform))"
     )
     .eq("verified_live", true)
     .not("platform_post_id", "is", null)
@@ -107,7 +109,8 @@ async function main() {
     ).map((c) => c.key);
     if (dueCheckpoints.length === 0) continue;
 
-    const socialAccountId = (row.scheduled_posts as { social_account_id?: string } | null)?.social_account_id;
+    const sp = row.scheduled_posts as { social_account_id?: string; self_reply_text?: string | null; self_reply_at_likes?: number | null; self_reply_done_at?: string | null } | null;
+    const socialAccountId = sp?.social_account_id;
     if (!socialAccountId) continue;
 
     candidates.push({
@@ -118,6 +121,11 @@ async function main() {
       platformPostId: row.platform_post_id,
       verificationCheckedAt: row.verification_checked_at,
       dueCheckpoints,
+      selfReply: {
+        self_reply_text: sp?.self_reply_text ?? null,
+        self_reply_at_likes: sp?.self_reply_at_likes ?? null,
+        self_reply_done_at: sp?.self_reply_done_at ?? null,
+      },
     });
   }
 
@@ -178,6 +186,24 @@ async function main() {
       errored += 1;
     } else {
       inserted += rowsToInsert.length;
+    }
+
+    // Self-reply at N likes (master list #17): one-shot, best-effort, never
+    // affects the metrics saved above.
+    if (adapter.postComment) {
+      try {
+        const accessToken = await getAccessToken(c.socialAccountId, adapter);
+        await runSelfReply(
+          c.selfReply,
+          metrics.likes,
+          (text) => adapter.postComment!(c.platformPostId, text, accessToken),
+          async ({ doneAt, error }) => {
+            await supabase.from("scheduled_posts").update({ self_reply_done_at: doneAt, self_reply_error: error }).eq("id", c.scheduledPostId);
+          },
+        );
+      } catch (err) {
+        console.error(`metricsPoller: self-reply step failed for ${c.scheduledPostId}:`, err instanceof Error ? err.message : err);
+      }
     }
   }
 

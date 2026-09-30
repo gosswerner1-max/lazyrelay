@@ -5,6 +5,7 @@
 
 
 import { parseTags } from "../../lib/postTags";
+import { selfReplyFields } from "../../lib/selfReply";
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../../context/AuthContext";
@@ -123,6 +124,9 @@ export function useDashboardState() {
   const [tagFilter, setTagFilter] = useState("");
   // Comma-separated tags typed in the composer; cleaned by parseTags at submit.
   const [postTagsText, setPostTagsText] = useState("");
+  // Self-reply at N likes (Facebook and Instagram only).
+  const [selfReplyText, setSelfReplyText] = useState("");
+  const [selfReplyLikes, setSelfReplyLikes] = useState("");
   const [brands, setBrands] = useState<Brand[]>([]);
   const [newBrandName, setNewBrandName] = useState("");
   const [brandBusy, setBrandBusy] = useState(false);
@@ -1388,6 +1392,7 @@ export function useDashboardState() {
           // no-op for every other platform, same pattern as boardId above.
           firstComment: firstComment?.trim() ? firstComment.trim() : undefined,
           tags: parseTags(postTagsText),
+          ...selfReplyFields(accounts.find((a) => a.id === socialAccountId)?.platform, selfReplyText, selfReplyLikes),
           // Only consumed by Mastodon today (see PostRequest.mediaAltText) —
           // every other adapter simply ignores it, same pattern as above.
           mediaAltText: mediaAltText?.trim() ? mediaAltText.trim() : undefined,
@@ -1421,6 +1426,8 @@ export function useDashboardState() {
       setDestinationLink(null);
       setFirstComment(null);
       setPostTagsText("");
+      setSelfReplyText("");
+      setSelfReplyLikes("");
       setMediaAltText(null);
       setTiktokPrivacyLevel(null);
       setTiktokAllowComment(false);
@@ -2696,6 +2703,10 @@ export function useDashboardState() {
     setTagFilter,
     postTagsText,
     setPostTagsText,
+    selfReplyText,
+    setSelfReplyText,
+    selfReplyLikes,
+    setSelfReplyLikes,
     brands,
     newBrandName,
     setNewBrandName,
