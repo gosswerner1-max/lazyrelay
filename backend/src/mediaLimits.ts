@@ -204,8 +204,25 @@ const RULES: Record<Platform, PlatformRules> = {
   // GENERIC_FALLBACK_RULES above. validateMediaForPlatform() surfaces this
   // via the `unchecked` field rather than pretending real limits exist.
   linkedin: GENERIC_FALLBACK_RULES,
-  facebook: GENERIC_FALLBACK_RULES,
-  instagram: GENERIC_FALLBACK_RULES,
+  // FIXED 2026-09-30: real Facebook and Instagram accounts are stored as platform "facebook" and
+  // "instagram" (the "meta" rule above is only ever reached by a legacy row), so both used to fall
+  // through to the generic 20MB floor. That refused every Instagram Reel and Facebook video over
+  // 20MB at scheduling time (Reels are routinely 20 to 100MB), while the carefully researched
+  // "meta" numbers sat unused. Found by cross-checking the new MCP platform-rules lookup against
+  // what is really enforced.
+  //  - Instagram: the "meta" numbers (8MB image, 300MB video). Instagram's image aspect and width
+  //    checks are deliberately NOT applied here: this validator does not know whether an image is a
+  //    feed post (4:5 to 1.91:1) or a Story (9:16), and a 9:16 Story image must not be refused.
+  //  - Facebook: Page video has no fixed published limit (see the "meta" comment), so it gets the
+  //    same 300MB ceiling, and keeps its previous image and video formats.
+  facebook: {
+    image: GENERIC_FALLBACK_RULES.image,
+    video: { maxSizeBytes: 300 * MB, allowedMimeTypes: ["video/mp4", "video/quicktime", "video/webm"] },
+  },
+  instagram: {
+    image: { maxSizeBytes: 8 * MB, allowedMimeTypes: ["image/jpeg", "image/png"] },
+    video: { maxSizeBytes: 300 * MB, allowedMimeTypes: ["video/mp4", "video/quicktime"] },
+  },
   // X's own current v2 media API (docs.x.com/x-api/media/...) — RE-VERIFIED
   // live 2026-09-05 and CORRECTED: the old v1.1 chunked media-upload
   // endpoints this file's numbers were based on were sunset June 2025. Real

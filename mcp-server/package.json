@@ -1,9 +1,9 @@
 {
   "name": "@lazyrelay/mcp-server",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": false,
   "mcpName": "io.github.gosswerner1-max/lazyrelay-mcp-server",
-  "description": "MCP server for LazyRelay: schedule posts, check analytics, and read mentions from any MCP-compatible AI agent. Local (stdio, API key) or hosted (OAuth, no install).",
+  "description": "MCP server for LazyRelay: schedule and publish posts on every platform, look up platform rules, manage drafts and client approvals, read analytics and comments, from any MCP-compatible AI agent. Local (stdio, API key) or hosted (OAuth, no install).",
   "repository": {
     "type": "git",
     "url": "https://github.com/gosswerner1-max/lazyrelay",
@@ -18,8 +18,9 @@
   ],
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js"
+    "build": "node scripts/sync-tools.mjs && tsc",
+    "start": "node dist/index.js",
+    "sync-tools": "node scripts/sync-tools.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",

@@ -1,52 +1,37 @@
-// LazyRelay's hosted (remote) MCP server — the tool definitions.
+// LazyRelay's hosted (remote) MCP server: the tool registration.
 //
-// These are the same 6 tools the local/stdio server in mcp-server/ exposes,
-// deliberately kept identical in name, description and shape so a customer
-// gets the same vocabulary whether they run it locally or point their agent
-// at the hosted URL. The stdio server is NOT replaced by this; hosted is an
-// addition.
+// The tools themselves are defined ONCE in ../mcp/lazyrelayTools.ts and shared with the local stdio
+// package (mcp-server/), so an agent sees the same names, descriptions and behaviour either way.
+// This file only supplies the one thing that differs by server: how a call reaches LazyRelay's REST API.
 //
-// The one real difference is auth. The stdio server carries the customer's
-// own lzr_live_ API key from an env var. Hosted, the caller arrives with an
-// OAuth access token that mcpAuth.ts has already verified and bound to an
-// account, so tools act as that account and never see an API key at all.
+// The hosted difference is auth. The stdio server carries the customer's own lzr_live_ API key from an
+// env var. Hosted, the caller arrives with an OAuth access token that mcpAuth.ts has already verified
+// and bound to an account, so tools act as that account and never see an API key at all.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
-import { z } from "zod";
 import { accountIdFromAuth } from "./mcpAuth.js";
+import { LazyRelayApiError, registerLazyRelayTools } from "../mcp/lazyrelayTools.js";
 
 /** *** THE SEAM ***
  *
- *  Every tool reaches LazyRelay's real logic through this one function, so
- *  how that happens is a single decision in a single place rather than
- *  something smeared across 6 handlers.
+ *  Every tool reaches LazyRelay's real logic through this one function, so how that happens is a single
+ *  decision in a single place.
  *
- *  Current approach ("pass the caller's token through"): call LazyRelay's
- *  own REST API with the customer's OAuth token as the bearer. http/auth.ts's
- *  requireAuth already ends by resolving a Supabase JWT via
- *  supabase.auth.getUser(), and a Supabase-issued OAuth access token is a
- *  Supabase JWT — so this reuses every quota check, tier limit, media
- *  validation and business rule in routes.ts with ZERO duplication and zero
- *  changes to the existing auth path.
+ *  Current approach ("pass the caller's token through"): call LazyRelay's own REST API with the customer's
+ *  OAuth token as the bearer. http/auth.ts's requireAuth already ends by resolving a Supabase JWT via
+ *  supabase.auth.getUser(), and a Supabase-issued OAuth access token is a Supabase JWT, so this reuses every
+ *  quota check, tier limit, media validation and business rule with ZERO duplication and zero changes to
+ *  the existing auth path.
  *
- *  *** NOT YET PROVEN AGAINST A LIVE OAUTH TOKEN. *** Supabase's OAuth
- *  server is still disabled on the project, so this could not be tested at
- *  build time. If getUser() turns out to reject a token whose audience is
- *  the MCP resource URI rather than "authenticated", replace the body of
- *  this function — and only this function — with a direct in-process call
- *  to extracted route handlers. Nothing else in this file changes.
+ *  *** NOT YET PROVEN AGAINST A LIVE OAUTH TOKEN. *** Supabase's OAuth server is still disabled on the
+ *  project, so this could not be tested at build time. If getUser() turns out to reject a token whose
+ *  audience is the MCP resource URI rather than "authenticated", replace the body of this function, and only
+ *  this function, with a direct in-process call to extracted route handlers.
  *
- *  accountId is passed in and currently unused for exactly that reason: it
- *  is what the fallback needs, and threading it now keeps the swap to one
- *  function. */
+ *  accountId is passed in and currently unused for exactly that reason: it is what the fallback needs. */
 const API_BASE = process.env.MCP_API_BASE ?? "http://127.0.0.1:" + (process.env.PORT ?? "3000") + "/api";
 
-async function callLazyRelayApi(
-  auth: AuthInfo,
-  _accountId: string,
-  path: string,
-  options: RequestInit = {}
-): Promise<unknown> {
+export async function callLazyRelayApi(auth: AuthInfo, _accountId: string, path: string, options: RequestInit = {}): Promise<unknown> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
@@ -58,199 +43,31 @@ async function callLazyRelayApi(
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     const message =
-      typeof body === "object" && body !== null && "error" in body
-        ? String((body as { error: unknown }).error)
-        : `LazyRelay API error (HTTP ${res.status})`;
-    throw new Error(message);
+      typeof body === "object" && body !== null && "error" in body ? String((body as { error: unknown }).error) : `LazyRelay API error (HTTP ${res.status})`;
+    throw new LazyRelayApiError(res.status, message);
   }
   return body;
 }
 
-function textResult(data: unknown) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
-}
-
-/** Pulls the verified auth off the request the SDK threads into every tool
- *  handler. Throws if it's missing — a tool must never run unauthenticated,
- *  and failing loudly is the only safe behaviour if the middleware order is
- *  ever changed by mistake. */
+/** Pulls the verified auth off the request the SDK threads into every tool handler. Throws if it is missing:
+ *  a tool must never run unauthenticated, and failing loudly is the only safe behaviour if the middleware
+ *  order is ever changed by mistake. */
 function requireAuthInfo(extra: { authInfo?: AuthInfo }): { auth: AuthInfo; accountId: string } {
   const auth = extra.authInfo;
   if (!auth) throw new Error("MCP tool invoked without a verified access token");
   return { auth, accountId: accountIdFromAuth(auth) };
 }
 
-/** A fresh McpServer per request keeps the hosted transport stateless, so
- *  two customers' concurrent calls can never share server state. */
+/** A fresh McpServer per request keeps the hosted transport stateless, so two customers' concurrent calls can
+ *  never share server state. */
 export function buildMcpServer(): McpServer {
-  const server = new McpServer({ name: "lazyrelay", version: "0.1.0" });
-
-  server.tool(
-    "list_connected_accounts",
-    "List every social media account connected to this LazyRelay account, with platform, display name, and the id needed by schedule_post.",
-    {},
-    async (_args, extra) => {
-      const { auth, accountId } = requireAuthInfo(extra);
-      return textResult(await callLazyRelayApi(auth, accountId, "/social-accounts"));
-    }
-  );
-
-  server.tool(
-    "list_workspaces",
-    "List this account's brands/workspaces, with the id needed to file a post under a specific one.",
-    {},
-    async (_args, extra) => {
-      const { auth, accountId } = requireAuthInfo(extra);
-      return textResult(await callLazyRelayApi(auth, accountId, "/brands"));
-    }
-  );
-
-  server.tool(
-    "publish_post_now",
-    "Publish to one connected account immediately, instead of scheduling for later. Call list_connected_accounts first to get a valid socialAccountId. The post is picked up by the scheduler within moments, not published synchronously — call list_scheduled_posts afterward to confirm it actually went live.",
-    {
-      socialAccountId: z.string().describe("The connected account id to post to, from list_connected_accounts"),
-      content: z.string().describe("The post text/caption"),
-      mediaUrl: z.string().optional().describe("A publicly accessible image or video URL to attach, if any"),
-      firstComment: z
-        .string()
-        .optional()
-        .describe("Optional first comment posted immediately after publishing (Facebook and Instagram only)"),
-    },
-    async ({ socialAccountId, content, mediaUrl, firstComment }, extra) => {
-      const { auth, accountId } = requireAuthInfo(extra);
-      return textResult(
-        await callLazyRelayApi(auth, accountId, "/scheduled-posts", {
-          method: "POST",
-          body: JSON.stringify({ socialAccountId, content, scheduledFor: new Date().toISOString(), mediaUrl, firstComment }),
-        })
-      );
-    }
-  );
-
-  server.tool(
-    "schedule_post",
-    "Schedule a post to one connected social account. Call list_connected_accounts first to get a valid socialAccountId — post to multiple platforms by calling this once per account.",
-    {
-      socialAccountId: z.string().describe("The connected account id to post to, from list_connected_accounts"),
-      content: z.string().describe("The post text/caption"),
-      scheduledFor: z
-        .string()
-        .describe("ISO 8601 timestamp for when to post — use the current time for immediate posting"),
-      mediaUrl: z.string().optional().describe("A publicly accessible image or video URL to attach, if any"),
-      firstComment: z
-        .string()
-        .optional()
-        .describe("Optional first comment posted immediately after publishing (Facebook and Instagram only)"),
-      tags: z.array(z.string()).optional().describe("Up to 5 short labels for filtering analytics by campaign (for example [\"launch\"])"),
-      mediaUrls: z
-        .array(z.string())
-        .optional()
-        .describe("Extra image URLs after mediaUrl for a multi-image post. Instagram and Threads take 10 in total (videos allowed), Facebook and Tumblr 10, LinkedIn 9, Bluesky, Mastodon and X 4 (images only)"),
-      selfReplyText: z.string().optional().describe("A follow-up comment to add once the post reaches selfReplyAtLikes likes (Facebook and Instagram only)"),
-      selfReplyAtLikes: z.number().int().optional().describe("Like count that triggers selfReplyText"),
-      options: z
-        .record(z.string(), z.unknown())
-        .optional()
-        .describe("Platform-specific settings for the account you post to. tiktok: {aiGenerated}. youtube: {title, privacy: public|unlisted|private, madeForKids, tags[], aiGenerated}. instagram: {placement: feed|reel|story, trialReel, trialGraduation: manual|auto}. facebook: {placement: feed|story}. linkedin: {documentUrl (https PDF), documentTitle}. threads, bluesky, mastodon and x: {chain: [follow-up texts]} for a thread. Only send the key that belongs to the account's platform."),
-    },
-    async ({ socialAccountId, content, scheduledFor, mediaUrl, firstComment, tags, mediaUrls, selfReplyText, selfReplyAtLikes, options }, extra) => {
-      const { auth, accountId } = requireAuthInfo(extra);
-      return textResult(
-        await callLazyRelayApi(auth, accountId, "/scheduled-posts", {
-          method: "POST",
-          body: JSON.stringify({ socialAccountId, content, scheduledFor, mediaUrl, firstComment, tags, mediaUrls, selfReplyText, selfReplyAtLikes, options }),
-        })
-      );
-    }
-  );
-
-  server.tool(
-    "get_next_free_slot",
-    "Find the customer's next free posting time for one connected account, from the posting times they saved in Settings. Returns an ISO timestamp to pass as scheduledFor to schedule_post. Errors with a plain message if no posting times are saved.",
-    {
-      socialAccountId: z.string().describe("The connected account id, from list_connected_accounts"),
-    },
-    async ({ socialAccountId }, extra) => {
-      const { auth, accountId } = requireAuthInfo(extra);
-      return textResult(await callLazyRelayApi(auth, accountId, `/posting-slots/next?socialAccountId=${encodeURIComponent(socialAccountId)}`));
-    }
-  );
-
-  server.tool(
-    "update_post",
-    "Edit a post's content or media before it goes out — works on a draft or a still-pending scheduled post, not one that's already posting or done. Call list_scheduled_posts first to get a valid id. To change the scheduled time instead of the content, delete and recreate the post.",
-    {
-      id: z.string().describe("The scheduled post id, from list_scheduled_posts"),
-      content: z.string().optional().describe("New post text/caption"),
-      mediaUrl: z.string().optional().describe("New publicly accessible image or video URL to attach"),
-      firstComment: z
-        .string()
-        .optional()
-        .describe("New first comment posted immediately after publishing (Facebook and Instagram only)"),
-      tags: z.array(z.string()).optional().describe("Up to 5 short labels for filtering analytics by campaign (for example [\"launch\"])"),
-      mediaUrls: z
-        .array(z.string())
-        .optional()
-        .describe("Extra image URLs after mediaUrl for a multi-image post. Instagram and Threads take 10 in total (videos allowed), Facebook and Tumblr 10, LinkedIn 9, Bluesky, Mastodon and X 4 (images only)"),
-      selfReplyText: z.string().optional().describe("A follow-up comment to add once the post reaches selfReplyAtLikes likes (Facebook and Instagram only)"),
-      selfReplyAtLikes: z.number().int().optional().describe("Like count that triggers selfReplyText"),
-      options: z
-        .record(z.string(), z.unknown())
-        .optional()
-        .describe("Platform-specific settings for the account you post to. tiktok: {aiGenerated}. youtube: {title, privacy: public|unlisted|private, madeForKids, tags[], aiGenerated}. instagram: {placement: feed|reel|story, trialReel, trialGraduation: manual|auto}. facebook: {placement: feed|story}. linkedin: {documentUrl (https PDF), documentTitle}. threads, bluesky, mastodon and x: {chain: [follow-up texts]} for a thread. Only send the key that belongs to the account's platform."),
-    },
-    async ({ id, content, mediaUrl, firstComment, tags, mediaUrls, selfReplyText, selfReplyAtLikes, options }, extra) => {
-      const { auth, accountId } = requireAuthInfo(extra);
-      return textResult(
-        await callLazyRelayApi(auth, accountId, `/scheduled-posts/${id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ content, mediaUrl, firstComment, tags, mediaUrls, selfReplyText, selfReplyAtLikes, options }),
-        })
-      );
-    }
-  );
-
-  server.tool(
-    "list_scheduled_posts",
-    "List this account's upcoming and recent posts, with status (pending/posted/failed) and Proof-of-Publish verification.",
-    {},
-    async (_args, extra) => {
-      const { auth, accountId } = requireAuthInfo(extra);
-      return textResult(await callLazyRelayApi(auth, accountId, "/scheduled-posts"));
-    }
-  );
-
-  server.tool(
-    "delete_scheduled_post",
-    "Cancel a pending scheduled post before it goes out. Has no effect on a post that's already gone out.",
-    { id: z.string().describe("The scheduled post id, from list_scheduled_posts") },
-    async ({ id }, extra) => {
-      const { auth, accountId } = requireAuthInfo(extra);
-      await callLazyRelayApi(auth, accountId, `/scheduled-posts/${id}`, { method: "DELETE" });
-      return textResult({ success: true });
-    }
-  );
-
-  server.tool(
-    "get_analytics_summary",
-    "Get post counts, verified-live rate, per-platform breakdown, and engagement totals (likes/comments/shares/views, where each platform exposes them) for a recent window.",
-    { days: z.number().int().min(1).max(90).optional().describe("How many days back to summarize — default 30") },
-    async ({ days }, extra) => {
-      const { auth, accountId } = requireAuthInfo(extra);
-      return textResult(await callLazyRelayApi(auth, accountId, `/analytics/summary?days=${days ?? 30}`));
-    }
-  );
-
-  server.tool(
-    "get_mentions",
-    "Get recent comments on this account's posts, on the platforms that support reading comments (Facebook, Instagram, Mastodon, Bluesky, YouTube).",
-    {},
-    async (_args, extra) => {
-      const { auth, accountId } = requireAuthInfo(extra);
-      return textResult(await callLazyRelayApi(auth, accountId, "/mentions"));
-    }
-  );
-
+  const server = new McpServer({ name: "lazyrelay", version: "0.3.0" });
+  registerLazyRelayTools(server, async (path, options, extra) => {
+    const { auth, accountId } = requireAuthInfo(extra as { authInfo?: AuthInfo });
+    return callLazyRelayApi(auth, accountId, path, {
+      ...(options?.method ? { method: options.method } : {}),
+      ...(options?.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
+    });
+  });
   return server;
 }

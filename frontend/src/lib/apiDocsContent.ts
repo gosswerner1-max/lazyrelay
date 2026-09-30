@@ -108,7 +108,7 @@ export const HOSTED_MCP_REMOTE_CONFIG_EXAMPLE = `{
   }
 }`;
 
-/** Same 6 tools as the local/stdio server, kept as its own hand-maintained
+/** The same tools as the local/stdio server (defined once in backend/src/mcp/lazyrelayTools.ts; a backend test fails if this list drifts), kept as its own hand-maintained
  *  list rather than importing from the backend (this is frontend-only
  *  code) — same pattern already used for API_ENDPOINTS above. Descriptions
  *  copied verbatim from backend/src/http/mcpServer.ts; update both places
@@ -120,10 +120,27 @@ export interface McpToolDoc {
 
 export const MCP_TOOLS: McpToolDoc[] = [
   { name: "list_connected_accounts", summary: "List your connected social accounts and their ids" },
-  { name: "schedule_post", summary: "Schedule a post to one connected account, with optional extra images, tags and a self-reply" },
-  { name: "get_next_free_slot", summary: "Find the next free posting time for an account, from the posting times saved in Settings" },
-  { name: "list_scheduled_posts", summary: "See upcoming and recent posts, with status and Proof-of-Publish verification" },
-  { name: "delete_scheduled_post", summary: "Cancel a pending post" },
-  { name: "get_analytics_summary", summary: "Post counts, verified-live rate, per-platform breakdown, engagement totals" },
-  { name: "get_mentions", summary: "Recent comments on your posts, where the platform supports reading them" },
+  { name: "list_workspaces", summary: "List your brands (workspaces)" },
+  { name: "get_platform_rules", summary: "Look up what a platform accepts before posting: text limit, media rules, required fields, features and options" },
+  { name: "get_tiktok_creator_info", summary: "See which privacy levels and settings a TikTok account allows (needed before posting to TikTok)" },
+  { name: "list_pinterest_boards", summary: "List a Pinterest account's boards (a Pinterest post needs a board)" },
+  { name: "get_next_free_slot", summary: "Find the next free posting time from the times saved in Settings" },
+  { name: "list_posting_slots", summary: "List the saved posting times" },
+  { name: "list_snippets", summary: "List saved text snippets and the signature" },
+  { name: "schedule_post", summary: "Schedule a post to one account, with images, tags, TikTok settings, platform options and optional approval" },
+  { name: "publish_post_now", summary: "Publish to one account right away" },
+  { name: "create_draft", summary: "Save a draft without an account or a time" },
+  { name: "schedule_draft", summary: "Turn a saved draft into a scheduled post" },
+  { name: "update_post", summary: "Edit a draft, a post waiting for approval, or a pending post" },
+  { name: "list_scheduled_posts", summary: "See posts with status and whether each is confirmed live, filtered and summarised" },
+  { name: "delete_scheduled_post", summary: "Cancel a pending or waiting post" },
+  { name: "get_proof_link", summary: "Get a public proof-of-publish link for a post confirmed live" },
+  { name: "approve_post", summary: "Approve a post that is waiting for approval" },
+  { name: "create_review_link", summary: "Create a link a client opens, with no account, to approve posts and comment" },
+  { name: "list_review_links", summary: "List client review links and their status" },
+  { name: "revoke_review_link", summary: "Stop a client review link" },
+  { name: "get_post_feedback", summary: "Read the client's feedback on a post" },
+  { name: "reply_to_post_feedback", summary: "Reply to the client's feedback" },
+  { name: "get_analytics_summary", summary: "Post counts, verified-live rate, per-platform and per-tag results, engagement" },
+  { name: "get_mentions", summary: "Recent comments on your posts, where the platform allows reading them" },
 ];

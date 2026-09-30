@@ -1,6 +1,6 @@
 # LazyRelay MCP Server
 
-Connect any MCP-compatible AI agent (Claude Desktop, Claude Code, Cursor, and others) directly to your LazyRelay account — schedule posts, check analytics, and read comments without a browser.
+Connect any MCP-compatible AI agent (Claude Desktop, Claude Code, Cursor, and others) directly to your LazyRelay account — schedule and publish posts on every platform, look up each platform's rules, manage drafts and client approvals, and read analytics and comments without a browser.
 
 This is a **local server** — it runs on your own machine and talks to LazyRelay's API using your own API key. There's no separate LazyRelay account or install step beyond this.
 
@@ -30,14 +30,31 @@ This is a **local server** — it runs on your own machine and talks to LazyRela
 | Tool | What it does |
 |---|---|
 | `list_connected_accounts` | List your connected social accounts and their ids |
-| `list_workspaces` | List your brands/workspaces |
-| `schedule_post` | Schedule a post to one connected account |
-| `publish_post_now` | Publish immediately instead of scheduling for later |
-| `update_post` | Edit a draft or still-pending post's content or media |
-| `list_scheduled_posts` | See upcoming and recent posts, with status and Proof-of-Publish verification |
-| `delete_scheduled_post` | Cancel a pending post |
-| `get_analytics_summary` | Post counts, verified-live rate, per-platform breakdown, engagement totals |
-| `get_mentions` | Recent comments on your posts, where the platform supports reading them |
+| `list_workspaces` | List your brands (workspaces) |
+| `get_platform_rules` | Look up what a platform accepts before posting: text limit, media rules, required fields, features and options |
+| `get_tiktok_creator_info` | See which privacy levels and settings a TikTok account allows (needed before posting to TikTok) |
+| `list_pinterest_boards` | List a Pinterest account's boards (a Pinterest post needs a board) |
+| `get_next_free_slot` | Find the next free posting time from the times saved in Settings |
+| `list_posting_slots` | List the saved posting times |
+| `list_snippets` | List saved text snippets and the signature |
+| `schedule_post` | Schedule a post to one account, with images, tags, TikTok settings, platform options and optional approval |
+| `publish_post_now` | Publish to one account right away |
+| `create_draft` | Save a draft without an account or a time |
+| `schedule_draft` | Turn a saved draft into a scheduled post |
+| `update_post` | Edit a draft, a post waiting for approval, or a pending post |
+| `list_scheduled_posts` | See posts with status and whether each is confirmed live, filtered and summarised |
+| `delete_scheduled_post` | Cancel a pending or waiting post |
+| `get_proof_link` | Get a public proof-of-publish link for a post confirmed live |
+| `approve_post` | Approve a post that is waiting for approval |
+| `create_review_link` | Create a link a client opens, with no account, to approve posts and comment |
+| `list_review_links` | List client review links and their status |
+| `revoke_review_link` | Stop a client review link |
+| `get_post_feedback` | Read the client's feedback on a post |
+| `reply_to_post_feedback` | Reply to the client's feedback |
+| `get_analytics_summary` | Post counts, verified-live rate, per-platform and per-tag results, engagement |
+| `get_mentions` | Recent comments on your posts, where the platform allows reading them |
+
+Errors come back as a structured object (`kind`, `status`, `message`, and a `hint` saying which tool to call to fix it), so an agent can recover on its own. Every read-only tool is marked read-only and every destructive one is marked destructive, so your client can ask before running them.
 
 Every key acts as your account — treat it exactly like a password. Never share it or commit it to code.
 
@@ -51,7 +68,7 @@ LAZYRELAY_API_KEY=lzr_live_... npm start
 
 ## Prefer not to install anything?
 
-LazyRelay also runs a hosted MCP server at `https://lazyrelaylazyrelay-backend.onrender.com/mcp`. Same 9 tools, but you sign in with your LazyRelay account instead of using an API key, nothing to run locally. In Claude, that's **Settings → Connectors → Add connector → Remote**, then paste the URL. For MCP clients that use a config file instead:
+LazyRelay also runs a hosted MCP server at `https://lazyrelaylazyrelay-backend.onrender.com/mcp`. Same 24 tools, but you sign in with your LazyRelay account instead of using an API key, nothing to run locally. In Claude, that's **Settings → Connectors → Add connector → Remote**, then paste the URL. For MCP clients that use a config file instead:
 
 ```json
 {

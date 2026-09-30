@@ -5,6 +5,7 @@
 // replaced with zod schemas (see http/validation.ts) — same messages, same
 // accept/reject rules, same order.
 
+import { getPlatformRules } from "../../platformRules.js";
 import { Router } from "express";
 import { z } from "zod";
 import { supabase } from "../../supabase.js";
@@ -61,6 +62,18 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
         comingSoon: COMING_SOON_PLATFORMS.has(platform),
       })),
     );
+  });
+
+  // What each platform accepts, so an AI agent (MCP get_platform_rules) or an API caller can check BEFORE
+  // scheduling: text limit, media rules, required fields, features and options. Static data: platformRules.ts.
+  router.get("/platforms/rules", requireAuth, tieredRateLimit, (req: AuthedRequest, res) => {
+    const platform = typeof req.query.platform === "string" && req.query.platform.trim() ? req.query.platform.trim().toLowerCase() : undefined;
+    const platforms = getPlatformRules(platform);
+    if (platform && platforms.length === 0) {
+      res.status(404).json({ error: `Unknown platform "${platform}". Known platforms: ${getPlatformRules().map((p) => p.platform).join(", ")}.` });
+      return;
+    }
+    res.json({ platforms });
   });
 
   // Starts the "connect your social account" flow — returns the URL the
