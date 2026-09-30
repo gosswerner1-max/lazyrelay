@@ -6,6 +6,7 @@
 
 import { parseTags } from "../../lib/postTags";
 import { selfReplyFields } from "../../lib/selfReply";
+import { carouselFields } from "../../lib/carousel";
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../../context/AuthContext";
@@ -124,6 +125,8 @@ export function useDashboardState() {
   const [tagFilter, setTagFilter] = useState("");
   // Comma-separated tags typed in the composer; cleaned by parseTags at submit.
   const [postTagsText, setPostTagsText] = useState("");
+  // Extra images for an Instagram carousel (the main image is mediaUrl).
+  const [extraMediaUrls, setExtraMediaUrls] = useState<string[]>([]);
   // Self-reply at N likes (Facebook and Instagram only).
   const [selfReplyText, setSelfReplyText] = useState("");
   const [selfReplyLikes, setSelfReplyLikes] = useState("");
@@ -1392,6 +1395,7 @@ export function useDashboardState() {
           // no-op for every other platform, same pattern as boardId above.
           firstComment: firstComment?.trim() ? firstComment.trim() : undefined,
           tags: parseTags(postTagsText),
+          ...carouselFields(accounts.find((a) => a.id === socialAccountId)?.platform, extraMediaUrls),
           ...selfReplyFields(accounts.find((a) => a.id === socialAccountId)?.platform, selfReplyText, selfReplyLikes),
           // Only consumed by Mastodon today (see PostRequest.mediaAltText) —
           // every other adapter simply ignores it, same pattern as above.
@@ -1422,6 +1426,7 @@ export function useDashboardState() {
       setScheduleDate("");
       setScheduleTime("");
       setMediaUrl(null);
+      setExtraMediaUrls([]);
       setCoverImageUrl(null);
       setDestinationLink(null);
       setFirstComment(null);
@@ -1483,6 +1488,7 @@ export function useDashboardState() {
       }
       setContent("");
       setMediaUrl(null);
+      setExtraMediaUrls([]);
       setCoverImageUrl(null);
       setFirstComment(null);
       setMediaAltText(null);
@@ -1527,6 +1533,7 @@ export function useDashboardState() {
   function handleCancelEditDraft() {
     setContent("");
     setMediaUrl(null);
+    setExtraMediaUrls([]);
     setCoverImageUrl(null);
     setDestinationLink(null);
     setFirstComment(null);
@@ -2703,6 +2710,8 @@ export function useDashboardState() {
     setTagFilter,
     postTagsText,
     setPostTagsText,
+    extraMediaUrls,
+    setExtraMediaUrls,
     selfReplyText,
     setSelfReplyText,
     selfReplyLikes,

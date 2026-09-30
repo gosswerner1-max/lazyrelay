@@ -139,6 +139,7 @@ interface DuePost {
   social_account_id: string;
   content: string;
   media_url: string | null;
+  media_urls: string[] | null;
   cover_image_url: string | null;
   board_id: string | null;
   destination_link: string | null;
@@ -190,7 +191,7 @@ async function claimDuePosts(): Promise<DuePost[]> {
     .eq("status", "pending")
     .is("paused_at", null)
     .select(
-      "id, account_id, social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, tiktok_brand_organic, tiktok_brand_content, retry_count, social_accounts(platform, platform_account_id)",
+      "id, account_id, social_account_id, content, media_url, media_urls, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, tiktok_brand_organic, tiktok_brand_content, retry_count, social_accounts(platform, platform_account_id)",
     );
 
   if (claimError) throw claimError;
@@ -754,6 +755,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
           platformAccountId: post.platform_account_id ?? null,
           content: outgoingContent,
           mediaUrl: post.media_url,
+          mediaUrls: post.media_urls ?? [],
           coverImageUrl: post.cover_image_url,
           boardId: post.board_id,
           destinationLink: post.destination_link,

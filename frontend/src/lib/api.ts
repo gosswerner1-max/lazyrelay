@@ -535,6 +535,7 @@ export const api = {
     destinationLink?: string;
     firstComment?: string;
     tags?: string[];
+    mediaUrls?: string[];
     selfReplyText?: string;
     selfReplyAtLikes?: number;
     mediaAltText?: string;

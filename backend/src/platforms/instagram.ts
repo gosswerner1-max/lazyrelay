@@ -298,6 +298,49 @@ export class InstagramAdapter implements PlatformAdapter {
   // permission needed, instagram_content_publish already covers it. Real
   // limits: 300MB max, 15min max / 3s min duration (enforced pre-flight by
   // mediaLimits.ts, not re-checked here).
+  // Carousel (2026-09-30, master list #19): one container per image
+  // (is_carousel_item), then a CAROUSEL container listing them, then the same
+  // publish call. Images only in this version.
+  private async postCarousel(request: PostRequest, igId: string): Promise<PostAttemptResult> {
+    const urls = [request.mediaUrl as string, ...(request.mediaUrls ?? [])];
+    const childIds: string[] = [];
+    for (const imageUrl of urls) {
+      const res = await fetch(`${GRAPH_BASE}/${igId}/media`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ image_url: imageUrl, is_carousel_item: "true", access_token: request.accessToken }).toString(),
+      });
+      const json = (await res.json()) as InstagramContainerResponse;
+      if (!res.ok || !json.id) {
+        return { success: false, platformPostId: null, errorMessage: json.error?.message ?? `Instagram carousel image ${childIds.length + 1} failed (HTTP ${res.status})` };
+      }
+      const childError = await this.waitForContainerReady(json.id, request.accessToken, false);
+      if (childError) return { success: false, platformPostId: null, errorMessage: childError };
+      childIds.push(json.id);
+    }
+    const parentRes = await fetch(`${GRAPH_BASE}/${igId}/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ media_type: "CAROUSEL", children: childIds.join(","), caption: request.content, access_token: request.accessToken }).toString(),
+    });
+    const parentJson = (await parentRes.json()) as InstagramContainerResponse;
+    if (!parentRes.ok || !parentJson.id) {
+      return { success: false, platformPostId: null, errorMessage: parentJson.error?.message ?? `Instagram carousel container failed (HTTP ${parentRes.status})` };
+    }
+    const parentError = await this.waitForContainerReady(parentJson.id, request.accessToken, false);
+    if (parentError) return { success: false, platformPostId: null, errorMessage: parentError };
+    const publishRes = await fetch(`${GRAPH_BASE}/${igId}/media_publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ creation_id: parentJson.id, access_token: request.accessToken }).toString(),
+    });
+    const publishJson = (await publishRes.json()) as InstagramMediaResponse;
+    if (!publishRes.ok || !publishJson.id) {
+      return { success: false, platformPostId: null, errorMessage: publishJson.error?.message ?? `Instagram publish failed (HTTP ${publishRes.status})` };
+    }
+    return { success: true, platformPostId: publishJson.id, errorMessage: null };
+  }
+
   async post(request: PostRequest): Promise<PostAttemptResult> {
     if (!request.mediaUrl) {
       return {
@@ -308,6 +351,7 @@ export class InstagramAdapter implements PlatformAdapter {
     }
 
     const igId = await this.getInstagramAccountId(request.accessToken);
+    if (request.mediaUrls && request.mediaUrls.length > 0) return this.postCarousel(request, igId);
     const isVideo = isVideoUrl(request.mediaUrl);
 
     const containerParams = new URLSearchParams({

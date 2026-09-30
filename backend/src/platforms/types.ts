@@ -24,6 +24,9 @@ export interface PostRequest {
   // the blog the customer picked has to travel with the post. Optional/null
   // means the adapter falls back to its own default.
   platformAccountId?: string | null;
+  // Extra images for a carousel (Instagram only): mediaUrl is the first image,
+  // these follow in order. Empty or absent means a normal single-media post.
+  mediaUrls?: string[];
   boardId?: string | null;
   // Only consumed by Pinterest -- the Pin's own "Destination Link" (where a
   // click on the Pin takes someone), distinct from mediaUrl (the image/video
