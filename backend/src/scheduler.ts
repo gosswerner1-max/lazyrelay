@@ -1,6 +1,6 @@
 import { supabase } from "./supabase.js";
 import type { PlatformAdapterRegistry } from "./platforms/connect.js";
-import type { PlatformAdapter } from "./platforms/types.js";
+import type { PlatformAdapter, PostAttemptResult } from "./platforms/types.js";
 import { notifyOps } from "./notify.js";
 import { sendFailureAlert, sendAccountPausedAlert } from "./email.js";
 import { sendVerifiedWebhook } from "./webhook.js";
@@ -457,6 +457,98 @@ export async function getPlatformLimitDeferral(post: DuePost): Promise<Date | nu
   }
 }
 
+/** The result row of an earlier attempt for this post where the platform
+ *  accepted it (it handed back a post id), or null if none did. Its
+ *  existence means the content is probably already public, so a retry must
+ *  re-verify it and never call adapter.post() again. */
+export async function findAcceptedPublish(postId: string): Promise<{ id: string; platform_post_id: string } | null> {
+  const { data } = await supabase
+    .from("post_results")
+    .select("id, platform_post_id")
+    .eq("scheduled_post_id", postId)
+    .not("platform_post_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const row = data?.[0];
+  return row?.platform_post_id ? { id: row.id, platform_post_id: row.platform_post_id } : null;
+}
+
+// A post normally leaves "posting" within seconds; the slowest legitimate
+// path (a large video upload plus verification polling) is a few minutes.
+// Anything older than this was stranded by a crash or restart mid-publish.
+const STUCK_POSTING_MINUTES = 20;
+// Throttle so the sweep costs one cheap query a minute, not one per cycle.
+const STUCK_SWEEP_INTERVAL_MS = 60_000;
+let lastStuckSweepAt = 0;
+
+/** Rescues posts stranded in "posting" (claimDuePosts flips a post to
+ *  "posting" and only processPost moves it on, so a crash or Render restart
+ *  in between left it there forever, invisible to every later cycle and
+ *  never surfaced to the customer).
+ *   - The platform already returned a post id: send it back to pending; the
+ *     next cycle re-verifies it without publishing again.
+ *   - No post id: we can't know whether the platform published it before the
+ *     process died, and re-posting could duplicate it. So it is failed with
+ *     an honest "unconfirmed, check your account" reason and alerted, never
+ *     silently retried. */
+export async function recoverStuckPosts(now: number = Date.now()): Promise<number> {
+  if (now - lastStuckSweepAt < STUCK_SWEEP_INTERVAL_MS) return 0;
+  lastStuckSweepAt = now;
+  const cutoff = new Date(now - STUCK_POSTING_MINUTES * 60_000).toISOString();
+  const { data: stuck, error } = await supabase
+    .from("scheduled_posts")
+    .select("id, account_id, social_account_id, content, retry_count")
+    .eq("status", "posting")
+    .lt("updated_at", cutoff)
+    .limit(50);
+  if (error) {
+    console.error("[scheduler] stuck-post sweep failed:", error.message);
+    return 0;
+  }
+  let recovered = 0;
+  for (const row of stuck ?? []) {
+    const accepted = await findAcceptedPublish(row.id);
+    if (accepted) {
+      // Guarded on status so a post that finished on its own in the meantime
+      // is not touched.
+      const { data: reset } = await supabase
+        .from("scheduled_posts")
+        .update({ status: "pending" })
+        .eq("id", row.id)
+        .eq("status", "posting")
+        .select("id");
+      if (reset && reset.length > 0) {
+        recovered += 1;
+        console.warn(`Post ${row.id} was stuck in "posting" with platform post ${accepted.platform_post_id} -- returned to pending to re-verify.`);
+      }
+      continue;
+    }
+    const message =
+      "Publishing was interrupted before LazyRelay could confirm the result. It may or may not have gone live, so it was not retried automatically. Check your account before posting again.";
+    const { data: failed } = await supabase
+      .from("scheduled_posts")
+      .update({ status: "failed" })
+      .eq("id", row.id)
+      .eq("status", "posting")
+      .select("id");
+    if (!failed || failed.length === 0) continue;
+    recovered += 1;
+    await supabase.from("post_results").insert({
+      scheduled_post_id: row.id,
+      account_id: row.account_id,
+      platform_post_id: null,
+      platform_post_url: null,
+      verified_live: false,
+      verification_checked_at: new Date().toISOString(),
+      error_message: message,
+    });
+    console.error(`Post ${row.id} was stuck in "posting" for over ${STUCK_POSTING_MINUTES} minutes with no platform post id -- marked failed (unconfirmed).`);
+    await notifyOps(`Post ${row.id} was stuck in "posting" for over ${STUCK_POSTING_MINUTES} minutes (likely a restart mid-publish) and was marked failed as unconfirmed. Check the platform for a live copy before anyone re-posts it.`);
+    await maybeSendFailureAlert(row as DuePost, row.content, message, false);
+  }
+  return recovered;
+}
+
 async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Promise<void> {
   const adapter = registry.get(post.platform);
   if (!adapter) {
@@ -509,22 +601,34 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     const outgoingContent =
       !hasCommentChannel && brandingTag ? appendTagWithinBudget(post.content, brandingTag, BRANDING_TAG_CAPTION_BUDGET) : post.content;
 
-    const attempt = await adapter.post({
-      socialAccountId: post.social_account_id,
-      content: outgoingContent,
-      mediaUrl: post.media_url,
-      coverImageUrl: post.cover_image_url,
-      boardId: post.board_id,
-      destinationLink: post.destination_link,
-      mediaAltText: post.media_alt_text,
-      tiktokPrivacyLevel: post.tiktok_privacy_level,
-      tiktokDisableComment: post.tiktok_disable_comment,
-      tiktokDisableDuet: post.tiktok_disable_duet,
-      tiktokDisableStitch: post.tiktok_disable_stitch,
-      tiktokBrandOrganic: post.tiktok_brand_organic,
-      tiktokBrandContent: post.tiktok_brand_content,
-      accessToken,
-    });
+    // A previous attempt already got a platform post id back (the platform
+    // accepted the post) but verification couldn't confirm it live, so the
+    // row was reset to pending. Calling post() again would publish a SECOND
+    // copy of something that is probably already public -- the cause of the
+    // duplicate Facebook/Reel/Telegram posts logged in the platform
+    // capability matrix. Re-check the existing post instead.
+    const alreadyPublished = await findAcceptedPublish(post.id);
+    const attempt: PostAttemptResult = alreadyPublished
+      ? { success: true, platformPostId: alreadyPublished.platform_post_id, errorMessage: null }
+      : await adapter.post({
+          socialAccountId: post.social_account_id,
+          content: outgoingContent,
+          mediaUrl: post.media_url,
+          coverImageUrl: post.cover_image_url,
+          boardId: post.board_id,
+          destinationLink: post.destination_link,
+          mediaAltText: post.media_alt_text,
+          tiktokPrivacyLevel: post.tiktok_privacy_level,
+          tiktokDisableComment: post.tiktok_disable_comment,
+          tiktokDisableDuet: post.tiktok_disable_duet,
+          tiktokDisableStitch: post.tiktok_disable_stitch,
+          tiktokBrandOrganic: post.tiktok_brand_organic,
+          tiktokBrandContent: post.tiktok_brand_content,
+          accessToken,
+        });
+    if (alreadyPublished) {
+      console.warn(`Post ${post.id}: platform post ${alreadyPublished.platform_post_id} already exists -- re-verifying it, not publishing again.`);
+    }
 
     if (!attempt.success || !attempt.platformPostId) {
       recordFailure(adapter.platform);
@@ -559,19 +663,26 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     // confirmed live — a comment on a post that isn't verified would be
     // commenting on something LazyRelay can't actually vouch for yet.
     const verifiedAt = new Date().toISOString();
-    const { data: resultRow } = await supabase
-      .from("post_results")
-      .insert({
-        scheduled_post_id: post.id,
-        account_id: post.account_id,
-        platform_post_id: attempt.platformPostId,
-        platform_post_url: verification.platformPostUrl,
-        verified_live: verification.verifiedLive,
-        verification_checked_at: verifiedAt,
-        error_message: verification.errorMessage,
-      })
-      .select("id")
-      .single();
+    const resultFields = {
+      platform_post_url: verification.platformPostUrl,
+      verified_live: verification.verifiedLive,
+      verification_checked_at: verifiedAt,
+      error_message: verification.errorMessage,
+    };
+    // A re-verify updates the row the first attempt wrote (one result per
+    // post, and its id is the public proof link) rather than adding a second.
+    const { data: resultRow } = alreadyPublished
+      ? await supabase.from("post_results").update(resultFields).eq("id", alreadyPublished.id).select("id").single()
+      : await supabase
+          .from("post_results")
+          .insert({
+            scheduled_post_id: post.id,
+            account_id: post.account_id,
+            platform_post_id: attempt.platformPostId,
+            ...resultFields,
+          })
+          .select("id")
+          .single();
 
     if (!verification.verifiedLive) {
       recordFailure(adapter.platform);
@@ -650,6 +761,12 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
  *  original claim order before any post's actual network call starts —
  *  same admission behavior as before, just concurrent execution after. */
 export async function runSchedulerCycle(registry: PlatformAdapterRegistry): Promise<void> {
+  try {
+    await recoverStuckPosts();
+  } catch (err) {
+    // The sweep is a safety net; it must never stop today's posts going out.
+    console.error("[scheduler] recoverStuckPosts threw:", err instanceof Error ? err.message : err);
+  }
   const due = await claimDuePosts();
   if (due.length === 0) return;
 
