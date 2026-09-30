@@ -3,8 +3,7 @@ import type {
   PostRequest,
   PostAttemptResult,
   VerifyResult,
-  OAuthExchangeResult,
-} from "./types.js";
+  OAuthExchangeResult, PendingConnectSelection } from "./types.js";
 import { fetchMediaForStreaming, buildStreamingMultipartBody, type RequestInitWithDuplex } from "./streamUpload.js";
 
 // Tumblr API v2 supports real OAuth 2.0 (confirmed via Tumblr's own docs,
@@ -52,6 +51,7 @@ function isVideoUrl(url: string): boolean {
 
 export class TumblrAdapter implements PlatformAdapter {
   readonly platform: "tumblr" = "tumblr";
+  readonly singleSelection = true;
 
   constructor(
     private readonly clientId: string,
@@ -106,6 +106,64 @@ export class TumblrAdapter implements PlatformAdapter {
     };
   }
 
+  // A Tumblr login covers all of a customer's blogs. Listing them lets the
+  // customer pick which one this connection posts to (a confirmation for a
+  // single blog, a real choice for several). See singleSelection.
+  private async exchangeTokens(code: string): Promise<{ accessToken: string; refreshToken: string | null; expiresAt: string | null }> {
+    const res = await fetch(TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grant_type: "authorization_code",
+        code,
+        client_id: this.clientId,
+        client_secret: this.clientSecret,
+        redirect_uri: this.redirectUri,
+      }),
+    });
+    const json = (await res.json()) as TumblrTokenResponse;
+    if (!res.ok || !json.access_token) {
+      throw new Error(json.error_description ?? json.error ?? "Tumblr token exchange failed");
+    }
+    return {
+      accessToken: json.access_token,
+      refreshToken: json.refresh_token ?? null,
+      expiresAt: json.expires_in ? new Date(Date.now() + json.expires_in * 1000).toISOString() : null,
+    };
+  }
+
+  private async fetchBlogs(accessToken: string): Promise<Array<{ name: string; primary: boolean }>> {
+    const res = await fetch(`${API_BASE}/user/info`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    const json = (await res.json()) as TumblrEnvelope<TumblrUserInfo>;
+    if (!res.ok) throw new Error(json.errors?.[0]?.detail ?? "Could not read the blogs on this Tumblr account");
+    return (json.response?.user?.blogs ?? []).filter((b) => !!b.name).map((b) => ({ name: b.name as string, primary: !!b.primary }));
+  }
+
+  async listConnectOptions(code: string): Promise<PendingConnectSelection> {
+    const tokens = await this.exchangeTokens(code);
+    const blogs = await this.fetchBlogs(tokens.accessToken);
+    if (blogs.length === 0) throw new Error("Could not find a Tumblr blog on this account");
+    // The primary blog first, so it is the natural default.
+    blogs.sort((a, z) => Number(z.primary) - Number(a.primary));
+    return { userToken: JSON.stringify(tokens), options: blogs.map((b) => ({ id: b.name, name: b.name })) };
+  }
+
+  async finalizeConnectOption(userToken: string, selectedId: string): Promise<OAuthExchangeResult> {
+    const tokens = JSON.parse(userToken) as { accessToken: string; refreshToken: string | null; expiresAt: string | null };
+    // Re-check that the chosen blog still belongs to this login; never trust the id from the client.
+    const blogs = await this.fetchBlogs(tokens.accessToken);
+    if (!blogs.some((b) => b.name === selectedId)) {
+      throw new Error("That Tumblr blog is no longer available, please reconnect");
+    }
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresAt: tokens.expiresAt,
+      platformAccountId: selectedId,
+      displayName: selectedId,
+    };
+  }
+
   // Tumblr OAuth 2.0 access tokens expire in ~1 hour; offline_access scope
   // provides a refresh token that rotates on each use (valid 1 year or until
   // consumed). Same grant_type=refresh_token pattern as TikTok.
@@ -150,7 +208,8 @@ export class TumblrAdapter implements PlatformAdapter {
   }
 
   async post(request: PostRequest): Promise<PostAttemptResult> {
-    const blogName = await this.getBlogName(request.accessToken);
+    // The blog chosen at connect time; only a connection made before blogs could be picked falls back to the primary blog.
+    const blogName = request.platformAccountId || (await this.getBlogName(request.accessToken));
     const postUrl = `${API_BASE}/blog/${encodeURIComponent(blogName)}/posts`;
 
     let res: Response;

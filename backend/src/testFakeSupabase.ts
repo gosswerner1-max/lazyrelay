@@ -74,8 +74,8 @@ export function makeBuilder(table: string) {
     }
     if (orderCol) out = [...out].sort((a, z) => (String(a[orderCol!]) < String(z[orderCol!]) ? -1 : 1) * (orderAsc ? 1 : -1));
     if (limitN !== null) out = out.slice(0, limitN);
-    if (selectCols.includes("social_accounts(platform)")) {
-      out = out.map((r) => ({ ...r, social_accounts: { platform: (tables.social_accounts ?? []).find((s) => s.id === r.social_account_id)?.platform } }));
+    if (selectCols.includes("social_accounts(")) {
+      out = out.map((r) => ({ ...r, social_accounts: (() => { const sa = (tables.social_accounts ?? []).find((x) => x.id === r.social_account_id); return { platform: sa?.platform, platform_account_id: sa?.platform_account_id }; })() }));
     }
     const wantsRows = mode === "select" || returning;
     const data = !wantsRows ? null : singleMode === "none" ? out : (out[0] ?? null);

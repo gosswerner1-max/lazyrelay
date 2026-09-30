@@ -259,7 +259,8 @@ export async function completeConnect(
 export async function getPendingSelection(
   selectionToken: string,
   accountId: string | undefined,
-): Promise<{ platform: string; options: ConnectOption[] }> {
+  registry?: PlatformAdapterRegistry,
+): Promise<{ platform: string; options: ConnectOption[]; singleSelection: boolean }> {
   const { data: stateRow, error } = await supabase
     .from("oauth_states")
     .select("account_id, platform, expires_at, pending_options")
@@ -275,7 +276,11 @@ export async function getPendingSelection(
     await supabase.from("oauth_states").delete().eq("id", selectionToken);
     throw new Error("Selection expired — please reconnect");
   }
-  return { platform: stateRow.platform, options: stateRow.pending_options as ConnectOption[] };
+  return {
+    platform: stateRow.platform,
+    options: stateRow.pending_options as ConnectOption[],
+    singleSelection: !!registry?.get(stateRow.platform)?.singleSelection,
+  };
 }
 
 /** Finishes a "needs_selection" connect once the customer has picked one OR
@@ -325,6 +330,9 @@ export async function finalizeConnectSelection(
   }
 
   const adapter = resolveAdapter(registry, stateRow.platform);
+  if (adapter.singleSelection && selectedIds.length > 1) {
+    throw new Error("Pick just one. To connect another, connect this platform again.");
+  }
 
   const { data: userToken, error: tokenError } = await supabase.rpc("read_social_token", {
     p_vault_id: stateRow.pending_token_vault_id,

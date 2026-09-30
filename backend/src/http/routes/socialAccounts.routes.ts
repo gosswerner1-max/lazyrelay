@@ -206,7 +206,7 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
       return;
     }
     try {
-      const pending = await getPendingSelection(token, req.accountId);
+      const pending = await getPendingSelection(token, req.accountId, registry);
       res.json(pending);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

@@ -18,6 +18,12 @@ export interface PostRequest {
   // (currently whichever board the account's boards list returns first, or
   // an auto-created default) — every existing caller (test scripts, older
   // scheduled_posts rows) that doesn't set this keeps working unchanged.
+  // The platform's own id for the connected account, as stored when it was
+  // connected (Tumblr: the blog name). Only consumed by adapters that cannot
+  // work it out from the token alone: a Tumblr login covers several blogs, so
+  // the blog the customer picked has to travel with the post. Optional/null
+  // means the adapter falls back to its own default.
+  platformAccountId?: string | null;
   boardId?: string | null;
   // Only consumed by Pinterest -- the Pin's own "Destination Link" (where a
   // click on the Pin takes someone), distinct from mediaUrl (the image/video
@@ -245,6 +251,12 @@ export interface PlatformAdapter {
    *  callback. Every other adapter stops at a "Connect this account?"
    *  confirmation before anything is saved (see connect.ts). */
   readonly skipConnectConfirmation?: boolean;
+
+  /** Set by adapters whose connect picker must return exactly ONE choice
+   *  (Tumblr): connecting a second blog means connecting again. Two accounts
+   *  sharing one login would share a refresh token that rotates on every use,
+   *  so refreshing one would break the other. */
+  readonly singleSelection?: boolean;
 
   /** Optional — posts a follow-up comment on a post LazyRelay itself just
    *  published (the common "hide hashtags in the first comment" pattern).

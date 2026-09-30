@@ -229,3 +229,46 @@ describe("Pinterest warm-up confirmation at the confirm step", () => {
     expect(tables.social_accounts[0].pinterest_warmup_confirmed_at ?? null).toBeNull();
   });
 });
+
+describe("single-choice pickers (Tumblr)", () => {
+  const blogAdapter = () => ({
+    platform: "tumblr",
+    singleSelection: true,
+    listConnectOptions: vi.fn(async () => ({ userToken: "user-token", options: [{ id: "main", name: "main" }, { id: "side", name: "side" }] })),
+    finalizeConnectOption: vi.fn(async (_t: string, id: string) => ({
+      accessToken: "tok",
+      refreshToken: "ref",
+      expiresAt: null,
+      platformAccountId: id,
+      displayName: id,
+    })),
+  });
+
+  it("tells the dashboard it is a single choice, and a normal picker is not", async () => {
+    seedState({ platform: "tumblr" });
+    const adapter = blogAdapter();
+    await completeConnect("st1", "code", registryOf(adapter));
+    expect((await getPendingSelection("st1", "acc1", registryOf(adapter))).singleSelection).toBe(true);
+    seedState({ platform: "facebook" });
+    const fb = { platform: "facebook", listConnectOptions: vi.fn(async () => ({ userToken: "u", options: [{ id: "1", name: "A" }, { id: "2", name: "B" }] })), finalizeConnectOption: vi.fn() };
+    await completeConnect("st1", "code", registryOf(fb));
+    expect((await getPendingSelection("st1", "acc1", registryOf(fb))).singleSelection).toBe(false);
+  });
+
+  it("refuses two blogs from one login (their shared refresh token would break each other)", async () => {
+    seedState({ platform: "tumblr" });
+    const adapter = blogAdapter();
+    await completeConnect("st1", "code", registryOf(adapter));
+    await expect(finalizeConnectSelection("st1", ["main", "side"], "acc1", registryOf(adapter))).rejects.toThrow(/Pick just one/);
+    expect(tables.social_accounts).toHaveLength(0);
+  });
+
+  it("one chosen blog is stored as that blog", async () => {
+    seedState({ platform: "tumblr" });
+    const adapter = blogAdapter();
+    await completeConnect("st1", "code", registryOf(adapter));
+    await finalizeConnectSelection("st1", ["side"], "acc1", registryOf(adapter));
+    expect(tables.social_accounts).toHaveLength(1);
+    expect(tables.social_accounts[0]).toMatchObject({ platform: "tumblr", platform_account_id: "side", display_name: "side" });
+  });
+});

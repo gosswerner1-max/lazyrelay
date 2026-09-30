@@ -39,6 +39,8 @@ export function useDashboardState() {
     token: string;
     platform: string;
     options: { id: string; name: string }[];
+    // Tumblr: pick exactly one (a second blog means connecting again).
+    singleSelection?: boolean;
   } | null>(null);
   const [checkedOptionIds, setCheckedOptionIds] = useState<string[]>([]);
   const [selectionBusy, setSelectionBusy] = useState(false);
@@ -781,7 +783,7 @@ export function useDashboardState() {
           // Default to "connect all" — the common case for a customer who
           // genuinely manages several Pages — while still letting them
           // uncheck the ones they don't want.
-          setCheckedOptionIds(pending.options.map((o) => o.id));
+          setCheckedOptionIds(pending.singleSelection ? pending.options.slice(0, 1).map((o) => o.id) : pending.options.map((o) => o.id));
         })
         .catch((err) => setError(err instanceof Error ? err.message : String(err)));
     }

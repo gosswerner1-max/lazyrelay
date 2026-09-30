@@ -152,6 +152,7 @@ interface DuePost {
   tiktok_brand_content: boolean;
   retry_count: number;
   platform: string;
+  platform_account_id?: string | null;
 }
 
 /** Finds posts due to go out and claims them (status pending -> posting)
@@ -189,7 +190,7 @@ async function claimDuePosts(): Promise<DuePost[]> {
     .eq("status", "pending")
     .is("paused_at", null)
     .select(
-      "id, account_id, social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, tiktok_brand_organic, tiktok_brand_content, retry_count, social_accounts(platform)",
+      "id, account_id, social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, tiktok_brand_organic, tiktok_brand_content, retry_count, social_accounts(platform, platform_account_id)",
     );
 
   if (claimError) throw claimError;
@@ -200,7 +201,7 @@ async function claimDuePosts(): Promise<DuePost[]> {
     // though the FK guarantees exactly one row here.
     const account = Array.isArray(p.social_accounts) ? p.social_accounts[0] : p.social_accounts;
     const { social_accounts: _social_accounts, ...rest } = p as typeof p & { social_accounts: unknown };
-    return { ...rest, platform: account?.platform } as DuePost;
+    return { ...rest, platform: account?.platform, platform_account_id: account?.platform_account_id ?? null } as DuePost;
   });
 }
 
@@ -750,6 +751,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
       ? { success: true, platformPostId: alreadyPublished.platform_post_id, errorMessage: null }
       : await adapter.post({
           socialAccountId: post.social_account_id,
+          platformAccountId: post.platform_account_id ?? null,
           content: outgoingContent,
           mediaUrl: post.media_url,
           coverImageUrl: post.cover_image_url,

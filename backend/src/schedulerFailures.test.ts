@@ -215,3 +215,13 @@ describe("webhook events", () => {
     expect(events).toEqual(["channel.needs_reconnect", "post.failed"]);
   });
 });
+
+describe("the connected account id reaches the adapter", () => {
+  it("passes the stored platform account id (a Tumblr blog) to adapter.post", async () => {
+    setup("blogplat");
+    tables.social_accounts[0].platform_account_id = "side-project";
+    const adapter = adapterOf("blogplat", () => ({ success: true, platformPostId: "plat-1", errorMessage: null }));
+    await runSchedulerCycle(registryOf(adapter));
+    expect(adapter.post).toHaveBeenCalledWith(expect.objectContaining({ platformAccountId: "side-project" }));
+  });
+});

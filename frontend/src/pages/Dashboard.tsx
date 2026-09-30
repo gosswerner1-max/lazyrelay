@@ -326,23 +326,30 @@ export function Dashboard() {
               <h2>Which {
                 pendingSelection.platform === "instagram" ? "Instagram accounts" :
                 pendingSelection.platform === "youtube" ? "YouTube channels" :
+                pendingSelection.platform === "tumblr" ? "Tumblr blog" :
                 "Facebook Pages"
               } should LazyRelay use?</h2>
             </div>
             <p className="modal-subtitle">
-              Your account manages more than one — check the ones you want to connect. All are checked by default; uncheck
-              any you'd rather leave out. You can always connect the rest separately later.
+              {pendingSelection.singleSelection
+                ? "Your Tumblr account has more than one blog. Pick the one LazyRelay should post to. To connect another blog later, connect Tumblr again."
+                : "Your account manages more than one, so check the ones you want to connect. All are checked by default; uncheck any you'd rather leave out. You can always connect the rest separately later."}
             </p>
             <div className="modal-actions" style={{ flexDirection: "column", alignItems: "stretch", gap: "0.5rem" }}>
               {pendingSelection.options.map((option) => (
                 <label key={option.id} className="btn-outline" style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
                   <input
-                    type="checkbox"
+                    type={pendingSelection.singleSelection ? "radio" : "checkbox"}
+                    name="connect-option"
                     checked={checkedOptionIds.includes(option.id)}
                     disabled={selectionBusy}
                     onChange={(e) =>
                       setCheckedOptionIds((prev) =>
-                        e.target.checked ? [...prev, option.id] : prev.filter((id) => id !== option.id),
+                        pendingSelection.singleSelection
+                          ? [option.id]
+                          : e.target.checked
+                            ? [...prev, option.id]
+                            : prev.filter((id) => id !== option.id),
                       )
                     }
                   />
@@ -354,7 +361,9 @@ export function Dashboard() {
                   ? "Connecting..."
                   : checkedOptionIds.length === 0
                     ? "Select at least one"
-                    : `Connect ${checkedOptionIds.length} selected`}
+                    : pendingSelection.singleSelection
+                      ? "Connect this blog"
+                      : `Connect ${checkedOptionIds.length} selected`}
               </button>
               <button className="btn-outline" disabled={selectionBusy} onClick={handleCancelSelection}>
                 Cancel

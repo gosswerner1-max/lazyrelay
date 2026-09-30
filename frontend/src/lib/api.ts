@@ -473,7 +473,7 @@ export const api = {
   // Real Page/account picker for platforms where one OAuth login can map to
   // several destinations (Facebook: multiple Pages; Instagram: whichever
   // Page has a Business Account linked) — see backend/src/platforms/connect.ts.
-  getPendingSelection: (token: string): Promise<{ platform: string; options: { id: string; name: string }[] }> =>
+  getPendingSelection: (token: string): Promise<{ platform: string; options: { id: string; name: string }[]; singleSelection?: boolean }> =>
     authedFetch(`/social-accounts/pending-selection/${encodeURIComponent(token)}`),
   finalizeSelection: (
     token: string,
