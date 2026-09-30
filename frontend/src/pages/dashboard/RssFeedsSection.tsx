@@ -86,7 +86,7 @@ export function RssFeedsSection({ onError }: Props) {
       ))}
 
       {!noPlan && (
-      <form onSubmit={handleAdd} style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+      <form onSubmit={handleAdd} className="settings-form">
         <input type="url" placeholder="https://example.com/feed.xml" value={url} onChange={(e) => setUrl(e.target.value)} required />
         <input type="text" placeholder="Name (optional)" maxLength={60} value={label} onChange={(e) => setLabel(e.target.value)} />
         <button type="submit" className="btn-primary" disabled={busy || atLimit}>

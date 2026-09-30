@@ -76,10 +76,10 @@ export function PostingSlotsSection({ onError }: Props) {
         </div>
       ))}
 
-      <form onSubmit={handleAdd} style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      <form onSubmit={handleAdd} className="settings-form">
+        <div className="settings-day-row">
           {DAYS.map((d) => (
-            <label key={d.n} style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            <label key={d.n} className="field-check">
               <input
                 type="checkbox"
                 checked={days.includes(d.n)}

@@ -328,12 +328,12 @@ export function PostsTab() {
             onError={setError}
           />
           {selectedAccountIds.some((id) => supportsSelfReply(accounts.find((a) => a.id === id)?.platform)) && (
-            <div>
-              <label>
+            <div className="field-group">
+              <label className="field">
                 Add a reply once this post gets likes (Facebook and Instagram, optional)
                 <textarea placeholder="e.g. Thank you all! Link in our bio." maxLength={2200} value={selfReplyText} onChange={(e) => setSelfReplyText(e.target.value)} />
               </label>
-              <label>
+              <label className="field">
                 Reply when the post reaches this many likes
                 <input type="number" min={1} placeholder="e.g. 50" value={selfReplyLikes} onChange={(e) => setSelfReplyLikes(e.target.value)} />
               </label>

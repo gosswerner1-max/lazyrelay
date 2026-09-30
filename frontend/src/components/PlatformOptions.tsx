@@ -44,12 +44,12 @@ export function PlatformOptions({ groups, value, onChange, mediaUrl, hasExtraMed
 
   return (
     <div>
-      <h3>Platform options</h3>
+      <h3 className="options-title">Platform options</h3>
 
       {groups.tiktok && (
         <div style={box}>
-          <strong>{platformLabel("tiktok")}</strong>
-          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <strong className="options-group-name">{platformLabel("tiktok")}</strong>
+          <label className="field-check">
             <input type="checkbox" checked={value.tiktok?.aiGenerated === true} onChange={(e) => set("tiktok", { ...value.tiktok, aiGenerated: e.target.checked })} />
             This video is AI-generated (adds TikTok's AI label)
           </label>
@@ -58,12 +58,12 @@ export function PlatformOptions({ groups, value, onChange, mediaUrl, hasExtraMed
 
       {groups.youtube && (
         <div style={box}>
-          <strong>{platformLabel("youtube")}</strong>
-          <label>
+          <strong className="options-group-name">{platformLabel("youtube")}</strong>
+          <label className="field">
             Video title (optional, the post text is the description)
             <input type="text" maxLength={100} value={value.youtube?.title ?? ""} onChange={(e) => set("youtube", { ...value.youtube, title: e.target.value })} />
           </label>
-          <label>
+          <label className="field">
             Who can see it
             <select value={value.youtube?.privacy ?? "public"} onChange={(e) => set("youtube", { ...value.youtube, privacy: e.target.value as "public" | "unlisted" | "private" })}>
               <option value="public">Public</option>
@@ -71,7 +71,7 @@ export function PlatformOptions({ groups, value, onChange, mediaUrl, hasExtraMed
               <option value="private">Private (only you)</option>
             </select>
           </label>
-          <label>
+          <label className="field">
             Made for kids?
             <select
               value={value.youtube?.madeForKids === undefined ? "" : value.youtube.madeForKids ? "yes" : "no"}
@@ -88,7 +88,7 @@ export function PlatformOptions({ groups, value, onChange, mediaUrl, hasExtraMed
               <option value="yes">Yes, it is made for kids</option>
             </select>
           </label>
-          <label>
+          <label className="field">
             Tags (optional, separated by commas)
             <input
               type="text"
@@ -99,7 +99,7 @@ export function PlatformOptions({ groups, value, onChange, mediaUrl, hasExtraMed
               }}
             />
           </label>
-          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <label className="field-check">
             <input type="checkbox" checked={value.youtube?.aiGenerated === true} onChange={(e) => set("youtube", { ...value.youtube, aiGenerated: e.target.checked })} />
             Realistic content made or changed with AI (YouTube's disclosure)
           </label>
@@ -108,8 +108,8 @@ export function PlatformOptions({ groups, value, onChange, mediaUrl, hasExtraMed
 
       {groups.instagram && (
         <div style={box}>
-          <strong>{platformLabel("instagram")}</strong>
-          <label>
+          <strong className="options-group-name">{platformLabel("instagram")}</strong>
+          <label className="field">
             Post as
             <select
               value={value.instagram?.placement ?? ""}
@@ -132,7 +132,7 @@ export function PlatformOptions({ groups, value, onChange, mediaUrl, hasExtraMed
           </label>
           {video && !hasExtraMedia && value.instagram?.placement !== "story" && (
             <>
-              <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <label className="field-check">
                 <input
                   type="checkbox"
                   checked={value.instagram?.trialReel === true}
@@ -145,7 +145,7 @@ export function PlatformOptions({ groups, value, onChange, mediaUrl, hasExtraMed
                 Trial reel (shown to people who do not follow you first)
               </label>
               {value.instagram?.trialReel && (
-                <label>
+                <label className="field">
                   Move it to your followers
                   <select value={value.instagram.trialGraduation ?? "manual"} onChange={(e) => set("instagram", { ...value.instagram, trialGraduation: e.target.value as "manual" | "auto" })}>
                     <option value="manual">I will do it myself in Instagram</option>
@@ -161,8 +161,8 @@ export function PlatformOptions({ groups, value, onChange, mediaUrl, hasExtraMed
 
       {groups.facebook && (
         <div style={box}>
-          <strong>{platformLabel("facebook")}</strong>
-          <label>
+          <strong className="options-group-name">{platformLabel("facebook")}</strong>
+          <label className="field">
             Post as
             <select value={value.facebook?.placement ?? "feed"} onChange={(e) => set("facebook", { placement: e.target.value as "feed" | "story" })}>
               <option value="feed">Normal post</option>
@@ -175,14 +175,14 @@ export function PlatformOptions({ groups, value, onChange, mediaUrl, hasExtraMed
 
       {groups.linkedin && (
         <div style={box}>
-          <strong>{platformLabel("linkedin")}</strong>
+          <strong className="options-group-name">{platformLabel("linkedin")}</strong>
           {value.linkedin?.documentUrl ? (
             <div>
               <p className="section-note">PDF attached. It shows as a swipeable document.</p>
               <button type="button" className="btn-outline" onClick={() => onChange({ ...value, linkedin: undefined })}>
                 Remove the PDF
               </button>
-              <label>
+              <label className="field">
                 Document title (optional)
                 <input type="text" maxLength={100} value={value.linkedin.documentTitle ?? ""} onChange={(e) => set("linkedin", { ...value.linkedin, documentTitle: e.target.value })} />
               </label>

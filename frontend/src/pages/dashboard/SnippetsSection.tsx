@@ -86,10 +86,10 @@ export function SnippetsSection({ onError }: Props) {
         </div>
       ))}
 
-      <form onSubmit={handleAdd} style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+      <form onSubmit={handleAdd} className="settings-form">
         <input type="text" placeholder="Name (e.g. Sale hashtags)" maxLength={60} value={name} onChange={(e) => setName(e.target.value)} required />
         <textarea placeholder="The text to insert" maxLength={2000} value={content} onChange={(e) => setContent(e.target.value)} required />
-        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <label className="field-check">
           <input type="checkbox" checked={isSignature} onChange={(e) => setIsSignature(e.target.checked)} />
           Use as my signature
         </label>

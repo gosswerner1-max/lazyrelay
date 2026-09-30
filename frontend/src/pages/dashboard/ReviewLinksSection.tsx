@@ -17,6 +17,7 @@ export function ReviewLinksSection({ brands, onError }: Props) {
   const [days, setDays] = useState(30);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [showRemoved, setShowRemoved] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -60,6 +61,8 @@ export function ReviewLinksSection({ brands, onError }: Props) {
     }
   }
 
+  const removedCount = list?.links.filter((l) => l.status !== "active").length ?? 0;
+  const visibleLinks = list?.links.filter((l) => showRemoved || l.status === "active") ?? [];
   const noPlan = !!list && list.maxLinks === 0;
   const activeCount = list?.links.filter((l) => l.status === "active").length ?? 0;
   const atLimit = !!list && list.maxLinks > 0 && activeCount >= list.maxLinks;
@@ -82,10 +85,10 @@ export function ReviewLinksSection({ brands, onError }: Props) {
           Your plan includes {list.maxLinks} active link{list.maxLinks === 1 ? "" : "s"}. You have {activeCount}.
         </p>
       )}
-      {list && list.links.length === 0 && !noPlan && <p className="empty">No review links yet.</p>}
+      {list && activeCount === 0 && !noPlan && <p className="empty">No active review links.</p>}
 
-      {list?.links.map((l) => (
-        <div key={l.id} style={{ marginBottom: 10 }}>
+      {visibleLinks.map((l) => (
+        <div key={l.id} className="link-row">
           <strong>{l.label || "Review link"}</strong> {l.brandLabel && <span className="coming-soon-badge">{l.brandLabel}</span>}
           <div style={{ fontSize: 14 }}>{describeLink(l)}</div>
           {l.status === "active" && (
@@ -101,8 +104,14 @@ export function ReviewLinksSection({ brands, onError }: Props) {
         </div>
       ))}
 
+      {removedCount > 0 && (
+        <button type="button" className="btn-outline" style={{ marginBottom: 12 }} onClick={() => setShowRemoved(!showRemoved)}>
+          {showRemoved ? "Hide old links" : `Show ${removedCount} old link${removedCount === 1 ? "" : "s"} (expired or removed)`}
+        </button>
+      )}
+
       {!noPlan && (
-        <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+        <form onSubmit={handleCreate} className="settings-form">
           <input type="text" placeholder="Who is it for? (optional, for example Acme)" maxLength={60} value={label} onChange={(e) => setLabel(e.target.value)} />
           {brands.length > 0 && (
             <label>

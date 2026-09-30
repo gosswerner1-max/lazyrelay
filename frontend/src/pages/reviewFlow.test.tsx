@@ -123,12 +123,24 @@ describe("ReviewLinksSection (the owner)", () => {
   it("creates a link with the chosen brand and expiry", async () => {
     api.listReviewLinks.mockResolvedValue({ maxLinks: 3, links: [] });
     render(<ReviewLinksSection brands={["Acme"]} onError={() => {}} />);
-    await screen.findByText("No review links yet.");
+    await screen.findByText("No active review links.");
     await userEvent.type(screen.getByPlaceholderText(/Who is it for/), "Acme team");
     await userEvent.selectOptions(screen.getByLabelText("Only show posts for one brand (optional)"), "Acme");
     await userEvent.selectOptions(screen.getByLabelText("The link stops working after"), "60");
     await userEvent.click(screen.getByText("Create review link"));
     await waitFor(() => expect(api.createReviewLink).toHaveBeenCalledWith({ label: "Acme team", brandLabel: "Acme", expiresInDays: 60 }));
+  });
+
+  it("tucks expired and removed links away behind a button instead of cluttering the list", async () => {
+    const old = { ...link, id: "l2", label: "Old test", status: "revoked" as const };
+    api.listReviewLinks.mockResolvedValue({ maxLinks: 3, links: [link, old, { ...old, id: "l3", status: "expired" as const }] });
+    render(<ReviewLinksSection brands={[]} onError={() => {}} />);
+    await screen.findByText(/Your plan includes 3 active links. You have 1./);
+    expect(screen.queryByText("Old test")).toBeNull();
+    await userEvent.click(screen.getByText("Show 2 old links (expired or removed)"));
+    expect(screen.getAllByText("Old test")).toHaveLength(2);
+    await userEvent.click(screen.getByText("Hide old links"));
+    expect(screen.queryByText("Old test")).toBeNull();
   });
 
   it("at the limit the create button says so and is disabled", async () => {

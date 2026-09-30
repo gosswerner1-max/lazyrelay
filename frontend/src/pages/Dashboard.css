@@ -3034,3 +3034,96 @@
   margin-left: 8px;
   pointer-events: none;
 }
+
+/* Fields that sit inside nested blocks (platform options, self-reply) and the Settings forms
+   (snippets, posting times, RSS, review links) look like the composer's own fields. Found in a real
+   browser 2026-09-30: nested labels had lost the composer's stacked, uppercase look. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.field-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--ink);
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.options-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  margin: 4px 0 0;
+}
+
+.options-group-name {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.settings-form > label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.settings-form input:not([type="checkbox"]),
+.settings-form select,
+.settings-form textarea,
+.field input:not([type="checkbox"]),
+.field select,
+.field textarea {
+  font: 15px/1.4 var(--font-body);
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.settings-form textarea,
+.field textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.settings-day-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.link-row {
+  margin-bottom: 14px;
+}
