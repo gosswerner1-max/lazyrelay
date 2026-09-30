@@ -199,6 +199,38 @@ jobs:
       - working-directory: mcp-server
         run: npm run build
 
+  sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: sdk/package-lock.json
+      - working-directory: sdk
+        run: npm ci
+      - working-directory: sdk
+        run: npm run build
+      - working-directory: sdk
+        run: npm test
+
+  n8n-node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: n8n-nodes-lazyrelay/package-lock.json
+      - working-directory: n8n-nodes-lazyrelay
+        run: npm ci
+      - working-directory: n8n-nodes-lazyrelay
+        run: npm run build
+      - working-directory: n8n-nodes-lazyrelay
+        run: npm test
+
   ops:
     runs-on: ubuntu-latest
     steps:

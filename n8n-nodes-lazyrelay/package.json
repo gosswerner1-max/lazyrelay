@@ -1,0 +1,48 @@
+{
+  "name": "n8n-nodes-lazyrelay",
+  "version": "0.1.0",
+  "description": "n8n community nodes for LazyRelay: schedule and publish social posts, manage drafts, media, analytics and client review links, and start workflows from signed LazyRelay webhooks.",
+  "keywords": [
+    "n8n-community-node-package",
+    "lazyrelay",
+    "social media",
+    "scheduler"
+  ],
+  "license": "MIT",
+  "homepage": "https://lazyrelay.com",
+  "author": {
+    "name": "LazyRelay"
+  },
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc && node scripts/copy-icons.mjs",
+    "test": "vitest run",
+    "lint": "eslint credentials nodes",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/LazyRelayApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/LazyRelay/LazyRelay.node.js",
+      "dist/nodes/LazyRelayTrigger/LazyRelayTrigger.node.js"
+    ]
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "devDependencies": {
+    "@n8n/eslint-plugin-community-nodes": "^0.35.0",
+    "@types/node": "^26.6.3",
+    "eslint": "^9.29.0",
+    "n8n-workflow": "^2.16.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
+  }
+}
