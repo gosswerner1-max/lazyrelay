@@ -12,7 +12,7 @@ import { syncPostToCalendar, deletePostFromCalendar } from "../../googleCalendar
 import { syncAccountSheet } from "../../googleSheets/outboundSync.js";
 import { requireAuth, type AuthedRequest } from "../auth.js";
 import { tieredRateLimit } from "../rateLimit.js";
-import { scheduleOnePost, validatePostFields, validateScheduledFor, checkFreeTierPostLimit, checkPlatformPostLimit, MAX_POST_CONTENT_LENGTH } from "../../postCreation.js";
+import { scheduleOnePost, validatePostFields, validateScheduledFor, checkFreeTierPostLimit, checkPlatformPostLimit, MAX_POST_CONTENT_LENGTH, TIKTOK_PRIVACY_LEVELS } from "../../postCreation.js";
 import { dbError, resolveBrandFilterSocialAccountIds, fetchAllRows } from "./shared.js";
 import { validateBody, nonEmptyString, optionalNullableString, optionalBoolean, unvalidated } from "../validation.js";
 import { resolvePostExtras, normalizeDraftExtras, extrasToColumns } from "../../postExtras.js";
@@ -112,6 +112,9 @@ export function buildPostsRouter(): Router {
   // "<name> must be a string" / "<name> must be a boolean" message the old
   // per-field loops returned.
   const draftStringField = (name: string) => optionalNullableString(`${name} must be a string`);
+  // A draft used to accept any text here and only fail when it was scheduled. Same three values scheduling accepts.
+  const draftPrivacyField = () =>
+    optionalNullableString("tiktokPrivacyLevel must be a string").refine((v) => v === undefined || v === null || TIKTOK_PRIVACY_LEVELS.includes(v), `tiktokPrivacyLevel must be one of: ${TIKTOK_PRIVACY_LEVELS.join(", ")}`);
   const draftBooleanField = (name: string) => optionalBoolean(`${name} must be a boolean`);
   const draftContentField = () =>
     nonEmptyString("content must be a non-empty string").max(
@@ -139,7 +142,7 @@ export function buildPostsRouter(): Router {
     destinationLink: draftStringField("destinationLink"),
     firstComment: draftStringField("firstComment"),
     mediaAltText: draftStringField("mediaAltText"),
-    tiktokPrivacyLevel: draftStringField("tiktokPrivacyLevel"),
+    tiktokPrivacyLevel: draftPrivacyField(),
     tiktokDisableComment: draftBooleanField("tiktokDisableComment"),
     tiktokDisableDuet: draftBooleanField("tiktokDisableDuet"),
     tiktokDisableStitch: draftBooleanField("tiktokDisableStitch"),
@@ -259,7 +262,7 @@ export function buildPostsRouter(): Router {
     destinationLink: draftStringField("destinationLink"),
     firstComment: draftStringField("firstComment"),
     mediaAltText: draftStringField("mediaAltText"),
-    tiktokPrivacyLevel: draftStringField("tiktokPrivacyLevel"),
+    tiktokPrivacyLevel: draftPrivacyField(),
     tiktokDisableComment: draftBooleanField("tiktokDisableComment"),
     tiktokDisableDuet: draftBooleanField("tiktokDisableDuet"),
     tiktokDisableStitch: draftBooleanField("tiktokDisableStitch"),

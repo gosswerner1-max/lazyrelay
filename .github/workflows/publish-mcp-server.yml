@@ -81,10 +81,11 @@ jobs:
           # Registry checks at once) used to be stuck for good, because "already on npm" skipped
           # everything. Now the Registry step runs whenever the Registry lacks this version.
           NAME=$(jq -r '.name' server.json)
-          REGISTRY_VERSION=$(curl -s "https://registry.modelcontextprotocol.io/v0/servers?search=$NAME" | jq -r --arg n "$NAME" '[.servers[]?.server | select(.name == $n)][0].version // "none"')
-          echo "Registry version:  $REGISTRY_VERSION"
           SERVER_VERSION=$(jq -r '.version' server.json)
-          if [ "$SERVER_VERSION" = "$REGISTRY_VERSION" ]; then
+          # Any listed version counts (not just the first), so a push that does not bump the version never re-publishes.
+          REGISTRY_VERSIONS=$(curl -s "https://registry.modelcontextprotocol.io/v0/servers?search=$NAME" | jq -r --arg n "$NAME" '[.servers[]?.server | select(.name == $n) | .version] | join(" ")')
+          echo "Registry versions: $REGISTRY_VERSIONS"
+          if echo " $REGISTRY_VERSIONS " | grep -q " $SERVER_VERSION "; then
             echo "registry_needed=false" >> "$GITHUB_OUTPUT"
           else
             echo "registry_needed=true" >> "$GITHUB_OUTPUT"

@@ -42,6 +42,9 @@ This is a **local server** — it runs on your own machine and talks to LazyRela
 | `create_draft` | Save a draft without an account or a time |
 | `schedule_draft` | Turn a saved draft into a scheduled post |
 | `update_post` | Edit a draft, a post waiting for approval, or a pending post |
+| `reschedule_post` | Move a pending post to a new time (the current time posts it right away) |
+| `pause_post` | Hold a pending post so it does not go out |
+| `resume_post` | Let a paused post go out again |
 | `list_scheduled_posts` | See posts with status and whether each is confirmed live, filtered and summarised |
 | `delete_scheduled_post` | Cancel a pending or waiting post |
 | `get_proof_link` | Get a public proof-of-publish link for a post confirmed live |
@@ -53,8 +56,6 @@ This is a **local server** — it runs on your own machine and talks to LazyRela
 | `reply_to_post_feedback` | Reply to the client's feedback |
 | `get_analytics_summary` | Post counts, verified-live rate, per-platform and per-tag results, engagement |
 | `get_mentions` | Recent comments on your posts, where the platform allows reading them |
-
-Errors come back as a structured object (`kind`, `status`, `message`, and a `hint` saying which tool to call to fix it), so an agent can recover on its own. Every read-only tool is marked read-only and every destructive one is marked destructive, so your client can ask before running them.
 
 Every key acts as your account — treat it exactly like a password. Never share it or commit it to code.
 

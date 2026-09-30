@@ -224,3 +224,14 @@ describe("editing a post a client asked changes on (master list #23)", () => {
     expect((await request(app()).patch("/scheduled-posts/d1").send({ content: "y" })).status).toBe(409);
   });
 });
+
+describe("a draft's TikTok privacy level is checked when it is saved (it used to fail only weeks later, when scheduled)", () => {
+  it("refuses a level TikTok does not have, and takes the real ones or none", async () => {
+    const bad = await draft({ tiktokPrivacyLevel: "EVERYONE" });
+    expect(bad.status).toBe(400);
+    expect(bad.body.error).toMatch(/tiktokPrivacyLevel must be one of: PUBLIC_TO_EVERYONE, MUTUAL_FOLLOW_FRIENDS, SELF_ONLY/);
+    expect((await draft({ tiktokPrivacyLevel: "SELF_ONLY" })).status).toBe(201);
+    expect((await draft({})).status).toBe(201);
+    expect((await draft({ tiktokPrivacyLevel: null })).status).toBe(201);
+  });
+});

@@ -116,6 +116,10 @@ export function buildSnippetsRouter(): Router {
       dbError(res, error, "PATCH /snippets/:id");
       return;
     }
+    if (!data) {
+      res.status(404).json({ error: "Snippet not found" });
+      return;
+    }
     res.json(toPublic(data as SnippetRow));
   });
 

@@ -228,3 +228,22 @@ describe("documentation lists the same tools", () => {
     expect(listed.sort()).toEqual([...LAZYRELAY_TOOL_NAMES].sort());
   });
 });
+
+describe("reschedule, pause and resume (the update_post description used to say to delete and recreate)", () => {
+  it("route to the right endpoints", async () => {
+    const client = await connect();
+    await client.callTool({ name: "reschedule_post", arguments: { id: "p1", scheduledFor: "2026-10-05T09:00:00Z" } });
+    await client.callTool({ name: "pause_post", arguments: { id: "p1" } });
+    await client.callTool({ name: "resume_post", arguments: { id: "p1" } });
+    expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(["PATCH /scheduled-posts/p1/reschedule", "PATCH /scheduled-posts/p1/pause", "PATCH /scheduled-posts/p1/resume"]);
+    expect(calls[0].body).toEqual({ scheduledFor: "2026-10-05T09:00:00Z" });
+  });
+  it("update_post points to reschedule_post for a time change", async () => {
+    const client = await connect();
+    const { tools } = await client.listTools();
+    expect(tools.find((t) => t.name === "update_post")!.description).toContain("reschedule_post");
+  });
+  it("a storage or size refusal (413) is a plan limit, not an unknown error", () => {
+    expect(describeApiError(413, "Storage quota reached")).toMatchObject({ kind: "plan_limit", status: 413 });
+  });
+});

@@ -45,6 +45,7 @@ export function describeApiError(status: number, message: string): { kind: Error
   if (status === 400 || status === 422) kind = "validation";
   else if (status === 401) kind = "auth";
   else if (status === 403) kind = /plan|upgrade|paid|allows \d+|limit/i.test(message) ? "plan_limit" : "permission";
+  else if (status === 413) kind = "plan_limit"; // storage quota or file too large for the plan
   else if (status === 404) kind = "not_found";
   else if (status === 409) kind = "conflict";
   else if (status === 429) kind = "rate_limited";
@@ -248,10 +249,37 @@ export function registerLazyRelayTools(server: McpServer, rawCall: LazyRelayRawC
   def(
     "update_post",
     "Edit a post",
-    "Edit a draft, a post waiting for approval, or a still-pending post: its text, media, tags, options and so on. Not possible once it is posting or done. To change the time, delete and recreate it.",
+    "Edit a draft, a post waiting for approval, or a still-pending post: its text, media, tags, options and so on. Not possible once it is posting or done. To change the time, use reschedule_post.",
     EDIT,
     { ...idField, content: z.string().optional().describe("New text"), ...postFields },
     ({ id, ...body }, call) => call(`/scheduled-posts/${encodeURIComponent(id)}`, { method: "PATCH", body }),
+  );
+
+  def(
+    "reschedule_post",
+    "Move a post to a new time",
+    "Move a pending post to a new time. Passing the current time posts it right away. The platform's rules for that time are checked again.",
+    EDIT,
+    { ...idField, scheduledFor: z.string().describe("ISO 8601 timestamp for the new time") },
+    ({ id, scheduledFor }, call) => call(`/scheduled-posts/${encodeURIComponent(id)}/reschedule`, { method: "PATCH", body: { scheduledFor } }),
+  );
+
+  def(
+    "pause_post",
+    "Pause a pending post",
+    "Hold a pending post so it does not go out at its time. Resume it later with resume_post.",
+    EDIT,
+    idField,
+    ({ id }, call) => call(`/scheduled-posts/${encodeURIComponent(id)}/pause`, { method: "PATCH" }),
+  );
+
+  def(
+    "resume_post",
+    "Resume a paused post",
+    "Let a paused post go out again. If its time has passed it goes out right away.",
+    EDIT,
+    idField,
+    ({ id }, call) => call(`/scheduled-posts/${encodeURIComponent(id)}/resume`, { method: "PATCH" }),
   );
 
   def(
@@ -387,6 +415,9 @@ export const LAZYRELAY_TOOL_NAMES = [
   "create_draft",
   "schedule_draft",
   "update_post",
+  "reschedule_post",
+  "pause_post",
+  "resume_post",
   "list_scheduled_posts",
   "delete_scheduled_post",
   "get_proof_link",
