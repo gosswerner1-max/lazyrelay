@@ -53,10 +53,29 @@ describe("classifyPostError", () => {
     expect(c.message).toMatch(/We have been alerted/);
   });
 
+  it("Pinterest: the blocked-link and daily-limit reasons use the approved wording and never suggest working around the block", () => {
+    const blocked = classifyPostError("pinterest", "Sorry! We blocked this link because it may lead to spam.");
+    expect(blocked.kind).toBe("fatal");
+    expect(blocked.message).toMatch(/Pinterest decision about the website address/);
+    expect(blocked.message).toMatch(/ask Pinterest to review it/);
+    expect(blocked.message).toMatch(/start slowly and vary your captions/);
+    expect(blocked.message).not.toMatch(/different (destination )?link|shortener|redirect|another domain/i);
+    const daily = classifyPostError("pinterest", "maximum number of 10 posts for the last 24 hours for this account");
+    expect(daily.kind).toBe("fatal");
+    expect(daily.message).toMatch(/Try again tomorrow, or spread your pins across more days/);
+  });
+
   it("gives the customer a plain-language reason with the platform name and no raw codes", () => {
     const c = classifyPostError("pinterest", "Sorry! We blocked this link because it may lead to spam.");
     expect(c.message).toMatch(/^Pinterest blocked the link/);
     expect(c.message).not.toMatch(/Sorry!/);
+  });
+
+  it("no en or em dashes in any customer-facing reason", () => {
+    const dashes = new RegExp(`[${String.fromCharCode(0x2013, 0x2014)}]`);
+    for (const [platform, raw] of [...REAL, ...DOCUMENTED].map(([p, r]) => [p, r] as [string, string])) {
+      expect(classifyPostError(platform, raw).message).not.toMatch(dashes);
+    }
   });
 
   it("keeps today's behavior for an error it doesn't recognise: retry, raw text", () => {

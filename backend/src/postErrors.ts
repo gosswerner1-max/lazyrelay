@@ -19,6 +19,16 @@ import { platformLabel } from "./tokenHealth.js";
 //              never the customer's: retry, and never blame or flag them.
 // Unknown errors keep today's behavior exactly: retry, raw text shown.
 
+// The Pinterest wording is the set of rules Werner approved (the account and
+// domain are checked closely, the block is Pinterest's decision, appeal through
+// Pinterest, start slowly, never work around the block). Same text the
+// dashboard uses for rows recorded before the server wrote its own reasons
+// (frontend/src/lib/errorMessages.ts): change both together.
+export const PINTEREST_BLOCKED_LINK_MESSAGE =
+  "Pinterest blocked the link in this pin. This is a Pinterest decision about the website address, not something LazyRelay can change. You can ask Pinterest to review it in Pinterest's Help Center (Appeals, then Pinterest blocked my site). New websites are checked more closely, so start slowly and vary your captions.";
+export const PINTEREST_DAILY_LIMIT_MESSAGE =
+  "Pinterest limits how many pins one account can post in a day. Try again tomorrow, or spread your pins across more days.";
+
 export type PostErrorKind = "retry" | "fatal" | "reconnect" | "ours";
 
 export interface ClassifiedPostError {
@@ -55,7 +65,15 @@ const RULES: Rule[] = [
     platform: "pinterest",
     test: /blocked this link|may lead to spam/i,
     kind: "fatal",
-    message: () => "Pinterest blocked the link in this post because its spam filter flagged it. Retrying won't help. Remove the link or use a different destination link, then schedule it again.",
+    message: () => PINTEREST_BLOCKED_LINK_MESSAGE,
+  },
+  {
+    // Must sit before the generic rate-limit rule below: the wording contains
+    // "24 hours" and "posts".
+    platform: "pinterest",
+    test: /maximum number of[\s\S]{0,60}posts?[\s\S]{0,60}24 hours/i,
+    kind: "fatal",
+    message: () => PINTEREST_DAILY_LIMIT_MESSAGE,
   },
   {
     platform: "facebook",

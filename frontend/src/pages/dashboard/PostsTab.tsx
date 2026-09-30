@@ -854,7 +854,7 @@ export function PostsTab() {
                     <RelaySignal size={14} pulsing /> Confirmed live
                   </span>
                 ) : (
-                  <PostErrorDetail errorMessage={result.error_message} platform={account?.platform} />
+                  <PostErrorDetail errorMessage={result.error_message} rawErrorMessage={result.raw_error_message} platform={account?.platform} />
                 )
               )}
               {result?.verified_live && (

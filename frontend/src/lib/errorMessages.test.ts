@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { humanizeErrorMessage, PINTEREST_BLOCKED_LINK_MESSAGE, PINTEREST_DAILY_LIMIT_MESSAGE } from "./errorMessages";
+import { humanizeErrorMessage, resolveErrorDisplay, PINTEREST_BLOCKED_LINK_MESSAGE, PINTEREST_DAILY_LIMIT_MESSAGE } from "./errorMessages";
 
 // En-dash and em-dash, built from code points so no literal dash sits in this file.
 const DASHES = new RegExp(`[${String.fromCharCode(0x2013, 0x2014)}]`);
@@ -64,5 +64,25 @@ describe("humanizeErrorMessage: existing behavior is unchanged", () => {
   it("still maps expired tokens and rate limits", () => {
     expect(humanizeErrorMessage("invalid_token", "pinterest").friendly).toContain("needs to be refreshed");
     expect(humanizeErrorMessage("429 too many requests", "pinterest").friendly).toContain("temporarily limiting");
+  });
+});
+
+describe("resolveErrorDisplay", () => {
+  it("shows the server's plain reason and puts the platform's original text behind Show details", () => {
+    const r = resolveErrorDisplay("Your Bluesky connection has expired or was revoked.", "Token has expired", "bluesky");
+    expect(r.friendly).toBe("Your Bluesky connection has expired or was revoked.");
+    expect(r.technical).toBe("Token has expired");
+  });
+
+  it("does not translate a message the server already wrote (no double translation into a generic line)", () => {
+    const r = resolveErrorDisplay(PINTEREST_BLOCKED_LINK_MESSAGE, "Sorry! We blocked this link because it may lead to spam.", "pinterest");
+    expect(r.friendly).toBe(PINTEREST_BLOCKED_LINK_MESSAGE);
+  });
+
+  it("still translates older rows and errors the server did not recognise (no raw_error_message)", () => {
+    const raw = "Sorry! We blocked this link because it may lead to spam.";
+    expect(resolveErrorDisplay(raw, null, "pinterest")).toEqual(humanizeErrorMessage(raw, "pinterest"));
+    expect(resolveErrorDisplay(raw, undefined, "pinterest")).toEqual(humanizeErrorMessage(raw, "pinterest"));
+    expect(resolveErrorDisplay(null, null).friendly).toMatch(/no further detail/);
   });
 });

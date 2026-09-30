@@ -503,7 +503,9 @@ async function failAttempt(post: DuePost, platform: string, raw: string): Promis
     verified_live: false,
     verification_checked_at: new Date().toISOString(),
     error_message: classified.message,
-    raw_error_message: raw,
+    // Only set when the message was rewritten; the dashboard uses its presence to
+    // know the reason is already plain language (older rows are translated there).
+    raw_error_message: classified.message === raw ? null : raw,
   });
   await handleFailure(post, classified.message, classified.kind, raw);
 }
@@ -757,7 +759,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
       verified_live: verification.verifiedLive,
       verification_checked_at: verifiedAt,
       error_message: verifyFailure ? verifyFailure.message : verification.errorMessage,
-      raw_error_message: verification.errorMessage,
+      raw_error_message: verifyFailure && verifyFailure.message !== rawVerifyError ? rawVerifyError : null,
     };
     // A re-verify updates the row the first attempt wrote (one result per
     // post, and its id is the public proof link) rather than adding a second.

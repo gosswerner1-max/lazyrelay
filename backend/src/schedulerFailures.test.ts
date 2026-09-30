@@ -61,6 +61,9 @@ describe("fatal errors fail at once, with a plain-language reason", () => {
     expect(tables.scheduled_posts[0].status).toBe("failed"); // straight to failed, no backoff
     expect(tables.scheduled_posts[0].retry_count).toBe(0);
     expect(String(tables.post_results[0].error_message)).toMatch(/^Pinterest blocked the link/);
+    expect(String(tables.post_results[0].error_message)).toMatch(/Pinterest decision about the website address/);
+    expect(String(tables.post_results[0].error_message)).toMatch(/Help Center/);
+    expect(String(tables.post_results[0].error_message)).not.toMatch(/different (destination )?link|shortener|redirect/i);
     expect(tables.post_results[0].raw_error_message).toBe("Sorry! We blocked this link because it may lead to spam.");
 
     await runSchedulerCycle(registryOf(adapter)); // nothing left to retry
@@ -107,6 +110,7 @@ describe("transient errors keep retrying", () => {
     await runSchedulerCycle(registryOf(adapter));
     expect(tables.scheduled_posts[0].status).toBe("pending");
     expect(tables.post_results[0].error_message).toBe("Something nobody has seen before");
+    expect(tables.post_results[0].raw_error_message).toBeNull(); // unknown: the dashboard translates it
   });
 
   it("the verification lag after a real publish is retried without publishing twice", async () => {

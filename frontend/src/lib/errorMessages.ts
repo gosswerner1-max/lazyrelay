@@ -80,3 +80,19 @@ export function humanizeErrorMessage(raw: string | null, platform?: string): { f
 
   return { friendly: `This post to ${platformLabel} didn't go through. Technical details are available below if you'd like them.`, technical };
 }
+
+/** What to show for one failed result. Newer rows were classified on the
+ *  server (backend/src/postErrors.ts): error_message already holds the plain
+ *  reason and raw_error_message holds the platform's original text, so show
+ *  those as they are. Rows without raw_error_message are older, or an error the
+ *  server did not recognise: translate them here as before. */
+export function resolveErrorDisplay(
+  errorMessage: string | null,
+  rawErrorMessage: string | null | undefined,
+  platform?: string,
+): { friendly: string; technical: string | null } {
+  if (rawErrorMessage && errorMessage) {
+    return { friendly: errorMessage, technical: annotateByteCounts(rawErrorMessage) };
+  }
+  return humanizeErrorMessage(errorMessage, platform);
+}

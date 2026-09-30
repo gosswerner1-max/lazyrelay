@@ -151,7 +151,7 @@ export interface ScheduledPost {
   // (e.g. still needs_approval). Used by the Calendar tab's "Connected as
   // [email]" filter (2026-08-30) to show only posts really on that calendar.
   google_event_id: string | null;
-  post_results: Array<{ verified_live: boolean; platform_post_url: string | null; error_message: string | null }>;
+  post_results: Array<{ verified_live: boolean; platform_post_url: string | null; error_message: string | null; raw_error_message?: string | null }>;
 }
 
 /** Fields a draft can be created/edited with — the subset of a real post's
