@@ -15,6 +15,10 @@ import { InstagramAdapter } from "./instagram.js";
 import { DiscordAdapter } from "./discord.js";
 import { TumblrAdapter } from "./tumblr.js";
 import { XAdapter } from "./x.js";
+import { WordPressAdapter } from "./wordpress.js";
+import { DevToAdapter } from "./devto.js";
+import { HashnodeAdapter } from "./hashnode.js";
+import { LemmyAdapter } from "./lemmy.js";
 import type { PlatformAdapter } from "./types.js";
 
 // Every configured platform gets its own live PlatformAdapter in the
@@ -83,6 +87,20 @@ export function buildPlatformRegistry(): Map<string, PlatformAdapter> {
   }
   if (process.env.X_CLIENT_ID && process.env.X_CLIENT_SECRET && process.env.X_REDIRECT_URI) {
     registry.set("x", new XAdapter(process.env.X_CLIENT_ID, process.env.X_CLIENT_SECRET, process.env.X_REDIRECT_URI));
+  }
+  // Article and forum platforms (master list #27): the customer pastes a credential on LazyRelay's own connect
+  // page (the same shape as Discord), so each only needs the address of that page.
+  if (process.env.WORDPRESS_CONNECT_PAGE_URL) {
+    registry.set("wordpress", new WordPressAdapter(process.env.WORDPRESS_CONNECT_PAGE_URL));
+  }
+  if (process.env.DEVTO_CONNECT_PAGE_URL) {
+    registry.set("devto", new DevToAdapter(process.env.DEVTO_CONNECT_PAGE_URL));
+  }
+  if (process.env.HASHNODE_CONNECT_PAGE_URL) {
+    registry.set("hashnode", new HashnodeAdapter(process.env.HASHNODE_CONNECT_PAGE_URL));
+  }
+  if (process.env.LEMMY_CONNECT_PAGE_URL) {
+    registry.set("lemmy", new LemmyAdapter(process.env.LEMMY_CONNECT_PAGE_URL));
   }
   if (registry.size === 0) {
     registry.set("tiktok", new StubAdapter());

@@ -25,6 +25,12 @@ export interface PostOptions {
   };
   facebook?: { placement?: "feed" | "story" };
   linkedin?: { documentUrl?: string; documentTitle?: string };
+  /** Article platforms (master list #27). The post text is the body; the title defaults to its first line. */
+  wordpress?: { title?: string; status?: "publish" | "draft"; categories?: string[]; tags?: string[] };
+  devto?: { title?: string; published?: boolean; tags?: string[]; series?: string; canonicalUrl?: string };
+  hashnode?: { title?: string; subtitle?: string; tags?: string[]; canonicalUrl?: string; draft?: boolean };
+  /** Lemmy: the community to post in (name or name@instance). Falls back to the community saved when connecting. */
+  lemmy?: { community?: string; title?: string; url?: string; nsfw?: boolean };
   /** Follow-up posts that reply to the main post in order (a thread). Threads, Bluesky, Mastodon and X. */
   chain?: string[];
 }
@@ -36,6 +42,10 @@ export const OPTION_KEY_FOR_PLATFORM: Record<string, keyof PostOptions> = {
   instagram: "instagram",
   facebook: "facebook",
   linkedin: "linkedin",
+  wordpress: "wordpress",
+  devto: "devto",
+  hashnode: "hashnode",
+  lemmy: "lemmy",
   threads: "chain",
   bluesky: "chain",
   mastodon: "chain",
@@ -93,6 +103,14 @@ export function normalizePostOptions(input: unknown, platform: string, ctx: Opti
       return checkFacebook(raw, ctx);
     case "linkedin":
       return checkLinkedIn(raw, ctx);
+    case "wordpress":
+      return checkWordPress(raw);
+    case "devto":
+      return checkDevTo(raw);
+    case "hashnode":
+      return checkHashnode(raw);
+    case "lemmy":
+      return checkLemmy(raw);
     case "chain":
       return checkChain(raw, platform);
   }
@@ -193,6 +211,130 @@ function checkLinkedIn(raw: unknown, ctx: OptionsContext): Ok | Fail {
   if (out.documentTitle && !out.documentUrl) return { ok: false, error: "A document title needs a document" };
   if (out.documentUrl && (ctx.mediaUrl || ctx.mediaUrls.length > 0)) return { ok: false, error: "A LinkedIn post can carry a PDF document or images, not both" };
   return { ok: true, options: Object.keys(out).length > 0 ? { linkedin: out } : {} };
+}
+
+const MAX_ARTICLE_TITLE = 250;
+const MAX_LEMMY_TITLE = 200;
+const MAX_DEVTO_TAGS = 4;
+const MAX_ARTICLE_TAGS = 20;
+const MAX_TAG_LENGTH = 50;
+const MAX_SERIES_LENGTH = 100;
+const MAX_COMMUNITY_LENGTH = 200;
+
+/** Optional text field: returns the trimmed text (undefined when empty), or a plain-language error. */
+function textField(raw: Record<string, unknown>, group: string, name: string, max: number): { value?: string } | Fail {
+  if (raw[name] === undefined) return {};
+  if (typeof raw[name] !== "string") return { ok: false, error: `options.${group}.${name} must be text` };
+  const v = (raw[name] as string).trim();
+  if (v.length > max) return { ok: false, error: `options.${group}.${name} must be ${max} characters or fewer` };
+  return v ? { value: v } : {};
+}
+
+function flagField(raw: Record<string, unknown>, group: string, name: string): { value?: boolean } | Fail {
+  if (raw[name] === undefined) return {};
+  if (typeof raw[name] !== "boolean") return { ok: false, error: `options.${group}.${name} must be true or false` };
+  return { value: raw[name] as boolean };
+}
+
+/** Optional list of short tags: trimmed, leading # removed, duplicates dropped. */
+function tagsField(raw: Record<string, unknown>, group: string, name: string, maxCount: number): { value?: string[] } | Fail {
+  if (raw[name] === undefined) return {};
+  if (!Array.isArray(raw[name]) || (raw[name] as unknown[]).some((t) => typeof t !== "string")) return { ok: false, error: `options.${group}.${name} must be a list of text values` };
+  const items = [...new Set((raw[name] as string[]).map((t) => t.trim().replace(/^#+/, "")).filter(Boolean))];
+  if (items.length > maxCount) return { ok: false, error: `options.${group}.${name} can have up to ${maxCount} entries on this platform` };
+  if (items.some((t) => t.length > MAX_TAG_LENGTH)) return { ok: false, error: `Each entry in options.${group}.${name} must be ${MAX_TAG_LENGTH} characters or fewer` };
+  return items.length > 0 ? { value: items } : {};
+}
+
+const isFail = (v: unknown): v is Fail => typeof v === "object" && v !== null && (v as Fail).ok === false;
+
+function checkHttpsUrl(raw: Record<string, unknown>, group: string, name: string): { value?: string } | Fail {
+  const t = textField(raw, group, name, 2000);
+  if (isFail(t)) return t;
+  if (t.value && !/^https:\/\/\S+$/i.test(t.value)) return { ok: false, error: `options.${group}.${name} must be an https address` };
+  return t;
+}
+
+function checkWordPress(raw: unknown): Ok | Fail {
+  if (!isObject(raw)) return { ok: false, error: "options.wordpress must be an object" };
+  const out: NonNullable<PostOptions["wordpress"]> = {};
+  const title = textField(raw, "wordpress", "title", MAX_ARTICLE_TITLE);
+  if (isFail(title)) return title;
+  if (title.value) out.title = title.value;
+  if (raw.status !== undefined) {
+    if (raw.status !== "publish" && raw.status !== "draft") return { ok: false, error: "options.wordpress.status must be publish or draft" };
+    out.status = raw.status;
+  }
+  for (const name of ["categories", "tags"] as const) {
+    const list = tagsField(raw, "wordpress", name, MAX_ARTICLE_TAGS);
+    if (isFail(list)) return list;
+    if (list.value) out[name] = list.value;
+  }
+  return { ok: true, options: Object.keys(out).length > 0 ? { wordpress: out } : {} };
+}
+
+function checkDevTo(raw: unknown): Ok | Fail {
+  if (!isObject(raw)) return { ok: false, error: "options.devto must be an object" };
+  const out: NonNullable<PostOptions["devto"]> = {};
+  const title = textField(raw, "devto", "title", MAX_ARTICLE_TITLE);
+  if (isFail(title)) return title;
+  if (title.value) out.title = title.value;
+  const published = flagField(raw, "devto", "published");
+  if (isFail(published)) return published;
+  if (published.value !== undefined) out.published = published.value;
+  const tags = tagsField(raw, "devto", "tags", MAX_DEVTO_TAGS);
+  if (isFail(tags)) return tags;
+  if (tags.value) out.tags = tags.value;
+  const series = textField(raw, "devto", "series", MAX_SERIES_LENGTH);
+  if (isFail(series)) return series;
+  if (series.value) out.series = series.value;
+  const canonical = checkHttpsUrl(raw, "devto", "canonicalUrl");
+  if (isFail(canonical)) return canonical;
+  if (canonical.value) out.canonicalUrl = canonical.value;
+  return { ok: true, options: Object.keys(out).length > 0 ? { devto: out } : {} };
+}
+
+function checkHashnode(raw: unknown): Ok | Fail {
+  if (!isObject(raw)) return { ok: false, error: "options.hashnode must be an object" };
+  const out: NonNullable<PostOptions["hashnode"]> = {};
+  const title = textField(raw, "hashnode", "title", MAX_ARTICLE_TITLE);
+  if (isFail(title)) return title;
+  if (title.value) out.title = title.value;
+  const subtitle = textField(raw, "hashnode", "subtitle", 250);
+  if (isFail(subtitle)) return subtitle;
+  if (subtitle.value) out.subtitle = subtitle.value;
+  const tags = tagsField(raw, "hashnode", "tags", 5);
+  if (isFail(tags)) return tags;
+  if (tags.value) out.tags = tags.value;
+  const canonical = checkHttpsUrl(raw, "hashnode", "canonicalUrl");
+  if (isFail(canonical)) return canonical;
+  if (canonical.value) out.canonicalUrl = canonical.value;
+  const draft = flagField(raw, "hashnode", "draft");
+  if (isFail(draft)) return draft;
+  if (draft.value !== undefined) out.draft = draft.value;
+  return { ok: true, options: Object.keys(out).length > 0 ? { hashnode: out } : {} };
+}
+
+function checkLemmy(raw: unknown): Ok | Fail {
+  if (!isObject(raw)) return { ok: false, error: "options.lemmy must be an object" };
+  const out: NonNullable<PostOptions["lemmy"]> = {};
+  const community = textField(raw, "lemmy", "community", MAX_COMMUNITY_LENGTH);
+  if (isFail(community)) return community;
+  if (community.value) {
+    const c = community.value.replace(/^!/, "");
+    if (!/^[A-Za-z0-9_]+(@[A-Za-z0-9.-]+)?$/.test(c)) return { ok: false, error: "options.lemmy.community must look like name or name@instance.example" };
+    out.community = c;
+  }
+  const title = textField(raw, "lemmy", "title", MAX_LEMMY_TITLE);
+  if (isFail(title)) return title;
+  if (title.value) out.title = title.value;
+  const url = checkHttpsUrl(raw, "lemmy", "url");
+  if (isFail(url)) return url;
+  if (url.value) out.url = url.value;
+  const nsfw = flagField(raw, "lemmy", "nsfw");
+  if (isFail(nsfw)) return nsfw;
+  if (nsfw.value !== undefined) out.nsfw = nsfw.value;
+  return { ok: true, options: Object.keys(out).length > 0 ? { lemmy: out } : {} };
 }
 
 function checkChain(raw: unknown, platform: string): Ok | Fail {

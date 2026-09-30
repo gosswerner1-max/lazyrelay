@@ -40,7 +40,11 @@ export type Platform =
   | "instagram"
   | "discord"
   | "tumblr"
-  | "x";
+  | "x"
+  | "wordpress"
+  | "devto"
+  | "hashnode"
+  | "lemmy";
 
 // Platforms without a researched, bespoke rule yet fall back to the same
 // 20MB size cap + mime allowlist LazyRelay's own /media/upload endpoint
@@ -62,7 +66,7 @@ const GENERIC_FALLBACK_RULES: PlatformRules = {
 // LinkedIn genuinely still unresearched for video (no video-posting code
 // exists yet — see project-media-pipeline-video-support-2026-09-05, gated
 // on its own Community Management API partner-tier approval).
-const PLATFORMS_WITH_GENERIC_RULES: Platform[] = ["linkedin"];
+const PLATFORMS_WITH_GENERIC_RULES: Platform[] = ["linkedin", "wordpress", "devto", "hashnode", "lemmy"];
 
 export interface MediaMeta {
   mimeType: string;
@@ -204,6 +208,15 @@ const RULES: Record<Platform, PlatformRules> = {
   // GENERIC_FALLBACK_RULES above. validateMediaForPlatform() surfaces this
   // via the `unchecked` field rather than pretending real limits exist.
   linkedin: GENERIC_FALLBACK_RULES,
+  // Article platforms (master list #27). None publishes a fixed media limit that could be verified: a
+  // self-hosted WordPress site and a Lemmy instance each set their own upload size, and dev.to and Hashnode
+  // take images by address only. They use the generic floor for images. Only WordPress takes video (uploaded
+  // to the site's media library); dev.to, Hashnode and Lemmy have no video route, so a video is refused up
+  // front instead of failing at the platform.
+  wordpress: GENERIC_FALLBACK_RULES,
+  devto: { image: GENERIC_FALLBACK_RULES.image, video: { maxSizeBytes: 0, allowedMimeTypes: [] } },
+  hashnode: { image: GENERIC_FALLBACK_RULES.image, video: { maxSizeBytes: 0, allowedMimeTypes: [] } },
+  lemmy: { image: GENERIC_FALLBACK_RULES.image, video: { maxSizeBytes: 0, allowedMimeTypes: [] } },
   // FIXED 2026-09-30: real Facebook and Instagram accounts are stored as platform "facebook" and
   // "instagram" (the "meta" rule above is only ever reached by a legacy row), so both used to fall
   // through to the generic 20MB floor. That refused every Instagram Reel and Facebook video over
@@ -317,6 +330,9 @@ export function validateMediaForPlatform(platform: Platform, media: MediaMeta): 
 
   if (isVideo(media.mimeType)) {
     unchecked.push("video duration", "video resolution/aspect ratio");
+    if (rules.video.allowedMimeTypes.length === 0) {
+      return { valid: false, reason: `${platform} does not accept video posts through LazyRelay. Use an image instead.`, unchecked };
+    }
     if (!rules.video.allowedMimeTypes.includes(media.mimeType)) {
       return {
         valid: false,

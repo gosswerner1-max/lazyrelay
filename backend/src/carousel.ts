@@ -18,6 +18,10 @@ export const MULTI_MEDIA_RULES: Record<string, MultiMediaRule> = {
   bluesky: { max: 4, videos: false },
   mastodon: { max: 4, videos: false },
   x: { max: 4, videos: false },
+  wordpress: { max: 10, videos: false },
+  devto: { max: 10, videos: false },
+  hashnode: { max: 10, videos: false },
+  lemmy: { max: 10, videos: false },
 };
 
 export const CAROUSEL_PLATFORMS = Object.keys(MULTI_MEDIA_RULES);

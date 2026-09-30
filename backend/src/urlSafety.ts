@@ -29,7 +29,8 @@ export async function isSafeMediaUrl(
     return { safe: false, reason: "must use https" };
   }
 
-  const hostname = parsed.hostname.toLowerCase();
+  // URL keeps the brackets on an IPv6 literal ([::1]); isIP and the range checks need them removed.
+  const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (hostname === "localhost" || hostname.endsWith(".localhost")) {
     return { safe: false, reason: "must not point at a local address" };
   }
@@ -83,13 +84,44 @@ function isPrivateIpv4(address: string): boolean {
   return false;
 }
 
+/** Expands any textual IPv6 address to its 8 sixteen-bit groups, or null if it is not a valid one. Handles :: and a trailing dotted IPv4. */
+function expandIpv6(address: string): number[] | null {
+  let a = address.toLowerCase().split("%")[0]; // drop a zone id such as %eth0
+  const v4 = a.match(/(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (v4) {
+    const o = v4.slice(1).map(Number);
+    if (o.some((n) => n > 255)) return null;
+    a = a.slice(0, a.length - v4[0].length) + ((o[0] << 8) | o[1]).toString(16) + ":" + ((o[2] << 8) | o[3]).toString(16);
+  }
+  const halves = a.split("::");
+  if (halves.length > 2) return null;
+  const head = halves[0] ? halves[0].split(":") : [];
+  const tail = halves.length === 2 && halves[1] ? halves[1].split(":") : [];
+  const missing = 8 - head.length - tail.length;
+  if (halves.length === 1 ? missing !== 0 : missing < 1) return null;
+  const groups = [...head, ...(halves.length === 2 ? Array(missing).fill("0") : []), ...tail].map((g) => parseInt(g, 16));
+  return groups.length === 8 && groups.every((g) => Number.isInteger(g) && g >= 0 && g <= 0xffff) ? groups : null;
+}
+
+const v4FromGroups = (hi: number, lo: number) => `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+
 function isPrivateIpv6(address: string): boolean {
-  const a = address.toLowerCase();
-  if (a === "::1" || a === "::") return true; // loopback / unspecified
-  if (a.startsWith("fc") || a.startsWith("fd")) return true; // fc00::/7 unique local
-  if (a.startsWith("fe8") || a.startsWith("fe9") || a.startsWith("fea") || a.startsWith("feb")) return true; // fe80::/10 link-local
-  // IPv4-mapped (::ffff:a.b.c.d) — check the embedded v4 address too.
-  const mapped = a.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) return isPrivateIpv4(mapped[1]);
+  const g = expandIpv6(address);
+  if (!g) return true; // not a recognizable IPv6 literal, reject rather than guess
+  const [g0, g1, g2, g3, g4, g5, g6, g7] = g;
+  if (g.every((x) => x === 0)) return true; // :: unspecified
+  if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0 && g6 === 0 && g7 === 1) return true; // ::1 loopback
+  if ((g0 & 0xfe00) === 0xfc00) return true; // fc00::/7 unique local
+  if ((g0 & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
+  if ((g0 & 0xffc0) === 0xfec0) return true; // fec0::/10 deprecated site-local
+  if ((g0 & 0xff00) === 0xff00) return true; // ff00::/8 multicast
+  // Forms that carry an IPv4 address: judge them by the IPv4 they carry.
+  if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0xffff) return isPrivateIpv4(v4FromGroups(g6, g7)); // ::ffff:a.b.c.d (mapped)
+  if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0) return isPrivateIpv4(v4FromGroups(g6, g7)); // ::a.b.c.d (compatible)
+  if (g0 === 0x64 && g1 === 0xff9b && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0) return isPrivateIpv4(v4FromGroups(g6, g7)); // 64:ff9b::/96 NAT64
+  if (g0 === 0x64 && g1 === 0xff9b && g2 === 1) return true; // 64:ff9b:1::/48 local-use NAT64
+  if (g0 === 0x2002) return isPrivateIpv4(v4FromGroups(g1, g2)); // 2002::/16 6to4
+  if (g0 === 0x2001 && g1 === 0) return true; // 2001::/32 Teredo
+  if (g0 === 0x2001 && g1 === 0xdb8) return true; // 2001:db8::/32 documentation
   return false;
 }

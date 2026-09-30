@@ -108,6 +108,10 @@ async function main() {
       `X_CLIENT_ID=${process.env.X_CLIENT_ID ? "set" : "MISSING"} ` +
       `X_CLIENT_SECRET=${process.env.X_CLIENT_SECRET ? "set" : "MISSING"} ` +
       `X_REDIRECT_URI=${process.env.X_REDIRECT_URI ? "set" : "MISSING"}; ` +
+      `WORDPRESS_CONNECT_PAGE_URL=${process.env.WORDPRESS_CONNECT_PAGE_URL ? "set" : "MISSING"} ` +
+      `DEVTO_CONNECT_PAGE_URL=${process.env.DEVTO_CONNECT_PAGE_URL ? "set" : "MISSING"} ` +
+      `HASHNODE_CONNECT_PAGE_URL=${process.env.HASHNODE_CONNECT_PAGE_URL ? "set" : "MISSING"} ` +
+      `LEMMY_CONNECT_PAGE_URL=${process.env.LEMMY_CONNECT_PAGE_URL ? "set" : "MISSING"}; ` +
       `ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? "set" : "MISSING"}`,
   );
 

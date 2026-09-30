@@ -43,6 +43,10 @@ const PLATFORM_LABEL: Record<string, string> = {
   discord: "Discord",
   telegram: "Telegram",
   x: "X",
+  wordpress: "WordPress",
+  devto: "dev.to",
+  hashnode: "Hashnode",
+  lemmy: "Lemmy",
 };
 export const platformLabel = (p: string): string => PLATFORM_LABEL[p] ?? p;
 

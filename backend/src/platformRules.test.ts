@@ -10,6 +10,7 @@ const { CHAIN_ITEM_MAX_LENGTH, OPTION_KEY_FOR_PLATFORM } = await import("./postO
 const EXPECTED = [
   "instagram", "facebook", "tiktok", "youtube", "pinterest", "linkedin", "threads",
   "bluesky", "mastodon", "x", "tumblr", "telegram", "discord",
+  "wordpress", "devto", "hashnode", "lemmy",
 ];
 
 function allStrings(value: unknown, out: string[] = []): string[] {

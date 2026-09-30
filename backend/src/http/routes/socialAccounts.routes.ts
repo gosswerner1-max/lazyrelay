@@ -6,7 +6,7 @@
 // accept/reject rules, same order.
 
 import { getPlatformRules } from "../../platformRules.js";
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { supabase } from "../../supabase.js";
 import { startConnect, completeConnect, getPendingSelection, finalizeConnectSelection, cancelConnectSelection, type PlatformAdapterRegistry } from "../../platforms/connect.js";
@@ -44,8 +44,13 @@ import { validateBody, optionalNullableString } from "../validation.js";
 const ALL_PLATFORMS = [
   "tiktok", "pinterest", "youtube", "mastodon", "bluesky", "telegram",
   "linkedin", "threads", "facebook", "instagram", "discord", "tumblr", "x",
+  "wordpress", "devto", "hashnode", "lemmy",
 ] as const;
 const COMING_SOON_PLATFORMS = new Set<string>(["x"]);
+// New platforms stay out of the picker entirely until they are switched on for this deploy (the connect-page
+// address is set), so customers never see a tile for something that is not ready. Everything else keeps its
+// dimmed "not set up" tile when its settings are missing.
+const HIDDEN_UNTIL_CONFIGURED = new Set<string>(["wordpress", "devto", "hashnode", "lemmy"]);
 
 export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Router {
   const router = Router();
@@ -56,7 +61,7 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
   // clickable regardless of configuration.
   router.get("/platforms", requireAuth, tieredRateLimit, (_req: AuthedRequest, res) => {
     res.json(
-      ALL_PLATFORMS.map((platform) => ({
+      ALL_PLATFORMS.filter((platform) => !HIDDEN_UNTIL_CONFIGURED.has(platform) || registry.has(platform)).map((platform) => ({
         platform,
         configured: registry.has(platform),
         comingSoon: COMING_SOON_PLATFORMS.has(platform),
@@ -153,9 +158,12 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
   // JSON response instead, without changing behavior for the real OAuth
   // platforms that still navigate the browser here directly.
   const frontendUrl = getFrontendUrl();
-  router.get("/social-accounts/callback", publicRateLimit, async (req, res) => {
-    const { code, state } = req.query;
-    const wantsJson = req.query.format === "json";
+  //
+  // The credential-paste platforms (Bluesky, Telegram, Discord, WordPress, dev.to, Hashnode, Lemmy) used to
+  // send the pasted secret as `?code=` on this GET, so an app password or a Lemmy password ended up in the
+  // address and in every request log. They now POST the same two values in the body (always answered with
+  // JSON). The GET stays for the real OAuth redirects, and for a connect page cached before this change.
+  const handleCallback = async (req: Request, res: Response, code: unknown, state: unknown, wantsJson: boolean) => {
     if (typeof code !== "string" || typeof state !== "string") {
       const message = "Missing code or state";
       if (wantsJson) {
@@ -205,7 +213,9 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
       }
       res.redirect(`${frontendUrl}/?connectError=${encodeURIComponent(message)}`);
     }
-  });
+  };
+  router.get("/social-accounts/callback", publicRateLimit, (req, res) => handleCallback(req, res, req.query.code, req.query.state, req.query.format === "json"));
+  router.post("/social-accounts/callback", publicRateLimit, (req, res) => handleCallback(req, res, req.body?.code, req.body?.state, true));
 
   // Real Page/account picker, for adapters where one OAuth login can map to
   // several destinations (Facebook: multiple Pages; Instagram: whichever

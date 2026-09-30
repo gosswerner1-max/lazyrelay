@@ -380,6 +380,105 @@ function buildRules(): PlatformRuleSet[] {
       sources: [],
     },
     {
+      platform: "wordpress",
+      label: "WordPress",
+      text: {
+        maxLength: null,
+        note: `WordPress publishes no post length limit that could be verified. Not verified. LazyRelay itself refuses content over ${MAX_POST_CONTENT_LENGTH} characters. The post text becomes the article body (the first line is the title unless options.wordpress.title is set).`,
+      },
+      media: {
+        textOnlyAllowed: true,
+        // mediaLimits.ts: generic floor (20 MB, jpeg/png/webp/gif images, 20 MB mp4/mov/webm video). Each site sets its own upload limit.
+        image: { supported: true, formats: ["jpeg", "png", "webp", "gif"], maxSizeMb: 20 * MB },
+        video: { supported: true, formats: ["mp4", "mov", "webm"], maxSizeMb: 20 * MB, maxDurationSec: null },
+        multiItem: multiItem("wordpress"),
+        notes: "Self-hosted WordPress sites only (version 5.6 or newer, https). The first image is the featured image; extra images are added at the end of the article. Upload limits are set by each site's host, so a larger file may be refused by the site itself. WordPress.com blogs are not supported yet.",
+      },
+      required: [...BASE_REQUIRED],
+      features: ["article title", "categories and tags", "draft instead of publish", "featured image", "multi-image post"],
+      options: optionsFor("wordpress", "title (optional, defaults to the first line of the post); status (publish or draft); categories and tags (lists of names, created when missing)"),
+      limits: noRepoCap("LazyRelay enforces no cap. Rate limits depend on each site's host."),
+      lookups: ["list_connected_accounts", "get_next_free_slot"],
+      notes: [
+        "The customer connects with a WordPress Application Password created in Users, Profile on their own site.",
+        "A draft is saved on the site but cannot be proven live, so it is reported as saved, not published.",
+      ],
+      sources: ["https://developer.wordpress.org/rest-api/reference/posts/", "https://developer.wordpress.org/rest-api/using-the-rest-api/authentication/"],
+    },
+    {
+      platform: "devto",
+      label: "dev.to",
+      text: {
+        maxLength: null,
+        note: `dev.to states no body length limit (not verified beyond its docs). LazyRelay itself refuses content over ${MAX_POST_CONTENT_LENGTH} characters. The body is markdown; the first line is the title unless options.devto.title is set (LazyRelay caps titles at 250 characters, dev.to publishes no title limit).`,
+      },
+      media: {
+        textOnlyAllowed: true,
+        // mediaLimits.ts: generic image floor (20 MB); no video route.
+        image: { supported: true, formats: ["jpeg", "png", "webp", "gif"], maxSizeMb: 20 * MB },
+        video: { supported: false, formats: [], maxSizeMb: null, maxDurationSec: null },
+        multiItem: multiItem("devto"),
+        notes: "Images are shown by address: the first is the cover image, the rest appear inside the article. dev.to has no video upload through its API, so a video is refused. Image size limit is LazyRelay's generic figure, not a verified dev.to limit.",
+      },
+      required: [...BASE_REQUIRED],
+      features: ["article title", "up to 4 tags", "series", "canonical link", "draft instead of publish"],
+      options: optionsFor("devto", "title (optional); published (false saves a draft); tags (up to 4); series; canonicalUrl (an https address)"),
+      limits: noRepoCap("LazyRelay enforces no cap. dev.to's rate limits are not documented."),
+      lookups: ["list_connected_accounts", "get_next_free_slot"],
+      notes: ["The customer connects by pasting a dev.to API key from Settings, Extensions.", "dev.to has no scheduling field, so LazyRelay publishes at the scheduled time."],
+      sources: ["https://developers.forem.com/api/v1"],
+    },
+    {
+      platform: "hashnode",
+      label: "Hashnode",
+      text: {
+        maxLength: null,
+        note: `Hashnode's post length limit is not verified. LazyRelay itself refuses content over ${MAX_POST_CONTENT_LENGTH} characters. The body is markdown; the first line is the title unless options.hashnode.title is set.`,
+      },
+      media: {
+        textOnlyAllowed: true,
+        // mediaLimits.ts: generic image floor (20 MB); no video route.
+        image: { supported: true, formats: ["jpeg", "png", "webp", "gif"], maxSizeMb: 20 * MB },
+        video: { supported: false, formats: [], maxSizeMb: null, maxDurationSec: null },
+        multiItem: multiItem("hashnode"),
+        notes: "The first image is the cover; the rest appear inside the article. No video. Image size limit is LazyRelay's generic figure, not verified.",
+      },
+      required: [...BASE_REQUIRED],
+      features: ["article title", "subtitle", "up to 5 tags", "canonical link", "draft instead of publish"],
+      options: optionsFor("hashnode", "title (optional); subtitle; tags (up to 5); canonicalUrl (an https address); draft (true saves a draft)"),
+      limits: noRepoCap("LazyRelay enforces no cap. Hashnode's rate limits are not verified."),
+      lookups: ["list_connected_accounts", "get_next_free_slot"],
+      notes: ["Since May 2026 Hashnode charges for API access: the customer's blog needs Hashnode's Pro plan.", "The customer connects with a personal access token from Hashnode's developer settings."],
+      sources: ["https://hashnode.com/changelog/2026-05-13-graphql-api-paid-access"],
+    },
+    {
+      platform: "lemmy",
+      label: "Lemmy",
+      text: {
+        maxLength: 200,
+        note: "Title: 200 characters (the first line of the post unless options.lemmy.title is set). Body: the rest of the text, as markdown, up to 10000 characters (LazyRelay's own cap).",
+      },
+      media: {
+        textOnlyAllowed: true,
+        // mediaLimits.ts: generic image floor (20 MB); no video route.
+        image: { supported: true, formats: ["jpeg", "png", "webp", "gif"], maxSizeMb: 20 * MB },
+        video: { supported: false, formats: [], maxSizeMb: null, maxDurationSec: null },
+        multiItem: multiItem("lemmy"),
+        notes: "An image is uploaded to the customer's Lemmy server. No video. Each server sets its own upload limit, so a larger file may be refused by the server itself.",
+      },
+      required: [...BASE_REQUIRED],
+      features: ["community choice", "link post", "NSFW flag"],
+      options: optionsFor("lemmy", "community (name or name@instance, needed unless one was saved when connecting); title; url (an https link to share); nsfw"),
+      limits: noRepoCap("LazyRelay enforces no cap. Each Lemmy server sets its own rate limits."),
+      lookups: ["list_connected_accounts", "get_next_free_slot"],
+      notes: [
+        "The customer connects with their server, username and password; LazyRelay keeps a login token, not the password.",
+        "Lemmy expects automated posts to come from an account marked as a bot (Settings, Profile, Bot account).",
+        "Each community has its own rules; a moderator can remove a post, which LazyRelay reports as not live.",
+      ],
+      sources: ["https://join-lemmy.org/docs/", "https://github.com/LemmyNet/lemmy-js-client"],
+    },
+    {
       platform: "telegram",
       label: "Telegram",
       text: {

@@ -42,3 +42,22 @@ describe("GET /platforms/rules", () => {
     expect(r.body.error).toMatch(/Known platforms: .*instagram/);
   });
 });
+
+describe("GET /platforms (the picker)", () => {
+  it("leaves the four article platforms out until they are configured, and shows them once they are", async () => {
+    const hidden = await request(app()).get("/platforms");
+    const names = (hidden.body as Array<{ platform: string }>).map((p) => p.platform);
+    for (const p of ["wordpress", "devto", "hashnode", "lemmy"]) expect(names).not.toContain(p);
+    expect(names).toContain("tiktok");
+
+    const a = express();
+    a.use(express.json());
+    a.use(buildSocialAccountsRouter(new Map([["devto", {}], ["lemmy", {}]]) as never));
+    const shown = await request(a).get("/platforms");
+    const shownNames = (shown.body as Array<{ platform: string }>).map((p) => p.platform);
+    expect(shownNames).toContain("devto");
+    expect(shownNames).toContain("lemmy");
+    expect(shownNames).not.toContain("wordpress");
+    expect((shown.body as Array<{ platform: string; configured: boolean }>).find((p) => p.platform === "devto")?.configured).toBe(true);
+  });
+});
