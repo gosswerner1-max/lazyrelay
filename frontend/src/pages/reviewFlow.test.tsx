@@ -103,10 +103,10 @@ describe("ReviewPage (the client, no login)", () => {
 describe("ReviewLinksSection (the owner)", () => {
   const link = { id: "l1", token: TOKEN, label: "Acme", brandLabel: "Acme", expiresAt: new Date(Date.now() + 10 * 86_400_000).toISOString(), lastViewedAt: null, createdAt: "2026-09-30T10:00:00Z", status: "active" as const };
 
-  it("Free and Starter see an upgrade note and no form", async () => {
+  it("Free sees an upgrade note and no form", async () => {
     api.listReviewLinks.mockResolvedValue({ maxLinks: 0, links: [] });
     render(<ReviewLinksSection brands={[]} onError={() => {}} />);
-    expect(await screen.findByText(/part of the Pro plan and above/)).toBeTruthy();
+    expect(await screen.findByText(/part of the Starter plan and above/)).toBeTruthy();
     expect(screen.queryByText("Create review link")).toBeNull();
   });
 

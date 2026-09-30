@@ -77,20 +77,22 @@ describe("owner: links and plan caps", () => {
     expect(days).toBeLessThan(30.1);
   });
 
-  it("Free and Starter get 0 links; Pro 1; Business 3", async () => {
-    for (const [tier, n] of [["free", 0], ["pro", 0], ["business", 1], ["enterprise", 3]] as const) {
+  it("Free gets 0 links; paid plans get two per brand (Starter 4, Pro 8, Business 14)", async () => {
+    for (const [tier, n] of [["free", 0], ["pro", 4], ["business", 8], ["enterprise", 14], ["agency", 24], ["agency_plus", 40]] as const) {
       seed(tier);
       expect((await request(app()).get("/review-links")).body.maxLinks).toBe(n);
     }
     seed("free");
     const blocked = await request(app()).post("/review-links").send({});
     expect(blocked.status).toBe(403);
-    expect(blocked.body.error).toMatch(/Pro plan and above/);
+    expect(blocked.body.error).toMatch(/Starter plan and above/);
   });
 
   it("only active links count toward the cap, so revoking frees a slot", async () => {
-    seed("business"); // 1 link
-    const first = (await request(app()).post("/review-links").send({})).body;
+    seed("pro"); // 4 links
+    const made = [];
+    for (let i = 0; i < 4; i++) made.push((await request(app()).post("/review-links").send({})).body);
+    const first = made[0];
     const second = await request(app()).post("/review-links").send({});
     expect(second.status).toBe(403);
     expect((await request(app()).delete(`/review-links/${first.id}`)).body).toEqual({ revoked: true });

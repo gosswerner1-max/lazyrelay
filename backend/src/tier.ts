@@ -53,16 +53,16 @@ export const RSS_FEED_LIMITS: Record<Tier, number> = {
   agency_plus: 5,
 };
 
-/** Active client review links (master list #23). Free and Starter have none: sending a
- *  client a link to approve posts is an agency-style feature. Keyed by DB code ("business"
- *  displays as Pro, "enterprise" as Business). Proposed by James 2026-09-30, Werner to confirm. */
+/** Active client review links (master list #23): two per brand the plan allows, since a client
+ *  often has more than one person approving. Free has none. Keyed by DB code ("pro" displays as
+ *  Starter, "business" as Pro, "enterprise" as Business). Werner decided 2026-09-30. */
 export const REVIEW_LINK_LIMITS: Record<Tier, number> = {
   free: 0,
-  pro: 0, // Starter
-  business: 1, // Pro
-  enterprise: 3, // Business
-  agency: 10,
-  agency_plus: 25,
+  pro: 4, // Starter: 2 brands
+  business: 8, // Pro: 4 brands
+  enterprise: 14, // Business: 7 brands
+  agency: 24, // 12 brands
+  agency_plus: 40, // 20 brands
 };
 
 export async function resolveTier(accountId: string): Promise<Tier> {

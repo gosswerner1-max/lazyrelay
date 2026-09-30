@@ -77,7 +77,7 @@ export function ReviewLinksSection({ brands, onError }: Props) {
 
       {noPlan && (
         <p className="section-note">
-          <strong>Client review links are part of the Pro plan and above.</strong> Upgrade to send a link to your clients.
+          <strong>Client review links are part of the Starter plan and above.</strong> Upgrade to send a link to your clients.
         </p>
       )}
       {list && !noPlan && (

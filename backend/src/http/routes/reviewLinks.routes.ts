@@ -57,7 +57,7 @@ export function buildReviewLinksRouter(): Router {
     }
     const limit = REVIEW_LINK_LIMITS[await resolveTier(req.accountId!)];
     if (limit === 0) {
-      res.status(403).json({ error: "Client review links are part of the Pro plan and above. Upgrade to send a link to your clients." });
+      res.status(403).json({ error: "Client review links are part of the Starter plan and above. Upgrade to send a link to your clients." });
       return;
     }
     // Only ACTIVE links count toward the cap, so revoking one frees a slot.
