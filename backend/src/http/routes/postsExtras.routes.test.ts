@@ -137,3 +137,58 @@ describe("duplicating a post", () => {
     expect(copy.self_reply_done_at ?? null).toBeNull(); // the copy can send its own reply
   });
 });
+
+describe("platform options through the real routes (master list #20)", () => {
+  it("a draft keeps options for every platform until it is scheduled", async () => {
+    const r = await draft({ mediaUrl: IMG(1), options: { tiktok: { aiGenerated: true }, chain: ["two"], instagram: { placement: "story" } } });
+    expect(r.status).toBe(201);
+    expect(tables.scheduled_posts[0].options).toEqual({ tiktok: { aiGenerated: true }, chain: ["two"], instagram: { placement: "story" } });
+  });
+
+  it("a draft refuses a wrongly shaped option", async () => {
+    expect((await draft({ options: { tiktok: { aiGenerated: "yes" } } })).status).toBe(400);
+    expect((await draft({ options: { myspace: {} } })).status).toBe(400);
+  });
+
+  it("promoting a draft keeps only the chosen platform's options and checks them", async () => {
+    await draft({ mediaUrl: IMG(1), options: { instagram: { placement: "story" } } });
+    const id = tables.scheduled_posts[0].id;
+    const r = await request(app())
+      .patch(`/scheduled-posts/${id}/schedule`)
+      .send({ socialAccountId: "ig", content: "Hello", mediaUrl: IMG(1), options: { instagram: { placement: "story" } }, scheduledFor: future() });
+    expect(r.status).toBe(200);
+    expect(tables.scheduled_posts[0]).toMatchObject({ status: "pending", options: { instagram: { placement: "story" } } });
+  });
+
+  it("refuses another platform's options, and a story with no media", async () => {
+    await draft({ mediaUrl: IMG(1) });
+    const id = tables.scheduled_posts[0].id;
+    const wrong = await request(app())
+      .patch(`/scheduled-posts/${id}/schedule`)
+      .send({ socialAccountId: "ig", content: "Hello", mediaUrl: IMG(1), options: { tiktok: { aiGenerated: true } }, scheduledFor: future() });
+    expect(wrong.status).toBe(400);
+    expect(wrong.body.error).toMatch(/options\.tiktok is not used by this platform \(it takes options\.instagram\)/);
+    const noMedia = await request(app())
+      .patch(`/scheduled-posts/${id}/schedule`)
+      .send({ socialAccountId: "ig", content: "Hello", options: { instagram: { placement: "story" } }, scheduledFor: future() });
+    expect(noMedia.status).toBe(400);
+    expect(tables.scheduled_posts[0].status).toBe("draft");
+  });
+
+  it("editing a scheduled TikTok post accepts the AI label and refuses a story option", async () => {
+    tables.scheduled_posts = [{ id: "p1", account_id: "acc1", social_account_id: "tt", status: "pending", content: "x", media_url: IMG(1), tags: [], media_urls: [], self_reply_text: null, self_reply_at_likes: null, options: {} }];
+    const ok = await request(app()).patch("/scheduled-posts/p1").send({ options: { tiktok: { aiGenerated: true } } });
+    expect(ok.status).toBe(200);
+    expect(tables.scheduled_posts[0].options).toEqual({ tiktok: { aiGenerated: true } });
+    const bad = await request(app()).patch("/scheduled-posts/p1").send({ options: { instagram: { placement: "story" } } });
+    expect(bad.status).toBe(400);
+    expect(tables.scheduled_posts[0].options).toEqual({ tiktok: { aiGenerated: true } });
+  });
+
+  it("duplicating a post carries its options", async () => {
+    tables.scheduled_posts = [{ id: "orig", account_id: "acc1", social_account_id: "ig", status: "posted", content: "Hello", media_url: IMG(1), tags: [], media_urls: [], options: { instagram: { placement: "story" } } }];
+    const r = await request(app()).post("/scheduled-posts/orig/duplicate").send({ scheduledFor: future() });
+    expect(r.status).toBe(201);
+    expect(tables.scheduled_posts.find((p) => p.id !== "orig")).toMatchObject({ options: { instagram: { placement: "story" } } });
+  });
+});

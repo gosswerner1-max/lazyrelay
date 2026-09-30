@@ -40,6 +40,7 @@ export function buildRecurringSchedulesRouter(): Router {
     mediaUrls?: unknown;
     selfReplyText?: unknown;
     selfReplyAtLikes?: unknown;
+    options?: unknown;
     tiktokPrivacyLevel?: unknown;
     tiktokDisableComment?: unknown;
     tiktokDisableDuet?: unknown;
@@ -291,7 +292,7 @@ export function buildRecurringSchedulesRouter(): Router {
   router.patch("/recurring-schedules/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data: existing, error: fetchError } = await req.db!
       .from("recurring_schedules")
-      .select("id, status, tags, media_urls, self_reply_text, self_reply_at_likes")
+      .select("id, status, tags, media_urls, self_reply_text, self_reply_at_likes, options")
       .eq("id", req.params.id)
       .eq("account_id", req.accountId)
       .maybeSingle();
@@ -317,12 +318,13 @@ export function buildRecurringSchedulesRouter(): Router {
 
     // Tags, extra images and the self-reply are checked BEFORE anything is cancelled or changed.
     let patchExtras: PostExtras | null = null;
-    if (input.tags !== undefined || input.mediaUrls !== undefined || input.selfReplyText !== undefined || input.selfReplyAtLikes !== undefined) {
+    if (input.tags !== undefined || input.mediaUrls !== undefined || input.selfReplyText !== undefined || input.selfReplyAtLikes !== undefined || input.options !== undefined) {
       const extrasCheck = await normalizeDraftExtras({
         tags: input.tags !== undefined ? input.tags : existing.tags,
         mediaUrls: input.mediaUrls !== undefined ? input.mediaUrls : existing.media_urls,
         selfReplyText: input.selfReplyText !== undefined ? input.selfReplyText : existing.self_reply_text,
         selfReplyAtLikes: input.selfReplyAtLikes !== undefined ? input.selfReplyAtLikes : existing.self_reply_at_likes,
+        options: input.options !== undefined ? input.options : existing.options,
       });
       if (!extrasCheck.ok) {
         res.status(extrasCheck.failure.status).json(extrasCheck.failure.body);
@@ -340,7 +342,7 @@ export function buildRecurringSchedulesRouter(): Router {
     const isPureResume = input.status === "active" && existing.status === "paused" &&
       input.content === undefined && input.mediaUrl === undefined && input.coverImageUrl === undefined &&
       input.boardId === undefined && input.destinationLink === undefined && input.firstComment === undefined &&
-      input.tags === undefined && input.mediaUrls === undefined && input.selfReplyText === undefined && input.selfReplyAtLikes === undefined &&
+      input.tags === undefined && input.mediaUrls === undefined && input.selfReplyText === undefined && input.selfReplyAtLikes === undefined && input.options === undefined &&
       input.socialAccountIds === undefined &&
       input.daysOfWeek === undefined && input.timeOfDay === undefined && input.timezone === undefined &&
       input.startsOn === undefined && input.endsOn === undefined;

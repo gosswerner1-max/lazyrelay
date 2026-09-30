@@ -262,6 +262,34 @@ export class XAdapter implements PlatformAdapter {
     return { success: true, platformPostId: json.data.id, errorMessage: null };
   }
 
+  // Thread chains: POST /2/tweets with reply.in_reply_to_tweet_id = the
+  // previous tweet's id (docs.x.com create-post). Returns the new tweet id.
+  async postChainReply(input: {
+    rootPostId: string;
+    parentPostId: string;
+    text: string;
+    accessToken: string;
+    platformAccountId?: string | null;
+  }): Promise<{ success: boolean; platformPostId: string | null; errorMessage: string | null }> {
+    const res = await fetch(TWEETS_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text: input.text, reply: { in_reply_to_tweet_id: input.parentPostId } }),
+    });
+    const json = (await res.json().catch(() => ({}))) as XTweetResponse & { detail?: string; title?: string };
+    if (!res.ok || !json.data?.id) {
+      return {
+        success: false,
+        platformPostId: null,
+        errorMessage: json.errors?.[0]?.message ?? json.detail ?? json.title ?? `X thread reply failed (HTTP ${res.status})`,
+      };
+    }
+    return { success: true, platformPostId: json.data.id, errorMessage: null };
+  }
+
   // Real independent Proof-of-Publish check: GET the tweet back by id
   // rather than trusting post()'s response, per the discipline every other
   // adapter follows.

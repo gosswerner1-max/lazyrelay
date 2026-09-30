@@ -251,11 +251,69 @@ export class FacebookAdapter implements PlatformAdapter {
     return { success: true, platformPostId: feedJson.id, errorMessage: null };
   }
 
+  // Page Story (2026-09-30), per Meta's Facebook Stories API guide
+  // (developers.facebook.com/docs/page-stories-api). Photo: upload unpublished
+  // (published=false -> id), then POST /{page}/photo_stories photo_id. Video:
+  // POST /{page}/video_stories upload_phase=start (-> video_id, upload_url),
+  // POST the file to upload_url (hosted file via the file_url header), then
+  // POST /{page}/video_stories upload_phase=finish + video_id. Both finishes
+  // return { success: true, post_id }. Stories carry no caption.
+  private async postStory(request: PostRequest, pageId: string, isVideo: boolean): Promise<PostAttemptResult> {
+    const form = { "Content-Type": "application/x-www-form-urlencoded" };
+    const fail = (message: string): PostAttemptResult => ({ success: false, platformPostId: null, errorMessage: message });
+    const mediaUrl = request.mediaUrl as string;
+
+    if (!isVideo) {
+      const upRes = await fetch(`${GRAPH_BASE}/${pageId}/photos`, {
+        method: "POST",
+        headers: form,
+        body: new URLSearchParams({ url: mediaUrl, published: "false", access_token: request.accessToken }).toString(),
+      });
+      const upJson = (await upRes.json()) as FacebookPostResponse;
+      if (!upRes.ok || !upJson.id) return fail(upJson.error?.message ?? `Facebook story photo upload failed (HTTP ${upRes.status})`);
+      const res = await fetch(`${GRAPH_BASE}/${pageId}/photo_stories`, {
+        method: "POST",
+        headers: form,
+        body: new URLSearchParams({ photo_id: upJson.id, access_token: request.accessToken }).toString(),
+      });
+      const json = (await res.json()) as FacebookPostResponse;
+      if (!res.ok || !json.post_id) return fail(json.error?.message ?? `Facebook photo story failed (HTTP ${res.status})`);
+      return { success: true, platformPostId: String(json.post_id), errorMessage: null };
+    }
+
+    const startRes = await fetch(`${GRAPH_BASE}/${pageId}/video_stories`, {
+      method: "POST",
+      headers: form,
+      body: new URLSearchParams({ upload_phase: "start", access_token: request.accessToken }).toString(),
+    });
+    const startJson = (await startRes.json()) as { video_id?: string; upload_url?: string; error?: { message?: string } };
+    if (!startRes.ok || !startJson.video_id || !startJson.upload_url) {
+      return fail(startJson.error?.message ?? `Facebook video story could not start (HTTP ${startRes.status})`);
+    }
+    const uploadRes = await fetch(startJson.upload_url, {
+      method: "POST",
+      headers: { Authorization: `OAuth ${request.accessToken}`, file_url: mediaUrl },
+    });
+    const uploadJson = (await uploadRes.json().catch(() => ({}))) as { success?: boolean; error?: { message?: string } };
+    if (!uploadRes.ok || uploadJson.success !== true) {
+      return fail(uploadJson.error?.message ?? `Facebook video story upload failed (HTTP ${uploadRes.status})`);
+    }
+    const finishRes = await fetch(`${GRAPH_BASE}/${pageId}/video_stories`, {
+      method: "POST",
+      headers: form,
+      body: new URLSearchParams({ video_id: startJson.video_id, upload_phase: "finish", access_token: request.accessToken }).toString(),
+    });
+    const finishJson = (await finishRes.json()) as FacebookPostResponse;
+    if (!finishRes.ok || !finishJson.post_id) return fail(finishJson.error?.message ?? `Facebook video story failed (HTTP ${finishRes.status})`);
+    return { success: true, platformPostId: String(finishJson.post_id), errorMessage: null };
+  }
+
   async post(request: PostRequest): Promise<PostAttemptResult> {
     const pageId = await this.getPageId(request.accessToken);
     if (request.mediaUrl && request.mediaUrls && request.mediaUrls.length > 0) return this.postMultiPhoto(request, pageId);
 
     const isVideo = request.mediaUrl ? /\.(mp4|mov|avi|mkv|webm|m4v|3gp|ogv|flv|wmv)(\?|#|$)/i.test(request.mediaUrl) : false;
+    if (request.options?.facebook?.placement === "story" && request.mediaUrl) return this.postStory(request, pageId, isVideo);
     const params = new URLSearchParams({ access_token: request.accessToken });
     let endpoint: string;
     if (isVideo) {
@@ -362,6 +420,21 @@ export class FacebookAdapter implements PlatformAdapter {
       }
 
       return { verifiedLive: true, platformPostUrl: json.permalink_url ?? null, errorMessage: null };
+    }
+
+    // A Page Story id (numeric, no "pageid_postid" underscore) is not documented
+    // as a readable node; Meta's documented way to see a story is the Page's
+    // /stories list (post_id, status PUBLISHED|ARCHIVED, url). Only reached when
+    // the node read failed, so feed/photo/video verification is unchanged.
+    if (!platformPostId.includes("_") && !lastPermalink) {
+      const storiesUrl = new URL(`${GRAPH_BASE}/me/stories`);
+      storiesUrl.searchParams.set("access_token", accessToken);
+      const sres = await fetch(storiesUrl.toString());
+      const sjson = (await sres.json().catch(() => ({}))) as { data?: { post_id?: string | number; status?: string; url?: string }[] };
+      const story = sres.ok ? (sjson.data ?? []).find((s) => String(s.post_id) === platformPostId) : undefined;
+      if (story && (story.status === "PUBLISHED" || story.status === "ARCHIVED")) {
+        return { verifiedLive: true, platformPostUrl: story.url ?? null, errorMessage: null };
+      }
     }
 
     return { verifiedLive: false, platformPostUrl: lastPermalink, errorMessage: lastErrorMessage };

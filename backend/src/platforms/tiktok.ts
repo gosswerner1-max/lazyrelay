@@ -357,6 +357,9 @@ export class TikTokAdapter implements PlatformAdapter {
           // false, matching TikTok's own "off by default" requirement.
           brand_organic_toggle: request.tiktokBrandOrganic ?? false,
           brand_content_toggle: request.tiktokBrandContent ?? false,
+          // AI-generated-content label (post_info.is_aigc, TikTok Direct Post
+          // reference). Sent only when explicitly true; omitted otherwise.
+          ...(request.options?.tiktok?.aiGenerated === true ? { is_aigc: true } : {}),
         },
         source_info: {
           source: "FILE_UPLOAD",

@@ -7,6 +7,7 @@
 import { parseTags } from "../../lib/postTags";
 import { selfReplyFields } from "../../lib/selfReply";
 import { carouselFields } from "../../lib/carousel";
+import { optionsFieldFor, optionsFieldForDraft, type PostOptions } from "../../lib/postOptions";
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../../context/AuthContext";
@@ -127,6 +128,8 @@ export function useDashboardState() {
   const [postTagsText, setPostTagsText] = useState("");
   // Extra images for an Instagram carousel (the main image is mediaUrl).
   const [extraMediaUrls, setExtraMediaUrls] = useState<string[]>([]);
+  // Platform-specific settings (TikTok AI label, YouTube visibility, Stories, threads, PDFs).
+  const [postOptions, setPostOptions] = useState<PostOptions>({});
   // Self-reply at N likes (Facebook and Instagram only).
   const [selfReplyText, setSelfReplyText] = useState("");
   const [selfReplyLikes, setSelfReplyLikes] = useState("");
@@ -1396,6 +1399,7 @@ export function useDashboardState() {
           firstComment: firstComment?.trim() ? firstComment.trim() : undefined,
           tags: parseTags(postTagsText),
           ...carouselFields(accounts.find((a) => a.id === socialAccountId)?.platform, extraMediaUrls),
+          ...optionsFieldFor(accounts.find((a) => a.id === socialAccountId)?.platform, postOptions),
           ...selfReplyFields(accounts.find((a) => a.id === socialAccountId)?.platform, selfReplyText, selfReplyLikes),
           // Only consumed by Mastodon today (see PostRequest.mediaAltText) —
           // every other adapter simply ignores it, same pattern as above.
@@ -1427,6 +1431,7 @@ export function useDashboardState() {
       setScheduleTime("");
       setMediaUrl(null);
       setExtraMediaUrls([]);
+      setPostOptions({});
       setCoverImageUrl(null);
       setDestinationLink(null);
       setFirstComment(null);
@@ -1482,6 +1487,7 @@ export function useDashboardState() {
         tiktokBrandContent: tiktokDiscloseCommercial && tiktokBrandContent,
         tags: parseTags(postTagsText) ?? [],
         mediaUrls: extraMediaUrls,
+        ...optionsFieldForDraft(postOptions),
         selfReplyText: selfReplyText.trim() || null,
         selfReplyAtLikes: selfReplyText.trim() && Number.isInteger(Number(selfReplyLikes)) && Number(selfReplyLikes) >= 1 ? Number(selfReplyLikes) : null,
       };
@@ -1493,6 +1499,7 @@ export function useDashboardState() {
       setContent("");
       setMediaUrl(null);
       setExtraMediaUrls([]);
+      setPostOptions({});
       setPostTagsText("");
       setSelfReplyText("");
       setSelfReplyLikes("");
@@ -1523,6 +1530,7 @@ export function useDashboardState() {
     setContent(p.content);
     setMediaUrl(p.media_url);
     setExtraMediaUrls(p.media_urls ?? []);
+    setPostOptions(p.options ?? {});
     setPostTagsText((p.tags ?? []).join(", "));
     setSelfReplyText(p.self_reply_text ?? "");
     setSelfReplyLikes(p.self_reply_at_likes ? String(p.self_reply_at_likes) : "");
@@ -1545,6 +1553,7 @@ export function useDashboardState() {
     setContent("");
     setMediaUrl(null);
     setExtraMediaUrls([]);
+    setPostOptions({});
     setPostTagsText("");
     setSelfReplyText("");
     setSelfReplyLikes("");
@@ -1875,6 +1884,7 @@ export function useDashboardState() {
           mediaAltText: p.media_alt_text ?? undefined,
           tags: p.tags && p.tags.length > 0 ? p.tags : undefined,
           ...carouselFields(platform, p.media_urls ?? []),
+          ...optionsFieldFor(platform, p.options ?? {}),
           ...selfReplyFields(platform, p.self_reply_text ?? "", String(p.self_reply_at_likes ?? "")),
           scheduledFor: p.scheduled_for,
         };
@@ -2729,6 +2739,8 @@ export function useDashboardState() {
     setPostTagsText,
     extraMediaUrls,
     setExtraMediaUrls,
+    postOptions,
+    setPostOptions,
     selfReplyText,
     setSelfReplyText,
     selfReplyLikes,

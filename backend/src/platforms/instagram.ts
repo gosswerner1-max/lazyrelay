@@ -362,12 +362,33 @@ export class InstagramAdapter implements PlatformAdapter {
     const igId = await this.getInstagramAccountId(request.accessToken);
     if (request.mediaUrls && request.mediaUrls.length > 0) return this.postCarousel(request, igId);
     const isVideo = isVideoUrl(request.mediaUrl);
+    const igOptions = request.options?.instagram;
 
-    const containerParams = new URLSearchParams({
-      caption: request.content,
-      access_token: request.accessToken,
-      ...(isVideo ? { media_type: "REELS", video_url: request.mediaUrl } : { image_url: request.mediaUrl }),
-    });
+    // Story (2026-09-30): media_type=STORIES + image_url/video_url. Per Meta's
+    // ig-user/media reference the story request syntax carries no caption
+    // (stories have none via the API), so none is sent.
+    const isStory = igOptions?.placement === "story";
+    const containerParams = new URLSearchParams(
+      isStory
+        ? {
+            media_type: "STORIES",
+            ...(isVideo ? { video_url: request.mediaUrl } : { image_url: request.mediaUrl }),
+            access_token: request.accessToken,
+          }
+        : {
+            caption: request.content,
+            access_token: request.accessToken,
+            ...(isVideo ? { media_type: "REELS", video_url: request.mediaUrl } : { image_url: request.mediaUrl }),
+          },
+    );
+    // Trial reel (2026-09-30): trial_params is a documented optional Reels
+    // container parameter -- {"graduation_strategy":"MANUAL"|"SS_PERFORMANCE"}.
+    if (!isStory && isVideo && igOptions?.trialReel) {
+      containerParams.set(
+        "trial_params",
+        JSON.stringify({ graduation_strategy: igOptions.trialGraduation === "auto" ? "SS_PERFORMANCE" : "MANUAL" }),
+      );
+    }
     const containerRes = await fetch(`${GRAPH_BASE}/${igId}/media`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },

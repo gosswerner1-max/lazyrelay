@@ -168,5 +168,6 @@ describe("POST /api/webhooks/signup is mounted on the real app", () => {
     const app = buildApp(new StubMorAdapter(), new Map());
     const res = await request(app).post("/api/webhooks/signup").send({ record: { id: "nope" } });
     expect(res.status).toBe(400);
-  });
+    // Importing the whole real app (every route and adapter) is slow on a cold start, so give it room.
+  }, 30_000);
 });

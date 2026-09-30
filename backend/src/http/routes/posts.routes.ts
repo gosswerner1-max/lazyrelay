@@ -150,6 +150,7 @@ export function buildPostsRouter(): Router {
     mediaUrls: unvalidated(),
     selfReplyText: unvalidated(),
     selfReplyAtLikes: unvalidated(),
+    options: unvalidated(),
     scheduledFor: z
       .string({ error: SCHEDULED_FOR_ERROR })
       .refine((s) => !Number.isNaN(new Date(s).getTime()), SCHEDULED_FOR_ERROR)
@@ -269,11 +270,12 @@ export function buildPostsRouter(): Router {
     mediaUrls: unvalidated(),
     selfReplyText: unvalidated(),
     selfReplyAtLikes: unvalidated(),
+    options: unvalidated(),
   });
   router.patch("/scheduled-posts/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data: existing, error: fetchError } = await req.db!
       .from("scheduled_posts")
-      .select("id, status, media_url, tags, media_urls, self_reply_text, self_reply_at_likes, social_accounts(platform)")
+      .select("id, status, media_url, tags, media_urls, self_reply_text, self_reply_at_likes, options, social_accounts(platform)")
       .eq("id", req.params.id)
       .eq("account_id", req.accountId)
       .maybeSingle();
@@ -351,13 +353,14 @@ export function buildPostsRouter(): Router {
     // Tags, extra images and the self-reply are edited as a set: whichever the
     // caller sends is checked against the platform (for a scheduled post) and
     // the rest keep their stored values.
-    const touchesExtras = [body.data.tags, body.data.mediaUrls, body.data.selfReplyText, body.data.selfReplyAtLikes].some((v) => v !== undefined);
+    const touchesExtras = [body.data.tags, body.data.mediaUrls, body.data.selfReplyText, body.data.selfReplyAtLikes, body.data.options].some((v) => v !== undefined);
     if (touchesExtras) {
       const merged = {
         tags: body.data.tags !== undefined ? body.data.tags : existing.tags,
         mediaUrls: body.data.mediaUrls !== undefined ? body.data.mediaUrls : existing.media_urls,
         selfReplyText: body.data.selfReplyText !== undefined ? body.data.selfReplyText : existing.self_reply_text,
         selfReplyAtLikes: body.data.selfReplyAtLikes !== undefined ? body.data.selfReplyAtLikes : existing.self_reply_at_likes,
+        options: body.data.options !== undefined ? body.data.options : existing.options,
       };
       const sa = existing.social_accounts as { platform?: string } | { platform?: string }[] | null;
       const platform = (Array.isArray(sa) ? sa[0]?.platform : sa?.platform) ?? null;
@@ -836,7 +839,7 @@ export function buildPostsRouter(): Router {
     const { data: existing, error: fetchError } = await req.db!
       .from("scheduled_posts")
       .select(
-        "social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, tiktok_brand_organic, tiktok_brand_content, tags, media_urls, self_reply_text, self_reply_at_likes, status",
+        "social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, tiktok_brand_organic, tiktok_brand_content, tags, media_urls, self_reply_text, self_reply_at_likes, options, status",
       )
       .eq("id", req.params.id)
       .eq("account_id", req.accountId)
@@ -873,6 +876,7 @@ export function buildPostsRouter(): Router {
       mediaUrls: existing.media_urls,
       selfReplyText: existing.self_reply_text,
       selfReplyAtLikes: existing.self_reply_at_likes,
+      options: existing.options,
       scheduledFor: (req.body ?? {}).scheduledFor,
       requiresApproval: (req.body ?? {}).requiresApproval,
     });

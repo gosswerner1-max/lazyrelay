@@ -19,6 +19,7 @@ const TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken";
 const USERINFO_URL = "https://api.linkedin.com/v2/userinfo";
 const POSTS_URL = "https://api.linkedin.com/rest/posts";
 const IMAGES_INIT_URL = "https://api.linkedin.com/rest/images?action=initializeUpload";
+const DOCUMENTS_INIT_URL = "https://api.linkedin.com/rest/documents?action=initializeUpload";
 // LinkedIn's REST API requires a versioned header on every call — real,
 // confirmed live: an aged-out version (this was first set to "202506")
 // fails with "Requested version ... is not active", since LinkedIn only
@@ -49,6 +50,10 @@ interface LinkedInErrorBody {
 
 interface LinkedInImageInitResponse {
   value?: { uploadUrl?: string; image?: string };
+}
+
+interface LinkedInDocumentInitResponse {
+  value?: { uploadUrl?: string; document?: string };
 }
 
 export class LinkedInAdapter implements PlatformAdapter {
@@ -165,8 +170,40 @@ export class LinkedInAdapter implements PlatformAdapter {
     return { urn: initJson.value.image };
   }
 
+  // Documents API: same three-step shape as images (initializeUpload, fetch the source, PUT it).
+  private async uploadDocument(accessToken: string, memberUrn: string, documentUrl: string): Promise<{ urn: string } | { error: string }> {
+    const initRes = await fetch(DOCUMENTS_INIT_URL, {
+      method: "POST",
+      headers: this.restHeaders(accessToken),
+      body: JSON.stringify({ initializeUploadRequest: { owner: memberUrn } }),
+    });
+    const initJson = (await initRes.json().catch(() => ({}))) as LinkedInDocumentInitResponse & LinkedInErrorBody;
+    if (!initRes.ok || !initJson.value?.uploadUrl || !initJson.value?.document) {
+      return { error: initJson.message ?? `LinkedIn document upload init failed (HTTP ${initRes.status})` };
+    }
+    const media = await fetchMediaForStreaming(documentUrl);
+    if (!media) return { error: `Could not fetch document from ${documentUrl}` };
+
+    const uploadRes = await fetch(initJson.value.uploadUrl, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: media.body,
+      duplex: "half",
+    } as RequestInitWithDuplex);
+    if (!uploadRes.ok) return { error: `LinkedIn document upload failed (HTTP ${uploadRes.status})` };
+    return { urn: initJson.value.document };
+  }
+
   async post(request: PostRequest): Promise<PostAttemptResult> {
     const memberUrn = await this.getMemberUrn(request.accessToken);
+
+    let documentUrn: string | null = null;
+    const doc = request.options?.linkedin;
+    if (doc?.documentUrl) {
+      const up = await this.uploadDocument(request.accessToken, memberUrn, doc.documentUrl);
+      if ("error" in up) return { success: false, platformPostId: null, errorMessage: up.error };
+      documentUrn = up.urn;
+    }
 
     let mediaUrn: string | null = null;
     const extraImageUrns: string[] = [];
@@ -190,7 +227,9 @@ export class LinkedInAdapter implements PlatformAdapter {
       lifecycleState: "PUBLISHED",
       isReshareDisabledByAuthor: false,
     };
-    if (mediaUrn && extraImageUrns.length > 0) {
+    if (documentUrn) {
+      postBody.content = { media: { id: documentUrn, title: doc?.documentTitle || "Document" } };
+    } else if (mediaUrn && extraImageUrns.length > 0) {
       // Posts API multiImage content (2-20 images, images only).
       postBody.content = { multiImage: { images: [mediaUrn, ...extraImageUrns].map((id) => ({ id })) } };
     } else if (mediaUrn) {

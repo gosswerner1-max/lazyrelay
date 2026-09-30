@@ -15,6 +15,8 @@ import { isoToLocalDateTime } from "../../lib/postingSlots";
 import { supportsSelfReply } from "../../lib/selfReply";
 import { canShowCarousel, carouselPlan } from "../../lib/carousel";
 import { describeExtras } from "../../lib/postExtras";
+import { describeOptions, optionGroupsFor } from "../../lib/postOptions";
+import { PlatformOptions } from "../../components/PlatformOptions";
 import { MoreImages } from "../../components/MoreImages";
 import { DateTimePicker, TimeOfDayPicker } from "../../components/DateTimePicker";
 import { DayOfWeekPicker } from "../../components/DayOfWeekPicker";
@@ -38,6 +40,8 @@ export function PostsTab() {
     setPostTagsText,
     extraMediaUrls,
     setExtraMediaUrls,
+    postOptions,
+    setPostOptions,
     selfReplyText,
     setSelfReplyText,
     selfReplyLikes,
@@ -314,6 +318,14 @@ export function PostsTab() {
             Tags (optional, up to 5, separated by commas)
             <input type="text" placeholder="e.g. launch, giveaway" value={postTagsText} onChange={(e) => setPostTagsText(e.target.value)} />
           </label>
+          <PlatformOptions
+            groups={optionGroupsFor(selectedAccountIds.map((id) => accounts.find((x) => x.id === id)?.platform))}
+            value={postOptions}
+            onChange={setPostOptions}
+            mediaUrl={mediaUrl}
+            hasExtraMedia={extraMediaUrls.length > 0}
+            onError={setError}
+          />
           {selectedAccountIds.some((id) => supportsSelfReply(accounts.find((a) => a.id === id)?.platform)) && (
             <div>
               <label>
@@ -897,7 +909,9 @@ export function PostsTab() {
               </div>
             )}
             <div className="post-content">{p.content}</div>
-            {describeExtras(p).length > 0 && <div className="section-note">{describeExtras(p).join(" · ")}</div>}
+            {[...describeExtras(p), ...describeOptions(p.options, { posted: result?.chain_posted ?? null, error: result?.chain_error ?? null })].length > 0 && (
+              <div className="section-note">{[...describeExtras(p), ...describeOptions(p.options, { posted: result?.chain_posted ?? null, error: result?.chain_error ?? null })].join(" · ")}</div>
+            )}
             <div className="post-meta">
               <span className={`status-badge status-${p.status}`}>
                 {p.status === "needs_approval" ? "Needs approval" : p.status}

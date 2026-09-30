@@ -371,6 +371,31 @@ export class MastodonAdapter implements PlatformAdapter {
     return { success: true, errorMessage: null };
   }
 
+  // Thread chains: a follow-up is a status with in_reply_to_id = the
+  // previous status id, same visibility as the main post (public). Returns
+  // the new status id for the next reply.
+  async postChainReply(input: {
+    rootPostId: string;
+    parentPostId: string;
+    text: string;
+    accessToken: string;
+    platformAccountId?: string | null;
+  }): Promise<{ success: boolean; platformPostId: string | null; errorMessage: string | null }> {
+    const res = await fetch(`${DEFAULT_INSTANCE}/api/v1/statuses`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status: input.text, in_reply_to_id: input.parentPostId, visibility: "public" }),
+    });
+    const json = (await res.json().catch(() => ({}))) as MastodonStatus;
+    if (!res.ok || !json.id) {
+      return { success: false, platformPostId: null, errorMessage: json.error ?? `Mastodon thread reply failed (HTTP ${res.status})` };
+    }
+    return { success: true, platformPostId: json.id, errorMessage: null };
+  }
+
   // Same endpoint verifyPublished already uses — the status object carries
   // its own engagement counts directly, no separate insights call needed.
   async getPostMetrics(platformPostId: string, accessToken: string): Promise<PostMetrics> {

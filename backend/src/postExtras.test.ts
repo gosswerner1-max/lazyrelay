@@ -26,12 +26,12 @@ describe("resolvePostExtras (a post on a known platform)", () => {
       "instagram",
       main,
     );
-    expect(r).toEqual({ ok: true, extras: { tags: ["launch"], mediaUrls: ["https://cdn.example.com/b.jpg"], selfReplyText: "Thanks!", selfReplyAtLikes: 20 } });
+    expect(r).toEqual({ ok: true, extras: { tags: ["launch"], mediaUrls: ["https://cdn.example.com/b.jpg"], selfReplyText: "Thanks!", selfReplyAtLikes: 20, options: {} } });
   });
 
   it("gives nothing when nothing is asked for", async () => {
     const r = await resolvePostExtras({}, "tiktok", null);
-    expect(r).toEqual({ ok: true, extras: { tags: [], mediaUrls: [], selfReplyText: null, selfReplyAtLikes: null } });
+    expect(r).toEqual({ ok: true, extras: { tags: [], mediaUrls: [], selfReplyText: null, selfReplyAtLikes: null, options: {} } });
   });
 
   it("applies each platform's own rules", async () => {
@@ -59,7 +59,7 @@ describe("resolvePostExtras (a post on a known platform)", () => {
 describe("normalizeDraftExtras (a draft, no platform yet)", () => {
   it("keeps the values so they survive until the draft is scheduled", async () => {
     const r = await normalizeDraftExtras({ tags: ["a", "b"], mediaUrls: ["https://cdn.example.com/b.jpg"], selfReplyText: "Thanks", selfReplyAtLikes: 10 });
-    expect(r).toEqual({ ok: true, extras: { tags: ["a", "b"], mediaUrls: ["https://cdn.example.com/b.jpg"], selfReplyText: "Thanks", selfReplyAtLikes: 10 } });
+    expect(r).toEqual({ ok: true, extras: { tags: ["a", "b"], mediaUrls: ["https://cdn.example.com/b.jpg"], selfReplyText: "Thanks", selfReplyAtLikes: 10, options: {} } });
   });
   it("rejects bad shapes and unsafe addresses", async () => {
     expect((await normalizeDraftExtras({ tags: "x" })).ok).toBe(false);
@@ -86,16 +86,16 @@ describe("extrasForPlatform (one recurring schedule, several platforms)", async 
   const { extrasForPlatform } = await import("./postExtras.js");
   const slot = { tags: ["weekly"], media_urls: ["https://cdn.example.com/b.jpg", "https://cdn.example.com/c.jpg"], self_reply_text: "Thanks!", self_reply_at_likes: 10 };
   it("gives each platform what it supports", () => {
-    expect(extrasForPlatform(slot, "instagram", main)).toEqual({ tags: ["weekly"], media_urls: slot.media_urls, self_reply_text: "Thanks!", self_reply_at_likes: 10 });
+    expect(extrasForPlatform(slot, "instagram", main)).toEqual({ tags: ["weekly"], media_urls: slot.media_urls, self_reply_text: "Thanks!", self_reply_at_likes: 10, options: {} });
   });
   it("leaves out what a platform cannot do, and never fails the schedule", () => {
-    expect(extrasForPlatform(slot, "tiktok", main)).toEqual({ tags: ["weekly"], media_urls: [], self_reply_text: null, self_reply_at_likes: null });
+    expect(extrasForPlatform(slot, "tiktok", main)).toEqual({ tags: ["weekly"], media_urls: [], self_reply_text: null, self_reply_at_likes: null, options: {} });
     // Bluesky takes 4 in total: 3 fits, so 4 extras (5 in total) is left out.
     const four = { ...slot, media_urls: Array.from({ length: 4 }, (_, i) => `https://cdn.example.com/${i}.jpg`) };
     expect(extrasForPlatform(four, "bluesky", main).media_urls).toEqual([]);
     expect(extrasForPlatform(slot, "bluesky", main).media_urls).toEqual(slot.media_urls);
   });
   it("handles a schedule with no extras", () => {
-    expect(extrasForPlatform({}, "instagram", main)).toEqual({ tags: [], media_urls: [], self_reply_text: null, self_reply_at_likes: null });
+    expect(extrasForPlatform({}, "instagram", main)).toEqual({ tags: [], media_urls: [], self_reply_text: null, self_reply_at_likes: null, options: {} });
   });
 });

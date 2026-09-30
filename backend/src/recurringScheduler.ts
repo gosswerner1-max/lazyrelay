@@ -27,6 +27,7 @@ interface RecurringScheduleRow {
   media_urls: string[] | null;
   self_reply_text: string | null;
   self_reply_at_likes: number | null;
+  options: import("./postOptions.js").PostOptions | null;
   tiktok_privacy_level: string | null;
   tiktok_disable_comment: boolean;
   tiktok_disable_duet: boolean;

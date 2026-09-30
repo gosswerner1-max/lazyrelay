@@ -27,6 +27,9 @@ export interface PostRequest {
   // Extra images for a carousel (Instagram only): mediaUrl is the first image,
   // these follow in order. Empty or absent means a normal single-media post.
   mediaUrls?: string[];
+  // Platform-specific settings for THIS platform only (backend/src/postOptions.ts):
+  // the caller has already reduced the post's options to the one key this adapter reads.
+  options?: import("../postOptions.js").PostOptions;
   boardId?: string | null;
   // Only consumed by Pinterest -- the Pin's own "Destination Link" (where a
   // click on the Pin takes someone), distinct from mediaUrl (the image/video
@@ -271,6 +274,19 @@ export interface PlatformAdapter {
    *  method; callers must treat its absence as "not supported," not an
    *  error. */
   postComment?(platformPostId: string, text: string, accessToken: string): Promise<CommentPostResult>;
+
+  /** Optional: publishes ONE follow-up post of a thread chain, replying to `parentPostId`
+   *  (the previous post; `rootPostId` is the first post of the thread, for platforms that
+   *  need both). Returns the new post's id so the next follow-up can reply to it. Only
+   *  Threads, Bluesky, Mastodon and X declare this; callers must treat its absence as
+   *  "no thread support". */
+  postChainReply?(input: {
+    rootPostId: string;
+    parentPostId: string;
+    text: string;
+    accessToken: string;
+    platformAccountId?: string | null;
+  }): Promise<{ success: boolean; platformPostId: string | null; errorMessage: string | null }>;
 
   /** Optional — replies to an EXISTING comment (from the CommentItem.id
    *  returned by getComments), as opposed to postComment's "new top-level

@@ -480,6 +480,68 @@ export class BlueskyAdapter implements PlatformAdapter {
     return { success: true, platformPostId: json.uri, errorMessage: null };
   }
 
+  // Thread chains: post() returns only the at:// uri, but a reply record needs
+  // {uri, cid} strong refs for both root and parent (lexicon app.bsky.feed.post
+  // replyRef), so the cids are fetched with com.atproto.repo.getRecord. The
+  // returned id is the new record's at:// uri, the same format post() returns.
+  // Follow-ups are plain text like the main post (post() sets no facets).
+  private async getRecordRef(atUri: string, accessToken: string): Promise<{ uri: string; cid: string } | { error: string }> {
+    const match = /^at:\/\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(atUri);
+    if (!match) return { error: `Not a valid Bluesky post uri: ${atUri}` };
+    const res = await fetch(
+      `${GET_RECORD_URL}?repo=${encodeURIComponent(match[1])}&collection=${encodeURIComponent(match[2])}&rkey=${encodeURIComponent(match[3])}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    const json = (await res.json().catch(() => ({}))) as BlueskyGetRecordResponse & { cid?: string };
+    if (!res.ok || !json.cid) {
+      return { error: json.message ?? json.error ?? `Could not look up the post to reply to (HTTP ${res.status})` };
+    }
+    return { uri: atUri, cid: json.cid };
+  }
+
+  async postChainReply(input: {
+    rootPostId: string;
+    parentPostId: string;
+    text: string;
+    accessToken: string;
+    platformAccountId?: string | null;
+  }): Promise<{ success: boolean; platformPostId: string | null; errorMessage: string | null }> {
+    const fail = (errorMessage: string) => ({ success: false, platformPostId: null, errorMessage });
+    const parent = await this.getRecordRef(input.parentPostId, input.accessToken);
+    if ("error" in parent) return fail(parent.error);
+    const root = input.rootPostId === input.parentPostId ? parent : await this.getRecordRef(input.rootPostId, input.accessToken);
+    if ("error" in root) return fail(root.error);
+
+    let did = input.platformAccountId && input.platformAccountId.startsWith("did:") ? input.platformAccountId : null;
+    if (!did) {
+      const sessionRes = await fetch(`${DEFAULT_PDS}/xrpc/com.atproto.server.getSession`, {
+        headers: { Authorization: `Bearer ${input.accessToken}` },
+      });
+      const sessionJson = (await sessionRes.json().catch(() => ({}))) as BlueskyGetSessionResponse;
+      if (!sessionRes.ok || !sessionJson.did) return fail(sessionJson.message ?? "Bluesky session lookup failed");
+      did = sessionJson.did;
+    }
+
+    const res = await fetch(CREATE_RECORD_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${input.accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        repo: did,
+        collection: POST_COLLECTION,
+        record: {
+          $type: POST_COLLECTION,
+          text: input.text,
+          createdAt: new Date().toISOString(),
+          langs: ["en"],
+          reply: { root: { uri: root.uri, cid: root.cid }, parent: { uri: parent.uri, cid: parent.cid } },
+        },
+      }),
+    });
+    const json = (await res.json().catch(() => ({}))) as BlueskyCreateRecordResponse;
+    if (!res.ok || !json.uri) return fail(json.message ?? json.error ?? `Bluesky thread reply failed (HTTP ${res.status})`);
+    return { success: true, platformPostId: json.uri, errorMessage: null };
+  }
+
   // com.atproto.repo.createRecord succeeding means the record is durably
   // written to the user's repo, but that's not the same as it being
   // publicly indexed/visible — verifyPublished still does a real

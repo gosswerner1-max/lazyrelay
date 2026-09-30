@@ -477,6 +477,7 @@ export async function scheduleOnePost(
     mediaUrls?: unknown;
     selfReplyText?: unknown;
     selfReplyAtLikes?: unknown;
+    options?: unknown;
   },
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   const validated = await validatePostFields(accountId, input);

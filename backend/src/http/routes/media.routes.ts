@@ -50,7 +50,9 @@ const ALLOWED_MEDIA_MIME_TYPES = new Set([
   "video/mp4",
   "video/quicktime",
   "video/webm", // TikTok-supported format, not previously allowed here
+  "application/pdf", // LinkedIn document posts (options.linkedin.documentUrl), 100MB cap below
 ]);
+export const PDF_MAX_BYTES = 100 * 1024 * 1024; // LinkedIn's own document limit
 const upload = multer({
   storage: multer.diskStorage({
     destination: os.tmpdir(),
@@ -99,8 +101,13 @@ export function buildMediaRouter(): Router {
       const detected = await fileTypeFromFile(file.path);
       if (!detected || !ALLOWED_MEDIA_MIME_TYPES.has(detected.mime)) {
         res.status(400).json({
-          error: `Unsupported or unrecognized file type${detected ? ` "${detected.mime}"` : ""} — use an image (jpeg/png/webp/gif) or video (mp4/mov/webm)`,
+          error: `Unsupported or unrecognized file type${detected ? ` "${detected.mime}"` : ""} — use an image (jpeg/png/webp/gif), a video (mp4/mov/webm) or a PDF document`,
         });
+        return;
+      }
+
+      if (detected.mime === "application/pdf" && file.size > PDF_MAX_BYTES) {
+        res.status(400).json({ error: "A PDF document can be up to 100MB." });
         return;
       }
 

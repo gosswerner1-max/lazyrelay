@@ -248,22 +248,26 @@ export class YouTubeAdapter implements PlatformAdapter {
       return { success: false, platformPostId: null, errorMessage: "YouTube posts require a video URL" };
     }
 
+    const opts = request.options?.youtube;
+    const snippet: Record<string, unknown> = {
+      title: opts?.title || request.content.slice(0, 100) || "LazyRelay post",
+      description: request.content.slice(0, 5000),
+      categoryId: DEFAULT_CATEGORY_ID,
+    };
+    if (opts?.tags && opts.tags.length > 0) snippet.tags = opts.tags;
+    const status: Record<string, unknown> = { privacyStatus: opts?.privacy ?? "public" };
+    // Only when explicitly set: unset lets YouTube apply the channel default.
+    if (opts?.madeForKids !== undefined) status.selfDeclaredMadeForKids = opts.madeForKids;
+    // Altered/synthetic content disclosure (videos resource status.containsSyntheticMedia).
+    if (opts?.aiGenerated === true) status.containsSyntheticMedia = true;
+
     const initRes = await fetch(UPLOAD_INIT_URL, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${request.accessToken}`,
         "Content-Type": "application/json; charset=UTF-8",
       },
-      body: JSON.stringify({
-        snippet: {
-          title: request.content.slice(0, 100) || "LazyRelay post",
-          description: request.content.slice(0, 5000),
-          categoryId: DEFAULT_CATEGORY_ID,
-        },
-        status: {
-          privacyStatus: "public",
-        },
-      }),
+      body: JSON.stringify({ snippet, status }),
     });
     if (!initRes.ok) {
       const errJson = (await initRes.json().catch(() => ({}))) as YouTubeErrorBody;

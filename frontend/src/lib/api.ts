@@ -4,6 +4,7 @@ import type { WebhookDelivery, WebhookEndpoint, WebhookList } from "./webhooks";
 import type { Snippet, SnippetList } from "./snippets";
 import type { PostingSlot, PostingSlotList } from "./postingSlots";
 import type { RssFeed, RssFeedList } from "./rssFeeds";
+import type { PostOptions } from "./postOptions";
 import { hasAnalyticsConsent } from "../components/CookieConsent";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -135,6 +136,7 @@ export interface ScheduledPost {
   self_reply_at_likes?: number | null;
   self_reply_done_at?: string | null;
   self_reply_error?: string | null;
+  options?: PostOptions | null;
   // TikTok-only (migration 0083) — the compose form's own privacy/
   // interaction choices, required for a real TikTok post (see
   // postCreation.ts), null/default on every other platform's rows.
@@ -168,7 +170,7 @@ export interface ScheduledPost {
   // (e.g. still needs_approval). Used by the Calendar tab's "Connected as
   // [email]" filter (2026-08-30) to show only posts really on that calendar.
   google_event_id: string | null;
-  post_results: Array<{ verified_live: boolean; platform_post_url: string | null; error_message: string | null; raw_error_message?: string | null }>;
+  post_results: Array<{ verified_live: boolean; platform_post_url: string | null; error_message: string | null; raw_error_message?: string | null; chain_posted?: number | null; chain_error?: string | null }>;
 }
 
 /** Fields a draft can be created/edited with — the subset of a real post's
@@ -195,6 +197,7 @@ export interface DraftFields {
   mediaUrls?: string[];
   selfReplyText?: string | null;
   selfReplyAtLikes?: number | null;
+  options?: PostOptions;
 }
 
 // Internal tier codes are stable across the Starter/Pro/Business rename
@@ -550,6 +553,7 @@ export const api = {
     mediaUrls?: string[];
     selfReplyText?: string;
     selfReplyAtLikes?: number;
+    options?: PostOptions;
     mediaAltText?: string;
     tiktokPrivacyLevel?: string;
     tiktokDisableComment?: boolean;
@@ -589,6 +593,7 @@ export const api = {
       mediaUrls?: string[];
       selfReplyText?: string;
       selfReplyAtLikes?: number;
+      options?: PostOptions;
       scheduledFor: string;
       requiresApproval?: boolean;
     },

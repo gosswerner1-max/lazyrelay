@@ -149,13 +149,17 @@ export function buildMcpServer(): McpServer {
         .describe("Extra image URLs after mediaUrl for a multi-image post. Instagram and Threads take 10 in total (videos allowed), Facebook and Tumblr 10, LinkedIn 9, Bluesky, Mastodon and X 4 (images only)"),
       selfReplyText: z.string().optional().describe("A follow-up comment to add once the post reaches selfReplyAtLikes likes (Facebook and Instagram only)"),
       selfReplyAtLikes: z.number().int().optional().describe("Like count that triggers selfReplyText"),
+      options: z
+        .record(z.string(), z.unknown())
+        .optional()
+        .describe("Platform-specific settings for the account you post to. tiktok: {aiGenerated}. youtube: {title, privacy: public|unlisted|private, madeForKids, tags[], aiGenerated}. instagram: {placement: feed|reel|story, trialReel, trialGraduation: manual|auto}. facebook: {placement: feed|story}. linkedin: {documentUrl (https PDF), documentTitle}. threads, bluesky, mastodon and x: {chain: [follow-up texts]} for a thread. Only send the key that belongs to the account's platform."),
     },
-    async ({ socialAccountId, content, scheduledFor, mediaUrl, firstComment, tags, mediaUrls, selfReplyText, selfReplyAtLikes }, extra) => {
+    async ({ socialAccountId, content, scheduledFor, mediaUrl, firstComment, tags, mediaUrls, selfReplyText, selfReplyAtLikes, options }, extra) => {
       const { auth, accountId } = requireAuthInfo(extra);
       return textResult(
         await callLazyRelayApi(auth, accountId, "/scheduled-posts", {
           method: "POST",
-          body: JSON.stringify({ socialAccountId, content, scheduledFor, mediaUrl, firstComment, tags, mediaUrls, selfReplyText, selfReplyAtLikes }),
+          body: JSON.stringify({ socialAccountId, content, scheduledFor, mediaUrl, firstComment, tags, mediaUrls, selfReplyText, selfReplyAtLikes, options }),
         })
       );
     }
@@ -191,13 +195,17 @@ export function buildMcpServer(): McpServer {
         .describe("Extra image URLs after mediaUrl for a multi-image post. Instagram and Threads take 10 in total (videos allowed), Facebook and Tumblr 10, LinkedIn 9, Bluesky, Mastodon and X 4 (images only)"),
       selfReplyText: z.string().optional().describe("A follow-up comment to add once the post reaches selfReplyAtLikes likes (Facebook and Instagram only)"),
       selfReplyAtLikes: z.number().int().optional().describe("Like count that triggers selfReplyText"),
+      options: z
+        .record(z.string(), z.unknown())
+        .optional()
+        .describe("Platform-specific settings for the account you post to. tiktok: {aiGenerated}. youtube: {title, privacy: public|unlisted|private, madeForKids, tags[], aiGenerated}. instagram: {placement: feed|reel|story, trialReel, trialGraduation: manual|auto}. facebook: {placement: feed|story}. linkedin: {documentUrl (https PDF), documentTitle}. threads, bluesky, mastodon and x: {chain: [follow-up texts]} for a thread. Only send the key that belongs to the account's platform."),
     },
-    async ({ id, content, mediaUrl, firstComment, tags, mediaUrls, selfReplyText, selfReplyAtLikes }, extra) => {
+    async ({ id, content, mediaUrl, firstComment, tags, mediaUrls, selfReplyText, selfReplyAtLikes, options }, extra) => {
       const { auth, accountId } = requireAuthInfo(extra);
       return textResult(
         await callLazyRelayApi(auth, accountId, `/scheduled-posts/${id}`, {
           method: "PATCH",
-          body: JSON.stringify({ content, mediaUrl, firstComment, tags, mediaUrls, selfReplyText, selfReplyAtLikes }),
+          body: JSON.stringify({ content, mediaUrl, firstComment, tags, mediaUrls, selfReplyText, selfReplyAtLikes, options }),
         })
       );
     }

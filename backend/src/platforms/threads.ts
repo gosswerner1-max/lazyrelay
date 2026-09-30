@@ -325,6 +325,43 @@ export class ThreadsAdapter implements PlatformAdapter {
     return { success: true, platformPostId: publishJson.id, errorMessage: null };
   }
 
+  // Thread chains: a follow-up is a TEXT container with reply_to_id (Meta's
+  // publishing reference: reply_to_id "Required if replying to a post"),
+  // then the normal threads_publish. The user id is the stored
+  // platformAccountId (set from /me at connect) or re-derived via /me.
+  // Meta recommends ~30s before publishing a container; the container's
+  // status is polled (no fixed sleep) so an already-ready one isn't slowed.
+  async postChainReply(input: {
+    rootPostId: string;
+    parentPostId: string;
+    text: string;
+    accessToken: string;
+    platformAccountId?: string | null;
+  }): Promise<{ success: boolean; platformPostId: string | null; errorMessage: string | null }> {
+    const meId = input.platformAccountId || (await this.getMe(input.accessToken)).id;
+    const containerRes = await fetch(`${GRAPH_BASE}/${meId}/threads`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        media_type: "TEXT",
+        text: input.text,
+        reply_to_id: input.parentPostId,
+        access_token: input.accessToken,
+      }).toString(),
+    });
+    const containerJson = (await containerRes.json()) as ThreadsContainerResponse & ThreadsErrorBody;
+    if (!containerRes.ok || !containerJson.id) {
+      return {
+        success: false,
+        platformPostId: null,
+        errorMessage: containerJson.error?.message ?? `Threads reply container creation failed (HTTP ${containerRes.status})`,
+      };
+    }
+    const readyError = await this.waitForVideoContainerReady(containerJson.id, input.accessToken, 0);
+    if (readyError) return { success: false, platformPostId: null, errorMessage: readyError };
+    return this.publishContainer(meId, containerJson.id, input.accessToken);
+  }
+
   // Real independent Proof-of-Publish check: fetch the published media
   // object back from Threads' own Graph API (not just trusting the id
   // threads_publish returned) and confirm it carries a live permalink.

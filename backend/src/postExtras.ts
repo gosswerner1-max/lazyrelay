@@ -9,12 +9,14 @@ import { validateMediaForPlatform, type Platform } from "./mediaLimits.js";
 import { normalizeTags } from "./postTags.js";
 import { normalizeCarousel, MAX_EXTRA_CAROUSEL_IMAGES } from "./carousel.js";
 import { normalizeSelfReply, MAX_SELF_REPLY_LENGTH, MAX_SELF_REPLY_LIKES } from "./selfReply.js";
+import { normalizePostOptions, normalizeStoredOptions, optionsForPlatform, type PostOptions } from "./postOptions.js";
 
 export interface PostExtrasInput {
   tags?: unknown;
   mediaUrls?: unknown;
   selfReplyText?: unknown;
   selfReplyAtLikes?: unknown;
+  options?: unknown;
 }
 
 export interface PostExtras {
@@ -22,6 +24,7 @@ export interface PostExtras {
   mediaUrls: string[];
   selfReplyText: string | null;
   selfReplyAtLikes: number | null;
+  options: PostOptions;
 }
 
 type Failure = { status: number; body: { error: string } };
@@ -58,6 +61,14 @@ export async function resolvePostExtras(
   const selfReply = normalizeSelfReply(input.selfReplyText, input.selfReplyAtLikes, platform);
   if (!selfReply.ok) return fail(selfReply.error);
 
+  const options = normalizePostOptions(input.options, platform, { mediaUrl, mediaUrls: carousel.urls });
+  if (!options.ok) return fail(options.error);
+  const docUrl = options.options.linkedin?.documentUrl;
+  if (docUrl) {
+    const safe = await isSafeMediaUrl(docUrl);
+    if (!safe.safe) return fail(`The document address ${safe.reason}`);
+  }
+
   return {
     ok: true,
     extras: {
@@ -65,6 +76,7 @@ export async function resolvePostExtras(
       mediaUrls: carousel.urls,
       selfReplyText: selfReply.value?.text ?? null,
       selfReplyAtLikes: selfReply.value?.atLikes ?? null,
+      options: options.options,
     },
   };
 }
@@ -107,12 +119,14 @@ export async function normalizeDraftExtras(
     selfReplyText = text;
     selfReplyAtLikes = n;
   }
-  return { ok: true, extras: { tags: tags.tags, mediaUrls, selfReplyText, selfReplyAtLikes } };
+  const options = normalizeStoredOptions(input.options);
+  if (!options.ok) return fail(options.error);
+  return { ok: true, extras: { tags: tags.tags, mediaUrls, selfReplyText, selfReplyAtLikes, options: options.options } };
 }
 
 /** Database column values for a post row. */
 export function extrasToColumns(e: PostExtras) {
-  return { tags: e.tags, media_urls: e.mediaUrls, self_reply_text: e.selfReplyText, self_reply_at_likes: e.selfReplyAtLikes };
+  return { tags: e.tags, media_urls: e.mediaUrls, self_reply_text: e.selfReplyText, self_reply_at_likes: e.selfReplyAtLikes, options: e.options };
 }
 
 /**
@@ -123,7 +137,7 @@ export function extrasToColumns(e: PostExtras) {
  * leaves out the rest, so one schedule can cover platforms with different abilities.
  */
 export function extrasForPlatform(
-  slot: { tags?: string[] | null; media_urls?: string[] | null; self_reply_text?: string | null; self_reply_at_likes?: number | null },
+  slot: { tags?: string[] | null; media_urls?: string[] | null; self_reply_text?: string | null; self_reply_at_likes?: number | null; options?: PostOptions | null },
   platform: string,
   mediaUrl: string | null,
 ) {
@@ -134,5 +148,6 @@ export function extrasForPlatform(
     media_urls: carousel.ok ? carousel.urls : [],
     self_reply_text: selfReply.ok ? (selfReply.value?.text ?? null) : null,
     self_reply_at_likes: selfReply.ok ? (selfReply.value?.atLikes ?? null) : null,
+    options: optionsForPlatform(slot.options, platform, { mediaUrl, mediaUrls: carousel.ok ? carousel.urls : [] }),
   };
 }
