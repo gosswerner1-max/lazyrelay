@@ -66,6 +66,9 @@ export class TumblrAdapter implements PlatformAdapter {
       scope: SCOPES,
       redirect_uri: this.redirectUri,
       state,
+      // Documented optional param: forcibly logs out the current Tumblr user and shows the
+      // login flow, so the wrong logged-in account isn't used. https://www.tumblr.com/docs/en/api/v2
+      force_login: "true",
     });
     return `${AUTHORIZE_URL}?${params.toString()}`;
   }

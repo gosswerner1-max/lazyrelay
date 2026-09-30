@@ -102,6 +102,10 @@ export class TikTokAdapter implements PlatformAdapter {
       response_type: "code",
       redirect_uri: this.redirectUri,
       state,
+      // Documented: 1 = always show the authorization page instead of skipping it for a valid
+      // session, so the customer sees which TikTok account they are authorizing.
+      // https://developers.tiktok.com/doc/login-kit-web
+      disable_auto_auth: "1",
     });
     return `${AUTHORIZE_URL}?${params.toString()}`;
   }

@@ -148,7 +148,7 @@ PLATFORM TROUBLESHOOTING
 - TikTok "said posted but nothing shows up": real moderation happens async after the initial success response, can reject minutes later.
 - Pinterest "worked for weeks, now nothing posts": access token expired, reconnect the account.
 - Any platform "asks to reconnect" after previously working: normal token-expiry behavior, not an error, just reconnect.
-- "Posted to the wrong account": usually caused by being logged into multiple accounts in-browser during connect. Log out of all sessions for that platform first, then reconnect.
+- "Posted to the wrong account": usually caused by being logged into multiple accounts in-browser during connect. LazyRelay asks YouTube/Google to show its account chooser, TikTok to show its authorization page, and Tumblr to show its login screen on connect; other platforms don't offer this, so there log out of all sessions for that platform first, then reconnect.
 - Facebook "keeps disconnecting every few days": not expected -- Facebook Page access tokens don't expire on their own once connected. Frequent disconnects point to something else (a revoked permission, a password/security change on the Facebook side), not routine expiry.
 - Facebook Groups aren't supported -- only Facebook Pages. Tagging another Page in a post isn't supported either.
 - Instagram: carousel posts (up to 10 images or videos), Stories, Reels and trial Reels are supported -- choose "Post as" under Platform options in the compose form, and add more images with the extra-media picker. A "First Comment" CAN be scheduled alongside the main post (hashtags-in-first-comment pattern), on Facebook and Instagram.

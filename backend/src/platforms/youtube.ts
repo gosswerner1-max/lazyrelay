@@ -108,7 +108,10 @@ export class YouTubeAdapter implements PlatformAdapter {
       response_type: "code",
       scope: SCOPES,
       access_type: "offline",
-      prompt: "consent",
+      // Google documents `prompt` as a space-delimited list; select_account forces the
+      // account chooser so a browser logged into another Google account can't be silently
+      // used. https://developers.google.com/identity/protocols/oauth2/web-server
+      prompt: "select_account consent",
       state,
     });
     return `${AUTHORIZE_URL}?${params.toString()}`;
