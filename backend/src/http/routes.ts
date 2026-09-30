@@ -19,6 +19,8 @@ import { buildWebhooksRouter } from "./routes/webhooks.routes.js";
 import { buildSnippetsRouter } from "./routes/snippets.routes.js";
 import { buildPostingSlotsRouter } from "./routes/postingSlots.routes.js";
 import { buildRssFeedsRouter } from "./routes/rssFeeds.routes.js";
+import { buildReviewLinksRouter } from "./routes/reviewLinks.routes.js";
+import { buildReviewPublicRouter } from "./routes/reviewPublic.routes.js";
 import { buildTeamRouter } from "./routes/team.routes.js";
 import { buildAdminRouter } from "./routes/admin.routes.js";
 
@@ -52,6 +54,8 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.use(buildSnippetsRouter());
   router.use(buildPostingSlotsRouter());
   router.use(buildRssFeedsRouter());
+  router.use(buildReviewLinksRouter());
+  router.use(buildReviewPublicRouter());
   router.use(buildAdminRouter());
   return router;
 }

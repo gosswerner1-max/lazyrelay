@@ -192,3 +192,28 @@ describe("platform options through the real routes (master list #20)", () => {
     expect(tables.scheduled_posts.find((p) => p.id !== "orig")).toMatchObject({ options: { instagram: { placement: "story" } } });
   });
 });
+
+describe("editing a post a client asked changes on (master list #23)", () => {
+  const waiting = () => {
+    tables.accounts = [{ id: "acc1", business_name: "Agency Co" }];
+    tables.post_review_comments = [];
+    tables.scheduled_posts = [{ id: "w1", account_id: "acc1", social_account_id: "ig", status: "needs_approval", content: "Friday", media_url: IMG(1), tags: [], media_urls: [], options: {}, changes_requested_at: "2026-09-30T10:00:00Z" }];
+  };
+  it("a post waiting for approval can be edited; the change request clears and the client is told", async () => {
+    waiting();
+    const r = await request(app()).patch("/scheduled-posts/w1").send({ content: "Saturday" });
+    expect(r.status).toBe(200);
+    expect(tables.scheduled_posts[0]).toMatchObject({ content: "Saturday", status: "needs_approval", changes_requested_at: null });
+    expect(tables.post_review_comments[0]).toMatchObject({ post_id: "w1", author_kind: "owner", kind: "updated" });
+  });
+  it("a change that is not to the content or media leaves the request open", async () => {
+    waiting();
+    await request(app()).patch("/scheduled-posts/w1").send({ tags: ["sale"] });
+    expect(tables.scheduled_posts[0].changes_requested_at).toBe("2026-09-30T10:00:00Z");
+    expect(tables.post_review_comments).toHaveLength(0);
+  });
+  it("posts that are already posted still cannot be edited", async () => {
+    tables.scheduled_posts = [{ id: "d1", account_id: "acc1", social_account_id: "ig", status: "posted", content: "x", media_url: null }];
+    expect((await request(app()).patch("/scheduled-posts/d1").send({ content: "y" })).status).toBe(409);
+  });
+});

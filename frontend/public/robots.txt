@@ -2,6 +2,7 @@
 # Open to all crawlers, including AI answer-engine crawlers (AEO).
 User-agent: *
 Allow: /
+Disallow: /review/
 
 User-agent: GPTBot
 Allow: /

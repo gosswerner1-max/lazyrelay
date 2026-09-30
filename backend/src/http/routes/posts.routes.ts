@@ -293,8 +293,10 @@ export function buildPostsRouter(): Router {
     // 'posting'), so the update below re-checks status atomically in the
     // same query instead of trusting this earlier read, exactly like
     // /reschedule already does for the same race.
-    if (existing.status !== "draft" && existing.status !== "pending") {
-      res.status(409).json({ error: "Only a draft or a still-pending post can be edited — it's already posting or done." });
+    // needs_approval joined the list with client review links (2026-09-30): a client asks for
+    // changes, the owner has to be able to make them.
+    if (existing.status !== "draft" && existing.status !== "pending" && existing.status !== "needs_approval") {
+      res.status(409).json({ error: "Only a draft, a post waiting for approval or a still-pending post can be edited — it's already posting or done." });
       return;
     }
 
@@ -350,6 +352,9 @@ export function buildPostsRouter(): Router {
     if (plannedDate !== undefined) {
       update.planned_date = plannedDate;
     }
+    // Editing a post that a client asked changes on clears the request: it is back for review.
+    const contentChanged = content !== undefined || mediaUrl !== undefined;
+    if (existing.status === "needs_approval" && contentChanged) update.changes_requested_at = null;
     // Tags, extra images and the self-reply are edited as a set: whichever the
     // caller sends is checked against the platform (for a scheduled post) and
     // the rest keep their stored values.
@@ -391,6 +396,17 @@ export function buildPostsRouter(): Router {
     if (!count || !data) {
       res.status(409).json({ error: "Only a draft or a still-pending post can be edited — it's already posting or done." });
       return;
+    }
+    if (existing.status === "needs_approval" && contentChanged) {
+      const { data: acct } = await req.db!.from("accounts").select("business_name").eq("id", req.accountId).maybeSingle();
+      await req.db!.from("post_review_comments").insert({
+        account_id: req.accountId,
+        post_id: data.id,
+        author_kind: "owner",
+        author_name: (acct?.business_name as string | null) || "The team",
+        kind: "updated",
+        body: "Updated the post. It is ready to look at again.",
+      });
     }
     void syncPostToCalendar(data.id);
     void syncAccountSheet(req.accountId!);

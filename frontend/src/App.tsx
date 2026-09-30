@@ -13,6 +13,7 @@ import { ConnectForm } from "./pages/ConnectForm";
 import { BioPage } from "./pages/BioPage";
 import { VerifyPage } from "./pages/VerifyPage";
 import { FeedbackForm } from "./pages/FeedbackForm";
+import { ReviewPage } from "./pages/ReviewPage";
 import { OAuthConsentPage } from "./pages/OAuthConsent";
 import { TeamAcceptInvitePage } from "./pages/TeamAcceptInvite";
 import { ForgotPassword } from "./pages/ForgotPassword";
@@ -203,6 +204,9 @@ function Root() {
     // Review-feedback links are the same shape of exception — a public,
     // token-authorized page reached from an email, owning its own URL.
     if (window.location.pathname.startsWith("/feedback/")) return;
+    // Client review links (/review/<token>) are the same shape of exception: a public,
+    // token-authorized page a client opens, owning its own URL.
+    if (window.location.pathname.startsWith("/review/")) return;
     // The OAuth consent screen is the same shape of exception too — it owns
     // its own URL (with an authorization_id query param this effect would
     // otherwise strip). Missing this exclusion was caught live: without it,
@@ -281,6 +285,11 @@ function Root() {
   // Public review-feedback form (/feedback/<review_feedback.token>) — same
   // reasoning as bio/verify pages above, reached from a link in an email,
   // must render regardless of auth state. token is a uuid (migration 0063).
+  const reviewMatch = /^\/review\/([A-Za-z0-9_-]{43})$/.exec(window.location.pathname);
+  if (reviewMatch) {
+    return <ReviewPage token={reviewMatch[1]} />;
+  }
+
   const feedbackMatch = /^\/feedback\/([0-9a-fA-F-]{36})$/.exec(window.location.pathname);
   if (feedbackMatch) {
     return <FeedbackForm token={feedbackMatch[1]} />;

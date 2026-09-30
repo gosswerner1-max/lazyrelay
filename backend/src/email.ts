@@ -432,3 +432,35 @@ export function sendReconnectNeededEmail(
     })
     .catch((err) => console.error("[email] sendReconnectNeededEmail threw:", err instanceof Error ? err.message : err));
 }
+
+/** Tells the account owner a client acted on a post through a review link. Best effort. */
+export function sendReviewActivityEmail(
+  to: string,
+  activity: { action: "approved" | "changes_requested"; reviewer: string; postText: string; comment: string | null },
+): void {
+  const client = getClient();
+  if (!client) return;
+  const reviewer = escapeHtml(activity.reviewer);
+  const snippet = escapeHtml(activity.postText.length > 160 ? `${activity.postText.slice(0, 160)}...` : activity.postText);
+  const approved = activity.action === "approved";
+  const subject = approved ? `${activity.reviewer} approved a post` : `${activity.reviewer} asked for changes to a post`;
+  const lead = approved
+    ? `<strong>${reviewer}</strong> approved this post, so it is now scheduled:`
+    : `<strong>${reviewer}</strong> asked for changes to this post:`;
+  const comment = activity.comment ? `<br><br><em>${escapeHtml(activity.comment)}</em>` : "";
+  client.emails
+    .send({
+      from: `LazyRelay <${FROM_ADDRESS}>`,
+      to,
+      subject,
+      html: wrapEmailHtml(
+        approved ? "A client approved a post" : "A client asked for changes",
+        `${lead}<br><br>${snippet}${comment}<br><br>${approved ? "It will go out at its scheduled time." : "Open the Posts tab in your dashboard to see the conversation, update the post, and send it back."}`,
+        "You're getting this because you sent a client a review link in LazyRelay.",
+      ),
+    })
+    .then((result) => {
+      if (result.error) console.error("[email] sendReviewActivityEmail failed:", result.error.message);
+    })
+    .catch((err) => console.error("[email] sendReviewActivityEmail threw:", err instanceof Error ? err.message : err));
+}

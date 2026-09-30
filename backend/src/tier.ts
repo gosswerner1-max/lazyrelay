@@ -53,6 +53,18 @@ export const RSS_FEED_LIMITS: Record<Tier, number> = {
   agency_plus: 5,
 };
 
+/** Active client review links (master list #23). Free and Starter have none: sending a
+ *  client a link to approve posts is an agency-style feature. Keyed by DB code ("business"
+ *  displays as Pro, "enterprise" as Business). Proposed by James 2026-09-30, Werner to confirm. */
+export const REVIEW_LINK_LIMITS: Record<Tier, number> = {
+  free: 0,
+  pro: 0, // Starter
+  business: 1, // Pro
+  enterprise: 3, // Business
+  agency: 10,
+  agency_plus: 25,
+};
+
 export async function resolveTier(accountId: string): Promise<Tier> {
   const { data } = await supabase.from("subscriptions").select("tier, status").eq("account_id", accountId).maybeSingle();
   const isPaidInGoodStanding = data?.tier !== "free" && (data?.status === "active" || data?.status === "trialing");

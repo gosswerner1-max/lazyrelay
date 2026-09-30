@@ -13,6 +13,7 @@ import { WebhooksSection } from "./WebhooksSection";
 import { SnippetsSection } from "./SnippetsSection";
 import { PostingSlotsSection } from "./PostingSlotsSection";
 import { RssFeedsSection } from "./RssFeedsSection";
+import { ReviewLinksSection } from "./ReviewLinksSection";
 
 export function SettingsTab() {
   const {
@@ -377,6 +378,8 @@ export function SettingsTab() {
       <PostingSlotsSection onError={setError} />
 
       <RssFeedsSection onError={setError} />
+
+      <ReviewLinksSection brands={[...new Set(accounts.map((a) => a.brand_label).filter((b): b is string => !!b))]} onError={setError} />
 
       {(
       <section className={GOOGLE_INTEGRATIONS_LIVE ? undefined : "settings-section-disabled"}>

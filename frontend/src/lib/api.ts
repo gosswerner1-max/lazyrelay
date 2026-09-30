@@ -5,6 +5,7 @@ import type { Snippet, SnippetList } from "./snippets";
 import type { PostingSlot, PostingSlotList } from "./postingSlots";
 import type { RssFeed, RssFeedList } from "./rssFeeds";
 import type { PostOptions } from "./postOptions";
+import type { ReviewComment, ReviewLink, ReviewLinkList, PublicReview } from "./reviewLinks";
 import { hasAnalyticsConsent } from "../components/CookieConsent";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -136,6 +137,8 @@ export interface ScheduledPost {
   self_reply_at_likes?: number | null;
   self_reply_done_at?: string | null;
   self_reply_error?: string | null;
+  // Set when a client asked for changes through a review link (backend 0107).
+  changes_requested_at?: string | null;
   options?: PostOptions | null;
   // TikTok-only (migration 0083) — the compose form's own privacy/
   // interaction choices, required for a real TikTok post (see
@@ -443,6 +446,16 @@ export interface PublicVerification {
   scheduledFor: string;
   verifiedAt: string | null;
   platformPostUrl: string | null;
+}
+
+async function publicReviewPost(token: string, postId: string, action: "approve" | "changes" | "comments", body: Record<string, unknown>): Promise<void> {
+  const res = await fetch(`${API_URL}/public/review/${encodeURIComponent(token)}/posts/${encodeURIComponent(postId)}/${action}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error ?? "That did not work. Please try again.");
 }
 
 export const api = {
@@ -839,6 +852,34 @@ export const api = {
   setRssFeedEnabled: (id: string, enabled: boolean): Promise<RssFeed> =>
     authedFetch(`/rss-feeds/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ enabled }) }),
   deleteRssFeed: (id: string): Promise<{ deleted: boolean }> => authedFetch(`/rss-feeds/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  // Client review links (owner side) and the conversation on a post.
+  listReviewLinks: (): Promise<ReviewLinkList> => authedFetch("/review-links"),
+  createReviewLink: (body: { label?: string; brandLabel?: string; expiresInDays?: number }): Promise<ReviewLink> =>
+    authedFetch("/review-links", { method: "POST", body: JSON.stringify(body) }),
+  revokeReviewLink: (id: string): Promise<{ revoked: boolean }> => authedFetch(`/review-links/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  listReviewComments: (postId: string): Promise<{ comments: ReviewComment[] }> => authedFetch(`/scheduled-posts/${encodeURIComponent(postId)}/review-comments`),
+  addReviewComment: (postId: string, body: string): Promise<ReviewComment> =>
+    authedFetch(`/scheduled-posts/${encodeURIComponent(postId)}/review-comments`, { method: "POST", body: JSON.stringify({ body }) }),
+  editPostContent: (postId: string, content: string): Promise<ScheduledPost> =>
+    authedFetch(`/scheduled-posts/${encodeURIComponent(postId)}`, { method: "PATCH", body: JSON.stringify({ content }) }),
+
+  // Client review page (no login: the link's token is the credential).
+  getPublicReview: async (token: string): Promise<PublicReview> => {
+    const res = await fetch(`${API_URL}/public/review/${encodeURIComponent(token)}`);
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error ?? "This review link isn't valid, or it has expired.");
+    return body;
+  },
+  reviewApprove: async (token: string, postId: string, name: string): Promise<void> => {
+    await publicReviewPost(token, postId, "approve", { name });
+  },
+  reviewRequestChanges: async (token: string, postId: string, name: string, comment: string): Promise<void> => {
+    await publicReviewPost(token, postId, "changes", { name, comment });
+  },
+  reviewComment: async (token: string, postId: string, name: string, comment: string): Promise<void> => {
+    await publicReviewPost(token, postId, "comments", { name, comment });
+  },
+
   // Saved snippets (reusable post text, one optional signature).
   listSnippets: (): Promise<SnippetList> => authedFetch("/snippets"),
   createSnippet: (body: { name: string; content: string; isSignature?: boolean }): Promise<Snippet> =>

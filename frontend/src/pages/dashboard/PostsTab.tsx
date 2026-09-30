@@ -17,6 +17,7 @@ import { canShowCarousel, carouselPlan } from "../../lib/carousel";
 import { describeExtras } from "../../lib/postExtras";
 import { describeOptions, optionGroupsFor } from "../../lib/postOptions";
 import { PlatformOptions } from "../../components/PlatformOptions";
+import { ReviewThread } from "../../components/ReviewThread";
 import { MoreImages } from "../../components/MoreImages";
 import { DateTimePicker, TimeOfDayPicker } from "../../components/DateTimePicker";
 import { DayOfWeekPicker } from "../../components/DayOfWeekPicker";
@@ -946,6 +947,7 @@ export function PostsTab() {
                   </a>
                 </span>
               )}
+              {p.status === "needs_approval" && p.changes_requested_at && <span className="status-badge status-failed">Changes requested</span>}
               {p.status === "needs_approval" && (
                 <button
                   className="btn-outline"
@@ -979,6 +981,15 @@ export function PostsTab() {
                 </button>
               )}
             </div>
+            {p.status === "needs_approval" && (
+              <ReviewThread
+                postId={p.id}
+                content={p.content}
+                changesRequested={!!p.changes_requested_at}
+                onChanged={async () => setPosts(await api.listScheduledPosts())}
+                onError={setError}
+              />
+            )}
           </li>
         );
       };
