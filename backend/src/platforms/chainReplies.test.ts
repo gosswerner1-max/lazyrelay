@@ -109,6 +109,25 @@ describe("Bluesky", () => {
     });
   });
 
+  it("makes links and hashtags clickable in the main post and in a follow-up (facets)", async () => {
+    const text = "New: https://lazyrelay.com/changelog #launch";
+    await adapter().post({ socialAccountId: "sa1", content: text, mediaUrl: null, coverImageUrl: null, accessToken: "tok" } as never);
+    await adapter().postChainReply({ rootPostId: uri("main"), parentPostId: uri("prev"), text, accessToken: "tok" });
+    const records = calls.filter((c) => c.url.endsWith("createRecord")).map((c) => JSON.parse(c.raw!).record);
+    expect(records).toHaveLength(2);
+    for (const rec of records) {
+      const kinds = rec.facets.map((f: { features: Array<{ $type: string }> }) => f.features[0].$type);
+      expect(kinds).toEqual(["app.bsky.richtext.facet#link", "app.bsky.richtext.facet#tag"]);
+      expect(rec.facets[0].features[0].uri).toBe("https://lazyrelay.com/changelog");
+    }
+  });
+
+  it("sends no facets field when the text has no link or hashtag", async () => {
+    await adapter().postChainReply({ rootPostId: uri("main"), parentPostId: uri("prev"), text: "plain words", accessToken: "tok" });
+    const rec = JSON.parse(calls.find((c) => c.url.endsWith("createRecord"))!.raw!).record;
+    expect(rec.facets).toBeUndefined();
+  });
+
   it("threads a 3-item chain: root stays the main post, parent moves to the previous reply uri", async () => {
     const out = await runChain(adapter(), { rootPostId: uri("main"), texts: ["a", "b", "c"], accessToken: "tok", platformAccountId: "did:plc:me" });
     expect(out).toEqual({ posted: 3, error: null });

@@ -10,6 +10,7 @@ import type {
 } from "./types.js";
 import { fetchMediaForStreaming, type RequestInitWithDuplex } from "./streamUpload.js";
 import { CustomerHostError, guardedFetch, normalizeHostOrigin, readJsonCapped, UPLOAD_TIMEOUT_MS } from "./customerHost.js";
+import { buildBlueskyFacets } from "./blueskyFacets.js";
 
 // Real, confirmed platform gotcha: AT Protocol's real OAuth (PAR + DPoP +
 // self-hosted client-metadata document) issues DPoP-bound sessions that
@@ -564,6 +565,8 @@ export class BlueskyAdapter implements PlatformAdapter {
           text: request.content,
           createdAt: new Date().toISOString(),
           langs: ["en"],
+          // Without facets a link or hashtag is plain text on Bluesky (added 2026-09-30).
+          ...(buildBlueskyFacets(request.content).length > 0 ? { facets: buildBlueskyFacets(request.content) } : {}),
           ...(embed ? { embed } : {}),
         },
       }),
@@ -587,7 +590,7 @@ export class BlueskyAdapter implements PlatformAdapter {
   // {uri, cid} strong refs for both root and parent (lexicon app.bsky.feed.post
   // replyRef), so the cids are fetched with com.atproto.repo.getRecord. The
   // returned id is the new record's at:// uri, the same format post() returns.
-  // Follow-ups are plain text like the main post (post() sets no facets).
+  // Follow-ups get the same link and hashtag facets as the main post.
   private async getRecordRef(ctx: BlueskyCtx, atUri: string): Promise<{ uri: string; cid: string } | { error: string }> {
     const match = /^at:\/\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(atUri);
     if (!match) return { error: `Not a valid Bluesky post uri: ${atUri}` };
@@ -656,6 +659,7 @@ export class BlueskyAdapter implements PlatformAdapter {
           text: input.text,
           createdAt: new Date().toISOString(),
           langs: ["en"],
+          ...(buildBlueskyFacets(input.text).length > 0 ? { facets: buildBlueskyFacets(input.text) } : {}),
           reply: { root: { uri: root.uri, cid: root.cid }, parent: { uri: parent.uri, cid: parent.cid } },
         },
       }),
