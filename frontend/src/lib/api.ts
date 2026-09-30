@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 import { isPlatformLimitDetail, PLATFORM_LIMIT_EVENT } from "./platformLimit";
 import type { WebhookDelivery, WebhookEndpoint, WebhookList } from "./webhooks";
 import type { Snippet, SnippetList } from "./snippets";
+import type { PostingSlot, PostingSlotList } from "./postingSlots";
 import { hasAnalyticsConsent } from "../components/CookieConsent";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -796,6 +797,13 @@ export const api = {
     authedFetch(`/webhooks/${encodeURIComponent(id)}/test`, { method: "POST" }),
   listWebhookDeliveries: (id: string): Promise<{ deliveries: WebhookDelivery[] }> =>
     authedFetch(`/webhooks/${encodeURIComponent(id)}/deliveries`),
+  // Posting times and the next free one for a channel.
+  listPostingSlots: (): Promise<PostingSlotList> => authedFetch("/posting-slots"),
+  createPostingSlot: (body: { daysOfWeek: number[]; timeOfDay: string; timezone: string }): Promise<PostingSlot> =>
+    authedFetch("/posting-slots", { method: "POST", body: JSON.stringify(body) }),
+  deletePostingSlot: (id: string): Promise<{ deleted: boolean }> => authedFetch(`/posting-slots/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  nextPostingSlot: (socialAccountId: string): Promise<{ scheduledFor: string }> =>
+    authedFetch(`/posting-slots/next?socialAccountId=${encodeURIComponent(socialAccountId)}`),
   // Saved snippets (reusable post text, one optional signature).
   listSnippets: (): Promise<SnippetList> => authedFetch("/snippets"),
   createSnippet: (body: { name: string; content: string; isSignature?: boolean }): Promise<Snippet> =>

@@ -155,6 +155,18 @@ export function buildMcpServer(): McpServer {
   );
 
   server.tool(
+    "get_next_free_slot",
+    "Find the customer's next free posting time for one connected account, from the posting times they saved in Settings. Returns an ISO timestamp to pass as scheduledFor to schedule_post. Errors with a plain message if no posting times are saved.",
+    {
+      socialAccountId: z.string().describe("The connected account id, from list_connected_accounts"),
+    },
+    async ({ socialAccountId }, extra) => {
+      const { auth, accountId } = requireAuthInfo(extra);
+      return textResult(await callLazyRelayApi(auth, accountId, `/posting-slots/next?socialAccountId=${encodeURIComponent(socialAccountId)}`));
+    }
+  );
+
+  server.tool(
     "update_post",
     "Edit a post's content or media before it goes out — works on a draft or a still-pending scheduled post, not one that's already posting or done. Call list_scheduled_posts first to get a valid id. To change the scheduled time instead of the content, delete and recreate the post.",
     {

@@ -11,6 +11,7 @@ import { PlatformIcon } from "../../components/PlatformIcon";
 import { SocialPostPreview } from "../../components/SocialPostPreview";
 import { AccountPicker } from "../../components/AccountPicker";
 import { SnippetPicker } from "../../components/SnippetPicker";
+import { isoToLocalDateTime } from "../../lib/postingSlots";
 import { DateTimePicker, TimeOfDayPicker } from "../../components/DateTimePicker";
 import { DayOfWeekPicker } from "../../components/DayOfWeekPicker";
 import { bestTimeFor } from "../../lib/bestTimes";
@@ -615,6 +616,26 @@ export function PostsTab() {
               }}
             />
           </label>
+          {selectedAccountIds.length > 0 && (
+            <div className="hashtag-suggest-row">
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={async () => {
+                  try {
+                    const r = await api.nextPostingSlot(selectedAccountIds[0]);
+                    const local = isoToLocalDateTime(r.scheduledFor);
+                    setScheduleDate(local.date);
+                    setScheduleTime(local.time);
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : String(err));
+                  }
+                }}
+              >
+                Use my next free time
+              </button>
+            </div>
+          )}
           <label className="approval-checkbox-label">
             <input type="checkbox" checked={requiresApproval} onChange={(e) => setRequiresApproval(e.target.checked)} />
             Require approval before this goes out

@@ -11,6 +11,7 @@ import { GOOGLE_INTEGRATIONS_LIVE } from "./dashboardHelpers";
 import { useDashboard } from "./DashboardContext";
 import { WebhooksSection } from "./WebhooksSection";
 import { SnippetsSection } from "./SnippetsSection";
+import { PostingSlotsSection } from "./PostingSlotsSection";
 
 export function SettingsTab() {
   const {
@@ -371,6 +372,8 @@ export function SettingsTab() {
       <WebhooksSection channels={webhookChannels} onError={setError} />
 
       <SnippetsSection onError={setError} />
+
+      <PostingSlotsSection onError={setError} />
 
       {(
       <section className={GOOGLE_INTEGRATIONS_LIVE ? undefined : "settings-section-disabled"}>
