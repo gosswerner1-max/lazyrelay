@@ -121,6 +121,10 @@ const LIVE_PLATFORMS = [
   "Telegram",
   "Discord",
   "Tumblr",
+  "WordPress",
+  "dev.to",
+  "Hashnode",
+  "Lemmy",
 ] as const;
 // Werner's call, 2026-08-19: only surface X as "coming soon" -- Google
 // Business is real work in progress (see routes.ts's own
@@ -160,6 +164,11 @@ PLATFORM TROUBLESHOOTING
 - Bluesky: alt-text on images is supported (same field as Mastodon's). Connecting works fine for a custom-domain handle as long as the account is still hosted on Bluesky's own servers (bsky.social) -- a self-hosted/third-party server isn't supported. "Invalid App Password" is a real error from Bluesky itself -- double-check the app password (not the main account password) was entered correctly.
 - Telegram: no bot token or chat ID needed from the customer -- add LazyRelay's own bot as an Administrator (with "Post Messages" rights) to a public Channel using its @username. Private groups aren't supported, only public Channels.
 - Discord posting is webhook-based, not a bot joining the server -- create a channel webhook in Discord's own settings (Integrations > Webhooks) and paste the URL into LazyRelay. Posts showing as "via Webhook" instead of a named bot is expected. Standard Discord Markdown (bold/italics/code) works in captions.
+- WordPress (added 2026-09-30) works with a customer's OWN self-hosted WordPress site (version 5.6 or newer, address starting with https). The customer creates an Application Password in WordPress under Users, Profile, and pastes the site address, username and that password on the connect page. WordPress.com hosted blogs are not supported. The first line of the post is the article title (or set a title under Platform options); the post can be published or saved as a draft on the site; a featured image, categories and tags are supported. Some hosts or security plugins switch Application Passwords off or block them, in which case connecting fails.
+- dev.to (added 2026-09-30): the customer generates an API key on dev.to under Settings, Extensions, "DEV Community API Keys", and pastes it on the connect page. The first line of the post is the title (or set a title under Platform options), the text is markdown, up to 4 tags, an optional series and original address; the post can be published or saved as a draft. Images show as pictures in the article; dev.to has no video upload through its API.
+- Hashnode (added 2026-09-30): the customer generates a personal access token on Hashnode under Account settings, Developer. IMPORTANT: since May 2026 Hashnode charges for its API, so the customer's blog must be on Hashnode's Pro plan or connecting and posting fail. Text is markdown, up to 5 tags, optional subtitle and original address; the post can be published or saved as a draft. No video.
+- Lemmy (added 2026-09-30): the customer connects with their Lemmy server, username and password (LazyRelay keeps a login token, not the password) and can save a default community. Lemmy expects automated posts to come from an account with "Bot account" ticked in Settings, Profile. Each post goes to one community (name or name@server); each community has its own rules and a moderator can remove a post. The first line is the title (200 characters), the rest is the body; an image is uploaded to the customer's server; no video.
+- A post saved as a draft on WordPress, dev.to or Hashnode finishes as "saved as a draft": it is not public, so it is never marked "confirmed live", and it is not counted in analytics.
 - Tumblr posts to the account's primary blog only -- no picker for choosing between multiple blogs on the same account.
 - High-resolution video failing to upload while smaller files work: LazyRelay accepts files up to 1GB, and each platform has its own size limit on top (for example Instagram and Facebook 300MB for video, Mastodon 99MB, Telegram 50MB, Discord 20MB unless the server is boosted). LazyRelay checks size and format before a post is scheduled and says which limit was hit. Video length and resolution aren't checked in advance, so a file within the size limit can still be rejected by the platform itself -- re-exporting at a lower resolution or shorter length usually fixes that.
 - "It hasn't verified live yet" on a freshly-posted post: normal for the first minute or so while LazyRelay re-checks the platform; if it's still not verified after several minutes, LazyRelay automatically retries a few times over the following minutes before marking it failed for good -- no need to repost manually while that's in progress.

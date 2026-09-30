@@ -19,7 +19,7 @@ const TOUR_STEPS = [
     target: '[data-tour="tab-social-platforms"]',
     closeButtonAction: "skip" as const,
     content:
-      "Connect your accounts here. Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, and Tumblr, all in one place.",
+      "Connect your accounts here. Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress, dev.to, Hashnode, and Lemmy, all in one place.",
   },
   {
     target: '[data-tour="tab-posts"]',

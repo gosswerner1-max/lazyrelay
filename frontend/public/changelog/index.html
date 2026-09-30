@@ -36,6 +36,17 @@
 <h1>Changelog</h1>
 <p class="subtitle">What's actually shipped, in plain language, most recent first. See <a href="/in-the-works">In the Works</a> for what's next.</p>
 
+<span class="entry-date">September 30, 2026</span>
+<ul>
+  <li>Four new places to publish: WordPress (your own self-hosted site), dev.to, Hashnode, and Lemmy. Each one gets the same scheduling and the same Proof-of-Publish read-back as the rest. Hashnode's own API now requires the Pro plan on your blog, so a Hashnode connection needs that.</li>
+  <li>For WordPress, dev.to, and Hashnode you can choose to save a post as a draft on the platform instead of publishing it. A draft ends cleanly as "saved as a draft" rather than counting as a failed post.</li>
+  <li>Client review links: send a client a private link where they can approve a post, ask for changes, or comment, with no login.</li>
+  <li>A Node SDK and command-line tool (@lazyrelay/sdk) and an n8n node (n8n-nodes-lazyrelay) on npm, both MIT-licensed, plus an OpenAPI description of the API and a guide for connecting LazyRelay to Make.</li>
+  <li>The MCP server now has 27 tools, including reschedule, pause, and resume.</li>
+  <li>The Settings tab is split into sub-tabs so it is no longer one long page.</li>
+  <li>The connect pages for Bluesky, Telegram, Discord, and the four new platforms now send what you paste (an app password, an API key) in the request itself rather than in the web address, so it no longer ends up in server logs.</li>
+</ul>
+
 <span class="entry-date">September 2, 2026</span>
 <ul>
   <li>LazyRelay's MCP server now works with 15 AI agents and editors, up from 7 — added Perplexity, Notion, Manus, OpenClaw, Antigravity, Raycast, Gemini CLI, and VS Code / GitHub Copilot, each with its own setup guide.</li>
