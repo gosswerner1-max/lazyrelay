@@ -44,20 +44,41 @@ describe("GET /platforms/rules", () => {
 });
 
 describe("GET /platforms (the picker)", () => {
-  it("leaves the four article platforms out until they are configured, and shows them once they are", async () => {
-    const hidden = await request(app()).get("/platforms");
-    const names = (hidden.body as Array<{ platform: string }>).map((p) => p.platform);
-    for (const p of ["wordpress", "devto", "hashnode", "lemmy"]) expect(names).not.toContain(p);
-    expect(names).toContain("tiktok");
-
+  const four = ["wordpress", "devto", "hashnode", "lemmy"];
+  const names = (body: unknown) => (body as Array<{ platform: string }>).map((p) => p.platform);
+  const withRegistry = (entries: string[]) => {
     const a = express();
     a.use(express.json());
-    a.use(buildSocialAccountsRouter(new Map([["devto", {}], ["lemmy", {}]]) as never));
-    const shown = await request(a).get("/platforms");
-    const shownNames = (shown.body as Array<{ platform: string }>).map((p) => p.platform);
-    expect(shownNames).toContain("devto");
-    expect(shownNames).toContain("lemmy");
-    expect(shownNames).not.toContain("wordpress");
-    expect((shown.body as Array<{ platform: string; configured: boolean }>).find((p) => p.platform === "devto")?.configured).toBe(true);
+    a.use(buildSocialAccountsRouter(new Map(entries.map((e) => [e, {}])) as never));
+    return a;
+  };
+
+  it("leaves the four article platforms out while they are not configured", async () => {
+    const r = await request(app()).get("/platforms");
+    for (const p of four) expect(names(r.body)).not.toContain(p);
+    expect(names(r.body)).toContain("tiktok");
+  });
+
+  it("configured but not yet proven: only the named test accounts see them", async () => {
+    process.env.ARTICLE_PLATFORMS_TEST_ACCOUNT_IDS = "someone-else";
+    let r = await request(withRegistry(["devto"])).get("/platforms");
+    expect(names(r.body)).not.toContain("devto");
+    process.env.ARTICLE_PLATFORMS_TEST_ACCOUNT_IDS = "x, acc1";
+    r = await request(withRegistry(["devto", "lemmy"])).get("/platforms");
+    expect(names(r.body)).toContain("devto");
+    expect(names(r.body)).toContain("lemmy");
+    expect(names(r.body)).not.toContain("wordpress");
+    expect((r.body as Array<{ platform: string; configured: boolean }>).find((p) => p.platform === "devto")?.configured).toBe(true);
+    process.env.ARTICLE_PLATFORMS_TEST_ACCOUNT_IDS = "someone-else";
+    const blocked = await request(withRegistry(["devto"])).get("/social-accounts/connect?platform=wordpress");
+    expect(blocked.status).toBe(400);
+    delete process.env.ARTICLE_PLATFORMS_TEST_ACCOUNT_IDS;
+  });
+
+  it("once proven, ARTICLE_PLATFORMS_PUBLIC opens them to everyone", async () => {
+    process.env.ARTICLE_PLATFORMS_PUBLIC = "true";
+    const r = await request(withRegistry(["hashnode"])).get("/platforms");
+    expect(names(r.body)).toContain("hashnode");
+    delete process.env.ARTICLE_PLATFORMS_PUBLIC;
   });
 });

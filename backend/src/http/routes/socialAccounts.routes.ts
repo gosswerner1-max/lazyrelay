@@ -47,10 +47,18 @@ const ALL_PLATFORMS = [
   "wordpress", "devto", "hashnode", "lemmy",
 ] as const;
 const COMING_SOON_PLATFORMS = new Set<string>(["x"]);
-// New platforms stay out of the picker entirely until they are switched on for this deploy (the connect-page
-// address is set), so customers never see a tile for something that is not ready. Everything else keeps its
-// dimmed "not set up" tile when its settings are missing.
+// New platforms stay out of the picker entirely until they are switched on for this deploy, so customers never
+// see a tile for something that is not ready. While a platform is being proven on real accounts it is switched on
+// only for the accounts named in ARTICLE_PLATFORMS_TEST_ACCOUNT_IDS (comma separated); once proven,
+// ARTICLE_PLATFORMS_PUBLIC=true opens it to everyone. Everything else keeps its dimmed "not set up" tile when
+// its settings are missing.
 const HIDDEN_UNTIL_CONFIGURED = new Set<string>(["wordpress", "devto", "hashnode", "lemmy"]);
+function canSeePlatform(platform: string, accountId: string | undefined): boolean {
+  if (!HIDDEN_UNTIL_CONFIGURED.has(platform)) return true;
+  if (process.env.ARTICLE_PLATFORMS_PUBLIC === "true") return true;
+  const testers = (process.env.ARTICLE_PLATFORMS_TEST_ACCOUNT_IDS ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+  return !!accountId && testers.includes(accountId);
+}
 
 export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Router {
   const router = Router();
@@ -61,7 +69,7 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
   // clickable regardless of configuration.
   router.get("/platforms", requireAuth, tieredRateLimit, (_req: AuthedRequest, res) => {
     res.json(
-      ALL_PLATFORMS.filter((platform) => !HIDDEN_UNTIL_CONFIGURED.has(platform) || registry.has(platform)).map((platform) => ({
+      ALL_PLATFORMS.filter((platform) => !HIDDEN_UNTIL_CONFIGURED.has(platform) || (registry.has(platform) && canSeePlatform(platform, _req.accountId))).map((platform) => ({
         platform,
         configured: registry.has(platform),
         comingSoon: COMING_SOON_PLATFORMS.has(platform),
@@ -93,6 +101,10 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
     }
     if (COMING_SOON_PLATFORMS.has(platform)) {
       res.status(400).json({ error: `${platform} is coming soon and isn't available to connect yet.` });
+      return;
+    }
+    if (!canSeePlatform(platform, req.accountId)) {
+      res.status(400).json({ error: `${platform} isn't available to connect yet.` });
       return;
     }
     try {
