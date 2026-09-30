@@ -115,6 +115,10 @@ export async function attemptDelivery(deliveryId: string): Promise<AttemptResult
     if (result.status === "delivered") {
       patch.status = "delivered";
       patch.delivered_at = new Date().toISOString();
+    } else if (result.status === "retry" && delivery.event === "webhook.test") {
+      // The Send test button: the customer is watching the answer, so one
+      // attempt, no retries.
+      patch.status = "failed";
     } else if (result.status === "retry") {
       const delay = nextRetryDelayMs(attempts);
       if (delay === null) {

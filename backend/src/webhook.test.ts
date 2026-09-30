@@ -200,6 +200,18 @@ describe("retries", () => {
     expect((await runWebhookDeliveryCycle(Date.now() + 10 * 60 * MIN)).attempted).toBe(0);
   });
 
+  it("a Send test event is tried once and never queued for retries, and says attempt 1", async () => {
+    await queue({ event: "webhook.test" });
+    respond(503);
+    await attemptDelivery("d1");
+    const headers = (fetchMock.mock.calls[0] as [string, { headers: Record<string, string> }])[1].headers;
+    expect(headers["X-LazyRelay-Attempt"]).toBe("1");
+    expect(deliveries()[0].status).toBe("failed");
+    expect(deliveries()[0].attempts).toBe(1);
+    expect(String(deliveries()[0].last_error)).not.toMatch(/Gave up/);
+    expect((await runWebhookDeliveryCycle(Date.now() + 10 * 60 * MIN)).attempted).toBe(0);
+  });
+
   it("a redirect is refused and not followed, and not retried", async () => {
     await queue();
     respond(302);

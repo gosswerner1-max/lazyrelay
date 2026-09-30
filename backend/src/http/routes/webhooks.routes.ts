@@ -13,7 +13,7 @@ import { tieredRateLimit } from "../rateLimit.js";
 import { isSafeMediaUrl } from "../../urlSafety.js";
 import { dbError } from "./shared.js";
 import { validateBody } from "../validation.js";
-import { attemptDelivery, generateWebhookSecret, MAX_ATTEMPTS, MAX_WEBHOOK_ENDPOINTS, WEBHOOK_EVENTS } from "../../webhook.js";
+import { attemptDelivery, generateWebhookSecret, MAX_WEBHOOK_ENDPOINTS, WEBHOOK_EVENTS } from "../../webhook.js";
 import { randomUUID } from "node:crypto";
 
 const eventsSchema = z
@@ -255,9 +255,7 @@ export function buildWebhooksRouter(): Router {
         payload: { event: "webhook.test", eventId, createdAt: new Date().toISOString(), message: "This is a test event from LazyRelay." },
         status: "pending",
         next_attempt_at: new Date().toISOString(),
-        // Not retried: the customer is watching the answer, so this counts as
-        // the last-but-one attempt and a failure ends it.
-        attempts: MAX_ATTEMPTS - 1,
+        attempts: 0,
       })
       .select("id")
       .single();
