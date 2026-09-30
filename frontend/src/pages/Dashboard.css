@@ -2340,6 +2340,8 @@
 .platform-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  /* Every row as tall as the tallest one, so a tile without the Connected line (the last one) matches the rest. */
+  grid-auto-rows: 1fr;
   gap: 10px;
 }
 
@@ -2347,6 +2349,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-start;
   gap: 6px;
   padding: 12px 8px;
   border: 1px solid var(--line);
