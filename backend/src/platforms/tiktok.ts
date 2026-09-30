@@ -55,6 +55,19 @@ interface TikTokApiEnvelope<T> {
   error?: { code: string; message: string; log_id?: string };
 }
 
+/** TikTok's own message plus its error code and log id. TikTok often answers a refused
+ *  post with a generic "review our integration guidelines" sentence and puts the real
+ *  reason only in error.code (spam_risk_too_many_posts, unaudited_client..., and so on),
+ *  so the code has to travel with the message or the reason is lost (found 2026-09-30
+ *  when a post was declined and only the generic sentence had been saved). The code
+ *  also lets the error classifier (postErrors.ts) recognise it. */
+export function describeTikTokError(error: { code?: string; message?: string; log_id?: string } | undefined, fallback: string): string {
+  if (!error) return fallback;
+  const message = error.message?.trim() || fallback;
+  const extras = [error.code && error.code !== "ok" ? `code: ${error.code}` : null, error.log_id ? `log: ${error.log_id}` : null].filter(Boolean);
+  return extras.length > 0 ? `${message} (TikTok ${extras.join(", ")})` : message;
+}
+
 // TikTok's real per-chunk ceiling (developers.tiktok.com/doc/content-posting-api-media-transfer-guide,
 // confirmed live 2026-09-05): a chunk may be up to 64MB, and a video under
 // 5MB must go up as one whole "chunk" too (chunk_size === video_size). So
@@ -359,7 +372,7 @@ export class TikTokAdapter implements PlatformAdapter {
       return {
         success: false,
         platformPostId: null,
-        errorMessage: json.error?.message ?? `TikTok post init failed (HTTP ${res.status})`,
+        errorMessage: describeTikTokError(json.error, `TikTok post init failed (HTTP ${res.status})`),
       };
     }
 
@@ -435,7 +448,7 @@ export class TikTokAdapter implements PlatformAdapter {
         return {
           verifiedLive: false,
           platformPostUrl: null,
-          errorMessage: json.error?.message ?? `TikTok status check failed (HTTP ${res.status})`,
+          errorMessage: describeTikTokError(json.error, `TikTok status check failed (HTTP ${res.status})`),
         };
       }
 
