@@ -15,6 +15,8 @@ export function AnalyticsTab() {
     accounts,
     brandFilter,
     setBrandFilter,
+    tagFilter,
+    setTagFilter,
     analytics,
     analyticsLoading,
     analyticsRangeDays,
@@ -40,6 +42,19 @@ export function AnalyticsTab() {
         ))}
       </div>
       <BrandFilterSelect accounts={accounts} value={brandFilter} onChange={setBrandFilter} />
+      {((analytics?.availableTags?.length ?? 0) > 0 || tagFilter) && (
+        <label>
+          Tag
+          <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}>
+            <option value="">All posts</option>
+            {[...new Set([...(analytics?.availableTags ?? []), ...(tagFilter ? [tagFilter] : [])])].map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {analyticsLoading && <Spinner />}
       {!analyticsLoading && analytics && analytics.totalPosts === 0 && (
         <p className="empty">No posts scheduled in this range yet. Analytics fill in once posts go out.</p>

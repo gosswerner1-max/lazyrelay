@@ -30,6 +30,8 @@ export function PostsTab() {
     sharingProofId,
     shareProofResult,
     setError,
+    postTagsText,
+    setPostTagsText,
     setTab,
     brandFilter,
     setBrandFilter,
@@ -298,6 +300,10 @@ export function PostsTab() {
             <textarea value={content} onChange={(e) => setContent(e.target.value)} required />
           </label>
           <SnippetPicker content={content} setContent={setContent} />
+          <label>
+            Tags (optional, up to 5, separated by commas)
+            <input type="text" placeholder="e.g. launch, giveaway" value={postTagsText} onChange={(e) => setPostTagsText(e.target.value)} />
+          </label>
           <div className="hashtag-suggest-row">
             <button type="button" className="btn-outline" disabled={hashtagGenerating} onClick={handleSuggestHashtags}>
               {hashtagGenerating ? "Suggesting..." : "Suggest hashtags"}

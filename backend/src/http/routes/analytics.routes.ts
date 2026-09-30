@@ -33,6 +33,7 @@ export function buildAnalyticsRouter(): Router {
     const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 90);
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
     const brand = typeof req.query.brand === "string" && req.query.brand.length > 0 ? req.query.brand : undefined;
+    const tag = typeof req.query.tag === "string" && req.query.tag.trim().length > 0 ? req.query.tag.trim().toLowerCase() : undefined;
 
     let matchingSocialAccountIds: string[] | undefined;
     try {
@@ -69,6 +70,7 @@ export function buildAnalyticsRouter(): Router {
         .gte("scheduled_for", since)
         .order("scheduled_for", { ascending: true });
       if (matchingSocialAccountIds) q = q.in("social_account_id", matchingSocialAccountIds);
+      if (tag) q = q.contains("tags", [tag]);
       return q.range(from, to);
     }, ANALYTICS_SCHEDULED_POSTS_MAX)
       .then((data) => ({ data, error: null as unknown }))
@@ -83,6 +85,9 @@ export function buildAnalyticsRouter(): Router {
     if (matchingSocialAccountIds) {
       totalPostsCountQuery = totalPostsCountQuery.in("social_account_id", matchingSocialAccountIds);
     }
+    if (tag) totalPostsCountQuery = totalPostsCountQuery.contains("tags", [tag]);
+    // Every tag this account has used, so the dashboard can offer them as a filter.
+    const tagRowsPromise = req.db!.from("scheduled_posts").select("tags").eq("account_id", req.accountId).neq("tags", "{}").limit(2000);
     // Audience growth (2026-08-17) — same brand-filter scoping as the posts
     // query above, just against audience_snapshots instead of
     // scheduled_posts. social_accounts(platform) joined in so the frontend
@@ -103,12 +108,14 @@ export function buildAnalyticsRouter(): Router {
       { data: dmAutomationRows },
       { count: accountsConnectedCount },
       { data: audienceSnapshotRows, error: audienceError },
+      { data: tagRows },
     ] = await Promise.all([
       scheduledPostsPromise,
       totalPostsCountQuery,
       req.db!.from("dm_automations").select("id").eq("account_id", req.accountId),
       req.db!.from("social_accounts").select("id", { count: "exact", head: true }).eq("account_id", req.accountId).is("disconnected_at", null),
       audienceSnapshotsQuery,
+      tagRowsPromise,
     ]);
     if (error) {
       dbError(res, error, "GET /analytics/summary");
@@ -237,6 +244,7 @@ export function buildAnalyticsRouter(): Router {
       dmCount,
       accountsConnected,
       audienceGrowth,
+      availableTags: [...new Set(((tagRows ?? []) as Array<{ tags: string[] | null }>).flatMap((r) => r.tags ?? []))].sort(),
     });
   });
 

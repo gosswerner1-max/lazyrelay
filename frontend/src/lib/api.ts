@@ -279,6 +279,8 @@ export interface RecurringScheduleInput {
 
 export interface AnalyticsSummary {
   rangeDays: number;
+  // Every tag the account has used, for the Analytics tag filter.
+  availableTags?: string[];
   totalPosts: number;
   byStatus: Record<string, number>;
   byPlatform: Record<string, { total: number; posted: number; failed: number; verifiedLive: number }>;
@@ -531,6 +533,7 @@ export const api = {
     boardId?: string;
     destinationLink?: string;
     firstComment?: string;
+    tags?: string[];
     mediaAltText?: string;
     tiktokPrivacyLevel?: string;
     tiktokDisableComment?: boolean;
@@ -611,8 +614,8 @@ export const api = {
   ): Promise<{ succeeded: number; failed: number; results: Array<{ row: number; status: number; body: { error?: string } }> }> =>
     authedFetch("/scheduled-posts/bulk", { method: "POST", body: JSON.stringify({ posts }) }),
 
-  getAnalyticsSummary: (days = 30, brand?: string): Promise<AnalyticsSummary> =>
-    authedFetch(`/analytics/summary?days=${days}${brand ? `&brand=${encodeURIComponent(brand)}` : ""}`),
+  getAnalyticsSummary: (days = 30, brand?: string, tag?: string): Promise<AnalyticsSummary> =>
+    authedFetch(`/analytics/summary?days=${days}${brand ? `&brand=${encodeURIComponent(brand)}` : ""}${tag ? `&tag=${encodeURIComponent(tag)}` : ""}`),
   getAnalyticsInsight: (
     days: number,
     brand?: string,

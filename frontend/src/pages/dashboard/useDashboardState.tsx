@@ -4,6 +4,7 @@
 // here runs in the same component, in the same order, as before the split.
 
 
+import { parseTags } from "../../lib/postTags";
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../../context/AuthContext";
@@ -119,6 +120,9 @@ export function useDashboardState() {
   const [runTour, setRunTour] = useState(false);
   const [showGcalPrompt, setShowGcalPrompt] = useState(false);
   const [brandFilter, setBrandFilter] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
+  // Comma-separated tags typed in the composer; cleaned by parseTags at submit.
+  const [postTagsText, setPostTagsText] = useState("");
   const [brands, setBrands] = useState<Brand[]>([]);
   const [newBrandName, setNewBrandName] = useState("");
   const [brandBusy, setBrandBusy] = useState(false);
@@ -647,12 +651,12 @@ export function useDashboardState() {
       if (document.visibilityState !== "visible") return;
       api.listScheduledPosts().then(setPosts).catch(() => {});
       if (tab === "Overview" || tab === "Analytics") {
-        api.getAnalyticsSummary(tab === "Overview" ? 30 : analyticsRangeDays, brandFilter || undefined).then(setAnalytics).catch(() => {});
+        api.getAnalyticsSummary(tab === "Overview" ? 30 : analyticsRangeDays, brandFilter || undefined, tab === "Analytics" ? tagFilter || undefined : undefined).then(setAnalytics).catch(() => {});
       }
     }
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [tab, analyticsRangeDays, brandFilter]);
+  }, [tab, analyticsRangeDays, brandFilter, tagFilter]);
 
   // Lazy-loaded, not part of refresh() — analytics isn't needed on first
   // paint for most customers, and re-fetching it every time an unrelated
@@ -667,11 +671,11 @@ export function useDashboardState() {
     setAnalyticsLoading(true);
     setInsightResult(null);
     api
-      .getAnalyticsSummary(days, brandFilter || undefined)
+      .getAnalyticsSummary(days, brandFilter || undefined, tab === "Analytics" ? tagFilter || undefined : undefined)
       .then(setAnalytics)
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setAnalyticsLoading(false));
-  }, [tab, analyticsRangeDays, brandFilter]);
+  }, [tab, analyticsRangeDays, brandFilter, tagFilter]);
 
   // Lazy-loaded — fetching comments hits each platform's API per post, so
   // this should only run when the customer actually opens the tab, not on
@@ -1383,6 +1387,7 @@ export function useDashboardState() {
           // Only consumed server-side for Facebook/Instagram today — harmless
           // no-op for every other platform, same pattern as boardId above.
           firstComment: firstComment?.trim() ? firstComment.trim() : undefined,
+          tags: parseTags(postTagsText),
           // Only consumed by Mastodon today (see PostRequest.mediaAltText) —
           // every other adapter simply ignores it, same pattern as above.
           mediaAltText: mediaAltText?.trim() ? mediaAltText.trim() : undefined,
@@ -1415,6 +1420,7 @@ export function useDashboardState() {
       setCoverImageUrl(null);
       setDestinationLink(null);
       setFirstComment(null);
+      setPostTagsText("");
       setMediaAltText(null);
       setTiktokPrivacyLevel(null);
       setTiktokAllowComment(false);
@@ -2686,6 +2692,10 @@ export function useDashboardState() {
     showGcalPrompt,
     brandFilter,
     setBrandFilter,
+    tagFilter,
+    setTagFilter,
+    postTagsText,
+    setPostTagsText,
     brands,
     newBrandName,
     setNewBrandName,
