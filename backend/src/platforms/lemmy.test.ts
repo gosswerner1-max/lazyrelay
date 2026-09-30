@@ -620,3 +620,33 @@ describe("review fixes", () => {
     expect(calls.some((c) => c.url.includes("/api/v4/"))).toBe(false);
   });
 });
+
+describe("an instance that serves a cached, anonymous /site (seen live on lemmy.cafe)", () => {
+  function cachedSiteServer(opts: { unreadStatus?: number } = {}) {
+    on((url) => {
+      if (url === `${ORIGIN}/api/v3/site`) return reply(200, SITE_OK, { "cache-control": "public, max-age=60" }); // never has my_user
+      if (url === `${ORIGIN}/api/v3/user/login`) return reply(200, { jwt: JWT, registration_created: false, verify_email_sent: false });
+      if (url === `${ORIGIN}/api/v3/user/unread_count`) return reply(opts.unreadStatus ?? 200, opts.unreadStatus && opts.unreadStatus >= 400 ? { error: "not_logged_in" } : { replies: 0, mentions: 0, private_messages: 0 });
+      if (url.startsWith(`${ORIGIN}/api/v3/user?username=`)) return reply(200, { person_view: { person: { name: "alice", deleted: false } } });
+      return undefined;
+    });
+  }
+
+  it("still connects: the login is proven by the unread count and the name by the public profile", async () => {
+    cachedSiteServer();
+    const r = await adapter().exchangeCode(connectJson());
+    expect(r.platformAccountId).toBe("alice@lemmy.example");
+    expect(JSON.parse(r.accessToken)).toMatchObject({ jwt: JWT, username: "alice", apiVersion: 3 });
+    // The token went only to the login-checked endpoint, and the profile lookup carried no login at all.
+    const profile = calls.find((c) => c.url.includes("/user?username="))!;
+    expect((profile.init.headers as Record<string, string>).Authorization).toBeUndefined();
+    noSecrets(r.displayName);
+  });
+
+  it("refuses when the token itself is not accepted (a 401 on the unread count)", async () => {
+    cachedSiteServer({ unreadStatus: 401 });
+    const err = await adapter().exchangeCode(connectJson()).catch((e: Error) => e);
+    expect((err as Error).message).toMatch(/did not confirm the account/);
+    noSecrets((err as Error).message);
+  });
+});

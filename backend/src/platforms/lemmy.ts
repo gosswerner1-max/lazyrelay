@@ -395,12 +395,22 @@ export class LemmyAdapter implements PlatformAdapter {
 
       // Confirm the account is really usable with this token before saving anything.
       const site = await apiCall(api, jwt, "GET", "/site");
-      const person = site.json?.my_user?.local_user_view?.person as { name?: string; deleted?: boolean } | undefined;
+      let person = site.json?.my_user?.local_user_view?.person as { name?: string; deleted?: boolean } | undefined;
       if (!site.ok || !person?.name) {
-        // Names and codes only, never a token or a password: enough to see what the server answered.
-        const body = site.json as Record<string, unknown> | null;
-        console.warn(`[lemmy] account check failed: host=${new URL(api.origin).hostname} api=v${api.version} status=${site.status} hasBody=${body !== null} keys=${body ? Object.keys(body).join(",") : "-"} myUserKeys=${body && typeof body.my_user === "object" && body.my_user ? Object.keys(body.my_user as object).join(",") : "-"} error=${errorCode(site.json) ?? "-"}`);
-        throw new Error("Lemmy accepted the login but did not confirm the account. Try connecting again.");
+        // Some instances (seen live on lemmy.cafe, whose /site answer is marked publicly cacheable) hand a
+        // logged-in request the shared anonymous copy of /site, which has no my_user. So the account is checked
+        // with two calls that cannot be cached: the unread count (needs a valid login) and the public profile.
+        const unread = await apiCall(api, jwt, "GET", api.version === 4 ? "/account/unread_counts" : "/user/unread_count");
+        if (!unread.ok) {
+          console.warn(`[lemmy] token check failed: host=${new URL(api.origin).hostname} api=v${api.version} site=${site.status} unread=${unread.status} error=${errorCode(unread.json) ?? "-"}`);
+          throw new Error("Lemmy accepted the login but did not confirm the account. Try connecting again.");
+        }
+        const who = await apiCall(api, null, "GET", api.version === 4 ? "/person" : "/user", { query: { username: form.username.trim() } });
+        person = who.json?.person_view?.person as { name?: string; deleted?: boolean } | undefined;
+        if (!who.ok || !person?.name) {
+          console.warn(`[lemmy] profile lookup failed: host=${new URL(api.origin).hostname} api=v${api.version} status=${who.status} error=${errorCode(who.json) ?? "-"}`);
+          throw new Error("Lemmy accepted the login but did not confirm the account. Try connecting again.");
+        }
       }
       if (person.deleted) throw new Error("That Lemmy account has been deleted.");
 
