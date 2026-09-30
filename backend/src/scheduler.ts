@@ -4,6 +4,7 @@ import type { PlatformAdapter, PostAttemptResult } from "./platforms/types.js";
 import { notifyOps } from "./notify.js";
 import { clearReconnect, flagReconnect, isPermanentAuthError, platformLabel } from "./tokenHealth.js";
 import { classifyPostError, type PostErrorKind } from "./postErrors.js";
+import { resolvePostLimitAt } from "./pinterestWarmup.js";
 import { sendFailureAlert, sendAccountPausedAlert } from "./email.js";
 import { sendVerifiedWebhook } from "./webhook.js";
 import {
@@ -535,10 +536,13 @@ async function unclaimPost(post: DuePost, deferUntil?: Date): Promise<void> {
  *  Fails open (null): a failed lookup must not turn into a post failure,
  *  and the scheduling-time check already ran. */
 export async function getPlatformLimitDeferral(post: DuePost): Promise<Date | null> {
-  const limit = getRolling24hPostLimit(post.platform);
-  if (limit === null) return null;
+  if (getRolling24hPostLimit(post.platform) === null) return null;
   try {
     const now = new Date();
+    // A brand-new Pinterest account is on the warm-up ramp (pinterestWarmup.ts).
+    const effective = await resolvePostLimitAt(post.social_account_id, post.platform, now);
+    if (!effective) return null;
+    const limit = effective.limit;
     const { data, error } = await supabase
       .from("scheduled_posts")
       .select("scheduled_for")

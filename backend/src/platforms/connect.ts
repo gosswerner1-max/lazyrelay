@@ -292,6 +292,7 @@ export async function finalizeConnectSelection(
   selectedIds: string[],
   accountId: string | undefined,
   registry: PlatformAdapterRegistry,
+  finalizeOptions: { warmedUp?: boolean } = {},
 ): Promise<string[]> {
   if (selectedIds.length === 0) {
     throw new Error("Pick at least one account to connect");
@@ -337,6 +338,7 @@ export async function finalizeConnectSelection(
   if (confirmed) {
     const socialAccountId = await storeConnectedAccount(stateRow.account_id, adapter.platform, confirmed);
     await scrubHeldToken(stateRow.pending_token_vault_id);
+    await recordWarmupConfirmation(adapter.platform, [socialAccountId], finalizeOptions.warmedUp === true);
     return [socialAccountId];
   }
 
@@ -350,6 +352,7 @@ export async function finalizeConnectSelection(
     const socialAccountId = await storeConnectedAccount(stateRow.account_id, adapter.platform, result);
     socialAccountIds.push(socialAccountId);
   }
+  await recordWarmupConfirmation(adapter.platform, socialAccountIds, finalizeOptions.warmedUp === true);
   return socialAccountIds;
 }
 
@@ -408,4 +411,18 @@ export async function purgeExpiredConnects(now: number = Date.now()): Promise<nu
     if (!deleteError) cleaned += 1;
   }
   return cleaned;
+}
+
+/** Pinterest only. The customer said at the confirmation step that this
+ *  account is already warmed up (they posted by hand first, as the connect
+ *  popup advises), so it skips the new-account ramp (pinterestWarmup.ts). An
+ *  unticked box changes nothing: the ramp applies from the connection date,
+ *  and reconnecting an existing account never resets it. */
+async function recordWarmupConfirmation(platform: string, socialAccountIds: string[], warmedUp: boolean): Promise<void> {
+  if (platform !== "pinterest" || !warmedUp || socialAccountIds.length === 0) return;
+  const { error } = await supabase
+    .from("social_accounts")
+    .update({ pinterest_warmup_confirmed_at: new Date().toISOString() })
+    .in("id", socialAccountIds);
+  if (error) console.error("[connect] could not record the warm-up confirmation:", error.message);
 }

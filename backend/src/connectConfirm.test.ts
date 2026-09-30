@@ -201,3 +201,31 @@ describe("purgeExpiredConnects", () => {
     expect(vault.get("v-live")).toBe("live-token"); // a flow still in progress is never touched
   });
 });
+
+describe("Pinterest warm-up confirmation at the confirm step", () => {
+  const pinterestAdapter = () => oauthAdapter({ platform: "pinterest" });
+
+  it("ticking 'already warmed up' records it, so the account skips the ramp", async () => {
+    seedState({ platform: "pinterest" });
+    const adapter = pinterestAdapter();
+    await completeConnect("st1", "code", registryOf(adapter));
+    await finalizeConnectSelection("st1", ["li-42"], "acc1", registryOf(adapter), { warmedUp: true });
+    expect(tables.social_accounts[0].pinterest_warmup_confirmed_at).toBeTruthy();
+  });
+
+  it("leaving it unticked records nothing, so the ramp applies from the connection date", async () => {
+    seedState({ platform: "pinterest" });
+    const adapter = pinterestAdapter();
+    await completeConnect("st1", "code", registryOf(adapter));
+    await finalizeConnectSelection("st1", ["li-42"], "acc1", registryOf(adapter), { warmedUp: false });
+    expect(tables.social_accounts[0].pinterest_warmup_confirmed_at ?? null).toBeNull();
+  });
+
+  it("the flag is ignored for every other platform", async () => {
+    seedState();
+    const adapter = oauthAdapter(); // linkedin
+    await completeConnect("st1", "code", registryOf(adapter));
+    await finalizeConnectSelection("st1", ["li-42"], "acc1", registryOf(adapter), { warmedUp: true });
+    expect(tables.social_accounts[0].pinterest_warmup_confirmed_at ?? null).toBeNull();
+  });
+});

@@ -218,6 +218,8 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
   const finalizeSelectionBodySchema = z.object({
     token: z.string({ error: FINALIZE_SELECTION_ERROR }),
     selectedIds: z.array(z.string({ error: FINALIZE_SELECTION_ERROR }), { error: FINALIZE_SELECTION_ERROR }),
+    // Pinterest confirmation only: "this account is already warmed up".
+    warmedUp: z.boolean().optional(),
   });
   router.post("/social-accounts/finalize-selection", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const body = validateBody(finalizeSelectionBodySchema, req.body);
@@ -225,9 +227,9 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
       res.status(400).json({ error: body.error });
       return;
     }
-    const { token, selectedIds } = body.data;
+    const { token, selectedIds, warmedUp } = body.data;
     try {
-      const socialAccountIds = await finalizeConnectSelection(token, selectedIds, req.accountId, registry);
+      const socialAccountIds = await finalizeConnectSelection(token, selectedIds, req.accountId, registry, { warmedUp });
       res.json({ connected: true, socialAccountIds });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

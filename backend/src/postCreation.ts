@@ -27,6 +27,7 @@ import {
   platformLimitMessage,
   wouldExceedRolling24hLimit,
 } from "./platformPostLimits.js";
+import { resolvePostLimitAt } from "./pinterestWarmup.js";
 
 /** Free tier: 10 posts per connected account per calendar month. */
 export const FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT = 10;
@@ -406,10 +407,14 @@ export async function checkPlatformPostLimit(input: {
   scheduledFor: string | Date;
   excludePostId?: string;
 }): Promise<PostFieldsError | null> {
-  const limit = getRolling24hPostLimit(input.platform);
-  if (limit === null) return null;
+  if (getRolling24hPostLimit(input.platform) === null) return null;
   const desired = new Date(input.scheduledFor);
   if (Number.isNaN(desired.getTime())) return null;
+  // The limit that applies at the time this post would go out: a brand-new
+  // Pinterest account is on the warm-up ramp, everything else the normal cap.
+  const effective = await resolvePostLimitAt(input.socialAccountId, input.platform, desired);
+  if (!effective) return null;
+  const limit = effective.limit;
 
   try {
     const nearby = await fetchCountedPosts(
@@ -432,10 +437,13 @@ export async function checkPlatformPostLimit(input: {
     return {
       status: 422,
       body: {
-        error: platformLimitMessage(input.platform, limit, nextAvailable),
+        error: platformLimitMessage(input.platform, limit, nextAvailable, effective.warmingUp ? { fullLimit: effective.fullLimit, warmupEndsAt: effective.warmupEndsAt } : undefined),
         code: "platform_daily_limit",
         platform: input.platform,
         limit,
+        fullLimit: effective.fullLimit,
+        warmingUp: effective.warmingUp,
+        warmupEndsAt: effective.warmupEndsAt ? effective.warmupEndsAt.toISOString() : null,
         nextAvailable: nextAvailable.toISOString(),
       },
     };

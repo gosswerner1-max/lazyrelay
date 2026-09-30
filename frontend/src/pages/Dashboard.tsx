@@ -16,6 +16,7 @@ import { Spinner } from "../components/Spinner";
 import { CircuitBackground } from "../components/CircuitBackground";
 import { SupportWidget } from "../components/SupportWidget";
 import { PinterestConnectModal } from "../components/PinterestConnectModal";
+import { describePlatformLimit } from "../lib/platformLimit";
 import { type Tab } from "./dashboard/dashboardHelpers";
 import { useDashboardState } from "./dashboard/useDashboardState";
 import { DashboardContext } from "./dashboard/DashboardContext";
@@ -54,6 +55,10 @@ export function Dashboard() {
     checkedOptionIds,
     setCheckedOptionIds,
     selectionBusy,
+    pinterestWarmedUp,
+    setPinterestWarmedUp,
+    platformLimit,
+    setPlatformLimit,
     account,
     loading,
     error,
@@ -260,6 +265,21 @@ export function Dashboard() {
               you meant, cancel, sign out of {pendingSelection.platform.charAt(0).toUpperCase() + pendingSelection.platform.slice(1)}{" "}
               (or use a private window), and connect again.
             </p>
+            {pendingSelection.platform === "pinterest" && (
+              <label style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", margin: "0 0 12px", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={pinterestWarmedUp}
+                  disabled={selectionBusy}
+                  onChange={(e) => setPinterestWarmedUp(e.target.checked)}
+                />
+                <span className="modal-subtitle" style={{ margin: 0 }}>
+                  This account is already warmed up: I have been posting by hand and it has 100+ monthly views. If you leave this
+                  unticked, LazyRelay eases a new account in (1 pin a day the first week, then 2, then 3, then up to 10 a day after
+                  about 2 weeks) so Pinterest does not treat it as spam.
+                </span>
+              </label>
+            )}
             <div className="modal-actions" style={{ flexDirection: "column", alignItems: "stretch", gap: "0.5rem" }}>
               <button
                 className="modal-confirm-cancel"
@@ -275,6 +295,29 @@ export function Dashboard() {
           </div>
         </div>
       )}
+
+      {platformLimit && (() => {
+        const info = describePlatformLimit(platformLimit);
+        return (
+          <div className="modal-overlay" onClick={() => setPlatformLimit(null)}>
+            <div className="modal-card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>{info.title}</h2>
+              </div>
+              {info.paragraphs.map((text) => (
+                <p key={text} className="modal-subtitle">
+                  {text}
+                </p>
+              ))}
+              <div className="modal-actions">
+                <button className="modal-confirm-cancel" autoFocus onClick={() => setPlatformLimit(null)}>
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {pendingSelection && pendingSelection.options.length > 1 && (
         <div className="modal-overlay">

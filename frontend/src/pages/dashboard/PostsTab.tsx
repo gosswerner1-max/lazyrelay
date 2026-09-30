@@ -261,7 +261,7 @@ export function PostsTab() {
           )}
           {selectedPinterestAccountId && (
             <p className="section-note">
-              Pinterest: up to 10 pins a day per account. New account or new website? Start with 1 to 3 a day.
+              Pinterest: up to 10 pins a day per account. A newly connected account starts at 1 a day and steps up over about 2 weeks. New website? Start slowly and vary your captions.
             </p>
           )}
           <div className="content-ideas-row">

@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { isPlatformLimitDetail, PLATFORM_LIMIT_EVENT } from "./platformLimit";
 import { hasAnalyticsConsent } from "../components/CookieConsent";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -31,6 +32,11 @@ async function authedFetch(path: string, options: RequestInit = {}) {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    // A post refused because of a platform's daily limit: also raise the popup
+    // that explains why (Dashboard listens), whichever screen made the request.
+    if (typeof window !== "undefined" && isPlatformLimitDetail(body)) {
+      window.dispatchEvent(new CustomEvent(PLATFORM_LIMIT_EVENT, { detail: body }));
+    }
     throw new Error(body.error ?? `Request failed: ${res.status}`);
   }
   return res.status === 204 ? null : res.json();
@@ -471,8 +477,15 @@ export const api = {
   // Page has a Business Account linked) — see backend/src/platforms/connect.ts.
   getPendingSelection: (token: string): Promise<{ platform: string; options: { id: string; name: string }[] }> =>
     authedFetch(`/social-accounts/pending-selection/${encodeURIComponent(token)}`),
-  finalizeSelection: (token: string, selectedIds: string[]): Promise<{ connected: boolean; socialAccountIds: string[] }> =>
-    authedFetch("/social-accounts/finalize-selection", { method: "POST", body: JSON.stringify({ token, selectedIds }) }),
+  finalizeSelection: (
+    token: string,
+    selectedIds: string[],
+    options?: { warmedUp?: boolean },
+  ): Promise<{ connected: boolean; socialAccountIds: string[] }> =>
+    authedFetch("/social-accounts/finalize-selection", {
+      method: "POST",
+      body: JSON.stringify({ token, selectedIds, ...(options?.warmedUp !== undefined ? { warmedUp: options.warmedUp } : {}) }),
+    }),
   // The customer saw which account they were about to connect and declined.
   cancelSelection: (token: string): Promise<{ cancelled: boolean }> =>
     authedFetch("/social-accounts/cancel-selection", { method: "POST", body: JSON.stringify({ token }) }),

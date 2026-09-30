@@ -10,6 +10,7 @@ import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
 import type { OAuthGrant } from "@supabase/supabase-js";
 import { api, type SocialAccount, type Brand, type BrandCapacity, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation, type TeamMember, type SeatCapacity } from "../../lib/api";
+import { PLATFORM_LIMIT_EVENT, type PlatformLimitDetail } from "../../lib/platformLimit";
 import { isTiktokDisclosureIncomplete } from "../../lib/tiktokDisclosure";
 import { getStoredPromoCode } from "../../lib/promo";
 import { getStoredReferralCode } from "../../lib/referral";
@@ -42,6 +43,15 @@ export function useDashboardState() {
   } | null>(null);
   const [checkedOptionIds, setCheckedOptionIds] = useState<string[]>([]);
   const [selectionBusy, setSelectionBusy] = useState(false);
+  // Pinterest confirm step: "this account is already warmed up" (skips the new-account ramp).
+  const [pinterestWarmedUp, setPinterestWarmedUp] = useState(false);
+  // Set when a post was refused because a platform's daily limit is full; shows the popup that explains why.
+  const [platformLimit, setPlatformLimit] = useState<PlatformLimitDetail | null>(null);
+  useEffect(() => {
+    const onLimit = (e: Event) => setPlatformLimit((e as CustomEvent<PlatformLimitDetail>).detail);
+    window.addEventListener(PLATFORM_LIMIT_EVENT, onLimit);
+    return () => window.removeEventListener(PLATFORM_LIMIT_EVENT, onLimit);
+  }, []);
   const [storageAddons, setStorageAddons] = useState<StorageAddon[]>([]);
   const [addonBusy, setAddonBusy] = useState<5 | 20 | 50 | string | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
@@ -817,6 +827,7 @@ export function useDashboardState() {
     } finally {
       setPendingSelection(null);
       setCheckedOptionIds([]);
+      setPinterestWarmedUp(false);
       setSelectionBusy(false);
     }
   }
@@ -826,7 +837,12 @@ export function useDashboardState() {
     setSelectionBusy(true);
     setError(null);
     try {
-      await api.finalizeSelection(pendingSelection.token, checkedOptionIds);
+      await api.finalizeSelection(
+        pendingSelection.token,
+        checkedOptionIds,
+        pendingSelection.platform === "pinterest" ? { warmedUp: pinterestWarmedUp } : undefined,
+      );
+      setPinterestWarmedUp(false);
       setPendingSelection(null);
       setCheckedOptionIds([]);
       setNotice(checkedOptionIds.length === 1 ? "Account connected!" : `${checkedOptionIds.length} accounts connected!`);
@@ -2655,6 +2671,10 @@ export function useDashboardState() {
     checkedOptionIds,
     setCheckedOptionIds,
     selectionBusy,
+    pinterestWarmedUp,
+    setPinterestWarmedUp,
+    platformLimit,
+    setPlatformLimit,
     storageAddons,
     addonBusy,
     account,

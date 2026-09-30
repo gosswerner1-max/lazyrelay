@@ -5,6 +5,7 @@ import { syncPostToCalendar } from "./googleCalendar/outboundSync.js";
 import { syncAccountSheet } from "./googleSheets/outboundSync.js";
 import { fetchCountedPosts } from "./postCreation.js";
 import { ROLLING_WINDOW_MS, getRolling24hPostLimit, wouldExceedRolling24hLimit } from "./platformPostLimits.js";
+import { effectiveLimitAt, loadWarmupState } from "./pinterestWarmup.js";
 
 // How far ahead to keep scheduled_posts populated from active recurring
 // schedules. Short enough that an outage under a week never silently loses
@@ -103,7 +104,10 @@ export async function dropRowsOverPlatformLimit<T extends { social_account_id: s
   }
 
   for (const [socialAccountId, accountRows] of cappedRowsByAccount) {
-    const limit = getRolling24hPostLimit(platformByAccountId.get(socialAccountId) as string) as number;
+    const accountPlatform = platformByAccountId.get(socialAccountId) as string;
+    // One lookup per account; the limit itself is worked out per occurrence
+    // because a new Pinterest account's ramp steps up over the days ahead.
+    const warmupState = await loadWarmupState(socialAccountId);
     const sorted = [...accountRows].sort(
       (a, b) => new Date(a.scheduled_for as string).getTime() - new Date(b.scheduled_for as string).getTime(),
     );
@@ -133,6 +137,7 @@ export async function dropRowsOverPlatformLimit<T extends { social_account_id: s
         kept.push(row);
         continue;
       }
+      const limit = (effectiveLimitAt(accountPlatform, warmupState, at) ?? { limit: Number.MAX_SAFE_INTEGER }).limit;
       if (wouldExceedRolling24hLimit(times, at, limit)) {
         console.warn(
           `[recurringScheduler] slot ${slotId}: skipping the ${at.toISOString()} occurrence for account ${socialAccountId}, it would exceed the platform's ${limit} posts per 24 hours.`,

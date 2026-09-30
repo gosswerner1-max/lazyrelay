@@ -35,6 +35,19 @@ vi.mock("./supabase.js", () => ({
   supabase: { from: (table: string) => makeBuilder(table) },
 }));
 
+// These tests are about the cap arithmetic and which posts count toward it. The
+// Pinterest warm-up ramp has its own tests (pinterestWarmup.test.ts), so here an
+// account is always a fully warmed-up one and no extra account lookup is made.
+vi.mock("./pinterestWarmup.js", async (importOriginal) => {
+  const real = await importOriginal<typeof import("./pinterestWarmup.js")>();
+  return {
+    ...real,
+    loadWarmupState: async () => ({ connectedAt: null, confirmed: true }),
+    resolvePostLimitAt: async (_id: string, platform: string, at: Date) =>
+      real.effectiveLimitAt(platform, { connectedAt: null, confirmed: true }, at),
+  };
+});
+
 // The modules under test read PINTEREST_DAILY_POST_LIMIT once at import
 // time; pin it to the documented default so a value in a local .env can't
 // change what these tests mean.
@@ -81,6 +94,9 @@ describe("checkPlatformPostLimit", () => {
       code: "platform_daily_limit",
       platform: "pinterest",
       limit: 10,
+      fullLimit: 10,
+      warmingUp: false,
+      warmupEndsAt: null,
       nextAvailable: iso(24),
     });
   });

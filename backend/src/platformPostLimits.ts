@@ -50,6 +50,51 @@ export function getRolling24hPostLimit(platform: string): number | null {
   return PLATFORM_ROLLING_24H_POST_LIMIT[platform] ?? null;
 }
 
+/** The Pinterest warm-up ramp for a NEW connection (Werner, from Blotato's
+ *  advice: 1 pin a day for the first week, then 2, then 3, until the account
+ *  has 100+ monthly views, about two weeks). Steps are by the account's age
+ *  in whole days at the time the post would go out; from day 14 the normal
+ *  daily cap applies. A step never exceeds the normal cap. */
+export const PINTEREST_WARMUP_RAMP: ReadonlyArray<{ untilDay: number; limit: number }> = [
+  { untilDay: 7, limit: 1 },
+  { untilDay: 10, limit: 2 },
+  { untilDay: 14, limit: 3 },
+];
+export const PINTEREST_WARMUP_DAYS = 14;
+
+export interface EffectiveLimit {
+  /** Max posts per rolling 24h for this account at this moment. */
+  limit: number;
+  /** The normal cap once the account is warmed up. */
+  fullLimit: number;
+  /** True while the ramp (not the normal cap) is what applies. */
+  warmingUp: boolean;
+  /** When the ramp ends and the normal cap applies, or null. */
+  warmupEndsAt: Date | null;
+}
+
+/** Pure: the limit for a Pinterest account of a given age. warmupConfirmed
+ *  accounts (already warmed by hand, or grandfathered) skip the ramp. */
+export function pinterestLimitForAge(
+  fullLimit: number,
+  connectedAt: Date | null,
+  warmupConfirmed: boolean,
+  at: Date,
+): EffectiveLimit {
+  if (warmupConfirmed || !connectedAt || Number.isNaN(connectedAt.getTime())) {
+    return { limit: fullLimit, fullLimit, warmingUp: false, warmupEndsAt: null };
+  }
+  const ageDays = Math.max(0, Math.floor((at.getTime() - connectedAt.getTime()) / (24 * 60 * 60 * 1000)));
+  const step = PINTEREST_WARMUP_RAMP.find((r) => ageDays < r.untilDay);
+  if (!step) return { limit: fullLimit, fullLimit, warmingUp: false, warmupEndsAt: null };
+  return {
+    limit: Math.min(step.limit, fullLimit),
+    fullLimit,
+    warmingUp: true,
+    warmupEndsAt: new Date(connectedAt.getTime() + PINTEREST_WARMUP_DAYS * 24 * 60 * 60 * 1000),
+  };
+}
+
 /** True if adding a post at `newTime` would put MORE than `limit` posts
  *  inside any 24h window that contains `newTime`. Only windows containing
  *  newTime are considered: a window elsewhere that was already over the
@@ -111,7 +156,17 @@ function formatUtcTime(d: Date): string {
 }
 
 /** The customer-facing sentence for a rejected post. */
-export function platformLimitMessage(platform: string, limit: number, nextAvailable: Date): string {
+export function platformLimitMessage(
+  platform: string,
+  limit: number,
+  nextAvailable: Date,
+  warmup?: { fullLimit: number; warmupEndsAt: Date | null },
+): string {
   const wording = PLATFORM_LIMIT_WORDING[platform] ?? { name: platform, noun: "posts" };
+  if (warmup) {
+    const noun = limit === 1 ? wording.noun.replace(/s$/, "") : wording.noun;
+    const ends = warmup.warmupEndsAt ? ` It rises to ${warmup.fullLimit} ${wording.noun} a day from ${formatUtcTime(warmup.warmupEndsAt)}.` : "";
+    return `This ${wording.name} account is still warming up, so LazyRelay allows ${limit} ${noun} a day for now, and that day is full.${ends} The next free time is ${formatUtcTime(nextAvailable)}.`;
+  }
   return `${wording.name} allows up to ${limit} ${wording.noun} a day per account, and that day is full. The next free time is ${formatUtcTime(nextAvailable)}.`;
 }
