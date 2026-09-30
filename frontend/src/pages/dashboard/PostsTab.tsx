@@ -930,6 +930,8 @@ export function PostsTab() {
                   <span className="verified">
                     <RelaySignal size={14} pulsing /> Confirmed live
                   </span>
+                ) : result.saved_as_draft ? (
+                  <span className="section-note">{result.error_message ?? "Saved as a draft on the platform, not published."}</span>
                 ) : (
                   <PostErrorDetail errorMessage={result.error_message} rawErrorMessage={result.raw_error_message} platform={account?.platform} />
                 )
