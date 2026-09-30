@@ -51,7 +51,7 @@ export function Partners({ onBack }: PartnersProps) {
           sending customers our way, not a one-time bounty. Pick whichever structure fits you when you apply.
         </p>
 
-        <div className="pricing-grid">
+        <div className="pricing-grid pricing-grid-partners">
           <div className="pricing-card-wrap">
             <div className="pricing-card">
               <h3>Plan A</h3>
