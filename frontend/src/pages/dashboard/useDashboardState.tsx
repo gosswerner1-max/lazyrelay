@@ -229,6 +229,9 @@ export function useDashboardState() {
   // Guidance dialog shown before every Pinterest connect (see
   // PinterestConnectModal.tsx) -- not persisted, appears on each press.
   const [showPinterestConnectModal, setShowPinterestConnectModal] = useState(false);
+  // "Which Mastodon server?" dialog shown before every Mastodon connect (see
+  // MastodonServerModal.tsx) -- not persisted, nothing remembered.
+  const [showMastodonServerModal, setShowMastodonServerModal] = useState(false);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [mediaUploading, setMediaUploading] = useState(false);
   const [mediaUploadProgress, setMediaUploadProgress] = useState(0);
@@ -1058,15 +1061,20 @@ export function useDashboardState() {
     }
   }
 
-  async function handleConnect(platform: string) {
+  // Returns an error message (or null on success) so a dialog can show it itself.
+  // `quiet` keeps the error off the dashboard banner when the caller shows it.
+  async function handleConnect(platform: string, instance?: string, opts?: { quiet?: boolean }): Promise<string | null> {
     setConnectingPlatform(platform);
     setError(null);
     try {
-      const { authorizeUrl } = await api.startConnect(platform);
+      const { authorizeUrl } = await api.startConnect(platform, instance);
       window.location.href = authorizeUrl;
+      return null;
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      if (!opts?.quiet) setError(message);
       setConnectingPlatform(null);
+      return message;
     }
   }
 
@@ -2814,6 +2822,8 @@ export function useDashboardState() {
     connectingPlatform,
     showPinterestConnectModal,
     setShowPinterestConnectModal,
+    showMastodonServerModal,
+    setShowMastodonServerModal,
     mediaUrl,
     setMediaUrl,
     mediaUploading,

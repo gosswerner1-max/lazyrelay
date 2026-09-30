@@ -16,6 +16,7 @@ import { Spinner } from "../components/Spinner";
 import { CircuitBackground } from "../components/CircuitBackground";
 import { SupportWidget } from "../components/SupportWidget";
 import { PinterestConnectModal } from "../components/PinterestConnectModal";
+import { MastodonServerModal } from "../components/MastodonServerModal";
 import { describePlatformLimit } from "../lib/platformLimit";
 import { type Tab } from "./dashboard/dashboardHelpers";
 import { useDashboardState } from "./dashboard/useDashboardState";
@@ -81,6 +82,8 @@ export function Dashboard() {
     setCancelDataDeletionAck,
     showPinterestConnectModal,
     setShowPinterestConnectModal,
+    showMastodonServerModal,
+    setShowMastodonServerModal,
     setScrollToBillingPending,
     handleTourFinish,
     dismissGcalPrompt,
@@ -469,6 +472,17 @@ export function Dashboard() {
           onConnect={() => {
             setShowPinterestConnectModal(false);
             handleConnect("pinterest");
+          }}
+        />
+      )}
+      {showMastodonServerModal && (
+        <MastodonServerModal
+          onCancel={() => setShowMastodonServerModal(false)}
+          onConnect={async (instance) => {
+            // Stays open on a problem (the dialog shows it); closes only once the connect starts.
+            const problem = await handleConnect("mastodon", instance, { quiet: true });
+            if (!problem) setShowMastodonServerModal(false);
+            return problem;
           }}
         />
       )}

@@ -27,6 +27,7 @@ export function SocialPlatformsTab() {
     brandAddonBusy,
     connectingPlatform,
     setShowPinterestConnectModal,
+    setShowMastodonServerModal,
     handleConnect,
     handleDisconnectAccount,
     handleCreateBrand,
@@ -225,7 +226,13 @@ export function SocialPlatformsTab() {
                       ? "Connected: click to connect another account"
                       : undefined
               }
-              onClick={() => (p.platform === "pinterest" ? setShowPinterestConnectModal(true) : handleConnect(p.platform))}
+              onClick={() =>
+                p.platform === "pinterest"
+                  ? setShowPinterestConnectModal(true)
+                  : p.platform === "mastodon"
+                    ? setShowMastodonServerModal(true)
+                    : handleConnect(p.platform)
+              }
             >
               <PlatformIcon platform={p.platform} size={20} comingSoon={disabled} />
               <span className="platform-tile-name" style={p.platform === "devto" ? { textTransform: "none" } : undefined}>{p.platform === "devto" ? "dev.to" : p.platform}</span>

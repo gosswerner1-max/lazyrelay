@@ -476,7 +476,7 @@ const FAQ = [
   },
   {
     q: "Which platforms are supported?",
-    a: "Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, and four places for longer writing and communities: WordPress (your own self-hosted site), dev.to, Hashnode (your blog needs Hashnode's Pro plan, because Hashnode charges for API access), and Lemmy. Mastodon support today connects to mastodon.social specifically — other Mastodon instances aren't supported yet. YouTube uploads through LazyRelay accept files up to 1GB, so full-length videos work too, not just Shorts-length clips.",
+    a: "Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, and four places for longer writing and communities: WordPress (your own self-hosted site), dev.to, Hashnode (your blog needs Hashnode's Pro plan, because Hashnode charges for API access), and Lemmy. Mastodon works with any Mastodon server: you type the address of the one your account is on when you connect. YouTube uploads through LazyRelay accept files up to 1GB, so full-length videos work too, not just Shorts-length clips.",
   },
   {
     q: "Can I set up a recurring posting schedule instead of scheduling each post one at a time?",
@@ -718,7 +718,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
       <section className="landing-section landing-platforms">
         <h2>Works with</h2>
         <p className="section-note">
-          <strong>Mastodon (mastodon.social), Bluesky, Telegram, Discord, and Tumblr, all first-class.</strong> Most
+          <strong>Mastodon (any server), Bluesky, Telegram, Discord, and Tumblr, all first-class.</strong> Most
           schedulers cover the big four or five and stop. Here they sit right next to Facebook, Instagram, TikTok
           and the rest, in the same dashboard.
         </p>

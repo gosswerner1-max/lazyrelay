@@ -473,8 +473,12 @@ export const api = {
   setAccountBrand: (id: string, brandId: string | null): Promise<SocialAccount> =>
     authedFetch(`/social-accounts/${id}`, { method: "PATCH", body: JSON.stringify({ brandId }) }),
   getPlatforms: (): Promise<PlatformInfo[]> => authedFetch("/platforms"),
-  startConnect: (platform: string): Promise<{ authorizeUrl: string }> =>
-    authedFetch(`/social-accounts/connect?platform=${encodeURIComponent(platform)}`),
+  // `instance` is Mastodon only: the server the customer's account is on (blank or
+  // mastodon.social means the default). Every other platform ignores it.
+  startConnect: (platform: string, instance?: string): Promise<{ authorizeUrl: string }> =>
+    authedFetch(
+      `/social-accounts/connect?platform=${encodeURIComponent(platform)}${instance ? `&instance=${encodeURIComponent(instance)}` : ""}`,
+    ),
 
   // Google Calendar two-way sync — deliberately its own small route group,
   // not part of the platform-connect flow above (it's not a platform to

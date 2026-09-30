@@ -12,7 +12,7 @@ interface ChatMessage {
   // Once the customer clicks the button (or it fails), the action is
   // resolved -- the button is replaced with a short result line instead of
   // staying clickable forever or disappearing silently.
-  actionResult?: "success" | "error" | null;
+  actionResult?: "success" | "error" | "pick_server" | null;
 }
 
 function platformLabel(platform: string): string {
@@ -154,6 +154,12 @@ export function SupportWidget({ context = "dashboard" }: { context?: "public" | 
     }
     setRunningActionIndex(index);
     try {
+      if (action.type === "reconnect" && action.platform === "mastodon") {
+        // Mastodon needs to know which server the account is on, which only the dashboard's
+        // server dialog asks. Connecting from here would silently pick mastodon.social.
+        setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, actionResult: "pick_server" } : m)));
+        return;
+      }
       if (action.type === "reconnect") {
         const { authorizeUrl } = await api.startConnect(action.platform);
         window.location.href = authorizeUrl;
@@ -218,6 +224,11 @@ export function SupportWidget({ context = "dashboard" }: { context?: "public" | 
                 )}
                 {m.actionResult === "success" && (
                   <p className="support-message-action-result support-message-action-success">✓ Done.</p>
+                )}
+                {m.actionResult === "pick_server" && (
+                  <p className="support-message-action-result">
+                    To reconnect Mastodon, open Social Platforms in your dashboard and click the Mastodon tile. It will ask which server your account is on.
+                  </p>
                 )}
                 {m.actionResult === "error" && (
                   <p className="support-message-action-result support-message-action-error">

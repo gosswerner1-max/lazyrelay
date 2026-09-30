@@ -37,6 +37,7 @@ interface ConnectFormProps {
 export function ConnectForm({ platform, state }: ConnectFormProps) {
   const [handle, setHandle] = useState("");
   const [appPassword, setAppPassword] = useState("");
+  const [blueskyServer, setBlueskyServer] = useState(""); // Bluesky only: an account hosted somewhere other than bsky.social
   const [channelUsername, setChannelUsername] = useState("");
   const [botToken, setBotToken] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
@@ -57,7 +58,7 @@ export function ConnectForm({ platform, state }: ConnectFormProps) {
     try {
       const code =
         platform === "bluesky"
-          ? JSON.stringify({ identifier: handle, password: appPassword })
+          ? JSON.stringify({ identifier: handle, password: appPassword, ...(blueskyServer.trim() ? { server: blueskyServer.trim() } : {}) })
           : platform === "telegram"
             ? JSON.stringify({ botToken, channelUsername })
             : platform === "discord"
@@ -128,6 +129,21 @@ export function ConnectForm({ platform, state }: ConnectFormProps) {
               </label>
               <p className="field-hint">
                 Create one at bsky.app under Settings &rarr; Privacy and security &rarr; App passwords. Don't use your main account password.
+              </p>
+              <label>
+                Server (only if your account is not hosted on bsky.social)
+                <input
+                  type="text"
+                  placeholder="pds.example.com"
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={blueskyServer}
+                  onChange={(e) => setBlueskyServer(e.target.value)}
+                />
+              </label>
+              <p className="field-hint">
+                Most people leave this empty. Fill it in only if you run your own Bluesky server or use a third-party one.
               </p>
             </>
           )}
