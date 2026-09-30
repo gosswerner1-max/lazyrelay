@@ -1,6 +1,6 @@
 {
   "name": "@lazyrelay/mcp-server",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": false,
   "mcpName": "io.github.gosswerner1-max/lazyrelay-mcp-server",
   "description": "MCP server for LazyRelay: schedule and publish posts on every platform, look up platform rules, manage drafts and client approvals, read analytics and comments, from any MCP-compatible AI agent. Local (stdio, API key) or hosted (OAuth, no install).",
