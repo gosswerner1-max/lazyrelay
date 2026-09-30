@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import { describeComment, REVIEWER_NAME_KEY, type PublicReview, type PublicReviewPost } from "../lib/reviewLinks";
 import { describeOptions, type PostOptions } from "../lib/postOptions";
 import { isVideoFile } from "../lib/carousel";
+import "./ReviewPage.css";
 import { Spinner } from "../components/Spinner";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
@@ -88,19 +89,19 @@ export function ReviewPage({ token }: { token: string }) {
   const waiting = review.posts.filter((p) => p.state !== "approved").length;
 
   return (
-    <div className="bio-page-shell" style={{ alignItems: "flex-start", padding: 16 }}>
-      <div style={{ width: "100%", maxWidth: 720, margin: "0 auto" }}>
+    <div className="review-page">
+      <div className="review-inner">
         <h1>{review.businessName ? `${review.businessName}: posts to review` : "Posts to review"}</h1>
-        {review.label && <p className="section-note">{review.label}</p>}
-        <p className="section-note">
+        {review.label && <p className="review-note">{review.label}</p>}
+        <p className="review-note">
           {waiting === 0 ? "Nothing is waiting for you right now." : `${waiting} post${waiting === 1 ? " is" : "s are"} waiting for your approval.`} Approved posts go out at their scheduled time.
         </p>
 
-        <label style={{ display: "block", margin: "12px 0" }}>
+        <label className="review-name">
           Your name
           <input type="text" value={name} maxLength={60} placeholder="So the team knows who replied" onChange={(e) => rememberName(e.target.value)} />
         </label>
-        {message && <p className="notice">{message}</p>}
+        {message && <p className="review-notice">{message}</p>}
 
         {review.posts.map((post) => (
           <ReviewPostCard
@@ -116,7 +117,7 @@ export function ReviewPage({ token }: { token: string }) {
           />
         ))}
 
-        <p className="section-note" style={{ marginTop: 24 }}>
+        <p className="review-footer">
           <BrandMark size={14} /> Sent with LazyRelay. This link only shows posts waiting for approval.
         </p>
       </div>
@@ -163,37 +164,35 @@ function ReviewPostCard({
   }
 
   return (
-    <div className="bio-page-card" style={{ textAlign: "left", marginBottom: 16, width: "100%" }}>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+    <div className="review-card">
+      <div className="review-card-head">
         {post.platform && <PlatformIcon platform={post.platform} size={16} />}
         <strong>{post.accountName ?? post.platform ?? "Post"}</strong>
-        {post.scheduledFor && <span className="section-note">Goes out {new Date(post.scheduledFor).toLocaleString()}</span>}
+        {post.scheduledFor && <span className="review-when">Goes out {new Date(post.scheduledFor).toLocaleString()}</span>}
       </div>
-      <p style={{ whiteSpace: "pre-wrap", margin: "12px 0" }}>{post.content}</p>
+      <p className="review-content">{post.content}</p>
 
       {images.length > 0 && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+        <div className="review-media">
           {images.map((u, i) =>
             isVideoFile(u) ? (
-              <video key={u + i} src={u} controls style={{ maxWidth: "100%", maxHeight: 320 }} />
+              <video key={u + i} src={u} controls />
             ) : (
-              <img key={u + i} src={u} alt={`Media ${i + 1}`} referrerPolicy="no-referrer" style={{ maxWidth: images.length > 1 ? 160 : "100%", maxHeight: 320 }} />
+              <img key={u + i} src={u} alt={`Media ${i + 1}`} referrerPolicy="no-referrer" style={images.length > 1 ? { maxWidth: 160 } : undefined} />
             ),
           )}
         </div>
       )}
-      {extras.length > 0 && <p className="section-note">{extras.join(" · ")}</p>}
+      {extras.length > 0 && <p className="review-extras">{extras.join(" · ")}</p>}
 
-      <p>
-        <strong>{STATE_LABEL[post.state]}</strong>
-      </p>
+      <span className={`review-state review-state-${post.state}`}>{STATE_LABEL[post.state]}</span>
 
       {post.comments.length > 0 && (
-        <div style={{ margin: "8px 0", display: "flex", flexDirection: "column", gap: 6 }}>
+        <div className="review-comments">
           {post.comments.map((c, i) => (
-            <div key={i} className="section-note" style={{ borderLeft: "3px solid var(--border, #444)", paddingLeft: 8 }}>
+            <div key={i} className="review-comment">
               <strong>{describeComment(c)}</strong> <span>{new Date(c.createdAt).toLocaleString()}</span>
-              {c.body && <div style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>}
+              {c.body && <div className="review-comment-body">{c.body}</div>}
             </div>
           ))}
         </div>
@@ -202,17 +201,17 @@ function ReviewPostCard({
       {open && (
         <>
           {mode !== "none" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, margin: "8px 0" }}>
+            <div className="review-compose">
               <textarea
                 value={text}
                 maxLength={1000}
                 placeholder={mode === "changes" ? "What should change?" : "Write a comment"}
                 onChange={(e) => setText(e.target.value)}
               />
-              <div style={{ display: "flex", gap: 8 }}>
+              <div className="review-actions">
                 <button
                   type="button"
-                  className="btn-primary"
+                  className="review-btn-primary"
                   disabled={busy || !text.trim()}
                   onClick={() =>
                     run(
@@ -223,21 +222,21 @@ function ReviewPostCard({
                 >
                   {mode === "changes" ? "Send change request" : "Send comment"}
                 </button>
-                <button type="button" className="btn-outline" onClick={() => setMode("none")}>
+                <button type="button" className="review-btn" onClick={() => setMode("none")}>
                   Cancel
                 </button>
               </div>
             </div>
           )}
           {mode === "none" && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" className="btn-primary" disabled={busy} onClick={() => run(() => api.reviewApprove(token, post.id, name), "Approved. Thank you.")}>
+            <div className="review-actions">
+              <button type="button" className="review-btn-primary" disabled={busy} onClick={() => run(() => api.reviewApprove(token, post.id, name), "Approved. Thank you.")}>
                 {busy ? "..." : "Approve"}
               </button>
-              <button type="button" className="btn-outline" onClick={() => setMode("changes")}>
+              <button type="button" className="review-btn" onClick={() => setMode("changes")}>
                 Request changes
               </button>
-              <button type="button" className="btn-outline" onClick={() => setMode("comment")}>
+              <button type="button" className="review-btn" onClick={() => setMode("comment")}>
                 Add a comment
               </button>
             </div>

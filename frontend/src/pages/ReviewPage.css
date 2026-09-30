@@ -1,0 +1,222 @@
+/* The client review page (/review/<token>). Self-contained: this page is opened by people who have no
+   LazyRelay account and never load the dashboard's styles. Uses the app's theme variables so it follows
+   light and dark like everything else. */
+
+.review-page {
+  min-height: 100vh;
+  padding: 32px 16px 56px;
+  background: var(--paper);
+  color: var(--ink);
+  box-sizing: border-box;
+}
+
+.review-inner {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.review-inner h1 {
+  font-size: 26px;
+  line-height: 1.25;
+  margin: 0 0 8px;
+  color: var(--ink);
+}
+
+.review-note {
+  font-size: 14px;
+  color: var(--wire);
+  margin: 4px 0 12px;
+}
+
+.review-notice {
+  padding: 10px 14px;
+  margin: 12px 0;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(127, 127, 127, 0.1);
+  font-size: 14px;
+}
+
+.review-name {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 18px 0 20px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.review-name input,
+.review-card textarea {
+  font: 15px/1.4 inherit;
+  font-family: inherit;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  box-sizing: border-box;
+  width: 100%;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+
+.review-card textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.review-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 18px;
+  background: rgba(127, 127, 127, 0.07);
+}
+
+.review-card-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 14px;
+}
+
+.review-card-head .review-when {
+  color: var(--wire);
+}
+
+.review-content {
+  white-space: pre-wrap;
+  margin: 14px 0;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.review-media {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.review-media img,
+.review-media video {
+  border-radius: 8px;
+  max-height: 320px;
+  max-width: 100%;
+}
+
+.review-extras {
+  font-size: 13px;
+  color: var(--wire);
+  margin: 0 0 10px;
+}
+
+.review-state {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  margin: 4px 0 10px;
+}
+
+.review-state-waiting {
+  color: var(--wire);
+}
+
+.review-state-changes_requested {
+  color: var(--signal);
+  border-color: var(--signal);
+}
+
+.review-state-approved {
+  color: #2e9e5b;
+  border-color: #2e9e5b;
+}
+
+.review-comments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 12px;
+}
+
+.review-comment {
+  border-left: 3px solid var(--line);
+  padding-left: 10px;
+  font-size: 14px;
+  color: var(--wire);
+}
+
+.review-comment strong {
+  color: var(--ink);
+}
+
+.review-comment-body {
+  white-space: pre-wrap;
+  color: var(--ink);
+  margin-top: 2px;
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.review-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.review-btn,
+.review-btn-primary {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.review-btn {
+  border: 1px solid var(--signal);
+  background: transparent;
+  color: var(--signal);
+}
+
+.review-btn-primary {
+  border: none;
+  background: var(--signal-solid);
+  color: #fff;
+}
+
+.review-btn-primary:hover {
+  background: var(--signal-solid-hover);
+}
+
+.review-btn:disabled,
+.review-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.review-footer {
+  margin-top: 28px;
+  font-size: 13px;
+  color: var(--wire);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
