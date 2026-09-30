@@ -12,7 +12,7 @@ vi.mock("./supabase.js", async () => {
 vi.mock("./accountLimits.js", () => ({ checkNewDistinctAccountLimit: vi.fn(async () => null) }));
 vi.mock("./http/metaWebhook.js", () => ({ subscribePageToMessaging: vi.fn(async () => {}) }));
 
-const { completeConnect, getPendingSelection, finalizeConnectSelection, cancelConnectSelection } = await import("./platforms/connect.js");
+const { completeConnect, getPendingSelection, finalizeConnectSelection, cancelConnectSelection, purgeExpiredConnects } = await import("./platforms/connect.js");
 
 const future = () => new Date(Date.now() + 10 * 60_000).toISOString();
 
@@ -183,5 +183,21 @@ describe("Page/channel picker platforms", () => {
     await finalizeConnectSelection("st1", ["p2"], "acc1", registryOf(adapter));
     expect(tables.social_accounts).toHaveLength(1);
     expect(tables.social_accounts[0].platform_account_id).toBe("p2");
+  });
+});
+
+describe("purgeExpiredConnects", () => {
+  it("scrubs and deletes only expired, abandoned flows", async () => {
+    vault.set("v-old", '{"__lazyrelay_confirm__":true,"result":{"accessToken":"secret"}}');
+    vault.set("v-live", "live-token");
+    tables.oauth_states = [
+      { id: "old", account_id: "acc1", platform: "linkedin", expires_at: new Date(Date.now() - 60_000).toISOString(), pending_token_vault_id: "v-old" },
+      { id: "old-plain", account_id: "acc1", platform: "tiktok", expires_at: new Date(Date.now() - 60_000).toISOString(), pending_token_vault_id: null },
+      { id: "live", account_id: "acc1", platform: "linkedin", expires_at: future(), pending_token_vault_id: "v-live" },
+    ];
+    expect(await purgeExpiredConnects()).toBe(2);
+    expect(tables.oauth_states.map((r) => r.id)).toEqual(["live"]);
+    expect(vault.get("v-old")).toBe("discarded");
+    expect(vault.get("v-live")).toBe("live-token"); // a flow still in progress is never touched
   });
 });

@@ -3,6 +3,7 @@ import { supabase } from "./supabase.js";
 import { runSchedulerCycle } from "./scheduler.js";
 import { generateDuePosts } from "./recurringScheduler.js";
 import { runTokenRefreshCycle } from "./tokenRefresher.js";
+import { purgeExpiredConnects } from "./platforms/connect.js";
 import { buildPlatformRegistry } from "./platforms/registry.js";
 import { StubMorAdapter } from "./billing/stub.js";
 import { PaddleMorAdapter } from "./billing/paddle.js";
@@ -150,7 +151,12 @@ async function main() {
   // never slows boot, and a failure only logs.
   const TOKEN_REFRESH_INTERVAL_MS = 6 * 60 * 60_000;
   const runTokenJob = () =>
-    runTokenRefreshCycle(registry)
+    purgeExpiredConnects()
+      .then((n) => {
+        if (n) console.log(`Purged ${n} expired connect flow(s).`);
+      })
+      .catch((err) => console.error("Connect purge error:", summarizeIfHtmlError(err)))
+      .then(() => runTokenRefreshCycle(registry))
       .then((r) => {
         if (r.refreshed || r.flagged || r.warned || r.failed) console.log("Token refresh cycle:", JSON.stringify(r));
       })

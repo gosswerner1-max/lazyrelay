@@ -388,3 +388,24 @@ export async function cancelConnectSelection(selectionToken: string, accountId: 
   if (stateRow.pending_token_vault_id) await scrubHeldToken(stateRow.pending_token_vault_id);
   console.log(`[connect] cancel ${selectionToken.slice(0, 8)}: removed and scrubbed`);
 }
+
+/** Wipes connect flows nobody finished. A customer who closes the tab at the
+ *  confirmation screen leaves a held platform login behind; once the flow's
+ *  15-minute window has passed nothing can use it, so scrub it and delete the
+ *  row. Only ever touches EXPIRED rows, never a flow still in progress. Runs
+ *  with the token job (index.ts). Returns how many rows were cleaned. */
+export async function purgeExpiredConnects(now: number = Date.now()): Promise<number> {
+  const { data, error } = await supabase
+    .from("oauth_states")
+    .select("id, pending_token_vault_id")
+    .lt("expires_at", new Date(now).toISOString())
+    .limit(200);
+  if (error) throw error;
+  let cleaned = 0;
+  for (const row of data ?? []) {
+    if (row.pending_token_vault_id) await scrubHeldToken(row.pending_token_vault_id);
+    const { error: deleteError } = await supabase.from("oauth_states").delete().eq("id", row.id);
+    if (!deleteError) cleaned += 1;
+  }
+  return cleaned;
+}
