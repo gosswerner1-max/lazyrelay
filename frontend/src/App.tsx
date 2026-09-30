@@ -21,6 +21,7 @@ import { Spinner } from "./components/Spinner";
 import { CookieConsent } from "./components/CookieConsent";
 import { MfaChallenge } from "./components/MfaChallenge";
 import { readRefParam, captureReferralCode } from "./lib/referral";
+import { dashboardRedirectTarget } from "./lib/dashboardRedirect";
 import { readPromoParam, capturePromoCode } from "./lib/promo";
 import "./App.css";
 
@@ -236,22 +237,10 @@ function Root() {
   // a phantom history entry the back button would just bounce off of.
   useEffect(() => {
     if (!session) return;
-    const pathname = window.location.pathname;
-    if (
-      pathname.startsWith("/connect/") ||
-      pathname.startsWith("/bio/") ||
-      pathname.startsWith("/verify/") ||
-      pathname.startsWith("/feedback/") ||
-      pathname === "/oauth/consent" ||
-      pathname === "/team/accept" ||
-      pathname === "/docs" ||
-      pathname === "/reset-password"
-    ) {
-      return;
-    }
-    if (normalizePath(pathname) !== "/dashboard") {
-      window.history.replaceState({}, "", "/dashboard");
-    }
+    // Keeps the query string: the connect flows redirect back to
+    // "/?selectAccount=..." and the lazy Dashboard reads it after this runs.
+    const target = dashboardRedirectTarget(window.location.pathname, window.location.search);
+    if (target) window.history.replaceState({}, "", target);
   }, [session]);
 
   useEffect(() => {
