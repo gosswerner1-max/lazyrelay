@@ -639,8 +639,9 @@ export const api = {
   getAnalyticsInsight: (
     days: number,
     brand?: string,
+    tag?: string,
   ): Promise<{ insight: string } | { insufficientData: true; postsWithData: number; needed: number }> =>
-    authedFetch("/analytics/insight", { method: "POST", body: JSON.stringify({ days, brand }) }),
+    authedFetch("/analytics/insight", { method: "POST", body: JSON.stringify({ days, brand, tag }) }),
 
   getMentions: (): Promise<{ posts: MentionPost[] }> => authedFetch("/mentions"),
 

@@ -265,7 +265,8 @@ export function buildAnalyticsRouter(): Router {
       return;
     }
 
-    const { days, brand } = req.body ?? {};
+    const { days, brand, tag } = req.body ?? {};
+    const tagFilterValue = typeof tag === "string" && tag.trim().length > 0 ? tag.trim().toLowerCase() : undefined;
     const rangeDays = Math.min(Math.max(Number(days) || 30, 1), 90);
     const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000).toISOString();
     const brandFilterValue = typeof brand === "string" && brand.length > 0 ? brand : undefined;
@@ -293,6 +294,7 @@ export function buildAnalyticsRouter(): Router {
     if (matchingSocialAccountIds) {
       postsQuery = postsQuery.in("social_account_id", matchingSocialAccountIds);
     }
+    if (tagFilterValue) postsQuery = postsQuery.contains("tags", [tagFilterValue]);
     const { data: posts, error } = await postsQuery;
     if (error) {
       dbError(res, error, "POST /analytics/insight");

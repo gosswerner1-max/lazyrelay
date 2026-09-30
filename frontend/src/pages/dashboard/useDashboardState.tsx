@@ -1286,7 +1286,7 @@ export function useDashboardState() {
     setInsightResult(null);
     setError(null);
     try {
-      const result = await api.getAnalyticsInsight(analyticsRangeDays, brandFilter || undefined);
+      const result = await api.getAnalyticsInsight(analyticsRangeDays, brandFilter || undefined, tagFilter || undefined);
       setInsightResult(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
