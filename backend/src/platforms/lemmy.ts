@@ -397,6 +397,9 @@ export class LemmyAdapter implements PlatformAdapter {
       const site = await apiCall(api, jwt, "GET", "/site");
       const person = site.json?.my_user?.local_user_view?.person as { name?: string; deleted?: boolean } | undefined;
       if (!site.ok || !person?.name) {
+        // Names and codes only, never a token or a password: enough to see what the server answered.
+        const body = site.json as Record<string, unknown> | null;
+        console.warn(`[lemmy] account check failed: host=${new URL(api.origin).hostname} api=v${api.version} status=${site.status} hasBody=${body !== null} keys=${body ? Object.keys(body).join(",") : "-"} myUserKeys=${body && typeof body.my_user === "object" && body.my_user ? Object.keys(body.my_user as object).join(",") : "-"} error=${errorCode(site.json) ?? "-"}`);
         throw new Error("Lemmy accepted the login but did not confirm the account. Try connecting again.");
       }
       if (person.deleted) throw new Error("That Lemmy account has been deleted.");
