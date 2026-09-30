@@ -313,6 +313,9 @@ export function Dashboard() {
                     ? "Select at least one"
                     : `Connect ${checkedOptionIds.length} selected`}
               </button>
+              <button className="btn-outline" disabled={selectionBusy} onClick={handleCancelSelection}>
+                Cancel
+              </button>
             </div>
           </div>
         </div>

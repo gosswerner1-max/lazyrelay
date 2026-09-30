@@ -369,15 +369,22 @@ async function scrubHeldToken(vaultId: string): Promise<void> {
  *  LazyRelay account that started the flow. Idempotent for a token that is
  *  already gone. */
 export async function cancelConnectSelection(selectionToken: string, accountId: string | undefined): Promise<void> {
-  const { data: stateRow } = await supabase
+  const { data: stateRow, error: readError } = await supabase
     .from("oauth_states")
     .select("account_id, pending_token_vault_id")
     .eq("id", selectionToken)
     .maybeSingle();
-  if (!stateRow) return;
+  if (readError) throw readError;
+  if (!stateRow) {
+    console.log(`[connect] cancel ${selectionToken.slice(0, 8)}: nothing to cancel (already gone)`);
+    return;
+  }
   if (stateRow.account_id !== accountId) {
     throw new Error("Not authorized for this selection");
   }
-  await supabase.from("oauth_states").delete().eq("id", selectionToken);
+  const { error: deleteError } = await supabase.from("oauth_states").delete().eq("id", selectionToken);
+  // A cancel that did not really remove the held login must not look like it did.
+  if (deleteError) throw deleteError;
   if (stateRow.pending_token_vault_id) await scrubHeldToken(stateRow.pending_token_vault_id);
+  console.log(`[connect] cancel ${selectionToken.slice(0, 8)}: removed and scrubbed`);
 }
