@@ -178,7 +178,7 @@ export interface PlatformAdapter {
    *  some platforms (Mastodon's per-instance app registration, Bluesky's
    *  PAR round-trip) need a real network call before a URL exists — unlike
    *  Meta/TikTok/Pinterest/YouTube, which can build one synchronously. */
-  getAuthorizeUrl(state: string): Promise<string>;
+  getAuthorizeUrl(state: string, context?: string): Promise<string>;
 
   /** Exchanges the OAuth callback code for real tokens + the platform's
    *  own account id/display name. This is the one place a plaintext token
@@ -187,8 +187,10 @@ export interface PlatformAdapter {
    *  `pkceVerifier` is optional and only used by platforms whose OAuth flow
    *  is PKCE-only (X) — connect.ts reads it back from the oauth_states row
    *  before deleting it and passes it through; every other adapter simply
-   *  doesn't declare the parameter. */
-  exchangeCode(code: string, pkceVerifier?: string): Promise<OAuthExchangeResult>;
+   *  doesn't declare the parameter. `context` (and getAuthorizeUrl's) is the
+   *  customer's own server choice, carried through oauth_states.context;
+   *  only Mastodon uses it (the instance origin). */
+  exchangeCode(code: string, pkceVerifier?: string, context?: string): Promise<OAuthExchangeResult>;
 
   post(request: PostRequest): Promise<PostAttemptResult>;
   verifyPublished(platformPostId: string, accessToken: string): Promise<VerifyResult>;

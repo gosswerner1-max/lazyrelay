@@ -2,6 +2,7 @@ import { supabase } from "../supabase.js";
 import { checkNewDistinctAccountLimit } from "../accountLimits.js";
 import { subscribePageToMessaging } from "../http/metaWebhook.js";
 import type { PlatformAdapter, OAuthExchangeResult, ConnectOption } from "./types.js";
+import { checkMastodonInstanceLimit } from "./mastodonInstanceLimit.js";
 
 export type PlatformAdapterRegistry = Map<string, PlatformAdapter>;
 
@@ -130,16 +131,22 @@ export async function startConnect(
   accountId: string,
   platform: string,
   registry: PlatformAdapterRegistry,
+  // Only Mastodon uses this today: the https origin of the instance the customer chose
+  // (already validated by the route). It travels in oauth_states.context and is read back
+  // in completeConnect. Absent means the platform's default, exactly as before.
+  context?: string,
 ): Promise<{ url: string; stateId: string }> {
   const adapter = resolveAdapter(registry, platform);
+  // A customer's own Mastodon server: capped per account per day before anything is sent to it.
+  if (context && adapter.platform === "mastodon") await checkMastodonInstanceLimit(accountId, context);
   const { data, error } = await supabase
     .from("oauth_states")
-    .insert({ account_id: accountId, platform: adapter.platform })
+    .insert({ account_id: accountId, platform: adapter.platform, ...(context ? { context } : {}) })
     .select("id")
     .single();
   if (error || !data) throw error ?? new Error("failed to create oauth state");
 
-  const url = await adapter.getAuthorizeUrl(data.id);
+  const url = context ? await adapter.getAuthorizeUrl(data.id, context) : await adapter.getAuthorizeUrl(data.id);
   return { url, stateId: data.id };
 }
 
@@ -167,10 +174,12 @@ export async function completeConnect(
 ): Promise<CompleteConnectResult> {
   const { data: stateRow, error: stateError } = await supabase
     .from("oauth_states")
-    .select("account_id, platform, expires_at, pkce_verifier")
+    .select("account_id, platform, expires_at, pkce_verifier, context")
     .eq("id", state)
     .single();
 
+  // One read, with the chosen server in it: if it fails the flow stops here. It never falls through
+  // to a default server, which would send a customer's code to the wrong place.
   if (stateError || !stateRow) {
     throw new Error("Invalid or already-used connect link");
   }
@@ -184,6 +193,10 @@ export async function completeConnect(
   // the old "platform mismatch" failure mode structurally impossible now
   // that every connect flow shares one callback route across all platforms.
   const adapter = resolveAdapter(registry, stateRow.platform);
+
+  // Mastodon only: the instance the customer chose. A blank or missing value is the default flow
+  // (mastodon.social), which is exactly what a connect started without an instance stored.
+  const context = stateRow.platform === "mastodon" && typeof stateRow.context === "string" && stateRow.context.trim() ? stateRow.context : undefined;
 
   if (adapter.listConnectOptions) {
     const { userToken, options } = await adapter.listConnectOptions(code, stateRow.pkce_verifier ?? undefined);
@@ -221,7 +234,7 @@ export async function completeConnect(
     // Delete immediately, before doing anything else — one-time use no
     // matter what happens next, success or failure.
     await supabase.from("oauth_states").delete().eq("id", state);
-    const result = await adapter.exchangeCode(code, stateRow.pkce_verifier ?? undefined);
+    const result = await adapter.exchangeCode(code, stateRow.pkce_verifier ?? undefined, context);
     const socialAccountId = await storeConnectedAccount(stateRow.account_id, adapter.platform, result);
     return { status: "connected", socialAccountId };
   }
@@ -232,7 +245,7 @@ export async function completeConnect(
   // handle and its 15-minute timeout); it is deleted on confirm or cancel.
   let held: OAuthExchangeResult;
   try {
-    held = await adapter.exchangeCode(code, stateRow.pkce_verifier ?? undefined);
+    held = await adapter.exchangeCode(code, stateRow.pkce_verifier ?? undefined, context);
   } catch (err) {
     await supabase.from("oauth_states").delete().eq("id", state);
     throw err;

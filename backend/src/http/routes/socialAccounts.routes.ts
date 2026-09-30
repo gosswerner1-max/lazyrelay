@@ -16,6 +16,8 @@ import { checkAccountLimit } from "../../accountLimits.js";
 import { getAccessToken } from "../../scheduler.js";
 import { getFrontendUrl, dbError } from "./shared.js";
 import { validateBody, optionalNullableString } from "../validation.js";
+import { normalizeMastodonInstance } from "../../platforms/mastodon.js";
+import { ConnectLimitError } from "../../platforms/mastodonInstanceLimit.js";
 
 // Every platform LazyRelay supports, in the shape the frontend's platform
 // picker grid needs. "x" had a comingSoon gate until 2026-07-31 — its
@@ -107,6 +109,18 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
       res.status(400).json({ error: `${platform} isn't available to connect yet.` });
       return;
     }
+    // Mastodon only: the customer's own server. Blank or mastodon.social means the default
+    // flow, unchanged. Anything else is validated here (https host name only) and travels
+    // through the connect state to the code exchange.
+    let instanceContext: string | undefined;
+    if (platform === "mastodon" && typeof req.query.instance === "string" && req.query.instance.trim()) {
+      const norm = normalizeMastodonInstance(req.query.instance);
+      if (!norm.ok) {
+        res.status(400).json({ error: norm.error });
+        return;
+      }
+      if (norm.origin !== "https://mastodon.social") instanceContext = norm.origin;
+    }
     try {
       // Real per-tier cap, not just marketing copy — see accountLimits.ts
       // for why even the top tier is capped rather than truly unlimited.
@@ -115,7 +129,7 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
         res.status(403).json({ error: limitError });
         return;
       }
-      const { url, stateId } = await startConnect(req.accountId!, platform, registry);
+      const { url, stateId } = await startConnect(req.accountId!, platform, registry, instanceContext);
       // Binds this specific browser to this specific state token — without
       // it, the state row alone only proves which ACCOUNT started the
       // flow, not which browser, so an attacker could mint this URL for
@@ -140,7 +154,7 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
       });
       res.json({ authorizeUrl: url });
     } catch (err) {
-      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+      res.status(err instanceof ConnectLimitError ? 429 : 500).json({ error: err instanceof Error ? err.message : String(err) });
     }
   });
 

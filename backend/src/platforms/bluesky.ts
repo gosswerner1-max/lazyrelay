@@ -9,6 +9,7 @@ import type {
   CommentPostResult,
 } from "./types.js";
 import { fetchMediaForStreaming, type RequestInitWithDuplex } from "./streamUpload.js";
+import { CustomerHostError, guardedFetch, normalizeHostOrigin, readJsonCapped, UPLOAD_TIMEOUT_MS } from "./customerHost.js";
 
 // Real, confirmed platform gotcha: AT Protocol's real OAuth (PAR + DPoP +
 // self-hosted client-metadata document) issues DPoP-bound sessions that
@@ -22,15 +23,80 @@ import { fetchMediaForStreaming, type RequestInitWithDuplex } from "./streamUplo
 // cleanly, even though Bluesky's own docs nudge new integrations toward
 // full OAuth. Deliberate choice, not an oversight — see
 // project-platform-app-registration memory for the tradeoff discussion.
+//
+// Where the account lives (master list #11): almost every account is on bsky.social (the
+// DEFAULT_PDS), and for those nothing changed: the stored access and refresh tokens are the
+// bare JWT strings and every call goes to DEFAULT_PDS with the plain fetch it always used. An
+// account hosted on a third-party server (a self-hosted PDS) stores its tokens as JSON
+// {"server":"https://pds.example.com","token":"<jwt>"} instead, and every call to that
+// server goes through customerHost.ts (SSRF guard, pinned connection, no redirects, capped
+// reads, timeouts) because the host is customer-supplied. parseBlueskyToken() tells the two
+// apart; a JWT never starts with "{". The shared Bluesky services (public.api.bsky.app,
+// video.bsky.app) are the same for every account and stay fixed.
 const DEFAULT_PDS = "https://bsky.social";
-const CREATE_SESSION_URL = `${DEFAULT_PDS}/xrpc/com.atproto.server.createSession`;
-const REFRESH_SESSION_URL = `${DEFAULT_PDS}/xrpc/com.atproto.server.refreshSession`;
-const CREATE_RECORD_URL = `${DEFAULT_PDS}/xrpc/com.atproto.repo.createRecord`;
-const GET_RECORD_URL = `${DEFAULT_PDS}/xrpc/com.atproto.repo.getRecord`;
-const UPLOAD_BLOB_URL = `${DEFAULT_PDS}/xrpc/com.atproto.repo.uploadBlob`;
+const CREATE_SESSION_PATH = "/xrpc/com.atproto.server.createSession";
+const REFRESH_SESSION_PATH = "/xrpc/com.atproto.server.refreshSession";
+const GET_SESSION_PATH = "/xrpc/com.atproto.server.getSession";
+const CREATE_RECORD_PATH = "/xrpc/com.atproto.repo.createRecord";
+const GET_RECORD_PATH = "/xrpc/com.atproto.repo.getRecord";
+const UPLOAD_BLOB_PATH = "/xrpc/com.atproto.repo.uploadBlob";
 const GET_PROFILE_URL = "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile";
 const GET_POST_THREAD_URL = "https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread";
-const GET_SERVICE_AUTH_URL = `${DEFAULT_PDS}/xrpc/com.atproto.server.getServiceAuth`;
+const GET_SERVICE_AUTH_PATH = "/xrpc/com.atproto.server.getServiceAuth";
+
+/** What a stored Bluesky token means: the bearer token plus the server it belongs to. */
+interface BlueskyCtx {
+  /** https origin of the server the account lives on, no trailing slash. */
+  pds: string;
+  token: string;
+  /** True for bsky.social: plain, unguarded fetch, exactly as always. */
+  isDefault: boolean;
+}
+
+const DAMAGED_MESSAGE = "The saved Bluesky connection is damaged. Reconnect this account.";
+
+/** A bare string is the old format (bsky.social); "{...}" is {"server","token"}. */
+export function parseBlueskyToken(stored: string): BlueskyCtx {
+  if (!stored.startsWith("{")) return { pds: DEFAULT_PDS, token: stored, isDefault: true };
+  let parsed: { server?: unknown; token?: unknown };
+  try {
+    parsed = JSON.parse(stored) as typeof parsed;
+  } catch {
+    throw new CustomerHostError(DAMAGED_MESSAGE);
+  }
+  if (typeof parsed.server !== "string" || typeof parsed.token !== "string" || !parsed.token) {
+    throw new CustomerHostError(DAMAGED_MESSAGE);
+  }
+  const norm = normalizeHostOrigin(parsed.server, "Bluesky server", "pds.example.com");
+  if (!norm.ok) throw new CustomerHostError(DAMAGED_MESSAGE);
+  return { pds: norm.origin, token: parsed.token, isDefault: norm.origin === DEFAULT_PDS };
+}
+
+/** The value to store for a token: bare for bsky.social, JSON for any other server. */
+function wrapBlueskyToken(pds: string, token: string): string {
+  return pds === DEFAULT_PDS ? token : JSON.stringify({ server: pds, token });
+}
+
+/** Every call to the account's own server. bsky.social keeps the plain fetch it always used. */
+function pdsFetch(ctx: BlueskyCtx, path: string, init?: RequestInitWithDuplex, timeoutMs?: number): Promise<Response> {
+  if (ctx.isDefault) return fetch(`${DEFAULT_PDS}${path}`, init);
+  return guardedFetch(`${ctx.pds}${path}`, init, timeoutMs);
+}
+
+function pdsJson<T>(ctx: BlueskyCtx, res: Response): Promise<T> {
+  if (ctx.isDefault) return res.json() as Promise<T>;
+  return readJsonCapped(res).then((j) => ((j && typeof j === "object" ? j : {}) as T));
+}
+
+/** Text from a customer-chosen server is capped before it is stored or shown. */
+function serverText(ctx: BlueskyCtx, text: string | undefined, fallback: string): string {
+  if (ctx.isDefault) return text ?? fallback;
+  return text && typeof text === "string" ? text.slice(0, 300) : fallback;
+}
+
+function tokenProblem(err: unknown): string {
+  return err instanceof CustomerHostError ? err.message : DAMAGED_MESSAGE;
+}
 
 // Video lives on a separate service from the rest of the AT Protocol API.
 // Real limits raised 2026-08-25 from 100MB/3min to 300MB/10min
@@ -200,27 +266,38 @@ export class BlueskyAdapter implements PlatformAdapter {
   // `code` here is a JSON string `{"identifier":"...","password":"..."}` —
   // see the class-level comment for why there's no real OAuth code to
   // exchange for this platform.
+  // An optional "server" key names the account's own server when it is not bsky.social.
   async exchangeCode(code: string): Promise<OAuthExchangeResult> {
     let identifier: string;
     let password: string;
+    let serverInput: string | undefined;
     try {
-      const parsed = JSON.parse(code) as { identifier?: string; password?: string };
+      const parsed = JSON.parse(code) as { identifier?: string; password?: string; server?: unknown };
       if (!parsed.identifier || !parsed.password) throw new Error("missing fields");
       identifier = parsed.identifier;
       password = parsed.password;
+      if (typeof parsed.server === "string" && parsed.server.trim()) serverInput = parsed.server;
     } catch {
       throw new Error("Bluesky connect requires a handle and app password");
     }
 
-    const res = await fetch(CREATE_SESSION_URL, {
+    let pds = DEFAULT_PDS;
+    if (serverInput !== undefined) {
+      const norm = normalizeHostOrigin(serverInput, "Bluesky server", "pds.example.com");
+      if (!norm.ok) throw new Error(norm.error);
+      pds = norm.origin;
+    }
+    const ctx: BlueskyCtx = { pds, token: "", isDefault: pds === DEFAULT_PDS };
+
+    const res = await pdsFetch(ctx, CREATE_SESSION_PATH, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ identifier, password }),
     });
-    const json = (await res.json()) as BlueskySession;
+    const json = await pdsJson<BlueskySession>(ctx, res);
 
     if (!res.ok || !json.accessJwt || !json.did) {
-      throw new Error(json.message ?? json.error ?? "Bluesky sign-in failed");
+      throw new Error(serverText(ctx, json.message ?? json.error, "Bluesky sign-in failed"));
     }
 
     // Best-effort display-name lookup — a failure here shouldn't block the
@@ -236,8 +313,8 @@ export class BlueskyAdapter implements PlatformAdapter {
     }
 
     return {
-      accessToken: json.accessJwt,
-      refreshToken: json.refreshJwt ?? null,
+      accessToken: wrapBlueskyToken(pds, json.accessJwt),
+      refreshToken: json.refreshJwt ? wrapBlueskyToken(pds, json.refreshJwt) : null,
       // Access JWTs are short-lived (real AT Protocol behavior) — confirmed
       // live 2026-08-17: a freshly-connected token failed with "Token has
       // expired" on its very next scheduled post. Conservative 90-minute
@@ -257,41 +334,53 @@ export class BlueskyAdapter implements PlatformAdapter {
   // Bearer credential, not in the body — the one real deviation from every
   // other adapter's refresh() shape here.
   async refresh(refreshToken: string): Promise<OAuthExchangeResult> {
-    const res = await fetch(REFRESH_SESSION_URL, {
+    // The stored refresh token says which server it belongs to (see parseBlueskyToken).
+    let ctx: BlueskyCtx;
+    try {
+      ctx = parseBlueskyToken(refreshToken);
+    } catch (err) {
+      throw new Error(tokenProblem(err));
+    }
+    const res = await pdsFetch(ctx, REFRESH_SESSION_PATH, {
       method: "POST",
-      headers: { Authorization: `Bearer ${refreshToken}` },
+      headers: { Authorization: `Bearer ${ctx.token}` },
     });
-    const json = (await res.json()) as BlueskySession;
+    const json = await pdsJson<BlueskySession>(ctx, res);
     if (!res.ok || !json.accessJwt) {
-      throw new Error(json.message ?? json.error ?? "Bluesky session refresh failed");
+      throw new Error(serverText(ctx, json.message ?? json.error, "Bluesky session refresh failed"));
     }
     return {
-      accessToken: json.accessJwt,
-      refreshToken: json.refreshJwt ?? refreshToken,
+      accessToken: wrapBlueskyToken(ctx.pds, json.accessJwt),
+      refreshToken: wrapBlueskyToken(ctx.pds, json.refreshJwt ?? ctx.token),
       expiresAt: new Date(Date.now() + 90 * 60 * 1000).toISOString(),
       platformAccountId: "",
       displayName: "",
     };
   }
 
-  private async uploadBlob(mediaUrl: string, accessToken: string): Promise<BlueskyBlobRef | null> {
+  private async uploadBlob(ctx: BlueskyCtx, mediaUrl: string): Promise<BlueskyBlobRef | null> {
     // Streamed instead of buffered (2026-09-05) -- see streamUpload.ts.
     // redirect: "manual" is applied inside fetchMediaForStreaming, same
     // SSRF-closing rationale as mastodon.ts's original uploadMedia.
     const media = await fetchMediaForStreaming(mediaUrl);
     if (!media) return null;
 
-    const res = await fetch(UPLOAD_BLOB_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": media.contentType,
-      },
-      body: media.body,
-      duplex: "half",
-    } as RequestInitWithDuplex);
+    const res = await pdsFetch(
+      ctx,
+      UPLOAD_BLOB_PATH,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${ctx.token}`,
+          "Content-Type": media.contentType,
+        },
+        body: media.body,
+        duplex: "half",
+      } as RequestInitWithDuplex,
+      UPLOAD_TIMEOUT_MS,
+    );
     if (!res.ok) return null;
-    const json = (await res.json()) as BlueskyUploadBlobResponse;
+    const json = await pdsJson<BlueskyUploadBlobResponse>(ctx, res);
     return json.blob ?? null;
   }
 
@@ -318,14 +407,14 @@ export class BlueskyAdapter implements PlatformAdapter {
   // from AT Protocol's documented conventions rather than a field-by-field
   // spec dump -- this is the one platform in this build most worth a real,
   // careful live test before trusting it, not just tsc passing.
-  private async uploadVideo(mediaUrl: string, accessToken: string, did: string, pdsDid: string): Promise<BlueskyBlobRef | null> {
-    const serviceAuthUrl = new URL(GET_SERVICE_AUTH_URL);
+  private async uploadVideo(ctx: BlueskyCtx, mediaUrl: string, did: string, pdsDid: string): Promise<BlueskyBlobRef | null> {
+    const serviceAuthUrl = new URL(GET_SERVICE_AUTH_PATH, "https://placeholder.invalid");
     serviceAuthUrl.searchParams.set("aud", pdsDid);
     serviceAuthUrl.searchParams.set("lxm", "com.atproto.repo.uploadBlob");
-    const serviceAuthRes = await fetch(serviceAuthUrl.toString(), {
-      headers: { Authorization: `Bearer ${accessToken}` },
+    const serviceAuthRes = await pdsFetch(ctx, `${serviceAuthUrl.pathname}${serviceAuthUrl.search}`, {
+      headers: { Authorization: `Bearer ${ctx.token}` },
     });
-    const serviceAuthJson = (await serviceAuthRes.json()) as BlueskyServiceAuthResponse;
+    const serviceAuthJson = await pdsJson<BlueskyServiceAuthResponse>(ctx, serviceAuthRes);
     if (!serviceAuthRes.ok || !serviceAuthJson.token) return null;
 
     const media = await fetchMediaForStreaming(mediaUrl);
@@ -382,6 +471,23 @@ export class BlueskyAdapter implements PlatformAdapter {
   }
 
   async post(request: PostRequest): Promise<PostAttemptResult> {
+    let ctx: BlueskyCtx;
+    try {
+      ctx = parseBlueskyToken(request.accessToken);
+    } catch (err) {
+      return { success: false, platformPostId: null, errorMessage: tokenProblem(err) };
+    }
+    try {
+      return await this.postWith(ctx, request);
+    } catch (err) {
+      // Only the customer-host guard's own (safe) errors become a result; anything else
+      // propagates exactly as it always did.
+      if (err instanceof CustomerHostError) return { success: false, platformPostId: null, errorMessage: err.message };
+      throw err;
+    }
+  }
+
+  private async postWith(ctx: BlueskyCtx, request: PostRequest): Promise<PostAttemptResult> {
     // repo must be a did/handle — the access token's owner is looked up
     // once here rather than threading platformAccountId through
     // PostRequest, matching how every other adapter derives what it needs
@@ -389,13 +495,10 @@ export class BlueskyAdapter implements PlatformAdapter {
     // video upload -- which needs the did too, for getServiceAuth's
     // audience-scoped token -- can reuse this same lookup instead of a
     // second one.
-    const sessionRes = await fetch(
-      `${DEFAULT_PDS}/xrpc/com.atproto.server.getSession`,
-      { headers: { Authorization: `Bearer ${request.accessToken}` } },
-    );
-    const sessionJson = (await sessionRes.json()) as BlueskyGetSessionResponse;
+    const sessionRes = await pdsFetch(ctx, GET_SESSION_PATH, { headers: { Authorization: `Bearer ${ctx.token}` } });
+    const sessionJson = await pdsJson<BlueskyGetSessionResponse>(ctx, sessionRes);
     if (!sessionRes.ok || !sessionJson.did) {
-      return { success: false, platformPostId: null, errorMessage: sessionJson.message ?? "Bluesky session lookup failed" };
+      return { success: false, platformPostId: null, errorMessage: serverText(ctx, sessionJson.message, "Bluesky session lookup failed") };
     }
 
     let embed: unknown;
@@ -417,13 +520,13 @@ export class BlueskyAdapter implements PlatformAdapter {
         return { success: false, platformPostId: null, errorMessage: "Could not resolve this account's PDS from its session (needed for video upload)" };
       }
       const pdsDid = `did:web:${new URL(pdsEndpoint).hostname}`;
-      const blob = await this.uploadVideo(request.mediaUrl, request.accessToken, sessionJson.did, pdsDid);
+      const blob = await this.uploadVideo(ctx, request.mediaUrl, sessionJson.did, pdsDid);
       if (!blob) {
         return { success: false, platformPostId: null, errorMessage: `Could not upload video from ${request.mediaUrl}` };
       }
       embed = { $type: "app.bsky.embed.video", video: blob, alt: request.mediaAltText ?? "" };
     } else if (request.mediaUrl) {
-      const blob = await this.uploadBlob(request.mediaUrl, request.accessToken);
+      const blob = await this.uploadBlob(ctx, request.mediaUrl);
       if (!blob) {
         return { success: false, platformPostId: null, errorMessage: `Could not upload media from ${request.mediaUrl}` };
       }
@@ -438,7 +541,7 @@ export class BlueskyAdapter implements PlatformAdapter {
         { alt: request.mediaAltText ?? "", image: blob },
       ];
       for (const extraUrl of request.mediaUrls ?? []) {
-        const extraBlob = await this.uploadBlob(extraUrl, request.accessToken);
+        const extraBlob = await this.uploadBlob(ctx, extraUrl);
         if (!extraBlob) {
           return { success: false, platformPostId: null, errorMessage: `Could not upload media from ${extraUrl}` };
         }
@@ -447,10 +550,10 @@ export class BlueskyAdapter implements PlatformAdapter {
       embed = { $type: "app.bsky.embed.images", images };
     }
 
-    const res = await fetch(CREATE_RECORD_URL, {
+    const res = await pdsFetch(ctx, CREATE_RECORD_PATH, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${request.accessToken}`,
+        Authorization: `Bearer ${ctx.token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -465,13 +568,13 @@ export class BlueskyAdapter implements PlatformAdapter {
         },
       }),
     });
-    const json = (await res.json()) as BlueskyCreateRecordResponse;
+    const json = await pdsJson<BlueskyCreateRecordResponse>(ctx, res);
 
     if (!res.ok || !json.uri) {
       return {
         success: false,
         platformPostId: null,
-        errorMessage: json.message ?? json.error ?? `Bluesky post creation failed (HTTP ${res.status})`,
+        errorMessage: serverText(ctx, json.message ?? json.error, `Bluesky post creation failed (HTTP ${res.status})`),
       };
     }
 
@@ -485,16 +588,17 @@ export class BlueskyAdapter implements PlatformAdapter {
   // replyRef), so the cids are fetched with com.atproto.repo.getRecord. The
   // returned id is the new record's at:// uri, the same format post() returns.
   // Follow-ups are plain text like the main post (post() sets no facets).
-  private async getRecordRef(atUri: string, accessToken: string): Promise<{ uri: string; cid: string } | { error: string }> {
+  private async getRecordRef(ctx: BlueskyCtx, atUri: string): Promise<{ uri: string; cid: string } | { error: string }> {
     const match = /^at:\/\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(atUri);
     if (!match) return { error: `Not a valid Bluesky post uri: ${atUri}` };
-    const res = await fetch(
-      `${GET_RECORD_URL}?repo=${encodeURIComponent(match[1])}&collection=${encodeURIComponent(match[2])}&rkey=${encodeURIComponent(match[3])}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
+    const res = await pdsFetch(
+      ctx,
+      `${GET_RECORD_PATH}?repo=${encodeURIComponent(match[1])}&collection=${encodeURIComponent(match[2])}&rkey=${encodeURIComponent(match[3])}`,
+      { headers: { Authorization: `Bearer ${ctx.token}` } },
     );
-    const json = (await res.json().catch(() => ({}))) as BlueskyGetRecordResponse & { cid?: string };
+    const json = (ctx.isDefault ? await res.json().catch(() => ({})) : await pdsJson<object>(ctx, res)) as BlueskyGetRecordResponse & { cid?: string };
     if (!res.ok || !json.cid) {
-      return { error: json.message ?? json.error ?? `Could not look up the post to reply to (HTTP ${res.status})` };
+      return { error: serverText(ctx, json.message ?? json.error, `Could not look up the post to reply to (HTTP ${res.status})`) };
     }
     return { uri: atUri, cid: json.cid };
   }
@@ -507,24 +611,43 @@ export class BlueskyAdapter implements PlatformAdapter {
     platformAccountId?: string | null;
   }): Promise<{ success: boolean; platformPostId: string | null; errorMessage: string | null }> {
     const fail = (errorMessage: string) => ({ success: false, platformPostId: null, errorMessage });
-    const parent = await this.getRecordRef(input.parentPostId, input.accessToken);
+    let ctx: BlueskyCtx;
+    try {
+      ctx = parseBlueskyToken(input.accessToken);
+    } catch (err) {
+      return fail(tokenProblem(err));
+    }
+    try {
+      return await this.postChainReplyWith(ctx, input, fail);
+    } catch (err) {
+      if (err instanceof CustomerHostError) return fail(err.message);
+      throw err;
+    }
+  }
+
+  private async postChainReplyWith(
+    ctx: BlueskyCtx,
+    input: { rootPostId: string; parentPostId: string; text: string; platformAccountId?: string | null },
+    fail: (errorMessage: string) => { success: boolean; platformPostId: string | null; errorMessage: string | null },
+  ): Promise<{ success: boolean; platformPostId: string | null; errorMessage: string | null }> {
+    const parent = await this.getRecordRef(ctx, input.parentPostId);
     if ("error" in parent) return fail(parent.error);
-    const root = input.rootPostId === input.parentPostId ? parent : await this.getRecordRef(input.rootPostId, input.accessToken);
+    const root = input.rootPostId === input.parentPostId ? parent : await this.getRecordRef(ctx, input.rootPostId);
     if ("error" in root) return fail(root.error);
 
     let did = input.platformAccountId && input.platformAccountId.startsWith("did:") ? input.platformAccountId : null;
     if (!did) {
-      const sessionRes = await fetch(`${DEFAULT_PDS}/xrpc/com.atproto.server.getSession`, {
-        headers: { Authorization: `Bearer ${input.accessToken}` },
+      const sessionRes = await pdsFetch(ctx, GET_SESSION_PATH, {
+        headers: { Authorization: `Bearer ${ctx.token}` },
       });
-      const sessionJson = (await sessionRes.json().catch(() => ({}))) as BlueskyGetSessionResponse;
-      if (!sessionRes.ok || !sessionJson.did) return fail(sessionJson.message ?? "Bluesky session lookup failed");
+      const sessionJson = (ctx.isDefault ? await sessionRes.json().catch(() => ({})) : await pdsJson<object>(ctx, sessionRes)) as BlueskyGetSessionResponse;
+      if (!sessionRes.ok || !sessionJson.did) return fail(serverText(ctx, sessionJson.message, "Bluesky session lookup failed"));
       did = sessionJson.did;
     }
 
-    const res = await fetch(CREATE_RECORD_URL, {
+    const res = await pdsFetch(ctx, CREATE_RECORD_PATH, {
       method: "POST",
-      headers: { Authorization: `Bearer ${input.accessToken}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${ctx.token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         repo: did,
         collection: POST_COLLECTION,
@@ -537,8 +660,8 @@ export class BlueskyAdapter implements PlatformAdapter {
         },
       }),
     });
-    const json = (await res.json().catch(() => ({}))) as BlueskyCreateRecordResponse;
-    if (!res.ok || !json.uri) return fail(json.message ?? json.error ?? `Bluesky thread reply failed (HTTP ${res.status})`);
+    const json = (ctx.isDefault ? await res.json().catch(() => ({})) : await pdsJson<object>(ctx, res)) as BlueskyCreateRecordResponse;
+    if (!res.ok || !json.uri) return fail(serverText(ctx, json.message ?? json.error, `Bluesky thread reply failed (HTTP ${res.status})`));
     return { success: true, platformPostId: json.uri, errorMessage: null };
   }
 
@@ -555,17 +678,31 @@ export class BlueskyAdapter implements PlatformAdapter {
     }
     const [, did, collection, rkey] = match;
 
-    const res = await fetch(
-      `${GET_RECORD_URL}?repo=${encodeURIComponent(did)}&collection=${encodeURIComponent(collection)}&rkey=${encodeURIComponent(rkey)}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
-    );
-    const json = (await res.json()) as BlueskyGetRecordResponse;
+    let ctx: BlueskyCtx;
+    try {
+      ctx = parseBlueskyToken(accessToken);
+    } catch (err) {
+      return { verifiedLive: false, platformPostUrl: null, errorMessage: tokenProblem(err) };
+    }
+    let res: Response;
+    let json: BlueskyGetRecordResponse;
+    try {
+      res = await pdsFetch(
+        ctx,
+        `${GET_RECORD_PATH}?repo=${encodeURIComponent(did)}&collection=${encodeURIComponent(collection)}&rkey=${encodeURIComponent(rkey)}`,
+        { headers: { Authorization: `Bearer ${ctx.token}` } },
+      );
+      json = await pdsJson<BlueskyGetRecordResponse>(ctx, res);
+    } catch (err) {
+      if (err instanceof CustomerHostError) return { verifiedLive: false, platformPostUrl: null, errorMessage: err.message };
+      throw err;
+    }
 
     if (!res.ok || json.uri !== atUri) {
       return {
         verifiedLive: false,
         platformPostUrl: null,
-        errorMessage: json.message ?? json.error ?? `Bluesky post verification failed (HTTP ${res.status})`,
+        errorMessage: serverText(ctx, json.message ?? json.error, `Bluesky post verification failed (HTTP ${res.status})`),
       };
     }
 
@@ -614,6 +751,21 @@ export class BlueskyAdapter implements PlatformAdapter {
   // rather than assuming a fixed depth — correct even if Bluesky's app
   // ever surfaces nested (not just one-level) comment threads later.
   async replyToComment(commentId: string, text: string, accessToken: string): Promise<CommentPostResult> {
+    let ctx: BlueskyCtx;
+    try {
+      ctx = parseBlueskyToken(accessToken);
+    } catch (err) {
+      return { success: false, errorMessage: tokenProblem(err) };
+    }
+    try {
+      return await this.replyToCommentWith(ctx, commentId, text);
+    } catch (err) {
+      if (err instanceof CustomerHostError) return { success: false, errorMessage: err.message };
+      throw err;
+    }
+  }
+
+  private async replyToCommentWith(ctx: BlueskyCtx, commentId: string, text: string): Promise<CommentPostResult> {
     const threadUrl = `${GET_POST_THREAD_URL}?uri=${encodeURIComponent(commentId)}&depth=0&parentHeight=10`;
     const threadRes = await fetch(threadUrl);
     const threadJson = (await threadRes.json().catch(() => ({}))) as BlueskyReplyThreadResponse;
@@ -632,18 +784,18 @@ export class BlueskyAdapter implements PlatformAdapter {
       ancestor = ancestor.parent;
     }
 
-    const sessionRes = await fetch(`${DEFAULT_PDS}/xrpc/com.atproto.server.getSession`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+    const sessionRes = await pdsFetch(ctx, GET_SESSION_PATH, {
+      headers: { Authorization: `Bearer ${ctx.token}` },
     });
-    const sessionJson = (await sessionRes.json()) as { did?: string; message?: string };
+    const sessionJson = await pdsJson<{ did?: string; message?: string }>(ctx, sessionRes);
     if (!sessionRes.ok || !sessionJson.did) {
-      return { success: false, errorMessage: sessionJson.message ?? "Bluesky session lookup failed" };
+      return { success: false, errorMessage: serverText(ctx, sessionJson.message, "Bluesky session lookup failed") };
     }
 
-    const res = await fetch(CREATE_RECORD_URL, {
+    const res = await pdsFetch(ctx, CREATE_RECORD_PATH, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${ctx.token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -661,9 +813,9 @@ export class BlueskyAdapter implements PlatformAdapter {
         },
       }),
     });
-    const json = (await res.json()) as BlueskyCreateRecordResponse;
+    const json = await pdsJson<BlueskyCreateRecordResponse>(ctx, res);
     if (!res.ok || !json.uri) {
-      return { success: false, errorMessage: json.message ?? json.error ?? `Bluesky reply failed (HTTP ${res.status})` };
+      return { success: false, errorMessage: serverText(ctx, json.message ?? json.error, `Bluesky reply failed (HTTP ${res.status})`) };
     }
 
     return { success: true, errorMessage: null };
@@ -698,10 +850,29 @@ export class BlueskyAdapter implements PlatformAdapter {
   // post() already does to resolve the token's own did, needs no scope
   // beyond what app-password sign-in already grants.
   async getFollowerCount(accessToken: string): Promise<number | null> {
-    const sessionRes = await fetch(`${DEFAULT_PDS}/xrpc/com.atproto.server.getSession`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    const sessionJson = (await sessionRes.json().catch(() => ({}))) as { did?: string };
+    let ctx: BlueskyCtx;
+    try {
+      ctx = parseBlueskyToken(accessToken);
+    } catch {
+      console.error("[bluesky] getFollowerCount failed: saved connection is damaged");
+      return null;
+    }
+    let sessionRes: Response;
+    let sessionJson: { did?: string };
+    try {
+      sessionRes = await pdsFetch(ctx, GET_SESSION_PATH, {
+        headers: { Authorization: `Bearer ${ctx.token}` },
+      });
+      sessionJson = ctx.isDefault
+        ? ((await sessionRes.json().catch(() => ({}))) as { did?: string })
+        : await pdsJson<{ did?: string }>(ctx, sessionRes);
+    } catch (err) {
+      if (err instanceof CustomerHostError) {
+        console.error(`[bluesky] getFollowerCount failed at getSession: host=${new URL(ctx.pds).hostname} ${err.message}`);
+        return null;
+      }
+      throw err;
+    }
     if (!sessionRes.ok || !sessionJson.did) {
       console.error(`[bluesky] getFollowerCount failed at getSession: HTTP ${sessionRes.status} ${JSON.stringify(sessionJson).slice(0, 500)}`);
       return null;
