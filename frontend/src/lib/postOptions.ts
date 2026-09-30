@@ -9,6 +9,10 @@ export interface PostOptions {
   instagram?: { placement?: "feed" | "reel" | "story"; trialReel?: boolean; trialGraduation?: "manual" | "auto" };
   facebook?: { placement?: "feed" | "story" };
   linkedin?: { documentUrl?: string; documentTitle?: string };
+  wordpress?: { title?: string; status?: "publish" | "draft"; categories?: string[]; tags?: string[] };
+  devto?: { title?: string; published?: boolean; tags?: string[]; series?: string; canonicalUrl?: string };
+  hashnode?: { title?: string; subtitle?: string; tags?: string[]; canonicalUrl?: string; draft?: boolean };
+  lemmy?: { community?: string; title?: string; url?: string; nsfw?: boolean };
   chain?: string[];
 }
 
@@ -18,6 +22,10 @@ export const OPTION_KEY_FOR_PLATFORM: Record<string, keyof PostOptions> = {
   instagram: "instagram",
   facebook: "facebook",
   linkedin: "linkedin",
+  wordpress: "wordpress",
+  devto: "devto",
+  hashnode: "hashnode",
+  lemmy: "lemmy",
   threads: "chain",
   bluesky: "chain",
   mastodon: "chain",
@@ -27,7 +35,7 @@ export const OPTION_KEY_FOR_PLATFORM: Record<string, keyof PostOptions> = {
 export const CHAIN_ITEM_MAX_LENGTH: Record<string, number> = { threads: 500, bluesky: 300, mastodon: 500, x: 280 };
 export const MAX_CHAIN_ITEMS = 10;
 
-const LABELS: Record<string, string> = { tiktok: "TikTok", youtube: "YouTube", instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn", threads: "Threads", bluesky: "Bluesky", mastodon: "Mastodon", x: "X" };
+const LABELS: Record<string, string> = { tiktok: "TikTok", youtube: "YouTube", instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn", threads: "Threads", bluesky: "Bluesky", mastodon: "Mastodon", x: "X", wordpress: "WordPress", devto: "dev.to", hashnode: "Hashnode", lemmy: "Lemmy" };
 export const platformLabel = (p: string) => LABELS[p] ?? p.charAt(0).toUpperCase() + p.slice(1);
 
 export interface OptionGroups {
@@ -36,6 +44,10 @@ export interface OptionGroups {
   instagram: boolean;
   facebook: boolean;
   linkedin: boolean;
+  wordpress: boolean;
+  devto: boolean;
+  hashnode: boolean;
+  lemmy: boolean;
   /** Platforms selected that can post a thread, in order. */
   chainPlatforms: string[];
 }
@@ -49,6 +61,10 @@ export function optionGroupsFor(platforms: Array<string | undefined>): OptionGro
     instagram: chosen.includes("instagram"),
     facebook: chosen.includes("facebook"),
     linkedin: chosen.includes("linkedin"),
+    wordpress: chosen.includes("wordpress"),
+    devto: chosen.includes("devto"),
+    hashnode: chosen.includes("hashnode"),
+    lemmy: chosen.includes("lemmy"),
     chainPlatforms: chosen.filter((p) => OPTION_KEY_FOR_PLATFORM[p] === "chain"),
   };
 }
@@ -71,8 +87,8 @@ export function cleanOptions(o: PostOptions): PostOptions {
     } else if (value && typeof value === "object") {
       const inner: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(value)) {
-        // madeForKids: false is a real answer ("not for kids"), unlike the other switches.
-        if (Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== "" && (v !== false || k === "madeForKids")) inner[k] = v;
+        // madeForKids and published: false are real answers ("not for kids", "save as a draft"), unlike the other switches.
+        if (Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== "" && (v !== false || k === "madeForKids" || k === "published")) inner[k] = v;
       }
       if (!isEmptyValue(inner)) out[group] = inner;
     }
@@ -117,6 +133,10 @@ export function describeOptions(
   if (o.instagram?.trialReel) out.push(`Trial reel (${o.instagram.trialGraduation === "auto" ? "graduates automatically" : "you graduate it"})`);
   if (o.facebook?.placement === "story") out.push("Facebook Story");
   if (o.linkedin?.documentUrl) out.push(`PDF document${o.linkedin.documentTitle ? `: ${o.linkedin.documentTitle}` : ""}`);
+  if (o.wordpress?.status === "draft") out.push("WordPress: saved as a draft");
+  if (o.devto?.published === false) out.push("dev.to: saved as a draft");
+  if (o.hashnode?.draft) out.push("Hashnode: saved as a draft");
+  if (o.lemmy?.community) out.push(`Lemmy: ${o.lemmy.community}`);
   if (o.chain && o.chain.length > 0) {
     const total = o.chain.length;
     if (chainResult && chainResult.posted !== null && chainResult.posted !== undefined) {

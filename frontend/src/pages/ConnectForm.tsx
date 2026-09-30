@@ -3,12 +3,16 @@ import { api } from "../lib/api";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
 
-type ManualPlatform = "bluesky" | "telegram" | "discord";
+type ManualPlatform = "bluesky" | "telegram" | "discord" | "wordpress" | "devto" | "hashnode" | "lemmy";
 
 const PLATFORM_LABELS: Record<ManualPlatform, string> = {
   bluesky: "Bluesky",
   telegram: "Telegram",
   discord: "Discord",
+  wordpress: "WordPress",
+  devto: "dev.to",
+  hashnode: "Hashnode",
+  lemmy: "Lemmy",
 };
 
 // Client IDs are public by design (they're embedded in every OAuth URL),
@@ -36,6 +40,12 @@ export function ConnectForm({ platform, state }: ConnectFormProps) {
   const [channelUsername, setChannelUsername] = useState("");
   const [botToken, setBotToken] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
+  const [siteUrl, setSiteUrl] = useState("");
+  const [username, setUsername] = useState("");
+  const [secret, setSecret] = useState(""); // application password, API key, access token or Lemmy password
+  const [extra, setExtra] = useState(""); // Hashnode publication address, Lemmy default community
+  const [instance, setInstance] = useState("");
+  const [totp, setTotp] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -50,7 +60,15 @@ export function ConnectForm({ platform, state }: ConnectFormProps) {
           ? JSON.stringify({ identifier: handle, password: appPassword })
           : platform === "telegram"
             ? JSON.stringify({ botToken, channelUsername })
-            : JSON.stringify({ webhookUrl });
+            : platform === "discord"
+              ? JSON.stringify({ webhookUrl })
+              : platform === "wordpress"
+                ? JSON.stringify({ siteUrl, username, applicationPassword: secret })
+                : platform === "devto"
+                  ? JSON.stringify({ apiKey: secret })
+                  : platform === "hashnode"
+                    ? JSON.stringify({ token: secret, ...(extra.trim() ? { publicationHost: extra.trim() } : {}) })
+                    : JSON.stringify({ instance, username, password: secret, ...(totp.trim() ? { totpToken: totp.trim() } : {}), ...(extra.trim() ? { community: extra.trim() } : {}) });
       await api.completeManualConnect(code, state);
       setDone(true);
       setTimeout(() => {
@@ -159,6 +177,78 @@ export function ConnectForm({ platform, state }: ConnectFormProps) {
                   Also invite the LazyRelay bot to this server
                 </a>{" "}
                 if you want to reply to comments from LazyRelay too — posting works either way.
+              </p>
+            </>
+          )}
+          {platform === "wordpress" && (
+            <>
+              <label>
+                Your site address
+                <input type="text" placeholder="https://yoursite.com" value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)} required />
+              </label>
+              <label>
+                Username
+                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} required />
+              </label>
+              <label>
+                Application password
+                <input type="password" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx" value={secret} onChange={(e) => setSecret(e.target.value)} required />
+              </label>
+              <p className="field-hint">
+                Works with your own WordPress site (version 5.6 or newer, address starting with https). In WordPress go to Users &rarr; Profile, scroll to Application Passwords, type LazyRelay as the name and click Add. Copy the password it shows once. Do not use your normal login password.
+              </p>
+            </>
+          )}
+          {platform === "devto" && (
+            <>
+              <label>
+                dev.to API key
+                <input type="password" value={secret} onChange={(e) => setSecret(e.target.value)} required />
+              </label>
+              <p className="field-hint">
+                On dev.to open Settings &rarr; Extensions, find DEV Community API Keys, type LazyRelay as the description and click Generate API Key. Copy the key and paste it above.
+              </p>
+            </>
+          )}
+          {platform === "hashnode" && (
+            <>
+              <label>
+                Personal access token
+                <input type="password" value={secret} onChange={(e) => setSecret(e.target.value)} required />
+              </label>
+              <label>
+                Blog address (only if you have more than one)
+                <input type="text" placeholder="yourname.hashnode.dev" value={extra} onChange={(e) => setExtra(e.target.value)} />
+              </label>
+              <p className="field-hint">
+                Hashnode now charges for API access, so your blog needs Hashnode's Pro plan for LazyRelay to post to it. On Hashnode open Account settings &rarr; Developer, click Generate New Token and paste it above.
+              </p>
+            </>
+          )}
+          {platform === "lemmy" && (
+            <>
+              <label>
+                Your Lemmy server
+                <input type="text" placeholder="lemmy.world" value={instance} onChange={(e) => setInstance(e.target.value)} required />
+              </label>
+              <label>
+                Username
+                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} required />
+              </label>
+              <label>
+                Password
+                <input type="password" value={secret} onChange={(e) => setSecret(e.target.value)} required />
+              </label>
+              <label>
+                Two-factor code (only if you use one)
+                <input type="text" inputMode="numeric" value={totp} onChange={(e) => setTotp(e.target.value)} />
+              </label>
+              <label>
+                Community to post in (optional, for example programming@programming.dev)
+                <input type="text" value={extra} onChange={(e) => setExtra(e.target.value)} />
+              </label>
+              <p className="field-hint">
+                LazyRelay stores a login token, not your password. In Lemmy open Settings &rarr; Profile and tick Bot account, because Lemmy expects automated posts to come from a bot-marked account.
               </p>
             </>
           )}

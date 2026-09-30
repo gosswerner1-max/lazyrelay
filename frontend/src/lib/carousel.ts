@@ -17,6 +17,10 @@ export const MULTI_MEDIA_RULES: Record<string, MultiMediaRule> = {
   bluesky: { max: 4, videos: false },
   mastodon: { max: 4, videos: false },
   x: { max: 4, videos: false },
+  wordpress: { max: 10, videos: false },
+  devto: { max: 10, videos: false },
+  hashnode: { max: 10, videos: false },
+  lemmy: { max: 10, videos: false },
 };
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -33,6 +37,10 @@ const PLATFORM_LABELS: Record<string, string> = {
   youtube: "YouTube",
   telegram: "Telegram",
   discord: "Discord",
+  wordpress: "WordPress",
+  devto: "dev.to",
+  hashnode: "Hashnode",
+  lemmy: "Lemmy",
   snapchat: "Snapchat",
   reddit: "Reddit",
 };

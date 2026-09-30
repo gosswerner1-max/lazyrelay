@@ -228,7 +228,7 @@ export function SocialPlatformsTab() {
               onClick={() => (p.platform === "pinterest" ? setShowPinterestConnectModal(true) : handleConnect(p.platform))}
             >
               <PlatformIcon platform={p.platform} size={20} comingSoon={disabled} />
-              <span className="platform-tile-name">{p.platform}</span>
+              <span className="platform-tile-name">{p.platform === "devto" ? "dev.to" : p.platform}</span>
               {p.comingSoon && <span className="platform-tile-badge">Coming soon</span>}
               {!disabled && connectedCount > 0 && (
                 <span className="platform-tile-badge platform-tile-badge-connected">

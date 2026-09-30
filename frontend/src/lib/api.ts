@@ -536,12 +536,14 @@ export const api = {
   // connect already succeeded server-side (confirmed live 2026-08-06 on
   // Bluesky/Telegram/Discord).
   completeManualConnect: async (code: string, state: string): Promise<{ connected: boolean; socialAccountId: string }> => {
+    // POST, not GET: the pasted credential (an app password, a Lemmy password) must not travel in the
+    // address, where it would land in request logs. The backend answers a POST with JSON.
     const res = await fetch(
-      `${API_URL}/social-accounts/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}&format=json`,
+      `${API_URL}/social-accounts/callback`,
       // Same lr_oauth_state cookie requirement as every other connect path
       // — this platform never navigates away to a real OAuth provider, but
       // still goes through the same browser-binding check on the callback.
-      { credentials: "include" },
+      { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, state }) },
     );
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error ?? `Connect failed: ${res.status}`);

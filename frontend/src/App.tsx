@@ -36,7 +36,7 @@ import "./App.css";
 const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
 const ApiDocs = lazy(() => import("./pages/ApiDocs").then((m) => ({ default: m.ApiDocs })));
 
-const MANUAL_CONNECT_PLATFORMS = ["bluesky", "telegram", "discord"] as const;
+const MANUAL_CONNECT_PLATFORMS = ["bluesky", "telegram", "discord", "wordpress", "devto", "hashnode", "lemmy"] as const;
 
 // Captured once at module-evaluation time, before React (or any of its
 // effects) runs at all. Root's own path-sync effect rewrites the URL back

@@ -17,12 +17,30 @@ interface Props {
 
 const box: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 8, marginTop: 8 };
 
+/** A box for a comma-separated list (tags, categories). Keeps what the customer is typing, hands the parsed list up. */
+function ListInput({ label, initial, onList }: { label: string; initial: string[]; onList: (items: string[]) => void }) {
+  const [text, setText] = useState(initial.join(", "));
+  return (
+    <label className="field">
+      {label}
+      <input
+        type="text"
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          onList(parseTagList(e.target.value));
+        }}
+      />
+    </label>
+  );
+}
+
 export function PlatformOptions({ groups, value, onChange, mediaUrl, hasExtraMedia, onError }: Props) {
   const [tagsText, setTagsText] = useState((value.youtube?.tags ?? []).join(", "));
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const set = <K extends keyof PostOptions>(key: K, patch: PostOptions[K]) => onChange({ ...value, [key]: patch });
 
-  const anything = groups.tiktok || groups.youtube || groups.instagram || groups.facebook || groups.linkedin || groups.chainPlatforms.length > 0;
+  const anything = groups.tiktok || groups.youtube || groups.instagram || groups.facebook || groups.linkedin || groups.wordpress || groups.devto || groups.hashnode || groups.lemmy || groups.chainPlatforms.length > 0;
   if (!anything) return null;
 
   const video = !!mediaUrl && isVideoFile(mediaUrl);
@@ -204,6 +222,100 @@ export function PlatformOptions({ groups, value, onChange, mediaUrl, hasExtraMed
             </label>
           )}
           {!value.linkedin?.documentUrl && mediaUrl && <p className="section-note">A LinkedIn post can carry a PDF or images, not both. Remove the image to attach a PDF.</p>}
+        </div>
+      )}
+
+      {groups.wordpress && (
+        <div style={box}>
+          <strong className="options-group-name">{platformLabel("wordpress")}</strong>
+          <label className="field">
+            Title (optional, otherwise the first line of the post is the title)
+            <input type="text" maxLength={250} value={value.wordpress?.title ?? ""} onChange={(e) => set("wordpress", { ...value.wordpress, title: e.target.value })} />
+          </label>
+          <label className="field">
+            When it goes out
+            <select value={value.wordpress?.status ?? "publish"} onChange={(e) => set("wordpress", { ...value.wordpress, status: e.target.value as "publish" | "draft" })}>
+              <option value="publish">Publish it</option>
+              <option value="draft">Save as a draft on my site</option>
+            </select>
+          </label>
+          <ListInput label="Categories (optional, separated by commas)" initial={value.wordpress?.categories ?? []} onList={(items) => set("wordpress", { ...value.wordpress, categories: items })} />
+          <ListInput label="Tags (optional, separated by commas)" initial={value.wordpress?.tags ?? []} onList={(items) => set("wordpress", { ...value.wordpress, tags: items })} />
+          <p className="section-note">The post text becomes the article. If you attach an image it is used as the featured image.</p>
+        </div>
+      )}
+
+      {groups.devto && (
+        <div style={box}>
+          <strong className="options-group-name">{platformLabel("devto")}</strong>
+          <label className="field">
+            Title (optional, otherwise the first line of the post is the title)
+            <input type="text" maxLength={250} value={value.devto?.title ?? ""} onChange={(e) => set("devto", { ...value.devto, title: e.target.value })} />
+          </label>
+          <label className="field">
+            When it goes out
+            <select value={value.devto?.published === false ? "draft" : "publish"} onChange={(e) => set("devto", { ...value.devto, published: e.target.value === "publish" })}>
+              <option value="publish">Publish it</option>
+              <option value="draft">Save as a draft on dev.to</option>
+            </select>
+          </label>
+          <ListInput label="Tags (up to 4, separated by commas)" initial={value.devto?.tags ?? []} onList={(items) => set("devto", { ...value.devto, tags: items })} />
+          <label className="field">
+            Series (optional)
+            <input type="text" maxLength={100} value={value.devto?.series ?? ""} onChange={(e) => set("devto", { ...value.devto, series: e.target.value })} />
+          </label>
+          <label className="field">
+            Original address if this was first published elsewhere (optional)
+            <input type="text" placeholder="https://..." value={value.devto?.canonicalUrl ?? ""} onChange={(e) => set("devto", { ...value.devto, canonicalUrl: e.target.value })} />
+          </label>
+          <p className="section-note">dev.to takes markdown. Images are shown as pictures in the article; video is not supported.</p>
+        </div>
+      )}
+
+      {groups.hashnode && (
+        <div style={box}>
+          <strong className="options-group-name">{platformLabel("hashnode")}</strong>
+          <label className="field">
+            Title (optional, otherwise the first line of the post is the title)
+            <input type="text" maxLength={250} value={value.hashnode?.title ?? ""} onChange={(e) => set("hashnode", { ...value.hashnode, title: e.target.value })} />
+          </label>
+          <label className="field">
+            Subtitle (optional)
+            <input type="text" maxLength={250} value={value.hashnode?.subtitle ?? ""} onChange={(e) => set("hashnode", { ...value.hashnode, subtitle: e.target.value })} />
+          </label>
+          <ListInput label="Tags (up to 5, separated by commas)" initial={value.hashnode?.tags ?? []} onList={(items) => set("hashnode", { ...value.hashnode, tags: items })} />
+          <label className="field">
+            Original address if this was first published elsewhere (optional)
+            <input type="text" placeholder="https://..." value={value.hashnode?.canonicalUrl ?? ""} onChange={(e) => set("hashnode", { ...value.hashnode, canonicalUrl: e.target.value })} />
+          </label>
+          <label className="field-check">
+            <input type="checkbox" checked={value.hashnode?.draft === true} onChange={(e) => set("hashnode", { ...value.hashnode, draft: e.target.checked })} />
+            Save as a draft on Hashnode instead of publishing
+          </label>
+          <p className="section-note">Hashnode takes markdown. An attached image is used as the cover; video is not supported.</p>
+        </div>
+      )}
+
+      {groups.lemmy && (
+        <div style={box}>
+          <strong className="options-group-name">{platformLabel("lemmy")}</strong>
+          <label className="field">
+            Community (for example programming@programming.dev, leave empty to use the one you saved when connecting)
+            <input type="text" value={value.lemmy?.community ?? ""} onChange={(e) => set("lemmy", { ...value.lemmy, community: e.target.value })} />
+          </label>
+          <label className="field">
+            Title (optional, otherwise the first line of the post is the title)
+            <input type="text" maxLength={200} value={value.lemmy?.title ?? ""} onChange={(e) => set("lemmy", { ...value.lemmy, title: e.target.value })} />
+          </label>
+          <label className="field">
+            Link to share (optional)
+            <input type="text" placeholder="https://..." value={value.lemmy?.url ?? ""} onChange={(e) => set("lemmy", { ...value.lemmy, url: e.target.value })} />
+          </label>
+          <label className="field-check">
+            <input type="checkbox" checked={value.lemmy?.nsfw === true} onChange={(e) => set("lemmy", { ...value.lemmy, nsfw: e.target.checked })} />
+            Mark as NSFW
+          </label>
+          <p className="section-note">Each Lemmy community has its own rules. Check them before posting there.</p>
         </div>
       )}
 
