@@ -8,7 +8,8 @@ let idCounter = 0;
 export function makeBuilder(table: string) {
   const rows = () => (tables[table] ??= []);
   const filters: Array<(r: Row) => boolean> = [];
-  let mode: "select" | "update" | "insert" = "select";
+  let mode: "select" | "update" | "insert" | "upsert" | "delete" = "select";
+  let conflictCols: string[] = [];
   let payload: Row | undefined;
   let returning = false;
   let selectCols = "";
@@ -37,9 +38,25 @@ export function makeBuilder(table: string) {
   b.maybeSingle = () => ((singleMode = "maybe"), b);
   b.update = (p: Row) => ((mode = "update"), (payload = p), b);
   b.insert = (p: Row) => ((mode = "insert"), (payload = p), b);
+  b.delete = () => ((mode = "delete"), b);
+  b.upsert = (p: Row, o?: { onConflict?: string }) => ((mode = "upsert"), (payload = p), (conflictCols = (o?.onConflict ?? "id").split(",")), b);
   b.then = (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) => {
     let out: Row[];
-    if (mode === "insert") {
+    if (mode === "upsert") {
+      const existing = rows().find((r) => conflictCols.every((c) => r[c] === (payload as Row)[c]));
+      if (existing) {
+        Object.assign(existing, payload);
+        out = [existing];
+      } else {
+        const row = { id: `id${++idCounter}`, created_at: new Date(Date.now() + idCounter).toISOString(), ...payload };
+        rows().push(row);
+        out = [row];
+      }
+    } else if (mode === "delete") {
+      const doomed = rows().filter((r) => filters.every((f) => f(r)));
+      for (const r of doomed) rows().splice(rows().indexOf(r), 1);
+      out = doomed;
+    } else if (mode === "insert") {
       const row = { id: `id${++idCounter}`, created_at: new Date(Date.now() + idCounter).toISOString(), ...payload };
       rows().push(row);
       out = [row];
@@ -60,3 +77,20 @@ export function makeBuilder(table: string) {
   return b;
 }
 
+
+/** In-memory Vault for tests that exercise store/read/update_social_token. */
+export const vault = new Map<string, string>();
+let vaultCounter = 0;
+export async function fakeRpc(fn: string, args: Record<string, unknown>): Promise<{ data: unknown; error: null | { message: string } }> {
+  if (fn === "store_social_token") {
+    const id = `vault${++vaultCounter}`;
+    vault.set(id, args.p_token as string);
+    return { data: id, error: null };
+  }
+  if (fn === "read_social_token") return { data: vault.get(args.p_vault_id as string) ?? null, error: null };
+  if (fn === "update_social_token") {
+    vault.set(args.p_vault_id as string, args.p_new_token as string);
+    return { data: null, error: null };
+  }
+  return { data: null, error: { message: `unknown rpc ${fn}` } };
+}

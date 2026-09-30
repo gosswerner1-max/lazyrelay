@@ -15,6 +15,24 @@ function resolveAdapter(registry: PlatformAdapterRegistry, platform: string): Pl
   return adapter;
 }
 
+// Every OAuth connect now stops at a confirmation step before anything is
+// saved (2026-09-30, Werner: a customer must be asked, not silently connected
+// to whichever account is already signed in on the platform). For adapters
+// with no Page/channel picker of their own, the freshly exchanged login is
+// held server-side in Vault, wrapped in this marker so finalize can tell it
+// apart from a Facebook/Instagram/YouTube picker's raw user token.
+const CONFIRM_PAYLOAD_MARKER = "__lazyrelay_confirm__";
+
+function parseConfirmPayload(held: string): OAuthExchangeResult | null {
+  if (!held.startsWith("{")) return null;
+  try {
+    const parsed = JSON.parse(held) as { [CONFIRM_PAYLOAD_MARKER]?: boolean; result?: OAuthExchangeResult };
+    return parsed[CONFIRM_PAYLOAD_MARKER] && parsed.result ? parsed.result : null;
+  } catch {
+    return null;
+  }
+}
+
 // Shared by the plain single-account path and both branches of the
 // picker path (auto-finalized single option, and a real customer pick) —
 // same upsert-on-reconnect behavior either way.
@@ -175,16 +193,11 @@ export async function completeConnect(
       throw new Error("No eligible account found to connect");
     }
 
-    if (options.length === 1) {
-      // Nothing to actually pick — finalize immediately rather than make
-      // the customer click through a picker with one entry.
-      await supabase.from("oauth_states").delete().eq("id", state);
-      const result = await adapter.finalizeConnectOption!(userToken, options[0].id);
-      const socialAccountId = await storeConnectedAccount(stateRow.account_id, adapter.platform, result);
-      return { status: "connected", socialAccountId };
-    }
+    // One option or several, the customer is always asked: with a single
+    // option the dashboard shows a "Connect this account?" confirmation
+    // instead of a picker, so a login is never attached silently.
 
-    // Real choice to make — hold the long-lived token against THIS state
+    // Hold the token for the choice — hold the long-lived token against THIS state
     // row instead of deleting it, so the frontend's follow-up "finalize"
     // call has something to reference. Reuses oauth_states' existing
     // expiry as the picker's own timeout.
@@ -202,12 +215,42 @@ export async function completeConnect(
     return { status: "needs_selection", selectionToken: state, options };
   }
 
-  // Delete immediately, before doing anything else — one-time use no
-  // matter what happens next, success or failure.
-  await supabase.from("oauth_states").delete().eq("id", state);
-  const result = await adapter.exchangeCode(code, stateRow.pkce_verifier ?? undefined);
-  const socialAccountId = await storeConnectedAccount(stateRow.account_id, adapter.platform, result);
-  return { status: "connected", socialAccountId };
+  if (adapter.skipConnectConfirmation) {
+    // Credential-form platforms (Bluesky, Telegram, Discord): the customer
+    // just typed the account they want, so there is nothing to confirm.
+    // Delete immediately, before doing anything else — one-time use no
+    // matter what happens next, success or failure.
+    await supabase.from("oauth_states").delete().eq("id", state);
+    const result = await adapter.exchangeCode(code, stateRow.pkce_verifier ?? undefined);
+    const socialAccountId = await storeConnectedAccount(stateRow.account_id, adapter.platform, result);
+    return { status: "connected", socialAccountId };
+  }
+
+  // The authorization code is single-use, so exchange it now. But do NOT save
+  // the account yet: hold the login server-side and make the customer confirm
+  // which account this is. The state row is kept (it is the confirmation's
+  // handle and its 15-minute timeout); it is deleted on confirm or cancel.
+  let held: OAuthExchangeResult;
+  try {
+    held = await adapter.exchangeCode(code, stateRow.pkce_verifier ?? undefined);
+  } catch (err) {
+    await supabase.from("oauth_states").delete().eq("id", state);
+    throw err;
+  }
+  const { data: heldVaultId, error: heldVaultError } = await supabase.rpc("store_social_token", {
+    p_token: JSON.stringify({ [CONFIRM_PAYLOAD_MARKER]: true, result: held }),
+  });
+  if (heldVaultError) {
+    await supabase.from("oauth_states").delete().eq("id", state);
+    throw heldVaultError;
+  }
+  const options: ConnectOption[] = [{ id: held.platformAccountId, name: held.displayName || held.platformAccountId }];
+  const { error: holdError } = await supabase
+    .from("oauth_states")
+    .update({ pending_options: options, pending_token_vault_id: heldVaultId })
+    .eq("id", state);
+  if (holdError) throw holdError;
+  return { status: "needs_selection", selectionToken: state, options };
 }
 
 /** Reads back the pending Page/account options for a "needs_selection"
@@ -281,14 +324,25 @@ export async function finalizeConnectSelection(
   }
 
   const adapter = resolveAdapter(registry, stateRow.platform);
-  if (!adapter.finalizeConnectOption) {
-    throw new Error("This platform doesn't support selection");
-  }
 
   const { data: userToken, error: tokenError } = await supabase.rpc("read_social_token", {
     p_vault_id: stateRow.pending_token_vault_id,
   });
   if (tokenError || !userToken) throw tokenError ?? new Error("Could not retrieve the pending token");
+
+  // A confirmation (not a Page/channel pick): the customer approved the one
+  // account whose login we were holding. Store it exactly as a direct connect
+  // would have, then scrub the held copy.
+  const confirmed = parseConfirmPayload(userToken as string);
+  if (confirmed) {
+    const socialAccountId = await storeConnectedAccount(stateRow.account_id, adapter.platform, confirmed);
+    await scrubHeldToken(stateRow.pending_token_vault_id);
+    return [socialAccountId];
+  }
+
+  if (!adapter.finalizeConnectOption) {
+    throw new Error("This platform doesn't support selection");
+  }
 
   const socialAccountIds: string[] = [];
   for (const selectedId of selectedIds) {
@@ -297,4 +351,33 @@ export async function finalizeConnectSelection(
     socialAccountIds.push(socialAccountId);
   }
   return socialAccountIds;
+}
+
+/** Overwrites a held (not yet confirmed) login in Vault so an unused platform
+ *  token does not linger after the customer cancels or confirms. Best effort:
+ *  a failure here must never block the customer, the row is already gone. */
+async function scrubHeldToken(vaultId: string): Promise<void> {
+  try {
+    await supabase.rpc("update_social_token", { p_vault_id: vaultId, p_new_token: "discarded" });
+  } catch (err) {
+    console.error("[connect] could not scrub held token:", err instanceof Error ? err.message : err);
+  }
+}
+
+/** The customer chose not to connect after seeing which account it was.
+ *  Deletes the in-flight connect and scrubs the held login, scoped to the
+ *  LazyRelay account that started the flow. Idempotent for a token that is
+ *  already gone. */
+export async function cancelConnectSelection(selectionToken: string, accountId: string | undefined): Promise<void> {
+  const { data: stateRow } = await supabase
+    .from("oauth_states")
+    .select("account_id, pending_token_vault_id")
+    .eq("id", selectionToken)
+    .maybeSingle();
+  if (!stateRow) return;
+  if (stateRow.account_id !== accountId) {
+    throw new Error("Not authorized for this selection");
+  }
+  await supabase.from("oauth_states").delete().eq("id", selectionToken);
+  if (stateRow.pending_token_vault_id) await scrubHeldToken(stateRow.pending_token_vault_id);
 }

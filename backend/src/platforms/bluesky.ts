@@ -179,6 +179,9 @@ function rkeyFromAtUri(uri: string): string {
 
 export class BlueskyAdapter implements PlatformAdapter {
   readonly platform: "bluesky" = "bluesky";
+  // The customer types the account on LazyRelay's own connect page, so
+  // there is nothing to confirm afterwards (see connect.ts).
+  readonly skipConnectConfirmation = true;
 
   // No external OAuth provider to redirect to for the app-password flow —
   // this points at LazyRelay's own connect page instead, which is expected

@@ -473,6 +473,9 @@ export const api = {
     authedFetch(`/social-accounts/pending-selection/${encodeURIComponent(token)}`),
   finalizeSelection: (token: string, selectedIds: string[]): Promise<{ connected: boolean; socialAccountIds: string[] }> =>
     authedFetch("/social-accounts/finalize-selection", { method: "POST", body: JSON.stringify({ token, selectedIds }) }),
+  // The customer saw which account they were about to connect and declined.
+  cancelSelection: (token: string): Promise<{ cancelled: boolean }> =>
+    authedFetch("/social-accounts/cancel-selection", { method: "POST", body: JSON.stringify({ token }) }),
 
   // For platforms without real OAuth (Bluesky, Telegram, Discord) — the
   // connect-form page collects a credential, JSON-encodes it as `code`, and

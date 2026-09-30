@@ -8,7 +8,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { supabase } from "../../supabase.js";
-import { startConnect, completeConnect, getPendingSelection, finalizeConnectSelection, type PlatformAdapterRegistry } from "../../platforms/connect.js";
+import { startConnect, completeConnect, getPendingSelection, finalizeConnectSelection, cancelConnectSelection, type PlatformAdapterRegistry } from "../../platforms/connect.js";
 import { requireAuth, type AuthedRequest } from "../auth.js";
 import { tieredRateLimit, publicRateLimit } from "../rateLimit.js";
 import { checkAccountLimit } from "../../accountLimits.js";
@@ -229,6 +229,25 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
     try {
       const socialAccountIds = await finalizeConnectSelection(token, selectedIds, req.accountId, registry);
       res.json({ connected: true, socialAccountIds });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(400).json({ error: message });
+    }
+  });
+
+  // The customer saw which account they were about to connect and chose not
+  // to (or it was the wrong one). Deletes the in-flight connect and scrubs the
+  // login LazyRelay was holding for the confirmation.
+  const cancelSelectionBodySchema = z.object({ token: z.string({ error: "token is required" }) });
+  router.post("/social-accounts/cancel-selection", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    const body = validateBody(cancelSelectionBodySchema, req.body);
+    if (!body.ok) {
+      res.status(400).json({ error: body.error });
+      return;
+    }
+    try {
+      await cancelConnectSelection(body.data.token, req.accountId);
+      res.json({ cancelled: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(400).json({ error: message });

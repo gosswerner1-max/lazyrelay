@@ -99,6 +99,9 @@ function parseCredentials(accessToken: string): TelegramCredentials {
 
 export class TelegramAdapter implements PlatformAdapter {
   readonly platform: "telegram" = "telegram";
+  // The customer types the account on LazyRelay's own connect page, so
+  // there is nothing to confirm afterwards (see connect.ts).
+  readonly skipConnectConfirmation = true;
 
   // connectPageUrl mirrors Bluesky's not-yet-built connect-form pattern.
   // A future per-customer log chat (a private chat *that customer's own

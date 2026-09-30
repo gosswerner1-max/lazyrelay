@@ -74,6 +74,9 @@ export const DISCORD_BOT_PERMISSIONS = "68608"; // View Channels + Send Messages
 
 export class DiscordAdapter implements PlatformAdapter {
   readonly platform: "discord" = "discord";
+  // The customer types the account on LazyRelay's own connect page, so
+  // there is nothing to confirm afterwards (see connect.ts).
+  readonly skipConnectConfirmation = true;
 
   constructor(
     private readonly connectPageUrl: string,

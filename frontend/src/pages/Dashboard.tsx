@@ -81,6 +81,7 @@ export function Dashboard() {
     dismissGcalPrompt,
     finalizingUpgrade,
     handleFinalizeSelection,
+    handleCancelSelection,
     handleConnect,
     handleChangeTier,
     handleConnectGoogleCalendar,
@@ -248,7 +249,34 @@ export function Dashboard() {
       {tab === "API Keys" && <ApiKeysTab />}
       </div>
 
-      {pendingSelection && (
+      {pendingSelection && pendingSelection.options.length === 1 && (
+        <div className="modal-overlay">
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Connect {pendingSelection.options[0].name} on {pendingSelection.platform.charAt(0).toUpperCase() + pendingSelection.platform.slice(1)}?</h2>
+            </div>
+            <p className="modal-subtitle">
+              LazyRelay will be able to post to this account. Nothing is connected until you confirm. If this isn't the account
+              you meant, cancel, sign out of {pendingSelection.platform.charAt(0).toUpperCase() + pendingSelection.platform.slice(1)}{" "}
+              (or use a private window), and connect again.
+            </p>
+            <div className="modal-actions" style={{ flexDirection: "column", alignItems: "stretch", gap: "0.5rem" }}>
+              <button
+                className="modal-confirm-cancel"
+                disabled={selectionBusy}
+                onClick={handleFinalizeSelection}
+              >
+                {selectionBusy ? "Connecting..." : `Connect ${pendingSelection.options[0].name}`}
+              </button>
+              <button className="btn-outline" disabled={selectionBusy} onClick={handleCancelSelection}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pendingSelection && pendingSelection.options.length > 1 && (
         <div className="modal-overlay">
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">

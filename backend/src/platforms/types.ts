@@ -239,6 +239,13 @@ export interface PlatformAdapter {
    *  because an expired token can never be renewed. */
   readonly refreshUsesAccessToken?: boolean;
 
+  /** Set by adapters where the customer types the account themselves
+   *  (Bluesky handle, Telegram bot, Discord webhook) instead of approving it
+   *  on the platform's own site, so there is nothing to confirm after the
+   *  callback. Every other adapter stops at a "Connect this account?"
+   *  confirmation before anything is saved (see connect.ts). */
+  readonly skipConnectConfirmation?: boolean;
+
   /** Optional — posts a follow-up comment on a post LazyRelay itself just
    *  published (the common "hide hashtags in the first comment" pattern).
    *  Only called after verifyPublished() has already confirmed the parent

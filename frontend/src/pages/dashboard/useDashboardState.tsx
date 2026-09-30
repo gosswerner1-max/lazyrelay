@@ -805,6 +805,22 @@ export function useDashboardState() {
     }
   }, []);
 
+  async function handleCancelSelection() {
+    if (!pendingSelection) return;
+    setSelectionBusy(true);
+    setError(null);
+    try {
+      await api.cancelSelection(pendingSelection.token);
+      setNotice("Nothing was connected. To use a different account, sign out of that platform (or use a private window) and connect again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPendingSelection(null);
+      setCheckedOptionIds([]);
+      setSelectionBusy(false);
+    }
+  }
+
   async function handleFinalizeSelection() {
     if (!pendingSelection || checkedOptionIds.length === 0) return;
     setSelectionBusy(true);
@@ -2909,6 +2925,7 @@ export function useDashboardState() {
     insightResult,
     finalizingUpgrade,
     handleFinalizeSelection,
+    handleCancelSelection,
     selectedPinterestAccountId,
     handleConnect,
     handleDisconnectAccount,
