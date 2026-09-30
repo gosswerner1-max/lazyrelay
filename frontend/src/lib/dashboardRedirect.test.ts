@@ -9,6 +9,12 @@ describe("dashboardRedirectTarget", () => {
     expect(dashboardRedirectTarget("/", "?prefillContent=hello")).toBe("/dashboard?prefillContent=hello");
   });
 
+  it("never moves a signed-in visitor off a public token page, review links included", () => {
+    const token = "a".repeat(43);
+    expect(dashboardRedirectTarget("/review/" + token, "")).toBeNull();
+    for (const p of ["/connect/bluesky", "/bio/my-page", "/verify/abc", "/feedback/abc"]) expect(dashboardRedirectTarget(p, "")).toBeNull();
+  });
+
   it("still goes to plain /dashboard when there is no query string", () => {
     expect(dashboardRedirectTarget("/", "")).toBe("/dashboard");
     expect(dashboardRedirectTarget("/pricing", "")).toBe("/dashboard");

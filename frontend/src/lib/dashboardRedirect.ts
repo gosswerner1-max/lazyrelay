@@ -12,7 +12,9 @@
 // (found 2026-09-30, when the new connect confirmation did not show).
 
 // Pages a signed-in visitor must never be redirected away from.
-const EXEMPT_PREFIXES = ["/connect/", "/bio/", "/verify/", "/feedback/"];
+// "/review/" (client review links) was missing until 2026-09-30: a signed-in visitor, including an owner
+// previewing their own link, was bounced to the dashboard. Found by opening a link in a real browser.
+const EXEMPT_PREFIXES = ["/connect/", "/bio/", "/verify/", "/feedback/", "/review/"];
 const EXEMPT_PATHS = ["/oauth/consent", "/team/accept", "/docs", "/reset-password"];
 
 function normalizePath(pathname: string): string {
