@@ -3,6 +3,7 @@ import { isPlatformLimitDetail, PLATFORM_LIMIT_EVENT } from "./platformLimit";
 import type { WebhookDelivery, WebhookEndpoint, WebhookList } from "./webhooks";
 import type { Snippet, SnippetList } from "./snippets";
 import type { PostingSlot, PostingSlotList } from "./postingSlots";
+import type { RssFeed, RssFeedList } from "./rssFeeds";
 import { hasAnalyticsConsent } from "../components/CookieConsent";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -809,6 +810,12 @@ export const api = {
   deletePostingSlot: (id: string): Promise<{ deleted: boolean }> => authedFetch(`/posting-slots/${encodeURIComponent(id)}`, { method: "DELETE" }),
   nextPostingSlot: (socialAccountId: string): Promise<{ scheduledFor: string }> =>
     authedFetch(`/posting-slots/next?socialAccountId=${encodeURIComponent(socialAccountId)}`),
+  // RSS feeds: new items become drafts.
+  listRssFeeds: (): Promise<RssFeedList> => authedFetch("/rss-feeds"),
+  createRssFeed: (body: { url: string; label?: string }): Promise<RssFeed> => authedFetch("/rss-feeds", { method: "POST", body: JSON.stringify(body) }),
+  setRssFeedEnabled: (id: string, enabled: boolean): Promise<RssFeed> =>
+    authedFetch(`/rss-feeds/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ enabled }) }),
+  deleteRssFeed: (id: string): Promise<{ deleted: boolean }> => authedFetch(`/rss-feeds/${encodeURIComponent(id)}`, { method: "DELETE" }),
   // Saved snippets (reusable post text, one optional signature).
   listSnippets: (): Promise<SnippetList> => authedFetch("/snippets"),
   createSnippet: (body: { name: string; content: string; isSignature?: boolean }): Promise<Snippet> =>

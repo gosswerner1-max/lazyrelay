@@ -5,6 +5,7 @@ import { generateDuePosts } from "./recurringScheduler.js";
 import { runTokenRefreshCycle } from "./tokenRefresher.js";
 import { purgeExpiredConnects } from "./platforms/connect.js";
 import { runWebhookDeliveryCycle } from "./webhook.js";
+import { RSS_CHECK_INTERVAL_MS, runRssCycle } from "./rssPoller.js";
 import { buildPlatformRegistry } from "./platforms/registry.js";
 import { StubMorAdapter } from "./billing/stub.js";
 import { PaddleMorAdapter } from "./billing/paddle.js";
@@ -156,6 +157,17 @@ async function main() {
   setInterval(() => {
     runWebhookDeliveryCycle().catch((err) => console.error("Webhook delivery cycle error:", summarizeIfHtmlError(err)));
   }, WEBHOOK_CYCLE_INTERVAL_MS);
+
+  // RSS feeds (rssPoller.ts): new items become drafts, never posts. Every 30
+  // minutes; failures only log and can never affect posting.
+  const runRssJob = () =>
+    runRssCycle()
+      .then((r) => {
+        if (r.drafts) console.log(`RSS cycle: ${r.drafts} new draft(s) from ${r.checked} feed(s).`);
+      })
+      .catch((err) => console.error("RSS cycle error:", summarizeIfHtmlError(err)));
+  setInterval(runRssJob, RSS_CHECK_INTERVAL_MS);
+  setTimeout(runRssJob, 120_000);
 
   const TOKEN_REFRESH_INTERVAL_MS = 6 * 60 * 60_000;
   const runTokenJob = () =>
