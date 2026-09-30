@@ -2,6 +2,7 @@ import { supabase } from "./supabase.js";
 import { notifyOps } from "./notify.js";
 import { sendReconnectNeededEmail } from "./email.js";
 import { isInternalTestAccount } from "./internalTestAccounts.js";
+import { dispatchWebhookEvent } from "./webhook.js";
 
 // Shared by the scheduler (a refresh that fails while posting) and the daily
 // token job. Kept out of scheduler.ts so neither imports the other.
@@ -61,6 +62,15 @@ export async function flagReconnect(
       .from("social_accounts")
       .update({ needs_reconnect_at: row.needs_reconnect_at ?? now, needs_reconnect_reason: reason })
       .eq("id", row.id);
+  }
+  if (firstFlag) {
+    // Once per problem: tell the customer's webhook endpoints too.
+    await dispatchWebhookEvent({
+      accountId: row.account_id,
+      event: "channel.needs_reconnect",
+      socialAccountId: row.id,
+      data: { socialAccountId: row.id, platform: row.platform, displayName: row.display_name, reason },
+    });
   }
   if (row.reconnect_notified_at) return;
 

@@ -15,6 +15,7 @@ import { buildAnalyticsRouter } from "./routes/analytics.routes.js";
 import { buildRecurringSchedulesRouter } from "./routes/recurringSchedules.routes.js";
 import { buildBillingRouter } from "./routes/billing.routes.js";
 import { buildAccountRouter } from "./routes/account.routes.js";
+import { buildWebhooksRouter } from "./routes/webhooks.routes.js";
 import { buildTeamRouter } from "./routes/team.routes.js";
 import { buildAdminRouter } from "./routes/admin.routes.js";
 
@@ -44,6 +45,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.use(buildBillingRouter(morAdapter));
   router.use(buildAccountRouter());
   router.use(buildTeamRouter());
+  router.use(buildWebhooksRouter());
   router.use(buildAdminRouter());
   return router;
 }

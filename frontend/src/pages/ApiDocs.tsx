@@ -71,6 +71,47 @@ export function ApiDocs({ onBack }: ApiDocsProps) {
             ))}
           </div>
 
+          <h3>Webhooks</h3>
+          <p>
+            LazyRelay can send a signed HTTPS POST to your own endpoint when something happens. Add up to 5 endpoints in the
+            Settings tab, and choose which events (and which connected accounts) each one receives. The events are{" "}
+            <code>post.verified</code> (a post is confirmed live), <code>post.failed</code>, <code>post.unconfirmed</code> (the
+            platform accepted the post but LazyRelay couldn't confirm it is live, so it may well be up) and{" "}
+            <code>channel.needs_reconnect</code>. Use the Send test button in Settings to check your receiver.
+          </p>
+          <CodeBlock
+            code={JSON.stringify(
+              {
+                event: "post.failed",
+                eventId: "6f1d0c52-8e0a-4f0e-9d1c-2b7a4c9e1a10",
+                createdAt: "2026-10-01T08:00:00.000Z",
+                postId: "b1c2d3e4-...",
+                platform: "pinterest",
+                socialAccountId: "a9b8c7d6-...",
+                content: "The text of the post",
+                reason: "Pinterest blocked the link in this pin. ...",
+                reasonKind: "fatal",
+              },
+              null,
+              2,
+            )}
+          />
+          <p>Every delivery carries these headers:</p>
+          <CodeBlock
+            code={[
+              "X-LazyRelay-Event: post.failed",
+              "X-LazyRelay-Signature: <hex HMAC-SHA256 of the raw request body, using your endpoint's secret>",
+              "X-LazyRelay-Delivery: <the eventId; identical on every retry, so you can ignore a repeat>",
+              "X-LazyRelay-Attempt: 1",
+            ].join("\n")}
+          />
+          <p>
+            Answer with any 2xx status to confirm. If your endpoint is unreachable or answers 408, 429 or 5xx, LazyRelay
+            retries after 1 minute, 5 minutes, 30 minutes, 2 hours and 6 hours (6 attempts in total). Any other answer,
+            including a redirect, is not retried. Verify a signature by computing the HMAC-SHA256 of the raw body with your
+            secret and comparing it to the header.
+          </p>
+
           <h3>Using this from an AI agent: the MCP server</h3>
           <p>
             If you're connecting an AI agent (Claude Desktop, Claude Code, Cursor, or anything else that speaks

@@ -19,7 +19,8 @@ vi.mock("./email.js", () => ({
   sendAccountPausedAlert: vi.fn(),
   sendReconnectNeededEmail: (...a: unknown[]) => sendReconnectNeededEmail(...a),
 }));
-vi.mock("./webhook.js", () => ({ sendVerifiedWebhook: vi.fn(async () => {}) }));
+const dispatchWebhookEvent = vi.fn(async (_e: Record<string, unknown>) => {});
+vi.mock("./webhook.js", () => ({ dispatchWebhookEvent: (e: Record<string, unknown>) => dispatchWebhookEvent(e) }));
 
 const { runTokenRefreshCycle } = await import("./tokenRefresher.js");
 const { getAccessToken } = await import("./scheduler.js");
@@ -73,6 +74,7 @@ beforeEach(() => {
   for (const k of Object.keys(tables)) delete tables[k];
   rpc.mockClear();
   notifyOps.mockClear();
+  dispatchWebhookEvent.mockClear();
   sendReconnectNeededEmail.mockClear();
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -159,6 +161,24 @@ describe("platforms that cannot renew (LinkedIn)", () => {
     const r = await runTokenRefreshCycle(registryOf(linkedinAdapter()), NOW);
     expect(r.flagged).toBe(1);
     expect(tables.social_accounts[0].needs_reconnect_at).toBeTruthy();
+  });
+});
+
+describe("webhook events for reconnects", () => {
+  it("raises channel.needs_reconnect once when an account first needs reconnecting", async () => {
+    seedAccount("linkedin", -2);
+    await runTokenRefreshCycle(registryOf(linkedinAdapter()), NOW);
+    await runTokenRefreshCycle(registryOf(linkedinAdapter()), NOW + 6 * 3_600_000); // the next run must not repeat it
+    expect(dispatchWebhookEvent).toHaveBeenCalledTimes(1);
+    expect(dispatchWebhookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: "acc1", event: "channel.needs_reconnect", socialAccountId: "sa1", data: expect.objectContaining({ platform: "linkedin" }) }),
+    );
+  });
+
+  it("an expiry warning (the account still works) raises nothing", async () => {
+    seedAccount("linkedin", 10);
+    await runTokenRefreshCycle(registryOf(linkedinAdapter()), NOW);
+    expect(dispatchWebhookEvent).not.toHaveBeenCalled();
   });
 });
 

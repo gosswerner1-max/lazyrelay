@@ -10,18 +10,22 @@ export function makeBuilder(table: string) {
   const filters: Array<(r: Row) => boolean> = [];
   let mode: "select" | "update" | "insert" | "upsert" | "delete" = "select";
   let conflictCols: string[] = [];
-  let payload: Row | undefined;
+  let payload: Row | Row[] | undefined;
   let returning = false;
   let selectCols = "";
   let orderCol: string | null = null;
   let orderAsc = true;
   let limitN: number | null = null;
   let singleMode: "none" | "single" | "maybe" = "none";
+  let wantCount = false;
+  let headOnly = false;
 
   const b: Record<string, unknown> = {};
-  b.select = (cols?: string) => {
+  b.select = (cols?: string, opts?: { count?: string; head?: boolean }) => {
     selectCols = cols ?? "";
     if (mode !== "select") returning = true;
+    if (opts?.count) wantCount = true;
+    if (opts?.head) headOnly = true;
     return b;
   };
   b.eq = (c: string, v: unknown) => (filters.push((r) => r[c] === v), b);
@@ -37,7 +41,7 @@ export function makeBuilder(table: string) {
   b.single = () => ((singleMode = "single"), b);
   b.maybeSingle = () => ((singleMode = "maybe"), b);
   b.update = (p: Row) => ((mode = "update"), (payload = p), b);
-  b.insert = (p: Row) => ((mode = "insert"), (payload = p), b);
+  b.insert = (p: Row | Row[]) => ((mode = "insert"), (payload = p), b);
   b.delete = () => ((mode = "delete"), b);
   b.upsert = (p: Row, o?: { onConflict?: string }) => ((mode = "upsert"), (payload = p), (conflictCols = (o?.onConflict ?? "id").split(",")), b);
   b.then = (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) => {
@@ -57,9 +61,13 @@ export function makeBuilder(table: string) {
       for (const r of doomed) rows().splice(rows().indexOf(r), 1);
       out = doomed;
     } else if (mode === "insert") {
-      const row = { id: `id${++idCounter}`, created_at: new Date(Date.now() + idCounter).toISOString(), ...payload };
-      rows().push(row);
-      out = [row];
+      // Like the real client, accept one row or an array of rows.
+      const incoming = (Array.isArray(payload) ? payload : [payload]) as Row[];
+      out = incoming.map((p) => {
+        const row = { id: `id${++idCounter}`, created_at: new Date(Date.now() + idCounter).toISOString(), ...p };
+        rows().push(row);
+        return row;
+      });
     } else {
       out = rows().filter((r) => filters.every((f) => f(r)));
       if (mode === "update") out.forEach((r) => Object.assign(r, payload));
@@ -72,7 +80,9 @@ export function makeBuilder(table: string) {
     const wantsRows = mode === "select" || returning;
     const data = !wantsRows ? null : singleMode === "none" ? out : (out[0] ?? null);
     const error = singleMode === "single" && wantsRows && out.length === 0 ? { message: "no rows" } : null;
-    return Promise.resolve({ data, error }).then(resolve, reject);
+    const result: Record<string, unknown> = { data: headOnly ? null : data, error };
+    if (wantCount) result.count = out.length;
+    return Promise.resolve(result).then(resolve, reject);
   };
   return b;
 }

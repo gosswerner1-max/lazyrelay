@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { isPlatformLimitDetail, PLATFORM_LIMIT_EVENT } from "./platformLimit";
+import type { WebhookDelivery, WebhookEndpoint, WebhookList } from "./webhooks";
 import { hasAnalyticsConsent } from "../components/CookieConsent";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -238,9 +239,6 @@ export interface Account {
   email: string;
   businessName: string | null;
   emailFailureAlertsEnabled: boolean;
-  webhookUrl: string | null;
-  webhookConfigured: boolean;
-  webhookSecret?: string;
   // Default AI-caption/hashtag voice (migration 0061) — used whenever the
   // account being posted from isn't linked to a brand with its own
   // voice_profile override.
@@ -782,10 +780,21 @@ export const api = {
     authedFetch("/account", { method: "PATCH", body: JSON.stringify({ emailFailureAlertsEnabled: enabled }) }),
   setShowBrandingTag: (enabled: boolean): Promise<Account> =>
     authedFetch("/account", { method: "PATCH", body: JSON.stringify({ showBrandingTag: enabled }) }),
-  setWebhookUrl: (webhookUrl: string | null): Promise<Account> =>
-    authedFetch("/account", { method: "PATCH", body: JSON.stringify({ webhookUrl }) }),
-  regenerateWebhookSecret: (): Promise<{ webhookSecret: string }> =>
-    authedFetch("/account/webhook/regenerate-secret", { method: "POST" }),
+  // Webhook endpoints (several per account; see WebhooksSection.tsx).
+  listWebhooks: (): Promise<WebhookList> => authedFetch("/webhooks"),
+  createWebhook: (body: { url: string; label?: string; events: string[]; socialAccountIds: string[] | null }): Promise<WebhookEndpoint & { secret: string }> =>
+    authedFetch("/webhooks", { method: "POST", body: JSON.stringify(body) }),
+  updateWebhook: (
+    id: string,
+    body: { url?: string; label?: string | null; events?: string[]; socialAccountIds?: string[] | null; enabled?: boolean },
+  ): Promise<WebhookEndpoint> => authedFetch(`/webhooks/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteWebhook: (id: string): Promise<{ deleted: boolean }> => authedFetch(`/webhooks/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  regenerateWebhookSecret: (id: string): Promise<{ secret: string }> =>
+    authedFetch(`/webhooks/${encodeURIComponent(id)}/regenerate-secret`, { method: "POST" }),
+  testWebhook: (id: string): Promise<{ delivered: boolean; statusCode: number | null; error: string | null }> =>
+    authedFetch(`/webhooks/${encodeURIComponent(id)}/test`, { method: "POST" }),
+  listWebhookDeliveries: (id: string): Promise<{ deliveries: WebhookDelivery[] }> =>
+    authedFetch(`/webhooks/${encodeURIComponent(id)}/deliveries`),
 
   listApiKeys: (): Promise<ApiKey[]> => authedFetch("/api-keys"),
   createApiKey: (name: string, canShareProof: boolean): Promise<ApiKey & { key: string }> =>

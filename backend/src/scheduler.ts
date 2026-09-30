@@ -6,7 +6,7 @@ import { clearReconnect, flagReconnect, isPermanentAuthError, platformLabel } fr
 import { classifyPostError, type PostErrorKind } from "./postErrors.js";
 import { resolvePostLimitAt } from "./pinterestWarmup.js";
 import { sendFailureAlert, sendAccountPausedAlert } from "./email.js";
-import { sendVerifiedWebhook } from "./webhook.js";
+import { dispatchWebhookEvent } from "./webhook.js";
 import {
   ROLLING_WINDOW_MS,
   getRolling24hPostLimit,
@@ -363,23 +363,42 @@ async function maybeSendFailureAlert(post: DuePost, content: string, reason: str
  *  scheduler's own success path — the post is already live and verified,
  *  which is the promise that matters. */
 async function maybeSendWebhook(post: DuePost, platformPostUrl: string | null, verifiedAt: string): Promise<void> {
-  try {
-    const { data: account } = await supabase
-      .from("accounts")
-      .select("webhook_url, webhook_secret")
-      .eq("id", post.account_id)
-      .maybeSingle();
-    if (!account?.webhook_url || !account.webhook_secret) return;
-    sendVerifiedWebhook(account.webhook_url, account.webhook_secret, {
+  await dispatchWebhookEvent({
+    accountId: post.account_id,
+    event: "post.verified",
+    socialAccountId: post.social_account_id,
+    data: {
       postId: post.id,
       platform: post.platform,
+      socialAccountId: post.social_account_id,
       content: post.content,
       platformPostUrl,
       verifiedAt,
-    });
-  } catch (err) {
-    console.error("[scheduler] maybeSendWebhook lookup failed:", err instanceof Error ? err.message : err);
-  }
+    },
+  });
+}
+
+/** Tells the customer's webhook endpoints a post did not go out (post.failed) or
+ *  went out but could not be confirmed live (post.unconfirmed). Never throws. */
+async function emitPostProblem(
+  post: { id: string; account_id: string; social_account_id: string; content: string; platform?: string },
+  event: "post.failed" | "post.unconfirmed",
+  reason: string,
+  extra: Record<string, unknown> = {},
+): Promise<void> {
+  await dispatchWebhookEvent({
+    accountId: post.account_id,
+    event,
+    socialAccountId: post.social_account_id,
+    data: {
+      postId: post.id,
+      platform: post.platform ?? null,
+      socialAccountId: post.social_account_id,
+      content: post.content,
+      reason,
+      ...extra,
+    },
+  });
 }
 
 // Free-tier "Scheduled via LazyRelay" branding, default ON with a
@@ -450,6 +469,7 @@ async function handleFailure(post: DuePost, message: string, kind: PostErrorKind
     console.warn(`Post ${post.id} failed without retrying (${kind}): ${raw ?? message}`);
     if (kind === "reconnect") await flagAccountForReconnect(post, message);
     await maybeSendFailureAlert(post, post.content, message, false);
+    await emitPostProblem(post, "post.failed", message, { reasonKind: kind });
     return;
   }
   if (post.retry_count < MAX_RETRIES) {
@@ -469,6 +489,13 @@ async function handleFailure(post: DuePost, message: string, kind: PostErrorKind
   console.error(`Post ${post.id} permanently failed after ${MAX_RETRIES + 1} attempts: ${raw ?? message}`);
   await notifyOps(`Post ${post.id} permanently failed after ${MAX_RETRIES + 1} attempts: ${raw ?? message}`);
   await maybeSendFailureAlert(post, post.content, message, false);
+  // If the platform did accept it, it may well be live: say "unconfirmed", never "failed".
+  const accepted = await findAcceptedPublish(post.id);
+  if (accepted) {
+    await emitPostProblem(post, "post.unconfirmed", message, { platformPostId: accepted.platform_post_id, reasonKind: "retries_exhausted" });
+  } else {
+    await emitPostProblem(post, "post.failed", message, { reasonKind: "retries_exhausted" });
+  }
 }
 
 /** Flags the post's connected account as needing a reconnect (once per
@@ -605,7 +632,7 @@ export async function recoverStuckPosts(now: number = Date.now()): Promise<numbe
   const cutoff = new Date(now - STUCK_POSTING_MINUTES * 60_000).toISOString();
   const { data: stuck, error } = await supabase
     .from("scheduled_posts")
-    .select("id, account_id, social_account_id, content, retry_count")
+    .select("id, account_id, social_account_id, content, retry_count, social_accounts(platform)")
     .eq("status", "posting")
     .lt("updated_at", cutoff)
     .limit(50);
@@ -652,7 +679,9 @@ export async function recoverStuckPosts(now: number = Date.now()): Promise<numbe
     });
     console.error(`Post ${row.id} was stuck in "posting" for over ${STUCK_POSTING_MINUTES} minutes with no platform post id -- marked failed (unconfirmed).`);
     await notifyOps(`Post ${row.id} was stuck in "posting" for over ${STUCK_POSTING_MINUTES} minutes (likely a restart mid-publish) and was marked failed as unconfirmed. Check the platform for a live copy before anyone re-posts it.`);
-    await maybeSendFailureAlert(row as DuePost, row.content, message, false);
+    await maybeSendFailureAlert(row as unknown as DuePost, row.content, message, false);
+    const stuckAccount = Array.isArray(row.social_accounts) ? row.social_accounts[0] : row.social_accounts;
+    await emitPostProblem({ ...row, platform: (stuckAccount as { platform?: string } | null)?.platform }, "post.unconfirmed", message, { reasonKind: "interrupted" });
   }
   return recovered;
 }
@@ -681,6 +710,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
       console.warn(`Post ${post.id} failed: connected account is paused (plan downgrade).`);
       await notifyOps(`Post ${post.id} failed: social account ${post.social_account_id} is paused (plan downgrade past connected-account limit).`);
       await maybeSendFailureAlert(post, post.content, "connected account is paused", true);
+      await emitPostProblem(post, "post.failed", "The connected account is paused (a plan downgrade or a disconnected account).", { reasonKind: "account_paused" });
       return;
     }
 

@@ -18,7 +18,8 @@ vi.mock("./supabase.js", async () => {
 const notifyOps = vi.fn(async () => {});
 vi.mock("./notify.js", () => ({ notifyOps: (...a: unknown[]) => notifyOps(...(a as [])) }));
 vi.mock("./email.js", () => ({ sendFailureAlert: vi.fn(), sendAccountPausedAlert: vi.fn() }));
-vi.mock("./webhook.js", () => ({ sendVerifiedWebhook: vi.fn(async () => {}) }));
+const dispatchWebhookEvent = vi.fn(async (_e: Record<string, unknown>) => {});
+vi.mock("./webhook.js", () => ({ dispatchWebhookEvent: (e: Record<string, unknown>) => dispatchWebhookEvent(e) }));
 
 const { runSchedulerCycle, recoverStuckPosts, findAcceptedPublish } = await import("./scheduler.js");
 
@@ -51,6 +52,7 @@ const registryOf = (adapter: unknown) => ({ get: (p: string) => (p === "fakeplat
 beforeEach(() => {
   for (const k of Object.keys(tables)) delete tables[k];
   notifyOps.mockClear();
+  dispatchWebhookEvent.mockClear();
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "log").mockImplementation(() => {});
@@ -128,6 +130,16 @@ describe("recoverStuckPosts", () => {
     expect(String(tables.post_results[0].error_message)).toMatch(/interrupted/i);
     expect(String(tables.post_results[0].error_message)).toMatch(/check your account/i);
     expect(notifyOps).toHaveBeenCalledTimes(1);
+  });
+
+  it("an interrupted post with no platform id raises post.unconfirmed (never post.failed: it may be live)", async () => {
+    startSweep();
+    seed({ status: "posting", updated_at: stale() });
+    await recoverStuckPosts(sweepAt);
+    expect(dispatchWebhookEvent).toHaveBeenCalledTimes(1);
+    expect(dispatchWebhookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: "acc1", event: "post.unconfirmed", data: expect.objectContaining({ postId: "p1", reasonKind: "interrupted" }) }),
+    );
   });
 
   it("leaves a recently claimed post alone", async () => {

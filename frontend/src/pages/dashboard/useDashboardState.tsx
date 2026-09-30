@@ -27,7 +27,6 @@ export function useDashboardState() {
   // actively typing into the Settings field.
   const businessNameSeeded = useRef(false);
   const voiceProfileSeeded = useRef(false);
-  const webhookUrlSeeded = useRef(false);
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [platforms, setPlatforms] = useState<PlatformInfo[]>([]);
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
@@ -78,10 +77,6 @@ export function useDashboardState() {
   const [adminWindowExpiresAt, setAdminWindowExpiresAt] = useState<string | null>(null);
   const [savingFailureAlerts, setSavingFailureAlerts] = useState(false);
   const [savingBrandingTag, setSavingBrandingTag] = useState(false);
-  const [webhookUrlInput, setWebhookUrlInput] = useState("");
-  const [savingWebhook, setSavingWebhook] = useState(false);
-  const [regeneratingWebhookSecret, setRegeneratingWebhookSecret] = useState(false);
-  const [revealedWebhookSecret, setRevealedWebhookSecret] = useState<string | null>(null);
   // undefined = not yet checked, null = checked and not connected, object =
   // connected. Same lazy-load sentinel pattern as mfaFactorId below.
   const [gcalStatus, setGcalStatus] = useState<
@@ -533,10 +528,6 @@ export function useDashboardState() {
       if (!voiceProfileSeeded.current) {
         setVoiceProfileInput(acct.voiceProfile ?? "");
         voiceProfileSeeded.current = true;
-      }
-      if (!webhookUrlSeeded.current) {
-        setWebhookUrlInput(acct.webhookUrl ?? "");
-        webhookUrlSeeded.current = true;
       }
       setApiKeys(keys);
       setTeam(teamList);
@@ -2278,51 +2269,6 @@ export function useDashboardState() {
     }
   }
 
-  async function handleSaveWebhook(e: FormEvent) {
-    e.preventDefault();
-    setSavingWebhook(true);
-    setError(null);
-    try {
-      const updated = await api.setWebhookUrl(webhookUrlInput.trim() || null);
-      setAccount(updated);
-      if (updated.webhookSecret) setRevealedWebhookSecret(updated.webhookSecret);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSavingWebhook(false);
-    }
-  }
-
-  async function handleClearWebhook() {
-    if (!window.confirm("Remove this webhook? LazyRelay will stop sending post-verified events to it.")) return;
-    setSavingWebhook(true);
-    setError(null);
-    try {
-      const updated = await api.setWebhookUrl(null);
-      setAccount(updated);
-      setWebhookUrlInput("");
-      setRevealedWebhookSecret(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSavingWebhook(false);
-    }
-  }
-
-  async function handleRegenerateWebhookSecret() {
-    if (!window.confirm("Generate a new webhook secret? The old one will stop verifying immediately.")) return;
-    setRegeneratingWebhookSecret(true);
-    setError(null);
-    try {
-      const { webhookSecret } = await api.regenerateWebhookSecret();
-      setRevealedWebhookSecret(webhookSecret);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setRegeneratingWebhookSecret(false);
-    }
-  }
-
   async function handleConnectGoogleCalendar() {
     setGcalConnecting(true);
     setError(null);
@@ -2708,12 +2654,6 @@ export function useDashboardState() {
     adminWindowExpiresAt,
     savingFailureAlerts,
     savingBrandingTag,
-    webhookUrlInput,
-    setWebhookUrlInput,
-    savingWebhook,
-    regeneratingWebhookSecret,
-    revealedWebhookSecret,
-    setRevealedWebhookSecret,
     gcalStatus,
     gcalConnecting,
     gcalDisconnecting,
@@ -3012,9 +2952,6 @@ export function useDashboardState() {
     handleRevokeGrant,
     handleToggleFailureAlerts,
     handleToggleBrandingTag,
-    handleSaveWebhook,
-    handleClearWebhook,
-    handleRegenerateWebhookSecret,
     handleConnectGoogleCalendar,
     handleDisconnectGoogleCalendar,
     handleConnectGoogleSheets,

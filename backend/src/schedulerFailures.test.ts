@@ -14,7 +14,8 @@ const notifyOps = vi.fn(async (_m: string) => {});
 vi.mock("./notify.js", () => ({ notifyOps: (m: string) => notifyOps(m) }));
 const sendReconnectNeededEmail = vi.fn();
 vi.mock("./email.js", () => ({ sendFailureAlert: vi.fn(), sendAccountPausedAlert: vi.fn(), sendReconnectNeededEmail: (...a: unknown[]) => sendReconnectNeededEmail(...a) }));
-vi.mock("./webhook.js", () => ({ sendVerifiedWebhook: vi.fn(async () => {}) }));
+const dispatchWebhookEvent = vi.fn(async (_e: Record<string, unknown>) => {});
+vi.mock("./webhook.js", () => ({ dispatchWebhookEvent: (e: Record<string, unknown>) => dispatchWebhookEvent(e) }));
 
 const { runSchedulerCycle } = await import("./scheduler.js");
 
@@ -45,6 +46,7 @@ const fail = (msg: string) => ({ success: false, platformPostId: null, errorMess
 beforeEach(() => {
   for (const k of Object.keys(tables)) delete tables[k];
   notifyOps.mockClear();
+  dispatchWebhookEvent.mockClear();
   sendReconnectNeededEmail.mockClear();
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -149,5 +151,67 @@ describe("our own credentials are never blamed on the customer", () => {
     expect(tables.social_accounts[0].needs_reconnect_at).toBeNull();
     expect(sendReconnectNeededEmail).not.toHaveBeenCalled();
     expect(String(tables.post_results[0].error_message)).toMatch(/We have been alerted/);
+  });
+});
+
+describe("webhook events", () => {
+  it("a fatal failure raises post.failed with the plain-language reason", async () => {
+    setup("pinterest");
+    const adapter = adapterOf("pinterest", () => fail("Sorry! We blocked this link because it may lead to spam."));
+    await runSchedulerCycle(registryOf(adapter));
+    expect(dispatchWebhookEvent).toHaveBeenCalledTimes(1);
+    const call = dispatchWebhookEvent.mock.calls[0][0] as { accountId: string; event: string; socialAccountId: string; data: Record<string, unknown> };
+    expect(call).toMatchObject({ accountId: "acc1", event: "post.failed", socialAccountId: "sa1" });
+    expect(String(call.data.reason)).toMatch(/Pinterest decision about the website address/);
+    expect(call.data).toMatchObject({ postId: "p" + n, platform: "pinterest", reasonKind: "fatal" });
+  });
+
+  it("a failure that will be retried raises nothing yet", async () => {
+    setup("retrywebhook");
+    const adapter = adapterOf("retrywebhook", () => fail("Too many requests, slow down"));
+    await runSchedulerCycle(registryOf(adapter));
+    expect(tables.scheduled_posts[0].status).toBe("pending");
+    expect(dispatchWebhookEvent).not.toHaveBeenCalled();
+  });
+
+  it("running out of retries with nothing accepted raises post.failed", async () => {
+    setup("exhausted1", { retry_count: 3 });
+    const adapter = adapterOf("exhausted1", () => fail("Service unavailable"));
+    await runSchedulerCycle(registryOf(adapter));
+    expect(tables.scheduled_posts[0].status).toBe("failed");
+    expect(dispatchWebhookEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "post.failed", data: expect.objectContaining({ reasonKind: "retries_exhausted" }) }));
+  });
+
+  it("running out of retries after the platform DID accept it raises post.unconfirmed, never post.failed", async () => {
+    setup("exhausted2", { retry_count: 3 });
+    tables.post_results = [{ id: "r1", scheduled_post_id: "p" + n, platform_post_id: "plat-77", verified_live: false, created_at: new Date().toISOString() }];
+    const adapter = adapterOf(
+      "exhausted2",
+      () => ({ success: true, platformPostId: "plat-77", errorMessage: null }),
+      () => ({ verifiedLive: false, platformPostUrl: null, errorMessage: "The requested resource does not exist" }),
+    );
+    await runSchedulerCycle(registryOf(adapter));
+    expect(dispatchWebhookEvent).toHaveBeenCalledTimes(1);
+    expect(dispatchWebhookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "post.unconfirmed", data: expect.objectContaining({ platformPostId: "plat-77" }) }),
+    );
+  });
+
+  it("a verified post raises post.verified once, with its link", async () => {
+    setup("happy");
+    const adapter = adapterOf("happy", () => ({ success: true, platformPostId: "plat-1", errorMessage: null }));
+    await runSchedulerCycle(registryOf(adapter));
+    expect(dispatchWebhookEvent).toHaveBeenCalledTimes(1);
+    expect(dispatchWebhookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "post.verified", socialAccountId: "sa1", data: expect.objectContaining({ platformPostUrl: "https://x/p", platform: "happy" }) }),
+    );
+  });
+
+  it("a dead login raises post.failed, and the channel event fires once", async () => {
+    setup("bluesky");
+    const adapter = adapterOf("bluesky", () => fail("Token has expired"));
+    await runSchedulerCycle(registryOf(adapter));
+    const events = dispatchWebhookEvent.mock.calls.map((c) => (c[0] as { event: string }).event).sort();
+    expect(events).toEqual(["channel.needs_reconnect", "post.failed"]);
   });
 });

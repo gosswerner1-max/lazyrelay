@@ -11,8 +11,6 @@ import { randomBytes } from "node:crypto";
 import { supabase } from "../../supabase.js";
 import { requireAuth, requireHumanAuth, requireOwner, type AuthedRequest, API_KEY_PREFIX, hashApiKey } from "../auth.js";
 import { tieredRateLimit } from "../rateLimit.js";
-import { generateWebhookSecret } from "../../webhook.js";
-import { isSafeMediaUrl } from "../../urlSafety.js";
 import { dbError, MAX_VOICE_PROFILE_LENGTH, isReservedBusinessName } from "./shared.js";
 import { validateBody, nonEmptyString, optionalNullableString, optionalBoolean, unvalidated } from "../validation.js";
 
@@ -25,7 +23,7 @@ export function buildAccountRouter(): Router {
   router.get("/account", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data, error } = await req.db!
       .from("accounts")
-      .select("email, business_name, email_failure_alerts_enabled, webhook_url, webhook_secret, voice_profile, show_branding_tag")
+      .select("email, business_name, email_failure_alerts_enabled, voice_profile, show_branding_tag")
       .eq("id", req.accountId)
       .single();
     if (error || !data) {
@@ -36,11 +34,6 @@ export function buildAccountRouter(): Router {
       email: data.email,
       businessName: data.business_name,
       emailFailureAlertsEnabled: data.email_failure_alerts_enabled,
-      webhookUrl: data.webhook_url,
-      // Never the raw secret here — only whether one exists, so it isn't
-      // repeated in every account fetch. Revealed once on the request that
-      // sets/creates it, or via POST /account/webhook/regenerate-secret.
-      webhookConfigured: !!data.webhook_secret,
       // Default AI-caption/hashtag voice (migration 0061) — overridden per
       // brand when the account being posted from belongs to one with its
       // own voice_profile set; see resolveVoiceProfile in the /ai/* routes.
@@ -116,40 +109,12 @@ export function buildAccountRouter(): Router {
       return;
     }
     const { emailFailureAlertsEnabled, webhookUrl, showBrandingTag } = settings.data;
-    // A leaked/compromised API key silently repointing the webhook would be
-    // a persistent, ongoing exfiltration channel for every future verified
-    // post — same escalation-risk shape as API key creation itself, so this
-    // is human-dashboard-only, not something an agent can do headlessly.
-    if (webhookUrl !== undefined && req.authMethod === "apiKey" && !req.isAdmin) {
-      res.status(403).json({ error: "Webhook settings can only be changed from a logged-in dashboard session, not an API key." });
+    // Webhooks moved to their own endpoints (routes/webhooks.routes.ts, 2026-09-30):
+    // several endpoints per account, choice of events, retries. Say so plainly
+    // rather than silently ignoring the old field.
+    if (webhookUrl !== undefined) {
+      res.status(400).json({ error: "Webhooks are now managed at /webhooks (Settings tab). This field is no longer used." });
       return;
-    }
-    if (webhookUrl !== undefined && req.authMethod === "jwt" && req.role !== "owner") {
-      res.status(403).json({ error: "Only the account owner can change webhook settings." });
-      return;
-    }
-    let newWebhookSecret: string | null = null;
-    let normalizedWebhookUrl: string | null | undefined = undefined;
-    if (typeof webhookUrl === "string") {
-      const trimmed = webhookUrl.trim();
-      if (trimmed.length === 0) {
-        res.status(400).json({ error: "webhookUrl can't be empty, pass null to remove it" });
-        return;
-      }
-      // scheduler.ts fetches this URL server-side every time a post is
-      // confirmed live — same class of SSRF as mediaUrl/coverImageUrl
-      // (routes.ts's validatePostFields), so it gets the same guard. This
-      // was the one place that class of check had been missed.
-      const safety = await isSafeMediaUrl(trimmed);
-      if (!safety.safe) {
-        res.status(400).json({ error: `webhookUrl ${safety.reason}` });
-        return;
-      }
-      normalizedWebhookUrl = trimmed;
-      const { data: existing } = await req.db!.from("accounts").select("webhook_secret").eq("id", req.accountId).maybeSingle();
-      if (!existing?.webhook_secret) newWebhookSecret = generateWebhookSecret();
-    } else if (webhookUrl === null) {
-      normalizedWebhookUrl = null;
     }
 
     const update: Record<string, unknown> = {};
@@ -157,11 +122,6 @@ export function buildAccountRouter(): Router {
     if (emailFailureAlertsEnabled !== undefined) update.email_failure_alerts_enabled = emailFailureAlertsEnabled;
     if (showBrandingTag !== undefined) update.show_branding_tag = showBrandingTag;
     if (voiceProfile !== undefined) update.voice_profile = voiceProfile?.trim() || null;
-    if (normalizedWebhookUrl !== undefined) {
-      update.webhook_url = normalizedWebhookUrl;
-      if (normalizedWebhookUrl === null) update.webhook_secret = null;
-      else if (newWebhookSecret) update.webhook_secret = newWebhookSecret;
-    }
     // Stays on supabase, not req.db: UPDATE on accounts is revoked from
     // authenticated entirely (0069_lock_down_accounts_update_rls.sql --
     // "the backend already writes to accounts exclusively via its
@@ -170,7 +130,7 @@ export function buildAccountRouter(): Router {
       .from("accounts")
       .update(update)
       .eq("id", req.accountId)
-      .select("email, business_name, email_failure_alerts_enabled, webhook_url, webhook_secret, voice_profile, show_branding_tag")
+      .select("email, business_name, email_failure_alerts_enabled, voice_profile, show_branding_tag")
       .single();
     if (error) {
       // 23505 = the case-insensitive unique index on lower(business_name)
@@ -190,35 +150,9 @@ export function buildAccountRouter(): Router {
       email: data.email,
       businessName: data.business_name,
       emailFailureAlertsEnabled: data.email_failure_alerts_enabled,
-      webhookUrl: data.webhook_url,
-      webhookConfigured: !!data.webhook_secret,
       voiceProfile: data.voice_profile,
       showBrandingTag: data.show_branding_tag,
-      // Only present the one time a secret is newly generated — same
-      // "shown once, save it now" pattern as API key creation.
-      ...(newWebhookSecret ? { webhookSecret: newWebhookSecret } : {}),
     });
-  });
-
-  // Lets a customer rotate a compromised/leaked webhook secret without
-  // having to also change (and re-register with their own systems) the
-  // webhook URL itself. Human-dashboard-only, same reasoning as the
-  // webhookUrl check in PATCH /account above.
-  router.post("/account/webhook/regenerate-secret", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data: existing } = await req.db!.from("accounts").select("webhook_url").eq("id", req.accountId).maybeSingle();
-    if (!existing?.webhook_url) {
-      res.status(400).json({ error: "Set a webhook URL first before generating a secret." });
-      return;
-    }
-    const newSecret = generateWebhookSecret();
-    // Stays on supabase: accounts UPDATE is revoked from authenticated, see
-    // the comment on PATCH /account above (0069_lock_down_accounts_update_rls.sql).
-    const { error } = await supabase.from("accounts").update({ webhook_secret: newSecret }).eq("id", req.accountId);
-    if (error) {
-      dbError(res, error, "POST /account/webhook/regenerate-secret");
-      return;
-    }
-    res.json({ webhookSecret: newSecret });
   });
 
   // API keys let a customer's own AI agent call this API directly and

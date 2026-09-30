@@ -9,6 +9,7 @@ import { MediaStorageList } from "../../components/MediaStorageList";
 import { formatBytes } from "../../lib/format";
 import { GOOGLE_INTEGRATIONS_LIVE } from "./dashboardHelpers";
 import { useDashboard } from "./DashboardContext";
+import { WebhooksSection } from "./WebhooksSection";
 
 export function SettingsTab() {
   const {
@@ -36,12 +37,6 @@ export function SettingsTab() {
     adminWindowExpiresAt,
     savingFailureAlerts,
     savingBrandingTag,
-    webhookUrlInput,
-    setWebhookUrlInput,
-    savingWebhook,
-    regeneratingWebhookSecret,
-    revealedWebhookSecret,
-    setRevealedWebhookSecret,
     gcalStatus,
     gcalConnecting,
     gcalDisconnecting,
@@ -84,9 +79,6 @@ export function SettingsTab() {
     handleResendTeamInvite,
     handleToggleFailureAlerts,
     handleToggleBrandingTag,
-    handleSaveWebhook,
-    handleClearWebhook,
-    handleRegenerateWebhookSecret,
     handleConnectGoogleCalendar,
     handleDisconnectGoogleCalendar,
     handleConnectGoogleSheets,
@@ -98,7 +90,13 @@ export function SettingsTab() {
     handleGenerateMfaRecoveryCodes,
     handleAnnounceAdminAction,
     currentTier,
+    accounts,
+    setError,
   } = useDashboard();
+  const webhookChannels = accounts.map((a) => ({
+    id: a.id,
+    label: `${a.platform.charAt(0).toUpperCase()}${a.platform.slice(1)}: ${a.display_name ?? a.platform_account_id}`,
+  }));
 
   return (
     <>
@@ -369,54 +367,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {(
-      <section>
-        <h2>Webhook</h2>
-        <p className="section-note">
-          Get an HTTPS POST the moment a scheduled post's Proof-of-Publish check confirms it went live. Useful
-          for wiring LazyRelay into your own systems, or a tool like Zapier, n8n, or Make. Each delivery is
-          signed with your secret (HMAC-SHA256, in the X-LazyRelay-Signature header) so you can verify it
-          genuinely came from LazyRelay.
-        </p>
-        <form onSubmit={handleSaveWebhook} className="dm-automation-form">
-          <input
-            type="url"
-            placeholder="https://your-endpoint.example.com/webhook"
-            value={webhookUrlInput}
-            onChange={(e) => setWebhookUrlInput(e.target.value)}
-            maxLength={2000}
-          />
-          <button type="submit" disabled={savingWebhook || !webhookUrlInput.trim()}>
-            {savingWebhook ? "Saving..." : "Save"}
-          </button>
-          {account?.webhookUrl && (
-            <button type="button" className="btn-outline" onClick={handleClearWebhook} disabled={savingWebhook}>
-              Remove
-            </button>
-          )}
-        </form>
-        {account?.webhookConfigured && (
-          <button
-            type="button"
-            className="btn-outline"
-            onClick={handleRegenerateWebhookSecret}
-            disabled={regeneratingWebhookSecret || !account.webhookUrl}
-            style={{ marginTop: 8 }}
-          >
-            {regeneratingWebhookSecret ? "Generating..." : "Regenerate secret"}
-          </button>
-        )}
-        {revealedWebhookSecret && (
-          <div className="api-key-reveal" style={{ marginTop: 12 }}>
-            <p><strong>Copy this secret now.</strong> It won't be shown again.</p>
-            <CodeBlock code={revealedWebhookSecret} sensitive />
-            <button type="button" className="btn-outline" onClick={() => setRevealedWebhookSecret(null)}>
-              Done
-            </button>
-          </div>
-        )}
-      </section>
-      )}
+      <WebhooksSection channels={webhookChannels} onError={setError} />
 
       {(
       <section className={GOOGLE_INTEGRATIONS_LIVE ? undefined : "settings-section-disabled"}>

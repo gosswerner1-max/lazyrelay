@@ -4,6 +4,7 @@ import { runSchedulerCycle } from "./scheduler.js";
 import { generateDuePosts } from "./recurringScheduler.js";
 import { runTokenRefreshCycle } from "./tokenRefresher.js";
 import { purgeExpiredConnects } from "./platforms/connect.js";
+import { runWebhookDeliveryCycle } from "./webhook.js";
 import { buildPlatformRegistry } from "./platforms/registry.js";
 import { StubMorAdapter } from "./billing/stub.js";
 import { PaddleMorAdapter } from "./billing/paddle.js";
@@ -149,6 +150,13 @@ async function main() {
   // connection (LinkedIn) cannot be renewed automatically. See
   // tokenRefresher.ts. Every 6 hours; the first run is delayed a minute so it
   // never slows boot, and a failure only logs.
+  // Webhook retries (webhook.ts): every 30 seconds, pick up deliveries whose next
+  // attempt is due. Failures only log; this must never affect posting.
+  const WEBHOOK_CYCLE_INTERVAL_MS = 30_000;
+  setInterval(() => {
+    runWebhookDeliveryCycle().catch((err) => console.error("Webhook delivery cycle error:", summarizeIfHtmlError(err)));
+  }, WEBHOOK_CYCLE_INTERVAL_MS);
+
   const TOKEN_REFRESH_INTERVAL_MS = 6 * 60 * 60_000;
   const runTokenJob = () =>
     purgeExpiredConnects()
