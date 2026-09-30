@@ -2,6 +2,7 @@
   "name": "@lazyrelay/sdk",
   "version": "0.1.0",
   "description": "Official Node SDK and command-line tool for LazyRelay: schedule and publish social posts, upload media, read analytics and manage client approvals through the LazyRelay REST API. Typed, zero dependencies.",
+  "license": "MIT",
   "homepage": "https://lazyrelay.com/docs",
   "repository": {
     "type": "git",

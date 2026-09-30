@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { LazyRelay } from "../src/index.js";
 
@@ -58,7 +58,8 @@ describe("package", () => {
     expect(pkg.bin).toEqual({ lazyrelay: "dist/cli.js" });
     expect(pkg.files).toEqual(["dist", "README.md"]);
     expect(pkg.dependencies).toBeUndefined();
-    expect(pkg.license).toBeUndefined(); // no license file exists in the repo root, so none is declared
+    expect(pkg.license).toBe("MIT"); // Werner chose MIT for the SDK and the n8n node, 2026-09-30
+    expect(existsSync(new URL("../LICENSE", import.meta.url))).toBe(true);
   });
 
   it("the built output has the entry points and type declarations", () => {
