@@ -3,6 +3,7 @@ import type { PlatformAdapterRegistry } from "./platforms/connect.js";
 import type { PlatformAdapter, PostAttemptResult } from "./platforms/types.js";
 import { notifyOps } from "./notify.js";
 import { clearReconnect, flagReconnect, isPermanentAuthError, platformLabel } from "./tokenHealth.js";
+import { classifyPostError, type PostErrorKind } from "./postErrors.js";
 import { sendFailureAlert, sendAccountPausedAlert } from "./email.js";
 import { sendVerifiedWebhook } from "./webhook.js";
 import {
@@ -437,7 +438,19 @@ export function appendTagWithinBudget(base: string | null, tag: string, budget: 
  *  Only once MAX_RETRIES is exhausted does this become a real, alerted
  *  failure — this is what actually backs the Proof-of-Publish promise
  *  against transient errors instead of just the happy path. */
-async function handleFailure(post: DuePost, message: string): Promise<void> {
+async function handleFailure(post: DuePost, message: string, kind: PostErrorKind = "retry", raw?: string): Promise<void> {
+  if (kind === "fatal" || kind === "reconnect") {
+    // Retrying cannot help (a blocked link, a duplicate, a bad file, a daily
+    // cap, or a dead login), and every retry is another rejected request
+    // against the platform. Fail now with the plain-language reason, which the
+    // customer sees in their History tab. Real case: 20 Pinterest posts were
+    // each retried three times for the same "blocked this link" rejection.
+    await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id);
+    console.warn(`Post ${post.id} failed without retrying (${kind}): ${raw ?? message}`);
+    if (kind === "reconnect") await flagAccountForReconnect(post, message);
+    await maybeSendFailureAlert(post, post.content, message, false);
+    return;
+  }
   if (post.retry_count < MAX_RETRIES) {
     const backoffMinutes = BACKOFF_BASE_MINUTES * 2 ** post.retry_count;
     const nextAttempt = new Date(Date.now() + backoffMinutes * 60_000).toISOString();
@@ -446,15 +459,53 @@ async function handleFailure(post: DuePost, message: string): Promise<void> {
       .update({ status: "pending", retry_count: post.retry_count + 1, scheduled_for: nextAttempt })
       .eq("id", post.id);
     console.warn(
-      `Post ${post.id} failed (attempt ${post.retry_count + 1}/${MAX_RETRIES + 1}): ${message}. Retrying at ${nextAttempt}.`
+      `Post ${post.id} failed (attempt ${post.retry_count + 1}/${MAX_RETRIES + 1}): ${raw ?? message}. Retrying at ${nextAttempt}.`
     );
     return;
   }
 
   await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id);
-  console.error(`Post ${post.id} permanently failed after ${MAX_RETRIES + 1} attempts: ${message}`);
-  await notifyOps(`Post ${post.id} permanently failed after ${MAX_RETRIES + 1} attempts: ${message}`);
+  console.error(`Post ${post.id} permanently failed after ${MAX_RETRIES + 1} attempts: ${raw ?? message}`);
+  await notifyOps(`Post ${post.id} permanently failed after ${MAX_RETRIES + 1} attempts: ${raw ?? message}`);
   await maybeSendFailureAlert(post, post.content, message, false);
+}
+
+/** Flags the post's connected account as needing a reconnect (once per
+ *  problem, see tokenHealth.ts). Best effort: never let this block the
+ *  failure handling itself. */
+async function flagAccountForReconnect(post: DuePost, reason: string): Promise<void> {
+  try {
+    const { data: row } = await supabase
+      .from("social_accounts")
+      .select("id, account_id, platform, display_name, needs_reconnect_at, reconnect_notified_at")
+      .eq("id", post.social_account_id)
+      .maybeSingle();
+    if (row) await flagReconnect(row, reason, { expired: true });
+  } catch (err) {
+    console.error("[scheduler] could not flag account for reconnect:", err instanceof Error ? err.message : err);
+  }
+}
+
+/** Records a failed attempt the way every failure path needs: classify the
+ *  platform's raw error, keep the raw text for support and show the customer
+ *  the plain-language reason (post_results.error_message is what their
+ *  History tab displays), count it toward the platform circuit breaker ONLY
+ *  when it says something about the platform's health (a customer's blocked
+ *  link or a duplicate does not), then hand off to handleFailure. */
+async function failAttempt(post: DuePost, platform: string, raw: string): Promise<void> {
+  const classified = classifyPostError(platform, raw);
+  if (classified.kind === "retry" || classified.kind === "ours") recordFailure(platform);
+  await supabase.from("post_results").insert({
+    scheduled_post_id: post.id,
+    account_id: post.account_id,
+    platform_post_id: null,
+    platform_post_url: null,
+    verified_live: false,
+    verification_checked_at: new Date().toISOString(),
+    error_message: classified.message,
+    raw_error_message: raw,
+  });
+  await handleFailure(post, classified.message, classified.kind, raw);
 }
 
 /** Reverts a claimed post back to pending without counting it as a retry —
@@ -682,25 +733,10 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     }
 
     if (!attempt.success || !attempt.platformPostId) {
-      recordFailure(adapter.platform);
-      // Persisted the same way a verification failure is below, so a
-      // pre-verification failure (bad media, missing scope, no board, etc.)
-      // shows a real reason in the customer's History tab instead of just
-      // a bare "failed" badge with nothing explaining why — this was a real
-      // gap: every prior failure here only reached console/Slack, never the
-      // database, so a customer who wasn't watching Render logs had no way
-      // to see why their own post never went out.
-      const errorMessage = attempt.errorMessage ?? "post attempt failed, no reason given";
-      await supabase.from("post_results").insert({
-        scheduled_post_id: post.id,
-        account_id: post.account_id,
-        platform_post_id: null,
-        platform_post_url: null,
-        verified_live: false,
-        verification_checked_at: new Date().toISOString(),
-        error_message: errorMessage,
-      });
-      await handleFailure(post, errorMessage);
+      // Persisted (with a plain-language reason) so a pre-verification failure
+      // (bad media, missing scope, no board, etc.) shows a real reason in the
+      // customer's History tab instead of a bare "failed" badge.
+      await failAttempt(post, adapter.platform, attempt.errorMessage ?? "post attempt failed, no reason given");
       return;
     }
 
@@ -714,11 +750,14 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     // confirmed live — a comment on a post that isn't verified would be
     // commenting on something LazyRelay can't actually vouch for yet.
     const verifiedAt = new Date().toISOString();
+    const rawVerifyError = verification.errorMessage ?? "post published but verification could not confirm it went live";
+    const verifyFailure = verification.verifiedLive ? null : classifyPostError(adapter.platform, rawVerifyError);
     const resultFields = {
       platform_post_url: verification.platformPostUrl,
       verified_live: verification.verifiedLive,
       verification_checked_at: verifiedAt,
-      error_message: verification.errorMessage,
+      error_message: verifyFailure ? verifyFailure.message : verification.errorMessage,
+      raw_error_message: verification.errorMessage,
     };
     // A re-verify updates the row the first attempt wrote (one result per
     // post, and its id is the public proof link) rather than adding a second.
@@ -735,9 +774,9 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
           .select("id")
           .single();
 
-    if (!verification.verifiedLive) {
-      recordFailure(adapter.platform);
-      await handleFailure(post, verification.errorMessage ?? "post published but verification could not confirm it went live");
+    if (verifyFailure) {
+      if (verifyFailure.kind === "retry" || verifyFailure.kind === "ours") recordFailure(adapter.platform);
+      await handleFailure(post, verifyFailure.message, verifyFailure.kind, rawVerifyError);
       return;
     }
 
@@ -776,22 +815,11 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
       }
     }
   } catch (err) {
-    recordFailure(adapter.platform);
     // Same reasoning as the post()-failure branch above — an unexpected
     // throw (network error, malformed adapter response, etc.) previously
     // vanished into console/Slack with nothing in the customer-visible
     // History tab.
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    await supabase.from("post_results").insert({
-      scheduled_post_id: post.id,
-      account_id: post.account_id,
-      platform_post_id: null,
-      platform_post_url: null,
-      verified_live: false,
-      verification_checked_at: new Date().toISOString(),
-      error_message: errorMessage,
-    });
-    await handleFailure(post, errorMessage);
+    await failAttempt(post, adapter.platform, err instanceof Error ? err.message : String(err));
   }
 }
 
