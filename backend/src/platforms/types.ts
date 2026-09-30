@@ -231,6 +231,14 @@ export interface PlatformAdapter {
    *  long-lived or don't use this grant shape. */
   refresh?(refreshToken: string): Promise<OAuthExchangeResult>;
 
+  /** Set by adapters whose token is refreshed IN PLACE: there is no separate
+   *  refresh token, so refresh() is called with the current access token
+   *  itself (Threads: GET /refresh_access_token, only while the token is
+   *  still valid and at least 24h old). The scheduler reads the access token
+   *  from Vault instead of a refresh token, and must refresh BEFORE expiry,
+   *  because an expired token can never be renewed. */
+  readonly refreshUsesAccessToken?: boolean;
+
   /** Optional — posts a follow-up comment on a post LazyRelay itself just
    *  published (the common "hide hashtags in the first comment" pattern).
    *  Only called after verifyPublished() has already confirmed the parent

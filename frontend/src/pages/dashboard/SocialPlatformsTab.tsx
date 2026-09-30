@@ -54,6 +54,11 @@ export function SocialPlatformsTab() {
                     {a.platform}
                   </span>
                   {a.display_name ?? a.platform_account_id}
+                  {a.needs_reconnect_at && (
+                    <span role="status" style={{ color: "#ff5a1f", fontSize: 12, fontWeight: 600, marginLeft: 8 }}>
+                      Reconnect needed: connect this account again below
+                    </span>
+                  )}
                   <select
                     className="brand-label-input"
                     value={a.brand_id ?? ""}

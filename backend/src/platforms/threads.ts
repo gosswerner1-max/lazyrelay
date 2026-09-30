@@ -13,6 +13,7 @@ import type {
 const AUTHORIZE_URL = "https://threads.net/oauth/authorize";
 const TOKEN_URL = "https://graph.threads.net/oauth/access_token";
 const LONG_LIVED_TOKEN_URL = "https://graph.threads.net/access_token";
+const REFRESH_TOKEN_URL = "https://graph.threads.net/refresh_access_token";
 const GRAPH_BASE = "https://graph.threads.net/v1.0";
 
 const SCOPES = "threads_basic,threads_content_publish";
@@ -62,6 +63,7 @@ function isVideoUrl(url: string): boolean {
 
 export class ThreadsAdapter implements PlatformAdapter {
   readonly platform: "threads" = "threads";
+  readonly refreshUsesAccessToken = true;
 
   constructor(
     private readonly clientId: string,
@@ -126,6 +128,32 @@ export class ThreadsAdapter implements PlatformAdapter {
         : null,
       platformAccountId: userInfo.id,
       displayName: userInfo.username,
+    };
+  }
+
+  /** Extends a still-valid long-lived Threads token by another 60 days.
+   *  Meta documents this as GET /refresh_access_token?grant_type=th_refresh_token
+   *  and only allows it when the token is at least 24 hours old and has not
+   *  expired, so it has to run before expiry (see tokenRefresher.ts). The
+   *  argument is the current access token; Threads has no separate refresh
+   *  token. */
+  async refresh(currentAccessToken: string): Promise<OAuthExchangeResult> {
+    const url = new URL(REFRESH_TOKEN_URL);
+    url.searchParams.set("grant_type", "th_refresh_token");
+    url.searchParams.set("access_token", currentAccessToken);
+    const res = await fetch(url.toString());
+    const json = (await res.json()) as ThreadsLongLivedTokenResponse & { error?: { message?: string } };
+    if (!res.ok || !json.access_token) {
+      throw new Error(json.error?.message ?? "Could not refresh the Threads token");
+    }
+    return {
+      accessToken: json.access_token,
+      refreshToken: null,
+      expiresAt: json.expires_in ? new Date(Date.now() + json.expires_in * 1000).toISOString() : null,
+      // Identity is unchanged by a refresh; the scheduler only stores the
+      // token and expiry from this result.
+      platformAccountId: "",
+      displayName: "",
     };
   }
 

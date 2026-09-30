@@ -393,3 +393,42 @@ export function sendAccountPausedAlert(to: string, content: string): void {
     })
     .catch((err) => console.error("[email] sendAccountPausedAlert threw:", err instanceof Error ? err.message : err));
 }
+
+/** A connected account's login can no longer be used (or is about to stop
+ *  working) and only the customer can renew it: platforms like LinkedIn hand
+ *  out 60-day tokens with no way to refresh them. Sent once per problem by
+ *  the daily token job (tokenHealth.ts flagReconnect). Fire-and-forget like
+ *  the other senders. Not gated on the failure-alert toggle: this is about a
+ *  connection silently dying, which every customer needs to hear about. */
+export function sendReconnectNeededEmail(
+  to: string,
+  platformName: string,
+  accountName: string,
+  expired: boolean,
+  expiresAt: string | null,
+): void {
+  const client = getClient();
+  if (!client) return;
+  const when = expiresAt ? new Date(expiresAt).toUTCString().slice(5, 16) : null;
+  const platform = escapeHtml(platformName);
+  const account = escapeHtml(accountName);
+  const subject = expired ? `Reconnect your ${platformName} account` : `Your ${platformName} connection expires soon`;
+  const body = expired
+    ? `Your ${platform} connection (${account}) has expired, so LazyRelay can't post to it right now. Posts scheduled for it will fail until you reconnect.<br><br>`
+    : `Your ${platform} connection (${account}) expires${when ? ` on ${when}` : " soon"}. ${platform} doesn't let LazyRelay renew it for you, so reconnecting before then keeps your scheduled posts going.<br><br>`;
+  client.emails
+    .send({
+      from: `LazyRelay <${FROM_ADDRESS}>`,
+      to,
+      subject,
+      html: wrapEmailHtml(
+        expired ? "Please reconnect your account" : "Your connection expires soon",
+        body + "Open the Social Platforms tab in your dashboard and connect it again. It takes about a minute, and your scheduled posts stay in place.",
+        "You're getting this because a social account you connected to LazyRelay needs your attention. This message is about the connection itself, so it isn't affected by your alert settings.",
+      ),
+    })
+    .then((result) => {
+      if (result.error) console.error("[email] sendReconnectNeededEmail failed:", result.error.message);
+    })
+    .catch((err) => console.error("[email] sendReconnectNeededEmail threw:", err instanceof Error ? err.message : err));
+}

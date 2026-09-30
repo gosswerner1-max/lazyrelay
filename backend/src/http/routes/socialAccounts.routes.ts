@@ -245,7 +245,7 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
   router.get("/social-accounts", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data, error } = await req.db!
       .from("social_accounts")
-      .select("id, platform, platform_account_id, display_name, connected_at, disconnected_at, brand_label, brand_id")
+      .select("id, platform, platform_account_id, display_name, connected_at, disconnected_at, needs_reconnect_at, brand_label, brand_id")
       .eq("account_id", req.accountId)
       .is("disconnected_at", null);
     if (error) {
@@ -289,7 +289,7 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
       .update({ brand_id: brandId ?? null, brand_label: brandName })
       .eq("id", req.params.id)
       .eq("account_id", req.accountId)
-      .select("id, platform, platform_account_id, display_name, connected_at, disconnected_at, brand_label, brand_id")
+      .select("id, platform, platform_account_id, display_name, connected_at, disconnected_at, needs_reconnect_at, brand_label, brand_id")
       .maybeSingle();
     if (error) {
       dbError(res, error, "PATCH /social-accounts/:id");

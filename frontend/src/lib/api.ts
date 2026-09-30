@@ -53,6 +53,9 @@ export interface SocialAccount {
   platform_account_id: string;
   display_name: string | null;
   connected_at: string;
+  // Set when the connection can no longer be used and only the customer can
+  // renew it (expired token, or the platform rejected the saved login).
+  needs_reconnect_at?: string | null;
   // brand_label is a denormalized mirror of the assigned brand's name, kept
   // in sync by the backend so existing brand filters keep working. brand_id
   // is the real, capped brand entity (migration 0047).

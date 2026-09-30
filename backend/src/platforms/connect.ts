@@ -75,6 +75,10 @@ async function storeConnectedAccount(
         refresh_token_vault_id: refreshVaultId,
         token_expires_at: result.expiresAt,
         disconnected_at: null,
+        // A fresh connection clears any earlier "needs reconnect" flag.
+        needs_reconnect_at: null,
+        needs_reconnect_reason: null,
+        reconnect_notified_at: null,
       },
       { onConflict: "account_id,platform,platform_account_id" },
     )

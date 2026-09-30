@@ -2,6 +2,7 @@ import { supabase } from "./supabase.js";
 import type { PlatformAdapterRegistry } from "./platforms/connect.js";
 import type { PlatformAdapter, PostAttemptResult } from "./platforms/types.js";
 import { notifyOps } from "./notify.js";
+import { clearReconnect, flagReconnect, isPermanentAuthError, platformLabel } from "./tokenHealth.js";
 import { sendFailureAlert, sendAccountPausedAlert } from "./email.js";
 import { sendVerifiedWebhook } from "./webhook.js";
 import {
@@ -206,61 +207,111 @@ async function claimDuePosts(): Promise<DuePost[]> {
 // mid-request instead of catching it here with time to actually refresh.
 const TOKEN_REFRESH_SKEW_MS = 5 * 60 * 1000;
 
+export interface TokenAccountRow {
+  id: string;
+  account_id: string;
+  platform: string;
+  display_name: string | null;
+  access_token_vault_id: string;
+  refresh_token_vault_id: string | null;
+  token_expires_at: string | null;
+  needs_reconnect_at: string | null;
+  reconnect_notified_at: string | null;
+}
+
+export const TOKEN_ACCOUNT_COLUMNS =
+  "id, account_id, platform, display_name, access_token_vault_id, refresh_token_vault_id, token_expires_at, needs_reconnect_at, reconnect_notified_at";
+
+/** True when the adapter can renew this account's token: either through a
+ *  stored refresh token, or in place with the access token itself (Threads). */
+export function canRefreshToken(adapter: PlatformAdapter, account: Pick<TokenAccountRow, "refresh_token_vault_id">): boolean {
+  return !!adapter.refresh && (!!account.refresh_token_vault_id || !!adapter.refreshUsesAccessToken);
+}
+
+/** Runs the adapter's refresh and stores the result. The one refresh path,
+ *  used both when a post needs a token and by the daily token job. */
+export async function refreshAndStoreToken(account: TokenAccountRow, adapter: PlatformAdapter): Promise<string> {
+  if (!adapter.refresh) throw new Error(`${adapter.platform} tokens can't be refreshed`);
+
+  // Threads refreshes in place: the current access token is the credential
+  // to renew. Everyone else sends their stored refresh token.
+  const sourceVaultId = adapter.refreshUsesAccessToken ? account.access_token_vault_id : account.refresh_token_vault_id;
+  const { data: stored, error: refreshReadError } = await supabase.rpc("read_social_token", { p_vault_id: sourceVaultId });
+  if (refreshReadError) throw refreshReadError;
+
+  const refreshed = await adapter.refresh(stored as string);
+
+  const { error: updateAccessError } = await supabase.rpc("update_social_token", {
+    p_vault_id: account.access_token_vault_id,
+    p_new_token: refreshed.accessToken,
+  });
+  if (updateAccessError) throw updateAccessError;
+
+  // TikTok (and platforms with similar rotation) issues a new refresh
+  // token on every use — persist it too, or the NEXT refresh attempt
+  // fails with a revoked/already-used token. Falls back to keeping the
+  // existing one if the platform didn't return a new one.
+  if (refreshed.refreshToken && account.refresh_token_vault_id) {
+    const { error: updateRefreshError } = await supabase.rpc("update_social_token", {
+      p_vault_id: account.refresh_token_vault_id,
+      p_new_token: refreshed.refreshToken,
+    });
+    if (updateRefreshError) throw updateRefreshError;
+  }
+
+  await supabase.from("social_accounts").update({ token_expires_at: refreshed.expiresAt }).eq("id", account.id);
+  // A working refresh means any earlier "needs reconnect" flag was wrong or is
+  // now resolved.
+  if (account.needs_reconnect_at || account.reconnect_notified_at) await clearReconnect(account.id);
+  return refreshed.accessToken;
+}
+
 /** Reads the stored access token, refreshing it first via adapter.refresh()
  *  if it's expired/near-expiry and the adapter supports refreshing (see
  *  PlatformAdapter.refresh — TikTok confirmed as a real, live gap: access
  *  tokens dead within ~24h with a refresh token captured at connect time
  *  but never used anywhere). Adapters without a refresh() (long-lived or
  *  non-expiring tokens) fall through unchanged — same behavior as before
- *  this existed. */
+ *  this existed, EXCEPT that a token whose stated expiry has genuinely
+ *  passed and that can't be renewed (LinkedIn, an expired Threads token) now
+ *  fails with a clear "reconnect" message and flags the account, instead of
+ *  sending a dead token to the platform and retrying it. */
 export async function getAccessToken(socialAccountId: string, adapter: PlatformAdapter): Promise<string> {
   const { data: account, error } = await supabase
     .from("social_accounts")
-    .select("access_token_vault_id, refresh_token_vault_id, token_expires_at")
+    .select(TOKEN_ACCOUNT_COLUMNS)
     .eq("id", socialAccountId)
     .single();
   if (error || !account) throw error ?? new Error("social account not found");
+  const row = account as TokenAccountRow;
 
-  const isExpired =
-    account.token_expires_at !== null &&
-    new Date(account.token_expires_at).getTime() - TOKEN_REFRESH_SKEW_MS < Date.now();
+  const expiresMs = row.token_expires_at !== null ? new Date(row.token_expires_at).getTime() : null;
+  const isExpired = expiresMs !== null && expiresMs - TOKEN_REFRESH_SKEW_MS < Date.now();
+  const reallyExpired = expiresMs !== null && expiresMs <= Date.now();
 
-  if (isExpired && adapter.refresh && account.refresh_token_vault_id) {
-    const { data: storedRefreshToken, error: refreshReadError } = await supabase.rpc("read_social_token", {
-      p_vault_id: account.refresh_token_vault_id,
-    });
-    if (refreshReadError) throw refreshReadError;
-
-    const refreshed = await adapter.refresh(storedRefreshToken as string);
-
-    const { error: updateAccessError } = await supabase.rpc("update_social_token", {
-      p_vault_id: account.access_token_vault_id,
-      p_new_token: refreshed.accessToken,
-    });
-    if (updateAccessError) throw updateAccessError;
-
-    // TikTok (and platforms with similar rotation) issues a new refresh
-    // token on every use — persist it too, or the NEXT refresh attempt
-    // fails with a revoked/already-used token. Falls back to keeping the
-    // existing one if the platform didn't return a new one.
-    if (refreshed.refreshToken) {
-      const { error: updateRefreshError } = await supabase.rpc("update_social_token", {
-        p_vault_id: account.refresh_token_vault_id,
-        p_new_token: refreshed.refreshToken,
-      });
-      if (updateRefreshError) throw updateRefreshError;
+  if (isExpired && canRefreshToken(adapter, row)) {
+    // An in-place refresh (Threads) is only possible while the token is still
+    // valid; once it has really expired the customer must reconnect.
+    if (!adapter.refreshUsesAccessToken || !reallyExpired) {
+      try {
+        return await refreshAndStoreToken(row, adapter);
+      } catch (err) {
+        if (isPermanentAuthError(err)) {
+          await flagReconnect(row, "The platform rejected the saved login (it was revoked or has expired).", { expired: true });
+        }
+        throw err;
+      }
     }
+  }
 
-    await supabase
-      .from("social_accounts")
-      .update({ token_expires_at: refreshed.expiresAt })
-      .eq("id", socialAccountId);
-
-    return refreshed.accessToken;
+  if (reallyExpired && (!adapter.refresh || adapter.refreshUsesAccessToken)) {
+    const reason = `The ${platformLabel(row.platform)} connection expired on ${row.token_expires_at?.slice(0, 10)}. Reconnect it in Social Platforms.`;
+    await flagReconnect(row, reason, { expired: true, expiresAt: row.token_expires_at });
+    throw new Error(reason);
   }
 
   const { data: token, error: readError } = await supabase.rpc("read_social_token", {
-    p_vault_id: account.access_token_vault_id,
+    p_vault_id: row.access_token_vault_id,
   });
   if (readError) throw readError;
   return token as string;

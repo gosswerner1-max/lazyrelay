@@ -2,6 +2,7 @@ import "dotenv/config";
 import { supabase } from "./supabase.js";
 import { runSchedulerCycle } from "./scheduler.js";
 import { generateDuePosts } from "./recurringScheduler.js";
+import { runTokenRefreshCycle } from "./tokenRefresher.js";
 import { buildPlatformRegistry } from "./platforms/registry.js";
 import { StubMorAdapter } from "./billing/stub.js";
 import { PaddleMorAdapter } from "./billing/paddle.js";
@@ -143,6 +144,20 @@ async function main() {
   setInterval(() => {
     generateDuePosts().catch((err) => console.error("Recurring schedule generation error:", summarizeIfHtmlError(err)));
   }, RECURRING_GENERATION_INTERVAL_MS);
+  // Renews Threads tokens before they expire and warns customers whose
+  // connection (LinkedIn) cannot be renewed automatically. See
+  // tokenRefresher.ts. Every 6 hours; the first run is delayed a minute so it
+  // never slows boot, and a failure only logs.
+  const TOKEN_REFRESH_INTERVAL_MS = 6 * 60 * 60_000;
+  const runTokenJob = () =>
+    runTokenRefreshCycle(registry)
+      .then((r) => {
+        if (r.refreshed || r.flagged || r.warned || r.failed) console.log("Token refresh cycle:", JSON.stringify(r));
+      })
+      .catch((err) => console.error("Token refresh cycle error:", summarizeIfHtmlError(err)));
+  setInterval(runTokenJob, TOKEN_REFRESH_INTERVAL_MS);
+  setTimeout(runTokenJob, 60_000);
+
   // Same gap as runSchedulerCycle's initial call above, same fix.
   await generateDuePosts().catch((err) => console.error("Recurring schedule generation error:", summarizeIfHtmlError(err)));
 }
