@@ -106,3 +106,32 @@ describe("thread chain", () => {
     expect(tables.post_results[0].chain_posted ?? null).toBeNull();
   });
 });
+
+describe("saved as a draft on the platform", () => {
+  it("ends cleanly: posted, recorded as a draft, no retry, no follow-ups, not counted as verified", async () => {
+    setup("draftplat1", { options: { chain: ["two"] } });
+    const adapter = {
+      platform: "draftplat1",
+      post: vi.fn(async () => ok("d1")),
+      verifyPublished: vi.fn(async () => ({ verifiedLive: false, platformPostUrl: "https://x/draft", errorMessage: "Saved as a draft on X as you chose, not published.", savedAsDraft: true })),
+      postChainReply: vi.fn(async () => ok("never")),
+    };
+    await runSchedulerCycle(registryOf(adapter));
+    expect(tables.scheduled_posts[0].status).toBe("posted");
+    expect(tables.scheduled_posts[0].retry_count).toBe(0);
+    expect(tables.post_results).toHaveLength(1);
+    expect(tables.post_results[0]).toMatchObject({ verified_live: false, saved_as_draft: true, platform_post_id: "d1", error_message: "Saved as a draft on X as you chose, not published." });
+    expect(adapter.postChainReply).not.toHaveBeenCalled();
+    // A second cycle must not post it again.
+    await runSchedulerCycle(registryOf(adapter));
+    expect(adapter.post).toHaveBeenCalledTimes(1);
+  });
+
+  it("an ordinary unverified post still retries (only a deliberate draft is exempt)", async () => {
+    setup("draftplat2");
+    const adapter = { platform: "draftplat2", post: vi.fn(async () => ok("u1")), verifyPublished: vi.fn(async () => ({ verifiedLive: false, platformPostUrl: null, errorMessage: "not there yet" })) };
+    await runSchedulerCycle(registryOf(adapter));
+    expect(tables.scheduled_posts[0].status).not.toBe("posted");
+    expect(tables.post_results[0]).not.toMatchObject({ saved_as_draft: true });
+  });
+});

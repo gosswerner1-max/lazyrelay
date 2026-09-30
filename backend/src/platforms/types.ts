@@ -72,6 +72,9 @@ export interface VerifyResult {
   verifiedLive: boolean;
   platformPostUrl: string | null;
   errorMessage: string | null;
+  /** True when the customer chose to save the post as a draft on the platform: it exists there but is not public,
+   *  so it can never be "verified live". The scheduler ends such a post cleanly instead of retrying it. */
+  savedAsDraft?: boolean;
 }
 
 export interface CommentItem {

@@ -347,7 +347,7 @@ export class DevToAdapter implements PlatformAdapter {
     if (article.published !== true) {
       // An explicit false is a deliberate draft; a missing field is unknown.
       if (article.published === false) {
-        return { verifiedLive: false, platformPostUrl: url, errorMessage: "Saved as a draft on dev.to as you chose, not published." };
+        return { verifiedLive: false, platformPostUrl: url, errorMessage: "Saved as a draft on dev.to as you chose, not published.", savedAsDraft: true };
       }
       return { verifiedLive: false, platformPostUrl: url, errorMessage: "dev.to did not say whether this article is published." };
     }

@@ -417,7 +417,7 @@ export class HashnodeAdapter implements PlatformAdapter {
       const failure = failureMessage(res, creds.token, "look up the draft");
       if (failure) return notVerified(failure);
       if (!res.json?.data?.draft?.id) return notVerified("The draft could not be found on Hashnode. It may have been deleted there.");
-      return notVerified("Saved as a draft on Hashnode as you chose, not published");
+      return { ...notVerified("Saved as a draft on Hashnode as you chose, not published"), savedAsDraft: true };
     }
 
     const res = await gql<{ post?: { id?: string; url?: string | null; publishedAt?: string | null; title?: string | null; slug?: string | null } | null }>(

@@ -771,7 +771,7 @@ export class WordPressAdapter implements PlatformAdapter {
       session.close();
     }
 
-    if (status === "draft") return notVerified("Saved as a draft on WordPress as you chose, not published.");
+    if (status === "draft") return { ...notVerified("Saved as a draft on WordPress as you chose, not published."), savedAsDraft: true };
     if (status === "future") return notVerified("WordPress has this post scheduled for later, so it is not live yet.");
     if (status === "pending") return notVerified("WordPress has this post waiting for review, so it is not live yet.");
     if (status === "private") return notVerified("WordPress has this post set to private, so the public cannot see it.");

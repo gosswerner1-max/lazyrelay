@@ -262,6 +262,7 @@ describe("verifyPublished", () => {
     const r = await adapter().verifyPublished("9", TOKEN);
     expect(r.verifiedLive).toBe(false);
     expect(r.errorMessage).toBe("Saved as a draft on dev.to as you chose, not published.");
+    expect(r.savedAsDraft).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 

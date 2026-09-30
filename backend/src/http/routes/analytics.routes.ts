@@ -54,7 +54,7 @@ export function buildAnalyticsRouter(): Router {
       status: string;
       scheduled_for: string;
       social_accounts: { platform?: string } | { platform?: string }[] | null;
-      post_results: { verified_live: boolean; error_message: string | null } | { verified_live: boolean; error_message: string | null }[] | null;
+      post_results: { verified_live: boolean; error_message: string | null; saved_as_draft?: boolean } | { verified_live: boolean; error_message: string | null; saved_as_draft?: boolean }[] | null;
       post_metrics:
         | { checkpoint: string; likes: number | null; comments: number | null; shares: number | null; views: number | null }
         | { checkpoint: string; likes: number | null; comments: number | null; shares: number | null; views: number | null }[]
@@ -64,7 +64,7 @@ export function buildAnalyticsRouter(): Router {
       let q = req
         .db!.from("scheduled_posts")
         .select(
-          "id, status, scheduled_for, social_accounts(platform), post_results(verified_live, error_message), post_metrics(checkpoint, likes, comments, shares, views)"
+          "id, status, scheduled_for, social_accounts(platform), post_results(verified_live, error_message, saved_as_draft), post_metrics(checkpoint, likes, comments, shares, views)"
         )
         .eq("account_id", req.accountId)
         .gte("scheduled_for", since)
@@ -192,6 +192,9 @@ export function buildAnalyticsRouter(): Router {
     > = {};
 
     for (const row of data ?? []) {
+      // A post the customer saved as a draft on the platform was never published: leave it out of every count.
+      const draftResults = Array.isArray(row.post_results) ? row.post_results : row.post_results ? [row.post_results] : [];
+      if (draftResults.some((r) => r.saved_as_draft)) continue;
       byStatus[row.status] = (byStatus[row.status] ?? 0) + 1;
 
       // social_accounts(platform) comes back as an array with the !inner

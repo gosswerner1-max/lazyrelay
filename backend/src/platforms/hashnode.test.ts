@@ -480,7 +480,7 @@ describe("verifyPublished", () => {
   it("a draft is honestly reported as saved, not published", async () => {
     fetchMock.mockResolvedValue(gqlOk({ draft: { id: "d1" } }));
     const r = await adapter().verifyPublished("draft:d1", CREDS);
-    expect(r).toEqual({ verifiedLive: false, platformPostUrl: null, errorMessage: "Saved as a draft on Hashnode as you chose, not published" });
+    expect(r).toEqual({ verifiedLive: false, platformPostUrl: null, errorMessage: "Saved as a draft on Hashnode as you chose, not published", savedAsDraft: true });
     expect(gqlCalls()[0].body.variables).toEqual({ id: "d1" });
   });
 

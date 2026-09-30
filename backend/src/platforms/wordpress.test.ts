@@ -370,7 +370,7 @@ describe("verifyPublished", () => {
   it("reports a draft honestly and does not read the public page", async () => {
     stubFetch(() => postRes("draft", "https://blog.example.com/?p=42"));
     const r = await adapter().verifyPublished("42", creds());
-    expect(r).toEqual({ verifiedLive: false, platformPostUrl: null, errorMessage: "Saved as a draft on WordPress as you chose, not published." });
+    expect(r).toEqual({ verifiedLive: false, platformPostUrl: null, errorMessage: "Saved as a draft on WordPress as you chose, not published.", savedAsDraft: true });
     expect(calls).toHaveLength(1);
   });
 

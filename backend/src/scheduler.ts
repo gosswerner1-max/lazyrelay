@@ -788,6 +788,28 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     // differentiator, not an optional extra step.
     const verification = await adapter.verifyPublished(attempt.platformPostId, accessToken);
 
+    // The customer chose to save this as a DRAFT on the platform (WordPress, dev.to, Hashnode). It exists there
+    // and is not public, so it can never be verified live: that is a finished job, not a failure. Record it as
+    // such and stop, with no retry (a retry would only re-check the same draft) and no first comment or thread.
+    if (verification.savedAsDraft) {
+      const draftFields = {
+        platform_post_url: verification.platformPostUrl,
+        verified_live: false,
+        saved_as_draft: true,
+        verification_checked_at: new Date().toISOString(),
+        error_message: verification.errorMessage,
+        raw_error_message: null,
+      };
+      if (alreadyPublished) {
+        await supabase.from("post_results").update(draftFields).eq("id", alreadyPublished.id);
+      } else {
+        await supabase.from("post_results").insert({ scheduled_post_id: post.id, account_id: post.account_id, platform_post_id: attempt.platformPostId, ...draftFields });
+      }
+      recordSuccess(adapter.platform);
+      await supabase.from("scheduled_posts").update({ status: "posted" }).eq("id", post.id);
+      return;
+    }
+
     // first_comment_posted/first_comment_error start null here (not yet
     // attempted) and are filled in below, only once the parent post is
     // confirmed live — a comment on a post that isn't verified would be
