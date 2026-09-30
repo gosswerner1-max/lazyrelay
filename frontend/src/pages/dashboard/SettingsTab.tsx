@@ -10,6 +10,7 @@ import { formatBytes } from "../../lib/format";
 import { GOOGLE_INTEGRATIONS_LIVE } from "./dashboardHelpers";
 import { useDashboard } from "./DashboardContext";
 import { WebhooksSection } from "./WebhooksSection";
+import { SnippetsSection } from "./SnippetsSection";
 
 export function SettingsTab() {
   const {
@@ -368,6 +369,8 @@ export function SettingsTab() {
       )}
 
       <WebhooksSection channels={webhookChannels} onError={setError} />
+
+      <SnippetsSection onError={setError} />
 
       {(
       <section className={GOOGLE_INTEGRATIONS_LIVE ? undefined : "settings-section-disabled"}>

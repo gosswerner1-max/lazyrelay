@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import { isPlatformLimitDetail, PLATFORM_LIMIT_EVENT } from "./platformLimit";
 import type { WebhookDelivery, WebhookEndpoint, WebhookList } from "./webhooks";
+import type { Snippet, SnippetList } from "./snippets";
 import { hasAnalyticsConsent } from "../components/CookieConsent";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -795,6 +796,13 @@ export const api = {
     authedFetch(`/webhooks/${encodeURIComponent(id)}/test`, { method: "POST" }),
   listWebhookDeliveries: (id: string): Promise<{ deliveries: WebhookDelivery[] }> =>
     authedFetch(`/webhooks/${encodeURIComponent(id)}/deliveries`),
+  // Saved snippets (reusable post text, one optional signature).
+  listSnippets: (): Promise<SnippetList> => authedFetch("/snippets"),
+  createSnippet: (body: { name: string; content: string; isSignature?: boolean }): Promise<Snippet> =>
+    authedFetch("/snippets", { method: "POST", body: JSON.stringify(body) }),
+  updateSnippet: (id: string, body: { name?: string; content?: string; isSignature?: boolean }): Promise<Snippet> =>
+    authedFetch(`/snippets/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteSnippet: (id: string): Promise<{ deleted: boolean }> => authedFetch(`/snippets/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   listApiKeys: (): Promise<ApiKey[]> => authedFetch("/api-keys"),
   createApiKey: (name: string, canShareProof: boolean): Promise<ApiKey & { key: string }> =>

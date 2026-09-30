@@ -10,6 +10,7 @@ import { RelaySignal } from "../../components/RelaySignal";
 import { PlatformIcon } from "../../components/PlatformIcon";
 import { SocialPostPreview } from "../../components/SocialPostPreview";
 import { AccountPicker } from "../../components/AccountPicker";
+import { SnippetPicker } from "../../components/SnippetPicker";
 import { DateTimePicker, TimeOfDayPicker } from "../../components/DateTimePicker";
 import { DayOfWeekPicker } from "../../components/DayOfWeekPicker";
 import { bestTimeFor } from "../../lib/bestTimes";
@@ -295,6 +296,7 @@ export function PostsTab() {
             Content
             <textarea value={content} onChange={(e) => setContent(e.target.value)} required />
           </label>
+          <SnippetPicker content={content} setContent={setContent} />
           <div className="hashtag-suggest-row">
             <button type="button" className="btn-outline" disabled={hashtagGenerating} onClick={handleSuggestHashtags}>
               {hashtagGenerating ? "Suggesting..." : "Suggest hashtags"}
