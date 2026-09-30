@@ -40,7 +40,7 @@ export function makeBuilder(table: string) {
   b.limit = (n: number) => ((limitN = n), b);
   b.single = () => ((singleMode = "single"), b);
   b.maybeSingle = () => ((singleMode = "maybe"), b);
-  b.update = (p: Row) => ((mode = "update"), (payload = p), b);
+  b.update = (p: Row, o?: { count?: string }) => ((mode = "update"), (payload = p), o?.count && (wantCount = true), b);
   b.insert = (p: Row | Row[]) => ((mode = "insert"), (payload = p), b);
   b.delete = () => ((mode = "delete"), b);
   b.upsert = (p: Row, o?: { onConflict?: string }) => ((mode = "upsert"), (payload = p), (conflictCols = (o?.onConflict ?? "id").split(",")), b);

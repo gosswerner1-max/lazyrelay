@@ -14,6 +14,7 @@ import { SnippetPicker } from "../../components/SnippetPicker";
 import { isoToLocalDateTime } from "../../lib/postingSlots";
 import { supportsSelfReply } from "../../lib/selfReply";
 import { canShowCarousel, carouselPlan } from "../../lib/carousel";
+import { describeExtras } from "../../lib/postExtras";
 import { MoreImages } from "../../components/MoreImages";
 import { DateTimePicker, TimeOfDayPicker } from "../../components/DateTimePicker";
 import { DayOfWeekPicker } from "../../components/DayOfWeekPicker";
@@ -896,6 +897,7 @@ export function PostsTab() {
               </div>
             )}
             <div className="post-content">{p.content}</div>
+            {describeExtras(p).length > 0 && <div className="section-note">{describeExtras(p).join(" · ")}</div>}
             <div className="post-meta">
               <span className={`status-badge status-${p.status}`}>
                 {p.status === "needs_approval" ? "Needs approval" : p.status}

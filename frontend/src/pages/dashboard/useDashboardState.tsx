@@ -1873,6 +1873,9 @@ export function useDashboardState() {
           destinationLink: platform === "pinterest" ? (p.destination_link ?? undefined) : undefined,
           firstComment: p.first_comment ?? undefined,
           mediaAltText: p.media_alt_text ?? undefined,
+          tags: p.tags && p.tags.length > 0 ? p.tags : undefined,
+          ...carouselFields(platform, p.media_urls ?? []),
+          ...selfReplyFields(platform, p.self_reply_text ?? "", String(p.self_reply_at_likes ?? "")),
           scheduledFor: p.scheduled_for,
         };
         if (i === 0) {

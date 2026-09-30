@@ -81,3 +81,21 @@ describe("extrasToColumns", () => {
     });
   });
 });
+
+describe("extrasForPlatform (one recurring schedule, several platforms)", async () => {
+  const { extrasForPlatform } = await import("./postExtras.js");
+  const slot = { tags: ["weekly"], media_urls: ["https://cdn.example.com/b.jpg", "https://cdn.example.com/c.jpg"], self_reply_text: "Thanks!", self_reply_at_likes: 10 };
+  it("gives each platform what it supports", () => {
+    expect(extrasForPlatform(slot, "instagram", main)).toEqual({ tags: ["weekly"], media_urls: slot.media_urls, self_reply_text: "Thanks!", self_reply_at_likes: 10 });
+  });
+  it("leaves out what a platform cannot do, and never fails the schedule", () => {
+    expect(extrasForPlatform(slot, "tiktok", main)).toEqual({ tags: ["weekly"], media_urls: [], self_reply_text: null, self_reply_at_likes: null });
+    // Bluesky takes 4 in total: 3 fits, so 4 extras (5 in total) is left out.
+    const four = { ...slot, media_urls: Array.from({ length: 4 }, (_, i) => `https://cdn.example.com/${i}.jpg`) };
+    expect(extrasForPlatform(four, "bluesky", main).media_urls).toEqual([]);
+    expect(extrasForPlatform(slot, "bluesky", main).media_urls).toEqual(slot.media_urls);
+  });
+  it("handles a schedule with no extras", () => {
+    expect(extrasForPlatform({}, "instagram", main)).toEqual({ tags: [], media_urls: [], self_reply_text: null, self_reply_at_likes: null });
+  });
+});
