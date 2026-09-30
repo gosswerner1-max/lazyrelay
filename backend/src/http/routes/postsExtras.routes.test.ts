@@ -13,7 +13,14 @@ vi.mock("../auth.js", async () => {
   return {
     requireAuth: (req: any, _res: any, next: any) => {
       req.accountId = auth.accountId;
-      req.db = { from: (t: string) => f.makeBuilder(t) };
+      // Like production: the customer-scoped client is refused by row-level security on tables only the
+      // backend may write (post_review_comments), so a route that wrongly writes through req.db fails here too.
+      req.db = {
+        from: (t: string) =>
+          t === "post_review_comments"
+            ? { insert: async () => ({ data: null, error: { message: "new row violates row-level security policy" } }), select: () => ({ eq: () => ({ order: async () => ({ data: [], error: null }) }) }) }
+            : f.makeBuilder(t),
+      };
       next();
     },
   };

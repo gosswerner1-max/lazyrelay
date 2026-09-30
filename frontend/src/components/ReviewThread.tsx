@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../lib/api";
+import { api, type ScheduledPost } from "../lib/api";
 import { describeComment, type ReviewComment } from "../lib/reviewLinks";
 
 // The client conversation on a post waiting for approval, in the owner's Posts list: read what
@@ -10,10 +10,12 @@ interface Props {
   content: string;
   changesRequested: boolean;
   onChanged: () => void | Promise<void>;
+  /** Called at once with the saved post, so the list can show the new wording before the full refresh finishes. */
+  onUpdated?: (post: ScheduledPost) => void;
   onError: (message: string | null) => void;
 }
 
-export function ReviewThread({ postId, content, changesRequested, onChanged, onError }: Props) {
+export function ReviewThread({ postId, content, changesRequested, onChanged, onUpdated, onError }: Props) {
   const [open, setOpen] = useState(changesRequested);
   const [comments, setComments] = useState<ReviewComment[] | null>(null);
   const [reply, setReply] = useState("");
@@ -73,7 +75,8 @@ export function ReviewThread({ postId, content, changesRequested, onChanged, onE
                   disabled={busy || !draft.trim()}
                   onClick={() =>
                     run(async () => {
-                      await api.editPostContent(postId, draft);
+                      const saved = await api.editPostContent(postId, draft);
+                      if (saved && typeof saved === "object" && "id" in saved) onUpdated?.(saved);
                       setEditing(false);
                     })
                   }

@@ -157,7 +157,9 @@ describe("ReviewThread (the owner's side of one post)", () => {
       comments: [{ id: "c1", authorKind: "reviewer", authorName: "Sam", kind: "changes_requested", body: "Say Saturday", createdAt: "2026-09-30T10:00:00Z" }],
     });
     const onChanged = vi.fn();
-    render(<ReviewThread postId="p1" content="Friday sale" changesRequested onChanged={onChanged} onError={() => {}} />);
+    const onUpdated = vi.fn();
+    api.editPostContent.mockResolvedValue({ id: "p1", content: "Saturday sale", changes_requested_at: null });
+    render(<ReviewThread postId="p1" content="Friday sale" changesRequested onChanged={onChanged} onUpdated={onUpdated} onError={() => {}} />);
     expect(await screen.findByText("Sam asked for changes")).toBeTruthy();
     expect(screen.getByText("Say Saturday")).toBeTruthy();
     expect(screen.getByText("Your client asked for changes.")).toBeTruthy();
@@ -173,6 +175,8 @@ describe("ReviewThread (the owner's side of one post)", () => {
     await userEvent.click(screen.getByText("Save the new wording"));
     await waitFor(() => expect(api.editPostContent).toHaveBeenCalledWith("p1", "Saturday sale"));
     expect(onChanged).toHaveBeenCalled();
+    // the list is told the new wording at once, without waiting for the full refresh
+    expect(onUpdated).toHaveBeenCalledWith(expect.objectContaining({ id: "p1", content: "Saturday sale", changes_requested_at: null }));
   });
 
   it("stays closed until asked when there is no change request", async () => {

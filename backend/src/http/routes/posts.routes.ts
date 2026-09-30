@@ -398,8 +398,11 @@ export function buildPostsRouter(): Router {
       return;
     }
     if (existing.status === "needs_approval" && contentChanged) {
-      const { data: acct } = await req.db!.from("accounts").select("business_name").eq("id", req.accountId).maybeSingle();
-      await req.db!.from("post_review_comments").insert({
+      // The service-role client, NOT req.db: post_review_comments has row-level security with no
+      // policies (only the backend writes it), so the customer-scoped req.db is refused. This was
+      // silently dropped until a real-browser test on 2026-09-30 showed the note never appeared.
+      const { data: acct } = await supabase.from("accounts").select("business_name").eq("id", req.accountId).maybeSingle();
+      const { error: noteError } = await supabase.from("post_review_comments").insert({
         account_id: req.accountId,
         post_id: data.id,
         author_kind: "owner",
@@ -407,6 +410,7 @@ export function buildPostsRouter(): Router {
         kind: "updated",
         body: "Updated the post. It is ready to look at again.",
       });
+      if (noteError) console.error("[review] could not record the update note:", noteError.message);
     }
     void syncPostToCalendar(data.id);
     void syncAccountSheet(req.accountId!);

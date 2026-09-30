@@ -986,6 +986,7 @@ export function PostsTab() {
                 postId={p.id}
                 content={p.content}
                 changesRequested={!!p.changes_requested_at}
+                onUpdated={(saved) => setPosts((prev) => prev.map((x) => (x.id === saved.id ? { ...x, content: saved.content, changes_requested_at: saved.changes_requested_at ?? null } : x)))}
                 onChanged={async () => setPosts(await api.listScheduledPosts())}
                 onError={setError}
               />
