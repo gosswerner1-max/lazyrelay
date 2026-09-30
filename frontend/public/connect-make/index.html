@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>How to Connect LazyRelay to Make | LazyRelay</title>
+<meta name="description" content="Step-by-step: schedule and publish social posts from Make scenarios using LazyRelay's REST API and webhooks, with copy-paste module settings." />
+<link rel="canonical" href="https://lazyrelay.com/connect-make/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  ol { padding-left: 22px; }
+  li { margin-bottom: 12px; }
+  code { background: #f0f1f3; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  pre { background: #14171f; color: #f5f6f8; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 13px; line-height: 1.5; }
+  pre code { background: none; padding: 0; color: inherit; }
+</style>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/guides">&larr; Back to guides</a>
+<h1>How to Connect LazyRelay to Make</h1>
+<p class="subtitle">Schedule and publish social posts from a Make scenario, and start a scenario when a post is confirmed live or fails.</p>
+
+<p class="note"><strong>Plain status:</strong> LazyRelay does not have its own app in Make's directory yet. Everything below uses Make's built-in HTTP and Webhooks modules against LazyRelay's public API, which works today and needs no approval from anyone.</p>
+
+<h2>What you can build</h2>
+<ol>
+  <li>A new row in a Google Sheet or Airtable content calendar schedules a post to the right platform.</li>
+  <li>A new blog post or product schedules a promotion, with the image uploaded for you.</li>
+  <li>A post confirmed live (or one that fails) starts a scenario that logs it, alerts a channel, or emails a client.</li>
+</ol>
+
+<h2>Set up</h2>
+<ol>
+  <li>In your LazyRelay dashboard, open the <strong>API Keys</strong> tab and create a key. Copy it: it is shown once.</li>
+  <li>In Make, add the module <strong>HTTP, then Make a request</strong>. Everything below uses this module.</li>
+  <li>Set the header <code>Authorization</code> to <code>Bearer lzr_live_your_key_here</code> on each request. In Make you can store the key once in a scenario variable or a Data store so it is not pasted into every module.</li>
+</ol>
+
+<h2>Step 1: find your account ids</h2>
+<p>Add an HTTP request with <strong>Method</strong> GET and <strong>URL</strong> <code>https://lazyrelaylazyrelay-backend.onrender.com/api/social-accounts</code>. Set <strong>Parse response</strong> to Yes. Each item has an <code>id</code> and a <code>platform</code>. You only need to do this once, or you can map it into a lookup.</p>
+
+<h2>Step 2: schedule a post</h2>
+<p>Add an HTTP request: <strong>Method</strong> POST, <strong>URL</strong> <code>https://lazyrelaylazyrelay-backend.onrender.com/api/scheduled-posts</code>, <strong>Body type</strong> Raw, <strong>Content type</strong> JSON (application/json), and a request body like this:</p>
+<pre><code>{
+  "socialAccountId": "the account id from step 1",
+  "content": "Your post text",
+  "scheduledFor": "2026-10-01T09:00:00Z",
+  "mediaUrl": "https://example.com/image.jpg",
+  "tags": ["launch"]
+}</code></pre>
+<p>Turn on <strong>Parse response</strong>. If LazyRelay refuses the post, the response says exactly why (a missing TikTok privacy level, a Pinterest board, a plan limit) in an <code>error</code> field, and Make shows it as a failed run. To ask what a platform needs before you build the scenario, call <code>GET /api/platforms/rules?platform=tiktok</code>.</p>
+<p>Post to several platforms by adding one request per account, or by using Make's Iterator over a list of account ids.</p>
+
+<h2>Step 3: upload an image or video</h2>
+<p>To attach a file that is not already at a public web address, add an HTTP request with <strong>Method</strong> POST, <strong>URL</strong> <code>https://lazyrelaylazyrelay-backend.onrender.com/api/media/upload</code>, <strong>Body type</strong> Multipart/form-data, and one field named <code>file</code> of type File. The answer contains a <code>url</code>. Use that as <code>mediaUrl</code> in step 2.</p>
+
+<h2>Step 4: start a scenario when a post goes live or fails</h2>
+<ol>
+  <li>In Make, start a scenario with <strong>Webhooks, then Custom webhook</strong> and copy its address.</li>
+  <li>In LazyRelay, open <strong>Settings, then Webhooks</strong>, add an endpoint with that address, and pick the events: <code>post.verified</code> (confirmed live), <code>post.failed</code>, <code>post.unconfirmed</code> or <code>channel.needs_reconnect</code>. Press <strong>Send test</strong> so Make learns the data shape.</li>
+  <li>Build the rest of the scenario. The data includes the post text, the platform, and the reason when something failed.</li>
+</ol>
+<p class="note">Webhooks are set up by a person in the dashboard, not through an API key. That is deliberate: a leaked key can never be used to point your webhooks somewhere else. Each delivery is signed with your endpoint's secret so a receiver can check it came from LazyRelay; the details are in the <a href="/docs">API docs</a>.</p>
+
+<h2>Everything else the API can do</h2>
+<p>The full API is described as OpenAPI at <a href="https://lazyrelaylazyrelay-backend.onrender.com/api/openapi.json">/api/openapi.json</a>. Anything that reads OpenAPI (Postman, code generators, and tools that build Make or n8n requests from a spec) can use it. It covers scheduling, drafts, approvals, client review links, analytics, comments, saved posting times, RSS feeds and more.</p>
+
+<div class="cta-box">
+<strong>New to LazyRelay?</strong> The free plan includes an API key and the live check on every post, with no card.<br />
+<a class="button" href="https://lazyrelay.com">Start free</a>
+</div>
+</main>
+<footer><p class="note">LazyRelay. Schedule once, and see proof each post went live.</p></footer>
+</body>
+</html>

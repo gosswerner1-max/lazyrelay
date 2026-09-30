@@ -5,6 +5,7 @@
 // replaced with zod schemas (see http/validation.ts) — same messages, same
 // accept/reject rules, same order.
 
+import { buildOpenApiDocument } from "../../openapi.js";
 import { Router } from "express";
 import { z } from "zod";
 import { supabase } from "../../supabase.js";
@@ -60,6 +61,13 @@ export function buildPublicRouter(): Router {
       return;
     }
     res.json(data);
+  });
+
+  // The API described as OpenAPI 3.1, for Make, n8n's HTTP node, Zapier, ChatGPT actions, Postman and code
+  // generators. Static, public, no key needed. See openapi.ts (and its test, which proves every path exists).
+  router.get("/openapi.json", publicRateLimit, (_req, res) => {
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.json(buildOpenApiDocument());
   });
 
   // Public Proof-of-Publish verification page — no auth, this is what
