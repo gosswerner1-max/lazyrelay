@@ -50,7 +50,8 @@ export function RssFeedsSection({ onError }: Props) {
     });
   }
 
-  const atLimit = !!list && list.feeds.length >= list.maxFeeds;
+  const noPlan = !!list && list.maxFeeds === 0;
+  const atLimit = !!list && list.maxFeeds > 0 && list.feeds.length >= list.maxFeeds;
 
   return (
     <section>
@@ -61,7 +62,13 @@ export function RssFeedsSection({ onError }: Props) {
         already in the feed when you add it are skipped.
       </p>
 
-      {list && list.feeds.length === 0 && <p className="empty">No feeds yet.</p>}
+      {noPlan && <p className="section-note"><strong>RSS feeds are part of the paid plans.</strong> Upgrade to Starter or higher to add one.</p>}
+      {list && !noPlan && (
+        <p className="section-note">
+          Your plan includes {list.maxFeeds} feed{list.maxFeeds === 1 ? "" : "s"}. You have {list.feeds.length}.
+        </p>
+      )}
+      {list && list.feeds.length === 0 && !noPlan && <p className="empty">No feeds yet.</p>}
       {list?.feeds.map((f) => (
         <div key={f.id} style={{ marginBottom: 10 }}>
           <strong>{f.label || f.url}</strong>
@@ -78,6 +85,7 @@ export function RssFeedsSection({ onError }: Props) {
         </div>
       ))}
 
+      {!noPlan && (
       <form onSubmit={handleAdd} style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
         <input type="url" placeholder="https://example.com/feed.xml" value={url} onChange={(e) => setUrl(e.target.value)} required />
         <input type="text" placeholder="Name (optional)" maxLength={60} value={label} onChange={(e) => setLabel(e.target.value)} />
@@ -85,6 +93,7 @@ export function RssFeedsSection({ onError }: Props) {
           {atLimit ? "Feed limit reached" : busy ? "Checking the feed..." : "Add feed"}
         </button>
       </form>
+      )}
     </section>
   );
 }

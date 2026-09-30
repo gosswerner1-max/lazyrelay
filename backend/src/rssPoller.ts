@@ -5,6 +5,7 @@
 import { supabase } from "./supabase.js";
 import { isSafeMediaUrl } from "./urlSafety.js";
 import { draftTextFor, parseFeed, type FeedItem } from "./rssFeed.js";
+import { resolveTier, RSS_FEED_LIMITS } from "./tier.js";
 
 export const RSS_CHECK_INTERVAL_MS = 30 * 60_000;
 export const MAX_NEW_DRAFTS_PER_CHECK = 5;
@@ -130,8 +131,13 @@ export async function runRssCycle(): Promise<{ checked: number; drafts: number }
     .limit(100);
   let drafts = 0;
   const feeds = (data ?? []) as FeedRow[];
+  // A plan that no longer includes RSS (a downgrade) stops being checked; the
+  // feed is kept, and resumes if the customer upgrades again.
+  const allowed = new Map<string, boolean>();
   for (const feed of feeds) {
     try {
+      if (!allowed.has(feed.account_id)) allowed.set(feed.account_id, RSS_FEED_LIMITS[await resolveTier(feed.account_id)] > 0);
+      if (!allowed.get(feed.account_id)) continue;
       drafts += (await checkFeed(feed)).drafts;
     } catch (err) {
       console.error(`[rss] feed ${feed.id} failed:`, err instanceof Error ? err.message : err);

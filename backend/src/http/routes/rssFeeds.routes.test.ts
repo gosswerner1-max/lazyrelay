@@ -23,7 +23,11 @@ vi.mock("../../rssPoller.js", async (orig) => {
   return { ...real, fetchFeedText: async () => feedFetch.result };
 });
 
-const { buildRssFeedsRouter, MAX_RSS_FEEDS } = await import("./rssFeeds.routes.js");
+const { buildRssFeedsRouter } = await import("./rssFeeds.routes.js");
+const { RSS_FEED_LIMITS } = await import("../../tier.js");
+const setTier = (accountId: string, tier: string) => {
+  tables.subscriptions = [...(tables.subscriptions ?? []).filter((r) => r.account_id !== accountId), { account_id: accountId, tier, status: "active" }];
+};
 const app = () => {
   const a = express();
   a.use(express.json());
@@ -35,6 +39,7 @@ const RSS = "<rss><channel><item><title>One</title><guid>g1</guid></item><item><
 beforeEach(() => {
   for (const k of Object.keys(tables)) delete tables[k];
   auth.accountId = "acc1";
+  setTier("acc1", "enterprise"); // 5 feeds; the plan tests below change it
   feedFetch.result = { ok: true, text: RSS };
 });
 
@@ -60,10 +65,31 @@ describe("rss feeds API", () => {
   });
 
   it("stops at the limit, counting only this account", async () => {
-    tables.rss_feeds = Array.from({ length: MAX_RSS_FEEDS }, (_, i) => ({ id: `f${i}`, account_id: "acc1", url: "u", enabled: true }));
-    expect((await request(app()).post("/rss-feeds").send({ url: "https://example.com/feed.xml" })).status).toBe(400);
+    tables.rss_feeds = Array.from({ length: RSS_FEED_LIMITS.enterprise }, (_, i) => ({ id: `f${i}`, account_id: "acc1", url: "u", enabled: true }));
+    expect((await request(app()).post("/rss-feeds").send({ url: "https://example.com/feed.xml" })).status).toBe(403);
     auth.accountId = "acc2";
+    setTier("acc2", "enterprise");
     expect((await request(app()).post("/rss-feeds").send({ url: "https://example.com/feed.xml" })).status).toBe(201);
+  });
+
+  it("Free has no feeds: adding is refused and the limit shown is 0", async () => {
+    setTier("acc1", "free");
+    const r = await request(app()).post("/rss-feeds").send({ url: "https://example.com/feed.xml" });
+    expect(r.status).toBe(403);
+    expect(r.body.error).toMatch(/paid-plan feature/);
+    expect((await request(app()).get("/rss-feeds")).body.maxFeeds).toBe(0);
+  });
+
+  it("each plan gets its own cap: Starter 1, Pro 3", async () => {
+    setTier("acc1", "pro"); // displays as Starter
+    expect((await request(app()).get("/rss-feeds")).body.maxFeeds).toBe(1);
+    expect((await request(app()).post("/rss-feeds").send({ url: "https://example.com/a.xml" })).status).toBe(201);
+    const second = await request(app()).post("/rss-feeds").send({ url: "https://example.com/b.xml" });
+    expect(second.status).toBe(403);
+    expect(second.body.error).toMatch(/allows 1 RSS feed\./);
+    setTier("acc1", "business"); // displays as Pro
+    expect((await request(app()).get("/rss-feeds")).body.maxFeeds).toBe(3);
+    expect((await request(app()).post("/rss-feeds").send({ url: "https://example.com/b.xml" })).status).toBe(201);
   });
 
   it("turns a feed off and on, and deletes it", async () => {

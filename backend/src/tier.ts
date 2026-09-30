@@ -41,6 +41,18 @@ export const RECURRING_SCHEDULE_SLOT_LIMITS: Record<Tier, number | null> = {
   agency_plus: null, // unlimited, mirrors enterprise
 };
 
+/** RSS feed caps (2026-09-30, Werner approved): a paid convenience feature, capped per
+ *  plan like recurring schedules. Free has none. Keyed by DB code (see the Tier type
+ *  comment: "pro" DISPLAYS as Starter, "business" as Pro, "enterprise" as Business). */
+export const RSS_FEED_LIMITS: Record<Tier, number> = {
+  free: 0,
+  pro: 1, // Starter
+  business: 3, // Pro
+  enterprise: 5, // Business
+  agency: 5,
+  agency_plus: 5,
+};
+
 export async function resolveTier(accountId: string): Promise<Tier> {
   const { data } = await supabase.from("subscriptions").select("tier, status").eq("account_id", accountId).maybeSingle();
   const isPaidInGoodStanding = data?.tier !== "free" && (data?.status === "active" || data?.status === "trialing");

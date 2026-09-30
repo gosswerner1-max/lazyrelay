@@ -11,8 +11,8 @@ import { dbError } from "./shared.js";
 import { validateBody } from "../validation.js";
 import { fetchFeedText, planFeedCheck } from "../../rssPoller.js";
 import { parseFeed } from "../../rssFeed.js";
+import { resolveTier, RSS_FEED_LIMITS } from "../../tier.js";
 
-export const MAX_RSS_FEEDS = 5;
 
 const createSchema = z.object({
   url: z.string({ error: "url is required" }).trim().min(1, "url is required").max(1000, "url is too long"),
@@ -41,7 +41,8 @@ export function buildRssFeedsRouter(): Router {
       dbError(res, error, "GET /rss-feeds");
       return;
     }
-    res.json({ maxFeeds: MAX_RSS_FEEDS, feeds: ((data ?? []) as FeedRow[]).map(toPublic) });
+    const maxFeeds = RSS_FEED_LIMITS[await resolveTier(req.accountId!)];
+    res.json({ maxFeeds, feeds: ((data ?? []) as FeedRow[]).map(toPublic) });
   });
 
   router.post("/rss-feeds", ...guard, async (req: AuthedRequest, res) => {
@@ -50,9 +51,14 @@ export function buildRssFeedsRouter(): Router {
       res.status(400).json({ error: body.error });
       return;
     }
+    const limit = RSS_FEED_LIMITS[await resolveTier(req.accountId!)];
+    if (limit === 0) {
+      res.status(403).json({ error: "RSS feeds are a paid-plan feature. Upgrade to Starter or higher to add a feed." });
+      return;
+    }
     const { count } = await supabase.from("rss_feeds").select("id", { count: "exact", head: true }).eq("account_id", req.accountId);
-    if ((count ?? 0) >= MAX_RSS_FEEDS) {
-      res.status(400).json({ error: `You can add up to ${MAX_RSS_FEEDS} feeds. Remove one first.` });
+    if ((count ?? 0) >= limit) {
+      res.status(403).json({ error: `Your plan allows ${limit} RSS feed${limit === 1 ? "" : "s"}. Remove one or upgrade to add more.` });
       return;
     }
     const fetched = await fetchFeedText(body.data.url);
