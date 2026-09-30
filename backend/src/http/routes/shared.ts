@@ -12,6 +12,12 @@ import { supabase } from "../../supabase.js";
 // client. Use this for DB-layer errors; a message we wrote ourselves
 // (validation, business-rule errors) should still be returned directly.
 export function dbError(res: Response, err: { message: string }, context: string): void {
+  // An id that is not even a valid UUID (an API caller typo, or "abc") makes Postgres reject the query.
+  // That is the caller pointing at something that does not exist, not a fault on our side.
+  if (/invalid input syntax for type uuid/i.test(err.message)) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
   console.error(`[routes] ${context}:`, err.message);
   res.status(500).json({ error: "Something went wrong on our end. Please try again." });
 }
