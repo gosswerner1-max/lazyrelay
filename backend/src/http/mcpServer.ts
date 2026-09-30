@@ -23,12 +23,11 @@ import { LazyRelayApiError, registerLazyRelayTools } from "../mcp/lazyrelayTools
  *  quota check, tier limit, media validation and business rule with ZERO duplication and zero changes to
  *  the existing auth path.
  *
- *  *** NOT YET PROVEN AGAINST A LIVE OAUTH TOKEN. *** Supabase's OAuth server IS enabled on the project (checked
- *  through the Management API 2026-09-30: enabled, dynamic registration on, consent path /oauth/consent, and its
- *  discovery document and this server's /.well-known metadata and 401 challenge all answer correctly), but no
- *  person has yet completed a real sign-in and approval, so a live token has never reached this seam. If getUser() turns out to reject a token whose
- *  audience is the MCP resource URI rather than "authenticated", replace the body of this function, and only
- *  this function, with a direct in-process call to extracted route handlers.
+ *  PROVEN 2026-09-30 against a live OAuth token: Werner added the hosted connector in Claude, signed in and
+ *  approved, and a real Supabase-issued access token then passed through this seam (list_connected_accounts and
+ *  list_scheduled_posts returned the account's real data). Supabase's OAuth server is enabled with dynamic
+ *  registration and the /oauth/consent path. If that ever stops working, replace the body of this function, and
+ *  only this function, with a direct in-process call to extracted route handlers.
  *
  *  accountId is passed in and currently unused for exactly that reason: it is what the fallback needs. */
 const API_BASE = process.env.MCP_API_BASE ?? "http://127.0.0.1:" + (process.env.PORT ?? "3000") + "/api";
