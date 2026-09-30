@@ -18,7 +18,7 @@ if (!API_KEY) {
   process.exit(1);
 }
 
-const server = new McpServer({ name: "lazyrelay", version: "0.3.0" });
+const server = new McpServer({ name: "lazyrelay", version: "0.3.1" });
 
 registerLazyRelayTools(server, async (path, options) => {
   const res = await fetch(`${API_BASE}${path}`, {
