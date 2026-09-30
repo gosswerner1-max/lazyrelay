@@ -4,6 +4,7 @@
 // live in one place (useDashboardState.tsx, called once by Dashboard.tsx)
 // and reach this file through DashboardContext.
 
+import { useEffect, useState } from "react";
 import { CodeBlock } from "../../components/CodeBlock";
 import { MediaStorageList } from "../../components/MediaStorageList";
 import { formatBytes } from "../../lib/format";
@@ -14,6 +15,15 @@ import { SnippetsSection } from "./SnippetsSection";
 import { PostingSlotsSection } from "./PostingSlotsSection";
 import { RssFeedsSection } from "./RssFeedsSection";
 import { ReviewLinksSection } from "./ReviewLinksSection";
+
+type SettingsSub = "general" | "security" | "team" | "automation" | "billing";
+const SETTINGS_SUBS: { id: SettingsSub; label: string }[] = [
+  { id: "general", label: "General" },
+  { id: "security", label: "Security" },
+  { id: "team", label: "Team" },
+  { id: "automation", label: "Automation" },
+  { id: "billing", label: "Plan & billing" },
+];
 
 export function SettingsTab() {
   const {
@@ -69,6 +79,8 @@ export function SettingsTab() {
     mediaAltTextDrafts,
     setMediaAltTextDrafts,
     billingSectionRef,
+    scrollToBillingPending,
+    setScrollToBillingPending,
     handleDeleteMedia,
     handleSaveMediaAltText,
     handleUpgrade,
@@ -97,6 +109,17 @@ export function SettingsTab() {
     accounts,
     setError,
   } = useDashboard();
+  // The plan banner's Upgrade button asks for the Billing section, so open that sub-tab and scroll to it.
+  const [sub, setSub] = useState<SettingsSub>(scrollToBillingPending ? "billing" : "general");
+  useEffect(() => {
+    if (!scrollToBillingPending) return;
+    if (sub !== "billing") {
+      setSub("billing");
+      return;
+    }
+    billingSectionRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
+    setScrollToBillingPending(false);
+  }, [scrollToBillingPending, sub, billingSectionRef, setScrollToBillingPending]);
   const webhookChannels = accounts.map((a) => ({
     id: a.id,
     label: `${a.platform.charAt(0).toUpperCase()}${a.platform.slice(1)}: ${a.display_name ?? a.platform_account_id}`,
@@ -104,7 +127,14 @@ export function SettingsTab() {
 
   return (
     <>
-      {(
+      <nav className="settings-subtabs" aria-label="Settings sections">
+        {SETTINGS_SUBS.map((t) => (
+          <button key={t.id} type="button" className={t.id === sub ? "settings-subtab-active" : ""} onClick={() => setSub(t.id)}>
+            {t.label}
+          </button>
+        ))}
+      </nav>
+      {sub === "billing" && (
       <section>
         <h2>Storage</h2>
         {storageUsage && (() => {
@@ -189,7 +219,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {(
+      {sub === "general" && (
       <section>
         <h2>Account</h2>
         <form onSubmit={handleSaveBusinessName} className="account-name-form">
@@ -232,7 +262,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {(
+      {sub === "security" && (
       <section>
         <h2>Two-factor authentication</h2>
         <p className="section-note">
@@ -330,7 +360,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {(
+      {sub === "general" && (
       <section>
         <h2>Failure alerts</h2>
         <p className="section-note">
@@ -350,7 +380,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {(
+      {sub === "general" && (
       <section>
         <h2>LazyRelay branding</h2>
         <p className="section-note">
@@ -371,6 +401,7 @@ export function SettingsTab() {
       </section>
       )}
 
+      {sub === "automation" && (<>
       <WebhooksSection channels={webhookChannels} onError={setError} />
 
       <SnippetsSection onError={setError} />
@@ -380,8 +411,9 @@ export function SettingsTab() {
       <RssFeedsSection onError={setError} />
 
       <ReviewLinksSection brands={[...new Set(accounts.map((a) => a.brand_label).filter((b): b is string => !!b))]} onError={setError} />
+      </>)}
 
-      {(
+      {sub === "automation" && (
       <section className={GOOGLE_INTEGRATIONS_LIVE ? undefined : "settings-section-disabled"}>
         <h2>
           Google Calendar {!GOOGLE_INTEGRATIONS_LIVE && <span className="coming-soon-badge">Coming soon</span>}
@@ -418,7 +450,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {(
+      {sub === "automation" && (
       <section className={GOOGLE_INTEGRATIONS_LIVE ? undefined : "settings-section-disabled"}>
         <h2>
           Google Sheets {!GOOGLE_INTEGRATIONS_LIVE && <span className="coming-soon-badge">Coming soon</span>}
@@ -460,7 +492,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {(() => {
+      {sub === "team" && (() => {
         const myMembership = team.find((m) => m.user_id === session?.user.id);
         const isOwner = !myMembership || myMembership.role === "owner";
         // Mirrors checkSeatLimit's own counting rule (seatLimits.ts): every
@@ -578,7 +610,7 @@ export function SettingsTab() {
         );
       })()}
 
-      {(
+      {sub === "security" && (
       <section>
         <h2>Authorize admin support access</h2>
         <p className="section-note">
@@ -598,7 +630,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {currentTier !== "free" && (
+      {sub === "billing" && currentTier !== "free" && (
       <section>
         <h2>Buy more storage</h2>
         <p className="section-note">Add extra space on top of your plan's included storage. Cancel any add-on separately, any time.</p>
@@ -645,7 +677,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {(
+      {sub === "billing" && (
       <section ref={billingSectionRef}>
         <h2>Billing</h2>
         {(() => {

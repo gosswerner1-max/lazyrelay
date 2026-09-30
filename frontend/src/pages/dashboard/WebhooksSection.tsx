@@ -199,7 +199,7 @@ export function WebhooksSection({ channels, onError }: Props) {
         );
       })}
 
-      <form onSubmit={handleAdd} className="dm-automation-form" style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: 8, marginTop: 8 }}>
+      <form onSubmit={handleAdd} className="settings-form">
         <h3 style={{ margin: 0 }}>Add an endpoint</h3>
         <input
           type="url"
@@ -215,7 +215,7 @@ export function WebhooksSection({ channels, onError }: Props) {
         <fieldset disabled={atLimit} style={{ border: "none", padding: 0, margin: 0 }}>
           <legend className="section-note">Send me</legend>
           {available.map((event) => (
-            <label key={event} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <label key={event} className="field-check">
               <input type="checkbox" checked={(pickedEvents ?? available).includes(event)} onChange={(e) => toggleEvent(event, e.target.checked)} />
               {eventLabel(event)}
             </label>
@@ -225,7 +225,7 @@ export function WebhooksSection({ channels, onError }: Props) {
           <fieldset disabled={atLimit} style={{ border: "none", padding: 0, margin: 0 }}>
             <legend className="section-note">Only for these accounts (leave all unticked for every account)</legend>
             {channels.map((c) => (
-              <label key={c.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <label key={c.id} className="field-check">
                 <input
                   type="checkbox"
                   checked={pickedChannels.includes(c.id)}

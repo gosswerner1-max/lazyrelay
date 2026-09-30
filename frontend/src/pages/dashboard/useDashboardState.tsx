@@ -2864,6 +2864,7 @@ export function useDashboardState() {
     selectedDay,
     setSelectedDay,
     billingSectionRef,
+    scrollToBillingPending,
     setScrollToBillingPending,
     handleTourFinish,
     dismissGcalPrompt,
