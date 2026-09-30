@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Schedule Posts to Lemmy with LazyRelay | LazyRelay</title>
+<meta name="description" content="Schedule Lemmy posts to the community you choose with LazyRelay: title, markdown body, link posts and images, with a check that strangers can see the post." />
+<link rel="canonical" href="https://lazyrelay.com/schedule-to-lemmy/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  .faq-item { margin-bottom: 20px; }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Why does Lemmy ask me to tick Bot account?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Lemmy expects automated posts to come from an account marked as a bot. Tick it under Settings, then Profile before you connect."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does LazyRelay store my Lemmy password?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. LazyRelay keeps a login token, not your password."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What happens if a moderator removes my Lemmy post?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LazyRelay's check reads the post back and reports a removed post as not live, instead of leaving it marked as published."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I post to any Lemmy community?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "You post to one community at a time, written as name or name@server, on the server you connected. Each community has its own rules."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/guides">&larr; Back to guides</a>
+<h1>Schedule posts to Lemmy with LazyRelay</h1>
+<p class="subtitle">LazyRelay schedules posts to a Lemmy community on your own server, then checks that the post is visible to people who are not logged in. LazyRelay's difference is Proof-of-Publish: after a post goes out, it checks Lemmy again to confirm the post is really live.</p>
+
+<h2>What you can post to Lemmy</h2>
+<ul>
+  <li>Title and body: the first line of your post is the title, up to 200 characters, unless you set a title under Platform options. The rest is the body, written in markdown, up to 10000 characters (LazyRelay's own cap).</li>
+  <li>Text-only posts are accepted.</li>
+  <li>Images: JPEG, PNG, WEBP, GIF, up to 20 MB each. An image is uploaded to your Lemmy server, and each server sets its own upload limit.</li>
+  <li>Video: not supported.</li>
+  <li>Several files in one post: up to 10 images (no video in a multi-image post).</li>
+  <li>Community: each post goes to one community, written as name or name@server. Under Platform options you can set it per post, unless you saved a default when connecting.</li>
+  <li>Link post: you can share an https link.</li>
+  <li>NSFW flag: you can mark a post as NSFW.</li>
+</ul>
+<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features">What Works on Which Platform</a>.</p>
+
+<h2>How to connect Lemmy</h2>
+<ol>
+  <li>In Lemmy open Settings, then Profile, and tick Bot account. Lemmy expects automated posts to come from an account marked as a bot.</li>
+  <li>In LazyRelay, open the Social Platforms tab and click the Lemmy tile.</li>
+  <li>Enter your Lemmy server (for example lemmy.world), your username and your password. Add your two-factor code only if you use one.</li>
+  <li>Optionally enter a default community, for example programming@programming.dev.</li>
+  <li>Click Connect. LazyRelay keeps a login token, not your password.</li>
+</ol>
+
+<h2>How Proof-of-Publish works on Lemmy</h2>
+<p>LazyRelay reads the post back from your server with your account, refuses a post that is removed or deleted, then repeats the read with no login to see what a stranger sees. It also requests the post's public page and requires a successful answer. The page alone would prove little, because Lemmy's web app can answer successfully for any post number. If a moderator removes your post, LazyRelay reports it as not live.</p>
+<p>Want the general idea? Read <a href="/verify-post-published">Does Your Post Actually Publish?</a></p>
+
+<h2>Limits and things to know</h2>
+<ul>
+  <li>Each community has its own rules, and a moderator can remove a post. LazyRelay reports a removed post as not live.</li>
+  <li>Lemmy expects automated posts to come from an account marked as a bot (Settings, Profile, Bot account).</li>
+  <li>Each Lemmy server sets its own rate limits and upload limits, and LazyRelay does not add a cap of its own.</li>
+</ul>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Schedule to Lemmy and know it actually went live.</strong></p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+<h2>Frequently asked questions</h2>
+<div class="faq-item">
+  <h3>Why does Lemmy ask me to tick Bot account?</h3>
+  <p>Lemmy expects automated posts to come from an account marked as a bot. Tick it under Settings, then Profile before you connect.</p>
+</div>
+<div class="faq-item">
+  <h3>Does LazyRelay store my Lemmy password?</h3>
+  <p>No. LazyRelay keeps a login token, not your password.</p>
+</div>
+<div class="faq-item">
+  <h3>What happens if a moderator removes my Lemmy post?</h3>
+  <p>LazyRelay's check reads the post back and reports a removed post as not live, instead of leaving it marked as published.</p>
+</div>
+<div class="faq-item">
+  <h3>Can I post to any Lemmy community?</h3>
+  <p>You post to one community at a time, written as name or name@server, on the server you connected. Each community has its own rules.</p>
+</div>
+
+<p class="note">Figures on this page come from LazyRelay's platform rules, checked on 2026-09-30. Sources: <a href="https://join-lemmy.org/docs/" rel="noopener">join-lemmy.org/docs/</a>, <a href="https://github.com/LemmyNet/lemmy-js-client" rel="noopener">github.com/LemmyNet/lemmy-js-client</a>. Anything marked not verified has no published source.</p>
+<p class="note">Schedule to other platforms: <a href="/schedule-to-facebook/">Facebook</a> &middot; <a href="/schedule-to-instagram/">Instagram</a> &middot; <a href="/schedule-to-tiktok/">TikTok</a> &middot; <a href="/schedule-to-pinterest/">Pinterest</a> &middot; <a href="/schedule-to-youtube/">YouTube</a> &middot; <a href="/schedule-to-linkedin/">LinkedIn</a> &middot; <a href="/schedule-to-threads/">Threads</a> &middot; <a href="/schedule-to-mastodon/">Mastodon</a> &middot; <a href="/schedule-to-bluesky/">Bluesky</a> &middot; <a href="/schedule-to-telegram/">Telegram</a> &middot; <a href="/schedule-to-discord/">Discord</a> &middot; <a href="/schedule-to-tumblr/">Tumblr</a> &middot; <a href="/schedule-to-wordpress/">WordPress</a> &middot; <a href="/schedule-to-devto/">dev.to</a> &middot; <a href="/schedule-to-hashnode/">Hashnode</a></p>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/platform-features">What Works on Which Platform</a> &middot; <a href="/verify-post-published">Does Your Post Actually Publish?</a> &middot; <a href="/docs">Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>

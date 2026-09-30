@@ -98,7 +98,8 @@ Tests mock n8n's `IExecuteFunctions` and `IWebhookFunctions`, and assert the exa
 
 - Unit tests cover every operation's request, the Additional Fields mapping, error handling, Continue On Fail, multipart upload, signature verification and event filtering.
 - The lint config from n8n's community node linter passes.
-- It has **not** been run inside a live n8n instance against the real LazyRelay API. Multipart upload in particular builds the multipart body by hand as a Buffer (n8n only recognises the `form-data` package, which a community node cannot depend on), so it needs a real n8n run to prove.
+- The LazyRelay node was run end to end in a real self-hosted n8n (version 2.41.4) against the live LazyRelay API: listing accounts, reading platform rules, listing posts and uploading a file (multipart, built by hand as a Buffer because n8n only recognises the `form-data` package, which a community node cannot depend on) all worked.
+- The trigger node (webhooks) has been tested with mocks only, not yet in a live n8n.
 
 ## License
 

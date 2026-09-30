@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Schedule Posts to Pinterest with LazyRelay | LazyRelay</title>
+<meta name="description" content="Schedule Pins to the board you choose with LazyRelay: image and video Pins with destination links, each read back from Pinterest to confirm it is live." />
+<link rel="canonical" href="https://lazyrelay.com/schedule-to-pinterest/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  .faq-item { margin-bottom: 20px; }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Can I choose which Pinterest board a Pin goes to?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. You pick the board for each Pin. Choosing a section inside a board is not available yet."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I schedule video Pins?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. A video Pin needs a cover image, which is a still picture shown before the video plays."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How many Pins can LazyRelay schedule in a day?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Up to 10 per connected Pinterest account in any rolling 24 hours. A newly connected account ramps up over its first 14 days, starting at 1 a day."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I know my Pin is really live?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LazyRelay asks Pinterest for the Pin by its ID after creating it and only marks the post confirmed live when Pinterest returns it."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/guides">&larr; Back to guides</a>
+<h1>Schedule posts to Pinterest with LazyRelay</h1>
+<p class="subtitle">LazyRelay schedules image and video Pins to the board you choose, then reads each Pin back from Pinterest to confirm it exists. LazyRelay's difference is Proof-of-Publish: after a post goes out, it checks Pinterest again to confirm the post is really live.</p>
+
+<h2>What you can post to Pinterest</h2>
+<ul>
+  <li>A Pin needs an image or a video. Text-only posts are not accepted.</li>
+  <li>Text: LazyRelay sends the first 100 characters of your text as the Pin title and the first 500 characters as the description. Pinterest's own API allows a description up to 800 characters, a title up to 100 and alt text up to 500.</li>
+  <li>Images: BMP, JPEG, PNG, TIFF, WEBP, up to 20 MB, at least 100 x 200 pixels.</li>
+  <li>Video: MP4, MOV, up to 2 GB (a Pinterest help-center figure with lower confidence), duration limit not verified. A video Pin also needs a cover image, which is a still picture.</li>
+  <li>Several files in one post: not supported, one image or video per Pin.</li>
+  <li>Board: you choose which board each Pin goes to.</li>
+  <li>Destination link: you can set where a click on the Pin leads, up to 2048 characters.</li>
+  <li>Not available yet: choosing a section inside a board.</li>
+</ul>
+<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features">What Works on Which Platform</a>.</p>
+
+<h2>How to connect Pinterest</h2>
+<ol>
+  <li>Sign in to LazyRelay and open the Social Platforms tab in the top menu.</li>
+  <li>Click the Pinterest tile.</li>
+  <li>Sign in to Pinterest when asked, and approve all of the permissions LazyRelay requests. Approving only some of them can make posting stop working later.</li>
+  <li>You land back in LazyRelay with the account connected. If you are logged in to several accounts on that platform in the same browser, log out of the ones you do not want first, so LazyRelay does not connect the wrong one.</li>
+</ol>
+
+<h2>How Proof-of-Publish works on Pinterest</h2>
+<p>Creating a Pin on Pinterest is immediate, so there is no waiting period. After Pinterest says the Pin was created, LazyRelay asks Pinterest for that Pin by its ID and only marks the post confirmed live when Pinterest returns the same Pin. The link you can share is the Pin's own link.</p>
+<p>Want the general idea? Read <a href="/verify-post-published">Does Your Post Actually Publish?</a></p>
+
+<h2>Limits and things to know</h2>
+<ul>
+  <li>LazyRelay allows up to 10 Pins a day per connected Pinterest account, counted over any rolling 24 hours rather than a calendar day. A new connection also ramps up: 1 a day until day 7, 2 a day until day 10, 3 a day until day 14, then the full cap. Scheduling a Pin that would go over is refused with a message giving the next free time.</li>
+  <li>Pinterest is strict with brand-new accounts and brand-new websites. For a new Pinterest account, post by hand first: 1 Pin a day for the first week, then 2, then 3, until it reaches 100 or more monthly views (about 2 weeks), then connect it. A real Pinterest rejection has read that only 10 posts in 24 hours are allowed.</li>
+  <li>If Pinterest says it blocked a link because it may lead to spam, that is Pinterest's own decision about the website address. LazyRelay cannot lift or override it. You can ask Pinterest to review it in its Help Center under Appeals, then Pinterest blocked my site.</li>
+  <li>If Pins that worked for weeks stop posting, the Pinterest access has probably expired: reconnect the account.</li>
+</ul>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Schedule to Pinterest and know it actually went live.</strong></p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+<h2>Frequently asked questions</h2>
+<div class="faq-item">
+  <h3>Can I choose which Pinterest board a Pin goes to?</h3>
+  <p>Yes. You pick the board for each Pin. Choosing a section inside a board is not available yet.</p>
+</div>
+<div class="faq-item">
+  <h3>Can I schedule video Pins?</h3>
+  <p>Yes. A video Pin needs a cover image, which is a still picture shown before the video plays.</p>
+</div>
+<div class="faq-item">
+  <h3>How many Pins can LazyRelay schedule in a day?</h3>
+  <p>Up to 10 per connected Pinterest account in any rolling 24 hours. A newly connected account ramps up over its first 14 days, starting at 1 a day.</p>
+</div>
+<div class="faq-item">
+  <h3>How do I know my Pin is really live?</h3>
+  <p>LazyRelay asks Pinterest for the Pin by its ID after creating it and only marks the post confirmed live when Pinterest returns it.</p>
+</div>
+
+<p class="note">Figures on this page come from LazyRelay's platform rules, checked on 2026-09-30. Sources: <a href="https://developers.pinterest.com/docs/api/v5/pins-create" rel="noopener">developers.pinterest.com/docs/api/v5/pins-create</a>. Anything marked not verified has no published source.</p>
+<p class="note">Schedule to other platforms: <a href="/schedule-to-facebook/">Facebook</a> &middot; <a href="/schedule-to-instagram/">Instagram</a> &middot; <a href="/schedule-to-tiktok/">TikTok</a> &middot; <a href="/schedule-to-youtube/">YouTube</a> &middot; <a href="/schedule-to-linkedin/">LinkedIn</a> &middot; <a href="/schedule-to-threads/">Threads</a> &middot; <a href="/schedule-to-mastodon/">Mastodon</a> &middot; <a href="/schedule-to-bluesky/">Bluesky</a> &middot; <a href="/schedule-to-telegram/">Telegram</a> &middot; <a href="/schedule-to-discord/">Discord</a> &middot; <a href="/schedule-to-tumblr/">Tumblr</a> &middot; <a href="/schedule-to-wordpress/">WordPress</a> &middot; <a href="/schedule-to-devto/">dev.to</a> &middot; <a href="/schedule-to-hashnode/">Hashnode</a> &middot; <a href="/schedule-to-lemmy/">Lemmy</a></p>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/platform-features">What Works on Which Platform</a> &middot; <a href="/verify-post-published">Does Your Post Actually Publish?</a> &middot; <a href="/docs">Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>

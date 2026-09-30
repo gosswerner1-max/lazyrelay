@@ -48,7 +48,7 @@ export class HttpClient {
     const envKey = typeof process !== "undefined" ? process.env?.LAZYRELAY_API_KEY : undefined;
     const apiKey = (options.apiKey ?? envKey ?? "").trim();
     if (!apiKey) {
-      throw LazyRelayError.local("auth", "No API key. Pass { apiKey } or set the LAZYRELAY_API_KEY environment variable. Create a key in the LazyRelay dashboard under Settings, More, API Keys.");
+      throw LazyRelayError.local("auth", "No API key. Pass { apiKey } or set the LAZYRELAY_API_KEY environment variable. Create a key in the LazyRelay dashboard on the API Keys tab.");
     }
     this.apiKey = apiKey;
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");

@@ -123,7 +123,7 @@ export async function runCli(argv: string[], ctx: CliContext): Promise<number> {
     const plan = await prepare(path, parsed);
 
     const apiKey = (parsed.values.key ?? ctx.env.LAZYRELAY_API_KEY ?? "").trim();
-    if (!apiKey) throw new UsageError("No API key. Set LAZYRELAY_API_KEY or pass --key. Create one in the dashboard under Settings, More, API Keys.");
+    if (!apiKey) throw new UsageError("No API key. Set LAZYRELAY_API_KEY or pass --key. Create one in the dashboard on the API Keys tab.");
     secret = apiKey;
     const client = new LazyRelay({
       apiKey,

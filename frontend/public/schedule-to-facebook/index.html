@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Schedule Posts to Facebook with LazyRelay | LazyRelay</title>
+<meta name="description" content="Schedule posts to your Facebook Page with LazyRelay: photos, video, Stories and a first comment, each read back from Facebook to confirm it is live." />
+<link rel="canonical" href="https://lazyrelay.com/schedule-to-facebook/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  .faq-item { margin-bottom: 20px; }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Can I schedule to my personal Facebook profile or a Facebook Group?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. LazyRelay posts to Facebook Pages only. Personal profiles and Groups are not supported."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I schedule Facebook Stories?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Choose Story under Platform options. A Story takes one image or one video and no extra files."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can LazyRelay add a first comment to my Facebook post?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, up to 2200 characters, posted right after the main post. A reply at a number of likes you choose is also available."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I know my Facebook post is really live?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LazyRelay reads the post back from Facebook after sending it and only marks it confirmed live when Facebook returns it with a public link."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/guides">&larr; Back to guides</a>
+<h1>Schedule posts to Facebook with LazyRelay</h1>
+<p class="subtitle">LazyRelay schedules posts to a Facebook Page you manage, then reads each one back from Facebook to confirm it really went live. LazyRelay's difference is Proof-of-Publish: after a post goes out, it checks Facebook again to confirm the post is really live.</p>
+
+<h2>What you can post to Facebook</h2>
+<ul>
+  <li>Text: Facebook publishes no post length limit that LazyRelay could verify, so this page does not state one (not verified). LazyRelay itself refuses posts over 5000 characters. Facebook's Page feed documentation states no limit.</li>
+  <li>Text-only posts are accepted.</li>
+  <li>Images: JPEG, PNG, WEBP, GIF, up to 20 MB each. This is LazyRelay's general image limit, not a figure published by Facebook (not verified).</li>
+  <li>Video: MP4, MOV, WEBM, up to 300 MB, duration limit not verified. Meta publishes no fixed video size limit, so LazyRelay uses 300 MB.</li>
+  <li>Several files in one post: up to 10 images (no video in a multi-image post).</li>
+  <li>Story: choose Story instead of Feed under Platform options. A Story is one image or one video, with no extra files.</li>
+  <li>First comment: LazyRelay can post a comment of your own right after the post goes out, up to 2200 characters. This is handy for hashtags.</li>
+  <li>Self-reply: you can have LazyRelay add a reply from your Page once the post reaches a number of likes you choose.</li>
+</ul>
+<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features">What Works on Which Platform</a>.</p>
+
+<h2>How to connect Facebook</h2>
+<ol>
+  <li>Sign in to LazyRelay and open the Social Platforms tab in the top menu.</li>
+  <li>Click the Facebook tile.</li>
+  <li>Sign in to Facebook when asked, and approve all of the permissions LazyRelay requests. Approving only some of them can make posting stop working later.</li>
+  <li>You land back in LazyRelay with the account connected. If you are logged in to several accounts on that platform in the same browser, log out of the ones you do not want first, so LazyRelay does not connect the wrong one.</li>
+  <li>LazyRelay posts to the Facebook Page you connect. Personal profiles and Facebook Groups are not supported.</li>
+</ol>
+
+<h2>How Proof-of-Publish works on Facebook</h2>
+<p>After Facebook accepts the post, LazyRelay asks Facebook for that post again using the Page's own access and confirms Facebook returns it with a public link. Facebook can be slow to show a brand-new object, so LazyRelay checks several times over a short window instead of failing on the first try. For videos it also waits until Facebook reports the video as ready, not just uploaded. For a Story it looks for the Story in the Page's list of Stories. Only when that read-back succeeds is the post marked confirmed live.</p>
+<p>Want the general idea? Read <a href="/verify-post-published">Does Your Post Actually Publish?</a></p>
+
+<h2>Limits and things to know</h2>
+<ul>
+  <li>Posts go to a Facebook Page, not a personal profile. Facebook Groups are not supported, and tagging another Page in a post is not supported.</li>
+  <li>If posting silently stops after working for a while, reconnect Facebook from the Social Platforms tab and approve every permission, because a permission may have been switched off on Facebook's side.</li>
+  <li>Facebook's own posting rate limit is not verified, and LazyRelay does not add a cap of its own for Facebook.</li>
+</ul>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Schedule to Facebook and know it actually went live.</strong></p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+<h2>Frequently asked questions</h2>
+<div class="faq-item">
+  <h3>Can I schedule to my personal Facebook profile or a Facebook Group?</h3>
+  <p>No. LazyRelay posts to Facebook Pages only. Personal profiles and Groups are not supported.</p>
+</div>
+<div class="faq-item">
+  <h3>Can I schedule Facebook Stories?</h3>
+  <p>Yes. Choose Story under Platform options. A Story takes one image or one video and no extra files.</p>
+</div>
+<div class="faq-item">
+  <h3>Can LazyRelay add a first comment to my Facebook post?</h3>
+  <p>Yes, up to 2200 characters, posted right after the main post. A reply at a number of likes you choose is also available.</p>
+</div>
+<div class="faq-item">
+  <h3>How do I know my Facebook post is really live?</h3>
+  <p>LazyRelay reads the post back from Facebook after sending it and only marks it confirmed live when Facebook returns it with a public link.</p>
+</div>
+
+<p class="note">Figures on this page come from LazyRelay's platform rules, checked on 2026-09-30. Sources: <a href="https://developers.facebook.com/docs/graph-api/reference/page/feed/" rel="noopener">developers.facebook.com/docs/graph-api/reference/page/feed/</a>. Anything marked not verified has no published source.</p>
+<p class="note">Schedule to other platforms: <a href="/schedule-to-instagram/">Instagram</a> &middot; <a href="/schedule-to-tiktok/">TikTok</a> &middot; <a href="/schedule-to-pinterest/">Pinterest</a> &middot; <a href="/schedule-to-youtube/">YouTube</a> &middot; <a href="/schedule-to-linkedin/">LinkedIn</a> &middot; <a href="/schedule-to-threads/">Threads</a> &middot; <a href="/schedule-to-mastodon/">Mastodon</a> &middot; <a href="/schedule-to-bluesky/">Bluesky</a> &middot; <a href="/schedule-to-telegram/">Telegram</a> &middot; <a href="/schedule-to-discord/">Discord</a> &middot; <a href="/schedule-to-tumblr/">Tumblr</a> &middot; <a href="/schedule-to-wordpress/">WordPress</a> &middot; <a href="/schedule-to-devto/">dev.to</a> &middot; <a href="/schedule-to-hashnode/">Hashnode</a> &middot; <a href="/schedule-to-lemmy/">Lemmy</a></p>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/platform-features">What Works on Which Platform</a> &middot; <a href="/verify-post-published">Does Your Post Actually Publish?</a> &middot; <a href="/docs">Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Schedule Posts to Discord with LazyRelay | LazyRelay</title>
+<meta name="description" content="Schedule Discord channel posts with text, images or video using a channel webhook and LazyRelay. Each message is read back to confirm it is live." />
+<link rel="canonical" href="https://lazyrelay.com/schedule-to-discord/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  .faq-item { margin-bottom: 20px; }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Do I need to add a bot to my Discord server?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Posting works through a channel webhook. The bot invitation on the connect page is optional and only matters if you want to reply to comments from LazyRelay too."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does my post say via Webhook?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Because posting goes through a channel webhook rather than a bot. That is expected."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How big can a Discord upload be?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LazyRelay enforces 20 MB, which every Discord server supports. A server with a higher boost tier allows more, but LazyRelay uses the 20 MB floor."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I know my Discord message is really there?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LazyRelay fetches the message back from Discord by its ID after sending it and marks the post confirmed live only when Discord returns it."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/guides">&larr; Back to guides</a>
+<h1>Schedule posts to Discord with LazyRelay</h1>
+<p class="subtitle">LazyRelay schedules messages to a Discord channel using a webhook you create, then reads each message back to confirm it is there. LazyRelay's difference is Proof-of-Publish: after a post goes out, it checks Discord again to confirm the post is really live.</p>
+
+<h2>What you can post to Discord</h2>
+<ul>
+  <li>Text: up to 2000 characters. Standard Discord Markdown such as bold, italics and code works.</li>
+  <li>Text-only posts are accepted.</li>
+  <li>Images: JPEG, PNG, GIF, WEBP, up to 20 MB each.</li>
+  <li>Video: MP4, WEBM, MOV, up to 20 MB, duration limit not verified. The real upload limit depends on the destination server's boost tier. 20 MB is the floor every server supports, and it is what LazyRelay enforces.</li>
+  <li>Several files in one post: not supported, one file per post.</li>
+  <li>Posts go to the channel behind the webhook you pasted.</li>
+</ul>
+<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features">What Works on Which Platform</a>.</p>
+
+<h2>How to connect Discord</h2>
+<ol>
+  <li>In Discord, open the channel you want to post to and go to Channel Settings, then Integrations, then Webhooks, then New Webhook.</li>
+  <li>Copy the webhook URL.</li>
+  <li>In LazyRelay, open the Social Platforms tab and click the Discord tile.</li>
+  <li>Paste the webhook URL and click Connect.</li>
+  <li>Optional: the connect page also has a link to invite the LazyRelay bot to your server, if you want to reply to comments from LazyRelay too. Posting works either way.</li>
+</ol>
+
+<h2>How Proof-of-Publish works on Discord</h2>
+<p>After Discord accepts the message, LazyRelay asks Discord for that message by its ID through the same webhook and only marks the post confirmed live when Discord returns it. It also looks up the webhook's server so the link it gives you jumps straight to the message.</p>
+<p>Want the general idea? Read <a href="/verify-post-published">Does Your Post Actually Publish?</a></p>
+
+<h2>Limits and things to know</h2>
+<ul>
+  <li>Posting is webhook based, not a bot sitting in your server, so messages show as sent via Webhook instead of under a named bot. That is expected.</li>
+  <li>Discord's webhook rate limits are not verified, and LazyRelay does not add a cap of its own.</li>
+</ul>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Schedule to Discord and know it actually went live.</strong></p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+<h2>Frequently asked questions</h2>
+<div class="faq-item">
+  <h3>Do I need to add a bot to my Discord server?</h3>
+  <p>No. Posting works through a channel webhook. The bot invitation on the connect page is optional and only matters if you want to reply to comments from LazyRelay too.</p>
+</div>
+<div class="faq-item">
+  <h3>Why does my post say via Webhook?</h3>
+  <p>Because posting goes through a channel webhook rather than a bot. That is expected.</p>
+</div>
+<div class="faq-item">
+  <h3>How big can a Discord upload be?</h3>
+  <p>LazyRelay enforces 20 MB, which every Discord server supports. A server with a higher boost tier allows more, but LazyRelay uses the 20 MB floor.</p>
+</div>
+<div class="faq-item">
+  <h3>How do I know my Discord message is really there?</h3>
+  <p>LazyRelay fetches the message back from Discord by its ID after sending it and marks the post confirmed live only when Discord returns it.</p>
+</div>
+
+<p class="note">Figures on this page come from LazyRelay's platform rules, checked on 2026-09-30. Sources: <a href="https://docs.discord.com/developers/resources/webhook" rel="noopener">docs.discord.com/developers/resources/webhook</a>. Anything marked not verified has no published source.</p>
+<p class="note">Schedule to other platforms: <a href="/schedule-to-facebook/">Facebook</a> &middot; <a href="/schedule-to-instagram/">Instagram</a> &middot; <a href="/schedule-to-tiktok/">TikTok</a> &middot; <a href="/schedule-to-pinterest/">Pinterest</a> &middot; <a href="/schedule-to-youtube/">YouTube</a> &middot; <a href="/schedule-to-linkedin/">LinkedIn</a> &middot; <a href="/schedule-to-threads/">Threads</a> &middot; <a href="/schedule-to-mastodon/">Mastodon</a> &middot; <a href="/schedule-to-bluesky/">Bluesky</a> &middot; <a href="/schedule-to-telegram/">Telegram</a> &middot; <a href="/schedule-to-tumblr/">Tumblr</a> &middot; <a href="/schedule-to-wordpress/">WordPress</a> &middot; <a href="/schedule-to-devto/">dev.to</a> &middot; <a href="/schedule-to-hashnode/">Hashnode</a> &middot; <a href="/schedule-to-lemmy/">Lemmy</a></p>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/platform-features">What Works on Which Platform</a> &middot; <a href="/verify-post-published">Does Your Post Actually Publish?</a> &middot; <a href="/docs">Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>

@@ -304,7 +304,7 @@ export function buildOpenApiDocument(): Json {
       version: "1.0.0",
       summary: "Schedule and publish social posts on every platform, with independent proof each one went live.",
       description:
-        "Authenticate with an API key from the dashboard (Settings, More, API Keys): send `Authorization: Bearer lzr_live_...`. This document lists what an API key can do. Managing API keys, team members, billing, webhooks and DM automations needs a person signed in to the dashboard and is not in the API. Webhook endpoints are created in the dashboard (Settings, Webhooks); see https://lazyrelay.com/docs for how to verify their signature.",
+        "Authenticate with an API key from the dashboard (the API Keys tab): send `Authorization: Bearer lzr_live_...`. This document lists what an API key can do. Managing API keys, team members, billing, webhooks and DM automations needs a person signed in to the dashboard and is not in the API. Webhook endpoints are created in the dashboard (Settings, Webhooks); see https://lazyrelay.com/docs for how to verify their signature.",
       contact: { name: "LazyRelay", url: "https://lazyrelay.com/contact" },
     },
     servers: [{ url: "https://lazyrelaylazyrelay-backend.onrender.com/api", description: "Production" }],

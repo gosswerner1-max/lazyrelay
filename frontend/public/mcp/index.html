@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>AI Agent &amp; Automation Integrations | LazyRelay</title>
-<meta name="description" content="Run LazyRelay from Claude, ChatGPT, Gemini, Cursor, Notion, Zapier, and 12 other AI agents and automation platforms — schedule, check, and verify social posts with real Proof-of-Publish status." />
+<meta name="description" content="Run LazyRelay from Claude, ChatGPT, Gemini, Cursor, Notion, Zapier, and 10 other AI agents and automation platforms — schedule, check, and verify social posts with real Proof-of-Publish status." />
 <link rel="canonical" href="https://lazyrelay.com/mcp/" />
 <link rel="icon" type="image/png" href="/favicon.png" />
 <link rel="stylesheet" href="/circuit-bg.css" />
@@ -108,24 +108,45 @@
   <a class="client-card" href="/mcp/raycast"><span class="name">Raycast</span><span class="blurb">Raycast Pro</span></a>
 </div>
 
-<h2>Every tool your agent gets</h2>
+<h2>Building something yourself?</h2>
+<p>LazyRelay also has a REST API, a Node SDK and command line tool, and an n8n node. See <a href="/developers">LazyRelay for developers</a>.</p>
+
+<h2>Every tool your agent gets (27)</h2>
 <div class="endpoint-list">
   <div class="endpoint"><div class="endpoint-header"><code>list_connected_accounts</code></div><p>List your connected social accounts and their ids</p></div>
-  <div class="endpoint"><div class="endpoint-header"><code>list_workspaces</code></div><p>List your brands/workspaces</p></div>
-  <div class="endpoint"><div class="endpoint-header"><code>schedule_post</code></div><p>Schedule a post to one connected account</p></div>
-  <div class="endpoint"><div class="endpoint-header"><code>publish_post_now</code></div><p>Publish immediately instead of scheduling for later</p></div>
-  <div class="endpoint"><div class="endpoint-header"><code>update_post</code></div><p>Edit a draft or still-pending post's content or media</p></div>
-  <div class="endpoint"><div class="endpoint-header"><code>list_scheduled_posts</code></div><p>Browse upcoming and recent posts, with real Proof-of-Publish status</p></div>
-  <div class="endpoint"><div class="endpoint-header"><code>delete_scheduled_post</code></div><p>Cancel a pending post</p></div>
-  <div class="endpoint"><div class="endpoint-header"><code>get_analytics_summary</code></div><p>Post counts, verified-live rate, per-platform breakdown, engagement totals</p></div>
-  <div class="endpoint"><div class="endpoint-header"><code>get_mentions</code></div><p>Recent comments on your posts, where the platform supports reading them</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>list_workspaces</code></div><p>List your brands (workspaces)</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>get_platform_rules</code></div><p>Look up what a platform accepts before posting: text limit, media rules, required fields, features and options</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>get_tiktok_creator_info</code></div><p>See which privacy levels and settings a TikTok account allows (needed before posting to TikTok)</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>list_pinterest_boards</code></div><p>List a Pinterest account's boards (a Pinterest post needs a board)</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>get_next_free_slot</code></div><p>Find the next free posting time from the times saved in Settings</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>list_posting_slots</code></div><p>List the saved posting times</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>list_snippets</code></div><p>List saved text snippets and the signature</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>schedule_post</code></div><p>Schedule a post to one account, with images, tags, TikTok settings, platform options and optional approval</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>publish_post_now</code></div><p>Publish to one account right away</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>create_draft</code></div><p>Save a draft without an account or a time</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>schedule_draft</code></div><p>Turn a saved draft into a scheduled post</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>update_post</code></div><p>Edit a draft, a post waiting for approval, or a pending post</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>reschedule_post</code></div><p>Move a pending post to a new time (the current time posts it right away)</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>pause_post</code></div><p>Hold a pending post so it does not go out</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>resume_post</code></div><p>Let a paused post go out again</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>list_scheduled_posts</code></div><p>See posts with status and whether each is confirmed live, filtered and summarised</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>delete_scheduled_post</code></div><p>Cancel a pending or waiting post</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>get_proof_link</code></div><p>Get a public proof-of-publish link for a post confirmed live</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>approve_post</code></div><p>Approve a post that is waiting for approval</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>create_review_link</code></div><p>Create a link a client opens, with no account, to approve posts and comment</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>list_review_links</code></div><p>List client review links and their status</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>revoke_review_link</code></div><p>Stop a client review link</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>get_post_feedback</code></div><p>Read the client's feedback on a post</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>reply_to_post_feedback</code></div><p>Reply to the client's feedback</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>get_analytics_summary</code></div><p>Post counts, verified-live rate, per-platform and per-tag results, engagement</p></div>
+  <div class="endpoint"><div class="endpoint-header"><code>get_mentions</code></div><p>Recent comments on your posts, where the platform allows reading them</p></div>
 </div>
 <p class="note">Full request/response reference at <a href="/docs">lazyrelay.com/docs</a>.</p>
 
 <h2>Questions</h2>
 <div class="faq-item">
   <h3>What is MCP?</h3>
-  <p>Model Context Protocol &mdash; an open standard that lets an AI agent call real tools in another app, instead of you copy-pasting between a chat window and a dashboard. LazyRelay's MCP server exposes the nine tools above to any agent that speaks it.</p>
+  <p>Model Context Protocol &mdash; an open standard that lets an AI agent call real tools in another app, instead of you copy-pasting between a chat window and a dashboard. LazyRelay's MCP server exposes the 27 tools above to any agent that speaks it.</p>
 </div>
 <div class="faq-item">
   <h3>Do I need a paid plan?</h3>
@@ -137,7 +158,7 @@
 </div>
 <div class="faq-item">
   <h3>What can an agent actually do with this?</h3>
-  <p>Exactly the nine tools listed above &mdash; schedule, publish immediately, edit, list, cancel, and check the real status of posts, plus list workspaces, pull analytics, and read recent comments. It can't change your account settings, billing, or connected-account credentials.</p>
+  <p>Exactly the 27 tools listed above &mdash; schedule, publish, save drafts, edit, reschedule, pause, cancel, and check the real status of posts, look up each platform's rules, run client approvals, and pull analytics and recent comments. It can't change your account settings, billing, or connected-account credentials.</p>
 </div>
 <div class="faq-item">
   <h3>My tool isn't on this list &mdash; will it still work?</h3>

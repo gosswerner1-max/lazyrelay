@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Schedule Posts to TikTok with LazyRelay | LazyRelay</title>
+<meta name="description" content="Schedule TikTok videos with LazyRelay: pick the privacy level, control comments, duet and stitch, and get each post checked against TikTok's own status." />
+<link rel="canonical" href="https://lazyrelay.com/schedule-to-tiktok/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  .faq-item { margin-bottom: 20px; }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Can I schedule photo posts to TikTok with LazyRelay?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. LazyRelay's TikTok connection posts video only."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why did my TikTok post stay private?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Either the TikTok account is set to Private in TikTok, or Only me was chosen as the privacy level in the post form. Pick Everyone in the post form and check the account's privacy setting in TikTok."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I have to choose a privacy level for every TikTok post?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. There is no default, so you choose Everyone, Friends (mutual followers), or Only me each time. Comments, duet and stitch start switched off."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I know my TikTok post is really live?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LazyRelay follows TikTok's own publish status and marks the post confirmed live only when TikTok reports it complete. TikTok can still moderate a video after that, so the status is a real check, not a guarantee forever."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/guides">&larr; Back to guides</a>
+<h1>Schedule posts to TikTok with LazyRelay</h1>
+<p class="subtitle">LazyRelay schedules videos to TikTok and then follows TikTok's own publish status until it reports the video as complete. LazyRelay's difference is Proof-of-Publish: after a post goes out, it checks TikTok again to confirm the post is really live.</p>
+
+<h2>What you can post to TikTok</h2>
+<ul>
+  <li>TikTok posts are video only. Photo posts and text-only posts are not supported by LazyRelay's TikTok connection.</li>
+  <li>Text: up to 2200 characters. LazyRelay sends your post text as the video title.</li>
+  <li>Video: MP4, MOV, WEBM. TikTok's own limit is up to 4 GB and 10 minutes through the upload route, but LazyRelay's own upload limit is 1 GB, so 1 GB is the practical ceiling. Frame rate 23 to 60 fps, 360 to 4096 pixels per side.</li>
+  <li>Privacy level: you must choose one for every post, and there is no default. The choices are Everyone, Friends (mutual followers), or Only me. The levels offered depend on the TikTok account. A post marked as branded content cannot be set to Only me.</li>
+  <li>Interactions: comments, duet and stitch are switched off by default. You can switch them on per post.</li>
+  <li>Disclosure and labels: you can mark a post as commercial content, and you can label a video as AI-generated.</li>
+  <li>Not available: choosing a custom cover frame, and picking trending sounds. LazyRelay posts the video as uploaded.</li>
+</ul>
+<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features">What Works on Which Platform</a>.</p>
+
+<h2>How to connect TikTok</h2>
+<ol>
+  <li>Sign in to LazyRelay and open the Social Platforms tab in the top menu.</li>
+  <li>Click the TikTok tile.</li>
+  <li>Sign in to TikTok when asked, and approve all of the permissions LazyRelay requests. Approving only some of them can make posting stop working later.</li>
+  <li>You land back in LazyRelay with the account connected. If you are logged in to several accounts on that platform in the same browser, log out of the ones you do not want first, so LazyRelay does not connect the wrong one.</li>
+</ol>
+
+<h2>How Proof-of-Publish works on TikTok</h2>
+<p>TikTok publishes in the background, so LazyRelay cannot read the video back straight away. Instead it checks TikTok's own publish status for that post repeatedly over a bounded wait and only marks the post confirmed live when TikTok reports the publish as complete. A public post then gets a public link. A post you set to Only me completes but has no public link to share. If TikTok is still processing when LazyRelay stops waiting, the post is not marked confirmed. TikTok can also moderate a video after it reports success, so a video can still disappear minutes later.</p>
+<p>Want the general idea? Read <a href="/verify-post-published">Does Your Post Actually Publish?</a></p>
+
+<h2>Limits and things to know</h2>
+<ul>
+  <li>TikTok's access is short lived and normally refreshes itself. If TikTok asks you to reconnect, for example after a password change, after you revoked access in TikTok, or after TikTok flagged unusual activity on the account, disconnect and reconnect the account in LazyRelay.</li>
+  <li>A post that stays private is almost always a privacy setting: the TikTok account itself may be set to Private, or Only me was chosen in the post form.</li>
+  <li>TikTok's own per-account posting cap is not verified, and LazyRelay does not add one of its own.</li>
+</ul>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Schedule to TikTok and know it actually went live.</strong></p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+<h2>Frequently asked questions</h2>
+<div class="faq-item">
+  <h3>Can I schedule photo posts to TikTok with LazyRelay?</h3>
+  <p>No. LazyRelay's TikTok connection posts video only.</p>
+</div>
+<div class="faq-item">
+  <h3>Why did my TikTok post stay private?</h3>
+  <p>Either the TikTok account is set to Private in TikTok, or Only me was chosen as the privacy level in the post form. Pick Everyone in the post form and check the account's privacy setting in TikTok.</p>
+</div>
+<div class="faq-item">
+  <h3>Do I have to choose a privacy level for every TikTok post?</h3>
+  <p>Yes. There is no default, so you choose Everyone, Friends (mutual followers), or Only me each time. Comments, duet and stitch start switched off.</p>
+</div>
+<div class="faq-item">
+  <h3>How do I know my TikTok post is really live?</h3>
+  <p>LazyRelay follows TikTok's own publish status and marks the post confirmed live only when TikTok reports it complete. TikTok can still moderate a video after that, so the status is a real check, not a guarantee forever.</p>
+</div>
+
+<p class="note">Figures on this page come from LazyRelay's platform rules, checked on 2026-09-30. Sources: <a href="https://developers.tiktok.com/doc/content-posting-api-reference-direct-post" rel="noopener">developers.tiktok.com/doc/content-posting-api-reference-direct-post</a>, <a href="https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide/" rel="noopener">developers.tiktok.com/doc/content-posting-api-media-transfer-guide/</a>. Anything marked not verified has no published source.</p>
+<p class="note">Schedule to other platforms: <a href="/schedule-to-facebook/">Facebook</a> &middot; <a href="/schedule-to-instagram/">Instagram</a> &middot; <a href="/schedule-to-pinterest/">Pinterest</a> &middot; <a href="/schedule-to-youtube/">YouTube</a> &middot; <a href="/schedule-to-linkedin/">LinkedIn</a> &middot; <a href="/schedule-to-threads/">Threads</a> &middot; <a href="/schedule-to-mastodon/">Mastodon</a> &middot; <a href="/schedule-to-bluesky/">Bluesky</a> &middot; <a href="/schedule-to-telegram/">Telegram</a> &middot; <a href="/schedule-to-discord/">Discord</a> &middot; <a href="/schedule-to-tumblr/">Tumblr</a> &middot; <a href="/schedule-to-wordpress/">WordPress</a> &middot; <a href="/schedule-to-devto/">dev.to</a> &middot; <a href="/schedule-to-hashnode/">Hashnode</a> &middot; <a href="/schedule-to-lemmy/">Lemmy</a></p>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/platform-features">What Works on Which Platform</a> &middot; <a href="/verify-post-published">Does Your Post Actually Publish?</a> &middot; <a href="/docs">Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>

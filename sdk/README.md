@@ -21,7 +21,7 @@ lazyrelay whoami
 
 ## Get an API key
 
-Create a key in the LazyRelay dashboard under Settings, More, API Keys. Keys start with `lzr_live_`. Keep it secret: pass it through the `LAZYRELAY_API_KEY` environment variable rather than writing it into code or a command line.
+Create a key in the LazyRelay dashboard on the API Keys tab. Keys start with `lzr_live_`. Keep it secret: pass it through the `LAZYRELAY_API_KEY` environment variable rather than writing it into code or a command line.
 
 ## Quick start: SDK
 

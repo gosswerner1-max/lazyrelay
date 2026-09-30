@@ -1,0 +1,46 @@
+[
+  {
+    "slug": "ayrshare",
+    "url": "https://lazyrelay.com/alternatives/ayrshare/",
+    "title": "LazyRelay vs Ayrshare: Social Posting API and Scheduler Compared | LazyRelay",
+    "description": "Ayrshare is an API-first posting service from $149/month. See how its pricing, networks and API compare with LazyRelay's flat plans and Proof-of-Publish.",
+    "sources": [
+      "https://www.ayrshare.com/pricing/",
+      "https://ayrshare.com/social-media-api/",
+      "https://www.ayrshare.com/docs/introduction",
+      "https://www.ayrshare.com/"
+    ]
+  },
+  {
+    "slug": "planable",
+    "url": "https://lazyrelay.com/alternatives/planable/",
+    "title": "LazyRelay vs Planable: Approval-Focused Scheduler Compared | LazyRelay",
+    "description": "Planable is built for content approval, priced per workspace from $33/month. See how it compares with LazyRelay flat plans and client review links.",
+    "sources": [
+      "https://planable.io/pricing/",
+      "https://planable.io/",
+      "https://planable.io/features/social-media-approval-workflow/"
+    ]
+  },
+  {
+    "slug": "agorapulse",
+    "url": "https://lazyrelay.com/alternatives/agorapulse/",
+    "title": "LazyRelay vs Agorapulse: Pricing and Features Compared | LazyRelay",
+    "description": "Agorapulse charges per user from $79/month and adds inbox and listening. See how it compares with LazyRelay flat plans and Proof-of-Publish.",
+    "sources": [
+      "https://www.agorapulse.com/pricing/",
+      "https://www.agorapulse.com/"
+    ]
+  },
+  {
+    "slug": "loomly",
+    "url": "https://lazyrelay.com/alternatives/loomly/",
+    "title": "LazyRelay vs Loomly: Pricing and Approvals Compared | LazyRelay",
+    "description": "Loomly has approval workflows and post ideas from $49/month billed annually. See how it compares with LazyRelay flat plans and Proof-of-Publish.",
+    "sources": [
+      "https://www.loomly.com/pricing",
+      "https://www.loomly.com/",
+      "https://www.loomly.com/features"
+    ]
+  }
+]

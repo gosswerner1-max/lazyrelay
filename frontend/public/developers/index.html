@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LazyRelay for Developers: API, MCP, SDK and CLI | LazyRelay</title>
+<meta name="description" content="LazyRelay for developers: a REST API with an OpenAPI 3.1 description, an MCP server with 27 tools, a Node SDK and command line tool, and an n8n node." />
+<link rel="canonical" href="https://lazyrelay.com/developers/" />
+<link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebPage", "name": "LazyRelay for developers", "url": "https://lazyrelay.com/developers/", "description": "LazyRelay for developers: a REST API with an OpenAPI 3.1 description, an MCP server with 27 tools, a Node SDK and command line tool, and an n8n node.", "isPartOf": {"@type": "WebSite", "name": "LazyRelay", "url": "https://lazyrelay.com/"}}</script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 860px; margin: 0 auto; padding: 24px; }
+  main { max-width: 860px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 36px; margin-bottom: 10px; line-height: 1.2; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 22px; margin-top: 48px; }
+  h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin: 0 0 4px; }
+  .subtitle { color: #5b6472; font-size: 17px; margin-top: 0; margin-bottom: 20px; max-width: 620px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 36px; }
+  .badge-row span { background: #f5f6f8; border: 1px solid #e5e7eb; color: #5b6472; font-size: 13px; padding: 5px 12px; border-radius: 999px; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  ol, ul { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  code { background: #f0f1f3; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin: 24px 0 8px; }
+  @media (max-width: 640px) { .steps { grid-template-columns: 1fr; } }
+  .step { border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px; }
+  .step .step-num { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 999px; background: #ff5630; color: #fff; font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+  .step p { margin: 0; font-size: 14px; }
+  .group-heading { font-family: Georgia, serif; color: #14171f; font-size: 15px; text-transform: uppercase; letter-spacing: 0.04em; margin: 28px 0 12px; }
+  .client-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 8px; }
+  @media (max-width: 640px) { .client-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 440px) { .client-grid { grid-template-columns: 1fr; } }
+  .client-card { display: block; border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 16px; text-decoration: none; transition: border-color 0.15s; }
+  .client-card:hover { border-color: #ff5630; }
+  .client-card .name { display: block; font-family: Georgia, serif; color: #14171f; font-weight: 700; font-size: 15px; margin-bottom: 3px; }
+  .client-card .blurb { display: block; color: #5b6472; font-size: 13px; line-height: 1.4; }
+  .endpoint-list { display: flex; flex-direction: column; gap: 14px; margin-bottom: 16px; }
+  .endpoint { border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 16px; }
+  .endpoint-header { margin-bottom: 4px; }
+  .endpoint-header code { color: #14171f; font-size: 14px; }
+  .endpoint p { margin: 0; font-size: 14px; }
+  .faq-item { border-bottom: 1px solid #e5e7eb; padding: 16px 0; }
+  .faq-item:last-child { border-bottom: none; }
+  .faq-item h3 { margin-bottom: 6px; }
+  .faq-item p { margin: 0; font-size: 14px; }
+  pre { background: #14171f; color: #f5f6f8; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 13px; line-height: 1.5; }
+  pre code { background: none; padding: 0; color: inherit; }
+</style>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/" id="back-home-link">&larr; Back to home</a>
+<h1>LazyRelay for Developers</h1>
+<p class="subtitle">Schedule and publish posts, upload media, read analytics and run client approvals from your own code, your terminal, an AI agent or an automation tool. Every post can be checked for real Proof-of-Publish status, not just an accepted request.</p>
+<div class="badge-row">
+  <span>REST API + OpenAPI 3.1</span>
+  <span>27 MCP tools</span>
+  <span>Node SDK &amp; CLI (MIT)</span>
+  <span>16 platforms</span>
+</div>
+
+<h2>Ways to connect</h2>
+<div class="client-grid">
+  <a class="client-card" href="/docs"><span class="name">REST API</span><span class="blurb">Full reference for every endpoint</span></a>
+  <a class="client-card" href="/mcp"><span class="name">MCP server</span><span class="blurb">27 tools for AI agents and editors</span></a>
+  <a class="client-card" href="#sdk"><span class="name">Node SDK &amp; CLI</span><span class="blurb">@lazyrelay/sdk on npm</span></a>
+  <a class="client-card" href="/mcp/n8n"><span class="name">n8n node</span><span class="blurb">n8n-nodes-lazyrelay on npm</span></a>
+  <a class="client-card" href="/connect-make"><span class="name">Make</span><span class="blurb">Scenario guide with HTTP modules</span></a>
+  <a class="client-card" href="/connect-zapier"><span class="name">Zapier</span><span class="blurb">Invite-only app</span></a>
+</div>
+
+<h2>REST API</h2>
+<p>The same API LazyRelay's own dashboard runs on. Create an API key in your dashboard's <strong>API Keys</strong> tab (keys start with <code>lzr_live_</code>) and send it as a bearer token. The full reference is at <a href="/docs">lazyrelay.com/docs</a>.</p>
+<p>The whole API is also described as OpenAPI 3.1 at <a href="https://lazyrelaylazyrelay-backend.onrender.com/api/openapi.json">https://lazyrelaylazyrelay-backend.onrender.com/api/openapi.json</a>. Postman, code generators and anything else that reads OpenAPI can use it.</p>
+
+<h2>MCP server</h2>
+<p>Connect Claude, ChatGPT, Cursor, VS Code, Gemini CLI, Codex CLI and other AI agents to your account with 27 tools. Use the hosted server at <code>https://lazyrelaylazyrelay-backend.onrender.com/mcp</code> and sign in with your LazyRelay account, or run the local package <code>@lazyrelay/mcp-server</code> with an API key. Setup guides for each tool are at <a href="/mcp">lazyrelay.com/mcp</a>.</p>
+
+<h2 id="sdk">Node SDK and command line tool</h2>
+<p><code>@lazyrelay/sdk</code> is a typed client for the REST API plus a <code>lazyrelay</code> command line tool. It is MIT licensed, has no runtime dependencies and needs Node 18 or newer.</p>
+<pre><code>npm install @lazyrelay/sdk</code></pre>
+<p>To use the command line tool without adding it to a project:</p>
+<pre><code>npx @lazyrelay/sdk whoami</code></pre>
+<p>Pass your key through the <code>LAZYRELAY_API_KEY</code> environment variable rather than writing it into code or a command. A few real commands:</p>
+<pre><code>export LAZYRELAY_API_KEY=lzr_live_...
+
+lazyrelay whoami
+lazyrelay accounts
+lazyrelay rules instagram
+lazyrelay posts schedule --account &lt;id&gt; --text "We just launched!" --at 2026-10-01T09:00:00Z --media ./launch.png --tag launch
+lazyrelay posts list --status pending
+lazyrelay analytics --days 7</code></pre>
+<p>In code:</p>
+<pre><code>import { LazyRelay } from "@lazyrelay/sdk";
+
+const lr = new LazyRelay({ apiKey: process.env.LAZYRELAY_API_KEY });
+const accounts = await lr.accounts.list();
+const instagram = accounts.find((a) =&gt; a.platform === "instagram")!;
+
+const post = await lr.posts.schedule({
+  socialAccountId: instagram.id,
+  content: "We just launched!",
+  scheduledFor: "2026-10-01T09:00:00Z",
+});
+console.log(post.id, post.status); // "pending"</code></pre>
+<p class="note">A post goes to one account, so call <code>posts.schedule</code> once per account to post to several. Publishing is queued, so check <code>post_results[0].verified_live</code> afterwards to see that it went live. The SDK also includes a helper to verify the signature on webhooks LazyRelay sends you.</p>
+
+<h2>n8n</h2>
+<p>The <code>n8n-nodes-lazyrelay</code> community node (MIT, on npm) adds a LazyRelay node and a LazyRelay Trigger node that starts a workflow when a post goes live or fails. Setup and status are on the <a href="/mcp/n8n">n8n guide</a>.</p>
+
+<h2>Make and Zapier</h2>
+<p><a href="/connect-make">Make</a> works today through its built-in HTTP and Webhooks modules against the public API. <a href="/connect-zapier">Zapier</a> is an invite-only app, and its page has the link to connect.</p>
+
+<h2>Platforms</h2>
+<p>LazyRelay posts to 16 platforms: Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress (self-hosted), dev.to, Hashnode and Lemmy. X is coming soon. Use the platform rules endpoint (or the <code>get_platform_rules</code> MCP tool, or <code>lazyrelay rules</code>) to see what each platform accepts before you post.</p>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Need an API key?</strong> API, MCP and SDK access is included on every plan, including Free.</p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/docs">API &amp; MCP Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+<script>
+  document.getElementById("back-home-link").addEventListener("click", function (e) {
+    e.preventDefault();
+    window.location.assign("/");
+  });
+</script>
+</body>
+</html>

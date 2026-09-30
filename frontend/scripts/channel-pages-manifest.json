@@ -1,0 +1,98 @@
+[
+  {
+    "slug": "facebook",
+    "url": "https://lazyrelay.com/schedule-to-facebook/",
+    "title": "Schedule Posts to Facebook with LazyRelay | LazyRelay",
+    "description": "Schedule posts to your Facebook Page with LazyRelay: photos, video, Stories and a first comment, each read back from Facebook to confirm it is live."
+  },
+  {
+    "slug": "instagram",
+    "url": "https://lazyrelay.com/schedule-to-instagram/",
+    "title": "Schedule Posts to Instagram with LazyRelay | LazyRelay",
+    "description": "Schedule Instagram posts, carousels, Reels, Stories and trial Reels with LazyRelay. Each post is read back from Instagram to confirm it is live."
+  },
+  {
+    "slug": "tiktok",
+    "url": "https://lazyrelay.com/schedule-to-tiktok/",
+    "title": "Schedule Posts to TikTok with LazyRelay | LazyRelay",
+    "description": "Schedule TikTok videos with LazyRelay: pick the privacy level, control comments, duet and stitch, and get each post checked against TikTok's own status."
+  },
+  {
+    "slug": "pinterest",
+    "url": "https://lazyrelay.com/schedule-to-pinterest/",
+    "title": "Schedule Posts to Pinterest with LazyRelay | LazyRelay",
+    "description": "Schedule Pins to the board you choose with LazyRelay: image and video Pins with destination links, each read back from Pinterest to confirm it is live."
+  },
+  {
+    "slug": "youtube",
+    "url": "https://lazyrelay.com/schedule-to-youtube/",
+    "title": "Schedule Posts to YouTube with LazyRelay | LazyRelay",
+    "description": "Schedule YouTube video uploads with LazyRelay, with a custom title, privacy setting and tags. Each upload is checked against YouTube's own processing status."
+  },
+  {
+    "slug": "linkedin",
+    "url": "https://lazyrelay.com/schedule-to-linkedin/",
+    "title": "Schedule Posts to LinkedIn with LazyRelay | LazyRelay",
+    "description": "Schedule LinkedIn posts with images or a PDF document to your personal profile with LazyRelay, with an honest note on how far LinkedIn lets a post be checked."
+  },
+  {
+    "slug": "threads",
+    "url": "https://lazyrelay.com/schedule-to-threads/",
+    "title": "Schedule Posts to Threads with LazyRelay | LazyRelay",
+    "description": "Schedule Threads posts, carousels and reply chains with LazyRelay. Each post is read back from Threads to confirm it is live."
+  },
+  {
+    "slug": "mastodon",
+    "url": "https://lazyrelay.com/schedule-to-mastodon/",
+    "title": "Schedule Posts to Mastodon with LazyRelay | LazyRelay",
+    "description": "Schedule Mastodon posts with images, alt text and reply threads using LazyRelay. Connects to mastodon.social. Each post is read back to confirm it is live."
+  },
+  {
+    "slug": "bluesky",
+    "url": "https://lazyrelay.com/schedule-to-bluesky/",
+    "title": "Schedule Posts to Bluesky with LazyRelay | LazyRelay",
+    "description": "Schedule Bluesky posts with images, video, alt text and reply threads using LazyRelay and an app password. Each post is read back to confirm it is live."
+  },
+  {
+    "slug": "telegram",
+    "url": "https://lazyrelay.com/schedule-to-telegram/",
+    "title": "Schedule Posts to Telegram with LazyRelay | LazyRelay",
+    "description": "Schedule Telegram channel posts with text, a photo or a video using your own bot and LazyRelay. Learn how the post check works and where it is limited."
+  },
+  {
+    "slug": "discord",
+    "url": "https://lazyrelay.com/schedule-to-discord/",
+    "title": "Schedule Posts to Discord with LazyRelay | LazyRelay",
+    "description": "Schedule Discord channel posts with text, images or video using a channel webhook and LazyRelay. Each message is read back to confirm it is live."
+  },
+  {
+    "slug": "tumblr",
+    "url": "https://lazyrelay.com/schedule-to-tumblr/",
+    "title": "Schedule Posts to Tumblr with LazyRelay | LazyRelay",
+    "description": "Schedule Tumblr posts with photos and video using LazyRelay, then have each post read back from Tumblr to confirm it is live."
+  },
+  {
+    "slug": "wordpress",
+    "url": "https://lazyrelay.com/schedule-to-wordpress/",
+    "title": "Schedule Posts to WordPress with LazyRelay | LazyRelay",
+    "description": "Schedule articles to your own self-hosted WordPress site with LazyRelay: title, categories, tags, featured image, and a live check of the public page."
+  },
+  {
+    "slug": "devto",
+    "url": "https://lazyrelay.com/schedule-to-devto/",
+    "title": "Schedule Posts to dev.to with LazyRelay | LazyRelay",
+    "description": "Schedule dev.to articles with LazyRelay: markdown, up to 4 tags, series, canonical link and draft mode, with the live page checked after publishing."
+  },
+  {
+    "slug": "hashnode",
+    "url": "https://lazyrelay.com/schedule-to-hashnode/",
+    "title": "Schedule Posts to Hashnode with LazyRelay | LazyRelay",
+    "description": "Schedule Hashnode articles with LazyRelay: markdown, subtitle, up to 5 tags, canonical link and draft mode. Needs a blog on Hashnode's Pro plan."
+  },
+  {
+    "slug": "lemmy",
+    "url": "https://lazyrelay.com/schedule-to-lemmy/",
+    "title": "Schedule Posts to Lemmy with LazyRelay | LazyRelay",
+    "description": "Schedule Lemmy posts to the community you choose with LazyRelay: title, markdown body, link posts and images, with a check that strangers can see the post."
+  }
+]

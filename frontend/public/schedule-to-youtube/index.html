@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Schedule Posts to YouTube with LazyRelay | LazyRelay</title>
+<meta name="description" content="Schedule YouTube video uploads with LazyRelay, with a custom title, privacy setting and tags. Each upload is checked against YouTube's own processing status." />
+<link rel="canonical" href="https://lazyrelay.com/schedule-to-youtube/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  .faq-item { margin-bottom: 20px; }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Can LazyRelay upload full-length YouTube videos, not just Shorts?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Full-length videos work, up to LazyRelay's 1 GB upload limit. A channel that is not verified with YouTube can only upload videos up to 15 minutes."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I set a custom YouTube title, privacy and tags?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. You can set a title of up to 100 characters, public, unlisted or private visibility, the made for kids flag, up to 15 tags, and an AI-generated label."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Will LazyRelay make my video a Short?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. LazyRelay always does a standard upload. YouTube decides on its own whether a video counts as a Short."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I know my YouTube upload is really live?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LazyRelay checks YouTube's own status for the video until it reports the upload as processed, and only then marks the post confirmed live."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/guides">&larr; Back to guides</a>
+<h1>Schedule posts to YouTube with LazyRelay</h1>
+<p class="subtitle">LazyRelay schedules video uploads to your YouTube channel and follows YouTube's own processing status until the video is ready. LazyRelay's difference is Proof-of-Publish: after a post goes out, it checks YouTube again to confirm the post is really live.</p>
+
+<h2>What you can post to YouTube</h2>
+<ul>
+  <li>YouTube posts are video only. Images and text-only posts are not supported.</li>
+  <li>Text: your post text becomes the video description, up to 5000 bytes, and it cannot contain the &lt; or &gt; characters. The title comes from the title option, or from the first 100 characters of your text if you leave it empty.</li>
+  <li>Video: MP4, MOV, WEBM. YouTube allows up to 256 GB, but LazyRelay's own upload limit is 1 GB, so 1 GB is the practical ceiling. A duration limit is not verified. A channel that is not verified with YouTube can only upload videos up to 15 minutes long, and LazyRelay cannot check that in advance.</li>
+  <li>Title: up to 100 characters.</li>
+  <li>Visibility: public, unlisted or private.</li>
+  <li>Made for kids: a yes or no flag.</li>
+  <li>Tags: up to 15 tags of up to 30 characters each. YouTube also applies a 500 character combined limit across all tags.</li>
+  <li>AI-generated label: you can mark a video as AI-generated.</li>
+</ul>
+<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features">What Works on Which Platform</a>.</p>
+
+<h2>How to connect YouTube</h2>
+<ol>
+  <li>Sign in to LazyRelay and open the Social Platforms tab in the top menu.</li>
+  <li>Click the YouTube tile.</li>
+  <li>Sign in to YouTube when asked, and approve all of the permissions LazyRelay requests. Approving only some of them can make posting stop working later.</li>
+  <li>You land back in LazyRelay with the account connected. If you are logged in to several accounts on that platform in the same browser, log out of the ones you do not want first, so LazyRelay does not connect the wrong one.</li>
+</ol>
+
+<h2>How Proof-of-Publish works on YouTube</h2>
+<p>A new YouTube upload is processed in the background, so LazyRelay asks YouTube for the video's status several times over a bounded wait. It marks the post confirmed live when YouTube reports the upload as processed, and the link is the video's watch address. If YouTube reports the upload as rejected or failed, or is still processing when LazyRelay stops waiting, the post is not marked confirmed.</p>
+<p>Want the general idea? Read <a href="/verify-post-published">Does Your Post Actually Publish?</a></p>
+
+<h2>Limits and things to know</h2>
+<ul>
+  <li>LazyRelay always does a standard upload. Whether YouTube then treats a video as a Short is YouTube's own decision, based on the video itself (vertical and under 3 minutes).</li>
+  <li>YouTube restricts videos uploaded by an API project that has not passed YouTube's audit to private visibility. That is YouTube's rule, not a LazyRelay setting.</li>
+  <li>YouTube's upload quota is not verified for this project, and LazyRelay does not add a cap of its own.</li>
+</ul>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Schedule to YouTube and know it actually went live.</strong></p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+<h2>Frequently asked questions</h2>
+<div class="faq-item">
+  <h3>Can LazyRelay upload full-length YouTube videos, not just Shorts?</h3>
+  <p>Yes. Full-length videos work, up to LazyRelay's 1 GB upload limit. A channel that is not verified with YouTube can only upload videos up to 15 minutes.</p>
+</div>
+<div class="faq-item">
+  <h3>Can I set a custom YouTube title, privacy and tags?</h3>
+  <p>Yes. You can set a title of up to 100 characters, public, unlisted or private visibility, the made for kids flag, up to 15 tags, and an AI-generated label.</p>
+</div>
+<div class="faq-item">
+  <h3>Will LazyRelay make my video a Short?</h3>
+  <p>No. LazyRelay always does a standard upload. YouTube decides on its own whether a video counts as a Short.</p>
+</div>
+<div class="faq-item">
+  <h3>How do I know my YouTube upload is really live?</h3>
+  <p>LazyRelay checks YouTube's own status for the video until it reports the upload as processed, and only then marks the post confirmed live.</p>
+</div>
+
+<p class="note">Figures on this page come from LazyRelay's platform rules, checked on 2026-09-30. Sources: <a href="https://developers.google.com/youtube/v3/docs/videos" rel="noopener">developers.google.com/youtube/v3/docs/videos</a>, <a href="https://developers.google.com/youtube/v3/docs/videos/insert" rel="noopener">developers.google.com/youtube/v3/docs/videos/insert</a>. Anything marked not verified has no published source.</p>
+<p class="note">Schedule to other platforms: <a href="/schedule-to-facebook/">Facebook</a> &middot; <a href="/schedule-to-instagram/">Instagram</a> &middot; <a href="/schedule-to-tiktok/">TikTok</a> &middot; <a href="/schedule-to-pinterest/">Pinterest</a> &middot; <a href="/schedule-to-linkedin/">LinkedIn</a> &middot; <a href="/schedule-to-threads/">Threads</a> &middot; <a href="/schedule-to-mastodon/">Mastodon</a> &middot; <a href="/schedule-to-bluesky/">Bluesky</a> &middot; <a href="/schedule-to-telegram/">Telegram</a> &middot; <a href="/schedule-to-discord/">Discord</a> &middot; <a href="/schedule-to-tumblr/">Tumblr</a> &middot; <a href="/schedule-to-wordpress/">WordPress</a> &middot; <a href="/schedule-to-devto/">dev.to</a> &middot; <a href="/schedule-to-hashnode/">Hashnode</a> &middot; <a href="/schedule-to-lemmy/">Lemmy</a></p>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/platform-features">What Works on Which Platform</a> &middot; <a href="/verify-post-published">Does Your Post Actually Publish?</a> &middot; <a href="/docs">Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>

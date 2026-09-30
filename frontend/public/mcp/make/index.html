@@ -48,6 +48,8 @@
 <h2>The part most AI-agent schedulers skip</h2>
 <p>Most integrations stop at the API call — a scenario fires a "create post" request, gets a success response, and moves on. That isn't proof the post is live. Rate limits, silent moderation holds, and platform-side failures can all eat a "successful" request. LazyRelay's <code>list_scheduled_posts</code> tool returns real Proof-of-Publish status, so a scenario can branch on whether a post is actually confirmed live, not just accepted.</p>
 
+<p class="note">Prefer a step-by-step guide that works today with Make's built-in HTTP and Webhooks modules? See <a href="/connect-make">How to connect LazyRelay to Make</a>.</p>
+
 <h2>Setup</h2>
 <ol>
   <li>In your LazyRelay dashboard, go to <strong>API Keys</strong> (top nav) and create a new key — available on every plan, including Free. Copy it now, it's only shown once.</li>
@@ -58,7 +60,7 @@
   <li>Set your LazyRelay API key wherever that module asks for authentication.</li>
 </ol>
 
-<p class="note">Full tool reference (<code>list_connected_accounts</code>, <code>list_workspaces</code>, <code>schedule_post</code>, <code>publish_post_now</code>, <code>update_post</code>, <code>list_scheduled_posts</code>, <code>delete_scheduled_post</code>, <code>get_analytics_summary</code>, <code>get_mentions</code>) at <a href="/docs">lazyrelay.com/docs</a>. Not ready for MCP yet? LazyRelay also has a direct <a href="/connect-zapier">Zapier integration</a> that covers similar ground through Make's HTTP/webhook modules today.</p>
+<p class="note">All 27 tools are available, covering scheduling, drafts, approvals, reschedule and pause, platform rules, analytics, client review links and more. Full tool reference (every tool, with what it does) at <a href="/docs">lazyrelay.com/docs</a>. Not ready for MCP yet? LazyRelay also has a direct <a href="/connect-zapier">Zapier integration</a> that covers similar ground through Make's HTTP/webhook modules today.</p>
 
 <div class="cta-box">
   <p style="margin-top:0;"><strong>Don't have an API key yet?</strong> Generate one from your dashboard's Settings tab &mdash; available on every plan, including Free.</p>

@@ -35,7 +35,7 @@ Global options:
   --base-url <url>   Use another API address (or set LAZYRELAY_BASE_URL)
   --help, -h         Help for a command, for example: lazyrelay posts schedule --help
 
-Create an API key in the LazyRelay dashboard under Settings, More, API Keys.
+Create an API key in the LazyRelay dashboard on the API Keys tab.
 Docs: https://lazyrelay.com/docs
 `;
 

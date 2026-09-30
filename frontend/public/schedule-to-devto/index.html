@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Schedule Posts to dev.to with LazyRelay | LazyRelay</title>
+<meta name="description" content="Schedule dev.to articles with LazyRelay: markdown, up to 4 tags, series, canonical link and draft mode, with the live page checked after publishing." />
+<link rel="canonical" href="https://lazyrelay.com/schedule-to-devto/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  .faq-item { margin-bottom: 20px; }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Does dev.to support scheduling?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "dev.to has no scheduling field of its own, so LazyRelay holds the article and publishes it at the time you set."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can LazyRelay set tags, a series and a canonical link?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. You can set up to 4 tags, a series, and an original address that must be an https link."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I save a dev.to article as a draft?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. A draft is saved on dev.to and reported as saved as a draft. It is never marked confirmed live."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I know my dev.to article is really live?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LazyRelay finds the article through your account, then requests its public address with no credentials and requires that page to answer successfully."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/guides">&larr; Back to guides</a>
+<h1>Schedule posts to dev.to with LazyRelay</h1>
+<p class="subtitle">LazyRelay schedules markdown articles to dev.to using your API key, then checks that the article is really published and reachable. LazyRelay's difference is Proof-of-Publish: after a post goes out, it checks dev.to again to confirm the post is really live.</p>
+
+<h2>What you can post to dev.to</h2>
+<ul>
+  <li>Text: dev.to publishes no post length limit that LazyRelay could verify, so this page does not state one (not verified). LazyRelay itself refuses posts over 5000 characters. The text is written in markdown.</li>
+  <li>Text-only posts are accepted.</li>
+  <li>Images: JPEG, PNG, WEBP, GIF, up to 20 MB each. Images are shown by address: the first is the cover image and the rest appear inside the article. The size limit is LazyRelay's general figure, not a verified dev.to limit.</li>
+  <li>Video: not supported.</li>
+  <li>Several files in one post: up to 10 images (no video in a multi-image post).</li>
+  <li>Title: the first line of your post is the title, unless you set a title under Platform options. LazyRelay caps titles at 250 characters, and dev.to publishes no title limit.</li>
+  <li>Tags: up to 4.</li>
+  <li>Series and canonical link: you can set a series, and an original address (an https link) if the article appeared elsewhere first.</li>
+  <li>Draft: you can save the article as a draft instead of publishing it.</li>
+</ul>
+<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features">What Works on Which Platform</a>.</p>
+
+<h2>How to connect dev.to</h2>
+<ol>
+  <li>On dev.to open Settings, then Extensions, and find DEV Community API Keys.</li>
+  <li>Type LazyRelay as the description and click Generate API Key. Copy the key.</li>
+  <li>In LazyRelay, open the Social Platforms tab and click the dev.to tile.</li>
+  <li>Paste the API key and click Connect.</li>
+</ol>
+
+<h2>How Proof-of-Publish works on dev.to</h2>
+<p>dev.to drafts do not show up publicly, so LazyRelay first looks for the article in your own list of articles, which includes drafts, and falls back to the public article page if needed. For a published article it then requests the public address with no credentials, the way a reader would, and requires that to answer successfully. A draft is reported as saved as a draft and never as confirmed live.</p>
+<p>Want the general idea? Read <a href="/verify-post-published">Does Your Post Actually Publish?</a></p>
+
+<h2>Limits and things to know</h2>
+<ul>
+  <li>dev.to has no video upload through its API, so a video is refused.</li>
+  <li>dev.to has no scheduling field, so LazyRelay publishes the article itself at the scheduled time.</li>
+  <li>dev.to's rate limits are not documented, and LazyRelay does not add a cap of its own.</li>
+  <li>A post saved as a draft is not public, so it is never marked confirmed live and it is not counted in analytics.</li>
+</ul>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Schedule to dev.to and know it actually went live.</strong></p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+<h2>Frequently asked questions</h2>
+<div class="faq-item">
+  <h3>Does dev.to support scheduling?</h3>
+  <p>dev.to has no scheduling field of its own, so LazyRelay holds the article and publishes it at the time you set.</p>
+</div>
+<div class="faq-item">
+  <h3>Can LazyRelay set tags, a series and a canonical link?</h3>
+  <p>Yes. You can set up to 4 tags, a series, and an original address that must be an https link.</p>
+</div>
+<div class="faq-item">
+  <h3>Can I save a dev.to article as a draft?</h3>
+  <p>Yes. A draft is saved on dev.to and reported as saved as a draft. It is never marked confirmed live.</p>
+</div>
+<div class="faq-item">
+  <h3>How do I know my dev.to article is really live?</h3>
+  <p>LazyRelay finds the article through your account, then requests its public address with no credentials and requires that page to answer successfully.</p>
+</div>
+
+<p class="note">Figures on this page come from LazyRelay's platform rules, checked on 2026-09-30. Sources: <a href="https://developers.forem.com/api/v1" rel="noopener">developers.forem.com/api/v1</a>. Anything marked not verified has no published source.</p>
+<p class="note">Schedule to other platforms: <a href="/schedule-to-facebook/">Facebook</a> &middot; <a href="/schedule-to-instagram/">Instagram</a> &middot; <a href="/schedule-to-tiktok/">TikTok</a> &middot; <a href="/schedule-to-pinterest/">Pinterest</a> &middot; <a href="/schedule-to-youtube/">YouTube</a> &middot; <a href="/schedule-to-linkedin/">LinkedIn</a> &middot; <a href="/schedule-to-threads/">Threads</a> &middot; <a href="/schedule-to-mastodon/">Mastodon</a> &middot; <a href="/schedule-to-bluesky/">Bluesky</a> &middot; <a href="/schedule-to-telegram/">Telegram</a> &middot; <a href="/schedule-to-discord/">Discord</a> &middot; <a href="/schedule-to-tumblr/">Tumblr</a> &middot; <a href="/schedule-to-wordpress/">WordPress</a> &middot; <a href="/schedule-to-hashnode/">Hashnode</a> &middot; <a href="/schedule-to-lemmy/">Lemmy</a></p>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/platform-features">What Works on Which Platform</a> &middot; <a href="/verify-post-published">Does Your Post Actually Publish?</a> &middot; <a href="/docs">Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>

@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>How to Connect LazyRelay to n8n (MCP) | LazyRelay</title>
-<meta name="description" content="Give an n8n AI Agent node the ability to schedule social posts and check Proof-of-Publish status through LazyRelay's MCP server." />
+<meta name="description" content="Schedule social posts and check Proof-of-Publish status from n8n with the LazyRelay community node, or through LazyRelay's MCP server." />
 <link rel="canonical" href="https://lazyrelay.com/mcp/n8n/" />
     <link rel="icon" type="image/png" href="/favicon.png" />
 <link rel="stylesheet" href="/circuit-bg.css" />
@@ -36,7 +36,19 @@
 <main>
 <a class="back" href="/guides">&larr; Back to guides</a>
 <h1>Post to Social Media from n8n</h1>
-<p class="subtitle">Give an n8n workflow the ability to schedule, check, and verify social posts through LazyRelay's MCP server — no custom HTTP nodes to hand-build.</p>
+<p class="subtitle">Schedule, check, and verify social posts from an n8n workflow with the LazyRelay community node, or through LazyRelay's MCP server if you prefer.</p>
+
+<h2>Option 1: the LazyRelay community node (recommended)</h2>
+<p>LazyRelay has its own n8n community node, <code>n8n-nodes-lazyrelay</code> (MIT licensed, on npm). It adds a <strong>LazyRelay</strong> node and a <strong>LazyRelay Trigger</strong> node, so you do not have to build HTTP requests by hand.</p>
+<ol>
+  <li>In your LazyRelay dashboard, go to <strong>API Keys</strong> and create a key. Copy it now, it's only shown once.</li>
+  <li>In n8n, open <strong>Settings &rarr; Community Nodes &rarr; Install</strong>, enter <code>n8n-nodes-lazyrelay</code>, accept the community node notice and install. This is for self-hosted n8n for now.</li>
+  <li>Create a <strong>LazyRelay API</strong> credential and paste in your API key. Leave the Base URL at its default.</li>
+  <li>Add the <strong>LazyRelay</strong> node to a workflow and pick an operation.</li>
+</ol>
+<p>The node can schedule a post, publish now, save and schedule drafts, list, update, delete and approve posts, get a post's public proof link, upload media, look up what a platform accepts, find the next free posting time, read an analytics summary, and create, list and revoke client review links.</p>
+<p>The <strong>LazyRelay Trigger</strong> node starts a workflow when a post is confirmed live (<code>post.verified</code>), fails (<code>post.failed</code>), is sent but not confirmed (<code>post.unconfirmed</code>), or an account needs reconnecting (<code>channel.needs_reconnect</code>). A person creates the webhook endpoint in LazyRelay under <strong>Settings &rarr; Webhooks</strong> using the trigger's URL, then pastes the signing secret into the trigger. The trigger checks each delivery's signature.</p>
+<p class="note">Status: the node is unit tested and was run end to end in a real self-hosted n8n (version 2.41.4) against the live LazyRelay API: listing accounts, reading platform rules, listing posts and uploading a file all worked. The trigger node (the webhook side) has been tested with mocks only. If something behaves differently from this page, tell us.</p>
 
 <h2>What this unlocks</h2>
 <ul>
@@ -48,7 +60,8 @@
 <h2>The part most AI-agent schedulers skip</h2>
 <p>Most integrations stop at the API call — a workflow fires a "create post" request, gets a 200 OK, and moves on. That isn't proof the post is live. Rate limits, silent moderation holds, and platform-side failures can all eat a "successful" request. LazyRelay's <code>list_scheduled_posts</code> tool returns real Proof-of-Publish status, so a workflow can branch on whether a post is actually confirmed live, not just accepted.</p>
 
-<h2>Setup</h2>
+<h2>Option 2: MCP Client node (fallback)</h2>
+<p>If you would rather use n8n's MCP Client node, or you cannot install community nodes, you can connect to LazyRelay's MCP server instead.</p>
 <ol>
   <li>In your LazyRelay dashboard, go to <strong>API Keys</strong> (top nav) and create a new key — available on every plan, including Free. Copy it now, it's only shown once.</li>
   <li>In your n8n workflow, add an MCP Client node (n8n's built-in node for connecting to MCP servers) and point it at LazyRelay's hosted MCP endpoint:
@@ -58,7 +71,7 @@
   <li>Wire the MCP Client node's tools into an AI Agent node, or call them directly as a workflow step.</li>
 </ol>
 
-<p class="note">n8n's exact MCP node configuration has changed as the feature has matured — check n8n's own docs for "MCP Client" if the fields above don't match what you see. Full tool reference (<code>list_connected_accounts</code>, <code>list_workspaces</code>, <code>schedule_post</code>, <code>publish_post_now</code>, <code>update_post</code>, <code>list_scheduled_posts</code>, <code>delete_scheduled_post</code>, <code>get_analytics_summary</code>, <code>get_mentions</code>) at <a href="/docs">lazyrelay.com/docs</a>.</p>
+<p class="note">n8n's exact MCP node configuration has changed as the feature has matured, so check n8n's own docs for "MCP Client" if the fields above don't match what you see. All 27 tools are available over MCP. Full tool reference (every tool, with what it does) at <a href="/docs">lazyrelay.com/docs</a>. Building something more custom? See <a href="/developers">LazyRelay for developers</a> for the REST API and OpenAPI description.</p>
 
 <div class="cta-box">
   <p style="margin-top:0;"><strong>Don't have an API key yet?</strong> Generate one from your dashboard's Settings tab &mdash; available on every plan, including Free.</p>

@@ -26,6 +26,9 @@ LazyRelay is a social media scheduling platform built around Proof-of-Publish: i
 - [Connect to Zapier](https://lazyrelay.com/connect-zapier/): Automate scheduling with 9,000+ apps via Zapier, no code required.
 - [Connect to Make](https://lazyrelay.com/connect-make/): Schedule and publish from Make scenarios with copy-paste HTTP and webhook settings.
 - [OpenAPI](https://lazyrelaylazyrelay-backend.onrender.com/api/openapi.json): The public REST API as an OpenAPI 3.1 document, for tools, code generators and agents.
+- [Free Social Media Tools](https://lazyrelay.com/free-tools/): Free, no-sign-up tools for people who post to several platforms: check whether a post fits each platform, and see what repeated posting costs you.
+- [Will My Post Fit? Free Post Length and Media Checker](https://lazyrelay.com/free-tools/post-checker/): Paste a post and see if it fits the text limit and media rules on 16 platforms, from Bluesky to YouTube. Where no limit is published, we say so.
+- [LazyRelay for Developers: API, MCP, SDK and CLI](https://lazyrelay.com/developers/): LazyRelay for developers: a REST API with an OpenAPI 3.1 description, an MCP server with 27 tools, a Node SDK and command line tool, and an n8n node.
 - [Time-Savings Calculator](https://lazyrelay.com/time-savings-calculator/): Estimate hours saved by scheduling once across multiple platforms.
 
 ## Compare
@@ -42,6 +45,10 @@ Honest, fact-checked head-to-head comparisons — features and pricing verified 
 - [LazyRelay vs Postiz](https://lazyrelay.com/alternatives/postiz/)
 - [LazyRelay vs Publora](https://lazyrelay.com/alternatives/publora/)
 - [LazyRelay vs PostDodo](https://lazyrelay.com/alternatives/postdodo/)
+- [LazyRelay vs Ayrshare](https://lazyrelay.com/alternatives/ayrshare/)
+- [LazyRelay vs Planable](https://lazyrelay.com/alternatives/planable/)
+- [LazyRelay vs Agorapulse](https://lazyrelay.com/alternatives/agorapulse/)
+- [LazyRelay vs Loomly](https://lazyrelay.com/alternatives/loomly/)
 
 ## Optional
 
@@ -51,3 +58,24 @@ Honest, fact-checked head-to-head comparisons — features and pricing verified 
 - [Privacy Policy](https://lazyrelay.com/privacy/)
 - [Refund Policy](https://lazyrelay.com/refunds/)
 - [Data Processing Agreement](https://lazyrelay.com/dpa/)
+
+## Schedule to a specific platform
+
+What LazyRelay accepts, how to connect, and how Proof-of-Publish works on each platform, taken from the same rules the product enforces.
+
+- [Schedule Posts to Facebook with LazyRelay](https://lazyrelay.com/schedule-to-facebook/)
+- [Schedule Posts to Instagram with LazyRelay](https://lazyrelay.com/schedule-to-instagram/)
+- [Schedule Posts to TikTok with LazyRelay](https://lazyrelay.com/schedule-to-tiktok/)
+- [Schedule Posts to Pinterest with LazyRelay](https://lazyrelay.com/schedule-to-pinterest/)
+- [Schedule Posts to YouTube with LazyRelay](https://lazyrelay.com/schedule-to-youtube/)
+- [Schedule Posts to LinkedIn with LazyRelay](https://lazyrelay.com/schedule-to-linkedin/)
+- [Schedule Posts to Threads with LazyRelay](https://lazyrelay.com/schedule-to-threads/)
+- [Schedule Posts to Mastodon with LazyRelay](https://lazyrelay.com/schedule-to-mastodon/)
+- [Schedule Posts to Bluesky with LazyRelay](https://lazyrelay.com/schedule-to-bluesky/)
+- [Schedule Posts to Telegram with LazyRelay](https://lazyrelay.com/schedule-to-telegram/)
+- [Schedule Posts to Discord with LazyRelay](https://lazyrelay.com/schedule-to-discord/)
+- [Schedule Posts to Tumblr with LazyRelay](https://lazyrelay.com/schedule-to-tumblr/)
+- [Schedule Posts to WordPress with LazyRelay](https://lazyrelay.com/schedule-to-wordpress/)
+- [Schedule Posts to dev.to with LazyRelay](https://lazyrelay.com/schedule-to-devto/)
+- [Schedule Posts to Hashnode with LazyRelay](https://lazyrelay.com/schedule-to-hashnode/)
+- [Schedule Posts to Lemmy with LazyRelay](https://lazyrelay.com/schedule-to-lemmy/)

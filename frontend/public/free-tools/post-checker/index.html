@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Will My Post Fit? Free Post Length and Media Checker | LazyRelay</title>
+<meta name="description" content="Paste a post and see if it fits the text limit and media rules on 16 platforms, from Bluesky to YouTube. Where no limit is published, we say so." />
+<link rel="canonical" href="https://lazyrelay.com/free-tools/post-checker/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 800px; margin: 0 auto; padding: 24px; }
+  main { max-width: 800px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  .faq-item { margin-bottom: 20px; }
+  .calc-box { background: #f5f6f8; border-radius: 10px; padding: 24px; margin: 24px 0; }
+  .calc-field { margin-bottom: 18px; }
+  .calc-field label, .calc-box legend { display: block; font-weight: 600; color: #14171f; margin-bottom: 6px; font-size: 14px; padding: 0; }
+  .calc-field textarea, .calc-field input[type="number"] { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #d7dae0; border-radius: 6px; font-size: 16px; font-family: inherit; color: #14171f; background: #fff; }
+  .calc-field textarea { min-height: 140px; resize: vertical; }
+  .calc-field input:focus-visible, .calc-field textarea:focus-visible, .calc-box button:focus-visible, .calc-box summary:focus-visible, .calc-box input[type="checkbox"]:focus-visible { outline: 3px solid #14171f; outline-offset: 2px; }
+  .row { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end; }
+  .row .calc-field { flex: 1 1 160px; min-width: 0; }
+  .check { display: flex; align-items: center; gap: 8px; font-weight: 600; color: #14171f; font-size: 14px; min-height: 44px; }
+  .check input { width: 20px; height: 20px; margin: 0; flex: none; }
+  fieldset { border: 0; margin: 0 0 18px; padding: 0; min-width: 0; }
+  .plat-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 12px; }
+  .plat-list .check { font-weight: 500; }
+  .mini { background: #fff; color: #14171f; border: 1px solid #d7dae0; border-radius: 6px; padding: 8px 14px; font-size: 14px; cursor: pointer; margin-right: 8px; min-height: 40px; }
+  .summary { font-weight: 600; color: #14171f; margin: 8px 0 12px; min-height: 26px; }
+  .results { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  .card { background: #fff; border-left: 3px solid #d7dae0; border-radius: 4px; padding: 14px 16px; min-width: 0; overflow-wrap: anywhere; }
+  .card.ok { border-left-color: #1a7a3a; }
+  .card.bad { border-left-color: #b3261e; }
+  .card.unk { border-left-color: #8a6d00; }
+  .card h3 { margin: 0 0 6px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .tag { font-family: system-ui, sans-serif; font-size: 13px; font-weight: 700; }
+  .tag.ok { color: #1a7a3a; }
+  .tag.bad { color: #b3261e; }
+  .tag.unk { color: #8a6d00; }
+  .line { margin: 4px 0; font-size: 14px; }
+  .bar { height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; margin: 6px 0; }
+  .bar span { display: block; height: 100%; background: #1a7a3a; width: 0; }
+  .bar.bad span { background: #b3261e; }
+  .bar.unk span { background: #8a6d00; }
+  details { font-size: 13px; margin-top: 8px; }
+  summary { cursor: pointer; color: #14171f; font-weight: 600; }
+  details p { margin: 6px 0; }
+  .noscript { background: #fff4e5; border-left: 3px solid #8a6d00; padding: 14px 18px; border-radius: 4px; color: #14171f; }
+  @media (min-width: 640px) { .results { grid-template-columns: 1fr 1fr; } }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Why does the same post count differently on different platforms?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Platforms do not all count text the same way. TikTok counts UTF-16 characters, Bluesky counts graphemes (what a person sees as one character, so an emoji is one), and YouTube's description limit is in bytes, so accented letters and emoji use more of it. This tool counts each platform the way its own documentation says where we could verify it, and otherwise uses plain JavaScript string length, which is an estimate."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Where do these limits come from, and are they always right?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The numbers come from the platform rules LazyRelay itself uses to check posts before scheduling, checked against each platform's published developer documentation. Some limits vary by account or server, such as Mastodon, where every server sets its own limit, so treat the result as a strong guide and not a guarantee."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does a platform say there is no limit we could verify?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "For some platforms, such as Facebook Pages and LinkedIn, we could not find a published text limit. We show the character count and say so instead of guessing a number. That does not mean there is no limit, so keep very long posts in mind."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/free-tools">&larr; Back to free tools</a>
+<h1>Will My Post Fit?</h1>
+<p class="subtitle">Every platform has its own text limit and its own rules about images and video. Paste your post, say what media it has, and see which of 16 platforms it fits, and which it does not, before you schedule it.</p>
+
+<h2>How it works</h2>
+<p>For each platform you tick, the checker compares your text against that platform's limit and your media against what the platform accepts in one post. A green result means it fits. A red result tells you what to change. Where we could not verify a published limit, the checker says so and never makes up a number. Everything runs in your browser: your text is not sent anywhere or stored.</p>
+
+<noscript><p class="noscript">This checker needs JavaScript to run. You can still read the rules for each platform on the <a href="/platform-features">platform features page</a>, or <a href="/pricing">see plans and start free</a>.</p></noscript>
+
+<div class="calc-box" id="tool" hidden>
+  <div class="calc-field">
+    <label for="post-text">Your post</label>
+    <textarea id="post-text" placeholder="Paste or type your post here" autocomplete="off"></textarea>
+  </div>
+  <div class="row">
+    <div class="calc-field">
+      <label for="img-count">Number of images</label>
+      <input type="number" id="img-count" value="0" min="0" max="20" inputmode="numeric" />
+    </div>
+    <div class="calc-field">
+      <span class="check"><input type="checkbox" id="has-video" /><label for="has-video" style="margin:0;">My post has a video</label></span>
+    </div>
+  </div>
+  <fieldset>
+    <legend>Platforms to check</legend>
+    <div style="margin-bottom:8px;">
+      <button type="button" class="mini" id="sel-all">Select all</button>
+      <button type="button" class="mini" id="sel-none">Clear all</button>
+    </div>
+    <div class="plat-list" id="plat-list"></div>
+  </fieldset>
+  <div class="summary" id="summary" role="status" aria-live="polite"></div>
+  <div class="results" id="results"></div>
+</div>
+
+<p class="note">Counts are estimates. Where the rules say a platform counts UTF-16 characters, graphemes or bytes, we count that way. For all others we use JavaScript string length, which can differ slightly from how the platform counts. Media rules cover how many files a single post can carry and whether images and video are allowed, not file size or length.</p>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Write it once. Schedule it everywhere.</strong> LazyRelay checks your post against each platform's rules, schedules it, and verifies it actually went live with Proof-of-Publish.</p>
+  <p class="note" style="margin-top:0;">The Free plan is $0 with no credit card required, and includes 3 connected accounts, 1 brand, and Proof-of-Publish verification on every post.</p>
+  <a class="button" href="/">Start free, no card required</a>
+</div>
+
+<h2>Frequently asked questions</h2>
+<div class="faq-item">
+  <h3>Why does the same post count differently on different platforms?</h3>
+  <p>Platforms do not all count text the same way. TikTok counts UTF-16 characters, Bluesky counts graphemes (what a person sees as one character, so an emoji is one), and YouTube's description limit is in bytes, so accented letters and emoji use more of it. This tool counts each platform the way its own documentation says where we could verify it, and otherwise uses plain JavaScript string length, which is an estimate.</p>
+</div>
+<div class="faq-item">
+  <h3>Where do these limits come from, and are they always right?</h3>
+  <p>The numbers come from the platform rules LazyRelay itself uses to check posts before scheduling, checked against each platform's published developer documentation. Some limits vary by account or server, such as Mastodon, where every server sets its own limit, so treat the result as a strong guide and not a guarantee.</p>
+</div>
+<div class="faq-item">
+  <h3>Why does a platform say there is no limit we could verify?</h3>
+  <p>For some platforms, such as Facebook Pages and LinkedIn, we could not find a published text limit. We show the character count and say so instead of guessing a number. That does not mean there is no limit, so keep very long posts in mind.</p>
+</div>
+
+<!--RULES-DATA-START--><script type="application/json" id="rules-data">{"platforms":[{"platform":"facebook","label":"Facebook Page","text":{"maxLength":null,"note":"Post text limit is not verified: Meta's Page feed docs state none. LazyRelay itself refuses content over 5000 characters.","countMode":"length","limitScope":"whole","captionMaxLength":null},"media":{"textOnlyAllowed":true,"imageSupported":true,"videoSupported":true,"multiItem":{"maxItems":10,"videosAllowed":false},"notes":"The image limit is LazyRelay's generic 20 MB floor (mediaLimits.ts), not a verified Facebook limit. Meta publishes no fixed video size limit, so LazyRelay uses 300 MB. Video duration not verified. Multi-photo posts take images only. A Story is one image or one video."},"sources":["https://developers.facebook.com/docs/graph-api/reference/page/feed/"]},{"platform":"instagram","label":"Instagram","text":{"maxLength":2200,"note":"Caption: 2200 characters, at most 30 hashtags and 20 @mentions (Meta docs). Stories carry no caption.","countMode":"length","limitScope":"whole","captionMaxLength":null},"media":{"textOnlyAllowed":false,"imageSupported":true,"videoSupported":true,"multiItem":{"maxItems":10,"videosAllowed":true},"notes":"Needs an image or a video. A single video posts as a Reel or a Story, not to the feed. Feed images must be 4:5 to 1.91:1 and 320 to 1440 px wide. Reels: 3 s to 15 min, 9:16 recommended. Story video: 3 to 60 s. Story video is limited to 100 MB by Meta."},"sources":["https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/content-publishing","https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user/media"]},{"platform":"tiktok","label":"TikTok","text":{"maxLength":2200,"note":"Video title/caption: 2200 UTF-16 characters (TikTok Direct Post reference). LazyRelay sends the post text as the title.","countMode":"utf16","limitScope":"whole","captionMaxLength":null},"media":{"textOnlyAllowed":false,"imageSupported":false,"videoSupported":true,"multiItem":null,"notes":"Video only. 23 to 60 fps, 360 to 4096 px per side. Photo posts and text-only posts are not supported by LazyRelay's TikTok adapter."},"sources":["https://developers.tiktok.com/doc/content-posting-api-reference-direct-post","https://developers.tiktok.com/doc/content-posting-api-media-transfer-guide/"]},{"platform":"pinterest","label":"Pinterest","text":{"maxLength":500,"note":"LazyRelay sends the first 100 characters of the text as the Pin title and the first 500 as the description. Pinterest's own API allows a description up to 800 characters, title 100, alt text 500.","countMode":"length","limitScope":"whole","captionMaxLength":null},"media":{"textOnlyAllowed":false,"imageSupported":true,"videoSupported":true,"multiItem":null,"notes":"A Pin needs an image or video. A video Pin also needs coverImageUrl (a still image). Images must be at least 100 x 200 px. Video duration not verified."},"sources":["https://developers.pinterest.com/docs/api/v5/pins-create"]},{"platform":"youtube","label":"YouTube","text":{"maxLength":5000,"note":"The post text becomes the video description (5000 bytes, YouTube Data API; no \u003c or > characters). The title is options.youtube.title or the first 100 characters of the text (title max 100 characters).","countMode":"bytes","limitScope":"whole","captionMaxLength":null},"media":{"textOnlyAllowed":false,"imageSupported":false,"videoSupported":true,"multiItem":null,"notes":"Video only. YouTube allows up to 256 GB; LazyRelay's own upload cap binds first. Duration limit not verified (YouTube caps unverified channels at a shorter length)."},"sources":["https://developers.google.com/youtube/v3/docs/videos","https://developers.google.com/youtube/v3/docs/videos/insert"]},{"platform":"linkedin","label":"LinkedIn","text":{"maxLength":null,"note":"Post commentary limit not verified: LinkedIn's Posts API page only says over-long commentary returns FIELD_LENGTH_TOO_LONG. LazyRelay itself refuses content over 5000 characters.","countMode":"length","limitScope":"whole","captionMaxLength":null},"media":{"textOnlyAllowed":true,"imageSupported":true,"videoSupported":false,"multiItem":{"maxItems":9,"videosAllowed":false},"notes":"Images only in LazyRelay (no video posting yet). Image size is LazyRelay's generic 20 MB floor, not a verified LinkedIn limit. A post carries either images or a PDF document, not both."},"sources":["https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api"]},{"platform":"threads","label":"Threads","text":{"maxLength":500,"note":"Text posts are limited to 500 characters (Threads API docs).","countMode":"length","limitScope":"whole","captionMaxLength":null},"media":{"textOnlyAllowed":true,"imageSupported":true,"videoSupported":true,"multiItem":{"maxItems":10,"videosAllowed":true},"notes":"Images 320 to 1440 px wide. Threads' own docs allow carousels of up to 20 items; LazyRelay allows up to the number shown here."},"sources":["https://developers.facebook.com/documentation/threads/posts"]},{"platform":"mastodon","label":"Mastodon","text":{"maxLength":500,"note":"500 characters is the default (mastodon.social); each Mastodon server sets its own limit, so a customer's server may differ.","countMode":"length","limitScope":"whole","captionMaxLength":null},"media":{"textOnlyAllowed":true,"imageSupported":true,"videoSupported":true,"multiItem":{"maxItems":4,"videosAllowed":false},"notes":"All media limits are set per server. LazyRelay's numbers are a static floor: 99 MB video matches mastodon.social, whose image limit is 16 MB (LazyRelay's check allows 20 MB). Video duration not verified."},"sources":["https://docs.joinmastodon.org/entities/Instance/"]},{"platform":"bluesky","label":"Bluesky","text":{"maxLength":300,"note":"300 graphemes (what a person sees as characters), also at most 3000 bytes (Bluesky post lexicon).","countMode":"graphemes","limitScope":"whole","captionMaxLength":null},"media":{"textOnlyAllowed":true,"imageSupported":true,"videoSupported":true,"multiItem":{"maxItems":4,"videosAllowed":false},"notes":"Image blobs are limited to 2 MB by Bluesky (LazyRelay's own check allows up to 20 MB, so a larger image passes LazyRelay and fails at Bluesky). Video needs the account's email to be confirmed. Alt text applies to the first image only."},"sources":["https://github.com/bluesky-social/atproto/blob/main/lexicons/app/bsky/feed/post.json","https://github.com/bluesky-social/atproto/blob/main/lexicons/app/bsky/embed/images.json"]},{"platform":"telegram","label":"Telegram","text":{"maxLength":4096,"note":"Text messages: 4096 characters. When a photo or video is attached the text becomes a caption of at most 1024 characters (Telegram Bot API).","countMode":"length","limitScope":"whole","captionMaxLength":1024},"media":{"textOnlyAllowed":true,"imageSupported":true,"videoSupported":true,"multiItem":null,"notes":"One photo or one video per post. The 50 MB video ceiling is Telegram's own on the standard Bot API."},"sources":["https://core.telegram.org/bots/api"]},{"platform":"discord","label":"Discord","text":{"maxLength":2000,"note":"Message content: 2000 characters (Discord webhook docs).","countMode":"length","limitScope":"whole","captionMaxLength":null},"media":{"textOnlyAllowed":true,"imageSupported":true,"videoSupported":true,"multiItem":null,"notes":"The upload limit depends on the destination server's boost tier. 20 MB is the floor every server supports, and what LazyRelay enforces."},"sources":["https://docs.discord.com/developers/resources/webhook"]},{"platform":"tumblr","label":"Tumblr","text":{"maxLength":null,"note":"Tumblr publishes no text limit that could be verified. LazyRelay itself refuses content over 5000 characters. Not verified.","countMode":"length","limitScope":"whole","captionMaxLength":null},"media":{"textOnlyAllowed":true,"imageSupported":true,"videoSupported":true,"multiItem":{"maxItems":10,"videosAllowed":false},"notes":"Video size is a working number from a legacy endpoint, not verified for the current post format. Video duration not verified."},"sources":[]},{"platform":"wordpress","label":"WordPress","text":{"maxLength":null,"note":"WordPress publishes no post length limit that could be verified. Not verified. LazyRelay itself refuses content over 5000 characters. The post text becomes the article body (the first line is the title unless options.wordpress.title is set).","countMode":"length","limitScope":"whole","captionMaxLength":null},"media":{"textOnlyAllowed":true,"imageSupported":true,"videoSupported":true,"multiItem":{"maxItems":10,"videosAllowed":false},"notes":"Self-hosted WordPress sites only (version 5.6 or newer, https). The first image is the featured image; extra images are added at the end of the article. Upload limits are set by each site's host, so a larger file may be refused by the site itself. WordPress.com blogs are not supported yet."},"sources":["https://developer.wordpress.org/rest-api/reference/posts/","https://developer.wordpress.org/rest-api/using-the-rest-api/authentication/"]},{"platform":"devto","label":"dev.to","text":{"maxLength":null,"note":"dev.to states no body length limit (not verified beyond its docs). LazyRelay itself refuses content over 5000 characters. The body is markdown; the first line is the title unless options.devto.title is set (LazyRelay caps titles at 250 characters, dev.to publishes no title limit).","countMode":"length","limitScope":"whole","captionMaxLength":null},"media":{"textOnlyAllowed":true,"imageSupported":true,"videoSupported":false,"multiItem":{"maxItems":10,"videosAllowed":false},"notes":"Images are shown by address: the first is the cover image, the rest appear inside the article. dev.to has no video upload through its API, so a video is refused. Image size limit is LazyRelay's generic figure, not a verified dev.to limit."},"sources":["https://developers.forem.com/api/v1"]},{"platform":"hashnode","label":"Hashnode","text":{"maxLength":null,"note":"Hashnode's post length limit is not verified. LazyRelay itself refuses content over 5000 characters. The body is markdown; the first line is the title unless options.hashnode.title is set.","countMode":"length","limitScope":"whole","captionMaxLength":null},"media":{"textOnlyAllowed":true,"imageSupported":true,"videoSupported":false,"multiItem":{"maxItems":10,"videosAllowed":false},"notes":"The first image is the cover; the rest appear inside the article. No video. Image size limit is LazyRelay's generic figure, not verified."},"sources":["https://hashnode.com/changelog/2026-05-13-graphql-api-paid-access"]},{"platform":"lemmy","label":"Lemmy","text":{"maxLength":200,"note":"Title: 200 characters (the first line of the post unless options.lemmy.title is set). Body: the rest of the text, as markdown, up to 10000 characters (LazyRelay's own cap).","countMode":"length","limitScope":"firstLine","captionMaxLength":null},"media":{"textOnlyAllowed":true,"imageSupported":true,"videoSupported":false,"multiItem":{"maxItems":10,"videosAllowed":false},"notes":"An image is uploaded to the customer's Lemmy server. No video. Each server sets its own upload limit, so a larger file may be refused by the server itself."},"sources":["https://join-lemmy.org/docs/","https://github.com/LemmyNet/lemmy-js-client"]}]}</script><!--RULES-DATA-END-->
+
+<script id="checker-logic">
+/* Pure logic, no DOM access. Tested by frontend/scripts/test-free-tools.mjs */
+var LRCheck = (function () {
+  function countText(text, mode) {
+    if (mode === "bytes") return new TextEncoder().encode(text).length;
+    if (mode === "graphemes") {
+      if (typeof Intl !== "undefined" && Intl.Segmenter) {
+        var n = 0, it = new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text)[Symbol.iterator](), r;
+        while (!(r = it.next()).done) n++;
+        return n;
+      }
+      return Array.from(text).length;
+    }
+    return text.length; /* "utf16" and "length" are both JavaScript string length */
+  }
+  function modeLabel(mode) {
+    if (mode === "utf16") return "UTF-16 characters (how TikTok counts)";
+    if (mode === "graphemes") return "graphemes (how Bluesky counts), estimate";
+    if (mode === "bytes") return "bytes (how YouTube counts), estimate";
+    return "characters (JavaScript string length), estimate";
+  }
+  function plural(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
+
+  function checkText(p, text, hasMedia) {
+    var t = p.text;
+    var subject = text;
+    var scope = "Post text";
+    if (t.limitScope === "firstLine") {
+      subject = text.split(/\r?\n/)[0];
+      scope = "Title (first line)";
+    }
+    var limit = t.maxLength;
+    if (t.captionMaxLength && hasMedia) { limit = t.captionMaxLength; scope = "Caption (text with media)"; }
+    var used = countText(subject, t.countMode);
+    if (limit === null || limit === undefined) {
+      return { status: "unverified", used: used, limit: null, scope: scope, label: modeLabel(t.countMode),
+        message: "No published limit that we could verify." };
+    }
+    var over = used - limit;
+    return { status: over > 0 ? "over" : "ok", used: used, limit: limit, scope: scope, label: modeLabel(t.countMode),
+      message: over > 0 ? "Over the limit by " + over + "." : "Fits, " + (limit - used) + " left." };
+  }
+
+  function checkMedia(p, images, video) {
+    var m = p.media, items = images + (video ? 1 : 0), problems = [];
+    if (items === 0) {
+      if (!m.textOnlyAllowed) {
+        problems.push(m.imageSupported ? "Needs an image or a video; text-only posts are not accepted." : "Needs a video; text-only posts are not accepted.");
+      }
+      return problems.length ? { status: "fail", messages: problems } : { status: "ok", messages: ["Text-only post is accepted."] };
+    }
+    if (images > 0 && !m.imageSupported) problems.push("Images are not accepted here.");
+    if (video && !m.videoSupported) problems.push("Video is not accepted here.");
+    if (problems.length === 0 && items > 1) {
+      if (!m.multiItem) {
+        problems.push("Only one image or video per post (you have " + items + ").");
+      } else {
+        if (items > m.multiItem.maxItems) problems.push("At most " + plural(m.multiItem.maxItems, "file") + " per post (you have " + items + ").");
+        if (video && images > 0 && !m.multiItem.videosAllowed) problems.push("A post with several files takes images only, not video.");
+      }
+    }
+    if (problems.length) return { status: "fail", messages: problems };
+    var parts = [];
+    if (images) parts.push(plural(images, "image"));
+    if (video) parts.push("1 video");
+    return { status: "ok", messages: ["Media fits: " + parts.join(" and ") + "."] };
+  }
+
+  function check(p, input) {
+    var images = Math.max(0, Math.floor(Number(input.images) || 0));
+    var video = !!input.video;
+    var hasMedia = images > 0 || video;
+    var text = checkText(p, input.text || "", hasMedia);
+    var media = checkMedia(p, images, video);
+    var overall = (text.status === "over" || media.status === "fail") ? "fail" : (text.status === "unverified" ? "unverified" : "ok");
+    return { platform: p.platform, label: p.label, text: text, media: media, overall: overall };
+  }
+  return { countText: countText, checkText: checkText, checkMedia: checkMedia, check: check };
+})();
+if (typeof module !== "undefined") module.exports = LRCheck;
+</script>
+
+<script id="checker-ui">
+(function () {
+  var dataEl = document.getElementById("rules-data");
+  var tool = document.getElementById("tool");
+  var data;
+  try { data = JSON.parse(dataEl.textContent); } catch (e) { data = null; }
+  if (!data || !data.platforms || !data.platforms.length) return;
+
+  var textEl = document.getElementById("post-text");
+  var imgEl = document.getElementById("img-count");
+  var vidEl = document.getElementById("has-video");
+  var listEl = document.getElementById("plat-list");
+  var resEl = document.getElementById("results");
+  var sumEl = document.getElementById("summary");
+
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+  data.platforms.forEach(function (p) {
+    var id = "plat-" + p.platform;
+    var d = document.createElement("div");
+    d.innerHTML = '<span class="check"><input type="checkbox" id="' + id + '" value="' + esc(p.platform) + '" checked /><label for="' + id + '" style="margin:0;font-weight:500;">' + esc(p.label) + "</label></span>";
+    listEl.appendChild(d.firstChild);
+  });
+
+  function selected() {
+    return data.platforms.filter(function (p) { return document.getElementById("plat-" + p.platform).checked; });
+  }
+
+  function render() {
+    var chosen = selected();
+    var input = { text: textEl.value, images: imgEl.value, video: vidEl.checked };
+    if (!chosen.length) { sumEl.textContent = "Tick at least one platform."; resEl.innerHTML = ""; return; }
+    var fails = 0, html = "";
+    chosen.forEach(function (p) {
+      var r = LRCheck.check(p, input);
+      if (r.overall === "fail") fails++;
+      var cls = r.overall === "fail" ? "bad" : (r.overall === "unverified" ? "unk" : "ok");
+      var tag = r.overall === "fail" ? "Does not fit" : (r.overall === "unverified" ? "Fits what we could verify" : "Fits");
+      var t = r.text, barCls = t.status === "over" ? "bad" : (t.status === "unverified" ? "unk" : "");
+      var pct = t.limit ? Math.min(100, Math.round((t.used / t.limit) * 100)) : 0;
+      var count = t.limit ? t.used + " of " + t.limit : t.used + " used";
+      html += '<div class="card ' + cls + '"><h3><span>' + esc(r.label) + '</span><span class="tag ' + cls + '">' + tag + "</span></h3>" +
+        '<p class="line"><strong>' + esc(t.scope) + ":</strong> " + count + " " + esc(t.label) + ". " + esc(t.message) + "</p>" +
+        (t.limit ? '<div class="bar ' + barCls + '" aria-hidden="true"><span style="width:' + pct + '%"></span></div>' : "") +
+        '<p class="line"><strong>Media:</strong> ' + esc(r.media.messages.join(" ")) + "</p>" +
+        "<details><summary>Platform notes</summary><p>" + esc(p.text.note) + "</p><p>" + esc(p.media.notes) + "</p></details></div>";
+    });
+    resEl.innerHTML = html;
+    sumEl.textContent = fails === 0 ? "Fits on all " + chosen.length + " selected platforms." : "Does not fit on " + fails + " of " + chosen.length + " selected platforms.";
+  }
+
+  ["input", "change"].forEach(function (ev) {
+    textEl.addEventListener(ev, render); imgEl.addEventListener(ev, render); vidEl.addEventListener(ev, render);
+  });
+  listEl.addEventListener("change", render);
+  document.getElementById("sel-all").addEventListener("click", function () { data.platforms.forEach(function (p) { document.getElementById("plat-" + p.platform).checked = true; }); render(); });
+  document.getElementById("sel-none").addEventListener("click", function () { data.platforms.forEach(function (p) { document.getElementById("plat-" + p.platform).checked = false; }); render(); });
+
+  tool.hidden = false;
+  render();
+})();
+</script>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/free-tools">Free Tools</a> &middot; <a href="/status">Status</a> &middot; <a href="/changelog">Changelog</a> &middot; <a href="/platform-features">Platform Features</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>

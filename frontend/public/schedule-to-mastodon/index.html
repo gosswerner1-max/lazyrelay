@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Schedule Posts to Mastodon with LazyRelay | LazyRelay</title>
+<meta name="description" content="Schedule Mastodon posts with images, alt text and reply threads using LazyRelay. Connects to mastodon.social. Each post is read back to confirm it is live." />
+<link rel="canonical" href="https://lazyrelay.com/schedule-to-mastodon/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  .faq-item { margin-bottom: 20px; }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Can I connect a Mastodon account on another server?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Not yet. LazyRelay connects to mastodon.social only today."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does LazyRelay support Mastodon alt text and threads?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. You can add alt text of up to 1000 characters, and up to 10 follow-up posts that reply in order. Content Warning labels are not supported."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How many characters fit in a Mastodon post?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "500 by default on mastodon.social. Each Mastodon server sets its own limit, so another server may differ."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I know my Mastodon post is really live?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LazyRelay requests the status back from Mastodon after posting and only marks it confirmed live when Mastodon returns the same status."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/guides">&larr; Back to guides</a>
+<h1>Schedule posts to Mastodon with LazyRelay</h1>
+<p class="subtitle">LazyRelay schedules public posts to your Mastodon account on mastodon.social, then reads each one back to confirm it is live. LazyRelay's difference is Proof-of-Publish: after a post goes out, it checks Mastodon again to confirm the post is really live.</p>
+
+<h2>What you can post to Mastodon</h2>
+<ul>
+  <li>Text: up to 500 characters. That is the default on mastodon.social. Every Mastodon server sets its own limit, so another server may differ.</li>
+  <li>Text-only posts are accepted.</li>
+  <li>Images: JPEG, PNG, WEBP, GIF, up to 20 MB each. mastodon.social's own image limit is 16 MB, which is below the 20 MB LazyRelay checks against.</li>
+  <li>Video: MP4, WEBM, MOV, up to 99 MB, duration limit not verified. The 99 MB figure matches mastodon.social. All media limits are set per server.</li>
+  <li>Several files in one post: up to 4 images (no video in a multi-image post).</li>
+  <li>Alt text: you can add a description of up to 1000 characters to your media.</li>
+  <li>Thread chain: add up to 10 follow-up posts under Platform options. Each replies to the one before it and is limited to 500 characters.</li>
+  <li>Not available: Content Warning (CW) labels.</li>
+</ul>
+<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features">What Works on Which Platform</a>.</p>
+
+<h2>How to connect Mastodon</h2>
+<ol>
+  <li>Sign in to LazyRelay and open the Social Platforms tab in the top menu.</li>
+  <li>Click the Mastodon tile.</li>
+  <li>Sign in to Mastodon when asked, and approve all of the permissions LazyRelay requests. Approving only some of them can make posting stop working later.</li>
+  <li>You land back in LazyRelay with the account connected. If you are logged in to several accounts on that platform in the same browser, log out of the ones you do not want first, so LazyRelay does not connect the wrong one.</li>
+  <li>Mastodon connects to mastodon.social only today. An account on a different Mastodon server cannot be connected yet.</li>
+</ol>
+
+<h2>How Proof-of-Publish works on Mastodon</h2>
+<p>Creating a status on Mastodon is immediate. After that, LazyRelay makes a separate request for that status using the account's access and only marks the post confirmed live when Mastodon returns the same status ID. The link is the status address Mastodon gives back.</p>
+<p>Want the general idea? Read <a href="/verify-post-published">Does Your Post Actually Publish?</a></p>
+
+<h2>Limits and things to know</h2>
+<ul>
+  <li>Mastodon connects to mastodon.social only today. An account on another server, for example hachyderm.io, cannot be connected yet.</li>
+  <li>Media limits are set per Mastodon server. LazyRelay's numbers are a fixed starting point that matches mastodon.social. Video duration is not verified.</li>
+  <li>Rate limits are set per Mastodon server, and LazyRelay does not add a cap of its own.</li>
+</ul>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Schedule to Mastodon and know it actually went live.</strong></p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+<h2>Frequently asked questions</h2>
+<div class="faq-item">
+  <h3>Can I connect a Mastodon account on another server?</h3>
+  <p>Not yet. LazyRelay connects to mastodon.social only today.</p>
+</div>
+<div class="faq-item">
+  <h3>Does LazyRelay support Mastodon alt text and threads?</h3>
+  <p>Yes. You can add alt text of up to 1000 characters, and up to 10 follow-up posts that reply in order. Content Warning labels are not supported.</p>
+</div>
+<div class="faq-item">
+  <h3>How many characters fit in a Mastodon post?</h3>
+  <p>500 by default on mastodon.social. Each Mastodon server sets its own limit, so another server may differ.</p>
+</div>
+<div class="faq-item">
+  <h3>How do I know my Mastodon post is really live?</h3>
+  <p>LazyRelay requests the status back from Mastodon after posting and only marks it confirmed live when Mastodon returns the same status.</p>
+</div>
+
+<p class="note">Figures on this page come from LazyRelay's platform rules, checked on 2026-09-30. Sources: <a href="https://docs.joinmastodon.org/entities/Instance/" rel="noopener">docs.joinmastodon.org/entities/Instance/</a>. Anything marked not verified has no published source.</p>
+<p class="note">Schedule to other platforms: <a href="/schedule-to-facebook/">Facebook</a> &middot; <a href="/schedule-to-instagram/">Instagram</a> &middot; <a href="/schedule-to-tiktok/">TikTok</a> &middot; <a href="/schedule-to-pinterest/">Pinterest</a> &middot; <a href="/schedule-to-youtube/">YouTube</a> &middot; <a href="/schedule-to-linkedin/">LinkedIn</a> &middot; <a href="/schedule-to-threads/">Threads</a> &middot; <a href="/schedule-to-bluesky/">Bluesky</a> &middot; <a href="/schedule-to-telegram/">Telegram</a> &middot; <a href="/schedule-to-discord/">Discord</a> &middot; <a href="/schedule-to-tumblr/">Tumblr</a> &middot; <a href="/schedule-to-wordpress/">WordPress</a> &middot; <a href="/schedule-to-devto/">dev.to</a> &middot; <a href="/schedule-to-hashnode/">Hashnode</a> &middot; <a href="/schedule-to-lemmy/">Lemmy</a></p>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/platform-features">What Works on Which Platform</a> &middot; <a href="/verify-post-published">Does Your Post Actually Publish?</a> &middot; <a href="/docs">Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>

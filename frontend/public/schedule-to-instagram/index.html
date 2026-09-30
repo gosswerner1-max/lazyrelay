@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Schedule Posts to Instagram with LazyRelay | LazyRelay</title>
+<meta name="description" content="Schedule Instagram posts, carousels, Reels, Stories and trial Reels with LazyRelay. Each post is read back from Instagram to confirm it is live." />
+<link rel="canonical" href="https://lazyrelay.com/schedule-to-instagram/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  .faq-item { margin-bottom: 20px; }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Does LazyRelay post Instagram Reels and Stories?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Choose Post as Reel or Story under Platform options. A single video posts as a Reel or a Story, not as a feed post. Stories carry no caption."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I schedule an Instagram carousel?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, up to 10 images or videos in one post. All images are cropped to the first image's ratio, which is 1:1 by default."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What kind of Instagram account do I need?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A Business or Creator account. With the older connect flow it also has to be linked to a Facebook Page you administer."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I know my Instagram post is really live?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LazyRelay reads the media object back from Instagram after publishing and only marks the post confirmed live when Instagram returns it with a permalink."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/guides">&larr; Back to guides</a>
+<h1>Schedule posts to Instagram with LazyRelay</h1>
+<p class="subtitle">LazyRelay schedules feed posts, carousels, Reels, Stories and trial Reels to Instagram, then reads each post back from Instagram to confirm it is live. LazyRelay's difference is Proof-of-Publish: after a post goes out, it checks Instagram again to confirm the post is really live.</p>
+
+<h2>What you can post to Instagram</h2>
+<ul>
+  <li>Text: up to 2200 characters. The caption allows at most 30 hashtags and 20 @mentions. Stories carry no caption.</li>
+  <li>A post needs an image or a video. Text-only posts are refused.</li>
+  <li>Images: JPEG, up to 8 MB each. Instagram wants JPEG. Feed images must be between 4:5 and 1.91:1 and 320 to 1440 pixels wide.</li>
+  <li>Video: MP4, MOV, up to 300 MB, up to 15 minutes. A single video posts as a Reel or a Story, not to the feed. Reels run 3 seconds to 15 minutes, with 9:16 recommended. Story video is 3 to 60 seconds and limited to 100 MB by Meta.</li>
+  <li>Several files in one post: up to 10 images or videos.</li>
+  <li>Post as: choose Feed, Reel or Story under Platform options. A carousel takes up to 10 images or videos, and all images are cropped to the first image's ratio (1:1 by default).</li>
+  <li>Trial Reel: a trial Reel shows your Reel to people who do not follow you first. It works for a single video Reel only. You can choose manual or automatic graduation to regular followers.</li>
+  <li>First comment: LazyRelay can post a comment of your own right after the post, up to 2200 characters, which suits the hashtags-in-first-comment habit.</li>
+  <li>Self-reply: LazyRelay can add a reply once the post reaches a number of likes you choose. It checks when it next reads your post's numbers, not the instant the count is reached.</li>
+</ul>
+<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features">What Works on Which Platform</a>.</p>
+
+<h2>How to connect Instagram</h2>
+<ol>
+  <li>Sign in to LazyRelay and open the Social Platforms tab in the top menu.</li>
+  <li>Click the Instagram tile.</li>
+  <li>Sign in to Instagram when asked, and approve all of the permissions LazyRelay requests. Approving only some of them can make posting stop working later.</li>
+  <li>You land back in LazyRelay with the account connected. If you are logged in to several accounts on that platform in the same browser, log out of the ones you do not want first, so LazyRelay does not connect the wrong one.</li>
+  <li>Your Instagram account needs to be a Business or Creator account. With the older connect flow it also has to be linked to a Facebook Page you administer.</li>
+</ol>
+
+<h2>How Proof-of-Publish works on Instagram</h2>
+<p>After Instagram accepts the post, LazyRelay asks Instagram's own API for that media object using the account's access and confirms it comes back with a permalink. Only then is the post marked confirmed live, and that permalink is the link you can share. Instagram's publish step returning an ID is not treated as proof on its own.</p>
+<p>Want the general idea? Read <a href="/verify-post-published">Does Your Post Actually Publish?</a></p>
+
+<h2>Limits and things to know</h2>
+<ul>
+  <li>Instagram has stricter media rules than Facebook, so a photo that posts fine on Facebook can be refused here. LazyRelay checks size and format before scheduling and tells you which limit was hit.</li>
+  <li>Instagram itself allows 100 API-published posts in a rolling 24 hours, and a carousel counts as one. Meta's carousel section of the same page says 50, so treat 50 as the safe number. LazyRelay does not add a cap of its own.</li>
+  <li>Image size and video size figures follow Meta's documentation. Video length and resolution are not checked in advance, so a file inside the size limit can still be rejected by Instagram.</li>
+</ul>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Schedule to Instagram and know it actually went live.</strong></p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+<h2>Frequently asked questions</h2>
+<div class="faq-item">
+  <h3>Does LazyRelay post Instagram Reels and Stories?</h3>
+  <p>Yes. Choose Post as Reel or Story under Platform options. A single video posts as a Reel or a Story, not as a feed post. Stories carry no caption.</p>
+</div>
+<div class="faq-item">
+  <h3>Can I schedule an Instagram carousel?</h3>
+  <p>Yes, up to 10 images or videos in one post. All images are cropped to the first image's ratio, which is 1:1 by default.</p>
+</div>
+<div class="faq-item">
+  <h3>What kind of Instagram account do I need?</h3>
+  <p>A Business or Creator account. With the older connect flow it also has to be linked to a Facebook Page you administer.</p>
+</div>
+<div class="faq-item">
+  <h3>How do I know my Instagram post is really live?</h3>
+  <p>LazyRelay reads the media object back from Instagram after publishing and only marks the post confirmed live when Instagram returns it with a permalink.</p>
+</div>
+
+<p class="note">Figures on this page come from LazyRelay's platform rules, checked on 2026-09-30. Sources: <a href="https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/content-publishing" rel="noopener">developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/content-publishing</a>, <a href="https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user/media" rel="noopener">developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user/media</a>. Anything marked not verified has no published source.</p>
+<p class="note">Schedule to other platforms: <a href="/schedule-to-facebook/">Facebook</a> &middot; <a href="/schedule-to-tiktok/">TikTok</a> &middot; <a href="/schedule-to-pinterest/">Pinterest</a> &middot; <a href="/schedule-to-youtube/">YouTube</a> &middot; <a href="/schedule-to-linkedin/">LinkedIn</a> &middot; <a href="/schedule-to-threads/">Threads</a> &middot; <a href="/schedule-to-mastodon/">Mastodon</a> &middot; <a href="/schedule-to-bluesky/">Bluesky</a> &middot; <a href="/schedule-to-telegram/">Telegram</a> &middot; <a href="/schedule-to-discord/">Discord</a> &middot; <a href="/schedule-to-tumblr/">Tumblr</a> &middot; <a href="/schedule-to-wordpress/">WordPress</a> &middot; <a href="/schedule-to-devto/">dev.to</a> &middot; <a href="/schedule-to-hashnode/">Hashnode</a> &middot; <a href="/schedule-to-lemmy/">Lemmy</a></p>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/platform-features">What Works on Which Platform</a> &middot; <a href="/verify-post-published">Does Your Post Actually Publish?</a> &middot; <a href="/docs">Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>

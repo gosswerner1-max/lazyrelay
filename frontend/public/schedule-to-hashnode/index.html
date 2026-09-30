@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Schedule Posts to Hashnode with LazyRelay | LazyRelay</title>
+<meta name="description" content="Schedule Hashnode articles with LazyRelay: markdown, subtitle, up to 5 tags, canonical link and draft mode. Needs a blog on Hashnode's Pro plan." />
+<link rel="canonical" href="https://lazyrelay.com/schedule-to-hashnode/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  .faq-item { margin-bottom: 20px; }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Do I need a paid Hashnode plan?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Since May 2026 Hashnode charges for API access, so your blog must be on Hashnode's Pro plan for LazyRelay to connect and post."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I post to a specific blog if I have several?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. When you connect, enter the blog address, for example yourname.hashnode.dev. You only need it if you have more than one blog."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I save a Hashnode article as a draft?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. A draft is saved on Hashnode and reported as saved as a draft. It is never marked confirmed live."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I know my Hashnode article is really live?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LazyRelay reads the article back, requires a public address and a publish time that has passed, then requests that address with no token and requires a successful answer."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/guides">&larr; Back to guides</a>
+<h1>Schedule posts to Hashnode with LazyRelay</h1>
+<p class="subtitle">LazyRelay schedules markdown articles to your Hashnode blog using a personal access token, then checks that the article is really public. LazyRelay's difference is Proof-of-Publish: after a post goes out, it checks Hashnode again to confirm the post is really live.</p>
+
+<h2>What you can post to Hashnode</h2>
+<ul>
+  <li>Text: Hashnode publishes no post length limit that LazyRelay could verify, so this page does not state one (not verified). LazyRelay itself refuses posts over 5000 characters. The text is written in markdown.</li>
+  <li>Text-only posts are accepted.</li>
+  <li>Images: JPEG, PNG, WEBP, GIF, up to 20 MB each. The first image is the cover and the rest appear inside the article. The size limit is LazyRelay's general figure, not verified.</li>
+  <li>Video: not supported.</li>
+  <li>Several files in one post: up to 10 images (no video in a multi-image post).</li>
+  <li>Title and subtitle: the first line of your post is the title, unless you set a title under Platform options. You can also add a subtitle.</li>
+  <li>Tags: up to 5.</li>
+  <li>Canonical link: you can set an original address (an https link) if the article appeared elsewhere first.</li>
+  <li>Draft: you can save the article as a draft instead of publishing it.</li>
+</ul>
+<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features">What Works on Which Platform</a>.</p>
+
+<h2>How to connect Hashnode</h2>
+<ol>
+  <li>Your blog needs Hashnode's Pro plan. Since May 2026 Hashnode charges for API access, and without it connecting and posting fail.</li>
+  <li>On Hashnode open Account settings, then Developer, click Generate New Token, and copy the token.</li>
+  <li>In LazyRelay, open the Social Platforms tab and click the Hashnode tile.</li>
+  <li>Paste the personal access token. If you have more than one blog, also enter the blog address, for example yourname.hashnode.dev.</li>
+  <li>Click Connect.</li>
+</ol>
+
+<h2>How Proof-of-Publish works on Hashnode</h2>
+<p>LazyRelay reads the article back from Hashnode and requires that it has a public address and a publish time that has already passed. It then requests that address the way an ordinary visitor would, with no token, and requires a successful answer from the article's own page. A draft is checked to exist and then reported as saved as a draft, never as confirmed live.</p>
+<p>Want the general idea? Read <a href="/verify-post-published">Does Your Post Actually Publish?</a></p>
+
+<h2>Limits and things to know</h2>
+<ul>
+  <li>Hashnode charges for API access since May 2026, so the blog must be on Hashnode's Pro plan or connecting and posting fail.</li>
+  <li>Hashnode has no video upload here, so a video is refused.</li>
+  <li>Hashnode's post length limit and rate limits are not verified, and LazyRelay does not add a cap of its own.</li>
+  <li>A post saved as a draft is not public, so it is never marked confirmed live and it is not counted in analytics.</li>
+</ul>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Schedule to Hashnode and know it actually went live.</strong></p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+<h2>Frequently asked questions</h2>
+<div class="faq-item">
+  <h3>Do I need a paid Hashnode plan?</h3>
+  <p>Yes. Since May 2026 Hashnode charges for API access, so your blog must be on Hashnode's Pro plan for LazyRelay to connect and post.</p>
+</div>
+<div class="faq-item">
+  <h3>Can I post to a specific blog if I have several?</h3>
+  <p>Yes. When you connect, enter the blog address, for example yourname.hashnode.dev. You only need it if you have more than one blog.</p>
+</div>
+<div class="faq-item">
+  <h3>Can I save a Hashnode article as a draft?</h3>
+  <p>Yes. A draft is saved on Hashnode and reported as saved as a draft. It is never marked confirmed live.</p>
+</div>
+<div class="faq-item">
+  <h3>How do I know my Hashnode article is really live?</h3>
+  <p>LazyRelay reads the article back, requires a public address and a publish time that has passed, then requests that address with no token and requires a successful answer.</p>
+</div>
+
+<p class="note">Figures on this page come from LazyRelay's platform rules, checked on 2026-09-30. Sources: <a href="https://hashnode.com/changelog/2026-05-13-graphql-api-paid-access" rel="noopener">hashnode.com/changelog/2026-05-13-graphql-api-paid-access</a>. Anything marked not verified has no published source.</p>
+<p class="note">Schedule to other platforms: <a href="/schedule-to-facebook/">Facebook</a> &middot; <a href="/schedule-to-instagram/">Instagram</a> &middot; <a href="/schedule-to-tiktok/">TikTok</a> &middot; <a href="/schedule-to-pinterest/">Pinterest</a> &middot; <a href="/schedule-to-youtube/">YouTube</a> &middot; <a href="/schedule-to-linkedin/">LinkedIn</a> &middot; <a href="/schedule-to-threads/">Threads</a> &middot; <a href="/schedule-to-mastodon/">Mastodon</a> &middot; <a href="/schedule-to-bluesky/">Bluesky</a> &middot; <a href="/schedule-to-telegram/">Telegram</a> &middot; <a href="/schedule-to-discord/">Discord</a> &middot; <a href="/schedule-to-tumblr/">Tumblr</a> &middot; <a href="/schedule-to-wordpress/">WordPress</a> &middot; <a href="/schedule-to-devto/">dev.to</a> &middot; <a href="/schedule-to-lemmy/">Lemmy</a></p>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/platform-features">What Works on Which Platform</a> &middot; <a href="/verify-post-published">Does Your Post Actually Publish?</a> &middot; <a href="/docs">Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>

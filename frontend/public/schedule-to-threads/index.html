@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Schedule Posts to Threads with LazyRelay | LazyRelay</title>
+<meta name="description" content="Schedule Threads posts, carousels and reply chains with LazyRelay. Each post is read back from Threads to confirm it is live." />
+<link rel="canonical" href="https://lazyrelay.com/schedule-to-threads/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  .faq-item { margin-bottom: 20px; }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Does LazyRelay support Threads reply chains?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Add up to 10 follow-up posts under Platform options. Each replies to the previous one, and each is limited to 500 characters."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is Threads connected separately from Instagram?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Threads has its own connection, so reconnecting Instagram or Facebook does not affect it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How many characters can a Threads post have?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "500 characters per post, and the same for each follow-up in a chain."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I know my Threads post is really live?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LazyRelay fetches the post back from Threads after publishing and marks it confirmed live only when it returns with a permalink."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/guides">&larr; Back to guides</a>
+<h1>Schedule posts to Threads with LazyRelay</h1>
+<p class="subtitle">LazyRelay schedules Threads posts, carousels and multi-post threads, then reads each post back from Threads to confirm it is live. LazyRelay's difference is Proof-of-Publish: after a post goes out, it checks Threads again to confirm the post is really live.</p>
+
+<h2>What you can post to Threads</h2>
+<ul>
+  <li>Text: up to 500 characters.</li>
+  <li>Text-only posts are accepted.</li>
+  <li>Images: JPEG, PNG, up to 8 MB each. Images should be 320 to 1440 pixels wide.</li>
+  <li>Video: MP4, MOV, up to 1 GB, up to 5 minutes.</li>
+  <li>Several files in one post: up to 10 images or videos.</li>
+  <li>Carousel: Threads' own documentation allows carousels of up to 20 items, while LazyRelay allows up to 10. A carousel can mix images and videos.</li>
+  <li>Thread chain: add up to 10 follow-up posts under Platform options. Each one replies to the one before it, and each is limited to 500 characters.</li>
+</ul>
+<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features">What Works on Which Platform</a>.</p>
+
+<h2>How to connect Threads</h2>
+<ol>
+  <li>Sign in to LazyRelay and open the Social Platforms tab in the top menu.</li>
+  <li>Click the Threads tile.</li>
+  <li>Sign in to Threads when asked, and approve all of the permissions LazyRelay requests. Approving only some of them can make posting stop working later.</li>
+  <li>You land back in LazyRelay with the account connected. If you are logged in to several accounts on that platform in the same browser, log out of the ones you do not want first, so LazyRelay does not connect the wrong one.</li>
+  <li>Threads has its own connection, separate from Instagram and Facebook. Reconnecting Instagram does not refresh the Threads connection.</li>
+</ol>
+
+<h2>How Proof-of-Publish works on Threads</h2>
+<p>After Threads publishes a post, LazyRelay fetches that post back from Threads' own API using the account's access and confirms it comes back with a permalink. Only then is it marked confirmed live. In a thread chain, the follow-up posts are sent after the first post is confirmed live.</p>
+<p>Want the general idea? Read <a href="/verify-post-published">Does Your Post Actually Publish?</a></p>
+
+<h2>Limits and things to know</h2>
+<ul>
+  <li>Threads allows 250 published posts per rolling 24 hours (Threads API documentation). LazyRelay does not add a cap of its own.</li>
+  <li>Video must be MP4 or MOV, and the Threads documentation limits video to 300 seconds.</li>
+</ul>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Schedule to Threads and know it actually went live.</strong></p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+<h2>Frequently asked questions</h2>
+<div class="faq-item">
+  <h3>Does LazyRelay support Threads reply chains?</h3>
+  <p>Yes. Add up to 10 follow-up posts under Platform options. Each replies to the previous one, and each is limited to 500 characters.</p>
+</div>
+<div class="faq-item">
+  <h3>Is Threads connected separately from Instagram?</h3>
+  <p>Yes. Threads has its own connection, so reconnecting Instagram or Facebook does not affect it.</p>
+</div>
+<div class="faq-item">
+  <h3>How many characters can a Threads post have?</h3>
+  <p>500 characters per post, and the same for each follow-up in a chain.</p>
+</div>
+<div class="faq-item">
+  <h3>How do I know my Threads post is really live?</h3>
+  <p>LazyRelay fetches the post back from Threads after publishing and marks it confirmed live only when it returns with a permalink.</p>
+</div>
+
+<p class="note">Figures on this page come from LazyRelay's platform rules, checked on 2026-09-30. Sources: <a href="https://developers.facebook.com/documentation/threads/posts" rel="noopener">developers.facebook.com/documentation/threads/posts</a>. Anything marked not verified has no published source.</p>
+<p class="note">Schedule to other platforms: <a href="/schedule-to-facebook/">Facebook</a> &middot; <a href="/schedule-to-instagram/">Instagram</a> &middot; <a href="/schedule-to-tiktok/">TikTok</a> &middot; <a href="/schedule-to-pinterest/">Pinterest</a> &middot; <a href="/schedule-to-youtube/">YouTube</a> &middot; <a href="/schedule-to-linkedin/">LinkedIn</a> &middot; <a href="/schedule-to-mastodon/">Mastodon</a> &middot; <a href="/schedule-to-bluesky/">Bluesky</a> &middot; <a href="/schedule-to-telegram/">Telegram</a> &middot; <a href="/schedule-to-discord/">Discord</a> &middot; <a href="/schedule-to-tumblr/">Tumblr</a> &middot; <a href="/schedule-to-wordpress/">WordPress</a> &middot; <a href="/schedule-to-devto/">dev.to</a> &middot; <a href="/schedule-to-hashnode/">Hashnode</a> &middot; <a href="/schedule-to-lemmy/">Lemmy</a></p>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/platform-features">What Works on Which Platform</a> &middot; <a href="/verify-post-published">Does Your Post Actually Publish?</a> &middot; <a href="/docs">Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>
