@@ -608,6 +608,41 @@ const COPY = {
       ["Can I post to any Lemmy community?", "You post to one community at a time, written as name or name@server, on the server you connected. Each community has its own rules."],
     ],
   },
+
+  slack: {
+    slug: "slack",
+    label: "Slack",
+    desc: "Schedule text posts to a public Slack channel with LazyRelay, and get a link to the live message as proof that it was posted.",
+    intro: "LazyRelay schedules text posts to one public channel in your Slack workspace, then asks Slack to confirm the message exists and saves the link to it.",
+    connect: () => [
+      "Sign in to LazyRelay and open the Social Platforms tab in the top menu.",
+      "Click the Slack tile.",
+      "Sign in to Slack if asked, choose your workspace, and approve the LazyRelay Slack app on Slack's own screen.",
+      "Back in LazyRelay, pick the public channel LazyRelay should post to, then click Connect this channel.",
+      "To post to another channel later, connect Slack again and pick that channel. Each connection is one workspace and one channel.",
+    ],
+    post: (r) => [
+      textLine(r, "Slack", "Slack formats text its own way (*bold*, _italic_), not Markdown, and LazyRelay sends your text as you typed it. A link in the text shows a preview in Slack."),
+      ...mediaLines(r, {}),
+      "Channel: each connection posts to one public channel, chosen when you connect.",
+      "Mentions: your text is escaped, so it can never ping @channel or @here, or mention anyone.",
+    ],
+    pop: "After the post is sent, LazyRelay asks Slack for the link to the message. The post only counts as live once Slack confirms that the message exists, and that link to the message in Slack is saved as your proof link. If Slack cannot confirm the message, the post is flagged instead of being marked as published.",
+    caveats: [
+      "Slack posts are text and links only for now. Images and videos are not supported and are refused when you schedule.",
+      "Private channels are not offered when you connect. To post to a private channel, invite the LazyRelay app to it in Slack first.",
+      "Some workspaces limit who can post in a channel, for example in #general. If that stops LazyRelay, a Slack admin has to allow it.",
+      "Slack allows about one message per second per channel, and LazyRelay does not add a cap of its own.",
+      "LazyRelay does not offer analytics, comment replies or direct messages for Slack.",
+    ],
+    faq: () => [
+      ["Can I post images or video to Slack with LazyRelay?", "Not yet. Slack posts are text and links only, and a post with an image or video is refused when you schedule it."],
+      ["Can I post to a private Slack channel?", "Private channels are not offered when you connect. If you want one, invite the LazyRelay app to that channel in Slack first."],
+      ["Can a LazyRelay post ping my whole channel?", "No. LazyRelay escapes your text, so it can never ping @channel or @here, or mention a person."],
+      ["How long can a Slack post be?", "Up to 4000 characters."],
+      ["How do I know my Slack message is really there?", "LazyRelay asks Slack to confirm the message exists and saves the link to it as your proof. If Slack cannot confirm it, the post is flagged."],
+    ],
+  },
 };
 
 // Signatures of the rules each COPY entry was written against. Refresh with --print-sigs after review.
@@ -627,14 +662,15 @@ const COPY_SIGS = {
   "wordpress": "97bc8d4831c5",
   "devto": "c2d4e69d73e7",
   "hashnode": "eabacaff6494",
-  "lemmy": "3eae25a5934d"
+  "lemmy": "3eae25a5934d",
+  "slack": "50e49d1c1c5d"
 };
 
 // ---------------------------------------------------------------------------------------------
 // 4. Page template, copying the structure, CSS, header/footer and JSON-LD of
 //    frontend/public/mastodon-bluesky-tumblr-scheduler/index.html
 // ---------------------------------------------------------------------------------------------
-const ORDER = ["facebook", "instagram", "tiktok", "pinterest", "youtube", "linkedin", "threads", "mastodon", "bluesky", "telegram", "discord", "tumblr", "wordpress", "devto", "hashnode", "lemmy"];
+const ORDER = ["facebook", "instagram", "tiktok", "pinterest", "youtube", "linkedin", "threads", "mastodon", "bluesky", "telegram", "discord", "tumblr", "wordpress", "devto", "hashnode", "lemmy", "slack"];
 
 const CSS = `  :root { color-scheme: light dark; }
   body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
@@ -756,6 +792,8 @@ if (process.argv.includes("--print-sigs")) {
 }
 
 const checked = rulesCheckedDate();
+// Slack was checked against its docs on 2026-10-01 (see platformRules.ts), a day after the other platforms.
+const CHECKED_OVERRIDE = { slack: "2026-10-01" };
 const manifest = [];
 const problems = [];
 
@@ -767,7 +805,7 @@ for (const slug of ORDER) {
     console.warn(`WARNING: the rules for ${slug} changed since its copy was written. Re-read COPY.${slug} against platformRules.ts, then run with --print-sigs and update COPY_SIGS.`);
   }
   if (c.desc.length >= 160) problems.push(`${slug}: meta description is ${c.desc.length} characters, must be under 160`);
-  const html = renderPage(c, r, ORDER, checked);
+  const html = renderPage(c, r, ORDER, CHECKED_OVERRIDE[slug] ?? checked);
   if (/[–—]/.test(html)) problems.push(`${slug}: output contains an em dash or en dash`);
   const dir = join(PUBLIC_DIR, `schedule-to-${c.slug}`);
   manifest.push({

@@ -25,10 +25,10 @@ const backend = join(repo, "backend");
 const pagePath = join(repo, "frontend", "public", "free-tools", "post-checker", "index.html");
 const manifestPath = join(here, "free-tools-manifest.json");
 
-// The 16 platforms of the checker, in display order (X is deliberately not included).
+// The 17 platforms of the checker, in display order (X is deliberately not included).
 export const PLATFORM_ORDER = [
   "facebook", "instagram", "tiktok", "pinterest", "youtube", "linkedin", "threads", "mastodon",
-  "bluesky", "telegram", "discord", "tumblr", "wordpress", "devto", "hashnode", "lemmy",
+  "bluesky", "telegram", "discord", "tumblr", "wordpress", "devto", "hashnode", "lemmy", "slack",
 ];
 
 const DASH = /[\u2013\u2014]/;

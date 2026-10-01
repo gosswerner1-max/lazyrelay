@@ -157,7 +157,7 @@ const AGENCY_PRICING = [
 const COMPARISON = [
   { label: "How you use it", us: "Real dashboard — click, don't code", them: "API/CLI only, or a dashboard bolted onto an API-first tool" },
   { label: "Pricing", us: "Shown on the homepage, every tier", them: "Often hidden behind “Contact sales”" },
-  { label: "Platform coverage", us: "16 platforms, including Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress, dev.to, Hashnode, and Lemmy", them: "Usually stops at the big four or five" },
+  { label: "Platform coverage", us: "17 platforms, including Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress, dev.to, Hashnode, Lemmy, and Slack", them: "Usually stops at the big four or five" },
   { label: "“Sent” vs. “live”", us: "Proof-of-Publish independently confirms a post is actually live", them: "“Sent” is treated as done" },
   { label: "Getting started", us: "Free tier, no card required", them: "A card is often required just to try it" },
 ];
@@ -476,7 +476,7 @@ const FAQ = [
   },
   {
     q: "Which platforms are supported?",
-    a: "Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, and four places for longer writing and communities: WordPress (your own self-hosted site), dev.to, Hashnode (your blog needs Hashnode's Pro plan, because Hashnode charges for API access), and Lemmy. Mastodon works with any Mastodon server: you type the address of the one your account is on when you connect. YouTube uploads through LazyRelay accept files up to 1GB, so full-length videos work too, not just Shorts-length clips.",
+    a: "Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, Slack (text posts to one public channel you pick), and four places for longer writing and communities: WordPress (your own self-hosted site), dev.to, Hashnode (your blog needs Hashnode's Pro plan, because Hashnode charges for API access), and Lemmy. Mastodon works with any Mastodon server: you type the address of the one your account is on when you connect. YouTube uploads through LazyRelay accept files up to 1GB, so full-length videos work too, not just Shorts-length clips.",
   },
   {
     q: "Can I set up a recurring posting schedule instead of scheduling each post one at a time?",

@@ -21,7 +21,8 @@ const run = (id, o) => L.check(P(id), { text: "", images: 0, video: false, ...o 
 let n = 0;
 const t = (name, fn) => { fn(); n++; console.log("ok  " + name); };
 
-t("16 platforms, no X", () => { assert.equal(data.platforms.length, 16); assert.ok(!P("x")); });
+t("17 platforms, no X", () => { assert.equal(data.platforms.length, 17); assert.ok(!P("x")); });
+t("Slack is in the checker: text only, 4000 characters", () => { assert.ok(P("slack")); assert.equal(P("slack").text.maxLength, 4000); assert.equal(P("slack").media.imageSupported, false); });
 t("bluesky limit from repo data is 300", () => assert.equal(P("bluesky").text.maxLength, 300));
 t("301 chars fails Bluesky, 300 passes", () => {
   assert.equal(run("bluesky", { text: "a".repeat(301) }).overall, "fail");

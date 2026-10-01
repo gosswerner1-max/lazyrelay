@@ -1,6 +1,6 @@
 # LazyRelay
 
-> Schedule social posts across 16 platforms and independently verify each one actually went live — not just that it was sent.
+> Schedule social posts across 17 platforms and independently verify each one actually went live — not just that it was sent.
 
 LazyRelay is a social media scheduling platform built around Proof-of-Publish: instead of marking a post "sent" the moment an API call is accepted, it independently re-checks each platform afterward to confirm the post is genuinely live. A free tier is available with no card required, and AI-agent/MCP access is included on every plan, including Free.
 
@@ -10,7 +10,7 @@ LazyRelay is a social media scheduling platform built around Proof-of-Publish: i
 - [Pricing (machine-readable)](https://lazyrelay.com/pricing.md): Structured plan/price/limit data for AI agents.
 - [API & MCP Docs](https://lazyrelay.com/docs/): REST API and MCP server reference for scheduling and verifying posts programmatically.
 - [Integrations](https://lazyrelay.com/mcp/): Connect LazyRelay to 15 AI agents and editors (Claude, ChatGPT, Gemini, Cursor, Notion, and more) plus Zapier, all via one hosted MCP server.
-- [Platform Coverage](https://lazyrelay.com/platform-features/): Feature-by-platform breakdown across all 12 supported platforms.
+- [Platform Coverage](https://lazyrelay.com/platform-features/): Feature-by-platform breakdown across all 17 supported platforms.
 - [Guides](https://lazyrelay.com/guides/): Full guide index.
 
 ## Guides
@@ -27,7 +27,7 @@ LazyRelay is a social media scheduling platform built around Proof-of-Publish: i
 - [Connect to Make](https://lazyrelay.com/connect-make/): Schedule and publish from Make scenarios with copy-paste HTTP and webhook settings.
 - [OpenAPI](https://lazyrelaylazyrelay-backend.onrender.com/api/openapi.json): The public REST API as an OpenAPI 3.1 document, for tools, code generators and agents.
 - [Free Social Media Tools](https://lazyrelay.com/free-tools/): Free, no-sign-up tools for people who post to several platforms: check whether a post fits each platform, and see what repeated posting costs you.
-- [Will My Post Fit? Free Post Length and Media Checker](https://lazyrelay.com/free-tools/post-checker/): Paste a post and see if it fits the text limit and media rules on 16 platforms, from Bluesky to YouTube. Where no limit is published, we say so.
+- [Will My Post Fit? Free Post Length and Media Checker](https://lazyrelay.com/free-tools/post-checker/): Paste a post and see if it fits the text limit and media rules on 17 platforms, from Bluesky to YouTube. Where no limit is published, we say so.
 - [LazyRelay for Developers: API, MCP, SDK and CLI](https://lazyrelay.com/developers/): LazyRelay for developers: a REST API with an OpenAPI 3.1 description, an MCP server with 27 tools, a Node SDK and command line tool, and an n8n node.
 - [Time-Savings Calculator](https://lazyrelay.com/time-savings-calculator/): Estimate hours saved by scheduling once across multiple platforms.
 
@@ -79,3 +79,4 @@ What LazyRelay accepts, how to connect, and how Proof-of-Publish works on each p
 - [Schedule Posts to dev.to with LazyRelay](https://lazyrelay.com/schedule-to-devto/)
 - [Schedule Posts to Hashnode with LazyRelay](https://lazyrelay.com/schedule-to-hashnode/)
 - [Schedule Posts to Lemmy with LazyRelay](https://lazyrelay.com/schedule-to-lemmy/)
+- [Schedule Posts to Slack with LazyRelay](https://lazyrelay.com/schedule-to-slack/)

@@ -1,0 +1,28 @@
+import { describe, it, expect, vi } from "vitest";
+
+// Importing the knowledge pulls in modules that need a database client. Nothing here touches one.
+vi.mock("../supabase.js", () => ({ supabase: { from: () => ({}) } }));
+
+const { buildSupportSystemPrompt } = await import("./chatKnowledge.js");
+const { getPlatformRules } = await import("../platformRules.js");
+
+describe("support bot knowledge: platforms", () => {
+  const prompt = buildSupportSystemPrompt(null);
+  const line = (prompt.split("\n").find((l) => l.startsWith("PLATFORMS LazyRelay posts to today:")) ?? "");
+
+  it("lists every platform LazyRelay can post to (X is only coming soon), Slack included", () => {
+    const labels = getPlatformRules().filter((r) => r.platform !== "x").map((r) => r.label);
+    expect(labels).toContain("Slack");
+    // A rules label can be longer than the name customers see (for example "Facebook Page"), so match its first word.
+    for (const label of labels) expect(line, label).toContain(label.split(" ")[0]);
+    expect(line.replace("PLATFORMS LazyRelay posts to today:", "").split(",").length).toBe(labels.length);
+    expect(labels.length).toBe(17);
+  });
+
+  it("no longer says Slack is unreleased, and states its real limits", () => {
+    expect(prompt).not.toMatch(/Slack is NOT released/i);
+    expect(prompt).toMatch(/Slack \(added 2026-10-01\)/);
+    expect(prompt).toContain("4,000 characters");
+    expect(prompt).toMatch(/Private channels are not offered/);
+  });
+});

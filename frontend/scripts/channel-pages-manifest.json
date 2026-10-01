@@ -94,5 +94,11 @@
     "url": "https://lazyrelay.com/schedule-to-lemmy/",
     "title": "Schedule Posts to Lemmy with LazyRelay | LazyRelay",
     "description": "Schedule Lemmy posts to the community you choose with LazyRelay: title, markdown body, link posts and images, with a check that strangers can see the post."
+  },
+  {
+    "slug": "slack",
+    "url": "https://lazyrelay.com/schedule-to-slack/",
+    "title": "Schedule Posts to Slack with LazyRelay | LazyRelay",
+    "description": "Schedule text posts to a public Slack channel with LazyRelay, and get a link to the live message as proof that it was posted."
   }
 ]

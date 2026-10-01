@@ -9,7 +9,7 @@
 // mediaLimits.ts exports no getter (only validateMediaForPlatform), so the file
 // size and format numbers below are copied from its RULES table and marked
 // "mediaLimits.ts" in comments. Every other number was checked against the
-// platform's official docs on 2026-09-30 and the URL is in `sources`. A number
+// platform's official docs on 2026-09-30 (Slack on 2026-10-01) and the URL is in `sources`. A number
 // that could not be verified is null and says "not verified" in its note.
 //
 // No em dash or en dash characters in any string value (a test enforces it).
@@ -503,7 +503,11 @@ function buildRules(): PlatformRuleSet[] {
         "Private channels are not offered in the picker. If a private channel is ever used, the Slack app has to be invited to it first.",
         "Slack formats text with its own mrkdwn (*bold*, _italic_), not standard Markdown. The text is sent as typed.",
       ],
-      sources: ["https://docs.slack.dev/reference/methods/chat.postMessage", "https://docs.slack.dev/reference/methods/chat.getPermalink"],
+      sources: [
+        "https://docs.slack.dev/reference/methods/chat.postMessage/",
+        "https://docs.slack.dev/reference/methods/chat.getPermalink/",
+        "https://docs.slack.dev/authentication/installing-with-oauth/",
+      ],
     },
     {
       platform: "telegram",

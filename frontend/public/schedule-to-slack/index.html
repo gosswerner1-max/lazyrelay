@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Schedule Posts to Slack with LazyRelay | LazyRelay</title>
+<meta name="description" content="Schedule text posts to a public Slack channel with LazyRelay, and get a link to the live message as proof that it was posted." />
+<link rel="canonical" href="https://lazyrelay.com/schedule-to-slack/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
+  h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
+  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  .faq-item { margin-bottom: 20px; }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Can I post images or video to Slack with LazyRelay?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Not yet. Slack posts are text and links only, and a post with an image or video is refused when you schedule it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I post to a private Slack channel?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Private channels are not offered when you connect. If you want one, invite the LazyRelay app to that channel in Slack first."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can a LazyRelay post ping my whole channel?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. LazyRelay escapes your text, so it can never ping @channel or @here, or mention a person."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How long can a Slack post be?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Up to 4000 characters."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I know my Slack message is really there?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LazyRelay asks Slack to confirm the message exists and saves the link to it as your proof. If Slack cannot confirm it, the post is flagged."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/guides">&larr; Back to guides</a>
+<h1>Schedule posts to Slack with LazyRelay</h1>
+<p class="subtitle">LazyRelay schedules text posts to one public channel in your Slack workspace, then asks Slack to confirm the message exists and saves the link to it. LazyRelay's difference is Proof-of-Publish: after a post goes out, it checks Slack again to confirm the post is really live.</p>
+
+<h2>What you can post to Slack</h2>
+<ul>
+  <li>Text: up to 4000 characters. Slack formats text its own way (*bold*, _italic_), not Markdown, and LazyRelay sends your text as you typed it. A link in the text shows a preview in Slack.</li>
+  <li>Text-only posts are accepted.</li>
+  <li>Images: not supported.</li>
+  <li>Video: not supported.</li>
+  <li>Several files in one post: not supported, one file per post.</li>
+  <li>Channel: each connection posts to one public channel, chosen when you connect.</li>
+  <li>Mentions: your text is escaped, so it can never ping @channel or @here, or mention anyone.</li>
+</ul>
+<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features">What Works on Which Platform</a>.</p>
+
+<h2>How to connect Slack</h2>
+<ol>
+  <li>Sign in to LazyRelay and open the Social Platforms tab in the top menu.</li>
+  <li>Click the Slack tile.</li>
+  <li>Sign in to Slack if asked, choose your workspace, and approve the LazyRelay Slack app on Slack's own screen.</li>
+  <li>Back in LazyRelay, pick the public channel LazyRelay should post to, then click Connect this channel.</li>
+  <li>To post to another channel later, connect Slack again and pick that channel. Each connection is one workspace and one channel.</li>
+</ol>
+
+<h2>How Proof-of-Publish works on Slack</h2>
+<p>After the post is sent, LazyRelay asks Slack for the link to the message. The post only counts as live once Slack confirms that the message exists, and that link to the message in Slack is saved as your proof link. If Slack cannot confirm the message, the post is flagged instead of being marked as published.</p>
+<p>Want the general idea? Read <a href="/verify-post-published">Does Your Post Actually Publish?</a></p>
+
+<h2>Limits and things to know</h2>
+<ul>
+  <li>Slack posts are text and links only for now. Images and videos are not supported and are refused when you schedule.</li>
+  <li>Private channels are not offered when you connect. To post to a private channel, invite the LazyRelay app to it in Slack first.</li>
+  <li>Some workspaces limit who can post in a channel, for example in #general. If that stops LazyRelay, a Slack admin has to allow it.</li>
+  <li>Slack allows about one message per second per channel, and LazyRelay does not add a cap of its own.</li>
+  <li>LazyRelay does not offer analytics, comment replies or direct messages for Slack.</li>
+</ul>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Schedule to Slack and know it actually went live.</strong></p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+<h2>Frequently asked questions</h2>
+<div class="faq-item">
+  <h3>Can I post images or video to Slack with LazyRelay?</h3>
+  <p>Not yet. Slack posts are text and links only, and a post with an image or video is refused when you schedule it.</p>
+</div>
+<div class="faq-item">
+  <h3>Can I post to a private Slack channel?</h3>
+  <p>Private channels are not offered when you connect. If you want one, invite the LazyRelay app to that channel in Slack first.</p>
+</div>
+<div class="faq-item">
+  <h3>Can a LazyRelay post ping my whole channel?</h3>
+  <p>No. LazyRelay escapes your text, so it can never ping @channel or @here, or mention a person.</p>
+</div>
+<div class="faq-item">
+  <h3>How long can a Slack post be?</h3>
+  <p>Up to 4000 characters.</p>
+</div>
+<div class="faq-item">
+  <h3>How do I know my Slack message is really there?</h3>
+  <p>LazyRelay asks Slack to confirm the message exists and saves the link to it as your proof. If Slack cannot confirm it, the post is flagged.</p>
+</div>
+
+<p class="note">Figures on this page come from LazyRelay's platform rules, checked on 2026-10-01. Sources: <a href="https://docs.slack.dev/reference/methods/chat.postMessage/" rel="noopener">docs.slack.dev/reference/methods/chat.postMessage/</a>, <a href="https://docs.slack.dev/reference/methods/chat.getPermalink/" rel="noopener">docs.slack.dev/reference/methods/chat.getPermalink/</a>, <a href="https://docs.slack.dev/authentication/installing-with-oauth/" rel="noopener">docs.slack.dev/authentication/installing-with-oauth/</a>. Anything marked not verified has no published source.</p>
+<p class="note">Schedule to other platforms: <a href="/schedule-to-facebook/">Facebook</a> &middot; <a href="/schedule-to-instagram/">Instagram</a> &middot; <a href="/schedule-to-tiktok/">TikTok</a> &middot; <a href="/schedule-to-pinterest/">Pinterest</a> &middot; <a href="/schedule-to-youtube/">YouTube</a> &middot; <a href="/schedule-to-linkedin/">LinkedIn</a> &middot; <a href="/schedule-to-threads/">Threads</a> &middot; <a href="/schedule-to-mastodon/">Mastodon</a> &middot; <a href="/schedule-to-bluesky/">Bluesky</a> &middot; <a href="/schedule-to-telegram/">Telegram</a> &middot; <a href="/schedule-to-discord/">Discord</a> &middot; <a href="/schedule-to-tumblr/">Tumblr</a> &middot; <a href="/schedule-to-wordpress/">WordPress</a> &middot; <a href="/schedule-to-devto/">dev.to</a> &middot; <a href="/schedule-to-hashnode/">Hashnode</a> &middot; <a href="/schedule-to-lemmy/">Lemmy</a></p>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/platform-features">What Works on Which Platform</a> &middot; <a href="/verify-post-published">Does Your Post Actually Publish?</a> &middot; <a href="/docs">Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>
