@@ -332,7 +332,7 @@ export function SettingsTab() {
                   <strong>Save these recovery codes</strong> somewhere safe — each one lets you back into your
                   account if you ever lose access to your authenticator app. They won't be shown again.
                 </p>
-                <CodeBlock code={mfaRecoveryCodes.join("\n")} />
+                <CodeBlock code={mfaRecoveryCodes.join("\n")} sensitive />
                 <button type="button" className="btn-outline" onClick={() => setMfaRecoveryCodes(null)}>
                   Done
                 </button>
