@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-lazyrelay",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "n8n community nodes for LazyRelay: schedule and publish social posts, manage drafts, media, analytics and client review links, and start workflows from signed LazyRelay webhooks.",
   "keywords": [
     "n8n-community-node-package",
