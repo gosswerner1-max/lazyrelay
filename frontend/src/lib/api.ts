@@ -569,6 +569,9 @@ export const api = {
   // stays correct even if new posts fire in between "Load more" clicks.
   loadMoreHistory: (before: string, limit = 50): Promise<ScheduledPost[]> =>
     authedFetch(`/scheduled-posts/history?before=${encodeURIComponent(before)}&limit=${limit}`),
+  // Failed posts only (newest first) for the Failed tab.
+  listFailedPosts: (before?: string, limit = 50): Promise<ScheduledPost[]> =>
+    authedFetch(`/scheduled-posts/history?status=failed&limit=${limit}${before ? `&before=${encodeURIComponent(before)}` : ""}`),
   createScheduledPost: (input: {
     socialAccountId: string;
     content: string;

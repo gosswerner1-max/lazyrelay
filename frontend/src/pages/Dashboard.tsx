@@ -28,13 +28,14 @@ import { BioPageTab } from "./dashboard/BioPageTab";
 import { OverviewTab } from "./dashboard/OverviewTab";
 import { SocialPlatformsTab } from "./dashboard/SocialPlatformsTab";
 import { PostsTab } from "./dashboard/PostsTab";
+import { FailedTab } from "./dashboard/FailedTab";
 import { CalendarTab } from "./dashboard/CalendarTab";
 import { SettingsTab } from "./dashboard/SettingsTab";
 import { ApiKeysTab } from "./dashboard/ApiKeysTab";
 import "./Dashboard.css";
 
 const ProductTour = lazy(() => import("../components/ProductTour").then((m) => ({ default: m.ProductTour })));
-const MAIN_TABS: Tab[] = ["Overview", "Posts", "Calendar", "Social Platforms", "API Keys", "Settings"];
+const MAIN_TABS: Tab[] = ["Overview", "Posts", "Failed", "Calendar", "Social Platforms", "API Keys", "Settings"];
 const MORE_TABS: Tab[] = ["Analytics", "Mentions", "DMs", "Bio Page"];
 
 // Reply-to-comment and DM read/reply/automation for Facebook and Instagram
@@ -52,6 +53,7 @@ export function Dashboard() {
   const {
     signOut,
     accounts,
+    posts,
     pendingSelection,
     checkedOptionIds,
     setCheckedOptionIds,
@@ -103,6 +105,7 @@ export function Dashboard() {
     isFreeOrLapsed,
     periodEndDate,
   } = state;
+  const failedCount = posts.filter((p) => p.status === "failed").length;
 
   if (loading) {
     return (
@@ -170,6 +173,7 @@ export function Dashboard() {
             onClick={() => setTab(t)}
           >
             {t}
+            {t === "Failed" && failedCount > 0 && <span className="tab-badge">{failedCount}</span>}
           </button>
         ))}
         <div className="tab-more" ref={moreMenuRef}>
@@ -251,6 +255,8 @@ export function Dashboard() {
       {tab === "Social Platforms" && <SocialPlatformsTab />}
 
       {tab === "Posts" && <PostsTab />}
+
+      {tab === "Failed" && <FailedTab />}
 
       {tab === "Calendar" && <CalendarTab />}
 

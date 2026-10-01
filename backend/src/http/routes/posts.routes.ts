@@ -632,7 +632,9 @@ export function buildPostsRouter(): Router {
       .from("scheduled_posts")
       .select("*, post_results(*)")
       .eq("account_id", req.accountId)
-      .in("status", HISTORY_STATUSES)
+      // ?status=failed powers the dashboard's Failed tab, so older failures
+      // aren't hidden behind the newest page of mixed posted/failed history.
+      .in("status", req.query.status === "failed" ? ["failed"] : HISTORY_STATUSES)
       .order("scheduled_for", { ascending: false })
       .order("created_at", { ascending: false, referencedTable: "post_results" })
       .limit(limit);
