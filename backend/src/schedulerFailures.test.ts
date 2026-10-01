@@ -13,7 +13,7 @@ vi.mock("./supabase.js", async () => {
 const notifyOps = vi.fn(async (_m: string) => {});
 vi.mock("./notify.js", () => ({ notifyOps: (m: string) => notifyOps(m) }));
 const sendReconnectNeededEmail = vi.fn();
-vi.mock("./email.js", () => ({ sendFailureAlert: vi.fn(), sendAccountPausedAlert: vi.fn(), sendReconnectNeededEmail: (...a: unknown[]) => sendReconnectNeededEmail(...a) }));
+vi.mock("./email.js", () => ({ sendFailureAlert: vi.fn(), sendAccountPausedAlert: vi.fn(), sendPinterestPausedAlert: vi.fn(), sendReconnectNeededEmail: (...a: unknown[]) => sendReconnectNeededEmail(...a) }));
 const dispatchWebhookEvent = vi.fn(async (_e: Record<string, unknown>) => {});
 vi.mock("./webhook.js", () => ({ dispatchWebhookEvent: (e: Record<string, unknown>) => dispatchWebhookEvent(e) }));
 

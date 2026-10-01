@@ -119,6 +119,9 @@ export function useDashboardState() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Server heads-up after scheduling (a Pinterest link host Pinterest recently
+  // blocked). Own warning style; the post was still scheduled.
+  const [postWarning, setPostWarning] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Overview");
   const [runTour, setRunTour] = useState(false);
   const [showGcalPrompt, setShowGcalPrompt] = useState(false);
@@ -1357,6 +1360,14 @@ export function useDashboardState() {
   const tiktokPublishBlockedText =
     tiktokCantPostReason ?? tiktokVideoTooLongText ?? (tiktokDisclosureIncomplete ? TIKTOK_DISCLOSURE_HOVER : null);
 
+  /** Shows the server's heads-up(s) from a create or reschedule response, one
+   *  line per host. The post is already saved; this only informs. */
+  function showPostWarnings(saved: Array<ScheduledPost | null | undefined>) {
+    const byHost = new Map<string, string>();
+    for (const w of saved.flatMap((p) => p?.warnings ?? [])) byHost.set(w.host, w.message);
+    setPostWarning(byHost.size > 0 ? [...byHost.values()].join(" ") : null);
+  }
+
   async function submitPost(scheduledForIso: string, requiresApprovalOverride = requiresApproval) {
     if (selectedAccountIds.length === 0) {
       setError("Select at least one connected account to post to.");
@@ -1376,7 +1387,9 @@ export function useDashboardState() {
     }
     setSubmitting(true);
     setError(null);
+    setPostWarning(null);
     try {
+      const saved: ScheduledPost[] = [];
       // One scheduled_posts row per selected account — same media/time fanned
       // out to every platform the customer checked, via the existing
       // single-post endpoint rather than a new batch one. Content is the
@@ -1429,11 +1442,12 @@ export function useDashboardState() {
           requiresApproval: requiresApprovalOverride,
         };
         if (i === 0 && editingDraftId) {
-          await api.scheduleDraft(editingDraftId, fields);
+          saved.push(await api.scheduleDraft(editingDraftId, fields));
         } else {
-          await api.createScheduledPost(fields);
+          saved.push(await api.createScheduledPost(fields));
         }
       }
+      showPostWarnings(saved);
       setContent("");
       setScheduleDate("");
       setScheduleTime("");
@@ -1751,8 +1765,9 @@ export function useDashboardState() {
     if (!scheduledFor) return;
     setReschedulingId(id);
     setError(null);
+    setPostWarning(null);
     try {
-      await api.rescheduleScheduledPost(id, scheduledFor);
+      showPostWarnings([await api.rescheduleScheduledPost(id, scheduledFor)]);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -2734,6 +2749,7 @@ export function useDashboardState() {
     error,
     setError,
     notice,
+    postWarning,
     tab,
     setTab,
     runTour,

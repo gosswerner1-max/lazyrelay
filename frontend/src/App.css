@@ -451,6 +451,11 @@
   margin: 0;
 }
 
+.notice-warn {
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+
 /* Dashboard */
 
 .dashboard {

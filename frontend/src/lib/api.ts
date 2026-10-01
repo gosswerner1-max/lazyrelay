@@ -118,6 +118,14 @@ export interface SeatCapacity {
   totalLimit: number;
 }
 
+// A heads-up the server attaches to a create or reschedule response. The post
+// itself was saved either way; today only "pinterest_link_recently_blocked".
+export interface PostWarning {
+  code: string;
+  host: string;
+  message: string;
+}
+
 export interface ScheduledPost {
   id: string;
   // Drafts (2026-08-16) have neither an account nor a time committed yet —
@@ -129,6 +137,7 @@ export interface ScheduledPost {
   board_id: string | null;
   destination_link: string | null;
   first_comment: string | null;
+  warnings?: PostWarning[];
   media_alt_text: string | null;
   // Optional extras (backend 0101, 0102, 0104).
   tags?: string[] | null;

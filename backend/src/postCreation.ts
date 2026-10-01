@@ -29,6 +29,7 @@ import {
   wouldExceedRolling24hLimit,
 } from "./platformPostLimits.js";
 import { resolvePostLimitAt } from "./pinterestWarmup.js";
+import { checkPinterestLinkWarnings } from "./pinterestLinkWarnings.js";
 
 /** Free tier: 10 posts per connected account per calendar month. */
 export const FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT = 10;
@@ -553,5 +554,8 @@ export async function scheduleOnePost(
   // function.
   void syncPostToCalendar(data.id);
   void syncAccountSheet(data.account_id);
-  return { status: 201, body: data };
+  // Heads-up only, after the post exists: a Pinterest link host that Pinterest
+  // recently blocked. Never blocks or changes the post (see pinterestLinkWarnings.ts).
+  const warnings = await checkPinterestLinkWarnings({ platform: validated.account.platform, content, destinationLink });
+  return { status: 201, body: warnings.length > 0 ? { ...data, warnings } : data };
 }

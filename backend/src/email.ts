@@ -18,8 +18,8 @@ function getClient(): Resend | null {
 }
 
 /** The opt-in failure-alerts toggle on the dashboard's Account tab governs
- *  exactly two senders — a terminal post failure and an account pause. Shared
- *  so those two can't drift apart in wording. */
+ *  exactly three senders — a terminal post failure, an account pause and the
+ *  Pinterest blocked-link pause. Shared so they can't drift apart in wording. */
 const FAILURE_ALERT_FOOTER =
   "You're getting this because you turned on failure alerts in your LazyRelay dashboard's Account settings. Turn it off there any time.";
 
@@ -92,6 +92,30 @@ export function sendFailureAlert(to: string, content: string, reason: string): v
       if (result.error) console.error("[email] sendFailureAlert failed:", result.error.message);
     })
     .catch((err) => console.error("[email] sendFailureAlert threw:", err instanceof Error ? err.message : err));
+}
+
+/** Sent once when LazyRelay pauses a customer's other pending Pinterest posts
+ *  after two blocked-link failures in a row (scheduler.ts). Same opt-in
+ *  failure-alert toggle and fire-and-forget behavior as sendFailureAlert. */
+export function sendPinterestPausedAlert(to: string): void {
+  const client = getClient();
+  if (!client) return;
+  client.emails
+    .send({
+      from: `LazyRelay <${FROM_ADDRESS}>`,
+      to,
+      subject: "We paused your pending Pinterest posts",
+      html: wrapEmailHtml(
+        "We paused your pending Pinterest posts",
+        `Pinterest blocked the link in two of your pins in a row, so we paused your other pending Pinterest posts to protect your account. Nothing was deleted.<br><br>` +
+          `When you are ready, press Resume on each post, or ask Pinterest to review your website address in Pinterest's Help Center.`,
+        FAILURE_ALERT_FOOTER
+      ),
+    })
+    .then((result) => {
+      if (result.error) console.error("[email] sendPinterestPausedAlert failed:", result.error.message);
+    })
+    .catch((err) => console.error("[email] sendPinterestPausedAlert threw:", err instanceof Error ? err.message : err));
 }
 
 /** Referral-partner program v2 (2026-09-29) -- fires once, the moment a

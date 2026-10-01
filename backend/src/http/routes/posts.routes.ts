@@ -12,6 +12,7 @@ import { syncPostToCalendar, deletePostFromCalendar } from "../../googleCalendar
 import { syncAccountSheet } from "../../googleSheets/outboundSync.js";
 import { requireAuth, type AuthedRequest } from "../auth.js";
 import { tieredRateLimit } from "../rateLimit.js";
+import { checkPinterestLinkWarnings } from "../../pinterestLinkWarnings.js";
 import { scheduleOnePost, validatePostFields, validateScheduledFor, checkFreeTierPostLimit, checkPlatformPostLimit, MAX_POST_CONTENT_LENGTH, TIKTOK_PRIVACY_LEVELS } from "../../postCreation.js";
 import { dbError, resolveBrandFilterSocialAccountIds, fetchAllRows } from "./shared.js";
 import { validateBody, nonEmptyString, optionalNullableString, optionalBoolean, unvalidated } from "../validation.js";
@@ -527,7 +528,8 @@ export function buildPostsRouter(): Router {
     }
     void syncPostToCalendar(data.id);
     void syncAccountSheet(req.accountId!);
-    res.json(data);
+    const warnings = await checkPinterestLinkWarnings({ platform: validated.account.platform, content, destinationLink });
+    res.json(warnings.length > 0 ? { ...data, warnings } : data);
   });
 
   const HISTORY_STATUSES = ["posted", "failed"];
@@ -691,7 +693,7 @@ export function buildPostsRouter(): Router {
 
     const { data: existing, error: fetchError } = await req.db!
       .from("scheduled_posts")
-      .select("id, status, paused_at, social_account_id, social_accounts(platform)")
+      .select("id, status, paused_at, social_account_id, content, destination_link, social_accounts(platform)")
       .eq("id", req.params.id)
       .eq("account_id", req.accountId)
       .maybeSingle();
@@ -763,7 +765,9 @@ export function buildPostsRouter(): Router {
     // event's time rather than creating a second one.
     void syncPostToCalendar(data.id);
     void syncAccountSheet(req.accountId!);
-    res.json(data);
+    // Heads-up only: a link host Pinterest recently blocked (pinterestLinkWarnings.ts).
+    const warnings = await checkPinterestLinkWarnings({ platform: socialAccount?.platform ?? "", content: existing.content, destinationLink: existing.destination_link });
+    res.json(warnings.length > 0 ? { ...data, warnings } : data);
   });
 
   // Pause/resume a single pending post without cancelling it — a

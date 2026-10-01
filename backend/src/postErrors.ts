@@ -29,7 +29,11 @@ export const PINTEREST_BLOCKED_LINK_MESSAGE =
 export const PINTEREST_DAILY_LIMIT_MESSAGE =
   "Pinterest limits how many pins one account can post in a day. Try again tomorrow, or spread your pins across more days.";
 
-export type PostErrorKind = "retry" | "fatal" | "reconnect" | "ours";
+// What Pinterest's own rejection says. Shared with the blocked-link breaker
+// and the scheduling-time warning so all three recognize the same failures.
+export const PINTEREST_BLOCKED_LINK_PATTERN = /blocked this link|may lead to spam/i;
+
+export type PostErrorKind ="retry" | "fatal" | "reconnect" | "ours";
 
 export interface ClassifiedPostError {
   kind: PostErrorKind;
@@ -63,7 +67,7 @@ const RULES: Rule[] = [
   // ---- Platform-specific, seen in real failures ----
   {
     platform: "pinterest",
-    test: /blocked this link|may lead to spam/i,
+    test: PINTEREST_BLOCKED_LINK_PATTERN,
     kind: "fatal",
     message: () => PINTEREST_BLOCKED_LINK_MESSAGE,
   },

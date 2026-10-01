@@ -4,9 +4,9 @@ import type { PlatformAdapterRegistry } from "./platforms/connect.js";
 import type { PlatformAdapter, PostAttemptResult } from "./platforms/types.js";
 import { notifyOps } from "./notify.js";
 import { clearReconnect, flagReconnect, isPermanentAuthError, platformLabel } from "./tokenHealth.js";
-import { classifyPostError, type PostErrorKind } from "./postErrors.js";
+import { classifyPostError, PINTEREST_BLOCKED_LINK_MESSAGE, PINTEREST_BLOCKED_LINK_PATTERN, type PostErrorKind } from "./postErrors.js";
 import { resolvePostLimitAt } from "./pinterestWarmup.js";
-import { sendFailureAlert, sendAccountPausedAlert } from "./email.js";
+import { sendFailureAlert, sendAccountPausedAlert, sendPinterestPausedAlert } from "./email.js";
 import { dispatchWebhookEvent } from "./webhook.js";
 import {
   ROLLING_WINDOW_MS,
@@ -360,6 +360,84 @@ async function maybeSendFailureAlert(post: DuePost, content: string, reason: str
   }
 }
 
+// Pinterest blocked-link breaker. A blocked link is Pinterest's decision about
+// the customer's website address, so a second blocked pin right after a first
+// means the rest of their queue is about to fail the same way, each one another
+// rejected request that can hurt the account's standing. After this many
+// terminal outcomes in a row (posted or failed) for one connected account are
+// all blocked-link failures, the account's other pending posts are paused.
+const BLOCKED_LINK_STREAK = 2;
+const BLOCKED_LINK_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000;
+
+/** Same opt-in toggle and best-effort rules as maybeSendFailureAlert. */
+async function maybeSendPinterestPausedAlert(accountId: string): Promise<void> {
+  try {
+    const { data: account } = await supabase
+      .from("accounts")
+      .select("email, email_failure_alerts_enabled")
+      .eq("id", accountId)
+      .maybeSingle();
+    if (!account?.email_failure_alerts_enabled || !account.email) return;
+    sendPinterestPausedAlert(account.email);
+  } catch (err) {
+    console.error("[scheduler] maybeSendPinterestPausedAlert lookup failed:", err instanceof Error ? err.message : err);
+  }
+}
+
+/** Runs after a Pinterest post failed with the blocked-link reason. If this
+ *  account's last BLOCKED_LINK_STREAK terminal outcomes (look back 14 days) are
+ *  all blocked-link failures, pauses its remaining pending, unpaused posts with
+ *  paused_at (the same mechanism as PATCH /scheduled-posts/:id/pause) and tells
+ *  the customer once. Nothing is retried, edited, deleted or marked posted. The
+ *  pause itself is one conditional UPDATE, so two failures racing each other
+ *  pause the posts, and send the email, only once; with nothing pending it does
+ *  nothing. Fails safe: any lookup problem is logged and changes nothing. */
+async function pauseAfterRepeatedBlockedLinks(post: DuePost): Promise<void> {
+  try {
+    const since = new Date(Date.now() - BLOCKED_LINK_LOOKBACK_MS).toISOString();
+    const { data: recent, error: recentError } = await supabase
+      .from("scheduled_posts")
+      .select("id")
+      .eq("social_account_id", post.social_account_id)
+      .in("status", ["posted", "failed"])
+      .gt("updated_at", since)
+      .order("updated_at", { ascending: false })
+      .limit(BLOCKED_LINK_STREAK);
+    if (recentError) throw new Error(recentError.message);
+    if (!recent || recent.length < BLOCKED_LINK_STREAK) return;
+
+    const { data: results, error: resultsError } = await supabase
+      .from("post_results")
+      .select("scheduled_post_id, error_message, raw_error_message, created_at")
+      .in("scheduled_post_id", recent.map((r) => r.id));
+    if (resultsError) throw new Error(resultsError.message);
+
+    const allBlocked = recent.every((r) => {
+      // A post's outcome is its newest result row.
+      const latest = (results ?? [])
+        .filter((x) => x.scheduled_post_id === r.id)
+        .sort((a, b) => (String(a.created_at) < String(b.created_at) ? 1 : -1))[0];
+      return !!latest && (latest.error_message === PINTEREST_BLOCKED_LINK_MESSAGE || PINTEREST_BLOCKED_LINK_PATTERN.test(latest.raw_error_message ?? ""));
+    });
+    if (!allBlocked) return;
+
+    const { data: paused, error: pauseError } = await supabase
+      .from("scheduled_posts")
+      .update({ paused_at: new Date().toISOString() })
+      .eq("social_account_id", post.social_account_id)
+      .eq("status", "pending")
+      .is("paused_at", null)
+      .select("id");
+    if (pauseError) throw new Error(pauseError.message);
+    if (!paused || paused.length === 0) return;
+
+    console.warn(`Paused ${paused.length} pending Pinterest post(s) for social account ${post.social_account_id}: ${BLOCKED_LINK_STREAK} blocked-link failures in a row.`);
+    await maybeSendPinterestPausedAlert(post.account_id);
+  } catch (err) {
+    console.error("[scheduler] Pinterest blocked-link breaker check failed, nothing changed:", err instanceof Error ? err.message : err);
+  }
+}
+
 /** Looks up whether this account has a webhook configured (item 5,
  *  2026-08-07 competitor audit — off by default, see migration
  *  0041_webhooks.sql) and fires it if so. Same best-effort reasoning as
@@ -540,6 +618,11 @@ async function failAttempt(post: DuePost, platform: string, raw: string): Promis
     raw_error_message: classified.message === raw ? null : raw,
   });
   await handleFailure(post, classified.message, classified.kind, raw);
+  // After handleFailure, so this post already counts as a failed outcome. Not
+  // recordFailure: a customer's blocked link says nothing about Pinterest's health.
+  if (platform === "pinterest" && classified.kind === "fatal" && classified.message === PINTEREST_BLOCKED_LINK_MESSAGE) {
+    await pauseAfterRepeatedBlockedLinks(post);
+  }
 }
 
 /** Reverts a claimed post back to pending without counting it as a retry —

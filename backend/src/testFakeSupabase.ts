@@ -36,6 +36,8 @@ export function makeBuilder(table: string) {
   b.lte = (c: string, v: string) => (filters.push((r) => String(r[c]) <= v), b);
   b.gt = (c: string, v: string) => (filters.push((r) => String(r[c]) > v), b);
   b.not = (c: string, _op: string, v: unknown) => (filters.push((r) => (r[c] ?? null) !== v), b);
+  // Only the "%text%" (contains) shape, case-insensitive, which is all the code uses.
+  b.ilike = (c: string, v: string) => (filters.push((r) => String(r[c] ?? "").toLowerCase().includes(v.replace(/%/g, "").toLowerCase())), b);
   b.order = (c: string, o?: { ascending?: boolean }) => ((orderCol = c), (orderAsc = o?.ascending !== false), b);
   b.limit = (n: number) => ((limitN = n), b);
   b.single = () => ((singleMode = "single"), b);

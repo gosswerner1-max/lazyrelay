@@ -64,6 +64,7 @@ export function Dashboard() {
     loading,
     error,
     notice,
+    postWarning,
     tab,
     setTab,
     runTour,
@@ -235,6 +236,7 @@ export function Dashboard() {
 
       {error && <p className="error">{error}</p>}
       {notice && <p className="notice">{notice}</p>}
+      {postWarning && <p className="notice notice-warn">{postWarning}</p>}
 
       {tab === "Analytics" && <AnalyticsTab />}
 
