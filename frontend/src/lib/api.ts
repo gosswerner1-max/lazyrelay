@@ -138,6 +138,8 @@ export interface ScheduledPost {
   board_id: string | null;
   destination_link: string | null;
   first_comment: string | null;
+  // Minutes to wait after the post goes live before the first comment (backend 0112); null means right away.
+  first_comment_delay_minutes?: number | null;
   warnings?: PostWarning[];
   media_alt_text: string | null;
   // Optional extras (backend 0101, 0102, 0104).
@@ -183,7 +185,7 @@ export interface ScheduledPost {
   // (e.g. still needs_approval). Used by the Calendar tab's "Connected as
   // [email]" filter (2026-08-30) to show only posts really on that calendar.
   google_event_id: string | null;
-  post_results: Array<{ saved_as_draft?: boolean; verified_live: boolean; platform_post_url: string | null; error_message: string | null; raw_error_message?: string | null; chain_posted?: number | null; chain_error?: string | null }>;
+  post_results: Array<{ saved_as_draft?: boolean; verified_live: boolean; platform_post_url: string | null; error_message: string | null; raw_error_message?: string | null; chain_posted?: number | null; chain_error?: string | null; first_comment_posted?: boolean | null; first_comment_error?: string | null; first_comment_due_at?: string | null }>;
 }
 
 /** Fields a draft can be created/edited with — the subset of a real post's
@@ -196,6 +198,7 @@ export interface DraftFields {
   boardId?: string | null;
   destinationLink?: string | null;
   firstComment?: string | null;
+  firstCommentDelayMinutes?: number | null;
   mediaAltText?: string | null;
   tiktokPrivacyLevel?: string | null;
   tiktokDisableComment?: boolean;
@@ -581,6 +584,7 @@ export const api = {
     boardId?: string;
     destinationLink?: string;
     firstComment?: string;
+    firstCommentDelayMinutes?: number;
     tags?: string[];
     mediaUrls?: string[];
     selfReplyText?: string;
@@ -614,6 +618,7 @@ export const api = {
       boardId?: string;
       destinationLink?: string;
       firstComment?: string;
+      firstCommentDelayMinutes?: number;
       mediaAltText?: string;
       tiktokPrivacyLevel?: string;
       tiktokDisableComment?: boolean;

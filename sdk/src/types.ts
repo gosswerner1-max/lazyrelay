@@ -44,6 +44,8 @@ export interface PostFields {
   mediaAltText?: string;
   /** A first comment posted right after publishing (Facebook and Instagram only). */
   firstComment?: string;
+  /** Minutes to wait after the post goes live before posting firstComment (0 to 1440; Facebook and Instagram only). 0 or left out posts it right away. */
+  firstCommentDelayMinutes?: number;
   /** Up to 5 short labels for filtering analytics by campaign. */
   tags?: string[];
   /** A follow-up comment added once the post reaches selfReplyAtLikes likes (Facebook and Instagram only). */
@@ -99,6 +101,7 @@ export interface UpdatePostInput {
   coverImageUrl?: string | null;
   mediaAltText?: string | null;
   firstComment?: string | null;
+  firstCommentDelayMinutes?: number | null;
   tags?: string[];
   selfReplyText?: string | null;
   selfReplyAtLikes?: number | null;
@@ -160,6 +163,7 @@ export interface ScheduledPost {
   board_id: string | null;
   destination_link: string | null;
   first_comment: string | null;
+  first_comment_delay_minutes?: number | null;
   media_alt_text: string | null;
   tags?: string[] | null;
   media_urls?: string[] | null;

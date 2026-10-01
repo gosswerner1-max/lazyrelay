@@ -26,12 +26,12 @@ describe("resolvePostExtras (a post on a known platform)", () => {
       "instagram",
       main,
     );
-    expect(r).toEqual({ ok: true, extras: { tags: ["launch"], mediaUrls: ["https://cdn.example.com/b.jpg"], selfReplyText: "Thanks!", selfReplyAtLikes: 20, options: {} } });
+    expect(r).toEqual({ ok: true, extras: { tags: ["launch"], mediaUrls: ["https://cdn.example.com/b.jpg"], selfReplyText: "Thanks!", selfReplyAtLikes: 20, options: {}, firstCommentDelayMinutes: null } });
   });
 
   it("gives nothing when nothing is asked for", async () => {
     const r = await resolvePostExtras({}, "tiktok", null);
-    expect(r).toEqual({ ok: true, extras: { tags: [], mediaUrls: [], selfReplyText: null, selfReplyAtLikes: null, options: {} } });
+    expect(r).toEqual({ ok: true, extras: { tags: [], mediaUrls: [], selfReplyText: null, selfReplyAtLikes: null, options: {}, firstCommentDelayMinutes: null } });
   });
 
   it("applies each platform's own rules", async () => {
@@ -59,7 +59,7 @@ describe("resolvePostExtras (a post on a known platform)", () => {
 describe("normalizeDraftExtras (a draft, no platform yet)", () => {
   it("keeps the values so they survive until the draft is scheduled", async () => {
     const r = await normalizeDraftExtras({ tags: ["a", "b"], mediaUrls: ["https://cdn.example.com/b.jpg"], selfReplyText: "Thanks", selfReplyAtLikes: 10 });
-    expect(r).toEqual({ ok: true, extras: { tags: ["a", "b"], mediaUrls: ["https://cdn.example.com/b.jpg"], selfReplyText: "Thanks", selfReplyAtLikes: 10, options: {} } });
+    expect(r).toEqual({ ok: true, extras: { tags: ["a", "b"], mediaUrls: ["https://cdn.example.com/b.jpg"], selfReplyText: "Thanks", selfReplyAtLikes: 10, options: {}, firstCommentDelayMinutes: null } });
   });
   it("rejects bad shapes and unsafe addresses", async () => {
     expect((await normalizeDraftExtras({ tags: "x" })).ok).toBe(false);

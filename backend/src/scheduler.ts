@@ -16,6 +16,7 @@ import {
 } from "./platformPostLimits.js";
 import { resolveTier, type Tier } from "./tier.js";
 import { MAX_FIRST_COMMENT_LENGTH } from "./postCreation.js";
+import { decideFirstComment, firstCommentDueAt } from "./firstCommentDelay.js";
 
 // How many due posts one scheduler cycle claims and processes. Combined
 // with index.ts's POLL_INTERVAL_MS, this is the real throughput ceiling —
@@ -773,6 +774,162 @@ export async function recoverStuckPosts(now: number = Date.now()): Promise<numbe
   return recovered;
 }
 
+/** When this post's delayed first comment is due (now + the customer's chosen delay), or null for "right away".
+ *  Any trouble reading the column (including it not existing yet) means "right away", the behaviour before delays. */
+async function lookupFirstCommentDueAt(postId: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.from("scheduled_posts").select("first_comment_delay_minutes").eq("id", postId).single();
+    if (error || !data) return null;
+    return firstCommentDueAt((data as { first_comment_delay_minutes: number | null }).first_comment_delay_minutes, Date.now());
+  } catch {
+    return null;
+  }
+}
+
+// A claimed comment with no outcome after this long was stranded by a crash or restart mid-send.
+const STUCK_FIRST_COMMENT_MINUTES = 20;
+const FIRST_COMMENT_BATCH_SIZE = 20;
+
+interface FirstCommentRow {
+  id: string;
+  scheduled_post_id: string;
+  platform_post_id: string | null;
+  verified_live: boolean | null;
+  first_comment_due_at: string;
+}
+
+/** Posts the delayed first comments whose time has come. Safe to call from every
+ *  scheduler cycle and from several workers at once:
+ *   - a comment is CLAIMED (first_comment_claimed_at set) by an update that only succeeds
+ *     while it is still unclaimed, and only the caller that gets the row back posts it, so a
+ *     second worker or a restart can never comment twice;
+ *   - once claimed it is never retried (a send that timed out may still have landed); the
+ *     outcome is recorded either way, like the immediate comment;
+ *   - a comment more than 24 hours past due is marked failed, not posted;
+ *   - a post that is not live any more never gets its comment;
+ *   - a comment held up because the platform is not configured, its breaker is open or the
+ *     account is paused is released, so a later pass picks it up (until it goes stale).
+ *  Returns how many comments were actually sent. */
+export async function runFirstCommentPass(registry: PlatformAdapterRegistry, now: number = Date.now()): Promise<number> {
+  const nowIso = new Date(now).toISOString();
+
+  // A claim that never got an outcome (the process died mid-send): we cannot know whether it posted.
+  const stuckCutoff = new Date(now - STUCK_FIRST_COMMENT_MINUTES * 60_000).toISOString();
+  const { data: stuck } = await supabase
+    .from("post_results")
+    .select("id")
+    .is("first_comment_posted", null)
+    .not("first_comment_claimed_at", "is", null)
+    .lt("first_comment_claimed_at", stuckCutoff)
+    .limit(FIRST_COMMENT_BATCH_SIZE);
+  for (const row of stuck ?? []) {
+    await supabase
+      .from("post_results")
+      .update({
+        first_comment_posted: false,
+        first_comment_error: "Posting the comment was interrupted before LazyRelay could confirm it. It may or may not be on your post, so it was not retried.",
+      })
+      .eq("id", row.id)
+      .is("first_comment_posted", null);
+  }
+
+  const { data: waiting, error: waitingError } = await supabase
+    .from("post_results")
+    .select("id")
+    .is("first_comment_posted", null)
+    .is("first_comment_claimed_at", null)
+    .not("first_comment_due_at", "is", null)
+    .lte("first_comment_due_at", nowIso)
+    .limit(FIRST_COMMENT_BATCH_SIZE);
+  if (waitingError) throw waitingError;
+  if (!waiting || waiting.length === 0) return 0;
+
+  // As in claimDuePosts: only the rows this UPDATE hands back are ours.
+  const { data: claimed, error: claimError } = await supabase
+    .from("post_results")
+    .update({ first_comment_claimed_at: nowIso })
+    .in("id", waiting.map((r) => r.id))
+    .is("first_comment_claimed_at", null)
+    .is("first_comment_posted", null)
+    .select("id, scheduled_post_id, platform_post_id, verified_live, first_comment_due_at");
+  if (claimError) throw claimError;
+
+  let sent = 0;
+  for (const row of (claimed ?? []) as FirstCommentRow[]) {
+    try {
+      if (await processFirstComment(row, registry, now)) sent += 1;
+    } catch (err) {
+      // Unexpected: record it so the claim is never left dangling and nothing retries it blindly.
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[scheduler] first comment for result ${row.id} threw:`, message);
+      await finishFirstComment(row.id, false, message);
+    }
+  }
+  return sent;
+}
+
+async function finishFirstComment(resultId: string, posted: boolean, error: string | null): Promise<void> {
+  await supabase.from("post_results").update({ first_comment_posted: posted, first_comment_error: error }).eq("id", resultId);
+}
+
+async function releaseFirstComment(resultId: string): Promise<void> {
+  await supabase.from("post_results").update({ first_comment_claimed_at: null }).eq("id", resultId).is("first_comment_posted", null);
+}
+
+/** Handles one claimed comment. Returns true when a send was actually attempted. */
+async function processFirstComment(row: FirstCommentRow, registry: PlatformAdapterRegistry, now: number): Promise<boolean> {
+  const decision = decideFirstComment(row.first_comment_due_at, now);
+  if (decision === "stale") {
+    await finishFirstComment(row.id, false, "The comment was more than 24 hours late (LazyRelay could not post it in time), so it was not posted.");
+    return false;
+  }
+  if (decision === "wait") {
+    await releaseFirstComment(row.id);
+    return false;
+  }
+
+  const { data: post } = await supabase
+    .from("scheduled_posts")
+    .select("id, account_id, social_account_id, first_comment, status, social_accounts(platform)")
+    .eq("id", row.scheduled_post_id)
+    .maybeSingle();
+  const p = post as { id: string; account_id: string; social_account_id: string; first_comment: string | null; status: string; social_accounts: unknown } | null;
+  if (!p || p.status !== "posted" || !row.verified_live || !row.platform_post_id) {
+    await finishFirstComment(row.id, false, "The post is no longer live, so the comment was not posted.");
+    return false;
+  }
+  if (!p.first_comment || !p.first_comment.trim()) {
+    await finishFirstComment(row.id, false, "The post no longer has a first comment, so nothing was posted.");
+    return false;
+  }
+  const sa = Array.isArray(p.social_accounts) ? p.social_accounts[0] : p.social_accounts;
+  const platform = (sa as { platform?: string } | null)?.platform ?? "";
+  const adapter = registry.get(platform);
+  if (!adapter || !adapter.postComment) {
+    // Platform not configured on this deploy: nothing was sent, so release it for a later pass.
+    await releaseFirstComment(row.id);
+    return false;
+  }
+  if (isBreakerTripped(platform) || (await isAccountPaused(p.social_account_id))) {
+    await releaseFirstComment(row.id);
+    return false;
+  }
+
+  const brandingTag = await resolveBrandingTag(p.account_id);
+  const text = brandingTag ? appendTagWithinBudget(p.first_comment, brandingTag, MAX_FIRST_COMMENT_LENGTH) : p.first_comment;
+  try {
+    const accessToken = await getAccessToken(p.social_account_id, adapter);
+    const result = await adapter.postComment(row.platform_post_id, text, accessToken);
+    await finishFirstComment(row.id, result.success, result.success ? null : result.errorMessage);
+    if (!result.success) console.warn(`Post ${p.id}: delayed first comment failed: ${result.errorMessage}`);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await finishFirstComment(row.id, false, classifyPostError(platform, message).message);
+    console.warn(`Post ${p.id}: delayed first comment threw: ${message}`);
+  }
+  return true;
+}
+
 async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Promise<void> {
   const adapter = registry.get(post.platform);
   if (!adapter) {
@@ -941,25 +1098,41 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     // it, or the tag standing alone if they didn't set one.
     const effectiveFirstComment = hasCommentChannel && brandingTag ? appendTagWithinBudget(post.first_comment, brandingTag, MAX_FIRST_COMMENT_LENGTH) : post.first_comment;
     if (effectiveFirstComment && adapter.postComment && resultRow) {
-      try {
-        const commentResult = await adapter.postComment(attempt.platformPostId, effectiveFirstComment, accessToken);
-        await supabase
-          .from("post_results")
-          .update({
-            first_comment_posted: commentResult.success,
-            first_comment_error: commentResult.errorMessage,
-          })
-          .eq("id", resultRow.id);
-        if (!commentResult.success) {
-          console.warn(`Post ${post.id}: first comment failed — ${commentResult.errorMessage}`);
+      // A customer can hold the comment back (first_comment_delay_minutes). Looked up here, only for a post that
+      // has a comment, and not in the claim query, so a database without the column (migration not applied yet)
+      // just behaves as "right away", exactly as before, and can never stop a post publishing.
+      const dueAt = await lookupFirstCommentDueAt(post.id);
+      if (dueAt) {
+        // Not posted now: runFirstCommentPass posts it once it is due.
+        const { error: dueError } = await supabase.from("post_results").update({ first_comment_due_at: dueAt }).eq("id", resultRow.id);
+        if (dueError) {
+          await supabase
+            .from("post_results")
+            .update({ first_comment_posted: false, first_comment_error: "The comment could not be scheduled for later, so it was not posted." })
+            .eq("id", resultRow.id);
+          console.warn(`Post ${post.id}: could not schedule the delayed first comment -- ${dueError.message}`);
         }
-      } catch (commentErr) {
-        const commentErrorMessage = commentErr instanceof Error ? commentErr.message : String(commentErr);
-        await supabase
-          .from("post_results")
-          .update({ first_comment_posted: false, first_comment_error: commentErrorMessage })
-          .eq("id", resultRow.id);
-        console.warn(`Post ${post.id}: first comment threw — ${commentErrorMessage}`);
+      } else {
+        try {
+          const commentResult = await adapter.postComment(attempt.platformPostId, effectiveFirstComment, accessToken);
+          await supabase
+            .from("post_results")
+            .update({
+              first_comment_posted: commentResult.success,
+              first_comment_error: commentResult.errorMessage,
+            })
+            .eq("id", resultRow.id);
+          if (!commentResult.success) {
+            console.warn(`Post ${post.id}: first comment failed — ${commentResult.errorMessage}`);
+          }
+        } catch (commentErr) {
+          const commentErrorMessage = commentErr instanceof Error ? commentErr.message : String(commentErr);
+          await supabase
+            .from("post_results")
+            .update({ first_comment_posted: false, first_comment_error: commentErrorMessage })
+            .eq("id", resultRow.id);
+          console.warn(`Post ${post.id}: first comment threw — ${commentErrorMessage}`);
+        }
       }
     }
 
@@ -1004,7 +1177,10 @@ export async function runSchedulerCycle(registry: PlatformAdapterRegistry): Prom
     console.error("[scheduler] recoverStuckPosts threw:", err instanceof Error ? err.message : err);
   }
   const due = await claimDuePosts();
-  if (due.length === 0) return;
+  if (due.length === 0) {
+    await runFirstCommentPassSafely(registry);
+    return;
+  }
 
   console.log(`Claimed ${due.length} due post(s).`);
   await Promise.all(
@@ -1022,4 +1198,14 @@ export async function runSchedulerCycle(registry: PlatformAdapterRegistry): Prom
       await processPost(post, registry);
     })
   );
+  await runFirstCommentPassSafely(registry);
+}
+
+/** Delayed first comments run after the cycle's posts, and a problem here never stops the next cycle's posts. */
+async function runFirstCommentPassSafely(registry: PlatformAdapterRegistry): Promise<void> {
+  try {
+    await runFirstCommentPass(registry);
+  } catch (err) {
+    console.error("[scheduler] delayed first comment pass threw:", err instanceof Error ? err.message : err);
+  }
 }

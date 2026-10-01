@@ -23,6 +23,7 @@ interface RecurringScheduleRow {
   board_id: string | null;
   destination_link: string | null;
   first_comment: string | null;
+  first_comment_delay_minutes: number | null;
   tags: string[] | null;
   media_urls: string[] | null;
   self_reply_text: string | null;

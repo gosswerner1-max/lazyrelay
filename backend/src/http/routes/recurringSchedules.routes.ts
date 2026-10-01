@@ -9,6 +9,7 @@ import { MAX_POST_CONTENT_LENGTH, MAX_BOARD_ID_LENGTH, MAX_DESTINATION_LINK_LENG
 import { resolveTier, RECURRING_SCHEDULE_SLOT_LIMITS } from "../../tier.js";
 import { cancelFuturePendingOccurrences } from "../../recurringScheduler.js";
 import { isSafeMediaUrl } from "../../urlSafety.js";
+import { FIRST_COMMENT_DELAY_PLATFORMS } from "../../firstCommentDelay.js";
 import { normalizeDraftExtras, extrasToColumns, type PostExtras } from "../../postExtras.js";
 import { dbError } from "./shared.js";
 
@@ -41,6 +42,7 @@ export function buildRecurringSchedulesRouter(): Router {
     selfReplyText?: unknown;
     selfReplyAtLikes?: unknown;
     options?: unknown;
+    firstCommentDelayMinutes?: unknown;
     tiktokPrivacyLevel?: unknown;
     tiktokDisableComment?: unknown;
     tiktokDisableDuet?: unknown;
@@ -207,7 +209,7 @@ export function buildRecurringSchedulesRouter(): Router {
     const socialAccountIds = input.socialAccountIds as string[];
     const { data: owned, error: ownedError } = await req.db!
       .from("social_accounts")
-      .select("id")
+      .select("id, platform")
       .eq("account_id", req.accountId)
       .in("id", socialAccountIds);
     if (ownedError) {
@@ -224,6 +226,10 @@ export function buildRecurringSchedulesRouter(): Router {
       res.status(extrasCheck.failure.status).json(extrasCheck.failure.body);
       return;
     }
+    if (extrasCheck.extras.firstCommentDelayMinutes && !(owned ?? []).some((a) => FIRST_COMMENT_DELAY_PLATFORMS.includes(a.platform as string))) {
+      res.status(400).json({ error: "Delaying the first comment is only available for Facebook and Instagram posts" });
+      return;
+    }
 
     const { data: slot, error } = await req.db!
       .from("recurring_schedules")
@@ -235,7 +241,7 @@ export function buildRecurringSchedulesRouter(): Router {
         board_id: input.boardId ?? null,
         destination_link: input.destinationLink ?? null,
         first_comment: input.firstComment ?? null,
-        ...extrasToColumns(extrasCheck.extras),
+        ...extrasToColumns(extrasCheck.extras, true),
         tiktok_privacy_level: (input.tiktokPrivacyLevel as string | undefined) ?? null,
         tiktok_disable_comment: (input.tiktokDisableComment as boolean | undefined) ?? true,
         tiktok_disable_duet: (input.tiktokDisableDuet as boolean | undefined) ?? true,
@@ -292,7 +298,7 @@ export function buildRecurringSchedulesRouter(): Router {
   router.patch("/recurring-schedules/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data: existing, error: fetchError } = await req.db!
       .from("recurring_schedules")
-      .select("id, status, tags, media_urls, self_reply_text, self_reply_at_likes, options")
+      .select("id, status, tags, media_urls, self_reply_text, self_reply_at_likes, options, first_comment, first_comment_delay_minutes")
       .eq("id", req.params.id)
       .eq("account_id", req.accountId)
       .maybeSingle();
@@ -318,8 +324,20 @@ export function buildRecurringSchedulesRouter(): Router {
 
     // Tags, extra images and the self-reply are checked BEFORE anything is cancelled or changed.
     let patchExtras: PostExtras | null = null;
-    if (input.tags !== undefined || input.mediaUrls !== undefined || input.selfReplyText !== undefined || input.selfReplyAtLikes !== undefined || input.options !== undefined) {
+    const touchesDelay =
+      input.firstCommentDelayMinutes !== undefined || (input.firstComment !== undefined && existing.first_comment_delay_minutes != null);
+    if (touchesDelay || input.tags !== undefined || input.mediaUrls !== undefined || input.selfReplyText !== undefined || input.selfReplyAtLikes !== undefined || input.options !== undefined) {
+      const effectiveFirstComment = input.firstComment !== undefined ? input.firstComment : existing.first_comment;
+      // Clearing the comment without mentioning the delay clears the delay too.
+      const delayInput =
+        input.firstCommentDelayMinutes !== undefined
+          ? input.firstCommentDelayMinutes
+          : typeof effectiveFirstComment === "string" && effectiveFirstComment.trim() !== ""
+            ? existing.first_comment_delay_minutes
+            : null;
       const extrasCheck = await normalizeDraftExtras({
+        firstComment: effectiveFirstComment,
+        firstCommentDelayMinutes: delayInput,
         tags: input.tags !== undefined ? input.tags : existing.tags,
         mediaUrls: input.mediaUrls !== undefined ? input.mediaUrls : existing.media_urls,
         selfReplyText: input.selfReplyText !== undefined ? input.selfReplyText : existing.self_reply_text,
@@ -331,6 +349,19 @@ export function buildRecurringSchedulesRouter(): Router {
         return;
       }
       patchExtras = extrasCheck.extras;
+      if (patchExtras.firstCommentDelayMinutes) {
+        // Same rule as creating: at least one target must be able to post a comment.
+        let targetIds = Array.isArray(input.socialAccountIds) ? (input.socialAccountIds as string[]) : null;
+        if (!targetIds) {
+          const { data: current } = await req.db!.from("recurring_schedule_targets").select("social_account_id").eq("recurring_schedule_id", req.params.id);
+          targetIds = (current ?? []).map((t: { social_account_id: string }) => t.social_account_id);
+        }
+        const { data: targetAccounts } = await req.db!.from("social_accounts").select("id, platform").in("id", targetIds);
+        if (!(targetAccounts ?? []).some((a) => FIRST_COMMENT_DELAY_PLATFORMS.includes(a.platform as string))) {
+          res.status(400).json({ error: "Delaying the first comment is only available for Facebook and Instagram posts" });
+          return;
+        }
+      }
     }
 
     // Resuming (paused -> active, nothing else changing) never needs to
@@ -342,7 +373,7 @@ export function buildRecurringSchedulesRouter(): Router {
     const isPureResume = input.status === "active" && existing.status === "paused" &&
       input.content === undefined && input.mediaUrl === undefined && input.coverImageUrl === undefined &&
       input.boardId === undefined && input.destinationLink === undefined && input.firstComment === undefined &&
-      input.tags === undefined && input.mediaUrls === undefined && input.selfReplyText === undefined && input.selfReplyAtLikes === undefined && input.options === undefined &&
+      input.tags === undefined && input.mediaUrls === undefined && input.selfReplyText === undefined && input.selfReplyAtLikes === undefined && input.options === undefined && input.firstCommentDelayMinutes === undefined &&
       input.socialAccountIds === undefined &&
       input.daysOfWeek === undefined && input.timeOfDay === undefined && input.timezone === undefined &&
       input.startsOn === undefined && input.endsOn === undefined;

@@ -154,6 +154,7 @@ export function buildPostsRouter(): Router {
     selfReplyText: unvalidated(),
     selfReplyAtLikes: unvalidated(),
     options: unvalidated(),
+    firstCommentDelayMinutes: unvalidated(),
     scheduledFor: z
       .string({ error: SCHEDULED_FOR_ERROR })
       .refine((s) => !Number.isNaN(new Date(s).getTime()), SCHEDULED_FOR_ERROR)
@@ -237,7 +238,7 @@ export function buildPostsRouter(): Router {
         planned_date: plannedDate ?? null,
         planned_account_ids: validatedPlannedAccountIds,
         scheduled_for: scheduledFor ?? null,
-        ...extrasToColumns(draftExtras.extras),
+        ...extrasToColumns(draftExtras.extras, true),
         status: "draft",
       })
       .select()
@@ -274,11 +275,12 @@ export function buildPostsRouter(): Router {
     selfReplyText: unvalidated(),
     selfReplyAtLikes: unvalidated(),
     options: unvalidated(),
+    firstCommentDelayMinutes: unvalidated(),
   });
   router.patch("/scheduled-posts/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data: existing, error: fetchError } = await req.db!
       .from("scheduled_posts")
-      .select("id, status, media_url, tags, media_urls, self_reply_text, self_reply_at_likes, options, social_accounts(platform)")
+      .select("id, status, media_url, tags, media_urls, self_reply_text, self_reply_at_likes, options, first_comment, first_comment_delay_minutes, social_accounts(platform)")
       .eq("id", req.params.id)
       .eq("account_id", req.accountId)
       .maybeSingle();
@@ -361,14 +363,29 @@ export function buildPostsRouter(): Router {
     // Tags, extra images and the self-reply are edited as a set: whichever the
     // caller sends is checked against the platform (for a scheduled post) and
     // the rest keep their stored values.
-    const touchesExtras = [body.data.tags, body.data.mediaUrls, body.data.selfReplyText, body.data.selfReplyAtLikes, body.data.options].some((v) => v !== undefined);
+    // The delay before the first comment is checked with them: it has to agree with the comment it delays,
+    // so an edit that sets a delay, or changes the comment while a delay is stored, runs the same check.
+    const touchesDelay =
+      body.data.firstCommentDelayMinutes !== undefined || (body.data.firstComment !== undefined && existing.first_comment_delay_minutes != null);
+    const touchesExtras =
+      touchesDelay || [body.data.tags, body.data.mediaUrls, body.data.selfReplyText, body.data.selfReplyAtLikes, body.data.options].some((v) => v !== undefined);
     if (touchesExtras) {
+      const effectiveFirstComment = body.data.firstComment !== undefined ? body.data.firstComment : existing.first_comment;
+      // Clearing the comment without mentioning the delay clears the delay too, instead of refusing the edit.
+      const delayInput =
+        body.data.firstCommentDelayMinutes !== undefined
+          ? body.data.firstCommentDelayMinutes
+          : typeof effectiveFirstComment === "string" && effectiveFirstComment.trim() !== ""
+            ? existing.first_comment_delay_minutes
+            : null;
       const merged = {
         tags: body.data.tags !== undefined ? body.data.tags : existing.tags,
         mediaUrls: body.data.mediaUrls !== undefined ? body.data.mediaUrls : existing.media_urls,
         selfReplyText: body.data.selfReplyText !== undefined ? body.data.selfReplyText : existing.self_reply_text,
         selfReplyAtLikes: body.data.selfReplyAtLikes !== undefined ? body.data.selfReplyAtLikes : existing.self_reply_at_likes,
         options: body.data.options !== undefined ? body.data.options : existing.options,
+        firstComment: effectiveFirstComment,
+        firstCommentDelayMinutes: delayInput,
       };
       const sa = existing.social_accounts as { platform?: string } | { platform?: string }[] | null;
       const platform = (Array.isArray(sa) ? sa[0]?.platform : sa?.platform) ?? null;
@@ -867,7 +884,7 @@ export function buildPostsRouter(): Router {
     const { data: existing, error: fetchError } = await req.db!
       .from("scheduled_posts")
       .select(
-        "social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, tiktok_brand_organic, tiktok_brand_content, tags, media_urls, self_reply_text, self_reply_at_likes, options, status",
+        "social_account_id, content, media_url, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, tiktok_brand_organic, tiktok_brand_content, tags, media_urls, self_reply_text, self_reply_at_likes, options, first_comment_delay_minutes, status",
       )
       .eq("id", req.params.id)
       .eq("account_id", req.accountId)
@@ -905,6 +922,7 @@ export function buildPostsRouter(): Router {
       selfReplyText: existing.self_reply_text,
       selfReplyAtLikes: existing.self_reply_at_likes,
       options: existing.options,
+      firstCommentDelayMinutes: existing.first_comment_delay_minutes,
       scheduledFor: (req.body ?? {}).scheduledFor,
       requiresApproval: (req.body ?? {}).requiresApproval,
     });

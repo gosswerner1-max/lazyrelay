@@ -49,6 +49,14 @@ export const additionalPostFields: INodeProperties[] = [
 		description: 'A comment posted right after publishing (Facebook and Instagram only)',
 	},
 	{
+		displayName: 'First Comment Delay (Minutes)',
+		name: 'firstCommentDelayMinutes',
+		type: 'number',
+		typeOptions: { minValue: 0, maxValue: 1440 },
+		default: 0,
+		description: 'Wait this many minutes after the post goes live before posting the first comment (0 to 1440, Facebook and Instagram only). 0 posts it right away.',
+	},
+	{
 		displayName: 'Pinterest Board ID',
 		name: 'boardId',
 		type: 'string',

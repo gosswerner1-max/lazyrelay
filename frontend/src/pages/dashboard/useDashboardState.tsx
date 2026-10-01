@@ -6,6 +6,7 @@
 
 import { parseTags } from "../../lib/postTags";
 import { selfReplyFields } from "../../lib/selfReply";
+import { firstCommentDelayField, firstCommentDelayForDraft } from "../../lib/firstCommentDelay";
 import { carouselFields } from "../../lib/carousel";
 import { optionsFieldFor, optionsFieldForDraft, type PostOptions } from "../../lib/postOptions";
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
@@ -257,6 +258,8 @@ export function useDashboardState() {
   // it at all, so every Pin's destination link was silently blank.
   const [destinationLink, setDestinationLink] = useState<string | null>(null);
   const [firstComment, setFirstComment] = useState<string | null>(null);
+  // Minutes to hold the first comment back after the post goes live (0 = right away).
+  const [firstCommentDelay, setFirstCommentDelay] = useState(0);
   // TikTok's own Content Sharing Guidelines require this app's UI to show a
   // real privacy choice with no default selection, and interaction toggles
   // unchecked by default -- found missing entirely 2026-09-05 while applying
@@ -1418,6 +1421,7 @@ export function useDashboardState() {
           // Only consumed server-side for Facebook/Instagram today — harmless
           // no-op for every other platform, same pattern as boardId above.
           firstComment: firstComment?.trim() ? firstComment.trim() : undefined,
+          ...firstCommentDelayField(accounts.find((a) => a.id === socialAccountId)?.platform, firstComment, firstCommentDelay),
           tags: parseTags(postTagsText),
           ...carouselFields(accounts.find((a) => a.id === socialAccountId)?.platform, extraMediaUrls),
           ...optionsFieldFor(accounts.find((a) => a.id === socialAccountId)?.platform, postOptions),
@@ -1457,6 +1461,7 @@ export function useDashboardState() {
       setCoverImageUrl(null);
       setDestinationLink(null);
       setFirstComment(null);
+      setFirstCommentDelay(0);
       setPostTagsText("");
       setSelfReplyText("");
       setSelfReplyLikes("");
@@ -1500,6 +1505,7 @@ export function useDashboardState() {
         mediaUrl: mediaUrl ?? undefined,
         coverImageUrl: coverImageUrl ?? undefined,
         firstComment: firstComment?.trim() ? firstComment.trim() : undefined,
+        firstCommentDelayMinutes: firstCommentDelayForDraft(firstComment, firstCommentDelay),
         mediaAltText: mediaAltText?.trim() ? mediaAltText.trim() : undefined,
         tiktokPrivacyLevel: tiktokPrivacyLevel ?? undefined,
         tiktokDisableComment: !tiktokAllowComment,
@@ -1527,6 +1533,7 @@ export function useDashboardState() {
       setSelfReplyLikes("");
       setCoverImageUrl(null);
       setFirstComment(null);
+      setFirstCommentDelay(0);
       setMediaAltText(null);
       setTiktokPrivacyLevel(null);
       setTiktokAllowComment(false);
@@ -1559,6 +1566,7 @@ export function useDashboardState() {
     setCoverImageUrl(p.cover_image_url);
     setDestinationLink(p.destination_link);
     setFirstComment(p.first_comment);
+    setFirstCommentDelay(p.first_comment_delay_minutes ?? 0);
     setMediaAltText(p.media_alt_text);
     setTiktokPrivacyLevel(p.tiktok_privacy_level);
     setTiktokAllowComment(!p.tiktok_disable_comment);
@@ -1582,6 +1590,7 @@ export function useDashboardState() {
     setCoverImageUrl(null);
     setDestinationLink(null);
     setFirstComment(null);
+    setFirstCommentDelay(0);
     setMediaAltText(null);
     setTiktokPrivacyLevel(null);
     setTiktokAllowComment(false);
@@ -1904,6 +1913,7 @@ export function useDashboardState() {
           boardId: platform === "pinterest" ? (p.board_id ?? undefined) : undefined,
           destinationLink: platform === "pinterest" ? (p.destination_link ?? undefined) : undefined,
           firstComment: p.first_comment ?? undefined,
+          ...firstCommentDelayField(platform, p.first_comment, p.first_comment_delay_minutes),
           mediaAltText: p.media_alt_text ?? undefined,
           tags: p.tags && p.tags.length > 0 ? p.tags : undefined,
           ...carouselFields(platform, p.media_urls ?? []),
@@ -2860,6 +2870,8 @@ export function useDashboardState() {
     setDestinationLink,
     firstComment,
     setFirstComment,
+    firstCommentDelay,
+    setFirstCommentDelay,
     tiktokPrivacyLevel,
     setTiktokPrivacyLevel,
     tiktokAllowComment,

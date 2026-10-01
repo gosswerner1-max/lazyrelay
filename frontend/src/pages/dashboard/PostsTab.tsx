@@ -15,6 +15,8 @@ import { isoToLocalDateTime } from "../../lib/postingSlots";
 import { supportsSelfReply } from "../../lib/selfReply";
 import { canShowCarousel, carouselPlan } from "../../lib/carousel";
 import { describeExtras } from "../../lib/postExtras";
+import { describeFirstComment } from "../../lib/firstCommentDelay";
+import { FirstCommentDelaySelect } from "../../components/FirstCommentDelaySelect";
 import { describeOptions, optionGroupsFor } from "../../lib/postOptions";
 import { PlatformOptions } from "../../components/PlatformOptions";
 import { ReviewThread } from "../../components/ReviewThread";
@@ -108,6 +110,8 @@ export function PostsTab() {
     setDestinationLink,
     firstComment,
     setFirstComment,
+    firstCommentDelay,
+    setFirstCommentDelay,
     tiktokPrivacyLevel,
     setTiktokPrivacyLevel,
     tiktokAllowComment,
@@ -527,6 +531,12 @@ export function PostsTab() {
               <span className="section-note">Facebook and Instagram only for now, ignored on other platforms.</span>
             </label>
           )}
+          <FirstCommentDelaySelect
+            firstComment={firstComment}
+            platforms={selectedAccountIds.map((id) => accounts.find((a) => a.id === id)?.platform)}
+            value={firstCommentDelay}
+            onChange={setFirstCommentDelay}
+          />
           {(() => {
             const tiktokAccount = accounts.find((a) => selectedAccountIds.includes(a.id) && a.platform === "tiktok");
             if (!tiktokAccount) return null;
@@ -910,8 +920,8 @@ export function PostsTab() {
               </div>
             )}
             <div className="post-content">{p.content}</div>
-            {[...describeExtras(p), ...describeOptions(p.options, { posted: result?.chain_posted ?? null, error: result?.chain_error ?? null })].length > 0 && (
-              <div className="section-note">{[...describeExtras(p), ...describeOptions(p.options, { posted: result?.chain_posted ?? null, error: result?.chain_error ?? null })].join(" · ")}</div>
+            {[...describeExtras(p), ...describeFirstComment(p), ...describeOptions(p.options, { posted: result?.chain_posted ?? null, error: result?.chain_error ?? null })].length > 0 && (
+              <div className="section-note">{[...describeExtras(p), ...describeFirstComment(p), ...describeOptions(p.options, { posted: result?.chain_posted ?? null, error: result?.chain_error ?? null })].join(" · ")}</div>
             )}
             <div className="post-meta">
               <span className={`status-badge status-${p.status}`}>

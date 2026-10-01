@@ -247,3 +247,28 @@ describe("reschedule, pause and resume (the update_post description used to say 
     expect(describeApiError(413, "Storage quota reached")).toMatchObject({ kind: "plan_limit", status: 413 });
   });
 });
+
+describe("delay before the first comment", () => {
+  it("schedule_post, create_draft and update_post forward firstCommentDelayMinutes", async () => {
+    const client = await connect();
+    await client.callTool({
+      name: "schedule_post",
+      arguments: { socialAccountId: "ig1", content: "Hi", scheduledFor: "2026-10-01T09:00:00Z", firstComment: "First!", firstCommentDelayMinutes: 30 },
+    });
+    await client.callTool({ name: "create_draft", arguments: { content: "Hi", firstComment: "First!", firstCommentDelayMinutes: 15 } });
+    await client.callTool({ name: "update_post", arguments: { id: "p1", firstCommentDelayMinutes: 60 } });
+    expect(calls[0].body).toMatchObject({ firstComment: "First!", firstCommentDelayMinutes: 30 });
+    expect(calls[1].body).toMatchObject({ firstCommentDelayMinutes: 15 });
+    expect(calls[2]).toMatchObject({ path: "/scheduled-posts/p1", method: "PATCH", body: { firstCommentDelayMinutes: 60 } });
+  });
+
+  it("refuses a delay outside 0 to 1440 before any request is made", async () => {
+    const client = await connect();
+    const r = await client.callTool({
+      name: "schedule_post",
+      arguments: { socialAccountId: "ig1", content: "Hi", scheduledFor: "2026-10-01T09:00:00Z", firstComment: "x", firstCommentDelayMinutes: 2000 },
+    });
+    expect((r as { isError?: boolean }).isError).toBe(true);
+    expect(calls).toHaveLength(0);
+  });
+});

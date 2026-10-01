@@ -9,6 +9,7 @@ import { validateMediaForPlatform, type Platform } from "./mediaLimits.js";
 import { normalizeTags } from "./postTags.js";
 import { normalizeCarousel, MAX_EXTRA_CAROUSEL_IMAGES } from "./carousel.js";
 import { normalizeSelfReply, MAX_SELF_REPLY_LENGTH, MAX_SELF_REPLY_LIKES } from "./selfReply.js";
+import { normalizeFirstCommentDelay, delayForPlatform } from "./firstCommentDelay.js";
 import { normalizePostOptions, normalizeStoredOptions, optionsForPlatform, type PostOptions } from "./postOptions.js";
 
 export interface PostExtrasInput {
@@ -17,6 +18,9 @@ export interface PostExtrasInput {
   selfReplyText?: unknown;
   selfReplyAtLikes?: unknown;
   options?: unknown;
+  /** Needed only to check firstCommentDelayMinutes: a delay needs a comment to delay. */
+  firstComment?: unknown;
+  firstCommentDelayMinutes?: unknown;
 }
 
 export interface PostExtras {
@@ -25,6 +29,7 @@ export interface PostExtras {
   selfReplyText: string | null;
   selfReplyAtLikes: number | null;
   options: PostOptions;
+  firstCommentDelayMinutes: number | null;
 }
 
 type Failure = { status: number; body: { error: string } };
@@ -61,6 +66,9 @@ export async function resolvePostExtras(
   const selfReply = normalizeSelfReply(input.selfReplyText, input.selfReplyAtLikes, platform);
   if (!selfReply.ok) return fail(selfReply.error);
 
+  const delay = normalizeFirstCommentDelay(input.firstCommentDelayMinutes, input.firstComment, platform);
+  if (!delay.ok) return fail(delay.error);
+
   const options = normalizePostOptions(input.options, platform, { mediaUrl, mediaUrls: carousel.urls });
   if (!options.ok) return fail(options.error);
   const docUrl = options.options.linkedin?.documentUrl;
@@ -77,6 +85,7 @@ export async function resolvePostExtras(
       selfReplyText: selfReply.value?.text ?? null,
       selfReplyAtLikes: selfReply.value?.atLikes ?? null,
       options: options.options,
+      firstCommentDelayMinutes: delay.value,
     },
   };
 }
@@ -121,12 +130,18 @@ export async function normalizeDraftExtras(
   }
   const options = normalizeStoredOptions(input.options);
   if (!options.ok) return fail(options.error);
-  return { ok: true, extras: { tags: tags.tags, mediaUrls, selfReplyText, selfReplyAtLikes, options: options.options } };
+  // A draft has no platform yet, so only the shape is checked; the platform rule runs when it is scheduled.
+  const delay = normalizeFirstCommentDelay(input.firstCommentDelayMinutes, input.firstComment, null);
+  if (!delay.ok) return fail(delay.error);
+  return { ok: true, extras: { tags: tags.tags, mediaUrls, selfReplyText, selfReplyAtLikes, options: options.options, firstCommentDelayMinutes: delay.value } };
 }
 
 /** Database column values for a post row. */
-export function extrasToColumns(e: PostExtras) {
-  return { tags: e.tags, media_urls: e.mediaUrls, self_reply_text: e.selfReplyText, self_reply_at_likes: e.selfReplyAtLikes, options: e.options };
+export function extrasToColumns(e: PostExtras, forInsert = false) {
+  // A NEW row with no delay leaves the column out, so creating posts never depends on the delay column existing.
+  // An edit has to write null to clear a delay, so it always includes it.
+  const delay = forInsert && e.firstCommentDelayMinutes == null ? {} : { first_comment_delay_minutes: e.firstCommentDelayMinutes };
+  return { tags: e.tags, media_urls: e.mediaUrls, self_reply_text: e.selfReplyText, self_reply_at_likes: e.selfReplyAtLikes, options: e.options, ...delay };
 }
 
 /**
@@ -137,7 +152,7 @@ export function extrasToColumns(e: PostExtras) {
  * leaves out the rest, so one schedule can cover platforms with different abilities.
  */
 export function extrasForPlatform(
-  slot: { tags?: string[] | null; media_urls?: string[] | null; self_reply_text?: string | null; self_reply_at_likes?: number | null; options?: PostOptions | null },
+  slot: { tags?: string[] | null; media_urls?: string[] | null; self_reply_text?: string | null; self_reply_at_likes?: number | null; options?: PostOptions | null; first_comment?: string | null; first_comment_delay_minutes?: number | null },
   platform: string,
   mediaUrl: string | null,
 ) {
@@ -149,5 +164,7 @@ export function extrasForPlatform(
     self_reply_text: selfReply.ok ? (selfReply.value?.text ?? null) : null,
     self_reply_at_likes: selfReply.ok ? (selfReply.value?.atLikes ?? null) : null,
     options: optionsForPlatform(slot.options, platform, { mediaUrl, mediaUrls: carousel.ok ? carousel.urls : [] }),
+    // Left out when there is none, so generating posts never depends on the delay column existing.
+    ...(delayForPlatform(slot, platform) != null ? { first_comment_delay_minutes: delayForPlatform(slot, platform) } : {}),
   };
 }

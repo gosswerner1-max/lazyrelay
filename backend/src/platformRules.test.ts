@@ -98,3 +98,12 @@ describe("getPlatformRules", () => {
     }
   });
 });
+
+describe("delayed first comment", () => {
+  it("is listed for exactly the platforms that post first comments", async () => {
+    const withIt = getPlatformRules().filter((p) => p.features.includes("delayed first comment")).map((p) => p.platform);
+    expect(withIt.sort()).toEqual(["facebook", "instagram"]);
+    const { FIRST_COMMENT_DELAY_PLATFORMS } = await import("./firstCommentDelay.js");
+    expect([...FIRST_COMMENT_DELAY_PLATFORMS].sort()).toEqual(withIt);
+  });
+});

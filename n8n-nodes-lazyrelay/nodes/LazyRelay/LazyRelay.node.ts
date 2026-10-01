@@ -51,6 +51,9 @@ export function buildPostFields(
 	const tags = splitList(fields.tags);
 	if (tags.length > 0) body.tags = tags;
 
+	if (fields.firstCommentDelayMinutes !== undefined && fields.firstCommentDelayMinutes !== '' && Number(fields.firstCommentDelayMinutes) > 0) {
+		body.firstCommentDelayMinutes = Number(fields.firstCommentDelayMinutes);
+	}
 	if (fields.selfReplyAtLikes !== undefined && fields.selfReplyAtLikes !== '') {
 		body.selfReplyAtLikes = Number(fields.selfReplyAtLikes);
 	}

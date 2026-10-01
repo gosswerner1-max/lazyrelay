@@ -16,6 +16,7 @@ const perform = async (z, bundle) => {
       scheduledFor: bundle.inputData.scheduledFor,
       mediaUrl: bundle.inputData.mediaUrl || undefined,
       firstComment: bundle.inputData.firstComment || undefined,
+      firstCommentDelayMinutes: bundle.inputData.firstCommentDelayMinutes || undefined,
       mediaAltText: bundle.inputData.mediaAltText || undefined,
     },
   });
@@ -57,6 +58,7 @@ module.exports = {
         helpText: "A media URL from a prior \"Upload Media\" step, or any LazyRelay-hosted media URL.",
       },
       { key: "firstComment", label: "First Comment", type: "string", required: false, helpText: "Facebook/Instagram only — ignored by other platforms." },
+      { key: "firstCommentDelayMinutes", label: "First Comment Delay (Minutes)", type: "integer", required: false, helpText: "Facebook/Instagram only. Wait this many minutes (0 to 1440) after the post goes live before posting the first comment. Leave empty to post it right away." },
       { key: "mediaAltText", label: "Media Alt Text", type: "string", required: false, helpText: "Mastodon only — ignored by other platforms." },
     ],
     // Matches the real INSERT ... .select().single() response shape

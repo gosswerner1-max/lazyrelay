@@ -85,6 +85,13 @@ const postFields = {
   coverImageUrl: z.string().optional().describe("A still cover image for a video (Pinterest video pins need one)"),
   mediaAltText: z.string().optional().describe("Accessibility description of the main image (Mastodon and Bluesky use it)"),
   firstComment: z.string().optional().describe("A first comment posted right after publishing (Facebook and Instagram only)"),
+  firstCommentDelayMinutes: z
+    .number()
+    .int()
+    .min(0)
+    .max(1440)
+    .optional()
+    .describe("Wait this many minutes after the post goes live before posting firstComment (0 to 1440, Facebook and Instagram only). 0 or left out posts it right away. Needs firstComment"),
   tags: z.array(z.string()).optional().describe("Up to 5 short labels for filtering analytics by campaign"),
   selfReplyText: z.string().optional().describe("A follow-up comment added once the post reaches selfReplyAtLikes likes (Facebook and Instagram only)"),
   selfReplyAtLikes: z.number().int().optional().describe("The like count that triggers selfReplyText"),

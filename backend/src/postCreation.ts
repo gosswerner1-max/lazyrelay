@@ -527,6 +527,7 @@ export async function scheduleOnePost(
     selfReplyText?: unknown;
     selfReplyAtLikes?: unknown;
     options?: unknown;
+    firstCommentDelayMinutes?: unknown;
   },
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   const validated = await validatePostFields(accountId, input);
@@ -582,7 +583,7 @@ export async function scheduleOnePost(
       tiktok_brand_organic: tiktokBrandOrganic,
       tiktok_brand_content: tiktokBrandContent,
       scheduled_for: scheduledFor,
-      ...extrasToColumns(extrasResult.extras),
+      ...extrasToColumns(extrasResult.extras, true),
       // A post created with requiresApproval sits in needs_approval —
       // invisible to the scheduler (claimDuePosts only ever selects
       // status='pending') — until explicitly approved via

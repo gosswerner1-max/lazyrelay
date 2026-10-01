@@ -53,6 +53,7 @@ const postFields: Json = {
   coverImageUrl: { type: "string", format: "uri", description: "A still cover for a video (Pinterest video pins need one)." },
   mediaAltText: { type: "string", description: "Accessibility description of the main image." },
   firstComment: { type: "string", description: "Posted right after publishing (Facebook and Instagram)." },
+  firstCommentDelayMinutes: { type: "integer", minimum: 0, maximum: 1440, description: "Minutes to wait after the post goes live before posting firstComment (Facebook and Instagram). 0 or omitted posts it right away. Needs firstComment." },
   tags: { type: "array", items: { type: "string" }, maxItems: 5, description: "Up to 5 short labels; filter analytics by them." },
   selfReplyText: { type: "string", description: "A comment added once the post reaches selfReplyAtLikes likes (Facebook and Instagram)." },
   selfReplyAtLikes: { type: "integer", minimum: 1 },

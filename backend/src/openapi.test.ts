@@ -84,3 +84,10 @@ describe("every documented operation exists on the real app", () => {
     expect(res.headers["cache-control"]).toMatch(/max-age/);
   }, 60_000);
 });
+
+describe("delay before the first comment", () => {
+  it("is documented on the post fields as a 0 to 1440 whole number", async () => {
+    const json = JSON.stringify(buildOpenApiDocument());
+    expect(json).toContain('"firstCommentDelayMinutes":{"type":"integer","minimum":0,"maximum":1440');
+  });
+});
