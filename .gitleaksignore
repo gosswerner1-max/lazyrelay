@@ -1,0 +1,2 @@
+# Test fixtures that are fake on purpose (never real credentials).
+46729196cc2883bc95dfcbea4ada30f7b32f5d81:backend/src/platforms/nostr.test.ts:generic-api-key:27

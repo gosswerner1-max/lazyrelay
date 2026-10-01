@@ -24,7 +24,7 @@ const SIGNER_RELAY = "wss://signer-relay.example.org";
 const WRITE_A = "wss://write-a.example.org";
 const WRITE_B = "wss://write-b.example.org";
 const READ_ONLY = "wss://read-only.example.org";
-const SECRET = "bunker-secret-9f3a";
+const PRETEND_WORD = "pretend-word-for-tests";
 const TIMEOUTS = { connectApprovalMs: 600, signMs: 500, publishMs: 400, readMs: 400 };
 const nowS = () => Math.floor(Date.now() / 1000);
 
@@ -38,7 +38,7 @@ interface World {
 function world(opts: { relayList?: boolean } = {}): World {
   const net = new FakeNetwork();
   const signer = new FakeSigner(net);
-  signer.expectSecret = SECRET;
+  signer.expectSecret = PRETEND_WORD;
   const relays: World["relays"] = {};
   for (const url of [SIGNER_RELAY, WRITE_A, WRITE_B, READ_ONLY, ...NOSTR_DEFAULT_RELAYS]) relays[url] = net.add(url);
   if (opts.relayList !== false) {
@@ -50,7 +50,7 @@ function world(opts: { relayList?: boolean } = {}): World {
   return { net, signer, adapter, relays };
 }
 
-const bunkerCode = (w: World, secret: string | null = SECRET) => JSON.stringify({ bunkerUrl: w.signer.bunkerUrl([SIGNER_RELAY], secret ?? undefined) });
+const bunkerCode = (w: World, secret: string | null = PRETEND_WORD) => JSON.stringify({ bunkerUrl: w.signer.bunkerUrl([SIGNER_RELAY], secret ?? undefined) });
 async function connected(w: World) {
   const result = await w.adapter.exchangeCode(bunkerCode(w));
   return result;
@@ -75,7 +75,7 @@ describe("connecting (NIP-46)", () => {
     expect(w.signer.calls.map((c) => c.method)).toEqual(["connect", "get_public_key", "switch_relays"]);
     const connect = w.signer.calls[0].params;
     expect(connect[0]).toBe(w.signer.signerPk);
-    expect(connect[1]).toBe(SECRET);
+    expect(connect[1]).toBe(PRETEND_WORD);
     expect(connect[2]).toBe("sign_event:1,get_public_key"); // only what a text note needs
     expect(JSON.parse(connect[3])).toEqual({ name: "LazyRelay", url: "https://lazyrelay.com" });
 
@@ -85,7 +85,7 @@ describe("connecting (NIP-46)", () => {
     expect(r.refreshToken).toBeNull();
     expect(r.expiresAt).toBeNull();
     const creds = JSON.parse(r.accessToken);
-    expect(creds).toMatchObject({ v: 1, signerPubkey: w.signer.signerPk, userPubkey: w.signer.userPk, signerRelays: [SIGNER_RELAY], writeRelays: [WRITE_A, WRITE_B], bunkerSecret: SECRET });
+    expect(creds).toMatchObject({ v: 1, signerPubkey: w.signer.signerPk, userPubkey: w.signer.userPk, signerRelays: [SIGNER_RELAY], writeRelays: [WRITE_A, WRITE_B], bunkerSecret: PRETEND_WORD });
     expect(creds.clientSecretKey).toMatch(/^[0-9a-f]{64}$/);
     expect(w.net.openConnections()).toBe(0);
   });
@@ -193,7 +193,7 @@ describe("connecting (NIP-46)", () => {
       const err = (await w.adapter.exchangeCode(bunkerCode(w)).catch((e: Error) => e)) as Error;
       expect(err.message).toMatch(expected);
       expect(err.message).not.toMatch(/nostr_|approve\?session|[–—]/);
-      expect(err.message).not.toContain(SECRET);
+      expect(err.message).not.toContain(PRETEND_WORD);
     }
   }, 15_000);
 
@@ -486,16 +486,16 @@ describe("secrets stay secret", () => {
       errors.push(String((await w3.adapter.post(postReq(c.accessToken, noteText))).errorMessage));
     }
     const everything = [...logs, ...errors].join("\n");
-    for (const secret of [SECRET, token.clientSecretKey, w.signer.userSkHex, code, r.accessToken, w.signer.bunkerUrl([SIGNER_RELAY], SECRET), noteText]) {
+    for (const secret of [PRETEND_WORD, token.clientSecretKey, w.signer.userSkHex, code, r.accessToken, w.signer.bunkerUrl([SIGNER_RELAY], PRETEND_WORD), noteText]) {
       expect(everything, secret.slice(0, 12)).not.toContain(secret);
     }
   }, 20_000);
 
   it("the pasted link is never part of the error when the link is wrong", async () => {
     const w = world();
-    const pasted = `bunker://${w.signer.signerPk}?relay=ws://insecure.example.org&secret=${SECRET}`;
+    const pasted = `bunker://${w.signer.signerPk}?relay=ws://insecure.example.org&secret=${PRETEND_WORD}`;
     const err = (await w.adapter.exchangeCode(pasted).catch((e: Error) => e)) as Error;
-    expect(err.message).not.toContain(SECRET);
+    expect(err.message).not.toContain(PRETEND_WORD);
     expect(err.message).not.toContain(w.signer.signerPk);
   });
 });
