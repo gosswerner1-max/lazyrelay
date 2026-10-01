@@ -112,6 +112,9 @@ async function main() {
       `DEVTO_CONNECT_PAGE_URL=${process.env.DEVTO_CONNECT_PAGE_URL ? "set" : "MISSING"} ` +
       `HASHNODE_CONNECT_PAGE_URL=${process.env.HASHNODE_CONNECT_PAGE_URL ? "set" : "MISSING"} ` +
       `LEMMY_CONNECT_PAGE_URL=${process.env.LEMMY_CONNECT_PAGE_URL ? "set" : "MISSING"}; ` +
+      `SLACK_CLIENT_ID=${process.env.SLACK_CLIENT_ID ? "set" : "MISSING"} ` +
+      `SLACK_CLIENT_SECRET=${process.env.SLACK_CLIENT_SECRET ? "set" : "MISSING"} ` +
+      `SLACK_REDIRECT_URI=${process.env.SLACK_REDIRECT_URI ? "set" : "MISSING"}; ` +
       `ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? "set" : "MISSING"}`,
   );
 

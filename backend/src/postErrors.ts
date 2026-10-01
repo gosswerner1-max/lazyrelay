@@ -110,6 +110,65 @@ const RULES: Rule[] = [
     message: () => "TikTok declined this post. TikTok doesn't say why, so check the video and caption against TikTok's content sharing guidelines, then try again.",
   },
 
+  // Slack answers failures as HTTP 200 {ok:false, error:"<code>"} and the adapter passes the code through. The
+  // Slack rules sit above the generic ones because the codes (invalid_auth, ratelimited, msg_too_long) use
+  // underscores the generic wording tests would not match.
+  {
+    platform: "slack",
+    test: /invalid_auth|not_authed|token_revoked|token_expired|account_inactive|org_login_required|team_access_not_granted|invalid_refresh_token/i,
+    kind: "reconnect",
+    message: (p) => `Your ${p} connection has expired or was revoked, so LazyRelay can't post to it. Reconnect it in Social Platforms, then schedule the post again.`,
+  },
+  {
+    platform: "slack",
+    test: /missing_scope|no_permission|not_allowed_token_type/i,
+    kind: "reconnect",
+    message: (p) => `LazyRelay doesn't have the permissions it needs in this ${p} workspace. Reconnect it in Social Platforms and approve every permission LazyRelay asks for.`,
+  },
+  {
+    platform: "slack",
+    test: /channel_not_found|not_in_channel/i,
+    kind: "fatal",
+    message: () =>
+      "LazyRelay can't post to that Slack channel. If it is a private channel, invite the LazyRelay app to it first (in the channel, type /invite and pick LazyRelay). If the channel was deleted, reconnect Slack and pick another one.",
+  },
+  {
+    platform: "slack",
+    test: /is_archived/i,
+    kind: "fatal",
+    message: () => "That Slack channel has been archived, so nothing can be posted to it. Reconnect Slack and pick a different channel.",
+  },
+  {
+    platform: "slack",
+    test: /restricted_action/i,
+    kind: "fatal",
+    message: () => "Your Slack workspace settings stop LazyRelay from posting in that channel (some workspaces limit who can post, for example in #general). Ask a Slack admin to allow it, or reconnect Slack and pick another channel.",
+  },
+  {
+    platform: "slack",
+    test: /msg_too_long|no_text/i,
+    kind: "fatal",
+    message: () => "Slack could not take this post: it is empty or longer than the 4,000 characters LazyRelay allows for Slack. Edit the text and schedule it again.",
+  },
+  {
+    platform: "slack",
+    test: /message_not_found/i,
+    kind: "retry",
+    message: (p) => `The post was sent to ${p} but it hasn't confirmed it yet. LazyRelay is re-checking it and will not post it twice.`,
+  },
+  {
+    platform: "slack",
+    test: /ratelimited/i,
+    kind: "retry",
+    message: (p) => `${p} is limiting requests right now. LazyRelay will try again automatically.`,
+  },
+  {
+    platform: "slack",
+    test: /service_unavailable|internal_error|fatal_error|request_timeout|accesslimited/i,
+    kind: "retry",
+    message: (p) => `${p} had a temporary problem. LazyRelay will try again automatically.`,
+  },
+
   // ---- The saved login is dead: only the customer can fix it ----
   {
     test: /access_token_invalid|scope_not_authorized|refresh token is invalid|invalid_grant|token has expired|expiredtoken|invalidtoken|error validating access token|session has been invalidated|unable to authorize|"code":\s*(190|102)\b|\(#(190|102)\)|password changed/i,

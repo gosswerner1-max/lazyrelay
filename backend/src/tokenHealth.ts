@@ -47,6 +47,7 @@ const PLATFORM_LABEL: Record<string, string> = {
   devto: "dev.to",
   hashnode: "Hashnode",
   lemmy: "Lemmy",
+  slack: "Slack",
 };
 export const platformLabel = (p: string): string => PLATFORM_LABEL[p] ?? p;
 

@@ -31,6 +31,7 @@ export const BRAND_COLORS: Record<string, string> = {
   devto: "#0A0A0A",
   hashnode: "#2962FF",
   lemmy: "#00BC8C",
+  slack: "#4A154B",
 };
 
 function PlatformGlyph({ platform, size }: { platform: string; size: number }) {
@@ -214,6 +215,13 @@ function PlatformGlyph({ platform, size }: { platform: string; size: number }) {
         <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
           <rect x="1" y="1" width="22" height="22" rx="6" fill={color} stroke="rgba(255,255,255,0.16)" />
           <text x="12" y="16.5" textAnchor="middle" fontSize="13" fontWeight="700" fontFamily="system-ui, sans-serif" fill="#fff">L</text>
+        </svg>
+      );
+    case "slack":
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="1" y="1" width="22" height="22" rx="6" fill={color} stroke="rgba(255,255,255,0.16)" />
+          <text x="12" y="17" textAnchor="middle" fontSize="14" fontWeight="700" fontFamily="system-ui, sans-serif" fill="#fff">#</text>
         </svg>
       );
     case "reddit":

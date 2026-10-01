@@ -19,6 +19,7 @@ import { WordPressAdapter } from "./wordpress.js";
 import { DevToAdapter } from "./devto.js";
 import { HashnodeAdapter } from "./hashnode.js";
 import { LemmyAdapter } from "./lemmy.js";
+import { SlackAdapter } from "./slack.js";
 import type { PlatformAdapter } from "./types.js";
 
 // Every configured platform gets its own live PlatformAdapter in the
@@ -101,6 +102,12 @@ export function buildPlatformRegistry(): Map<string, PlatformAdapter> {
   }
   if (process.env.LEMMY_CONNECT_PAGE_URL) {
     registry.set("lemmy", new LemmyAdapter(process.env.LEMMY_CONNECT_PAGE_URL));
+  }
+  // Slack (OAuth, bot token, one channel per connection). Registered only when all three settings exist, and even
+  // then it stays hidden from customers until SLACK_PLATFORM_PUBLIC (or a test-account list) switches it on, see
+  // socialAccounts.routes.ts. Until the three settings are set it simply is not in the registry.
+  if (process.env.SLACK_CLIENT_ID && process.env.SLACK_CLIENT_SECRET && process.env.SLACK_REDIRECT_URI) {
+    registry.set("slack", new SlackAdapter(process.env.SLACK_CLIENT_ID, process.env.SLACK_CLIENT_SECRET, process.env.SLACK_REDIRECT_URI));
   }
   if (registry.size === 0) {
     registry.set("tiktok", new StubAdapter());

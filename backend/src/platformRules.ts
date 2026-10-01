@@ -479,6 +479,33 @@ function buildRules(): PlatformRuleSet[] {
       sources: ["https://join-lemmy.org/docs/", "https://github.com/LemmyNet/lemmy-js-client"],
     },
     {
+      platform: "slack",
+      label: "Slack",
+      text: {
+        maxLength: 4000,
+        note: "Message text: 4000 characters, which is Slack's own recommended limit for the text field (its hard limit is higher, LazyRelay uses 4000). The characters &, < and > are escaped so the text can never ping @channel, @here or a person, or hide a link.",
+      },
+      media: {
+        textOnlyAllowed: true,
+        // mediaLimits.ts: images and videos are refused. Slack's file upload flow needs an extra permission and is not built yet.
+        image: { supported: false, formats: [], maxSizeMb: null },
+        video: { supported: false, formats: [], maxSizeMb: null, maxDurationSec: null },
+        multiItem: multiItem("slack"),
+        notes: "Text and links only. Images and videos are not supported yet. A link in the text shows a preview in Slack.",
+      },
+      required: [...BASE_REQUIRED],
+      features: ["posts to one public channel chosen when connecting", "link previews", "proof link to the live message"],
+      options: [],
+      limits: noRepoCap("LazyRelay enforces no cap. Slack allows about one message per second per channel."),
+      lookups: ["list_connected_accounts", "get_next_free_slot"],
+      notes: [
+        "One connected account is one Slack workspace and one public channel. To post to another channel, connect Slack again and pick it.",
+        "Private channels are not offered in the picker. If a private channel is ever used, the Slack app has to be invited to it first.",
+        "Slack formats text with its own mrkdwn (*bold*, _italic_), not standard Markdown. The text is sent as typed.",
+      ],
+      sources: ["https://docs.slack.dev/reference/methods/chat.postMessage", "https://docs.slack.dev/reference/methods/chat.getPermalink"],
+    },
+    {
       platform: "telegram",
       label: "Telegram",
       text: {

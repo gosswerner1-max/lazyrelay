@@ -368,10 +368,16 @@ export async function finalizeConnectSelection(
   }
 
   const socialAccountIds: string[] = [];
-  for (const selectedId of selectedIds) {
-    const result = await adapter.finalizeConnectOption(userToken, selectedId);
-    const socialAccountId = await storeConnectedAccount(stateRow.account_id, adapter.platform, result);
-    socialAccountIds.push(socialAccountId);
+  try {
+    for (const selectedId of selectedIds) {
+      const result = await adapter.finalizeConnectOption(userToken, selectedId);
+      const socialAccountId = await storeConnectedAccount(stateRow.account_id, adapter.platform, result);
+      socialAccountIds.push(socialAccountId);
+    }
+  } finally {
+    // The state row is already gone, so nothing would ever clean up the held login: overwrite it now (the real
+    // token has been copied into its own Vault entry by storeConnectedAccount).
+    await scrubHeldToken(stateRow.pending_token_vault_id);
   }
   await recordWarmupConfirmation(adapter.platform, socialAccountIds, finalizeOptions.warmedUp === true);
   return socialAccountIds;

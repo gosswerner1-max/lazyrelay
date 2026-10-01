@@ -338,11 +338,14 @@ export function Dashboard() {
                 pendingSelection.platform === "instagram" ? "Instagram accounts" :
                 pendingSelection.platform === "youtube" ? "YouTube channels" :
                 pendingSelection.platform === "tumblr" ? "Tumblr blog" :
+                pendingSelection.platform === "slack" ? "Slack channel" :
                 "Facebook Pages"
               } should LazyRelay use?</h2>
             </div>
             <p className="modal-subtitle">
-              {pendingSelection.singleSelection
+              {pendingSelection.platform === "slack"
+                ? "Pick the public channel LazyRelay should post to. To post to another channel later, connect Slack again and pick it. For a private channel, invite the LazyRelay app to it in Slack first."
+                : pendingSelection.singleSelection
                 ? "Your Tumblr account has more than one blog. Pick the one LazyRelay should post to. To connect another blog later, connect Tumblr again."
                 : "Your account manages more than one, so check the ones you want to connect. All are checked by default; uncheck any you'd rather leave out. You can always connect the rest separately later."}
             </p>

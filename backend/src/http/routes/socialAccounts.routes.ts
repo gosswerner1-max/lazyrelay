@@ -46,7 +46,7 @@ import { ConnectLimitError } from "../../platforms/mastodonInstanceLimit.js";
 const ALL_PLATFORMS = [
   "tiktok", "pinterest", "youtube", "mastodon", "bluesky", "telegram",
   "linkedin", "threads", "facebook", "instagram", "discord", "tumblr", "x",
-  "wordpress", "devto", "hashnode", "lemmy",
+  "wordpress", "devto", "hashnode", "lemmy", "slack",
 ] as const;
 const COMING_SOON_PLATFORMS = new Set<string>(["x"]);
 // New platforms stay out of the picker entirely until they are switched on for this deploy, so customers never
@@ -54,11 +54,20 @@ const COMING_SOON_PLATFORMS = new Set<string>(["x"]);
 // only for the accounts named in ARTICLE_PLATFORMS_TEST_ACCOUNT_IDS (comma separated); once proven,
 // ARTICLE_PLATFORMS_PUBLIC=true opens it to everyone. Everything else keeps its dimmed "not set up" tile when
 // its settings are missing.
-const HIDDEN_UNTIL_CONFIGURED = new Set<string>(["wordpress", "devto", "hashnode", "lemmy"]);
+//
+// Slack has its own pair of switches (SLACK_PLATFORM_PUBLIC, SLACK_TEST_ACCOUNT_IDS) so it can be released, or tried
+// on a test account, independently of the article platforms. It is also absent from the registry until its three
+// Slack settings exist, so two separate things must both be true before any customer sees a Slack tile.
+const HIDDEN_UNTIL_CONFIGURED = new Set<string>(["wordpress", "devto", "hashnode", "lemmy", "slack"]);
+const GATE_ENV: Record<string, { publicFlag: string; testers: string }> = {
+  slack: { publicFlag: "SLACK_PLATFORM_PUBLIC", testers: "SLACK_TEST_ACCOUNT_IDS" },
+};
+const ARTICLE_GATE_ENV = { publicFlag: "ARTICLE_PLATFORMS_PUBLIC", testers: "ARTICLE_PLATFORMS_TEST_ACCOUNT_IDS" };
 function canSeePlatform(platform: string, accountId: string | undefined): boolean {
   if (!HIDDEN_UNTIL_CONFIGURED.has(platform)) return true;
-  if (process.env.ARTICLE_PLATFORMS_PUBLIC === "true") return true;
-  const testers = (process.env.ARTICLE_PLATFORMS_TEST_ACCOUNT_IDS ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+  const gate = GATE_ENV[platform] ?? ARTICLE_GATE_ENV;
+  if (process.env[gate.publicFlag] === "true") return true;
+  const testers = (process.env[gate.testers] ?? "").split(",").map((x) => x.trim()).filter(Boolean);
   return !!accountId && testers.includes(accountId);
 }
 

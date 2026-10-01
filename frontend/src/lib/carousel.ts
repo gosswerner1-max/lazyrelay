@@ -37,6 +37,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   youtube: "YouTube",
   telegram: "Telegram",
   discord: "Discord",
+  slack: "Slack",
   wordpress: "WordPress",
   devto: "dev.to",
   hashnode: "Hashnode",
