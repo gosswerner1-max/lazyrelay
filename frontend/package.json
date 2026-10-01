@@ -17,7 +17,7 @@
     "@fontsource/league-spartan": "^5.3.0",
     "@fontsource/work-sans": "^5.3.0",
     "@marsidev/react-turnstile": "^1.6.1",
-    "@paddle/paddle-js": "^1.6.4",
+    "@paddle/paddle-js": "^1.6.5",
     "@supabase/supabase-js": "^2.116.0",
     "posthog-js": "^1.425.1",
     "react": "^19.3.0",
