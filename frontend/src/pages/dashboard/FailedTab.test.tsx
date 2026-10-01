@@ -106,4 +106,63 @@ describe("FailedTab", () => {
     expect(api.deleteScheduledPost).not.toHaveBeenCalledWith("p1");
     expect(screen.getByTestId("failed-post")).toBeInTheDocument();
   });
+
+  describe("bulk delete", () => {
+    const three = () => [post({ id: "p1", content: "One" }), post({ id: "p2", content: "Two" }), post({ id: "p3", content: "Three" })];
+
+    it("shows no delete button until something is ticked, then deletes only the ticked posts", async () => {
+      api.listFailedPosts.mockResolvedValue(three());
+      render(<FailedTab />);
+      await screen.findByText("One");
+      expect(screen.queryByRole("button", { name: /Delete selected/ })).toBeNull();
+      const boxes = screen.getAllByLabelText("Select this post");
+      await userEvent.click(boxes[0]);
+      await userEvent.click(boxes[2]);
+      await userEvent.click(screen.getByRole("button", { name: "Delete selected (2)" }));
+      expect(window.confirm).toHaveBeenCalledWith("Delete 2 failed posts? This can't be undone.");
+      await waitFor(() => expect(api.deleteScheduledPost).toHaveBeenCalledTimes(2));
+      expect(api.deleteScheduledPost).toHaveBeenCalledWith("p1");
+      expect(api.deleteScheduledPost).toHaveBeenCalledWith("p3");
+      expect(api.deleteScheduledPost).not.toHaveBeenCalledWith("p2");
+      await waitFor(() => expect(screen.queryByText("One")).toBeNull());
+      expect(screen.getByText("Two")).toBeInTheDocument();
+    });
+
+    it("select all ticks every post, and ticking again clears them", async () => {
+      api.listFailedPosts.mockResolvedValue(three());
+      render(<FailedTab />);
+      await screen.findByText("One");
+      await userEvent.click(screen.getByLabelText("Select all"));
+      expect(screen.getByRole("button", { name: "Delete selected (3)" })).toBeInTheDocument();
+      await userEvent.click(screen.getByLabelText("Select all"));
+      expect(screen.queryByRole("button", { name: /Delete selected/ })).toBeNull();
+    });
+
+    it("deletes nothing when the customer cancels", async () => {
+      vi.spyOn(window, "confirm").mockReturnValue(false);
+      api.listFailedPosts.mockResolvedValue(three());
+      render(<FailedTab />);
+      await screen.findByText("One");
+      await userEvent.click(screen.getByLabelText("Select all"));
+      await userEvent.click(screen.getByRole("button", { name: "Delete selected (3)" }));
+      expect(api.deleteScheduledPost).not.toHaveBeenCalled();
+      expect(screen.getByText("Two")).toBeInTheDocument();
+    });
+
+    it("keeps the posts it could not delete, selected, and says how many failed", async () => {
+      api.listFailedPosts.mockResolvedValue(three());
+      api.deleteScheduledPost.mockImplementation(async (id: string) => {
+        if (id === "p2") throw new Error("Server hiccup.");
+        return null;
+      });
+      render(<FailedTab />);
+      await screen.findByText("One");
+      await userEvent.click(screen.getByLabelText("Select all"));
+      await userEvent.click(screen.getByRole("button", { name: "Delete selected (3)" }));
+      await waitFor(() => expect(ctx.setError).toHaveBeenCalledWith("Deleted 2, but 1 could not be deleted: Server hiccup."));
+      expect(screen.getByText("Two")).toBeInTheDocument();
+      expect(screen.queryByText("One")).toBeNull();
+      expect(screen.getByRole("button", { name: "Delete selected (1)" })).toBeInTheDocument();
+    });
+  });
 });

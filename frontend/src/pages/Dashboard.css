@@ -3198,3 +3198,19 @@
   flex-direction: column;
   gap: 4px;
 }
+
+.failed-bulkbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.failed-bulkbar label,
+.failed-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}

@@ -31,6 +31,8 @@ export function FailedTab() {
   const [draftText, setDraftText] = useState("");
   const [draftWhen, setDraftWhen] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -71,6 +73,53 @@ export function FailedTab() {
     }
   }
 
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    const all = failed ?? [];
+    setSelected((prev) => (prev.size === all.length ? new Set() : new Set(all.map((x) => x.id))));
+  }
+
+  // One at a time on purpose: there is no bulk endpoint, and a burst of
+  // parallel deletes would run into the per-account rate limit.
+  async function removeSelected() {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    const noun = ids.length === 1 ? "failed post" : "failed posts";
+    if (!window.confirm(`Delete ${ids.length} ${noun}? This can't be undone.`)) return;
+    setBulkBusy(true);
+    setError(null);
+    setMessage(null);
+    const gone = new Set<string>();
+    let lastError: string | null = null;
+    for (const id of ids) {
+      try {
+        await api.deleteScheduledPost(id);
+        gone.add(id);
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : String(err);
+      }
+    }
+    setFailed((prev) => (prev ?? []).filter((x) => !gone.has(x.id)));
+    setSelected((prev) => new Set([...prev].filter((id) => !gone.has(id))));
+    if (editingId && gone.has(editingId)) setEditingId(null);
+    const failedCount = ids.length - gone.size;
+    if (failedCount === 0) {
+      setMessage(`Deleted ${gone.size} ${gone.size === 1 ? "post" : "posts"}.`);
+    } else {
+      setError(`Deleted ${gone.size}, but ${failedCount} could not be deleted${lastError ? `: ${lastError}` : "."}`);
+    }
+    await syncDashboard();
+    setBulkBusy(false);
+  }
+
   function startEdit(p: ScheduledPost) {
     setEditingId(p.id);
     setDraftText(p.content);
@@ -96,6 +145,7 @@ export function FailedTab() {
       }
       await api.deleteScheduledPost(p.id);
       setFailed((prev) => (prev ?? []).filter((x) => x.id !== p.id));
+      setSelected((prev) => { const n = new Set(prev); n.delete(p.id); return n; });
       setEditingId(null);
       setMessage(when.getTime() <= Date.now() + 90 * 1000 ? "Done. It will go out within about a minute." : `Done. Scheduled for ${when.toLocaleString()}.`);
       await syncDashboard();
@@ -133,6 +183,7 @@ export function FailedTab() {
     try {
       await api.deleteScheduledPost(p.id);
       setFailed((prev) => (prev ?? []).filter((x) => x.id !== p.id));
+      setSelected((prev) => { const n = new Set(prev); n.delete(p.id); return n; });
       if (editingId === p.id) setEditingId(null);
       await syncDashboard();
     } catch (err) {
@@ -152,20 +203,42 @@ export function FailedTab() {
       {failed === null && <Spinner />}
       {failed !== null && failed.length === 0 && <p className="empty">No failed posts. Everything went out.</p>}
       {failed !== null && failed.length > 0 && (
+        <div className="failed-bulkbar">
+          <label>
+            <input
+              type="checkbox"
+              checked={selected.size === failed.length}
+              onChange={toggleAll}
+              disabled={bulkBusy}
+              aria-label="Select all"
+            />
+            {hasMore ? `Select all ${failed.length} shown` : "Select all"}
+          </label>
+          {selected.size > 0 && (
+            <button className="btn-outline" disabled={bulkBusy} onClick={() => void removeSelected()}>
+              {bulkBusy ? "Deleting..." : `Delete selected (${selected.size})`}
+            </button>
+          )}
+        </div>
+      )}
+      {failed !== null && failed.length > 0 && (
         <ul className="post-list">
           {failed.map((p) => {
             const result = p.post_results?.[0];
             const account = accounts.find((a) => a.id === p.social_account_id);
-            const busy = busyId === p.id;
+            const busy = busyId === p.id || bulkBusy;
             const editing = editingId === p.id;
             return (
               <li key={p.id} className="post-status-failed" data-testid="failed-post">
-                {account && (
-                  <div className="post-platform">
-                    <PlatformIcon platform={account.platform} size={14} />
-                    {account.display_name ?? account.platform_account_id}
-                  </div>
-                )}
+                <label className="failed-select">
+                  <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleOne(p.id)} disabled={bulkBusy} aria-label="Select this post" />
+                  {account && (
+                    <span className="post-platform">
+                      <PlatformIcon platform={account.platform} size={14} />
+                      {account.display_name ?? account.platform_account_id}
+                    </span>
+                  )}
+                </label>
                 {!editing && <div className="post-content">{p.content}</div>}
                 <div className="post-meta">
                   <span className="status-badge status-failed">failed</span>
