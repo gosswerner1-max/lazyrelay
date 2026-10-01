@@ -109,7 +109,7 @@
 <h2>Limits and things to know</h2>
 <ul>
   <li>Instagram has stricter media rules than Facebook, so a photo that posts fine on Facebook can be refused here. LazyRelay checks size and format before scheduling and tells you which limit was hit.</li>
-  <li>Instagram itself allows 100 API-published posts in a rolling 24 hours, and a carousel counts as one. Meta's carousel section of the same page says 50, so treat 50 as the safe number. LazyRelay does not add a cap of its own.</li>
+  <li>Instagram itself allows 100 API-published posts in a rolling 24 hours, and a carousel counts as one. Meta's carousel section of the same page says 50, so treat 50 as the safe number. LazyRelay applies the 100 limit for you: a post that would be the 101st in 24 hours is refused when you schedule it, and you are told the next free time.</li>
   <li>Image size and video size figures follow Meta's documentation. Video length and resolution are not checked in advance, so a file inside the size limit can still be rejected by Instagram.</li>
 </ul>
 

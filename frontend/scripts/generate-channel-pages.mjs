@@ -174,7 +174,7 @@ const COPY = {
     pop: "After Instagram accepts the post, LazyRelay asks Instagram's own API for that media object using the account's access and confirms it comes back with a permalink. Only then is the post marked confirmed live, and that permalink is the link you can share. Instagram's publish step returning an ID is not treated as proof on its own.",
     caveats: [
       "Instagram has stricter media rules than Facebook, so a photo that posts fine on Facebook can be refused here. LazyRelay checks size and format before scheduling and tells you which limit was hit.",
-      "Instagram itself allows 100 API-published posts in a rolling 24 hours, and a carousel counts as one. Meta's carousel section of the same page says 50, so treat 50 as the safe number. LazyRelay does not add a cap of its own.",
+      "Instagram itself allows 100 API-published posts in a rolling 24 hours, and a carousel counts as one. Meta's carousel section of the same page says 50, so treat 50 as the safe number. LazyRelay applies the 100 limit for you: a post that would be the 101st in 24 hours is refused when you schedule it, and you are told the next free time.",
       "Image size and video size figures follow Meta's documentation. Video length and resolution are not checked in advance, so a file inside the size limit can still be rejected by Instagram.",
     ],
     faq: () => [
@@ -648,7 +648,7 @@ const COPY = {
 // Signatures of the rules each COPY entry was written against. Refresh with --print-sigs after review.
 const COPY_SIGS = {
   "facebook": "b6b37c5319ed",
-  "instagram": "c8b75845d3af",
+  "instagram": "4144e9508240",
   "tiktok": "b238f5500554",
   "pinterest": "22935332b6a8",
   "youtube": "3904fc12fc79",
