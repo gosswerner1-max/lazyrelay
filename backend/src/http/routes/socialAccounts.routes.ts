@@ -18,6 +18,7 @@ import { getFrontendUrl, dbError } from "./shared.js";
 import { validateBody, optionalNullableString } from "../validation.js";
 import { normalizeMastodonInstance } from "../../platforms/mastodon.js";
 import { ConnectLimitError } from "../../platforms/mastodonInstanceLimit.js";
+import { registerWhopRoutes } from "./whopConnect.routes.js";
 
 // Every platform LazyRelay supports, in the shape the frontend's platform
 // picker grid needs. "x" had a comingSoon gate until 2026-07-31 — its
@@ -46,7 +47,7 @@ import { ConnectLimitError } from "../../platforms/mastodonInstanceLimit.js";
 const ALL_PLATFORMS = [
   "tiktok", "pinterest", "youtube", "mastodon", "bluesky", "telegram",
   "linkedin", "threads", "facebook", "instagram", "discord", "tumblr", "x",
-  "wordpress", "devto", "hashnode", "lemmy", "slack", "nostr",
+  "wordpress", "devto", "hashnode", "lemmy", "slack", "nostr", "whop",
 ] as const;
 const COMING_SOON_PLATFORMS = new Set<string>(["x"]);
 // New platforms stay out of the picker entirely until they are switched on for this deploy, so customers never
@@ -60,10 +61,13 @@ const COMING_SOON_PLATFORMS = new Set<string>(["x"]);
 // Slack settings exist, so two separate things must both be true before any customer sees a Slack tile.
 // Nostr likewise has its own pair (NOSTR_PLATFORM_PUBLIC, NOSTR_TEST_ACCOUNT_IDS) and is only in the registry once
 // NOSTR_CONNECT_PAGE_URL is set.
-const HIDDEN_UNTIL_CONFIGURED = new Set<string>(["wordpress", "devto", "hashnode", "lemmy", "slack", "nostr"]);
+// Whop likewise has its own pair (WHOP_PLATFORM_PUBLIC, WHOP_TEST_ACCOUNT_IDS) and is only in the registry once both
+// WHOP_APP_API_KEY and WHOP_APP_ID are set. None of the other switches (Slack, Nostr, article platforms) opens it.
+const HIDDEN_UNTIL_CONFIGURED = new Set<string>(["wordpress", "devto", "hashnode", "lemmy", "slack", "nostr", "whop"]);
 const GATE_ENV: Record<string, { publicFlag: string; testers: string }> = {
   slack: { publicFlag: "SLACK_PLATFORM_PUBLIC", testers: "SLACK_TEST_ACCOUNT_IDS" },
   nostr: { publicFlag: "NOSTR_PLATFORM_PUBLIC", testers: "NOSTR_TEST_ACCOUNT_IDS" },
+  whop: { publicFlag: "WHOP_PLATFORM_PUBLIC", testers: "WHOP_TEST_ACCOUNT_IDS" },
 };
 const ARTICLE_GATE_ENV = { publicFlag: "ARTICLE_PLATFORMS_PUBLIC", testers: "ARTICLE_PLATFORMS_TEST_ACCOUNT_IDS" };
 function canSeePlatform(platform: string, accountId: string | undefined): boolean {
@@ -103,6 +107,8 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
     res.json({ platforms });
   });
 
+  registerWhopRoutes(router, registry, canSeePlatform);
+
   // Starts the "connect your social account" flow — returns the URL the
   // frontend should redirect the user to. Real account identity comes from
   // the verified JWT; the callback below never has to trust anything the
@@ -119,6 +125,12 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
     }
     if (!canSeePlatform(platform, req.accountId)) {
       res.status(400).json({ error: `${platform} isn't available to connect yet.` });
+      return;
+    }
+    // Whop has no sign-in redirect: it is connected from its own dialog (routes/whopConnect.routes.ts), where the
+    // customer has to prove they own the community.
+    if (platform === "whop") {
+      res.status(400).json({ error: "Whop is connected from its own connect dialog in Social Platforms." });
       return;
     }
     // Mastodon only: the customer's own server. Blank or mastodon.social means the default

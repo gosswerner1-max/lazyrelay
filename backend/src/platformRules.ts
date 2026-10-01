@@ -18,6 +18,7 @@ import { MULTI_MEDIA_RULES } from "./carousel.js";
 import { CHAIN_ITEM_MAX_LENGTH, MAX_CHAIN_ITEMS, OPTION_KEY_FOR_PLATFORM } from "./postOptions.js";
 import { MAX_FIRST_COMMENT_LENGTH, MAX_POST_CONTENT_LENGTH, TIKTOK_PRIVACY_LEVELS } from "./postCreation.js";
 import { NOSTR_TEXT_LIMIT } from "./platforms/nostrConstants.js";
+import { WHOP_TEXT_LIMIT } from "./platforms/whopApi.js";
 import { getRolling24hPostLimit, PINTEREST_WARMUP_DAYS, PINTEREST_WARMUP_RAMP } from "./platformPostLimits.js";
 
 export type LookupTool = "list_pinterest_boards" | "get_tiktok_creator_info" | "list_connected_accounts" | "get_next_free_slot";
@@ -540,6 +541,40 @@ function buildRules(): PlatformRuleSet[] {
         "https://github.com/nostr-protocol/nips/blob/master/46.md",
         "https://github.com/nostr-protocol/nips/blob/master/65.md",
         "https://github.com/nostr-protocol/nips/blob/master/19.md",
+      ],
+    },
+    {
+      platform: "whop",
+      label: "Whop",
+      text: {
+        maxLength: WHOP_TEXT_LIMIT,
+        note: "Forum post text in Markdown: 4000 characters. Whop states no limit of its own, so 4000 is LazyRelay's own conservative number. Posts are sent as typed; the characters <@ are broken with an invisible space so text can never turn into a mention, and nobody is notified.",
+      },
+      media: {
+        textOnlyAllowed: true,
+        // mediaLimits.ts: images and videos are refused. Whop's file upload flow is not built yet.
+        image: { supported: false, formats: [], maxSizeMb: null },
+        video: { supported: false, formats: [], maxSizeMb: null, maxDurationSec: null },
+        multiItem: multiItem("whop"),
+        notes: "Text only in this version. Images and videos are not supported yet.",
+      },
+      required: [...BASE_REQUIRED],
+      features: ["posts to one forum in the customer's own Whop community, chosen when connecting", "Markdown text", "proof link to the live forum post"],
+      options: [],
+      limits: noRepoCap("LazyRelay enforces no cap. Whop allows 600 requests per minute per operation."),
+      lookups: ["list_connected_accounts", "get_next_free_slot"],
+      notes: [
+        "One connected account is one forum in one Whop community. To post to another forum, connect Whop again and pick it.",
+        "The community owner installs the LazyRelay app in Whop and approves three permissions (post in forums, read forums, read the community's forum list). LazyRelay then asks the owner or an admin to post a one-time code in a forum, to prove the community is theirs. One community can be connected to one LazyRelay account at a time.",
+        "Posts appear in the forum under the LazyRelay app's name, not the customer's own name.",
+        "A post counts as live only when it is read back from Whop with the same text as a top-level forum post. If the LazyRelay app is removed from the community, Whop stops accepting posts and the account needs reconnecting.",
+      ],
+      sources: [
+        "https://docs.whop.com/api-reference/forum-posts/create-forum-post",
+        "https://docs.whop.com/api-reference/forum-posts/list-forum-posts",
+        "https://docs.whop.com/api-reference/experiences/list-experiences",
+        "https://docs.whop.com/developer/api/idempotency",
+        "https://docs.whop.com/developer/api/rate-limits",
       ],
     },
     {

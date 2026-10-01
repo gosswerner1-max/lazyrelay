@@ -44,7 +44,8 @@ interface Rule {
   platform?: string;
   test: RegExp;
   kind: PostErrorKind;
-  message: (p: string) => string;
+  /** `raw` is the adapter's own text, for the few rules that quote part of it (Whop's validation message). */
+  message: (p: string, raw: string) => string;
 }
 
 const RULES: Rule[] = [
@@ -169,6 +170,51 @@ const RULES: Rule[] = [
     message: (p) => `${p} had a temporary problem. LazyRelay will try again automatically.`,
   },
 
+  // Whop: the adapter reports short codes (whop_*) built from the HTTP status, never Whop's free text, except for 400 and
+  // 422 where Whop's own (scrubbed, 300 character) message is quoted so the customer can see what Whop wants. These sit
+  // above the generic rules for the same reason as Slack's. A 404 while CONFIRMING a post is a different code
+  // (whop_unconfirmed): the post was just created, so it is re-checked, never a reconnect request and never a second post.
+  {
+    platform: "whop",
+    test: /whop_(unauthorized|forbidden|not_found)/i,
+    kind: "reconnect",
+    message: () =>
+      "Whop says LazyRelay no longer has permission in this community (the app was removed, its permissions changed, or the forum is gone). Reinstall the LazyRelay app from the Whop connect screen, then reconnect Whop in Social Platforms and schedule the post again.",
+  },
+  {
+    platform: "whop",
+    test: /whop_unconfirmed/i,
+    kind: "retry",
+    message: (p) => `The post was sent to ${p} but it hasn't confirmed it yet. LazyRelay is re-checking it and will not post it twice.`,
+  },
+  {
+    platform: "whop",
+    test: /whop_rate_limited/i,
+    kind: "retry",
+    message: (p) => `${p} is limiting requests right now. LazyRelay will try again automatically.`,
+  },
+  {
+    platform: "whop",
+    test: /whop_(server_error|conflict|unreachable)|could not reach whop|whop_http_/i,
+    kind: "retry",
+    message: (p) => `${p} had a temporary problem. LazyRelay will try again automatically.`,
+  },
+  {
+    platform: "whop",
+    test: /whop_validation/i,
+    kind: "fatal",
+    message: (_p, raw) => {
+      const detail = /whop_validation[^:]*:s*(.+)$/i.exec(raw)?.[1]?.trim();
+      return `Whop would not accept this post${detail ? `: ${detail}` : ""}. If Whop is asking you to verify something, do that in Whop first, then schedule the post again.`;
+    },
+  },
+  {
+    platform: "whop",
+    test: /whop_too_long|whop_empty|whop_text_only|whop_bad_request/i,
+    kind: "fatal",
+    message: () => "Whop posts through LazyRelay are plain Markdown text, between 1 and 4,000 characters, with no image or video. Edit the post and schedule it again.",
+  },
+
   // Nostr: the adapter reports short codes only (nostr_*), never text written by a relay or a signer. Placed above the
   // generic rules, whose wording tests ("timeout", "duplicate", "rate limit") would otherwise misread these codes.
   {
@@ -276,7 +322,7 @@ export function classifyPostError(platform: string, raw: string): ClassifiedPost
   const label = platformLabel(platform);
   for (const rule of RULES) {
     if (rule.platform && rule.platform !== platform) continue;
-    if (rule.test.test(raw)) return { kind: rule.kind, message: rule.message(label) };
+    if (rule.test.test(raw)) return { kind: rule.kind, message: rule.message(label, raw) };
   }
   // Unknown: exactly today's behavior (retry, raw text).
   return { kind: "retry", message: raw };

@@ -43,6 +43,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   hashnode: "Hashnode",
   lemmy: "Lemmy",
   nostr: "Nostr",
+  whop: "Whop",
   snapchat: "Snapchat",
   reddit: "Reddit",
 };

@@ -30,6 +30,7 @@ import {
 } from "./platformPostLimits.js";
 import { resolvePostLimitAt } from "./pinterestWarmup.js";
 import { NOSTR_TEXT_LIMIT, NOSTR_TEXT_LIMIT_BYTES } from "./platforms/nostrConstants.js";
+import { WHOP_TEXT_LIMIT } from "./platforms/whopApi.js";
 import { checkPinterestLinkWarnings, type PostWarning } from "./pinterestLinkWarnings.js";
 
 /** Free tier: 10 posts per connected account per calendar month. */
@@ -248,6 +249,11 @@ export async function validatePostFields(
   // Nostr posts are plain text notes with a LazyRelay cap (nostrConstants.ts): say so now, not when the post goes out.
   if (account.platform === "nostr" && (content.trim().length > NOSTR_TEXT_LIMIT || Buffer.byteLength(content.trim(), "utf8") > NOSTR_TEXT_LIMIT_BYTES)) {
     return { status: 400, body: { error: `Nostr posts can be up to ${NOSTR_TEXT_LIMIT.toLocaleString("en-US")} characters of plain text` } };
+  }
+
+  // Whop forum posts have no documented limit; 4,000 characters is LazyRelay's own conservative number (whopApi.ts).
+  if (account.platform === "whop" && content.trim().length > WHOP_TEXT_LIMIT) {
+    return { status: 400, body: { error: `Whop posts can be up to ${WHOP_TEXT_LIMIT.toLocaleString("en-US")} characters` } };
   }
 
   // Both mediaUrl and coverImageUrl get fetched server-side by whichever

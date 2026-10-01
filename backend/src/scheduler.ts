@@ -1009,6 +1009,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
           tiktokDisableStitch: post.tiktok_disable_stitch,
           tiktokBrandOrganic: post.tiktok_brand_organic,
           tiktokBrandContent: post.tiktok_brand_content,
+          scheduledPostId: post.id,
           accessToken,
         });
     if (alreadyPublished) {

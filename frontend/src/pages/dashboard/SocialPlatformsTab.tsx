@@ -28,6 +28,7 @@ export function SocialPlatformsTab() {
     connectingPlatform,
     setShowPinterestConnectModal,
     setShowMastodonServerModal,
+    setShowWhopConnectModal,
     handleConnect,
     handleDisconnectAccount,
     handleCreateBrand,
@@ -231,7 +232,9 @@ export function SocialPlatformsTab() {
                   ? setShowPinterestConnectModal(true)
                   : p.platform === "mastodon"
                     ? setShowMastodonServerModal(true)
-                    : handleConnect(p.platform)
+                    : p.platform === "whop"
+                      ? setShowWhopConnectModal(true)
+                      : handleConnect(p.platform)
               }
             >
               <PlatformIcon platform={p.platform} size={20} comingSoon={disabled} />

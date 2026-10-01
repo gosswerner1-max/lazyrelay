@@ -33,6 +33,7 @@ export const BRAND_COLORS: Record<string, string> = {
   lemmy: "#00BC8C",
   slack: "#4A154B",
   nostr: "#8E30EB",
+  whop: "#FA4616",
 };
 
 function PlatformGlyph({ platform, size }: { platform: string; size: number }) {
@@ -226,6 +227,15 @@ function PlatformGlyph({ platform, size }: { platform: string; size: number }) {
           <path fill="#36C5F0" d="M8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312z" />
           <path fill="#2EB67D" d="M18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312z" />
           <path fill="#ECB22E" d="M15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z" />
+        </svg>
+      );
+    case "whop":
+      // Whop's colour on a rounded tile with a white W drawn as one zigzag line (drawn here, not copied from Whop's artwork).
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="1" y="1" width="22" height="22" rx="6" fill={color} stroke="rgba(255,255,255,0.16)" />
+          <path d="M5 7.5 L8.6 16.5 L12 9.6 L15.4 16.5 L19 7.5" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="12" cy="9.6" r="1.1" fill="#fff" />
         </svg>
       );
     case "nostr":

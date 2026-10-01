@@ -263,6 +263,16 @@ export interface StorageAddon {
   cancel_at_period_end: boolean;
 }
 
+/** What the Whop connect dialog needs after the community is named: the one-time code and the forums to post it in. */
+export interface WhopChallenge {
+  challengeId: string;
+  code: string;
+  companyId: string;
+  companyTitle: string;
+  forums: { id: string; name: string }[];
+  expiresAt: string;
+}
+
 export interface PlatformInfo {
   platform: string;
   configured: boolean;
@@ -492,6 +502,14 @@ export const api = {
     authedFetch(
       `/social-accounts/connect?platform=${encodeURIComponent(platform)}${instance ? `&instance=${encodeURIComponent(instance)}` : ""}`,
     ),
+
+  // Whop connects from its own dialog (WhopConnectModal): the install link (served by the backend), a one-time code that
+  // proves the community is the customer's, and the check that hands over a selection token for the forum picker.
+  whopConfig: (): Promise<{ installUrl: string }> => authedFetch("/social-accounts/whop/config"),
+  whopStartChallenge: (company: string): Promise<WhopChallenge> =>
+    authedFetch("/social-accounts/whop/challenge", { method: "POST", body: JSON.stringify({ company }) }),
+  whopVerify: (challengeId: string): Promise<{ selectionToken: string }> =>
+    authedFetch("/social-accounts/whop/verify", { method: "POST", body: JSON.stringify({ challengeId }) }),
 
   // Google Calendar two-way sync — deliberately its own small route group,
   // not part of the platform-connect flow above (it's not a platform to

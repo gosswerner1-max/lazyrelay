@@ -21,6 +21,8 @@ import { HashnodeAdapter } from "./hashnode.js";
 import { LemmyAdapter } from "./lemmy.js";
 import { SlackAdapter } from "./slack.js";
 import { NostrAdapter } from "./nostr.js";
+import { WhopAdapter } from "./whop.js";
+import { APP_ID as WHOP_APP_ID_PATTERN } from "./whopApi.js";
 import type { PlatformAdapter } from "./types.js";
 
 // Every configured platform gets its own live PlatformAdapter in the
@@ -115,6 +117,16 @@ export function buildPlatformRegistry(): Map<string, PlatformAdapter> {
   // account list) switches it on, see socialAccounts.routes.ts.
   if (process.env.NOSTR_CONNECT_PAGE_URL) {
     registry.set("nostr", new NostrAdapter(process.env.NOSTR_CONNECT_PAGE_URL));
+  }
+  // Whop: ONE app and ONE API key for every community (no per-customer secret), so it needs both settings. Registered
+  // only when WHOP_APP_API_KEY and a well formed WHOP_APP_ID exist, and even then hidden from customers until
+  // WHOP_PLATFORM_PUBLIC (or a test account list) switches it on, see socialAccounts.routes.ts.
+  if (process.env.WHOP_APP_API_KEY && process.env.WHOP_APP_ID) {
+    if (WHOP_APP_ID_PATTERN.test(process.env.WHOP_APP_ID)) {
+      registry.set("whop", new WhopAdapter(process.env.WHOP_APP_API_KEY, process.env.WHOP_APP_ID));
+    } else {
+      console.warn("WHOP_APP_ID is set but is not a Whop app id (app_...): Whop stays switched off.");
+    }
   }
   if (registry.size === 0) {
     registry.set("tiktok", new StubAdapter());

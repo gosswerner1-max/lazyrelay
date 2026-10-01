@@ -49,6 +49,7 @@ const PLATFORM_LABEL: Record<string, string> = {
   lemmy: "Lemmy",
   slack: "Slack",
   nostr: "Nostr",
+  whop: "Whop",
 };
 export const platformLabel = (p: string): string => PLATFORM_LABEL[p] ?? p;
 

@@ -12,7 +12,7 @@ describe("support bot knowledge: platforms", () => {
 
   it("lists every platform LazyRelay can post to (X is only coming soon), Slack included", () => {
     // Nostr is built but switched off (NOSTR_PLATFORM_PUBLIC): like X, it is not listed to customers until release.
-    const labels = getPlatformRules().filter((r) => r.platform !== "x" && r.platform !== "nostr").map((r) => r.label);
+    const labels = getPlatformRules().filter((r) => r.platform !== "x" && r.platform !== "nostr" && r.platform !== "whop").map((r) => r.label);
     expect(labels).toContain("Slack");
     // A rules label can be longer than the name customers see (for example "Facebook Page"), so match its first word.
     for (const label of labels) expect(line, label).toContain(label.split(" ")[0]);
@@ -25,6 +25,11 @@ describe("support bot knowledge: platforms", () => {
     expect(prompt).toMatch(/Slack \(added 2026-10-01\)/);
     expect(prompt).toContain("4,000 characters");
     expect(prompt).toMatch(/Private channels are not offered/);
+  });
+
+  it("does not list Whop yet, and says it is not released", () => {
+    expect(line).not.toContain("Whop");
+    expect(prompt).toMatch(/Whop is NOT released yet/);
   });
 
   it("does not list Nostr yet, and says it is not released", () => {

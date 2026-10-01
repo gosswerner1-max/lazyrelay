@@ -59,6 +59,9 @@ export interface PostRequest {
   // adapter ignores these, same pattern as the fields above.
   tiktokBrandOrganic?: boolean;
   tiktokBrandContent?: boolean;
+  // The id of the scheduled_posts row being published. Only Whop reads it (it keys the idempotency header, so a
+  // retry after a lost answer is the same request and cannot post twice); every other adapter ignores it.
+  scheduledPostId?: string;
   accessToken: string;
 }
 
@@ -168,7 +171,7 @@ export interface PendingConnectSelection {
 }
 
 export interface PlatformAdapter {
-  readonly platform: "meta" | "tiktok" | "pinterest" | "youtube" | "mastodon" | "bluesky" | "telegram" | "linkedin" | "threads" | "facebook" | "instagram" | "discord" | "tumblr" | "x" | "wordpress" | "devto" | "hashnode" | "lemmy" | "slack" | "nostr";
+  readonly platform: "meta" | "tiktok" | "pinterest" | "youtube" | "mastodon" | "bluesky" | "telegram" | "linkedin" | "threads" | "facebook" | "instagram" | "discord" | "tumblr" | "x" | "wordpress" | "devto" | "hashnode" | "lemmy" | "slack" | "nostr" | "whop";
 
   /** The URL to send a user to in order to start connecting an account.
    *  `state` must be echoed back on the callback and checked — it's what

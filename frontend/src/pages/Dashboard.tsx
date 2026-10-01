@@ -17,6 +17,7 @@ import { CircuitBackground } from "../components/CircuitBackground";
 import { SupportWidget } from "../components/SupportWidget";
 import { PinterestConnectModal } from "../components/PinterestConnectModal";
 import { MastodonServerModal } from "../components/MastodonServerModal";
+import { WhopConnectModal } from "../components/WhopConnectModal";
 import { describePlatformLimit } from "../lib/platformLimit";
 import { type Tab } from "./dashboard/dashboardHelpers";
 import { useDashboardState } from "./dashboard/useDashboardState";
@@ -87,6 +88,8 @@ export function Dashboard() {
     setShowPinterestConnectModal,
     showMastodonServerModal,
     setShowMastodonServerModal,
+    showWhopConnectModal,
+    setShowWhopConnectModal,
     setScrollToBillingPending,
     handleTourFinish,
     dismissGcalPrompt,
@@ -272,9 +275,11 @@ export function Dashboard() {
               <h2>Connect {pendingSelection.options[0].name} on {pendingSelection.platform.charAt(0).toUpperCase() + pendingSelection.platform.slice(1)}?</h2>
             </div>
             <p className="modal-subtitle">
-              LazyRelay will be able to post to this account. Nothing is connected until you confirm. If this isn't the account
+              {pendingSelection.platform === "whop"
+                ? "LazyRelay will be able to post to this forum. Nothing is connected until you confirm. If this isn't the forum you meant, cancel and connect Whop again."
+                : <>LazyRelay will be able to post to this account. Nothing is connected until you confirm. If this isn't the account
               you meant, cancel, sign out of {pendingSelection.platform.charAt(0).toUpperCase() + pendingSelection.platform.slice(1)}{" "}
-              (or use a private window), and connect again.
+              (or use a private window), and connect again.</>}
             </p>
             {pendingSelection.platform === "pinterest" && (
               <label style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", margin: "0 0 12px", cursor: "pointer" }}>
@@ -339,12 +344,15 @@ export function Dashboard() {
                 pendingSelection.platform === "youtube" ? "YouTube channels" :
                 pendingSelection.platform === "tumblr" ? "Tumblr blog" :
                 pendingSelection.platform === "slack" ? "Slack channel" :
+                pendingSelection.platform === "whop" ? "Whop forum" :
                 "Facebook Pages"
               } should LazyRelay use?</h2>
             </div>
             <p className="modal-subtitle">
               {pendingSelection.platform === "slack"
                 ? "Pick the public channel LazyRelay should post to. To post to another channel later, connect Slack again and pick it. For a private channel, invite the LazyRelay app to it in Slack first."
+                : pendingSelection.platform === "whop"
+                ? "Pick the forum LazyRelay should post to. To post to another forum later, connect Whop again and pick it."
                 : pendingSelection.singleSelection
                 ? "Your Tumblr account has more than one blog. Pick the one LazyRelay should post to. To connect another blog later, connect Tumblr again."
                 : "Your account manages more than one, so check the ones you want to connect. All are checked by default; uncheck any you'd rather leave out. You can always connect the rest separately later."}
@@ -376,7 +384,7 @@ export function Dashboard() {
                   : checkedOptionIds.length === 0
                     ? "Select at least one"
                     : pendingSelection.singleSelection
-                      ? pendingSelection.platform === "slack" ? "Connect this channel" : "Connect this blog"
+                      ? pendingSelection.platform === "slack" ? "Connect this channel" : pendingSelection.platform === "whop" ? "Connect this forum" : "Connect this blog"
                       : `Connect ${checkedOptionIds.length} selected`}
               </button>
               <button className="btn-outline" disabled={selectionBusy} onClick={handleCancelSelection}>
@@ -494,6 +502,16 @@ export function Dashboard() {
             const problem = await handleConnect("mastodon", instance, { quiet: true });
             if (!problem) setShowMastodonServerModal(false);
             return problem;
+          }}
+        />
+      )}
+      {showWhopConnectModal && (
+        <WhopConnectModal
+          onCancel={() => setShowWhopConnectModal(false)}
+          // The proof passed: the usual forum picker takes over, the same way it does after Slack's install.
+          onSelection={(token) => {
+            setShowWhopConnectModal(false);
+            window.location.assign(`/?selectAccount=${encodeURIComponent(token)}`);
           }}
         />
       )}

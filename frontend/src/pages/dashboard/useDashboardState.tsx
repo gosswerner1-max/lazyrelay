@@ -236,6 +236,8 @@ export function useDashboardState() {
   // "Which Mastodon server?" dialog shown before every Mastodon connect (see
   // MastodonServerModal.tsx) -- not persisted, nothing remembered.
   const [showMastodonServerModal, setShowMastodonServerModal] = useState(false);
+  // The Whop connect dialog (see WhopConnectModal.tsx): install the app, name the community, prove ownership.
+  const [showWhopConnectModal, setShowWhopConnectModal] = useState(false);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [mediaUploading, setMediaUploading] = useState(false);
   const [mediaUploadProgress, setMediaUploadProgress] = useState(0);
@@ -2850,6 +2852,8 @@ export function useDashboardState() {
     setShowPinterestConnectModal,
     showMastodonServerModal,
     setShowMastodonServerModal,
+    showWhopConnectModal,
+    setShowWhopConnectModal,
     mediaUrl,
     setMediaUrl,
     mediaUploading,
