@@ -20,6 +20,7 @@ import { DevToAdapter } from "./devto.js";
 import { HashnodeAdapter } from "./hashnode.js";
 import { LemmyAdapter } from "./lemmy.js";
 import { SlackAdapter } from "./slack.js";
+import { NostrAdapter } from "./nostr.js";
 import type { PlatformAdapter } from "./types.js";
 
 // Every configured platform gets its own live PlatformAdapter in the
@@ -108,6 +109,12 @@ export function buildPlatformRegistry(): Map<string, PlatformAdapter> {
   // socialAccounts.routes.ts. Until the three settings are set it simply is not in the registry.
   if (process.env.SLACK_CLIENT_ID && process.env.SLACK_CLIENT_SECRET && process.env.SLACK_REDIRECT_URI) {
     registry.set("slack", new SlackAdapter(process.env.SLACK_CLIENT_ID, process.env.SLACK_CLIENT_SECRET, process.env.SLACK_REDIRECT_URI));
+  }
+  // Nostr (NIP-46 remote signing): the customer pastes a bunker:// link on LazyRelay's own connect page. Registered
+  // only when that page address is set, and even then hidden from customers until NOSTR_PLATFORM_PUBLIC (or a test
+  // account list) switches it on, see socialAccounts.routes.ts.
+  if (process.env.NOSTR_CONNECT_PAGE_URL) {
+    registry.set("nostr", new NostrAdapter(process.env.NOSTR_CONNECT_PAGE_URL));
   }
   if (registry.size === 0) {
     registry.set("tiktok", new StubAdapter());

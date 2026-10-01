@@ -115,6 +115,7 @@ async function main() {
       `SLACK_CLIENT_ID=${process.env.SLACK_CLIENT_ID ? "set" : "MISSING"} ` +
       `SLACK_CLIENT_SECRET=${process.env.SLACK_CLIENT_SECRET ? "set" : "MISSING"} ` +
       `SLACK_REDIRECT_URI=${process.env.SLACK_REDIRECT_URI ? "set" : "MISSING"}; ` +
+      `NOSTR_CONNECT_PAGE_URL=${process.env.NOSTR_CONNECT_PAGE_URL ? "set" : "MISSING"}; ` +
       `ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? "set" : "MISSING"}`,
   );
 

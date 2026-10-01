@@ -17,6 +17,7 @@
 import { MULTI_MEDIA_RULES } from "./carousel.js";
 import { CHAIN_ITEM_MAX_LENGTH, MAX_CHAIN_ITEMS, OPTION_KEY_FOR_PLATFORM } from "./postOptions.js";
 import { MAX_FIRST_COMMENT_LENGTH, MAX_POST_CONTENT_LENGTH, TIKTOK_PRIVACY_LEVELS } from "./postCreation.js";
+import { NOSTR_TEXT_LIMIT } from "./platforms/nostrConstants.js";
 import { getRolling24hPostLimit, PINTEREST_WARMUP_DAYS, PINTEREST_WARMUP_RAMP } from "./platformPostLimits.js";
 
 export type LookupTool = "list_pinterest_boards" | "get_tiktok_creator_info" | "list_connected_accounts" | "get_next_free_slot";
@@ -507,6 +508,38 @@ function buildRules(): PlatformRuleSet[] {
         "https://docs.slack.dev/reference/methods/chat.postMessage/",
         "https://docs.slack.dev/reference/methods/chat.getPermalink/",
         "https://docs.slack.dev/authentication/installing-with-oauth/",
+      ],
+    },
+    {
+      platform: "nostr",
+      label: "Nostr",
+      text: {
+        maxLength: NOSTR_TEXT_LIMIT,
+        note: "Plain text notes (kind 1): 4000 characters (at most 12000 bytes), LazyRelay's own cap (relays set their own limits, commonly 8 to 16 KB per event, so this stays safely under them). No markup: Nostr clients show the text as typed.",
+      },
+      media: {
+        textOnlyAllowed: true,
+        // mediaLimits.ts: images and videos are refused. Media on Nostr needs an upload host and imeta tags (NIP-92), which are not built yet.
+        image: { supported: false, formats: [], maxSizeMb: null },
+        video: { supported: false, formats: [], maxSizeMb: null, maxDurationSec: null },
+        multiItem: multiItem("nostr"),
+        notes: "Text only in this version. Images and videos are not supported yet. A link in the text is shown as a link by Nostr clients.",
+      },
+      required: [...BASE_REQUIRED],
+      features: ["posts as the customer's own Nostr identity, signed in their own signer app (NIP-46)", "sent to the customer's own relays (NIP-65)", "proof link to the note, confirmed by reading it back from relays"],
+      options: [],
+      limits: noRepoCap("LazyRelay enforces no cap. Each relay sets its own rate limits."),
+      lookups: ["list_connected_accounts", "get_next_free_slot"],
+      notes: [
+        "The customer's private key never reaches LazyRelay. They paste a bunker:// link from a signer app (such as Amber, nsec.app or Alby); LazyRelay keeps only that connection and a disposable key.",
+        "The signer app must be online, and set to allow LazyRelay to sign notes without asking each time, whenever a scheduled post goes out. If it is offline the post is retried; if it refuses the post fails and the account needs reconnecting.",
+        "A relay's OK is not proof. A post counts as live only when the same signed note is read back from a relay by its id.",
+      ],
+      sources: [
+        "https://github.com/nostr-protocol/nips/blob/master/01.md",
+        "https://github.com/nostr-protocol/nips/blob/master/46.md",
+        "https://github.com/nostr-protocol/nips/blob/master/65.md",
+        "https://github.com/nostr-protocol/nips/blob/master/19.md",
       ],
     },
     {

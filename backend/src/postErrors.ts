@@ -169,6 +169,55 @@ const RULES: Rule[] = [
     message: (p) => `${p} had a temporary problem. LazyRelay will try again automatically.`,
   },
 
+  // Nostr: the adapter reports short codes only (nostr_*), never text written by a relay or a signer. Placed above the
+  // generic rules, whose wording tests ("timeout", "duplicate", "rate limit") would otherwise misread these codes.
+  {
+    platform: "nostr",
+    test: /nostr_signer_(refused|revoked|auth_url)|nostr_bad_connection/i,
+    kind: "reconnect",
+    message: (p) =>
+      `Your ${p} signer app stopped accepting LazyRelay (it refused the request, asked for extra approval, or the connection was removed). Open the signer app and allow LazyRelay to sign notes without asking each time, then reconnect it in Social Platforms and schedule the post again.`,
+  },
+  {
+    platform: "nostr",
+    test: /nostr_signer_(unreachable|timeout)/i,
+    kind: "retry",
+    message: () =>
+      "LazyRelay could not reach your Nostr signer app, so it could not sign this post. The signer app has to be online (and approved to sign for scheduled posts) at the moment a post goes out. LazyRelay will try again automatically.",
+  },
+  {
+    platform: "nostr",
+    test: /nostr_signer_(bad_event|protocol)/i,
+    kind: "fatal",
+    message: () =>
+      "Your Nostr signer returned a note that was not the one LazyRelay asked it to sign, so nothing was posted. Check your signer app, reconnect it in Social Platforms if it keeps happening, then schedule the post again.",
+  },
+  {
+    platform: "nostr",
+    test: /nostr_relay_rejected: ?(rate-limited|invalid-time)|nostr_relay_timeout|nostr_relays_unreachable|nostr_unexpected_error/i,
+    kind: "retry",
+    message: () => "None of your Nostr relays took the note just now (they were busy, slow or unreachable). LazyRelay will try again automatically.",
+  },
+  {
+    platform: "nostr",
+    test: /nostr_relay_rejected: ?(restricted|blocked|pow|invalid|other)/i,
+    kind: "fatal",
+    message: () =>
+      "Your Nostr relays refused the note (they may require payment or sign-in, block the account, or demand proof of work). LazyRelay cannot get around that. Change your relays in your Nostr profile (your NIP-65 relay list), then schedule the post again.",
+  },
+  {
+    platform: "nostr",
+    test: /nostr_unconfirmed/i,
+    kind: "retry",
+    message: () => "The note was sent to your Nostr relays but none of them has shown it back yet. LazyRelay is re-checking it and will not post it twice.",
+  },
+  {
+    platform: "nostr",
+    test: /nostr_too_long|nostr_empty|nostr_text_only/i,
+    kind: "fatal",
+    message: () => "Nostr posts through LazyRelay are plain text only, between 1 and 4,000 characters, with no image or video. Edit the post and schedule it again.",
+  },
+
   // ---- The saved login is dead: only the customer can fix it ----
   {
     test: /access_token_invalid|scope_not_authorized|refresh token is invalid|invalid_grant|token has expired|expiredtoken|invalidtoken|error validating access token|session has been invalidated|unable to authorize|"code":\s*(190|102)\b|\(#(190|102)\)|password changed/i,

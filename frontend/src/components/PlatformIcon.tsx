@@ -32,6 +32,7 @@ export const BRAND_COLORS: Record<string, string> = {
   hashnode: "#2962FF",
   lemmy: "#00BC8C",
   slack: "#4A154B",
+  nostr: "#8E30EB",
 };
 
 function PlatformGlyph({ platform, size }: { platform: string; size: number }) {
@@ -225,6 +226,19 @@ function PlatformGlyph({ platform, size }: { platform: string; size: number }) {
           <path fill="#36C5F0" d="M8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312z" />
           <path fill="#2EB67D" d="M18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312z" />
           <path fill="#ECB22E" d="M15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z" />
+        </svg>
+      );
+    case "nostr":
+      // A simple ostrich (Nostr's own animal): head with a beak, a curved neck, a round body and two legs, white on the
+      // purple tile. Drawn here, not copied from the project's artwork.
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="1" y="1" width="22" height="22" rx="6" fill={color} stroke="rgba(255,255,255,0.16)" />
+          <circle cx="14.2" cy="7.2" r="2.2" fill="#fff" />
+          <path d="M16.2 7.6 L19.6 8.4 L16.3 9.4 Z" fill="#fff" />
+          <path d="M13.4 9 C12.4 11.6 9.8 12 9.4 14.6" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" />
+          <ellipse cx="10" cy="15.6" rx="4.4" ry="3" fill="#fff" />
+          <path d="M9 18.3 L8.4 21 M11.4 18.3 L12 21" fill="none" stroke="#fff" strokeWidth="1.3" strokeLinecap="round" />
         </svg>
       );
     case "reddit":

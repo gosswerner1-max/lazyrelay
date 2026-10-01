@@ -2,8 +2,9 @@ import { useState, type FormEvent } from "react";
 import { api } from "../lib/api";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
+import { looksLikeNostrSecret, NOSTR_SECRET_MESSAGE } from "../lib/nostrSecrets";
 
-type ManualPlatform = "bluesky" | "telegram" | "discord" | "wordpress" | "devto" | "hashnode" | "lemmy";
+type ManualPlatform = "bluesky" | "telegram" | "discord" | "wordpress" | "devto" | "hashnode" | "lemmy" | "nostr";
 
 const PLATFORM_LABELS: Record<ManualPlatform, string> = {
   bluesky: "Bluesky",
@@ -13,6 +14,7 @@ const PLATFORM_LABELS: Record<ManualPlatform, string> = {
   devto: "dev.to",
   hashnode: "Hashnode",
   lemmy: "Lemmy",
+  nostr: "Nostr",
 };
 
 // Client IDs are public by design (they're embedded in every OAuth URL),
@@ -51,13 +53,32 @@ export function ConnectForm({ platform, state }: ConnectFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
+  // Nostr: the field takes a bunker:// link and nothing else. A private key pasted by mistake is refused and wiped
+  // from the form right away, on every keystroke and again on submit, and is never sent to the server.
+  function handleNostrChange(value: string) {
+    if (looksLikeNostrSecret(value)) {
+      setSecret("");
+      setError(NOSTR_SECRET_MESSAGE);
+      return;
+    }
+    setSecret(value);
+    setError(null);
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (platform === "nostr" && looksLikeNostrSecret(secret)) {
+      setSecret("");
+      setError(NOSTR_SECRET_MESSAGE);
+      return;
+    }
     setSubmitting(true);
     try {
       const code =
-        platform === "bluesky"
+        platform === "nostr"
+          ? JSON.stringify({ bunkerUrl: secret.trim() })
+          : platform === "bluesky"
           ? JSON.stringify({ identifier: handle, password: appPassword, ...(blueskyServer.trim() ? { server: blueskyServer.trim() } : {}) })
           : platform === "telegram"
             ? JSON.stringify({ botToken, channelUsername })
@@ -265,6 +286,29 @@ export function ConnectForm({ platform, state }: ConnectFormProps) {
               </label>
               <p className="field-hint">
                 LazyRelay stores a login token, not your password. In Lemmy open Settings &rarr; Profile and tick Bot account, because Lemmy expects automated posts to come from a bot-marked account.
+              </p>
+            </>
+          )}
+          {platform === "nostr" && (
+            <>
+              <p className="field-hint">
+                <strong>LazyRelay never sees your private key.</strong> Your key stays inside your own Nostr signer app. LazyRelay is only given a connection link, and asks your signer to sign each post you schedule. Never paste a private key (it starts with nsec) or a recovery phrase here: it will be refused.
+              </p>
+              <label>
+                Bunker link from your signer app
+                <input
+                  type="password"
+                  placeholder="bunker://..."
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  value={secret}
+                  onChange={(e) => handleNostrChange(e.target.value)}
+                  required
+                />
+              </label>
+              <p className="field-hint">
+                In your signer app (for example Amber on Android, nsec.app in the browser, or Alby) create a new connection for LazyRelay and copy its link, the one that starts with bunker://. Allow LazyRelay to sign short text notes without asking every time. Your signer app has to be online whenever a scheduled post goes out. LazyRelay posts plain text only for now.
               </p>
             </>
           )}

@@ -46,7 +46,7 @@ import { ConnectLimitError } from "../../platforms/mastodonInstanceLimit.js";
 const ALL_PLATFORMS = [
   "tiktok", "pinterest", "youtube", "mastodon", "bluesky", "telegram",
   "linkedin", "threads", "facebook", "instagram", "discord", "tumblr", "x",
-  "wordpress", "devto", "hashnode", "lemmy", "slack",
+  "wordpress", "devto", "hashnode", "lemmy", "slack", "nostr",
 ] as const;
 const COMING_SOON_PLATFORMS = new Set<string>(["x"]);
 // New platforms stay out of the picker entirely until they are switched on for this deploy, so customers never
@@ -58,9 +58,12 @@ const COMING_SOON_PLATFORMS = new Set<string>(["x"]);
 // Slack has its own pair of switches (SLACK_PLATFORM_PUBLIC, SLACK_TEST_ACCOUNT_IDS) so it can be released, or tried
 // on a test account, independently of the article platforms. It is also absent from the registry until its three
 // Slack settings exist, so two separate things must both be true before any customer sees a Slack tile.
-const HIDDEN_UNTIL_CONFIGURED = new Set<string>(["wordpress", "devto", "hashnode", "lemmy", "slack"]);
+// Nostr likewise has its own pair (NOSTR_PLATFORM_PUBLIC, NOSTR_TEST_ACCOUNT_IDS) and is only in the registry once
+// NOSTR_CONNECT_PAGE_URL is set.
+const HIDDEN_UNTIL_CONFIGURED = new Set<string>(["wordpress", "devto", "hashnode", "lemmy", "slack", "nostr"]);
 const GATE_ENV: Record<string, { publicFlag: string; testers: string }> = {
   slack: { publicFlag: "SLACK_PLATFORM_PUBLIC", testers: "SLACK_TEST_ACCOUNT_IDS" },
+  nostr: { publicFlag: "NOSTR_PLATFORM_PUBLIC", testers: "NOSTR_TEST_ACCOUNT_IDS" },
 };
 const ARTICLE_GATE_ENV = { publicFlag: "ARTICLE_PLATFORMS_PUBLIC", testers: "ARTICLE_PLATFORMS_TEST_ACCOUNT_IDS" };
 function canSeePlatform(platform: string, accountId: string | undefined): boolean {
@@ -194,7 +197,7 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
   // platforms that still navigate the browser here directly.
   const frontendUrl = getFrontendUrl();
   //
-  // The credential-paste platforms (Bluesky, Telegram, Discord, WordPress, dev.to, Hashnode, Lemmy) used to
+  // The credential-paste platforms (Bluesky, Telegram, Discord, WordPress, dev.to, Hashnode, Lemmy, Nostr) used to
   // send the pasted secret as `?code=` on this GET, so an app password or a Lemmy password ended up in the
   // address and in every request log. They now POST the same two values in the body (always answered with
   // JSON). The GET stays for the real OAuth redirects, and for a connect page cached before this change.

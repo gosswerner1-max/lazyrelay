@@ -29,6 +29,7 @@ import {
   wouldExceedRolling24hLimit,
 } from "./platformPostLimits.js";
 import { resolvePostLimitAt } from "./pinterestWarmup.js";
+import { NOSTR_TEXT_LIMIT, NOSTR_TEXT_LIMIT_BYTES } from "./platforms/nostrConstants.js";
 import { checkPinterestLinkWarnings, type PostWarning } from "./pinterestLinkWarnings.js";
 
 /** Free tier: 10 posts per connected account per calendar month. */
@@ -242,6 +243,11 @@ export async function validatePostFields(
   // choice (see platforms/tiktok.ts's matching check and migration 0083).
   if (account.platform === "tiktok" && !tiktokPrivacyLevel) {
     return { status: 400, body: { error: "tiktokPrivacyLevel is required when posting to TikTok" } };
+  }
+
+  // Nostr posts are plain text notes with a LazyRelay cap (nostrConstants.ts): say so now, not when the post goes out.
+  if (account.platform === "nostr" && (content.trim().length > NOSTR_TEXT_LIMIT || Buffer.byteLength(content.trim(), "utf8") > NOSTR_TEXT_LIMIT_BYTES)) {
+    return { status: 400, body: { error: `Nostr posts can be up to ${NOSTR_TEXT_LIMIT.toLocaleString("en-US")} characters of plain text` } };
   }
 
   // Both mediaUrl and coverImageUrl get fetched server-side by whichever
