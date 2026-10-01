@@ -376,7 +376,7 @@ export function Dashboard() {
                   : checkedOptionIds.length === 0
                     ? "Select at least one"
                     : pendingSelection.singleSelection
-                      ? "Connect this blog"
+                      ? pendingSelection.platform === "slack" ? "Connect this channel" : "Connect this blog"
                       : `Connect ${checkedOptionIds.length} selected`}
               </button>
               <button className="btn-outline" disabled={selectionBusy} onClick={handleCancelSelection}>
