@@ -27,6 +27,14 @@ export const COUNTED_POST_STATUSES = ["pending", "posting", "posted", "needs_app
 
 export const DEFAULT_PINTEREST_DAILY_POST_LIMIT = 10;
 
+/** Instagram: Meta's content-publishing doc caps API-published posts at 100
+ *  per account in a moving 24-hour period (a carousel counts as one). Checked
+ *  against developers.facebook.com on 2026-10-01. Unlike Pinterest this is a
+ *  hard platform limit, not spam caution, and no real account gets near it;
+ *  it exists so a scheduling burst (an AI agent, a bulk upload) is refused
+ *  up front with a clear time instead of failing at Instagram. */
+export const DEFAULT_INSTAGRAM_DAILY_POST_LIMIT = 100;
+
 /** Parses a positive-integer env override defensively. Anything that isn't
  *  a plain run of digits, or that is 0, falls back -- a typo in a Render env
  *  var must never silently disable a cap (NaN comparisons are always false)
@@ -43,6 +51,7 @@ export function parsePostLimitEnv(raw: string | undefined, fallback: number): nu
  *  A platform absent from this map has no LazyRelay-side cap at all. */
 export const PLATFORM_ROLLING_24H_POST_LIMIT: Record<string, number> = {
   pinterest: parsePostLimitEnv(process.env.PINTEREST_DAILY_POST_LIMIT, DEFAULT_PINTEREST_DAILY_POST_LIMIT),
+  instagram: parsePostLimitEnv(process.env.INSTAGRAM_DAILY_POST_LIMIT, DEFAULT_INSTAGRAM_DAILY_POST_LIMIT),
 };
 
 /** The platform's cap, or null when it has none. */
@@ -140,6 +149,7 @@ export function nextAllowedTime(existingTimes: Date[], desiredTime: Date, limit:
 
 const PLATFORM_LIMIT_WORDING: Record<string, { name: string; noun: string }> = {
   pinterest: { name: "Pinterest", noun: "pins" },
+  instagram: { name: "Instagram", noun: "posts" },
 };
 
 const MONTH_NAMES = [

@@ -176,10 +176,21 @@ describe("platform limit table", () => {
     expect(getRolling24hPostLimit("pinterest")).toBe(PLATFORM_ROLLING_24H_POST_LIMIT.pinterest);
   });
 
+  it("caps Instagram at Meta's 100 API-published posts per 24 hours", () => {
+    expect(getRolling24hPostLimit("instagram")).toBe(100);
+  });
+
   it("has no cap for any other platform", () => {
-    for (const platform of ["tiktok", "youtube", "mastodon", "bluesky", "telegram", "linkedin", "threads", "facebook", "instagram", "discord", "tumblr", "x"]) {
+    for (const platform of ["tiktok", "youtube", "mastodon", "bluesky", "telegram", "linkedin", "threads", "facebook", "discord", "tumblr", "x"]) {
       expect(getRolling24hPostLimit(platform)).toBeNull();
     }
+  });
+
+  it("refuses the 101st Instagram post in a day and offers the time the oldest ages out", () => {
+    const first = at(0);
+    const posts = Array.from({ length: 100 }, (_, i) => new Date(first.getTime() + i * 60_000));
+    expect(wouldExceedRolling24hLimit(posts, at(5), 100)).toBe(true);
+    expect(wouldExceedRolling24hLimit(posts.slice(1), at(5), 100)).toBe(false);
   });
 
   it("counts exactly the four live statuses (never draft or failed)", () => {
