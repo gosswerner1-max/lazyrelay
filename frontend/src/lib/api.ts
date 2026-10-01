@@ -1000,6 +1000,11 @@ export const api = {
     platform: string;
     email: string;
     message: string;
+    channelLink: string;
+    audienceSize: string;
+    audienceCountries: string;
+    preferredPlan: "A" | "B" | "not sure";
+    howPromote: string;
   }): Promise<void> => {
     const res = await fetch(`${API_URL}/public/referral/apply`, {
       method: "POST",

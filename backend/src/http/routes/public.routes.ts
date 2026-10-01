@@ -377,6 +377,17 @@ export function buildPublicRouter(): Router {
     platform: nonEmptyString("Platform is required").max(100, "Platform is too long"),
     email: z.string({ error: "email is required" }).email("That doesn't look like a valid email address"),
     message: z.string({ error: "Message must be text" }).max(2000, "Message is too long").nullish(),
+    // Vetting answers (2026-10-01). Optional here so a cached older page still
+    // submits; the form itself requires the first three.
+    channelLink: z
+      .string({ error: "Channel link must be text" })
+      .max(500, "Channel link is too long")
+      .refine((v) => /^https?:\/\/\S+\.\S+/i.test(v.trim()), "Channel link must start with http:// or https://")
+      .nullish(),
+    audienceSize: z.string({ error: "Audience size must be text" }).max(100, "Audience size is too long").nullish(),
+    audienceCountries: z.string({ error: "Countries must be text" }).max(200, "Countries is too long").nullish(),
+    preferredPlan: z.enum(["A", "B", "not sure"], { error: "Pick Plan A, Plan B or not sure" }).nullish(),
+    howPromote: z.string({ error: "Must be text" }).max(1000, "Please keep it under 1000 characters").nullish(),
   });
   router.post("/public/referral/apply", publicRateLimit, async (req, res) => {
     const body = validateBody(referralApplicationBodySchema, req.body);
@@ -389,7 +400,14 @@ export function buildPublicRouter(): Router {
       body.data.channel.trim(),
       body.data.platform.trim(),
       body.data.email.trim(),
-      body.data.message?.trim() || null
+      body.data.message?.trim() || null,
+      {
+        channelLink: body.data.channelLink?.trim() || null,
+        audienceSize: body.data.audienceSize?.trim() || null,
+        audienceCountries: body.data.audienceCountries?.trim() || null,
+        preferredPlan: body.data.preferredPlan ?? null,
+        howPromote: body.data.howPromote?.trim() || null,
+      }
     );
     res.json({ received: true });
   });

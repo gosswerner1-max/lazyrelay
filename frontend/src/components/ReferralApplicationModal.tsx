@@ -21,6 +21,11 @@ export function ReferralApplicationModal({ onClose }: { onClose: () => void }) {
   const [platform, setPlatform] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [channelLink, setChannelLink] = useState("");
+  const [audienceSize, setAudienceSize] = useState("");
+  const [audienceCountries, setAudienceCountries] = useState("");
+  const [preferredPlan, setPreferredPlan] = useState<"A" | "B" | "not sure">("not sure");
+  const [howPromote, setHowPromote] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState("");
 
@@ -56,7 +61,7 @@ export function ReferralApplicationModal({ onClose }: { onClose: () => void }) {
     setStatus("loading");
     setError("");
     try {
-      await api.applyForReferralProgram({ name, channel, platform, email, message });
+      await api.applyForReferralProgram({ name, channel, platform, email, message, channelLink, audienceSize, audienceCountries, preferredPlan, howPromote });
       setStatus("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't send your application right now.");
@@ -116,6 +121,61 @@ export function ReferralApplicationModal({ onClose }: { onClose: () => void }) {
               />
             </label>
             <label>
+              Link to your channel or website
+              <input
+                type="url"
+                required
+                maxLength={500}
+                placeholder="https://"
+                value={channelLink}
+                onChange={(e) => setChannelLink(e.target.value)}
+                disabled={status === "loading"}
+              />
+            </label>
+            <label>
+              Audience size
+              <input
+                type="text"
+                required
+                maxLength={100}
+                placeholder="e.g. 12,000 subscribers"
+                value={audienceSize}
+                onChange={(e) => setAudienceSize(e.target.value)}
+                disabled={status === "loading"}
+              />
+            </label>
+            <label>
+              Where is your audience mainly?
+              <input
+                type="text"
+                maxLength={200}
+                placeholder="e.g. South Africa, UK, USA"
+                value={audienceCountries}
+                onChange={(e) => setAudienceCountries(e.target.value)}
+                disabled={status === "loading"}
+              />
+            </label>
+            <label>
+              How would you promote LazyRelay?
+              <textarea
+                required
+                maxLength={1000}
+                rows={3}
+                placeholder="e.g. a video review, a newsletter mention, posts to my followers"
+                value={howPromote}
+                onChange={(e) => setHowPromote(e.target.value)}
+                disabled={status === "loading"}
+              />
+            </label>
+            <label>
+              Which plan interests you?
+              <select value={preferredPlan} onChange={(e) => setPreferredPlan(e.target.value as "A" | "B" | "not sure")} disabled={status === "loading"}>
+                <option value="not sure">Not sure yet</option>
+                <option value="A">Plan A: my audience gets 10% off, I earn 20% for 12 months</option>
+                <option value="B">Plan B: no discount, I earn 30% for 3 months then 20% for 9</option>
+              </select>
+            </label>
+            <label>
               Email
               <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={status === "loading"} />
             </label>
@@ -130,6 +190,7 @@ export function ReferralApplicationModal({ onClose }: { onClose: () => void }) {
                 disabled={status === "loading"}
               />
             </label>
+            <p className="referral-modal-note">We use these details only to review your application and to contact you about it.</p>
             {status === "error" && <p className="error">{error}</p>}
             <div className="referral-modal-actions">
               <button type="submit" className="cta" disabled={status === "loading"}>

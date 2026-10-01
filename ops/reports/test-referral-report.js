@@ -4,7 +4,7 @@
 // are pure functions, exported specifically so this test doesn't need one.
 // Run: node ops/reports/test-referral-report.js
 
-const { addMonths, rateForSale, PLAN_PRESETS } = require("./referral_report.js");
+const { addMonths, rateForSale, netExTaxDollars, PLAN_PRESETS } = require("./referral_report.js");
 
 function main() {
   let pass = true;
@@ -41,6 +41,13 @@ function main() {
   // approximation (which would drift across months of different lengths).
   check("addMonths(2026-01-15, 1) lands on 2026-02-15", addMonths(new Date("2026-01-15T00:00:00.000Z"), 1).toISOString().slice(0, 10), "2026-02-15");
   check("addMonths(2026-01-31, 1) rolls into March (Feb has no 31st)", addMonths(new Date("2026-01-31T00:00:00.000Z"), 1).toISOString().slice(0, 10), "2026-03-03");
+
+  // Commission basis (decided 2026-10-01): dollars, excluding VAT, after discount.
+  // Shapes copied from real billing_records rows (minor units, total includes tax).
+  check("real sale: total 5997 incl. 783 tax is $52.14 excluding tax", netExTaxDollars({ total: 5997, tax: 783 }), 52.14);
+  check("real refund: total 5997 incl. 783 tax is $52.14 excluding tax", netExTaxDollars({ total: 5997, tax: 783 }), 52.14);
+  check("100%-discounted sale (subtotal 870, total 0, tax 0) earns nothing", netExTaxDollars({ total: 0, tax: 0 }), 0);
+  check("string amounts from the database are handled", netExTaxDollars({ total: "2998", tax: "391" }), 26.07);
 
   console.log(pass ? "\nOVERALL: PASS" : "\nOVERALL: FAIL");
   if (!pass) process.exit(1);

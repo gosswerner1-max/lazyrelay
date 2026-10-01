@@ -69,6 +69,16 @@ const PLAN_PRESETS = {
   B: { givesViewerDiscount: false, commissionRateMonths1to3: 30, commissionRateMonths4to12: 20 },
 };
 
+/** What a billing record is worth for commission, in dollars: the amount the
+ *  customer actually paid or got back, EXCLUDING VAT/sales tax, after any
+ *  discount. Decided 2026-10-01 (Werner). billing_records stores Paddle's
+ *  minor units as-is (5214 means $52.14), and `total` includes tax, so this is
+ *  (total - tax) / 100. A sale's `subtotal` is NOT usable: it is the list price
+ *  before discount (a 100%-discounted sale has subtotal 870 and total 0). */
+function netExTaxDollars(row) {
+  return (Number(row.total) - Number(row.tax)) / 100;
+}
+
 function addMonths(date, months) {
   const d = new Date(date);
   d.setMonth(d.getMonth() + months);
@@ -104,7 +114,7 @@ async function computePartnerCommission(supabase, partner) {
 
   const { data: sales, error: salesError } = await supabase
     .from("billing_records")
-    .select("id, account_id, paddle_transaction_id, total, occurred_at")
+    .select("id, account_id, paddle_transaction_id, total, tax, occurred_at")
     .in("account_id", accountIds)
     .eq("kind", "sale")
     .lt("occurred_at", holdCutoff);
@@ -112,7 +122,7 @@ async function computePartnerCommission(supabase, partner) {
 
   const { data: refunds, error: refundsError } = await supabase
     .from("billing_records")
-    .select("paddle_transaction_id, total")
+    .select("paddle_transaction_id, total, tax")
     .in("account_id", accountIds)
     .eq("kind", "refund");
   if (refundsError) throw new Error(`refunds lookup for ${partner.code}: ${refundsError.message}`);
@@ -120,7 +130,7 @@ async function computePartnerCommission(supabase, partner) {
   const refundedTotalByTransaction = new Map();
   for (const refund of refunds ?? []) {
     const prior = refundedTotalByTransaction.get(refund.paddle_transaction_id) ?? 0;
-    refundedTotalByTransaction.set(refund.paddle_transaction_id, prior + Number(refund.total));
+    refundedTotalByTransaction.set(refund.paddle_transaction_id, prior + netExTaxDollars(refund));
   }
 
   let commission = 0;
@@ -128,7 +138,7 @@ async function computePartnerCommission(supabase, partner) {
     const redeemedAt = redeemedAtByAccount.get(sale.account_id);
     if (!redeemedAt) continue; // shouldn't happen, accountIds came from realAccounts -- defensive only
     const refunded = refundedTotalByTransaction.get(sale.paddle_transaction_id) ?? 0;
-    const netSaleAmount = Math.max(0, Number(sale.total) - refunded);
+    const netSaleAmount = Math.max(0, netExTaxDollars(sale) - refunded);
     const rate = rateForSale(partner, redeemedAt, new Date(sale.occurred_at));
     if (rate === null) continue; // past the 12-month window for this account
     commission += netSaleAmount * (rate / 100);
@@ -212,7 +222,7 @@ async function addPartner(supabase, code, name, email, planStr) {
 
 // Exported for ops/reports/test-referral-report.js — the real tiering/cutoff
 // math, without needing a live Supabase connection to exercise it.
-module.exports = { addMonths, rateForSale, PLAN_PRESETS };
+module.exports = { addMonths, rateForSale, netExTaxDollars, PLAN_PRESETS };
 
 async function main() {
   const supabase = getSupabaseClient();

@@ -77,6 +77,8 @@
   width: 100%;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
   text-align: left;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .referral-modal-header {
@@ -119,6 +121,7 @@
 }
 
 .referral-modal-card input,
+.referral-modal-card select,
 .referral-modal-card textarea {
   font: 15px/1.4 var(--font-body);
   padding: 11px 12px;
@@ -129,6 +132,7 @@
 }
 
 .referral-modal-card input:focus-visible,
+.referral-modal-card select:focus-visible,
 .referral-modal-card textarea:focus-visible {
   outline: 2px solid var(--signal);
   outline-offset: 1px;
@@ -142,6 +146,12 @@
   display: flex;
   gap: 10px;
   margin-top: 4px;
+}
+
+.referral-modal-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--wire);
 }
 
 .referral-modal-done {

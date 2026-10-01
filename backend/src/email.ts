@@ -189,15 +189,36 @@ export function sendNewsletterWelcomeEmail(to: string, code: string, unsubscribe
  *  applicant's own address (unlike sendReviewFeedbackNotification, which is
  *  anonymous by design) so Werner can hit reply and respond directly.
  *  Fire-and-forget, same reasoning as every other sender here. */
+export interface ReferralApplicationVetting {
+  channelLink?: string | null;
+  audienceSize?: string | null;
+  audienceCountries?: string | null;
+  preferredPlan?: string | null;
+  howPromote?: string | null;
+}
+
 export function sendReferralApplicationNotification(
   name: string,
   channel: string,
   platform: string,
   email: string,
-  message: string | null
+  message: string | null,
+  vetting: ReferralApplicationVetting = {}
 ): void {
   const client = getClient();
   if (!client) return;
+  const vettingLines = (
+    [
+      ["Channel link", vetting.channelLink],
+      ["Audience size", vetting.audienceSize],
+      ["Main countries", vetting.audienceCountries],
+      ["Preferred plan", vetting.preferredPlan],
+      ["How they will promote", vetting.howPromote],
+    ] as Array<[string, string | null | undefined]>
+  )
+    .filter(([, value]) => value)
+    .map(([label, value]) => `<br><strong style="color:#ffffff;">${label}:</strong> ${escapeHtml(value as string)}`)
+    .join("");
   client.emails
     .send({
       from: `LazyRelay Partner Applications <${FROM_ADDRESS}>`,
@@ -210,6 +231,7 @@ export function sendReferralApplicationNotification(
           `<strong style="color:#ffffff;">Channel/handle:</strong> ${escapeHtml(channel)}<br>` +
           `<strong style="color:#ffffff;">Platform:</strong> ${escapeHtml(platform)}<br>` +
           `<strong style="color:#ffffff;">Email:</strong> ${escapeHtml(email)}` +
+          vettingLines +
           (message ? `<br><br><strong style="color:#ffffff;">Message:</strong><br>${escapeHtml(message)}` : ""),
         "Internal notification from the LazyRelay referral-partner application form. Reply directly to this email to reach the applicant."
       ),
