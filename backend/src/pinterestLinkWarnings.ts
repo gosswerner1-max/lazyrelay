@@ -19,8 +19,9 @@ const MAX_FAILURES_READ = 100;
 const MAX_LINKS_CHECKED = 20;
 
 export interface PostWarning {
-  code: "pinterest_link_recently_blocked";
-  host: string;
+  code: "pinterest_link_recently_blocked" | "tiktok_daily_typical";
+  /** The link host a Pinterest warning is about; TikTok's daily-limit warning has none. */
+  host?: string;
   message: string;
 }
 

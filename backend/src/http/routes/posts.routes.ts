@@ -12,8 +12,7 @@ import { syncPostToCalendar, deletePostFromCalendar } from "../../googleCalendar
 import { syncAccountSheet } from "../../googleSheets/outboundSync.js";
 import { requireAuth, type AuthedRequest } from "../auth.js";
 import { tieredRateLimit } from "../rateLimit.js";
-import { checkPinterestLinkWarnings } from "../../pinterestLinkWarnings.js";
-import { scheduleOnePost, validatePostFields, validateScheduledFor, checkFreeTierPostLimit, checkPlatformPostLimit, MAX_POST_CONTENT_LENGTH, TIKTOK_PRIVACY_LEVELS } from "../../postCreation.js";
+import { scheduleOnePost, validatePostFields, validateScheduledFor, checkFreeTierPostLimit, checkPlatformPostLimit, checkSchedulingWarnings, MAX_POST_CONTENT_LENGTH, TIKTOK_PRIVACY_LEVELS } from "../../postCreation.js";
 import { dbError, resolveBrandFilterSocialAccountIds, fetchAllRows } from "./shared.js";
 import { validateBody, nonEmptyString, optionalNullableString, optionalBoolean, unvalidated } from "../validation.js";
 import { resolvePostExtras, normalizeDraftExtras, extrasToColumns } from "../../postExtras.js";
@@ -528,7 +527,7 @@ export function buildPostsRouter(): Router {
     }
     void syncPostToCalendar(data.id);
     void syncAccountSheet(req.accountId!);
-    const warnings = await checkPinterestLinkWarnings({ platform: validated.account.platform, content, destinationLink });
+    const warnings = await checkSchedulingWarnings({ platform: validated.account.platform, row: data, content, destinationLink });
     res.json(warnings.length > 0 ? { ...data, warnings } : data);
   });
 
@@ -768,7 +767,7 @@ export function buildPostsRouter(): Router {
     void syncPostToCalendar(data.id);
     void syncAccountSheet(req.accountId!);
     // Heads-up only: a link host Pinterest recently blocked (pinterestLinkWarnings.ts).
-    const warnings = await checkPinterestLinkWarnings({ platform: socialAccount?.platform ?? "", content: existing.content, destinationLink: existing.destination_link });
+    const warnings = await checkSchedulingWarnings({ platform: socialAccount?.platform ?? "", row: data, content: existing.content, destinationLink: existing.destination_link });
     res.json(warnings.length > 0 ? { ...data, warnings } : data);
   });
 

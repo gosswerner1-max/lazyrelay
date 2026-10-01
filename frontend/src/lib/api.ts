@@ -122,7 +122,8 @@ export interface SeatCapacity {
 // itself was saved either way; today only "pinterest_link_recently_blocked".
 export interface PostWarning {
   code: string;
-  host: string;
+  /** The link host a Pinterest warning is about; other warnings have none. */
+  host?: string;
   message: string;
 }
 

@@ -29,7 +29,7 @@ import {
   wouldExceedRolling24hLimit,
 } from "./platformPostLimits.js";
 import { resolvePostLimitAt } from "./pinterestWarmup.js";
-import { checkPinterestLinkWarnings } from "./pinterestLinkWarnings.js";
+import { checkPinterestLinkWarnings, type PostWarning } from "./pinterestLinkWarnings.js";
 
 /** Free tier: 10 posts per connected account per calendar month. */
 export const FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT = 10;
@@ -386,6 +386,54 @@ export async function fetchCountedPosts(
   return (data ?? []) as CountedPostRow[];
 }
 
+/** TikTok's Content Posting guidelines say a creator account can typically publish about 15 posts a
+ *  day through the API, that the real number varies by creator, and that it is shared with every
+ *  other app posting to that account. LazyRelay cannot know an account's real number, so this is only
+ *  a heads-up (never a block): a hard cap could refuse posts TikTok would have accepted. */
+export const TIKTOK_TYPICAL_DAILY_POSTS = 15;
+
+export const TIKTOK_DAILY_TYPICAL_MESSAGE =
+  "TikTok typically allows about 15 posts a day per account through apps like LazyRelay. The exact number varies by account and is shared with any other app that posts to it. Your post is scheduled, but TikTok may refuse it if that day is full.";
+
+/** Heads-up for a TikTok post that sits in a rolling 24 hours already holding more than the typical
+ *  daily number. `row` is the post as saved (it is excluded from the count and added back by the
+ *  window check). Always resolves: any problem means no warning. */
+export async function checkTiktokDailyWarning(input: {
+  platform: string;
+  row: { id: string; social_account_id: string | null; scheduled_for: string | null };
+}): Promise<PostWarning[]> {
+  if (input.platform !== "tiktok" || !input.row.social_account_id || !input.row.scheduled_for) return [];
+  const at = new Date(input.row.scheduled_for);
+  if (Number.isNaN(at.getTime())) return [];
+  try {
+    const nearby = await fetchCountedPosts(
+      input.row.social_account_id,
+      new Date(at.getTime() - ROLLING_WINDOW_MS),
+      new Date(at.getTime() + ROLLING_WINDOW_MS),
+      input.row.id,
+    );
+    if (!wouldExceedRolling24hLimit(nearby.map((r) => new Date(r.scheduled_for)), at, TIKTOK_TYPICAL_DAILY_POSTS)) return [];
+    return [{ code: "tiktok_daily_typical", message: TIKTOK_DAILY_TYPICAL_MESSAGE }];
+  } catch (err) {
+    console.warn("[postCreation] tiktok daily warning lookup failed, no warning shown:", err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+/** Every scheduling-time heads-up for a saved post, never blocking. */
+export async function checkSchedulingWarnings(input: {
+  platform: string;
+  row: { id: string; social_account_id: string | null; scheduled_for: string | null };
+  content: string | null | undefined;
+  destinationLink?: string | null;
+}): Promise<PostWarning[]> {
+  const [pinterest, tiktok] = await Promise.all([
+    checkPinterestLinkWarnings({ platform: input.platform, content: input.content, destinationLink: input.destinationLink }),
+    checkTiktokDailyWarning({ platform: input.platform, row: input.row }),
+  ]);
+  return [...pinterest, ...tiktok];
+}
+
 // How far past the requested time to look for the next free slot when a day
 // is full. A month is far beyond any realistic run of completely booked days
 // at a cap of 10 a day.
@@ -556,6 +604,6 @@ export async function scheduleOnePost(
   void syncAccountSheet(data.account_id);
   // Heads-up only, after the post exists: a Pinterest link host that Pinterest
   // recently blocked. Never blocks or changes the post (see pinterestLinkWarnings.ts).
-  const warnings = await checkPinterestLinkWarnings({ platform: validated.account.platform, content, destinationLink });
+  const warnings = await checkSchedulingWarnings({ platform: validated.account.platform, row: data, content, destinationLink });
   return { status: 201, body: warnings.length > 0 ? { ...data, warnings } : data };
 }

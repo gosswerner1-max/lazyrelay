@@ -1361,10 +1361,10 @@ export function useDashboardState() {
     tiktokCantPostReason ?? tiktokVideoTooLongText ?? (tiktokDisclosureIncomplete ? TIKTOK_DISCLOSURE_HOVER : null);
 
   /** Shows the server's heads-up(s) from a create or reschedule response, one
-   *  line per host. The post is already saved; this only informs. */
+   *  line per host (or per kind of warning when it has no host). The post is already saved; this only informs. */
   function showPostWarnings(saved: Array<ScheduledPost | null | undefined>) {
     const byHost = new Map<string, string>();
-    for (const w of saved.flatMap((p) => p?.warnings ?? [])) byHost.set(w.host, w.message);
+    for (const w of saved.flatMap((p) => p?.warnings ?? [])) byHost.set(w.host ?? w.code, w.message);
     setPostWarning(byHost.size > 0 ? [...byHost.values()].join(" ") : null);
   }
 
