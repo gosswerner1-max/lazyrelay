@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { LazyRelay } from "../src/index.js";
+import { VERSION } from "../src/version.js";
 
 const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
 
@@ -52,7 +53,7 @@ describe("package", () => {
 
   it("is shaped for publishing without publishing", () => {
     expect(pkg.name).toBe("@lazyrelay/sdk");
-    expect(pkg.version).toBe("0.1.0");
+    expect(pkg.version).toBe(VERSION);
     expect(pkg.type).toBe("module");
     expect(pkg.engines.node).toBe(">=18");
     expect(pkg.bin).toEqual({ lazyrelay: "dist/cli.js" });
