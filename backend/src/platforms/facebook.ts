@@ -426,13 +426,21 @@ export class FacebookAdapter implements PlatformAdapter {
     // as a readable node; Meta's documented way to see a story is the Page's
     // /stories list (post_id, status PUBLISHED|ARCHIVED, url). Only reached when
     // the node read failed, so feed/photo/video verification is unchanged.
+    //
+    // CORRECTION 2026-10-02: Meta's docs spell the status in upper case, but
+    // the live API returns it in lower case ("published") -- confirmed against
+    // a real Page Story on 2026-10-02. The exact-case compare below never
+    // matched, so every live story was reported as unverified and ended up
+    // "permanently failed" with the node read's misleading "(#100) Tried
+    // accessing nonexisting field (id)" error. Compare case-insensitively.
     if (!platformPostId.includes("_") && !lastPermalink) {
       const storiesUrl = new URL(`${GRAPH_BASE}/me/stories`);
       storiesUrl.searchParams.set("access_token", accessToken);
       const sres = await fetch(storiesUrl.toString());
       const sjson = (await sres.json().catch(() => ({}))) as { data?: { post_id?: string | number; status?: string; url?: string }[] };
       const story = sres.ok ? (sjson.data ?? []).find((s) => String(s.post_id) === platformPostId) : undefined;
-      if (story && (story.status === "PUBLISHED" || story.status === "ARCHIVED")) {
+      const storyStatus = String(story?.status ?? "").toUpperCase();
+      if (story && (storyStatus === "PUBLISHED" || storyStatus === "ARCHIVED")) {
         return { verifiedLive: true, platformPostUrl: story.url ?? null, errorMessage: null };
       }
     }
