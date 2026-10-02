@@ -7,6 +7,7 @@ import { PlatformIcon } from "../components/PlatformIcon";
 import { RelaySignal } from "../components/RelaySignal";
 import { CircuitBackground } from "../components/CircuitBackground";
 import { SupportWidget } from "../components/SupportWidget";
+import { FaqAccordion, faqJsonLd } from "../components/FaqAccordion";
 import banner from "../assets/banner.jpg";
 
 interface LandingProps {
@@ -483,12 +484,20 @@ const FAQ = [
     a: "Yes. Set up a recurring schedule once: content, days of the week, time, and which connected accounts it goes to, and LazyRelay keeps posting it every week automatically. You can pause it any time without losing the setup, resume whenever you're ready, or delete it outright. Free is one-time posts only; Starter gets 3 recurring schedules, Pro gets 5, and Business is unlimited.",
   },
   {
-    q: "Is it free?",
-    a: "There's a genuinely free tier with no card required, and paid Starter/Pro/Business tiers if you need more connected accounts or unlimited posts. You can start free and upgrade later from your dashboard whenever you're ready.",
+    q: "How does LazyRelay's Proof-of-Publish system prevent silent posting failures?",
+    a: "Unlike traditional dashboards that only confirm a payload was transmitted to an API, LazyRelay deploys a live validation engine. Immediately after dispatch, it programmatically crawls the destination network to verify the live URL path exists. If a token has expired or a post drops silently, it alerts you immediately instead of masking the error.",
   },
   {
-    q: "What happens if a post fails to publish?",
-    a: "We don't mark a post as done just because it was sent. LazyRelay separately verifies it's actually live. If that check fails, you'll see it flagged in your dashboard, not silently hidden.",
+    q: "Which alternative social media networks does LazyRelay natively support?",
+    a: "LazyRelay offers full cross-platform scheduling and direct automation across 17 distinct networks. This includes emerging and decentralized spaces that mainstream tools ignore, such as Bluesky, Mastodon, Threads, and Tumblr, alongside standard business networks.",
+  },
+  {
+    q: "Does LazyRelay provide access for autonomous AI agents and developer workflows?",
+    a: "Yes. Every plan, including Free, includes AI-agent capabilities, the developer API, and Model Context Protocol (MCP) server access. This enables LLM frameworks and autonomous scripts to securely execute, verify, and track multi-channel social publications without hitting single-platform rate caps or handling manual API integrations.",
+  },
+  {
+    q: "Is there a free trial or entry tier available?",
+    a: "Yes, LazyRelay provides a genuinely free operational tier that requires no credit card up front, allowing creators and indie developers to test baseline cross-platform scheduling instantly. Paid Starter, Pro, and Business tiers add more connected accounts, unlimited scheduled posts, and recurring schedules.",
   },
   {
     q: "Are there limits on post length, images, or videos?",
@@ -871,14 +880,8 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
 
       <section className="landing-section" id="faq">
         <h2>Frequently asked questions</h2>
-        <div className="faq-list">
-          {FAQ.map((item) => (
-            <div className="faq-item" key={item.q}>
-              <h3>{item.q}</h3>
-              <p>{item.a}</p>
-            </div>
-          ))}
-        </div>
+        <FaqAccordion items={FAQ} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLd(FAQ) }} />
       </section>
 
       <section className="landing-section" id="ai-honesty">

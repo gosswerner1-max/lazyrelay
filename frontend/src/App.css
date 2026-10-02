@@ -1457,7 +1457,52 @@ button[type="submit"]:not(.btn-outline),
   font-family: var(--font-display);
   color: var(--ink);
   font-size: 16px;
-  margin: 0 0 8px;
+  margin: 0;
+}
+
+.faq-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.faq-chevron {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--wire);
+  border-bottom: 2px solid var(--wire);
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+.faq-item-open .faq-chevron {
+  transform: rotate(225deg);
+}
+
+.faq-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows 0.2s ease, visibility 0.2s;
+}
+
+.faq-item-open .faq-panel {
+  grid-template-rows: 1fr;
+  visibility: visible;
+}
+
+.faq-panel-inner {
+  overflow: hidden;
 }
 
 .faq-item p {
@@ -1465,6 +1510,14 @@ button[type="submit"]:not(.btn-outline),
   font-size: 14px;
   line-height: 1.6;
   margin: 0;
+  padding-top: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faq-panel,
+  .faq-chevron {
+    transition: none;
+  }
 }
 
 .about-text {
