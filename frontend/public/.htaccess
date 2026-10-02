@@ -252,6 +252,16 @@
   RewriteCond %{HTTPS} off
   RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+  # www -> bare domain, added 2026-10-02 after the Search Console re-check:
+  # www.lazyrelay.com served every page with a 200 (correct canonical tag,
+  # but no redirect), so Google kept listing www.* duplicates under "Page
+  # with redirect", "Alternate page with proper canonical tag", "Crawled -
+  # currently not indexed" and "Soft 404". A 301 to the bare domain is the
+  # standard fix. Sits after the HTTPS rule so http://www.* takes two hops
+  # (https://www.* then https://bare) instead of landing on https://www.*.
+  RewriteCond %{HTTP_HOST} ^www\.lazyrelay\.com$ [NC]
+  RewriteRule ^(.*)$ https://lazyrelay.com%{REQUEST_URI} [L,R=301]
+
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule . /index.html [L]
