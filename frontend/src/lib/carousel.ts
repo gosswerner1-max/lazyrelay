@@ -10,7 +10,7 @@ export interface MultiMediaRule {
 
 export const MULTI_MEDIA_RULES: Record<string, MultiMediaRule> = {
   instagram: { max: 10, videos: true },
-  threads: { max: 10, videos: true },
+  threads: { max: 20, videos: true }, // Threads API docs: 2 to 20 items (checked 2026-10-02; was 10)
   facebook: { max: 10, videos: false },
   tumblr: { max: 10, videos: false },
   linkedin: { max: 9, videos: false },

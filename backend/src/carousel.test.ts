@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeCarousel, MULTI_MEDIA_RULES } from "./carousel.js";
+import { normalizeCarousel, MULTI_MEDIA_RULES, MAX_EXTRA_CAROUSEL_IMAGES } from "./carousel.js";
 
 const main = "https://cdn.example.com/a.jpg";
 const more = (n: number) => Array.from({ length: n }, (_, i) => `https://cdn.example.com/${i}.jpg`);
@@ -17,8 +17,16 @@ describe("normalizeCarousel", () => {
       expect(over.ok, `${platform} over max`).toBe(false);
     }
     expect(MULTI_MEDIA_RULES.instagram.max).toBe(10);
+    // Threads carousels take up to 20 items (Threads API docs, checked 2026-10-02).
+    expect(MULTI_MEDIA_RULES.threads.max).toBe(20);
     expect(MULTI_MEDIA_RULES.bluesky.max).toBe(4);
     expect(MULTI_MEDIA_RULES.x.max).toBe(4);
+  });
+
+  it("the overall extra-items cap follows the largest platform total (Threads 20, so 19 extra)", () => {
+    expect(MAX_EXTRA_CAROUSEL_IMAGES).toBe(19);
+    expect(normalizeCarousel(main, more(19), "threads").ok).toBe(true);
+    expect(normalizeCarousel(main, more(20), "threads").ok).toBe(false);
   });
 
   it("videos are allowed among the slides only where the platform allows it", () => {

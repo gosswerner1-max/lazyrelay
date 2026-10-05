@@ -11,7 +11,9 @@ export interface MultiMediaRule {
 
 export const MULTI_MEDIA_RULES: Record<string, MultiMediaRule> = {
   instagram: { max: 10, videos: true },
-  threads: { max: 10, videos: true },
+  // Threads carousels take 2 to 20 items, images and videos mixed
+  // (https://developers.facebook.com/documentation/threads/posts, checked 2026-10-02; was 10 until then).
+  threads: { max: 20, videos: true },
   facebook: { max: 10, videos: false },
   tumblr: { max: 10, videos: false },
   linkedin: { max: 9, videos: false },
@@ -26,7 +28,7 @@ export const MULTI_MEDIA_RULES: Record<string, MultiMediaRule> = {
 
 export const CAROUSEL_PLATFORMS = Object.keys(MULTI_MEDIA_RULES);
 /** Largest number of EXTRA items any platform takes (the frontend's overall cap). */
-export const MAX_EXTRA_CAROUSEL_IMAGES = 9;
+export const MAX_EXTRA_CAROUSEL_IMAGES = Math.max(...Object.values(MULTI_MEDIA_RULES).map((r) => r.max)) - 1;
 
 export function isVideoFile(url: string): boolean {
   return /\.(mp4|mov|m4v|webm)(\?.*)?$/i.test(url);

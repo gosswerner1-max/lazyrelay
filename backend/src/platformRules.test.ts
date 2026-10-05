@@ -64,6 +64,17 @@ describe("getPlatformRules", () => {
     expect(getPlatformRules("tiktok")[0].lookups).toContain("get_tiktok_creator_info");
   });
 
+  it("the four limits corrected on 2026-10-02 match the platforms' own documented numbers", () => {
+    // Pinterest create_pin description: 800 characters (pins-create reference).
+    expect(getPlatformRules("pinterest")[0].text.maxLength).toBe(800);
+    // Threads carousel: 20 items (Threads API docs).
+    expect(getPlatformRules("threads")[0].media.multiItem).toEqual({ maxItems: 20, videosAllowed: true });
+    // Bluesky image blob: 2,000,000 bytes (lexicon), stated as 1.9 MB so it never promises more than that.
+    expect(getPlatformRules("bluesky")[0].media.image.maxSizeMb).toBe(1.9);
+    // Mastodon image default: 16 MB (docs.joinmastodon.org/user/posting).
+    expect(getPlatformRules("mastodon")[0].media.image.maxSizeMb).toBe(16);
+  });
+
   it("pinterest carries the repo cap and mentions the warm-up ramp", () => {
     const p = getPlatformRules("pinterest")[0];
     expect(p.limits.rollingPostsPer24h).toBeGreaterThan(0);

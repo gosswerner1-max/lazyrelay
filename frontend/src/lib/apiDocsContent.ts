@@ -41,7 +41,7 @@ export const API_ENDPOINTS: ApiEndpointDoc[] = [
     method: "GET",
     path: "/posting-slots/next?socialAccountId=…",
     summary:
-      "The next free time from the posting times saved in Settings for one account, as an ISO timestamp to use as scheduledFor. Optional post fields: mediaUrls adds extra images after mediaUrl (Instagram and Threads 10 in total, videos allowed; Facebook and Tumblr 10, LinkedIn 9, Bluesky, Mastodon and X 4, images only); tags are up to 5 labels you can filter analytics by; selfReplyText is a comment added once the post reaches selfReplyAtLikes likes (Facebook and Instagram, added at the next engagement check); firstComment is posted right after the post goes live, or firstCommentDelayMinutes (0 to 1440) minutes later (Facebook and Instagram).",
+      "The next free time from the posting times saved in Settings for one account, as an ISO timestamp to use as scheduledFor. Optional post fields: mediaUrls adds extra images after mediaUrl (Instagram 10 and Threads 20 in total, videos allowed; Facebook and Tumblr 10, LinkedIn 9, Bluesky, Mastodon and X 4, images only); tags are up to 5 labels you can filter analytics by; selfReplyText is a comment added once the post reaches selfReplyAtLikes likes (Facebook and Instagram, added at the next engagement check); firstComment is posted right after the post goes live, or firstCommentDelayMinutes (0 to 1440) minutes later (Facebook and Instagram).",
     body: null,
   },
   {

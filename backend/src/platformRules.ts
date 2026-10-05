@@ -11,6 +11,8 @@
 // "mediaLimits.ts" in comments. Every other number was checked against the
 // platform's official docs on 2026-09-30 (Slack on 2026-10-01) and the URL is in `sources`. A number
 // that could not be verified is null and says "not verified" in its note.
+// 2026-10-02: four limits re-checked and corrected (Pinterest description 800, Threads carousel 20,
+// Bluesky image 2,000,000 bytes, Mastodon image 16 MB); see the comments at each one.
 //
 // No em dash or en dash characters in any string value (a test enforces it).
 
@@ -203,8 +205,9 @@ function buildRules(): PlatformRuleSet[] {
       platform: "pinterest",
       label: "Pinterest",
       text: {
-        maxLength: 500,
-        note: "LazyRelay sends the first 100 characters of the text as the Pin title and the first 500 as the description. Pinterest's own API allows a description up to 800 characters, title 100, alt text 500.",
+        // 800 is Pinterest's own create_pin description limit (pins-create reference, checked 2026-10-02); pinterest.ts cuts at the same 800. Was 500 until 2026-10-02.
+        maxLength: 800,
+        note: "LazyRelay sends the first 100 characters of the text as the Pin title and the first 800 as the description. Pinterest's own API allows a description up to 800 characters, title 100, alt text 500.",
       },
       media: {
         textOnlyAllowed: false,
@@ -269,7 +272,8 @@ function buildRules(): PlatformRuleSet[] {
         image: { supported: true, formats: ["jpeg", "png"], maxSizeMb: 8 * MB },
         video: { supported: true, formats: ["mp4", "mov"], maxSizeMb: 1 * GB, maxDurationSec: 300 },
         multiItem: multiItem("threads"),
-        notes: "Images 320 to 1440 px wide. Threads' own docs allow carousels of up to 20 items; LazyRelay allows up to the number shown here.",
+        // Carousel limit raised from 10 to 20 on 2026-10-02 to match Threads' docs (2 to 20 items); the number comes from carousel.ts.
+        notes: "Images 320 to 1440 px wide. A carousel takes 2 to 20 images or videos (Threads API docs); the limit shown here is the same.",
       },
       required: [...BASE_REQUIRED],
       features: ["thread chain", "carousel with videos", "post tags"],
@@ -288,13 +292,15 @@ function buildRules(): PlatformRuleSet[] {
       },
       media: {
         textOnlyAllowed: true,
-        // Bluesky's image blob limit is 2 MB (lexicon). mediaLimits.ts allows 20 MB for bluesky images, which is higher than Bluesky accepts.
-        image: { supported: true, formats: ["jpeg", "png", "webp", "gif"], maxSizeMb: 2 * MB },
+        // Bluesky's image blob limit is 2,000,000 bytes (app.bsky.embed.images lexicon, maxSize 2000000, checked 2026-10-02), and
+        // mediaLimits.ts enforces exactly that since 2026-10-02 (it was 20 MB before). 2,000,000 bytes is 1.9 MiB, so this is
+        // stated as 1.9 MB rather than 2: a file of 2 x 1024 x 1024 bytes would be refused by both Bluesky and LazyRelay.
+        image: { supported: true, formats: ["jpeg", "png", "webp", "gif"], maxSizeMb: 1.9 * MB },
         // mediaLimits.ts: 300 MB mp4. The 10 minute duration comes from the mediaLimits.ts comment (raised 2026-08-25), not re-verified against Bluesky docs.
         video: { supported: true, formats: ["mp4"], maxSizeMb: 300 * MB, maxDurationSec: 600 },
         multiItem: multiItem("bluesky"),
         notes:
-          "Image blobs are limited to 2 MB by Bluesky (LazyRelay's own check allows up to 20 MB, so a larger image passes LazyRelay and fails at Bluesky). Video needs the account's email to be confirmed. Alt text applies to the first image only.",
+          "Image blobs are limited to 2,000,000 bytes (about 1.9 MB) by Bluesky, and LazyRelay checks the same limit before scheduling. Video needs the account's email to be confirmed. Alt text applies to the first image only.",
       },
       required: [...BASE_REQUIRED],
       features: ["thread chain", "alt text", "multi-image post", "post tags"],
@@ -319,12 +325,13 @@ function buildRules(): PlatformRuleSet[] {
       },
       media: {
         textOnlyAllowed: true,
-        // mediaLimits.ts: 20 MB images, 99 MB video (mastodon.social's 103809024 bytes). Mastodon.social's image limit is 16 MB. Every limit is per instance.
-        image: { supported: true, formats: ["jpeg", "png", "webp", "gif"], maxSizeMb: 20 * MB },
+        // mediaLimits.ts: 16 MB images (Mastodon's documented default, docs.joinmastodon.org/user/posting, checked 2026-10-02; was 20 MB
+        // before), 99 MB video (mastodon.social's 103809024 bytes). Every limit is per instance.
+        image: { supported: true, formats: ["jpeg", "png", "webp", "gif"], maxSizeMb: 16 * MB },
         video: { supported: true, formats: ["mp4", "webm", "mov"], maxSizeMb: 99 * MB, maxDurationSec: null },
         multiItem: multiItem("mastodon"),
         notes:
-          "All media limits are set per server. LazyRelay's numbers are a static floor: 99 MB video matches mastodon.social, whose image limit is 16 MB (LazyRelay's check allows 20 MB). Video duration not verified.",
+          "All media limits are set per server. LazyRelay's numbers are a static floor matching Mastodon's defaults: 16 MB images and 99 MB video. Video duration not verified.",
       },
       required: [...BASE_REQUIRED],
       features: ["thread chain", "alt text", "multi-image post", "post tags"],
@@ -336,7 +343,7 @@ function buildRules(): PlatformRuleSet[] {
         "mediaAltText (max 1000 chars) is sent as the media description.",
         "Up to 4 media attachments per status.",
       ],
-      sources: ["https://docs.joinmastodon.org/entities/Instance/"],
+      sources: ["https://docs.joinmastodon.org/entities/Instance/", "https://docs.joinmastodon.org/user/posting/"],
     },
     {
       platform: "x",

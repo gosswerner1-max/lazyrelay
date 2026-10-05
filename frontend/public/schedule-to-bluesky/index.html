@@ -56,7 +56,7 @@
       "name": "How large can a Bluesky image be?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "2 MB per image. LazyRelay's own check is looser, so a larger image can pass LazyRelay and then be refused by Bluesky."
+        "text": "2,000,000 bytes per image, which is about 1.9 MB. LazyRelay checks the same limit before a post is scheduled."
       }
     },
     {
@@ -83,7 +83,7 @@
 <ul>
   <li>Text: up to 300 characters. That counts graphemes, which is what a person sees as a character, and the post is also capped at 3000 bytes.</li>
   <li>Text-only posts are accepted.</li>
-  <li>Images: JPEG, PNG, WEBP, GIF, up to 2 MB each. Bluesky limits each image to 2 MB. LazyRelay's own check allows up to 20 MB, so a larger image passes LazyRelay and is then refused by Bluesky.</li>
+  <li>Images: JPEG, PNG, WEBP, GIF, up to 1.9 MB each. Bluesky limits each image to 2,000,000 bytes, which is about 1.9 MB, and LazyRelay checks the same limit before scheduling.</li>
   <li>Video: MP4, up to 300 MB, up to 10 minutes. Video needs the account's email address to be confirmed. The 10 minute figure comes from LazyRelay's own media settings and was not re-checked against Bluesky's documentation.</li>
   <li>Several files in one post: up to 4 images (no video in a multi-image post).</li>
   <li>Alt text: you can add a description of up to 1000 characters. It applies to the first image only.</li>
@@ -126,7 +126,7 @@
 </div>
 <div class="faq-item">
   <h3>How large can a Bluesky image be?</h3>
-  <p>2 MB per image. LazyRelay's own check is looser, so a larger image can pass LazyRelay and then be refused by Bluesky.</p>
+  <p>2,000,000 bytes per image, which is about 1.9 MB. LazyRelay checks the same limit before a post is scheduled.</p>
 </div>
 <div class="faq-item">
   <h3>How do I know my Bluesky post is really live?</h3>

@@ -309,7 +309,7 @@ const COPY = {
     post: (r) => [
       textLine(r, "Threads"),
       ...mediaLines(r, { imageNote: "Images should be 320 to 1440 pixels wide." }),
-      "Carousel: Threads' own documentation allows carousels of up to 20 items, while LazyRelay allows up to 10. A carousel can mix images and videos.",
+      `Carousel: up to ${r.media.multiItem.maxItems} items, the same limit as Threads' own documentation. A carousel can mix images and videos.`,
       "Thread chain: add up to 10 follow-up posts under Platform options. Each one replies to the one before it, and each is limited to 500 characters.",
     ],
     pop: "After Threads publishes a post, LazyRelay fetches that post back from Threads' own API using the account's access and confirms it comes back with a permalink. Only then is it marked confirmed live. In a thread chain, the follow-up posts are sent after the first post is confirmed live.",
@@ -334,7 +334,7 @@ const COPY = {
     post: (r) => [
       textLine(r, "Mastodon", "That is the default on mastodon.social. Every Mastodon server sets its own limit, so another server may differ."),
       ...mediaLines(r, {
-        imageNote: "mastodon.social's own image limit is 16 MB, which is below the 20 MB LazyRelay checks against.",
+        imageNote: "That is Mastodon's documented default, and LazyRelay checks against the same figure.",
         videoNote: "The 99 MB figure matches mastodon.social. All media limits are set per server.",
       }),
       "Alt text: you can add a description of up to 1000 characters to your media.",
@@ -369,7 +369,7 @@ const COPY = {
     post: (r) => [
       textLine(r, "Bluesky", "That counts graphemes, which is what a person sees as a character, and the post is also capped at 3000 bytes."),
       ...mediaLines(r, {
-        imageNote: "Bluesky limits each image to 2 MB. LazyRelay's own check allows up to 20 MB, so a larger image passes LazyRelay and is then refused by Bluesky.",
+        imageNote: "Bluesky limits each image to 2,000,000 bytes, which is about 1.9 MB, and LazyRelay checks the same limit before scheduling.",
         videoNote: "Video needs the account's email address to be confirmed. The 10 minute figure comes from LazyRelay's own media settings and was not re-checked against Bluesky's documentation.",
       }),
       "Alt text: you can add a description of up to 1000 characters. It applies to the first image only.",
@@ -384,7 +384,7 @@ const COPY = {
     faq: () => [
       ["Why does Bluesky need an app password?", "LazyRelay connects to Bluesky with an app password, so you create a separate one in bsky.app under Settings, Privacy and security, App passwords. It keeps your main password out of LazyRelay and can be revoked at any time."],
       ["Does LazyRelay work with my custom domain handle?", "Yes, as long as the account is still hosted on Bluesky's own servers. A self-hosted or third-party Bluesky server is not supported."],
-      ["How large can a Bluesky image be?", "2 MB per image. LazyRelay's own check is looser, so a larger image can pass LazyRelay and then be refused by Bluesky."],
+      ["How large can a Bluesky image be?", "2,000,000 bytes per image, which is about 1.9 MB. LazyRelay checks the same limit before a post is scheduled."],
       ["How do I know my Bluesky post is really live?", "LazyRelay reads the post record back from Bluesky after creating it and only marks it confirmed live when Bluesky returns that same post."],
     ],
   },
@@ -650,12 +650,12 @@ const COPY_SIGS = {
   "facebook": "b6b37c5319ed",
   "instagram": "4144e9508240",
   "tiktok": "b238f5500554",
-  "pinterest": "22935332b6a8",
+  "pinterest": "b5cf154e6e1f",
   "youtube": "3904fc12fc79",
   "linkedin": "20efc5ae6239",
-  "threads": "75fec7948179",
-  "mastodon": "8d7cb106a52a",
-  "bluesky": "40eeaeec32ee",
+  "threads": "d78dffc46d92",
+  "mastodon": "6446306ea48a",
+  "bluesky": "10399ad313ec",
   "telegram": "b60a3a5e2ac0",
   "discord": "374b9650e712",
   "tumblr": "bbb0a3c2fb46",

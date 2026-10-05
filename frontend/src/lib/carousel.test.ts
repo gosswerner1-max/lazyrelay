@@ -8,6 +8,8 @@ describe("carouselPlan", () => {
   });
   it("caps the extras at the smallest limit among the selected platforms", () => {
     expect(carouselPlan(["instagram"]).maxExtra).toBe(9);
+    expect(carouselPlan(["threads"]).maxExtra).toBe(19); // Threads carousels take 20 items (checked 2026-10-02)
+    expect(carouselPlan(["instagram", "threads"]).maxExtra).toBe(9);
     expect(carouselPlan(["instagram", "bluesky"]).maxExtra).toBe(3);
     expect(carouselPlan(["instagram", "x", "linkedin"]).maxExtra).toBe(3);
   });

@@ -153,8 +153,12 @@ const RULES: Record<Platform, PlatformRules> = {
   // floor for now; the real fix is a live per-connected-account instance
   // query, tracked as a known follow-up rather than silently assumed
   // correct for every instance a customer might connect.
+  // Image limit set to Mastodon's documented default of 16 MB on 2026-10-02
+  // (https://docs.joinmastodon.org/user/posting/: "Images ... up to 16MB",
+  // "Videos ... up to 99MB"); it was 20 MB before, which let a 17 to 20 MB
+  // image pass LazyRelay and then fail at the server.
   mastodon: {
-    image: { maxSizeBytes: 20 * MB, allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] },
+    image: { maxSizeBytes: 16 * MB, allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] },
     video: { maxSizeBytes: 99 * MB, allowedMimeTypes: ["video/mp4", "video/webm", "video/quicktime"] },
   },
   // Bluesky (docs.bsky.app / bsky.network) — researched live 2026-09-05.
@@ -163,8 +167,17 @@ const RULES: Record<Platform, PlatformRules> = {
   // already stale. No video-posting code exists yet for Bluesky (see
   // project-media-pipeline-video-support-2026-09-05) — this rule is ready
   // for when that gets built.
+  // Image limit set to Bluesky's real figure on 2026-10-02: the
+  // app.bsky.embed.images lexicon (github.com/bluesky-social/atproto/blob/main/
+  // lexicons/app/bsky/embed/images.json) says `"maxSize": 2000000` with the
+  // note "May be up to 2 MB, formerly limited to 1 MB". That is 2,000,000
+  // bytes, NOT 2 MiB, so it is written out in full here. The prose on
+  // docs.bsky.app/docs/advanced-guides/posts still says "1,000,000 bytes"
+  // in one sentence while its own code sample checks 2000000; the lexicon
+  // is what the server enforces. Was 20 MB before, which let a big image
+  // pass LazyRelay and then fail at Bluesky.
   bluesky: {
-    image: { maxSizeBytes: 20 * MB, allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] },
+    image: { maxSizeBytes: 2_000_000, allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] },
     video: { maxSizeBytes: 300 * MB, allowedMimeTypes: ["video/mp4"] },
   },
   // Telegram Bot API sendVideo (core.telegram.org/bots/api) — researched

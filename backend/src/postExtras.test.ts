@@ -64,7 +64,9 @@ describe("normalizeDraftExtras (a draft, no platform yet)", () => {
   it("rejects bad shapes and unsafe addresses", async () => {
     expect((await normalizeDraftExtras({ tags: "x" })).ok).toBe(false);
     expect((await normalizeDraftExtras({ mediaUrls: "x" })).ok).toBe(false);
-    expect((await normalizeDraftExtras({ mediaUrls: Array.from({ length: 10 }, (_, i) => `https://cdn.example.com/${i}.jpg`) })).ok).toBe(false);
+    // The overall cap follows the largest platform total (Threads 20 since 2026-10-02), so 19 extras pass and 20 do not.
+    expect((await normalizeDraftExtras({ mediaUrls: Array.from({ length: 19 }, (_, i) => `https://cdn.example.com/${i}.jpg`) })).ok).toBe(true);
+    expect((await normalizeDraftExtras({ mediaUrls: Array.from({ length: 20 }, (_, i) => `https://cdn.example.com/${i}.jpg`) })).ok).toBe(false);
     expect((await normalizeDraftExtras({ mediaUrls: ["https://internal.example.com/x.jpg"] })).ok).toBe(false);
     expect((await normalizeDraftExtras({ selfReplyText: "hi" })).ok).toBe(false);
     expect((await normalizeDraftExtras({ selfReplyText: "hi", selfReplyAtLikes: 0 })).ok).toBe(false);

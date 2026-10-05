@@ -29,6 +29,34 @@ describe("Instagram", () => {
   });
 });
 
+// Bluesky and Mastodon image limits (fixed 2026-10-02): both used to be a 20 MB placeholder, far above
+// what the platforms accept, so an oversized image passed LazyRelay and then failed at the platform.
+describe("Bluesky", () => {
+  it("refuses an image over 2,000,000 bytes (app.bsky.embed.images lexicon maxSize) and takes one at the limit", () => {
+    const at = { mimeType: "image/jpeg", sizeBytes: 2_000_000, width: 1080, height: 1080 };
+    const over = { ...at, sizeBytes: 2_000_001 };
+    expect(validateMediaForPlatform("bluesky", at).valid).toBe(true);
+    const r = validateMediaForPlatform("bluesky", over);
+    expect(r.valid).toBe(false);
+    expect(r.reason).toMatch(/exceeds bluesky's 2MB limit/);
+    // 2 MiB (2,097,152 bytes) is over Bluesky's limit too, so it must be refused here, not at Bluesky.
+    expect(validateMediaForPlatform("bluesky", image(2)).valid).toBe(false);
+  });
+});
+
+describe("Mastodon", () => {
+  it("refuses an image over Mastodon's 16 MB default and takes one at the limit", () => {
+    expect(validateMediaForPlatform("mastodon", image(16)).valid).toBe(true);
+    const r = validateMediaForPlatform("mastodon", image(17));
+    expect(r.valid).toBe(false);
+    expect(r.reason).toMatch(/16MB/);
+  });
+  it("keeps the 99 MB video default", () => {
+    expect(validateMediaForPlatform("mastodon", video(99)).valid).toBe(true);
+    expect(validateMediaForPlatform("mastodon", video(100)).valid).toBe(false);
+  });
+});
+
 describe("Facebook", () => {
   it("takes a large video (300 MB) and keeps its previous formats", () => {
     expect(validateMediaForPlatform("facebook", video(50)).valid).toBe(true);

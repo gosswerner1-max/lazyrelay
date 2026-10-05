@@ -385,7 +385,10 @@ export class PinterestAdapter implements PlatformAdapter {
       body: JSON.stringify({
         board_id: boardId,
         title: request.content.slice(0, 100),
-        description: request.content.slice(0, 500),
+        // Pinterest v5 create_pin allows a description of up to 800 characters
+        // (https://developers.pinterest.com/docs/api/v5/pins-create, checked 2026-10-02).
+        // Was 500 until 2026-10-02, which silently cut long pin text short.
+        description: request.content.slice(0, 800),
         media_source: mediaSource,
         ...(request.destinationLink ? { link: request.destinationLink } : {}),
       }),
