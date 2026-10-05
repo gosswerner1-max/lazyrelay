@@ -735,6 +735,11 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           <PlatformIcon platform="telegram" size={40} />
           <PlatformIcon platform="discord" size={40} />
           <PlatformIcon platform="tumblr" size={40} />
+          <PlatformIcon platform="wordpress" size={40} />
+          <PlatformIcon platform="devto" size={40} />
+          <PlatformIcon platform="hashnode" size={40} />
+          <PlatformIcon platform="lemmy" size={40} />
+          <PlatformIcon platform="slack" size={40} />
         </div>
         <div className="zapier-callout">
           <span>
