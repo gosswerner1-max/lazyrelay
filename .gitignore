@@ -37,3 +37,6 @@ marketing_context.txt
 
 # Private video ad script brief (never commit; repo is public)
 new_video_ads_brief.txt
+
+# Private Capterra support reply draft (never commit; repo is public)
+capterra_support_reply.md
