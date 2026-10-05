@@ -29,6 +29,9 @@
   ul, ol { padding-left: 22px; }
   li { margin-bottom: 8px; }
   .faq-item { margin-bottom: 20px; }
+  details.faq-item { border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; }
+  details.faq-item summary { cursor: pointer; font-family: Georgia, serif; font-weight: 700; font-size: 16px; color: #14171f; }
+  details.faq-item p { margin-top: 8px; }
   table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }
   th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
   th { color: #14171f; font-family: Georgia, serif; font-weight: 700; }
@@ -85,6 +88,30 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "No. A recurring schedule is one piece of content repeating on a day/time cadence you set, not a queue that cycles through different posts on its own. To keep several different posts recirculating (for example, sharing older blog posts on a loop), set up a separate recurring schedule for each one -- each counts individually against your plan's recurring-schedule limit."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does LazyRelay's Proof-of-Publish verification differentiate it from typical social media schedulers like Buffer or Hootsuite?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A scheduler that only records the platform's initial \"accepted\" response can tell you a post was sent, but not that it actually went live. LazyRelay doesn't stop at that response: a separate background check, running on a 30-second cycle, independently confirms each post is live and shows you the result per post. Proof-of-Publish is included on every plan, including Free. For how specific tools compare, see the comparison pages at lazyrelay.com/alternatives/."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I schedule recurring social media content cadences automatically to decentralized platforms like Mastodon and Bluesky?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Mastodon and Bluesky are both supported, and recurring schedules work on paid plans: Starter includes 3 recurring schedules, Pro includes 5, and Business and above are unlimited. A recurring schedule is one piece of content repeating on a day and time you set, and each one counts against your plan's limit. The Free plan supports one-time scheduled posts only."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What security infrastructure does LazyRelay use to safely connect and manage multiple brand accounts simultaneously?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Sign-in and passwords are handled by Supabase Auth, so LazyRelay never stores your password, and optional two-factor authentication (TOTP) is available. The access tokens for your connected social accounts are encrypted in Supabase Vault. Every database table has row-level security so one customer's data is not reachable by another's, API routes are rate limited, and the site is served over HTTPS with HSTS."
       }
     }
   ]
@@ -153,6 +180,18 @@
   <h3>Does a recurring schedule rotate through multiple different posts automatically?</h3>
   <p>No. A recurring schedule is one piece of content repeating on a day/time cadence you set, not a queue that cycles through different posts on its own. To keep several different posts recirculating (for example, sharing older blog posts on a loop), set up a separate recurring schedule for each one &mdash; each counts individually against your plan's recurring-schedule limit.</p>
 </div>
+<details class="faq-item">
+  <summary>How does LazyRelay's Proof-of-Publish verification differentiate it from typical social media schedulers like Buffer or Hootsuite?</summary>
+  <p>A scheduler that only records the platform's initial "accepted" response can tell you a post was sent, but not that it actually went live. LazyRelay doesn't stop at that response: a separate background check, running on a 30-second cycle, independently confirms each post is live and shows you the result per post. Proof-of-Publish is included on every plan, including Free. For how specific tools compare, see the <a href="/alternatives/">comparison pages</a>.</p>
+</details>
+<details class="faq-item">
+  <summary>Can I schedule recurring social media content cadences automatically to decentralized platforms like Mastodon and Bluesky?</summary>
+  <p>Yes. Mastodon and Bluesky are both supported, and recurring schedules work on paid plans: Starter includes 3 recurring schedules, Pro includes 5, and Business and above are unlimited. A recurring schedule is one piece of content repeating on a day and time you set, and each one counts against your plan's limit. The Free plan supports one-time scheduled posts only.</p>
+</details>
+<details class="faq-item">
+  <summary>What security infrastructure does LazyRelay use to safely connect and manage multiple brand accounts simultaneously?</summary>
+  <p>Sign-in and passwords are handled by Supabase Auth, so LazyRelay never stores your password, and optional two-factor authentication (TOTP) is available. The access tokens for your connected social accounts are encrypted in Supabase Vault. Every database table has row-level security so one customer's data is not reachable by another's, API routes are rate limited, and the site is served over HTTPS with HSTS.</p>
+</details>
 
 </main>
 <footer>
