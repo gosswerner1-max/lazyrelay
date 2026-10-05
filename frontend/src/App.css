@@ -2823,3 +2823,99 @@ button[type="submit"]:not(.btn-outline),
 .oauth-consent-link:hover {
   text-decoration: underline;
 }
+
+/* "Works with your AI tools" strip (right under the hero banner). Reuses the footer badge marquee classes
+   (landing-footer-badges-viewport/track/group) for the seamless scroll and the reduced-motion static fallback;
+   only the tile look and the slower speed are specific to it. 15 labelled tiles are wider than the page, so it
+   scrolls instead of wrapping. Hover pauses it. */
+.landing-ai-tools {
+  padding-top: 36px;
+  padding-bottom: 36px;
+}
+
+.landing-ai-tools h2 {
+  margin-bottom: 20px;
+}
+
+.landing-ai-tools .section-note {
+  margin: 0 auto 24px;
+  max-width: 640px;
+  line-height: 1.6;
+}
+
+.landing-ai-tools .section-note a {
+  color: var(--signal);
+}
+
+.ai-tools-track {
+  animation-duration: 48s;
+}
+
+.ai-tools-group {
+  gap: 28px;
+  padding-right: 28px;
+  align-items: flex-start;
+}
+
+.ai-tool-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 76px;
+  text-decoration: none;
+}
+
+.ai-tool-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 11px;
+  box-shadow: 0 0 0 1px rgba(20, 23, 31, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  .ai-tool-icon {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14);
+  }
+}
+
+.ai-tool-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ChatGPT's own icon is a single-colour mark that switches between black and white with the visitor's
+   light or dark setting (the same media query this site uses), so its tile has to switch the other way. */
+.ai-tool-icon--adaptive {
+  background: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ai-tool-icon--adaptive {
+    background: #000000;
+  }
+}
+
+.landing-ai-tools .ai-tools-footnote {
+  max-width: 640px;
+  margin: 22px auto 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--wire);
+  opacity: 0.8;
+}
+
+.ai-tool-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wire);
+  white-space: nowrap;
+}
+
+.ai-tool-tile:hover .ai-tool-label {
+  color: var(--ink);
+}

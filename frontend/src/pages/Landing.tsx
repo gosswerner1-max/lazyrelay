@@ -4,6 +4,7 @@ import { capturePromoCode } from "../lib/promo";
 import { ReferralApplicationModal } from "../components/ReferralApplicationModal";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
+import { AI_TOOLS, AiToolIcon } from "../components/AiToolIcon";
 import { RelaySignal } from "../components/RelaySignal";
 import { CircuitBackground } from "../components/CircuitBackground";
 import { SupportWidget } from "../components/SupportWidget";
@@ -452,6 +453,19 @@ function SourceForgeBadge() {
   );
 }
 
+function AiToolGroup({ ariaHidden }: { ariaHidden?: boolean }) {
+  return (
+    <div className="landing-footer-badges-group ai-tools-group" aria-hidden={ariaHidden || undefined}>
+      {AI_TOOLS.map((tool) => (
+        <a key={tool.id} href={tool.href} className="ai-tool-tile" tabIndex={ariaHidden ? -1 : undefined}>
+          <AiToolIcon tool={tool} />
+          <span className="ai-tool-label">{tool.label}</span>
+        </a>
+      ))}
+    </div>
+  );
+}
+
 function FooterBadgeGroup({ ariaHidden }: { ariaHidden?: boolean }) {
   return (
     <div className="landing-footer-badges-group" aria-hidden={ariaHidden || undefined}>
@@ -646,7 +660,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
       <section className="landing-hero">
         <h1 className="landing-hero-headline">Schedule everywhere. Know it's actually live.</h1>
         <p className="landing-hero-subtext">
-          LazyRelay posts to Facebook, Instagram, TikTok, and 9 more platforms, then independently verifies
+          LazyRelay posts to Facebook, Instagram, TikTok, and 14 more platforms, then independently verifies
           each one actually went live.
         </p>
         <img
@@ -659,6 +673,25 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
         <button className="cta" onClick={onGetStarted}>
           Get started free
         </button>
+      </section>
+
+      <section className="landing-section landing-ai-tools">
+        <h2>Works with your AI tools</h2>
+        <p className="section-note">
+          <strong>Ask your AI assistant or editor to schedule a post, or to check it really went live.</strong>{" "}
+          AI-agent access is included on every plan, including Free.{" "}
+          <a href="/mcp/">See all {AI_TOOLS.length} setup guides</a>
+        </p>
+        <div className="landing-footer-badges-viewport ai-tools-viewport">
+          <div className="landing-footer-badges-track ai-tools-track">
+            <AiToolGroup />
+            <AiToolGroup ariaHidden />
+          </div>
+        </div>
+        <p className="ai-tools-footnote">
+          Names and logos belong to their owners and are shown only to say these tools work with LazyRelay. No
+          endorsement or partnership is implied.
+        </p>
       </section>
 
       <section className="landing-section">
