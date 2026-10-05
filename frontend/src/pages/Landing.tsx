@@ -358,7 +358,7 @@ const FOOTER_BADGES: FooterBadge[] = [
     href: "https://tinylaunch.com/",
     rel: "noopener",
     className: "tinylaunch-badge",
-    imgSrc: "https://www.tinylaunch.com/tinylaunch_badge_launching_soon.svg",
+    imgSrc: "https://www.tinylaunch.com/tinylaunch_badge_live_now.svg",
     alt: "TinyLaunch Badge",
     width: 200,
     height: 54,
