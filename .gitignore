@@ -40,3 +40,6 @@ new_video_ads_brief.txt
 
 # Private Capterra support reply draft (never commit; repo is public)
 capterra_support_reply.md
+
+# Private organic post queue from the generate-posts skill (never commit)
+live_social_queue.txt
