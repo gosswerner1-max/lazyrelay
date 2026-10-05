@@ -48,7 +48,15 @@
       "name": "Does LazyRelay work with my custom domain handle?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes, as long as the account is still hosted on Bluesky's own servers. A self-hosted or third-party Bluesky server is not supported."
+        "text": "Yes. A custom-domain handle works whether the account is hosted on Bluesky's own servers or on a server you or someone else runs."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does LazyRelay work with a self-hosted or third-party Bluesky server?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. If your account lives on your own server or a third-party one (a personal data server, or PDS), fill in the optional Server box on the Bluesky connect page with its address, for example pds.example.com. The server must be reachable on a public https address; private or local addresses are refused. Posts are confirmed live by reading them back from that same server."
       }
     },
     {
@@ -106,7 +114,7 @@
 <h2>Limits and things to know</h2>
 <ul>
   <li>Bluesky needs an app password, not your main password. If you see Invalid App Password, that message comes from Bluesky itself: check the app password was typed in correctly.</li>
-  <li>A custom-domain handle works as long as the account is still hosted on Bluesky's own servers. A self-hosted or third-party server is not supported.</li>
+  <li>Self-hosted and third-party Bluesky servers (a personal data server, or PDS) are supported. Fill in the optional Server box on the connect page with the server address, for example pds.example.com. The server must be reachable on a public https address; private or local addresses are refused. A custom-domain handle works the same way on Bluesky's own servers or on yours.</li>
   <li>Bluesky's own posting limits are not verified, and LazyRelay does not add a cap of its own.</li>
 </ul>
 
@@ -122,7 +130,11 @@
 </div>
 <div class="faq-item">
   <h3>Does LazyRelay work with my custom domain handle?</h3>
-  <p>Yes, as long as the account is still hosted on Bluesky's own servers. A self-hosted or third-party Bluesky server is not supported.</p>
+  <p>Yes. A custom-domain handle works whether the account is hosted on Bluesky's own servers or on a server you or someone else runs.</p>
+</div>
+<div class="faq-item">
+  <h3>Does LazyRelay work with a self-hosted or third-party Bluesky server?</h3>
+  <p>Yes. If your account lives on your own server or a third-party one (a personal data server, or PDS), fill in the optional Server box on the Bluesky connect page with its address, for example pds.example.com. The server must be reachable on a public https address; private or local addresses are refused. Posts are confirmed live by reading them back from that same server.</p>
 </div>
 <div class="faq-item">
   <h3>How large can a Bluesky image be?</h3>

@@ -378,12 +378,13 @@ const COPY = {
     pop: "When a Bluesky post is created, the record is saved to your account, which is not quite the same as it being publicly visible. So LazyRelay reads that record back from Bluesky by its address and only marks the post confirmed live when Bluesky returns the same post. The link you can share is the bsky.app address of that post.",
     caveats: [
       "Bluesky needs an app password, not your main password. If you see Invalid App Password, that message comes from Bluesky itself: check the app password was typed in correctly.",
-      "A custom-domain handle works as long as the account is still hosted on Bluesky's own servers. A self-hosted or third-party server is not supported.",
+      "Self-hosted and third-party Bluesky servers (a personal data server, or PDS) are supported. Fill in the optional Server box on the connect page with the server address, for example pds.example.com. The server must be reachable on a public https address; private or local addresses are refused. A custom-domain handle works the same way on Bluesky's own servers or on yours.",
       "Bluesky's own posting limits are not verified, and LazyRelay does not add a cap of its own.",
     ],
     faq: () => [
       ["Why does Bluesky need an app password?", "LazyRelay connects to Bluesky with an app password, so you create a separate one in bsky.app under Settings, Privacy and security, App passwords. It keeps your main password out of LazyRelay and can be revoked at any time."],
-      ["Does LazyRelay work with my custom domain handle?", "Yes, as long as the account is still hosted on Bluesky's own servers. A self-hosted or third-party Bluesky server is not supported."],
+      ["Does LazyRelay work with my custom domain handle?", "Yes. A custom-domain handle works whether the account is hosted on Bluesky's own servers or on a server you or someone else runs."],
+      ["Does LazyRelay work with a self-hosted or third-party Bluesky server?", "Yes. If your account lives on your own server or a third-party one (a personal data server, or PDS), fill in the optional Server box on the Bluesky connect page with its address, for example pds.example.com. The server must be reachable on a public https address; private or local addresses are refused. Posts are confirmed live by reading them back from that same server."],
       ["How large can a Bluesky image be?", "2,000,000 bytes per image, which is about 1.9 MB. LazyRelay checks the same limit before a post is scheduled."],
       ["How do I know my Bluesky post is really live?", "LazyRelay reads the post record back from Bluesky after creating it and only marks it confirmed live when Bluesky returns that same post."],
     ],
