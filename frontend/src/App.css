@@ -2068,6 +2068,20 @@ button[type="submit"]:not(.btn-outline),
   font-size: 13px;
 }
 
+/* Plain cross-link to the builder's other product (2026-10-05). Same
+   size and link colour as the footer links above; centred and allowed to
+   wrap on narrow screens. */
+.landing-footer-sister {
+  margin: 0;
+  font-size: 13px;
+  text-align: center;
+}
+
+.landing-footer-sister a {
+  color: var(--signal);
+  text-decoration: underline;
+}
+
 /* Legal pages (Privacy Policy, etc.) */
 .legal-page {
   text-align: left;

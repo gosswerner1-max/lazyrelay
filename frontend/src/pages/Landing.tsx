@@ -1042,6 +1042,13 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
             separate JSX children -- same class of issue as the zapier-callout
             comment above, same fix. */}
         <p>{`© ${new Date().getFullYear()} LazyRelay. All rights reserved.`}</p>
+        <p className="landing-footer-sister">
+          Also from the same builder:{" "}
+          <a href="https://timeajob.com" rel="noopener">
+            TimeAJob
+          </a>
+          , flat-priced time tracking
+        </p>
         <div className="landing-footer-badges-viewport">
           <div className="landing-footer-badges-track">
             <FooterBadgeGroup />
