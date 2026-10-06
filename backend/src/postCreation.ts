@@ -32,6 +32,7 @@ import { resolvePostLimitAt } from "./pinterestWarmup.js";
 import { NOSTR_TEXT_LIMIT, NOSTR_TEXT_LIMIT_BYTES } from "./platforms/nostrConstants.js";
 import { WHOP_TEXT_LIMIT } from "./platforms/whopApi.js";
 import { checkPinterestLinkWarnings, type PostWarning } from "./pinterestLinkWarnings.js";
+import { DB_UNAVAILABLE_MESSAGE, isTransientDbError } from "./db/upstream.js";
 
 /** Free tier: 10 posts per connected account per calendar month. */
 export const FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT = 10;
@@ -229,11 +230,15 @@ export async function validatePostFields(
   // scheduling against it — RLS would also catch this at the DB layer,
   // but checking explicitly here gives a clean 403 instead of an opaque
   // insert failure.
-  const { data: account, error: accountError } = await supabase
+  const { data: account, error: accountError, status: accountStatus } = await supabase
     .from("social_accounts")
     .select("id, account_id, platform")
     .eq("id", socialAccountId)
     .single();
+  if (accountError && isTransientDbError({ error: accountError, status: accountStatus })) {
+    // The database could not answer: say so, instead of "not owned by this caller".
+    return { status: 503, body: { error: DB_UNAVAILABLE_MESSAGE } };
+  }
   if (accountError || !account || account.account_id !== accountId) {
     return { status: 403, body: { error: "Social account not found or not owned by this caller" } };
   }
@@ -337,11 +342,18 @@ export async function validatePostFields(
  *  limit — a lapsed payment shouldn't keep unlimited posting. Returns an
  *  error object, or null if there's room. */
 export async function checkFreeTierPostLimit(accountId: string | undefined, socialAccountId: string): Promise<PostFieldsError | null> {
-  const { data: sub } = await supabase
+  const subRes = await supabase
     .from("subscriptions")
     .select("tier, status")
     .eq("account_id", accountId)
     .maybeSingle();
+  if (subRes.error) {
+    // Not "no subscription": a paying customer must never be told they hit the
+    // free-tier limit because the lookup failed.
+    console.warn("[postCreation] checkFreeTierPostLimit: subscription lookup failed:", subRes.error.message.replace(/\s+/g, " ").slice(0, 120));
+    return { status: 503, body: { error: DB_UNAVAILABLE_MESSAGE } };
+  }
+  const sub = subRes.data;
   const isPaidInGoodStanding = sub?.tier !== "free" && (sub?.status === "active" || sub?.status === "trialing");
   if (isPaidInGoodStanding) return null;
 

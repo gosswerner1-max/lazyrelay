@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { readOrUnavailable } from "./db/upstream.js";
 
 /** Internal database tier codes are deliberately NOT the same as the
  *  customer-facing plan names, to avoid a live-data migration when the
@@ -65,8 +66,16 @@ export const REVIEW_LINK_LIMITS: Record<Tier, number> = {
   agency_plus: 40, // 20 brands
 };
 
+/** The account's effective tier. "free" means the database answered and there is
+ *  no paid subscription in good standing. If the database cannot answer, this
+ *  throws UpstreamUnavailableError: it never returns "free" for a failed lookup,
+ *  because a paying customer would otherwise be treated as free (branding tag on
+ *  their post, free caps, a 403 on add-on checkout) for as long as the outage lasts. */
 export async function resolveTier(accountId: string): Promise<Tier> {
-  const { data } = await supabase.from("subscriptions").select("tier, status").eq("account_id", accountId).maybeSingle();
+  const data = readOrUnavailable(
+    await supabase.from("subscriptions").select("tier, status").eq("account_id", accountId).maybeSingle(),
+    "resolveTier",
+  );
   const isPaidInGoodStanding = data?.tier !== "free" && (data?.status === "active" || data?.status === "trialing");
   return isPaidInGoodStanding ? (data!.tier as Tier) : "free";
 }

@@ -1,7 +1,8 @@
 import { extrasForPlatform } from "./postExtras.js";
 import { DateTime } from "luxon";
 import { supabase } from "./supabase.js";
-import { resolveTier } from "./tier.js";
+import { resolveTier, type Tier } from "./tier.js";
+import { isUpstreamUnavailable } from "./db/upstream.js";
 import { syncPostToCalendar } from "./googleCalendar/outboundSync.js";
 import { syncAccountSheet } from "./googleSheets/outboundSync.js";
 import { fetchCountedPosts } from "./postCreation.js";
@@ -187,7 +188,16 @@ export async function generateDuePosts(): Promise<void> {
     // resolveTier() falls back to "free" for any non-active/-trialing
     // subscription, so this simply skips generation rather than posting
     // against a plan that no longer has this feature.
-    const tier = await resolveTier(slot.account_id);
+    let tier: Tier;
+    try {
+      tier = await resolveTier(slot.account_id);
+    } catch (err) {
+      if (!isUpstreamUnavailable(err)) throw err;
+      // Cannot tell the plan: skip this slot for this run instead of treating the
+      // account as free. Generation is idempotent, so the next run covers it.
+      console.warn(`[recurringScheduler] slot ${slot.id}: skipped this run, ${err.message} (${err.op}).`);
+      continue;
+    }
     if (tier === "free") continue;
 
     const targetIds = slot.recurring_schedule_targets.map((t) => t.social_account_id);
@@ -201,7 +211,13 @@ export async function generateDuePosts(): Promise<void> {
     // "skip a paused connected account up front" behavior as before --
     // avoids generating a post the existing scheduler would just fail
     // anyway, same check processPost() already does at drain-time.
-    const { data: accounts } = await supabase.from("social_accounts").select("id, paused_at, platform").in("id", targetIds);
+    const { data: accounts, error: accountsError } = await supabase.from("social_accounts").select("id, paused_at, platform").in("id", targetIds);
+    if (accountsError) {
+      // Without the paused flags and platforms this run would generate posts for
+      // paused accounts and drop per-platform extras. Skip the slot; retry next run.
+      console.warn(`[recurringScheduler] slot ${slot.id}: skipped this run, could not read its connected accounts: ${accountsError.message.replace(/\s+/g, " ").slice(0, 120)}`);
+      continue;
+    }
     const pausedIds = new Set((accounts ?? []).filter((a) => a.paused_at).map((a) => a.id));
     const platformByAccountId = new Map<string, string>((accounts ?? []).map((a) => [a.id as string, a.platform as string]));
 

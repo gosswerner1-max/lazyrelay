@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import type { AuthedRequest } from "./auth.js";
 import { resolveTier as resolveTierUncached, type Tier } from "../tier.js";
 import { recordSecurityEvent } from "./securityAlerts.js";
+import { isUpstreamUnavailable } from "../db/upstream.js";
 
 function onRateLimited(req: Request, res: Response) {
   recordSecurityEvent("rate_limited", `${req.method} ${req.path} from ${req.ip ?? "unknown"}`);
@@ -36,9 +37,18 @@ async function resolveTier(accountId: string): Promise<Tier> {
   const cached = tierCache.get(accountId);
   if (cached && cached.expiresAt > Date.now()) return cached.tier;
 
-  const tier = await resolveTierUncached(accountId);
-  tierCache.set(accountId, { tier, expiresAt: Date.now() + TIER_CACHE_TTL_MS });
-  return tier;
+  try {
+    const tier = await resolveTierUncached(accountId);
+    tierCache.set(accountId, { tier, expiresAt: Date.now() + TIER_CACHE_TTL_MS });
+    return tier;
+  } catch (err) {
+    if (!isUpstreamUnavailable(err)) throw err;
+    // The database could not answer. A rate limit is not a security boundary, so
+    // keep the last answer we had (even if past its TTL) rather than failing the
+    // request, and with no answer at all use the lowest tier for this one request.
+    // Neither is cached, so the next request asks again.
+    return cached?.tier ?? "free";
+  }
 }
 
 /** Per-account request-rate limit, gated by subscription tier. Must be

@@ -19,6 +19,11 @@ vi.mock("./supabase.js", async () => {
         const realSelect = b.select;
         b.select = (...a: unknown[]) => {
           const chain = realSelect(...a) as Record<string, unknown>;
+          // Only the breaker's own query breaks. The "was this already published?"
+          // lookup (columns "id, platform_post_id") keeps working: when THAT read
+          // fails the scheduler now defers the post instead of publishing it, which
+          // schedulerDbOutage.test.ts covers.
+          if (a[0] === "id, platform_post_id") return chain;
           chain.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: null, error: { message: "boom" } }).then(resolve);
           return chain;
         };

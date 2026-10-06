@@ -15,6 +15,7 @@ import {
   wouldExceedRolling24hLimit,
 } from "./platformPostLimits.js";
 import { resolveTier, type Tier } from "./tier.js";
+import { isUpstreamUnavailable, readOrUnavailable, throwIfTransient } from "./db/upstream.js";
 import { MAX_FIRST_COMMENT_LENGTH } from "./postCreation.js";
 import { decideFirstComment, firstCommentDueAt } from "./firstCommentDelay.js";
 
@@ -166,7 +167,7 @@ interface DuePost {
  *  Joins social_accounts for platform so a single cycle can dispatch each
  *  post to the right adapter instead of assuming one platform for everything. */
 async function claimDuePosts(): Promise<DuePost[]> {
-  const { data: due, error: selectError } = await supabase
+  const { data: due, error: selectError, status: selectStatus } = await supabase
     .from("scheduled_posts")
     .select("id")
     .eq("status", "pending")
@@ -174,7 +175,10 @@ async function claimDuePosts(): Promise<DuePost[]> {
     .lte("scheduled_for", new Date().toISOString())
     .limit(CLAIM_BATCH_SIZE);
 
-  if (selectError) throw selectError;
+  if (selectError) {
+    throwIfTransient({ error: selectError, status: selectStatus }, "claimDuePosts select");
+    throw selectError;
+  }
   if (!due || due.length === 0) return [];
 
   const ids = due.map((p) => p.id);
@@ -187,7 +191,7 @@ async function claimDuePosts(): Promise<DuePost[]> {
   // the same post. `.eq("status","pending")` on the UPDATE still only
   // flips rows atomically at the DB layer, but the row only belongs to a
   // caller whose UPDATE's `.select()` actually returned it back.
-  const { data: claimed, error: claimError } = await supabase
+  const { data: claimed, error: claimError, status: claimStatus } = await supabase
     .from("scheduled_posts")
     .update({ status: "posting" })
     .in("id", ids)
@@ -197,7 +201,10 @@ async function claimDuePosts(): Promise<DuePost[]> {
       "id, account_id, social_account_id, content, media_url, media_urls, options, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, tiktok_brand_organic, tiktok_brand_content, retry_count, social_accounts(platform, platform_account_id)",
     );
 
-  if (claimError) throw claimError;
+  if (claimError) {
+    throwIfTransient({ error: claimError, status: claimStatus }, "claimDuePosts claim");
+    throw claimError;
+  }
   if (!claimed || claimed.length === 0) return [];
 
   return claimed.map((p) => {
@@ -243,8 +250,11 @@ export async function refreshAndStoreToken(account: TokenAccountRow, adapter: Pl
   // Threads refreshes in place: the current access token is the credential
   // to renew. Everyone else sends their stored refresh token.
   const sourceVaultId = adapter.refreshUsesAccessToken ? account.access_token_vault_id : account.refresh_token_vault_id;
-  const { data: stored, error: refreshReadError } = await supabase.rpc("read_social_token", { p_vault_id: sourceVaultId });
-  if (refreshReadError) throw refreshReadError;
+  const { data: stored, error: refreshReadError, status: refreshReadStatus } = await supabase.rpc("read_social_token", { p_vault_id: sourceVaultId });
+  if (refreshReadError) {
+    throwIfTransient({ error: refreshReadError, status: refreshReadStatus }, "refreshAndStoreToken read");
+    throw refreshReadError;
+  }
 
   const refreshed = await adapter.refresh(stored as string);
 
@@ -284,11 +294,12 @@ export async function refreshAndStoreToken(account: TokenAccountRow, adapter: Pl
  *  fails with a clear "reconnect" message and flags the account, instead of
  *  sending a dead token to the platform and retrying it. */
 export async function getAccessToken(socialAccountId: string, adapter: PlatformAdapter): Promise<string> {
-  const { data: account, error } = await supabase
+  const { data: account, error, status: accountStatus } = await supabase
     .from("social_accounts")
     .select(TOKEN_ACCOUNT_COLUMNS)
     .eq("id", socialAccountId)
     .single();
+  if (error) throwIfTransient({ error, status: accountStatus }, "getAccessToken account");
   if (error || !account) throw error ?? new Error("social account not found");
   const row = account as TokenAccountRow;
 
@@ -317,10 +328,13 @@ export async function getAccessToken(socialAccountId: string, adapter: PlatformA
     throw new Error(reason);
   }
 
-  const { data: token, error: readError } = await supabase.rpc("read_social_token", {
+  const { data: token, error: readError, status: readStatus } = await supabase.rpc("read_social_token", {
     p_vault_id: row.access_token_vault_id,
   });
-  if (readError) throw readError;
+  if (readError) {
+    throwIfTransient({ error: readError, status: readStatus }, "getAccessToken read");
+    throw readError;
+  }
   return token as string;
 }
 
@@ -329,11 +343,12 @@ export async function getAccessToken(socialAccountId: string, adapter: PlatformA
  *  connection and tokens intact but must never actually post. Checked before
  *  spending a vault read on a token that won't be used. */
 async function isAccountPaused(socialAccountId: string): Promise<boolean> {
-  const { data, error } = await supabase
+  const { data, error, status } = await supabase
     .from("social_accounts")
     .select("paused_at")
     .eq("id", socialAccountId)
     .single();
+  if (error) throwIfTransient({ error, status }, "isAccountPaused");
   if (error || !data) throw error ?? new Error("social account not found");
   return data.paused_at !== null;
 }
@@ -513,12 +528,17 @@ export function shouldShowBrandingTag(tier: Tier, showBrandingTagColumn: boolean
 
 async function resolveBrandingTag(accountId: string): Promise<string | null> {
   try {
-    const [tier, { data: account }] = await Promise.all([
+    const [tier, accountRes] = await Promise.all([
       resolveTier(accountId),
       supabase.from("accounts").select("show_branding_tag").eq("id", accountId).maybeSingle(),
     ]);
+    const account = readOrUnavailable(accountRes, "resolveBrandingTag account");
     return shouldShowBrandingTag(tier, account?.show_branding_tag) ? BRANDING_TAG : null;
   } catch (err) {
+    // The database could not tell us the tier. Do not guess (a paying customer
+    // must not get the free-tier tag, a free one must not silently lose it):
+    // processPost defers the post and tries again shortly.
+    if (isUpstreamUnavailable(err)) throw err;
     console.error("[scheduler] resolveBrandingTag lookup failed:", err instanceof Error ? err.message : err);
     return null;
   }
@@ -573,8 +593,18 @@ async function handleFailure(post: DuePost, message: string, kind: PostErrorKind
   await notifyOps(`Post ${post.id} permanently failed after ${MAX_RETRIES + 1} attempts: ${raw ?? message}`);
   await maybeSendFailureAlert(post, post.content, message, false);
   // If the platform did accept it, it may well be live: say "unconfirmed", never "failed".
-  const accepted = await findAcceptedPublish(post.id);
-  if (accepted) {
+  let accepted: { id: string; platform_post_id: string } | null = null;
+  let acceptedKnown = true;
+  try {
+    accepted = await findAcceptedPublish(post.id);
+  } catch (err) {
+    if (!isUpstreamUnavailable(err)) throw err;
+    acceptedKnown = false;
+  }
+  if (!acceptedKnown) {
+    // Could not check, so say "unconfirmed", never "failed": it may be live.
+    await emitPostProblem(post, "post.unconfirmed", message, { reasonKind: "retries_exhausted" });
+  } else if (accepted) {
     await emitPostProblem(post, "post.unconfirmed", message, { platformPostId: accepted.platform_post_id, reasonKind: "retries_exhausted" });
   } else {
     await emitPostProblem(post, "post.failed", message, { reasonKind: "retries_exhausted" });
@@ -632,10 +662,96 @@ async function failAttempt(post: DuePost, platform: string, raw: string): Promis
  *  `deferUntil`, also pushes scheduled_for out so it isn't re-claimed until
  *  then (the platform daily-limit backstop below). */
 async function unclaimPost(post: DuePost, deferUntil?: Date): Promise<void> {
-  await supabase
-    .from("scheduled_posts")
-    .update(deferUntil ? { status: "pending", scheduled_for: deferUntil.toISOString() } : { status: "pending" })
-    .eq("id", post.id);
+  // Retried: if this write is lost the post stays "posting" until the 20 minute
+  // stuck-post sweep fails it as "unconfirmed", although nothing was sent.
+  await retryWrite(`un-claim post ${post.id}`, () =>
+    supabase
+      .from("scheduled_posts")
+      .update(deferUntil ? { status: "pending", scheduled_for: deferUntil.toISOString() } : { status: "pending" })
+      .eq("id", post.id),
+  );
+}
+
+// Pauses between tries of a write that is safe to repeat (it sets absolute
+// values, so doing it twice equals doing it once).
+const WRITE_RETRY_DELAYS_MS = [300, 900];
+
+function pauseBeforeWriteRetry(attemptIndex: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, WRITE_RETRY_DELAYS_MS[attemptIndex] * (0.5 + Math.random())));
+}
+
+function shortDetail(text: string): string {
+  return text.replace(/\s+/g, " ").slice(0, 160);
+}
+
+/** Runs a database write, retrying on any error with jittered backoff. ONLY for
+ *  idempotent writes (absolute updates). Returns whether it finally succeeded;
+ *  never throws. */
+async function retryWrite(label: string, write: () => PromiseLike<{ error: { message: string } | null }>): Promise<boolean> {
+  for (let i = 0; ; i++) {
+    let message: string;
+    try {
+      const { error } = await write();
+      if (!error) return true;
+      message = error.message;
+    } catch (err) {
+      message = err instanceof Error ? err.message : String(err);
+    }
+    if (i >= WRITE_RETRY_DELAYS_MS.length) {
+      console.error(`[scheduler] ${label} failed after ${i + 1} tries: ${shortDetail(message)}`);
+      return false;
+    }
+    await pauseBeforeWriteRetry(i);
+  }
+}
+
+// When the database cannot answer, a claimed post is put back this far in the
+// future instead of being retried immediately into the same outage. It does
+// not use up one of the post's own retries: nothing was wrong with the post.
+const DB_OUTAGE_DEFER_MS = 60_000;
+
+/** Records the result row of an attempt the platform ACCEPTED. This row is the
+ *  only durable proof of the platform post id, and findAcceptedPublish relies on
+ *  it to stop a second copy being published, so a lost write is retried and, if
+ *  it still fails, escalated to ops with the ids needed to reconcile by hand.
+ *  Returns the row, or null if it could not be saved. */
+async function saveResultRow(
+  post: DuePost,
+  platform: string,
+  platformPostId: string,
+  fields: Record<string, unknown>,
+  existing: { id: string } | null,
+): Promise<{ id: string } | null> {
+  let target = existing;
+  let lastError = "unknown error";
+  for (let i = 0; i <= WRITE_RETRY_DELAYS_MS.length; i++) {
+    try {
+      if (!target && i > 0) {
+        // A lost response can mean the earlier insert DID land: look before
+        // inserting again so there is never a second row for one post.
+        const found = await findAcceptedPublish(post.id);
+        if (found) target = { id: found.id };
+      }
+      const res = target
+        ? await supabase.from("post_results").update(fields).eq("id", target.id).select("id").single()
+        : await supabase
+            .from("post_results")
+            .insert({ scheduled_post_id: post.id, account_id: post.account_id, platform_post_id: platformPostId, ...fields })
+            .select("id")
+            .single();
+      if (!res.error && res.data) return res.data;
+      lastError = res.error?.message ?? "no row returned";
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+    }
+    if (i < WRITE_RETRY_DELAYS_MS.length) await pauseBeforeWriteRetry(i);
+  }
+  const detail = shortDetail(lastError);
+  console.error(`Post ${post.id}: ${platform} accepted it as ${platformPostId} but its result row could not be saved: ${detail}`);
+  await notifyOps(
+    `Post ${post.id} was accepted by ${platform} (platform post id ${platformPostId}) but its result row could not be saved after ${WRITE_RETRY_DELAYS_MS.length + 1} tries (${detail}). It is probably live: reconcile by hand and do not re-publish.`,
+  );
+  return null;
 }
 
 /** Send-time backstop for a platform's rolling-24h posting cap
@@ -685,13 +801,20 @@ export async function getPlatformLimitDeferral(post: DuePost): Promise<Date | nu
  *  existence means the content is probably already public, so a retry must
  *  re-verify it and never call adapter.post() again. */
 export async function findAcceptedPublish(postId: string): Promise<{ id: string; platform_post_id: string } | null> {
-  const { data } = await supabase
-    .from("post_results")
-    .select("id, platform_post_id")
-    .eq("scheduled_post_id", postId)
-    .not("platform_post_id", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(1);
+  // A failed lookup must NOT read as "no earlier publish": that answer sends the
+  // post to adapter.post() again, a second public copy of something probably
+  // already live. So a database error throws UpstreamUnavailableError and the
+  // caller defers (or skips) instead of publishing.
+  const data = readOrUnavailable(
+    await supabase
+      .from("post_results")
+      .select("id, platform_post_id")
+      .eq("scheduled_post_id", postId)
+      .not("platform_post_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1),
+    "findAcceptedPublish",
+  );
   const row = data?.[0];
   return row?.platform_post_id ? { id: row.id, platform_post_id: row.platform_post_id } : null;
 }
@@ -730,7 +853,16 @@ export async function recoverStuckPosts(now: number = Date.now()): Promise<numbe
   }
   let recovered = 0;
   for (const row of stuck ?? []) {
-    const accepted = await findAcceptedPublish(row.id);
+    let accepted: { id: string; platform_post_id: string } | null;
+    try {
+      accepted = await findAcceptedPublish(row.id);
+    } catch (err) {
+      if (!isUpstreamUnavailable(err)) throw err;
+      // Cannot tell whether it was published, and "failed, no post id" would be a
+      // guess. Leave the rest of the sweep for the next minute.
+      console.warn(`[scheduler] stuck-post sweep paused: ${err.message} (${err.op}).`);
+      break;
+    }
     if (accepted) {
       // Guarded on status so a post that finished on its own in the meantime
       // is not touched.
@@ -944,6 +1076,10 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     await unclaimPost(post);
     return;
   }
+  // True once adapter.post() may have run. Before that, a database outage just
+  // defers the post. After it, the post may be live, so it must never be sent
+  // back to be published again.
+  let publishAttempted = false;
   try {
     if (await isAccountPaused(post.social_account_id)) {
       // Not a platform/adapter failure — retrying won't help until the
@@ -990,6 +1126,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     // duplicate Facebook/Reel/Telegram posts logged in the platform
     // capability matrix. Re-check the existing post instead.
     const alreadyPublished = await findAcceptedPublish(post.id);
+    publishAttempted = true;
     const attempt: PostAttemptResult = alreadyPublished
       ? { success: true, platformPostId: alreadyPublished.platform_post_id, errorMessage: null }
       : await adapter.post({
@@ -1067,20 +1204,18 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     };
     // A re-verify updates the row the first attempt wrote (one result per
     // post, and its id is the public proof link) rather than adding a second.
-    const { data: resultRow } = alreadyPublished
-      ? await supabase.from("post_results").update(resultFields).eq("id", alreadyPublished.id).select("id").single()
-      : await supabase
-          .from("post_results")
-          .insert({
-            scheduled_post_id: post.id,
-            account_id: post.account_id,
-            platform_post_id: attempt.platformPostId,
-            ...resultFields,
-          })
-          .select("id")
-          .single();
+    const resultRow = await saveResultRow(post, adapter.platform, attempt.platformPostId, resultFields, alreadyPublished);
 
     if (verifyFailure) {
+      if (!resultRow && !alreadyPublished) {
+        // The platform accepted the post but its id could not be recorded, so
+        // nothing would stop the next cycle publishing a second copy. Do not send
+        // it back to pending: fail it as "unconfirmed" (ops was already told, with
+        // the platform post id, by saveResultRow).
+        await retryWrite(`mark unrecorded publish ${post.id} failed`, () => supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id));
+        await emitPostProblem(post, "post.unconfirmed", verifyFailure.message, { platformPostId: attempt.platformPostId, reasonKind: "result_not_saved" });
+        return;
+      }
       if (verifyFailure.kind === "retry" || verifyFailure.kind === "ours") recordFailure(adapter.platform);
       await handleFailure(post, verifyFailure.message, verifyFailure.kind, rawVerifyError);
       return;
@@ -1146,6 +1281,11 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
       if (outcome.error) console.warn(`Post ${post.id}: thread stopped after ${outcome.posted} follow-up(s) — ${outcome.error}`);
     }
   } catch (err) {
+    if (isUpstreamUnavailable(err) && !publishAttempted) {
+      console.warn(`Post ${post.id} deferred ${DB_OUTAGE_DEFER_MS / 1000}s without using a retry: ${err.message} (${err.op}: ${err.detail}).`);
+      await unclaimPost(post, new Date(Date.now() + DB_OUTAGE_DEFER_MS));
+      return;
+    }
     // Same reasoning as the post()-failure branch above — an unexpected
     // throw (network error, malformed adapter response, etc.) previously
     // vanished into console/Slack with nothing in the customer-visible

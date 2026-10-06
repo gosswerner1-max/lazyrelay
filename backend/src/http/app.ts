@@ -15,6 +15,7 @@ import { supabase } from "../supabase.js";
 import type { MerchantOfRecordAdapter } from "../billing/types.js";
 import type { PlatformAdapterRegistry } from "../platforms/connect.js";
 import type { OAuthMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
+import { isUpstreamUnavailable } from "../db/upstream.js";
 
 export function buildApp(
   morAdapter: MerchantOfRecordAdapter,
@@ -204,7 +205,14 @@ export function buildApp(
   // a liveness probe would destroy the key.
   app.get("/health", async (req, res) => {
     try {
-      const { error } = await supabase.from("accounts").select("id", { head: true, count: "exact" }).limit(1);
+      // A hard 5 s ceiling for the probe (a caller-supplied abort also switches off
+      // the client's GET retry), so a hung gateway cannot hold a liveness check open
+      // for the retry layer's full worst case.
+      const { error } = await supabase
+        .from("accounts")
+        .select("id", { head: true, count: "exact" })
+        .limit(1)
+        .abortSignal(AbortSignal.timeout(5_000));
       if (error) throw error;
       // Only runs when a key is actually presented, and can never fail the
       // probe: Render's own health check sends no Authorization header, so
@@ -257,6 +265,15 @@ export function buildApp(
   // a generic message while the real one still goes to the logs above.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    if (isUpstreamUnavailable(err)) {
+      // The database could not answer: say so (503 plus Retry-After) so clients
+      // and integrations that retry on 5xx do, instead of a 400 that reads as
+      // "your request was wrong". The cause is one short log line, not a stack.
+      console.warn(`Database unavailable on ${req.method} ${req.path} (${err.op}): ${err.detail}`);
+      res.setHeader("Retry-After", "2");
+      res.status(503).json({ error: err.message });
+      return;
+    }
     console.error(`Unhandled error on ${req.method} ${req.path}:`, err);
     const message = err instanceof multer.MulterError ? err.message : "Something went wrong processing your request. Please try again.";
     res.status(400).json({ error: message });
