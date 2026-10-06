@@ -6,20 +6,21 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="shortcut icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LazyRelay: Schedule social posts with Proof-of-Publish verification</title>
-    <meta name="description" content="LazyRelay schedules your posts across 17 platforms, including Facebook, Instagram, TikTok, Pinterest, YouTube, and LinkedIn, then independently verifies each one actually went live, not just that it was sent. Free tier available, AI-agent/MCP access included on every plan, with setup guides for Cursor, VS Code, n8n and more." />
-    <meta property="og:title" content="LazyRelay: Schedule social posts with Proof-of-Publish verification" />
-    <meta property="og:description" content="LazyRelay schedules posts across 17 platforms and independently verifies each one actually went live, not just that it was sent." />
+    <title>LazyRelay: Schedule Social Media Posts, Verified Live</title>
+    <meta name="description" content="LazyRelay schedules posts to 17 platforms, then independently checks that each one went live. Free plan with no card required. AI-agent access on every plan." />
+    <meta property="og:title" content="LazyRelay: Schedule Social Media Posts, Verified Live" />
+    <meta property="og:description" content="LazyRelay schedules posts to 17 platforms, then independently checks that each one went live. Free plan with no card required. AI-agent access on every plan." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://lazyrelay.com/" />
     <meta property="og:site_name" content="LazyRelay" />
     <meta property="og:locale" content="en_US" />
     <meta property="og:image" content="https://lazyrelay.com/og-image-1200x630.jpg" />
     <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
+    \1
+    <meta property="og:image:alt" content="LazyRelay logo with the tagline Automate. Schedule. Publish. Repeat., and icons for smart scheduling, auto posting and flexible storage, linked to social platform icons." />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="LazyRelay: Schedule social posts with Proof-of-Publish verification" />
-    <meta name="twitter:description" content="LazyRelay schedules posts across 17 platforms and independently verifies each one actually went live, not just that it was sent." />
+    <meta name="twitter:title" content="LazyRelay: Schedule Social Media Posts, Verified Live" />
+    <meta name="twitter:description" content="LazyRelay schedules posts to 17 platforms, then independently checks that each one went live. Free plan with no card required. AI-agent access on every plan." />
     <meta name="twitter:image" content="https://lazyrelay.com/og-image-1200x630.jpg" />
     <link rel="canonical" href="https://lazyrelay.com/" />
     <link rel="preload" as="image" href="/src/assets/banner.jpg" fetchpriority="high" />
@@ -29,75 +30,147 @@
         "@graph": [
           {
             "@type": "Organization",
+            "@id": "https://lazyrelay.com/#organization",
             "name": "LazyRelay",
             "legalName": "IPE Projects (Pty) Ltd",
             "url": "https://lazyrelay.com/",
             "logo": "https://lazyrelay.com/lazyrelay-signature-logo.png",
-            "description": "LazyRelay schedules social media posts across 17 platforms and independently verifies each one actually went live, not just that it was sent.",
             "email": "hello@lazyrelay.com",
             "contactPoint": {
               "@type": "ContactPoint",
               "contactType": "customer support",
               "url": "https://lazyrelay.com/contact"
-            }
+            },
+            "sameAs": [
+              "https://bsky.app/profile/lazyrelay.bsky.social"
+            ]
           },
           {
             "@type": "WebSite",
+            "@id": "https://lazyrelay.com/#website",
             "name": "LazyRelay",
             "url": "https://lazyrelay.com/",
-            "description": "LazyRelay schedules social media posts across 17 platforms and independently verifies each one actually went live, not just that it was sent.",
-            "inLanguage": "en"
+            "inLanguage": "en",
+            "publisher": {
+              "@id": "https://lazyrelay.com/#organization"
+            }
           },
           {
             "@type": "SoftwareApplication",
+            "@id": "https://lazyrelay.com/#software",
             "name": "LazyRelay",
             "url": "https://lazyrelay.com/",
+            "description": "LazyRelay schedules social media posts across 17 platforms and independently verifies each one actually went live, not just that it was sent.",
             "applicationCategory": "BusinessApplication",
             "applicationSubCategory": "SocialMediaManagement",
-            "operatingSystem": "Web Cloud-Based",
-            "description": "LazyRelay schedules social media posts across 17 platforms and independently verifies each one actually went live, not just that it was sent.",
+            "operatingSystem": "Web",
+            "inLanguage": "en",
             "featureList": [
-              "First-class posting to Mastodon, Bluesky, Telegram, Discord, and Tumblr",
-              "Scheduled and recurring posting to 17 platforms, including Facebook, Instagram, TikTok, YouTube, and LinkedIn",
-              "Proof-of-Publish: right after each post goes out, LazyRelay independently checks with the platform that it is live, instead of trusting the first accepted response",
-              "REST API auto-posting, Zapier integration, and AI-agent/MCP access on every plan",
-              "Native Model Context Protocol (MCP) server access for AI coding assistants and editors.",
-              "Documented MCP setup guides for autonomous agents and developer tooling including: Notion, Manus, OpenClaw, Cursor, Windsurf, Antigravity, Codex CLI, Gemini CLI, VS Code, and n8n."
+              "Scheduled posting to 17 platforms",
+              "Recurring schedules: one piece of content repeating on a day and time you set",
+              "Proof-of-Publish: an independent check with the platform that each post is live",
+              "Auto posting: LazyRelay checks every 30 seconds and sends posts when they are due",
+              "AI-agent and MCP access on every plan, including Free",
+              "Zapier integration and API access on every plan",
+              "Content calendar, analytics dashboard and bulk CSV import of up to 200 posts",
+              "Optional two-factor authentication (TOTP)"
             ],
-            "offers": [
-              {
-                "@type": "Offer",
-                "name": "Free",
-                "price": "0",
-                "priceCurrency": "USD",
-                "url": "https://lazyrelay.com/pricing/"
-              },
-              {
-                "@type": "Offer",
-                "name": "Starter",
-                "price": "29.99",
-                "priceCurrency": "USD",
-                "priceSpecification": { "@type": "UnitPriceSpecification", "price": "29.99", "priceCurrency": "USD", "billingDuration": "P1M", "unitCode": "MON" },
-                "url": "https://lazyrelay.com/pricing/"
-              },
-              {
-                "@type": "Offer",
-                "name": "Pro",
-                "price": "59.99",
-                "priceCurrency": "USD",
-                "priceSpecification": { "@type": "UnitPriceSpecification", "price": "59.99", "priceCurrency": "USD", "billingDuration": "P1M", "unitCode": "MON" },
-                "url": "https://lazyrelay.com/pricing/"
-              },
-              {
-                "@type": "Offer",
-                "name": "Business",
-                "price": "99.99",
-                "priceCurrency": "USD",
-                "priceSpecification": { "@type": "UnitPriceSpecification", "price": "99.99", "priceCurrency": "USD", "billingDuration": "P1M", "unitCode": "MON" },
-                "url": "https://lazyrelay.com/pricing/"
-              }
-            ],
-            "publisher": { "@type": "Organization", "name": "LazyRelay", "url": "https://lazyrelay.com/" }
+            "publisher": {
+              "@id": "https://lazyrelay.com/#organization"
+            },
+            "offers": {
+              "@type": "AggregateOffer",
+              "priceCurrency": "USD",
+              "lowPrice": "0",
+              "highPrice": "199.99",
+              "offerCount": 6,
+              "url": "https://lazyrelay.com/pricing/",
+              "offers": [
+                {
+                  "@type": "Offer",
+                  "name": "Free",
+                  "price": "0",
+                  "priceCurrency": "USD",
+                  "description": "3 connected accounts, 1 brand, 250MB storage, one-time scheduled posts only, 10 posts per account that refill over time",
+                  "url": "https://lazyrelay.com/pricing/"
+                },
+                {
+                  "@type": "Offer",
+                  "name": "Starter",
+                  "price": "29.99",
+                  "priceCurrency": "USD",
+                  "description": "20 connected accounts, 2 brands, unlimited scheduled posts, 3 recurring schedules, 5GB storage",
+                  "url": "https://lazyrelay.com/pricing/",
+                  "priceSpecification": {
+                    "@type": "UnitPriceSpecification",
+                    "price": "29.99",
+                    "priceCurrency": "USD",
+                    "billingDuration": "P1M",
+                    "unitCode": "MON"
+                  }
+                },
+                {
+                  "@type": "Offer",
+                  "name": "Pro",
+                  "price": "59.99",
+                  "priceCurrency": "USD",
+                  "description": "30 connected accounts, 4 brands, unlimited scheduled posts, 5 recurring schedules, 10GB storage, priority support",
+                  "url": "https://lazyrelay.com/pricing/",
+                  "priceSpecification": {
+                    "@type": "UnitPriceSpecification",
+                    "price": "59.99",
+                    "priceCurrency": "USD",
+                    "billingDuration": "P1M",
+                    "unitCode": "MON"
+                  }
+                },
+                {
+                  "@type": "Offer",
+                  "name": "Business",
+                  "price": "99.99",
+                  "priceCurrency": "USD",
+                  "description": "50 connected accounts, 7 brands, 2 team seats, unlimited scheduled posts, unlimited recurring schedules, 20GB storage, priority support",
+                  "url": "https://lazyrelay.com/pricing/",
+                  "priceSpecification": {
+                    "@type": "UnitPriceSpecification",
+                    "price": "99.99",
+                    "priceCurrency": "USD",
+                    "billingDuration": "P1M",
+                    "unitCode": "MON"
+                  }
+                },
+                {
+                  "@type": "Offer",
+                  "name": "Agency",
+                  "price": "149.99",
+                  "priceCurrency": "USD",
+                  "description": "100 connected accounts, 12 brands, 3 team seats, unlimited scheduled posts, unlimited recurring schedules, 20GB storage, priority support",
+                  "url": "https://lazyrelay.com/pricing/",
+                  "priceSpecification": {
+                    "@type": "UnitPriceSpecification",
+                    "price": "149.99",
+                    "priceCurrency": "USD",
+                    "billingDuration": "P1M",
+                    "unitCode": "MON"
+                  }
+                },
+                {
+                  "@type": "Offer",
+                  "name": "Agency Plus",
+                  "price": "199.99",
+                  "priceCurrency": "USD",
+                  "description": "150 connected accounts, 20 brands, 6 team seats, unlimited scheduled posts, unlimited recurring schedules, 20GB storage, priority support",
+                  "url": "https://lazyrelay.com/pricing/",
+                  "priceSpecification": {
+                    "@type": "UnitPriceSpecification",
+                    "price": "199.99",
+                    "priceCurrency": "USD",
+                    "billingDuration": "P1M",
+                    "unitCode": "MON"
+                  }
+                }
+              ]
+            }
           }
         ]
       }

@@ -9,6 +9,7 @@ import { RelaySignal } from "../components/RelaySignal";
 import { CircuitBackground } from "../components/CircuitBackground";
 import { SupportWidget } from "../components/SupportWidget";
 import banner from "../assets/banner.jpg";
+import { HOME_FAQ, homeFaqSchemaJson } from "../lib/homeFaq";
 
 interface LandingProps {
   onSignIn: () => void;
@@ -479,37 +480,6 @@ function FooterBadgeGroup({ ariaHidden }: { ariaHidden?: boolean }) {
   );
 }
 
-const FAQ = [
-  {
-    q: "What does LazyRelay actually do?",
-    a: "You write a post, pick when it should go out, and LazyRelay publishes it to your connected accounts automatically, then confirms it's actually live.",
-  },
-  {
-    q: "Does LazyRelay write or generate content for me?",
-    a: "You write the post, and LazyRelay handles scheduling and publishing. If you want a hand, optional AI tools can suggest post ideas, captions and hashtags. Nothing is generated unless you ask for it.",
-  },
-  {
-    q: "Which platforms are supported?",
-    a: "Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, Slack (text posts to one public channel you pick), and four places for longer writing and communities: WordPress (your own self-hosted site), dev.to, Hashnode (your blog needs Hashnode's Pro plan, because Hashnode charges for API access), and Lemmy. Mastodon works with any Mastodon server: you type the address of the one your account is on when you connect. YouTube uploads through LazyRelay accept files up to 1GB, so full-length videos work too, not just Shorts-length clips.",
-  },
-  {
-    q: "Can I set up a recurring posting schedule instead of scheduling each post one at a time?",
-    a: "Yes. Set up a recurring schedule once: content, days of the week, time, and which connected accounts it goes to, and LazyRelay keeps posting it every week automatically. You can pause it any time without losing the setup, resume whenever you're ready, or delete it outright. Free is one-time posts only; Starter gets 3 recurring schedules, Pro gets 5, and Business is unlimited.",
-  },
-  {
-    q: "Is it free?",
-    a: "There's a genuinely free tier with no card required, and paid Starter/Pro/Business tiers if you need more connected accounts or unlimited posts. You can start free and upgrade later from your dashboard whenever you're ready.",
-  },
-  {
-    q: "What happens if a post fails to publish?",
-    a: "We don't mark a post as done just because it was sent. LazyRelay separately verifies it's actually live. If that check fails, you'll see it flagged in your dashboard, not silently hidden.",
-  },
-  {
-    q: "Are there limits on post length, images, or videos?",
-    a: "LazyRelay accepts files up to 1GB. Beyond that, each platform has its own limits on top — some allow much more (TikTok up to 4GB), others less (Telegram caps at 50MB). If your file is too big for a platform you're posting to, we'll tell you before it's scheduled. See the disclaimer below for details.",
-  },
-];
-
 export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onContact, onPartners, onDocs, scrollToPricing }: LandingProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showAgencyPricing, setShowAgencyPricing] = useState(false);
@@ -818,7 +788,6 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
         <div className="pricing-grid">
           {PRICING.map((plan) => (
             <div className={plan.featured ? "pricing-card-wrap" : "pricing-card-wrap pricing-card-wrap-plain"} key={plan.tier}>
-              {plan.featured && <span className="badge-soon pricing-badge">Most popular</span>}
               <div className={plan.featured ? "pricing-card pricing-card-featured" : "pricing-card"}>
                 <h3>{plan.name}</h3>
                 <p className="pricing-price">
@@ -910,13 +879,17 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
       <section className="landing-section" id="faq">
         <h2>Frequently asked questions</h2>
         <div className="faq-list">
-          {FAQ.map((item) => (
-            <div className="faq-item" key={item.q}>
-              <h3>{item.q}</h3>
+          {HOME_FAQ.map((item) => (
+            <details className="faq-item" key={item.q}>
+              <summary>
+                <h3>{item.q}</h3>
+              </summary>
               <p>{item.a}</p>
-            </div>
+            </details>
           ))}
         </div>
+        {/* FAQPage structured data, built from the same list as the visible text above. */}
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: homeFaqSchemaJson() }} />
       </section>
 
       <section className="landing-section" id="ai-honesty">

@@ -1457,7 +1457,22 @@ button[type="submit"]:not(.btn-outline),
   font-family: var(--font-display);
   color: var(--ink);
   font-size: 16px;
-  margin: 0 0 8px;
+  margin: 0;
+}
+
+/* The FAQ is an accordion built from details and summary (no script): the question
+   is the heading inside the summary, the answer opens beneath it. */
+.faq-item summary {
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.faq-item[open] summary {
+  margin-bottom: 8px;
+}
+
+.faq-item summary h3 {
+  display: inline;
 }
 
 .faq-item p {

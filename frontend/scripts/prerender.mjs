@@ -169,7 +169,11 @@ async function prerenderRoute(page, pristineShell, { path, outDir, waitFor }) {
       throw new Error(`Prerender of ${path} threw errors, refusing to bake a broken snapshot:\n${consoleErrors.join("\n")}`);
     }
 
-    const rootHtml = await page.$eval("#root", (el) => el.innerHTML);
+    // The prerender serves the site from http://localhost:PORT, and third-party badge scripts
+    // (SourceForge) write that address into their own links while the page renders. Left alone,
+    // it ships in the static HTML as a broken developer link. Swap it for the public origin.
+    const PUBLIC_ORIGIN = "https://lazyrelay.com";
+    const rootHtml = (await page.$eval("#root", (el) => el.innerHTML)).split(`http://localhost:${PORT}`).join(PUBLIC_ORIGIN);
     const title = await page.title();
     const canonical = await page.$eval('link[rel="canonical"]', (el) => el.href).catch(() => null);
 
@@ -195,6 +199,9 @@ async function prerenderRoute(page, pristineShell, { path, outDir, waitFor }) {
       throw new Error(`Expected exactly <div id="root"></div> in the template for ${path} -- template changed, update this script.`);
     }
     const updated = template.replace('<div id="root"></div>', `<div id="root" data-prerendered="true">${rootHtml}</div>`);
+    if (updated.includes(`localhost:${PORT}`)) {
+      throw new Error(`Prerender of ${path} still contains the developer address localhost:${PORT}, refusing to write it.`);
+    }
     await writeFile(outPath, updated, "utf8");
     console.log(`Prerendered ${path} written to ${outPath} (${rootHtml.length} chars)`);
   } finally {
