@@ -57,6 +57,10 @@ interface ThreadsContainerStatusResponse {
   status?: "EXPIRED" | "ERROR" | "FINISHED" | "IN_PROGRESS" | "PUBLISHED";
 }
 
+// Threads' wording when a container exists but is not readable yet (the same
+// read-after-write lag postErrors.ts already classifies as "retry").
+const NOT_VISIBLE_YET = /requested resource does not exist|object with id .* does not exist|unsupported get request/i;
+
 function isVideoUrl(url: string): boolean {
   return /\.(mp4|mov|m4v)(\?.*)?$/i.test(url);
 }
@@ -200,6 +204,38 @@ export class ThreadsAdapter implements PlatformAdapter {
     return "Threads media container did not finish processing in time";
   }
 
+  // Waits until a freshly made container can be published (added 2026-10-06).
+  // Found live that day: a burst of 16 text posts hit "The requested resource
+  // does not exist" on the threads_publish call, because the TEXT path published
+  // the instant the container was created, with no readiness check at all (only
+  // video had one). Threads is read-after-write lagged: a container can be
+  // unreadable for a few seconds. So this polls the container's status every
+  // `intervalMs`, and treats that "does not exist" answer as "not visible yet",
+  // not as a failure. It returns an error only when Threads says the container
+  // is ERROR or EXPIRED, or gives a different error (permissions and so on).
+  // If the container is still not ready after the wait, it returns null and
+  // lets the publish call try, exactly as before this change, so a slow
+  // Threads can never make a post worse than it was.
+  private async waitForContainerReady(containerId: string, accessToken: string, intervalMs = 2_000, maxAttempts = 10): Promise<string | null> {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const url = new URL(`${GRAPH_BASE}/${containerId}`);
+      url.searchParams.set("fields", "status");
+      url.searchParams.set("access_token", accessToken);
+      const res = await fetch(url.toString());
+      const json = (await res.json()) as ThreadsContainerStatusResponse & ThreadsErrorBody;
+      if (res.ok) {
+        if (json.status === "FINISHED" || json.status === "PUBLISHED") return null;
+        if (json.status === "ERROR" || json.status === "EXPIRED") {
+          return `Threads media container failed processing (${json.status})`;
+        }
+      } else if (!NOT_VISIBLE_YET.test(json.error?.message ?? "")) {
+        return json.error?.message ?? `Could not check Threads container status (HTTP ${res.status})`;
+      }
+      if (attempt < maxAttempts) await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+    return null;
+  }
+
   private async publishContainer(meId: string, creationId: string, accessToken: string): Promise<PostAttemptResult> {
     const publishRes = await fetch(`${GRAPH_BASE}/${meId}/threads_publish`, {
       method: "POST",
@@ -297,11 +333,14 @@ export class ThreadsAdapter implements PlatformAdapter {
       };
     }
 
-    if (isVideo) {
-      const containerError = await this.waitForVideoContainerReady(containerJson.id, request.accessToken);
-      if (containerError) {
-        return { success: false, platformPostId: null, errorMessage: containerError };
-      }
+    // Video keeps its long readiness wait (Meta: about 30 s, then poll). Text and
+    // image containers now get the short readiness wait too, so the publish call
+    // no longer races Threads' read-after-write lag.
+    const containerError = isVideo
+      ? await this.waitForVideoContainerReady(containerJson.id, request.accessToken)
+      : await this.waitForContainerReady(containerJson.id, request.accessToken);
+    if (containerError) {
+      return { success: false, platformPostId: null, errorMessage: containerError };
     }
 
     const publishParams = new URLSearchParams({
@@ -357,7 +396,7 @@ export class ThreadsAdapter implements PlatformAdapter {
         errorMessage: containerJson.error?.message ?? `Threads reply container creation failed (HTTP ${containerRes.status})`,
       };
     }
-    const readyError = await this.waitForVideoContainerReady(containerJson.id, input.accessToken, 0);
+    const readyError = await this.waitForContainerReady(containerJson.id, input.accessToken);
     if (readyError) return { success: false, platformPostId: null, errorMessage: readyError };
     return this.publishContainer(meId, containerJson.id, input.accessToken);
   }
