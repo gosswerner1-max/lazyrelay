@@ -51,6 +51,16 @@ describe("the generated files are up to date", () => {
   });
 });
 
+describe("the tool count the site states matches the server", () => {
+  it("the frontend constant, llms.txt, the home page data and the generated docs all give the number of registered tools", () => {
+    const n = tools.length;
+    expect(read("frontend/src/lib/homeSchema.ts")).toContain(`MCP_TOOL_COUNT = ${n};`);
+    expect(read("frontend/public/llms.txt")).toContain(`All ${n} MCP tools`);
+    expect(read("frontend/index.html")).toContain(`MCP server with ${n} tools`);
+    expect(read("docs/mcp-integration.md").split("\n").filter((l) => l.startsWith("### ")).length).toBe(n);
+  });
+});
+
 describe("what the docs say is true", () => {
   it("the error kinds listed are the kinds the server can return", () => {
     for (const status of [400, 401, 403, 404, 409, 429, 500, 418]) expect(ERROR_KINDS as readonly string[]).toContain(describeApiError(status, "x").kind);
