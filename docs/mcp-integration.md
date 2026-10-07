@@ -1,6 +1,6 @@
 # LazyRelay MCP integration
 
-LazyRelay exposes 27 tools over the Model Context Protocol, so an AI agent or editor can schedule posts, check whether a post is really live, read comments and manage drafts on a LazyRelay account. This page lists every tool exactly as the server describes it, with its full input schema. It is generated from the server's own tool definitions, so it cannot drift from what an agent receives.
+LazyRelay exposes 27 tools over the Model Context Protocol, so an AI agent or editor can schedule posts, check whether a post is really live, listen to the comments on your own posts and manage drafts on a LazyRelay account. This page lists every tool exactly as the server describes it, with its full input schema. It is generated from the server's own tool definitions, so it cannot drift from what an agent receives.
 
 ## Connect
 
@@ -29,6 +29,12 @@ There are two ways to connect. Both expose the same tools.
 An API key acts as your account, so treat it like a password. It is shown once when you create it.
 
 Setup guides for 15 AI agents and editors are at https://lazyrelay.com/mcp/. MCP and API-key access is included on every plan, including Free. The REST API behind the tools is documented at https://lazyrelay.com/docs/ and described in OpenAPI 3.1 at https://lazyrelaylazyrelay-backend.onrender.com/api/openapi.json.
+
+## Where the server is listed
+
+- **Glama, as a server:** https://glama.ai/mcp/servers/gosswerner1-max/lazyrelay (built from the public repository).
+- **Glama, as a connector:** https://glama.ai/mcp/connectors/com.onrender.lazyrelaylazyrelay-backend/lazy-relay (the hosted server, OAuth sign-in, no API key).
+- **Official MCP Registry:** `io.github.gosswerner1-max/lazyrelay-mcp-server`, package `@lazyrelay/mcp-server`. Look it up at https://registry.modelcontextprotocol.io/v0/servers?search=lazyrelay.
 
 ## How the tools behave
 

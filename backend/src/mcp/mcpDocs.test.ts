@@ -6,7 +6,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { captureTools, renderHtml, renderMarkdown, ERROR_KINDS } from "./mcpDocs.js";
+import { captureTools, renderHtml, renderMarkdown, ERROR_KINDS, MCP_FACTS } from "./mcpDocs.js";
 import { LAZYRELAY_TOOL_NAMES, describeApiError } from "./lazyrelayTools.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -58,6 +58,17 @@ describe("the tool count the site states matches the server", () => {
     expect(read("frontend/public/llms.txt")).toContain(`All ${n} MCP tools`);
     expect(read("frontend/index.html")).toContain(`MCP server with ${n} tools`);
     expect(read("docs/mcp-integration.md").split("\n").filter((l) => l.startsWith("### ")).length).toBe(n);
+  });
+});
+
+describe("where the docs say the server is listed", () => {
+  it("the registry name is the one in mcp-server/server.json, and the Glama and registry entries are in the docs and llms.txt", () => {
+    const manifest = JSON.parse(read("mcp-server/server.json")) as { name: string; packages: Array<{ identifier: string }> };
+    expect(MCP_FACTS.registryName).toBe(manifest.name);
+    expect(MCP_FACTS.npmPackage).toBe(manifest.packages[0].identifier);
+    const md = read("docs/mcp-integration.md");
+    for (const url of [MCP_FACTS.glamaServer, MCP_FACTS.glamaConnector, MCP_FACTS.registryName]) expect(md, url).toContain(url);
+    expect(read("frontend/public/llms.txt")).toContain(MCP_FACTS.glamaServer);
   });
 });
 

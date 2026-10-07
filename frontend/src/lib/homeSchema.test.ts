@@ -46,10 +46,13 @@ describe("home page SoftwareApplication node (index.html)", () => {
     expect(JSON.stringify(node)).not.toContain("ratingValue");
   });
 
-  it("is plain ASCII and makes no ranking claim, and does not call the product social listening or AI-driven", () => {
+  it("is plain ASCII, makes no ranking claim, does not call the product AI-driven, and keeps listening scoped to the customer's own posts", () => {
     const text = JSON.stringify(software[0]);
     expect(/^[\x20-\x7E]+$/.test(text)).toBe(true);
-    for (const bad of ["best", "fastest", "powerful", "guarantee", "social listening", "ai-driven"]) expect(text.toLowerCase().includes(bad), bad).toBe(false);
+    for (const bad of ["best", "fastest", "powerful", "guarantee", "ai-driven"]) expect(text.toLowerCase().includes(bad), bad).toBe(false);
+    // Listening is real, but only on comments on the customer's own posts: no claim about the wider web.
+    for (const bad of ["brand mention", "across the web", "sentiment", "competitor"]) expect(text.toLowerCase().includes(bad), bad).toBe(false);
+    expect(text).toContain("listens to comments on your own posts");
   });
 });
 

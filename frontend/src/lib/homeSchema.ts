@@ -61,7 +61,7 @@ export function homeSoftwareFeatures(): string[] {
     `Scheduled posting to ${PUBLISHING_PLATFORMS.length} platforms: ${PUBLISHING_PLATFORMS.join(", ")}`,
     `MCP server with ${MCP_TOOL_COUNT} tools for AI agents, included on every plan, including Free`,
     "REST API described in OpenAPI 3.1",
-    `Comments from ${feed.length} platforms in one place: ${feed.join(", ")}`,
+    `Comment listening stream: reads comments on posts you publish through LazyRelay from ${feed.length} platforms in one place: ${feed.join(", ")}`,
     "Reply to Mastodon and Bluesky comments from the dashboard",
     "Comments and direct messages are kept for up to 30 days, then deleted",
     "AI caption, hashtag and content idea suggestions, labelled as drafts to review",
@@ -71,5 +71,5 @@ export function homeSoftwareFeatures(): string[] {
 
 /** The sentence index.html's SoftwareApplication description must contain. */
 export function homeSoftwareDescriptionSentence(): string {
-  return `It also shows comments from ${commentFeedPlatforms().length} platforms in one place and offers a REST API, an MCP server, an SDK and a command line tool for developers.`;
+  return `It also listens to comments on your own posts across ${commentFeedPlatforms().length} platforms in one inbound stream and offers a REST API, an MCP server, an SDK and a command line tool for developers.`;
 }

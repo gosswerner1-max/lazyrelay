@@ -4,8 +4,9 @@
 // uses only facts stated on the site (see the optimization payload review of
 // 2026-10-06) or verified in the code (the 2026-10-07 capabilities review): the 30 day
 // comment and DM retention (privacySweep.ts, DPA), the AI provider (Anthropic, DPA), the
-// double-send protections (scheduler.ts) and the nine platforms shown in the Mentions
-// tab (pages/dashboard/mentionsPlatforms.ts). Plain ASCII only.
+// double-send protections (scheduler.ts), the nine platforms shown in the Mentions tab
+// (pages/dashboard/mentionsPlatforms.ts) and the suggested-replies safeguards (replyDrafting.ts,
+// switched off for customers, so the answer says so). Plain ASCII only.
 export interface FaqItem {
   q: string;
   a: string;
@@ -61,8 +62,12 @@ export const HOME_FAQ: FaqItem[] = [
     a: "No. LazyRelay never replies to a comment on its own. AI sorts incoming comments into categories such as needs attention, and you choose what to answer. In the dashboard you can reply to Mastodon and Bluesky comments directly. On other platforms, you reply on the platform itself.",
   },
   {
-    q: "Which platforms show comments in LazyRelay?",
-    a: "LazyRelay shows comments from 9 platforms in one place: dev.to, Hashnode, YouTube, Mastodon, Bluesky, Lemmy, WordPress, Telegram and Discord. Facebook, Instagram and Threads are coming soon. Comments are kept for up to 30 days, then deleted. You can reply from the dashboard on Mastodon and Bluesky.",
+    q: "Does LazyRelay have social listening?",
+    a: "LazyRelay listens to comments on the posts you publish through it. It reads them from 9 platforms into one inbound stream: dev.to, Hashnode, YouTube, Mastodon, Bluesky, Lemmy, WordPress, Telegram and Discord. Facebook, Instagram and Threads are coming soon. It does not track mentions elsewhere on the web. Comments are kept for up to 30 days.",
+  },
+  {
+    q: "Are AI-suggested replies protected against prompt injection?",
+    a: "AI-suggested replies are not available yet. In that feature, comment text reaches the AI as quoted data with angle brackets neutralised. A suggestion may only use numbers and links from your own material, comments about refunds, legal or security matters get none, and nothing posts until you approve it. These checks belong to that feature only.",
   },
 ];
 

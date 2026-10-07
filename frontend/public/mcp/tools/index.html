@@ -39,13 +39,19 @@
 <main>
 <a class="back" href="/mcp/">&larr; Back to AI agent integrations</a>
 <h1>LazyRelay MCP Server: Tools and Input Schemas</h1>
-<p class="subtitle">LazyRelay exposes 27 tools over the Model Context Protocol. Each is listed below exactly as the server describes it to an AI agent, with its full input schema. This page is generated from the server's own tool definitions.</p>
+<p class="subtitle">LazyRelay exposes 27 tools over the Model Context Protocol, including a listening stream for comments on your own posts. Each is listed below exactly as the server describes it to an AI agent, with its full input schema. This page is generated from the server's own tool definitions.</p>
 <h2>Connect</h2>
 <ol>
 <li><strong>Hosted server.</strong> Add a custom remote MCP connector in your client and point it at <code>https://lazyrelaylazyrelay-backend.onrender.com/mcp</code>. The client signs you in with OAuth.</li>
 <li><strong>Local server.</strong> Run <code>npx -y @lazyrelay/mcp-server</code> with <code>LAZYRELAY_API_KEY</code> set to an API key from the API Keys tab of the dashboard. A key acts as your account, so treat it like a password.</li>
 </ol>
 <p>MCP and API-key access is included on every plan, including Free. <a href="/mcp/">Setup guides for 15 AI agents and editors</a> &middot; <a href="/docs/">REST API docs</a> &middot; <a href="https://lazyrelaylazyrelay-backend.onrender.com/api/openapi.json">OpenAPI 3.1</a></p>
+<h2>Where the server is listed</h2>
+<ul>
+<li><strong>Glama, as a server:</strong> <a href="https://glama.ai/mcp/servers/gosswerner1-max/lazyrelay">https://glama.ai/mcp/servers/gosswerner1-max/lazyrelay</a> (built from the public repository).</li>
+<li><strong>Glama, as a connector:</strong> <a href="https://glama.ai/mcp/connectors/com.onrender.lazyrelaylazyrelay-backend/lazy-relay">https://glama.ai/mcp/connectors/com.onrender.lazyrelaylazyrelay-backend/lazy-relay</a> (the hosted server, OAuth sign-in, no API key).</li>
+<li><strong>Official MCP Registry:</strong> <code>io.github.gosswerner1-max/lazyrelay-mcp-server</code>, package <code>@lazyrelay/mcp-server</code>. <a href="https://registry.modelcontextprotocol.io/v0/servers?search=lazyrelay">Look it up in the registry</a>.</li>
+</ul>
 <h2>How the tools behave</h2>
 <ul>
 <li>Every tool is a thin call to LazyRelay's own REST API, so plan limits, validation and platform rules are enforced in one place, whichever way you connect.</li>

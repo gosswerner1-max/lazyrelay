@@ -48,6 +48,12 @@ export const MCP_FACTS = {
   restDocs: "https://lazyrelay.com/docs/",
   openApi: "https://lazyrelaylazyrelay-backend.onrender.com/api/openapi.json",
   toolsPage: "https://lazyrelay.com/mcp/tools/",
+  // Where the server is listed. Glama and the official MCP Registry hold these entries on their own side (verified live 2026-10-07);
+  // the registry name is the one in mcp-server/server.json, and mcpDocs.test.ts checks they match.
+  glamaServer: "https://glama.ai/mcp/servers/gosswerner1-max/lazyrelay",
+  glamaConnector: "https://glama.ai/mcp/connectors/com.onrender.lazyrelaylazyrelay-backend/lazy-relay",
+  registryName: "io.github.gosswerner1-max/lazyrelay-mcp-server",
+  registryUrl: "https://registry.modelcontextprotocol.io/v0/servers?search=lazyrelay",
 } as const;
 
 /** The error kinds a tool can return, as lazyrelayTools.ts defines them. */
@@ -68,7 +74,7 @@ export function renderMarkdown(tools: CapturedTool[] = captureTools()): string {
   const lines: string[] = [];
   lines.push("# LazyRelay MCP integration");
   lines.push("");
-  lines.push(`LazyRelay exposes ${n} tools over the Model Context Protocol, so an AI agent or editor can schedule posts, check whether a post is really live, read comments and manage drafts on a LazyRelay account. This page lists every tool exactly as the server describes it, with its full input schema. It is generated from the server's own tool definitions, so it cannot drift from what an agent receives.`);
+  lines.push(`LazyRelay exposes ${n} tools over the Model Context Protocol, so an AI agent or editor can schedule posts, check whether a post is really live, listen to the comments on your own posts and manage drafts on a LazyRelay account. This page lists every tool exactly as the server describes it, with its full input schema. It is generated from the server's own tool definitions, so it cannot drift from what an agent receives.`);
   lines.push("");
   lines.push("## Connect");
   lines.push("");
@@ -84,6 +90,12 @@ export function renderMarkdown(tools: CapturedTool[] = captureTools()): string {
   lines.push("An API key acts as your account, so treat it like a password. It is shown once when you create it.");
   lines.push("");
   lines.push(`Setup guides for 15 AI agents and editors are at ${MCP_FACTS.setupGuides}. MCP and API-key access is included on every plan, including Free. The REST API behind the tools is documented at ${MCP_FACTS.restDocs} and described in OpenAPI 3.1 at ${MCP_FACTS.openApi}.`);
+  lines.push("");
+  lines.push("## Where the server is listed");
+  lines.push("");
+  lines.push(`- **Glama, as a server:** ${MCP_FACTS.glamaServer} (built from the public repository).`);
+  lines.push(`- **Glama, as a connector:** ${MCP_FACTS.glamaConnector} (the hosted server, OAuth sign-in, no API key).`);
+  lines.push(`- **Official MCP Registry:** \`${MCP_FACTS.registryName}\`, package \`${MCP_FACTS.npmPackage}\`. Look it up at ${MCP_FACTS.registryUrl}.`);
   lines.push("");
   lines.push("## How the tools behave");
   lines.push("");
@@ -159,13 +171,19 @@ export function renderHtml(tools: CapturedTool[] = captureTools()): string {
   const body: string[] = [];
   body.push('<a class="back" href="/mcp/">&larr; Back to AI agent integrations</a>');
   body.push("<h1>LazyRelay MCP Server: Tools and Input Schemas</h1>");
-  body.push(`<p class="subtitle">LazyRelay exposes ${n} tools over the Model Context Protocol. Each is listed below exactly as the server describes it to an AI agent, with its full input schema. This page is generated from the server's own tool definitions.</p>`);
+  body.push(`<p class="subtitle">LazyRelay exposes ${n} tools over the Model Context Protocol, including a listening stream for comments on your own posts. Each is listed below exactly as the server describes it to an AI agent, with its full input schema. This page is generated from the server's own tool definitions.</p>`);
   body.push("<h2>Connect</h2>");
   body.push("<ol>");
   body.push(`<li><strong>Hosted server.</strong> Add a custom remote MCP connector in your client and point it at <code>${esc(MCP_FACTS.hostedUrl)}</code>. The client signs you in with OAuth.</li>`);
   body.push(`<li><strong>Local server.</strong> Run <code>npx -y ${esc(MCP_FACTS.npmPackage)}</code> with <code>LAZYRELAY_API_KEY</code> set to an API key from the API Keys tab of the dashboard. A key acts as your account, so treat it like a password.</li>`);
   body.push("</ol>");
   body.push(`<p>MCP and API-key access is included on every plan, including Free. <a href="/mcp/">Setup guides for 15 AI agents and editors</a> &middot; <a href="/docs/">REST API docs</a> &middot; <a href="${esc(MCP_FACTS.openApi)}">OpenAPI 3.1</a></p>`);
+  body.push("<h2>Where the server is listed</h2>");
+  body.push("<ul>");
+  body.push(`<li><strong>Glama, as a server:</strong> <a href="${esc(MCP_FACTS.glamaServer)}">${esc(MCP_FACTS.glamaServer)}</a> (built from the public repository).</li>`);
+  body.push(`<li><strong>Glama, as a connector:</strong> <a href="${esc(MCP_FACTS.glamaConnector)}">${esc(MCP_FACTS.glamaConnector)}</a> (the hosted server, OAuth sign-in, no API key).</li>`);
+  body.push(`<li><strong>Official MCP Registry:</strong> <code>${esc(MCP_FACTS.registryName)}</code>, package <code>${esc(MCP_FACTS.npmPackage)}</code>. <a href="${esc(MCP_FACTS.registryUrl)}">Look it up in the registry</a>.</li>`);
+  body.push("</ul>");
   body.push("<h2>How the tools behave</h2>");
   body.push("<ul>");
   body.push("<li>Every tool is a thin call to LazyRelay's own REST API, so plan limits, validation and platform rules are enforced in one place, whichever way you connect.</li>");
