@@ -109,6 +109,18 @@ describe("GET /mentions?platforms=...", () => {
 });
 
 describe("GET /mentions without the parameter (API, MCP, SDK, Zapier)", () => {
+  it("posts never confirmed live no longer use up the 15 slots", async () => {
+    const day = (n: number) => new Date(Date.UTC(2026, 8, 1 + n)).toISOString();
+    current = makeMentionsFakeDb([
+      ...Array.from({ length: 20 }, (_, i) => ({ id: `bad${i}`, account_id: "acc1", status: "posted", scheduled_for: day(100 + i), platform: "facebook", verified: false })),
+      { id: "good", account_id: "acc1", status: "posted", scheduled_for: day(1), platform: "mastodon", verified: true },
+    ]);
+    const all = await request(app()).get("/mentions");
+    expect(all.body.posts.map((p: any) => p.postId)).toEqual(["good"]);
+    const filtered = await request(app()).get("/mentions?platforms=mastodon");
+    expect(filtered.body.posts.map((p: any) => p.postId)).toEqual(["good"]);
+  });
+
   it("is unchanged: newest 15 posts of every platform, no otherPlatforms in the answer", async () => {
     const r = await request(app()).get("/mentions");
     expect(r.status).toBe(200);

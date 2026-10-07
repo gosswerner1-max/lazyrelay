@@ -32,8 +32,9 @@ export function buildInboxRouter(registry: PlatformAdapterRegistry): Router {
   // Optional ?platforms=devto,hashnode,... : only those platforms, and the limit of
   // 15 posts is applied AFTER that filter (see mentionsQuery.ts). The answer then
   // also carries otherPlatforms (recent post counts of the platforms left out) so
-  // the dashboard can show its "Coming soon" rows. Without the parameter nothing
-  // changes: newest 15 posts across every platform, no otherPlatforms.
+  // the dashboard can show its "Coming soon" rows. Without the parameter: newest 15
+  // posts across every platform, no otherPlatforms. In both cases only posts confirmed
+  // live are candidates, so an unconfirmed post cannot use up one of the 15 slots.
   router.get("/mentions", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const parsed = parsePlatformsParam(req.query.platforms);
     if (!parsed.ok) {

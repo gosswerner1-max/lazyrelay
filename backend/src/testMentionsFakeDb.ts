@@ -30,6 +30,7 @@ export function makeMentionsFakeDb(posts: FakePost[], opts: { failWith?: string 
     let select = "";
     const filters: Array<(p: FakePost) => boolean> = [];
     const embedFilters: Array<(p: FakePost) => boolean> = [];
+    const resultFilters: Array<(p: FakePost) => boolean> = [];
     let orderAsc = false;
     let limitN: number | null = null;
     const b: Record<string, unknown> = {};
@@ -39,7 +40,7 @@ export function makeMentionsFakeDb(posts: FakePost[], opts: { failWith?: string 
       rec("eq", [c, v]);
       if (c === "account_id") filters.push((p) => p.account_id === v);
       else if (c === "status") filters.push((p) => p.status === v);
-      else if (c === "post_results.verified_live") filters.push((p) => p.verified === v);
+      else if (c === "post_results.verified_live") resultFilters.push((p) => p.verified === v);
       return b;
     };
     b.in = (c: string, v: string[]) => {
@@ -60,8 +61,11 @@ export function makeMentionsFakeDb(posts: FakePost[], opts: { failWith?: string 
     b.then = (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) => {
       if (opts.failWith) return Promise.resolve({ data: null, error: { message: opts.failWith } }).then(resolve, reject);
       const inner = select.includes("social_accounts!inner");
+      const resultsInner = select.includes("post_results!inner");
       let rows = posts.filter((p) => filters.every((f) => f(p)));
       if (inner) rows = rows.filter((p) => embedFilters.every((f) => f(p)));
+      // Same rule for post_results: only "!inner" turns the filter into a condition on the post.
+      if (resultsInner) rows = rows.filter((p) => resultFilters.every((f) => f(p)));
       rows = [...rows].sort((a, z) => (a.scheduled_for < z.scheduled_for ? -1 : 1) * (orderAsc ? 1 : -1));
       if (limitN !== null) rows = rows.slice(0, limitN);
       const data = rows.map((p) => ({
@@ -71,7 +75,7 @@ export function makeMentionsFakeDb(posts: FakePost[], opts: { failWith?: string 
         social_account_id: `sa-${p.platform}`,
         // Without "!inner" a filter on the embed only blanks the embed.
         social_accounts: !inner && embedFilters.some((f) => !f(p)) ? null : { platform: p.platform },
-        post_results: [{ platform_post_id: `pp-${p.id}`, platform_post_url: `https://example.com/${p.id}`, verified_live: p.verified }],
+        post_results: !resultsInner && resultFilters.some((f) => !f(p)) ? [] : [{ platform_post_id: `pp-${p.id}`, platform_post_url: `https://example.com/${p.id}`, verified_live: p.verified }],
       }));
       return Promise.resolve({ data, error: null }).then(resolve, reject);
     };

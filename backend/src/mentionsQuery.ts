@@ -6,8 +6,9 @@
 // Mastodon, Bluesky or YouTube comments at all. When the caller names the
 // platforms it wants, the filter now runs inside the database query, so the
 // limit of 15 is applied to those platforms only. Without a platform list the
-// behaviour is exactly as before (newest 15 across everything), which is what the
-// public API, the MCP tool, the SDK and the Zapier trigger keep getting.
+// query still covers every platform (newest 15 across everything), which is what the
+// public API, the MCP tool, the SDK and the Zapier trigger keep getting. In both
+// cases a post that was never confirmed live no longer takes one of the 15 slots.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -47,10 +48,12 @@ export interface MentionPostRow {
 }
 
 const POST_FIELDS = "id, content, scheduled_for, social_account_id";
-const RESULT_FIELDS = "post_results(platform_post_id, platform_post_url, verified_live)";
+// "!inner" plus the verified_live filter below: a post that was never confirmed live is not a candidate, so it
+// cannot use up one of the 15 slots (the route skips such posts anyway, it just used to count them).
+const RESULT_FIELDS = "post_results!inner(platform_post_id, platform_post_url, verified_live)";
 
-// The newest MENTIONS_POST_LIMIT posted posts of this account. With a platform
-// list, "!inner" makes the platform a real condition on the post (not just extra
+// The newest MENTIONS_POST_LIMIT posted AND confirmed-live posts of this account.
+// With a platform list, "!inner" makes the platform a real condition on the post (not just extra
 // data on it), so the filter and then the limit are both applied by the database.
 export async function fetchMentionPosts(db: Db, accountId: string, platforms: string[] | null) {
   const social = platforms ? "social_accounts!inner(platform)" : "social_accounts(platform)";
@@ -59,6 +62,7 @@ export async function fetchMentionPosts(db: Db, accountId: string, platforms: st
   const { data, error } = await query
     .eq("account_id", accountId)
     .eq("status", "posted")
+    .eq("post_results.verified_live", true)
     .order("scheduled_for", { ascending: false })
     .limit(MENTIONS_POST_LIMIT);
   return { data: (data ?? null) as unknown as MentionPostRow[] | null, error };

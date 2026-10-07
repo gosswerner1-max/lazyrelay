@@ -61,8 +61,41 @@ describe("fetchMentionPosts without a platform list (public API, MCP, SDK, Zapie
     expect(platformsOf(data).every((p) => p === "facebook")).toBe(true); // the starvation, kept for callers that send no list
     const select = calls.find((c) => c.op === "select")!.args[0] as string;
     expect(select).toContain("social_accounts(platform)");
-    expect(select).not.toContain("!inner");
+    expect(select).not.toContain("social_accounts!inner"); // no platform join condition without a list
     expect(calls.some((c) => c.op === "in")).toBe(false);
+  });
+});
+
+describe("fetchMentionPosts: unconfirmed posts, with or without a list", () => {
+  const day = (n: number) => new Date(Date.UTC(2026, 8, 1 + n)).toISOString();
+  const mixed = (): FakePost[] => [
+    ...Array.from({ length: 20 }, (_, i) => ({ id: `bad${i}`, account_id: "acc1", status: "posted", scheduled_for: day(100 + i), platform: "facebook", verified: false })),
+    ...Array.from({ length: 3 }, (_, i) => ({ id: `good${i}`, account_id: "acc1", status: "posted", scheduled_for: day(i), platform: "facebook", verified: true })),
+  ];
+
+  it("without a platform list the 15 slots also go to confirmed posts only", async () => {
+    const { db } = makeMentionsFakeDb(mixed());
+    const { data } = await fetchMentionPosts(db, "acc1", null);
+    expect((data ?? []).map((r) => r.id)).toEqual(["good2", "good1", "good0"]);
+  });
+
+  it("every returned post carries its confirmed result", async () => {
+    const { db } = makeMentionsFakeDb(mixed());
+    const { data } = await fetchMentionPosts(db, "acc1", null);
+    expect((data ?? []).every((r) => r.post_results?.some((x) => x.verified_live))).toBe(true);
+  });
+
+  it("the fake really would catch a missing inner join on the results (guards the test itself)", async () => {
+    const { db } = makeMentionsFakeDb(mixed());
+    const rows = (await (db as never as { from: (t: string) => any }).from("scheduled_posts")
+      .select("id, post_results(verified_live)")
+      .eq("account_id", "acc1")
+      .eq("status", "posted")
+      .eq("post_results.verified_live", true)
+      .order("scheduled_for", { ascending: false })
+      .limit(15)).data as { id: string; post_results: unknown[] }[];
+    expect(rows).toHaveLength(15);
+    expect(rows.every((r) => r.id.startsWith("bad") && r.post_results.length === 0)).toBe(true); // plain embed: slots eaten
   });
 });
 
@@ -96,6 +129,8 @@ describe("fetchMentionPosts with a platform list (the dashboard)", () => {
     expect(calls).toContainEqual({ op: "limit", args: [15] });
     expect(calls).toContainEqual({ op: "eq", args: ["account_id", "acc1"] });
     expect(calls).toContainEqual({ op: "eq", args: ["status", "posted"] });
+    expect(select).toContain("post_results!inner(");
+    expect(calls).toContainEqual({ op: "eq", args: ["post_results.verified_live", true] });
     expect(calls).toContainEqual({ op: "order", args: ["scheduled_for", { ascending: false }] });
     expect(calls.filter((c) => c.op === "from")).toEqual([{ op: "from", args: ["scheduled_posts"] }]);
   });
@@ -108,6 +143,17 @@ describe("fetchMentionPosts with a platform list (the dashboard)", () => {
     const { data } = await fetchMentionPosts(db, "acc1", LIVE);
     expect((data ?? []).map((r) => r.id)).not.toContain("other");
     expect((data ?? []).map((r) => r.id)).not.toContain("pending");
+  });
+
+  it("posts never confirmed live do not use up slots (with a platform list)", async () => {
+    const day = (n: number) => new Date(Date.UTC(2026, 8, 1 + n)).toISOString();
+    const posts: FakePost[] = [
+      ...Array.from({ length: 20 }, (_, i) => ({ id: `unconfirmed${i}`, account_id: "acc1", status: "posted", scheduled_for: day(100 + i), platform: "devto", verified: false })),
+      ...Array.from({ length: 3 }, (_, i) => ({ id: `ok${i}`, account_id: "acc1", status: "posted", scheduled_for: day(i), platform: "devto", verified: true })),
+    ];
+    const { db } = makeMentionsFakeDb(posts);
+    const { data } = await fetchMentionPosts(db, "acc1", LIVE);
+    expect((data ?? []).map((r) => r.id)).toEqual(["ok2", "ok1", "ok0"]); // the 20 newer unconfirmed posts took nothing
   });
 
   it("a list with no matching posts gives an empty list, not an error", async () => {
