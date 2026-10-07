@@ -84,15 +84,20 @@ async function main() {
   // row, so a post with nothing due yet is never re-fetched from the
   // platform just to find that out.
   const scheduledPostIds = rows.map((r) => r.scheduled_post_id);
-  const { data: existingMetrics, error: existingError } = await supabase
-    .from("post_metrics")
-    .select("scheduled_post_id, checkpoint")
-    .in("scheduled_post_id", scheduledPostIds);
-  if (existingError) {
-    console.error("metricsPoller: failed to read existing post_metrics:", existingError.message);
-    process.exit(1);
+  // In batches: every id rides in the request URL, and one call with ~400 ids (~15 KB) is refused ("fetch failed"),
+  // which stopped metrics collection on 2026-10-06 once the 31-day window grew past that.
+  const existingKeys = new Set<string>();
+  for (let i = 0; i < scheduledPostIds.length; i += 100) {
+    const { data: existingMetrics, error: existingError } = await supabase
+      .from("post_metrics")
+      .select("scheduled_post_id, checkpoint")
+      .in("scheduled_post_id", scheduledPostIds.slice(i, i + 100));
+    if (existingError) {
+      console.error("metricsPoller: failed to read existing post_metrics:", existingError.message);
+      process.exit(1);
+    }
+    for (const m of existingMetrics ?? []) existingKeys.add(`${m.scheduled_post_id}:${m.checkpoint}`);
   }
-  const existingKeys = new Set((existingMetrics ?? []).map((m) => `${m.scheduled_post_id}:${m.checkpoint}`));
 
   const now = Date.now();
   const candidates: CandidateRow[] = [];
