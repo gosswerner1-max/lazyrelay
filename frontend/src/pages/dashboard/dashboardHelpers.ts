@@ -196,9 +196,5 @@ export function readAndClearConnectParams(): {
 }
 export const connectParams = readAndClearConnectParams();
 
-// Platforms whose comments the Mentions tab shows: dev.to, Hashnode, Mastodon,
-// Bluesky and YouTube. None of them depends on a Meta permission. The dashboard
-// sends this list to GET /mentions (?platforms=), so the server picks the newest
-// 15 posts of THESE platforms instead of the newest 15 of everything. Facebook,
-// Instagram and every other platform stay out until approved and checked.
-export const MENTIONS_LIVE_PLATFORMS: readonly string[] = ["devto", "hashnode", "mastodon", "bluesky", "youtube"];
+// The Mentions tab's platform lists live in mentionsPlatforms.ts (no imports, so tests can load them).
+export { MENTIONS_LIVE_PLATFORMS, MENTIONS_COMING_SOON_PLATFORMS } from "./mentionsPlatforms";

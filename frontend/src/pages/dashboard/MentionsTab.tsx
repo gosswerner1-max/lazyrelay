@@ -7,7 +7,7 @@
 import { type MentionPost } from "../../lib/api";
 import { PlatformIcon } from "../../components/PlatformIcon";
 import { Spinner } from "../../components/Spinner";
-import { accountMatchesBrand, localDateKey, MENTIONS_LIVE_PLATFORMS } from "./dashboardHelpers";
+import { accountMatchesBrand, localDateKey, MENTIONS_LIVE_PLATFORMS, MENTIONS_COMING_SOON_PLATFORMS } from "./dashboardHelpers";
 import { BrandFilterSelect, TriageBadge } from "./dashboardComponents";
 import { useDashboard } from "./DashboardContext";
 import { SuggestedReplies } from "./SuggestedReplies";
@@ -22,6 +22,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   hashnode: "Hashnode",
   facebook: "Facebook",
   instagram: "Instagram",
+  threads: "Threads",
   mastodon: "Mastodon",
   bluesky: "Bluesky",
   youtube: "YouTube",
@@ -52,10 +53,10 @@ export function MentionsTab() {
     <section>
       <h2>Mentions &amp; comments</h2>
       <p className="muted">
-        Comments on your recent posts, pulled directly from each platform. Dev.to, Hashnode, Mastodon, Bluesky
-        and YouTube comments show here today, with reply-from-here on Mastodon and Bluesky (on the others, reply
-        on the platform itself). Facebook and Instagram are coming soon. Every other platform's comments still
-        live on the platform itself.
+        Comments on your recent posts, pulled directly from each platform. Dev.to, Hashnode, Mastodon, Bluesky,
+        YouTube, Lemmy, WordPress, Telegram and Discord comments show here today, with reply-from-here on
+        Mastodon and Bluesky (on the others, reply on the platform itself). Facebook, Instagram and Threads are
+        coming soon. Every other platform's comments still live on the platform itself.
       </p>
       <SuggestedReplies />
       {mentionsLoading && <Spinner />}
@@ -65,7 +66,7 @@ export function MentionsTab() {
         // safety net, so a platform that is not live can never show its comments here.
         const liveMentions = mentions.filter((p) => MENTIONS_LIVE_PLATFORMS.includes(p.platform));
         // One line per platform that has posts but is not live yet (never its comments); the counts come from the server.
-        const comingSoonCounts = new Map<string, number>(mentionsOther.filter((o) => !MENTIONS_LIVE_PLATFORMS.includes(o.platform)).map((o) => [o.platform, o.count]));
+        const comingSoonCounts = new Map<string, number>(mentionsOther.filter((o) => MENTIONS_COMING_SOON_PLATFORMS.includes(o.platform) && !MENTIONS_LIVE_PLATFORMS.includes(o.platform)).map((o) => [o.platform, o.count]));
         const attentionCount = liveMentions.reduce((sum, p) => sum + p.comments.filter((c) => c.triage?.needsAttention).length, 0);
         const brandFilteredMentions = liveMentions.filter((p) => accountMatchesBrand(accounts.find((a) => a.id === p.socialAccountId), brandFilter));
         const visiblePosts = mentionsAttentionOnly
