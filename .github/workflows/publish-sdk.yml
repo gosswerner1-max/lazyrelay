@@ -53,6 +53,9 @@ jobs:
             echo "should_publish=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # No token anywhere here: npm's CLI picks up the GitHub Actions OIDC environment once the
+      # trusted publisher is configured on npmjs.com. --provenance is already the default under OIDC;
+      # stating it makes the run fail loudly rather than publish unsigned if that ever changes.
       - name: Publish to npm
         if: steps.version_check.outputs.should_publish == 'true'
-        run: npm publish --access public
+        run: npm publish --provenance --access public
