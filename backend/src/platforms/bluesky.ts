@@ -822,7 +822,7 @@ export class BlueskyAdapter implements PlatformAdapter {
       return { success: false, errorMessage: serverText(ctx, json.message ?? json.error, `Bluesky reply failed (HTTP ${res.status})`) };
     }
 
-    return { success: true, errorMessage: null };
+    return { success: true, errorMessage: null, platformReplyId: json.uri };
   }
 
   // Same getPostThread endpoint as getComments — the root post's own

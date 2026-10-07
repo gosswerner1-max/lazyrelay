@@ -25,7 +25,12 @@ import {
   markSent,
   markFailed,
   expireStaleDrafts,
-  freeStuckSending,
+  failStuckSending,
+  listDueApproved,
+  scheduleRetry,
+  countWaitingToSend,
+  listFailedSends,
+  UNCONFIRMED_SEND_MESSAGE,
   type ReplyDraftStatus,
 } from "./replyDrafts.js";
 
@@ -285,9 +290,9 @@ describe("discarding and retrying", () => {
     expect(byId("a").status).toBe("pending_review");
   });
 
-  it("a failed send can be retried: back to approved with the error cleared", async () => {
-    seed("f", "failed", { error: "Mastodon said no" });
-    expect(await retryFailedDraft(db, "acc1", "f", "user1")).toMatchObject({ status: "approved", error: null });
+  it("a failed send can be retried: back to approved with the error cleared and the tries counted from zero", async () => {
+    seed("f", "failed", { error: "Mastodon said no", send_attempts: 5, next_attempt_at: "2026-10-07T10:00:00.000Z" });
+    expect(await retryFailedDraft(db, "acc1", "f", "user1")).toMatchObject({ status: "approved", error: null, send_attempts: 0, next_attempt_at: null });
   });
 
   it("only a failed draft can be retried", async () => {
@@ -358,13 +363,79 @@ describe("sweeps", () => {
     expect(await expireStaleDrafts(db, now)).toBe(0);
   });
 
-  it("frees a draft stuck in 'sending' so it is retried, and leaves a fresh one alone", async () => {
+  it("a draft stuck in 'sending' is NOT put back to be sent again (it may already be posted): it is marked failed with a note", async () => {
     seed("stuck", "sending", { updated_at: "2026-10-19T23:00:00.000Z" });
     seed("busy", "sending", { updated_at: "2026-10-19T23:59:00.000Z" });
     seed("done", "sent", { sent_at: "x", updated_at: "2026-10-19T00:00:00.000Z" });
-    expect(await freeStuckSending(db, 10 * 60_000, now)).toBe(1);
-    expect(byId("stuck").status).toBe("approved");
+    seed("waiting", "approved", { updated_at: "2026-10-19T00:00:00.000Z" });
+    expect(await failStuckSending(db, 10 * 60_000, now)).toBe(1);
+    expect(byId("stuck")).toMatchObject({ status: "failed", error: UNCONFIRMED_SEND_MESSAGE });
+    expect(UNCONFIRMED_SEND_MESSAGE).toMatch(/may or may not have been posted/);
     expect(byId("busy").status).toBe("sending");
     expect(byId("done").status).toBe("sent");
+    expect(byId("waiting").status).toBe("approved");
+  });
+});
+
+describe("the sender's queries", () => {
+  const now = new Date("2026-10-20T12:00:00.000Z");
+
+  it("lists approved drafts that are due: no waiting time, or the waiting time has passed, oldest decision first", async () => {
+    seed("later", "approved", { decided_at: "2026-10-20T10:00:00.000Z", next_attempt_at: null });
+    seed("first", "approved", { decided_at: "2026-10-20T08:00:00.000Z", next_attempt_at: null });
+    seed("waited", "approved", { decided_at: "2026-10-20T09:00:00.000Z", next_attempt_at: "2026-10-20T11:00:00.000Z" });
+    seed("notyet", "approved", { decided_at: "2026-10-20T07:00:00.000Z", next_attempt_at: "2026-10-20T13:00:00.000Z" });
+    seed("pending", "pending_review", { decided_at: null });
+    seed("sending", "sending", { decided_at: "2026-10-20T06:00:00.000Z" });
+    const due = await listDueApproved(db, now, 10);
+    expect(due.map((r) => r.id)).toEqual(["first", "waited", "later"]);
+  });
+
+  it("the batch is capped", async () => {
+    for (let i = 0; i < 6; i++) seed(`a${i}`, "approved", { decided_at: `2026-10-20T0${i}:00:00.000Z`, next_attempt_at: null });
+    expect((await listDueApproved(db, now, 4)).map((r) => r.id)).toEqual(["a0", "a1", "a2", "a3"]);
+  });
+
+  it("a due draft appears once even if both lookups find it", async () => {
+    seed("one", "approved", { decided_at: "2026-10-20T08:00:00.000Z", next_attempt_at: "2026-10-20T07:00:00.000Z" });
+    expect((await listDueApproved(db, now, 10)).map((r) => r.id)).toEqual(["one"]);
+  });
+
+  it("scheduling a retry puts a sending draft back to approved with the try count, the time and the reason", async () => {
+    seed("a", "sending");
+    const row = await scheduleRetry(db, "a", 2, new Date("2026-10-20T12:05:00.000Z"), "Mastodon is rate limiting you \u2014 try later");
+    expect(row).toMatchObject({ status: "approved", send_attempts: 2, next_attempt_at: "2026-10-20T12:05:00.000Z", error: "Mastodon is rate limiting you - try later" });
+  });
+
+  it("only a draft that is being sent can be scheduled for a retry", async () => {
+    seed("a", "approved");
+    seed("b", "sent", { sent_at: "x" });
+    expect(await scheduleRetry(db, "a", 1, now, "x")).toBeNull();
+    expect(await scheduleRetry(db, "b", 1, now, "x")).toBeNull();
+  });
+
+  it("sent and failed record the number of tries and clear the waiting time", async () => {
+    seed("s", "sending", { next_attempt_at: "2026-10-20T11:00:00.000Z" });
+    seed("f", "sending", { next_attempt_at: "2026-10-20T11:00:00.000Z" });
+    expect(await markSent(db, "s", "at://reply/1", 3)).toMatchObject({ status: "sent", send_attempts: 3, platform_reply_id: "at://reply/1", next_attempt_at: null });
+    expect(await markFailed(db, "f", "Gave up", 5)).toMatchObject({ status: "failed", send_attempts: 5, next_attempt_at: null });
+  });
+
+  it("counts this account's approved and sending replies that are still waiting to go out", async () => {
+    seed("a", "approved");
+    seed("b", "sending");
+    seed("c", "sent", { sent_at: "x" });
+    seed("d", "failed");
+    seed("e", "approved", { account_id: "acc2" });
+    expect(await countWaitingToSend(db, "acc1")).toBe(2);
+  });
+
+  it("lists this account's failed sends, newest decision first", async () => {
+    seed("old", "failed", { decided_at: "2026-10-01T00:00:00.000Z", error: "x" });
+    seed("new", "failed", { decided_at: "2026-10-05T00:00:00.000Z", error: "y" });
+    seed("other", "failed", { account_id: "acc2", decided_at: "2026-10-06T00:00:00.000Z" });
+    seed("fine", "sent", { sent_at: "x", decided_at: "2026-10-07T00:00:00.000Z" });
+    const { data } = await listFailedSends(db, "acc1");
+    expect(data.map((r) => r.id)).toEqual(["new", "old"]);
   });
 });

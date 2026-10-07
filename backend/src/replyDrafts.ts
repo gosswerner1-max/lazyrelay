@@ -52,10 +52,14 @@ export interface ReplyDraftRow {
   sent_at: string | null;
   platform_reply_id: string | null;
   error: string | null;
+  /** Tries so far (migration 0116). The sender gives up after MAX_SEND_ATTEMPTS. */
+  send_attempts: number;
+  /** Not before this moment (waiting out a rate limit); null means "as soon as the sender looks". */
+  next_attempt_at: string | null;
 }
 
 const COLUMNS =
-  "id, account_id, scheduled_post_id, social_account_id, platform_comment_id, source_signature, triage_category, status, draft_text, edited_text, model, created_at, updated_at, expires_at, decided_by, decided_at, sent_at, platform_reply_id, error";
+  "id, account_id, scheduled_post_id, social_account_id, platform_comment_id, source_signature, triage_category, status, draft_text, edited_text, model, created_at, updated_at, expires_at, decided_by, decided_at, sent_at, platform_reply_id, error, send_attempts, next_attempt_at";
 
 // ---- Rules that need no database -------------------------------------------------
 
@@ -77,7 +81,7 @@ export const TRANSITIONS: Record<ReplyDraftStatus, readonly ReplyDraftStatus[]> 
   pending_review: ["approved", "discarded", "expired"],
   needs_input: ["approved", "discarded", "expired"], // approved only with a text the owner wrote
   approved: ["sending"],
-  sending: ["sent", "failed", "approved"], // approved again = freed after a worker crashed mid-send
+  sending: ["sent", "failed", "approved"], // approved again = a try that provably posted nothing, waiting to be retried
   failed: ["approved", "discarded"], // retry or give up
   sent: [],
   discarded: [],
@@ -241,7 +245,7 @@ export function discardDraft(db: Db, accountId: string, id: string, decidedBy: s
 
 /** A person retries a failed send: back to approved, so the sender picks it up again. */
 export function retryFailedDraft(db: Db, accountId: string, id: string, decidedBy: string) {
-  return moveDraft(db, { accountId, id, from: ["failed"], to: "approved", patch: { decided_by: decidedBy, decided_at: new Date().toISOString(), error: null } });
+  return moveDraft(db, { accountId, id, from: ["failed"], to: "approved", patch: { decided_by: decidedBy, decided_at: new Date().toISOString(), error: null, send_attempts: 0, next_attempt_at: null } });
 }
 
 // ---- The sender worker's side (no account scope: it works through approved rows) ------
@@ -251,12 +255,62 @@ export function claimForSending(db: Db, id: string) {
   return moveDraft(db, { id, from: ["approved"], to: "sending" });
 }
 
-export function markSent(db: Db, id: string, platformReplyId: string | null) {
-  return moveDraft(db, { id, from: ["sending"], to: "sent", patch: { sent_at: new Date().toISOString(), platform_reply_id: platformReplyId, error: null } });
+export function markSent(db: Db, id: string, platformReplyId: string | null, attempts?: number) {
+  return moveDraft(db, {
+    id,
+    from: ["sending"],
+    to: "sent",
+    patch: { sent_at: new Date().toISOString(), platform_reply_id: platformReplyId, error: null, next_attempt_at: null, ...(attempts === undefined ? {} : { send_attempts: attempts }) },
+  });
 }
 
-export function markFailed(db: Db, id: string, reason: unknown) {
-  return moveDraft(db, { id, from: ["sending"], to: "failed", patch: { error: cleanFailureReason(reason) } });
+/** A try that provably posted nothing: back to approved, to be tried again after `nextAttemptAt`. */
+export function scheduleRetry(db: Db, id: string, attempts: number, nextAttemptAt: Date, reason: unknown) {
+  return moveDraft(db, {
+    id,
+    from: ["sending"],
+    to: "approved",
+    patch: { send_attempts: attempts, next_attempt_at: nextAttemptAt.toISOString(), error: cleanFailureReason(reason) },
+  });
+}
+
+export function markFailed(db: Db, id: string, reason: unknown, attempts?: number) {
+  return moveDraft(db, {
+    id,
+    from: ["sending"],
+    to: "failed",
+    patch: { error: cleanFailureReason(reason), next_attempt_at: null, ...(attempts === undefined ? {} : { send_attempts: attempts }) },
+  });
+}
+
+/** Approved drafts that are due to be sent: no waiting time, or the waiting time has passed. Oldest decision first. */
+export async function listDueApproved(db: Db, now: Date, limit: number): Promise<ReplyDraftRow[]> {
+  const base = () => db.from("reply_drafts").select(COLUMNS).eq("status", "approved");
+  const [fresh, waited] = await Promise.all([
+    base().is("next_attempt_at", null).order("decided_at", { ascending: true }).limit(limit),
+    base().lte("next_attempt_at", now.toISOString()).order("decided_at", { ascending: true }).limit(limit),
+  ]);
+  const byId = new Map<string, ReplyDraftRow>();
+  for (const row of [...((fresh.data ?? []) as unknown as ReplyDraftRow[]), ...((waited.data ?? []) as unknown as ReplyDraftRow[])]) byId.set(row.id, row);
+  return [...byId.values()].sort((a, b) => Date.parse(a.decided_at ?? "") - Date.parse(b.decided_at ?? "")).slice(0, limit);
+}
+
+/** The owner's approved replies that LazyRelay has not managed to send yet (for the "waiting to be sent" line). */
+export async function countWaitingToSend(db: Db, accountId: string): Promise<number> {
+  const { count } = await db.from("reply_drafts").select("id", { count: "exact", head: true }).eq("account_id", accountId).in("status", ["approved", "sending"]);
+  return count ?? 0;
+}
+
+/** The owner's replies that could not be sent, newest decision first, so the screen can offer "try again". */
+export async function listFailedSends(db: Db, accountId: string, limit = 20) {
+  const { data, error } = await db
+    .from("reply_drafts")
+    .select(COLUMNS)
+    .eq("account_id", accountId)
+    .eq("status", "failed")
+    .order("decided_at", { ascending: false })
+    .limit(Math.max(1, Math.min(limit, 50)));
+  return { data: (data ?? []) as unknown as ReplyDraftRow[], error };
 }
 
 // ---- Sweeps (for a periodic task) -----------------------------------------------------
@@ -272,11 +326,18 @@ export async function expireStaleDrafts(db: Db, now: Date = new Date()): Promise
   return ((data ?? []) as unknown[]).length;
 }
 
-/** Drafts left in "sending" by a worker that crashed are freed to "approved" again. Returns how many. */
-export async function freeStuckSending(db: Db, stuckMs: number, now: Date = new Date()): Promise<number> {
+export const UNCONFIRMED_SEND_MESSAGE =
+  "LazyRelay stopped while sending this reply, so it may or may not have been posted. Check your account before trying again, so it is not posted twice.";
+
+/**
+ * A draft left in "sending" by a worker that crashed. The platform call may already have gone through, so
+ * it is NOT put back to be sent again (that could post the same reply twice): it is marked failed with a
+ * note, and a person decides. Returns how many.
+ */
+export async function failStuckSending(db: Db, stuckMs: number, now: Date = new Date()): Promise<number> {
   const { data } = await db
     .from("reply_drafts")
-    .update({ status: "approved" })
+    .update({ status: "failed", error: UNCONFIRMED_SEND_MESSAGE, next_attempt_at: null })
     .eq("status", "sending")
     .lt("updated_at", new Date(now.getTime() - stuckMs).toISOString())
     .select("id");

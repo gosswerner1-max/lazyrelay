@@ -104,6 +104,8 @@ export interface PostMetrics {
 export interface CommentPostResult {
   success: boolean;
   errorMessage: string | null;
+  /** The platform's own id for the reply it just created, when it gives one (recorded by the reply sender as proof). */
+  platformReplyId?: string | null;
 }
 
 export interface DMConversation {

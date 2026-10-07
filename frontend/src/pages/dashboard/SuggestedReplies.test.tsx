@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ReplyDraft } from "../../lib/api";
+import type { FailedReplySend, ReplyDraft } from "../../lib/api";
 
 // En-dash and em-dash, built from code points so no literal dash sits in this file.
 const DASHES = new RegExp(`[${String.fromCharCode(0x2013, 0x2014)}]`);
@@ -9,11 +9,13 @@ const DASHES = new RegExp(`[${String.fromCharCode(0x2013, 0x2014)}]`);
 const getReplyDrafts = vi.fn();
 const approveReplyDraft = vi.fn();
 const discardReplyDraft = vi.fn();
+const retryReplyDraft = vi.fn();
 vi.mock("../../lib/api", () => ({
   api: {
     getReplyDrafts: (...a: unknown[]) => getReplyDrafts(...a),
     approveReplyDraft: (...a: unknown[]) => approveReplyDraft(...a),
     discardReplyDraft: (...a: unknown[]) => discardReplyDraft(...a),
+    retryReplyDraft: (...a: unknown[]) => retryReplyDraft(...a),
   },
 }));
 
@@ -35,16 +37,35 @@ const draft = (over: Partial<ReplyDraft> = {}): ReplyDraft => ({
 const needsInput = (over: Partial<ReplyDraft> = {}) =>
   draft({ id: "d2", status: "needs_input", draftText: null, triageCategory: "sales_question", comment: { id: "c2", author: "tom", text: "Do you gift wrap?", url: null, createdAt: null }, ...over });
 
+const failedSend = (over: Partial<FailedReplySend> = {}): FailedReplySend => ({
+  id: "f1",
+  replyText: "We open at 9am, Monday to Friday.",
+  error: "Mastodon reply failed (HTTP 401)",
+  uncertain: false,
+  tries: 1,
+  decidedAt: new Date().toISOString(),
+  post: { id: "p1", platform: "mastodon", content: "We open at 9am.", url: "https://mastodon.social/@x/1" },
+  comment: { id: "c1", author: "maria", text: "What time do you open?", url: null, createdAt: null },
+  ...over,
+});
+
 beforeEach(() => {
   getReplyDrafts.mockReset();
   approveReplyDraft.mockReset();
   discardReplyDraft.mockReset();
+  retryReplyDraft.mockReset();
 });
 afterEach(cleanup);
 
 const noop = () => {};
 const view = (over: Partial<Parameters<typeof SuggestedRepliesView>[0]> = {}) =>
-  render(<SuggestedRepliesView drafts={[draft()]} typed={{}} busyId={null} errors={{}} notice={null} onType={noop} onApprove={noop} onDiscard={noop} {...over} />);
+  render(
+    <SuggestedRepliesView
+      drafts={[draft()]} typed={{}} busyId={null} errors={{}} notice={null} waitingToSend={0} failed={[]}
+      onType={noop} onApprove={noop} onDiscard={noop} onRetry={noop} onDismiss={noop}
+      {...over}
+    />,
+  );
 
 describe("SuggestedRepliesView", () => {
   it("shows the post, the comment, the suggestion in an editable box, the counter and the expiry", () => {
@@ -117,7 +138,7 @@ describe("SuggestedRepliesView", () => {
   it("shows an error on its card and a notice at the top", () => {
     view({ errors: { d1: "That reply is too long." }, notice: "Reply approved." });
     expect(screen.getByRole("alert")).toHaveTextContent("That reply is too long.");
-    expect(screen.getByRole("status")).toHaveTextContent("Reply approved.");
+    expect(screen.getByText("Reply approved.")).toBeInTheDocument();
   });
 
   it("says so when there is nothing waiting", () => {
@@ -167,9 +188,10 @@ describe("SuggestedReplies (loads and acts)", () => {
     render(<SuggestedReplies />);
     await userEvent.click(await screen.findByRole("button", { name: "Approve reply" }));
     expect(approveReplyDraft).toHaveBeenCalledWith("d1", null);
-    expect(await screen.findByRole("status")).toHaveTextContent("Reply approved.");
+    expect(await screen.findByText("Reply approved. LazyRelay will post it shortly.")).toBeInTheDocument();
     expect(screen.queryByText("What time do you open?")).toBeNull();
     expect(screen.getByText("No suggested replies waiting.")).toBeInTheDocument();
+    expect(screen.getByText("1 approved reply is waiting to be posted.")).toBeInTheDocument();
   });
 
   it("approves with the owner's own wording, trimmed", async () => {
@@ -202,7 +224,7 @@ describe("SuggestedReplies (loads and acts)", () => {
     await screen.findByText("What time do you open?");
     await userEvent.click(screen.getAllByRole("button", { name: "Discard" })[0]);
     expect(discardReplyDraft).toHaveBeenCalledWith("d1");
-    expect(await screen.findByRole("status")).toHaveTextContent("Suggested reply discarded.");
+    expect(await screen.findByText("Suggested reply discarded.")).toBeInTheDocument();
     expect(screen.queryByText("What time do you open?")).toBeNull();
     expect(screen.getByText("Do you gift wrap?")).toBeInTheDocument();
   });
@@ -225,7 +247,7 @@ describe("SuggestedReplies (loads and acts)", () => {
     approveReplyDraft.mockRejectedValue(new Error("This draft is no longer waiting for a decision."));
     render(<SuggestedReplies />);
     await userEvent.click((await screen.findAllByRole("button", { name: "Approve reply" }))[0]);
-    expect(await screen.findByRole("status")).toHaveTextContent("This draft is no longer waiting for a decision.");
+    expect(await screen.findByText("This draft is no longer waiting for a decision.")).toBeInTheDocument();
     expect(screen.queryByText("What time do you open?")).toBeNull();
     expect(screen.getByText("Do you gift wrap?")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).toBeNull();
@@ -239,5 +261,131 @@ describe("SuggestedReplies (loads and acts)", () => {
     await userEvent.click(discard);
     expect(await screen.findByRole("alert")).toHaveTextContent("Network down");
     await waitFor(() => expect(screen.getByRole("button", { name: "Discard" })).toBeEnabled());
+  });
+});
+
+describe("SuggestedRepliesView: replies that could not be sent, and replies waiting to go out", () => {
+  it("says how many approved replies are still waiting to be posted, and nothing when there are none", () => {
+    const { rerender } = view({ waitingToSend: 1 });
+    expect(screen.getByText("1 approved reply is waiting to be posted.")).toBeInTheDocument();
+    rerender(
+      <SuggestedRepliesView drafts={[draft()]} typed={{}} busyId={null} errors={{}} notice={null} waitingToSend={3} failed={[]} onType={noop} onApprove={noop} onDiscard={noop} onRetry={noop} onDismiss={noop} />,
+    );
+    expect(screen.getByText("3 approved replies are waiting to be posted.")).toBeInTheDocument();
+    rerender(
+      <SuggestedRepliesView drafts={[draft()]} typed={{}} busyId={null} errors={{}} notice={null} waitingToSend={0} failed={[]} onType={noop} onApprove={noop} onDiscard={noop} onRetry={noop} onDismiss={noop} />,
+    );
+    expect(screen.queryByText(/waiting to be posted/)).toBeNull();
+  });
+
+  it("shows nothing about failures when there are none", () => {
+    view();
+    expect(screen.queryByText(/could not be sent/i)).toBeNull();
+  });
+
+  it("shows a failed reply with where it was meant to go, the comment, the wording, the reason, and the two choices", () => {
+    view({ drafts: [], failed: [failedSend()] });
+    expect(screen.getByRole("heading", { name: /Replies that could not be sent/ })).toBeInTheDocument();
+    expect(screen.getByText("maria")).toBeInTheDocument();
+    expect(screen.getByText("What time do you open?")).toBeInTheDocument();
+    expect(screen.getByText("We open at 9am, Monday to Friday.")).toBeInTheDocument();
+    expect(screen.getByText(/Mastodon reply failed \(HTTP 401\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/Look at your account first/)).toBeNull();
+    expect(screen.getByRole("link", { name: "View post" })).toHaveAttribute("href", "https://mastodon.social/@x/1");
+    expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Dismiss" })).toBeEnabled();
+  });
+
+  it("an uncertain failure tells the owner to look at the account first and changes the button wording", () => {
+    view({
+      drafts: [],
+      failed: [failedSend({ uncertain: true, error: "LazyRelay could not confirm whether this reply was posted (The request timed out). Check your account before trying again, so it is not posted twice." })],
+    });
+    expect(screen.getByText("Look at your account first.")).toBeInTheDocument();
+    expect(screen.getByText(/Check your account before trying again/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "I checked, try again" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+
+  it("a failed reply whose comment is gone still shows, without an empty comment box", () => {
+    view({ drafts: [], failed: [failedSend({ comment: { id: "c1", author: "", text: "", url: null, createdAt: null } })] });
+    expect(screen.getByText("We open at 9am, Monday to Friday.")).toBeInTheDocument();
+    expect(document.querySelector(".suggested-failed .suggested-comment")).toBeNull();
+  });
+
+  it("locks the buttons of the failed reply being handled", () => {
+    view({ drafts: [], failed: [failedSend()], busyId: "f1" });
+    expect(screen.getByRole("button", { name: "Working..." })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Dismiss" })).toBeDisabled();
+  });
+
+  it("shows an error under the failed reply it belongs to", () => {
+    view({ drafts: [], failed: [failedSend()], errors: { f1: "Network down" } });
+    expect(screen.getByRole("alert")).toHaveTextContent("Network down");
+  });
+
+  it("none of the new copy has long dashes", () => {
+    const { container } = view({ failed: [failedSend({ uncertain: true }), failedSend({ id: "f2" })], waitingToSend: 2 });
+    expect(container.textContent).not.toMatch(DASHES);
+  });
+});
+
+describe("SuggestedReplies: failed sends and the waiting count", () => {
+  it("loads the failed sends and the waiting count with the drafts", async () => {
+    getReplyDrafts.mockResolvedValue({ enabled: true, drafts: [], failed: [failedSend()], waitingToSend: 2 });
+    render(<SuggestedReplies />);
+    expect(await screen.findByText("We open at 9am, Monday to Friday.")).toBeInTheDocument();
+    expect(screen.getByText("2 approved replies are waiting to be posted.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+  });
+
+  it("works with an older answer that has no failed list and no count", async () => {
+    getReplyDrafts.mockResolvedValue({ enabled: true, drafts: [draft()] });
+    render(<SuggestedReplies />);
+    expect(await screen.findByText("What time do you open?")).toBeInTheDocument();
+    expect(screen.queryByText(/could not be sent/i)).toBeNull();
+    expect(screen.queryByText(/waiting to be posted/)).toBeNull();
+  });
+
+  it("'Try again' queues the reply again: it leaves the failed list and counts as waiting", async () => {
+    getReplyDrafts.mockResolvedValue({ enabled: true, drafts: [], failed: [failedSend(), failedSend({ id: "f2", replyText: "Second one" })], waitingToSend: 0 });
+    retryReplyDraft.mockResolvedValue({ success: true, status: "approved" });
+    render(<SuggestedReplies />);
+    await userEvent.click((await screen.findAllByRole("button", { name: "Try again" }))[0]);
+    expect(retryReplyDraft).toHaveBeenCalledWith("f1");
+    expect(await screen.findByText("Reply queued to be posted again.")).toBeInTheDocument();
+    expect(screen.queryByText("We open at 9am, Monday to Friday.")).toBeNull();
+    expect(screen.getByText("Second one")).toBeInTheDocument();
+    expect(screen.getByText("1 approved reply is waiting to be posted.")).toBeInTheDocument();
+  });
+
+  it("'Dismiss' throws the failed reply away", async () => {
+    getReplyDrafts.mockResolvedValue({ enabled: true, drafts: [], failed: [failedSend()], waitingToSend: 0 });
+    discardReplyDraft.mockResolvedValue({ success: true, status: "discarded" });
+    render(<SuggestedReplies />);
+    await userEvent.click(await screen.findByRole("button", { name: "Dismiss" }));
+    expect(discardReplyDraft).toHaveBeenCalledWith("f1");
+    expect(await screen.findByText("Reply dismissed.")).toBeInTheDocument();
+    expect(screen.queryByText(/could not be sent/i)).toBeNull();
+  });
+
+  it("a refused retry keeps the card and shows the reason on it", async () => {
+    getReplyDrafts.mockResolvedValue({ enabled: true, drafts: [], failed: [failedSend()], waitingToSend: 0 });
+    retryReplyDraft.mockRejectedValue(new Error("Network down"));
+    render(<SuggestedReplies />);
+    await userEvent.click(await screen.findByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Network down");
+    expect(screen.getByText("We open at 9am, Monday to Friday.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled());
+  });
+
+  it("a failed reply somebody else already handled disappears and its message moves to the notice line", async () => {
+    getReplyDrafts.mockResolvedValueOnce({ enabled: true, drafts: [], failed: [failedSend()], waitingToSend: 0 }).mockResolvedValue({ enabled: true, drafts: [], failed: [], waitingToSend: 1 });
+    retryReplyDraft.mockRejectedValue(new Error("This reply is no longer waiting to be tried again."));
+    render(<SuggestedReplies />);
+    await userEvent.click(await screen.findByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("This reply is no longer waiting to be tried again.")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText("1 approved reply is waiting to be posted.")).toBeInTheDocument();
   });
 });
