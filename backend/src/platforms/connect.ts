@@ -1,5 +1,6 @@
 import { supabase } from "../supabase.js";
 import { checkNewDistinctAccountLimit } from "../accountLimits.js";
+import { wipeVaultSecrets } from "../tokenWipe.js";
 import { subscribePageToMessaging } from "../http/metaWebhook.js";
 import type { PlatformAdapter, OAuthExchangeResult, ConnectOption } from "./types.js";
 import { checkMastodonInstanceLimit } from "./mastodonInstanceLimit.js";
@@ -52,11 +53,14 @@ async function storeConnectedAccount(
   // not distinct accounts cycled through over time).
   const { data: existingAccount } = await supabase
     .from("social_accounts")
-    .select("id")
+    .select("id, access_token_vault_id, refresh_token_vault_id")
     .eq("account_id", accountId)
     .eq("platform", platform)
     .eq("platform_account_id", result.platformAccountId)
     .maybeSingle();
+  // Remember the login this row holds now, before the save below re-points it at the new one.
+  const replacedAccessVaultId: string | null = existingAccount?.access_token_vault_id ?? null;
+  const replacedRefreshVaultId: string | null = existingAccount?.refresh_token_vault_id ?? null;
   if (!existingAccount) {
     const limitError = await checkNewDistinctAccountLimit(accountId);
     if (limitError) throw new Error(limitError);
@@ -94,6 +98,7 @@ async function storeConnectedAccount(
         refresh_token_vault_id: refreshVaultId,
         token_expires_at: result.expiresAt,
         disconnected_at: null,
+        tokens_wiped_at: null,
         // A fresh connection clears any earlier "needs reconnect" flag.
         needs_reconnect_at: null,
         needs_reconnect_reason: null,
@@ -104,6 +109,14 @@ async function storeConnectedAccount(
     .select("id")
     .single();
   if (insertError || !socialAccount) throw insertError;
+
+  // The row now points at the new login, so the login it replaced would sit in Vault for good. Overwrite it (2026-10-07).
+  if (existingAccount) {
+    await wipeVaultSecrets(supabase, [
+      replacedAccessVaultId === accessVaultId ? null : replacedAccessVaultId,
+      replacedRefreshVaultId === refreshVaultId ? null : replacedRefreshVaultId,
+    ]);
+  }
 
   // Facebook/Instagram only. Confirmed live 2026-09-15: without this,
   // Instagram's Messaging API refuses every call outright regardless of

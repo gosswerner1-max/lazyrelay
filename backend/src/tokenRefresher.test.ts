@@ -23,7 +23,7 @@ const dispatchWebhookEvent = vi.fn(async (_e: Record<string, unknown>) => {});
 vi.mock("./webhook.js", () => ({ dispatchWebhookEvent: (e: Record<string, unknown>) => dispatchWebhookEvent(e) }));
 
 const { runTokenRefreshCycle } = await import("./tokenRefresher.js");
-const { getAccessToken } = await import("./scheduler.js");
+const { getAccessToken, DisconnectedAccountError } = await import("./scheduler.js");
 const { isPermanentAuthError } = await import("./tokenHealth.js");
 
 const DAY = 86_400_000;
@@ -212,6 +212,13 @@ describe("getAccessToken at post time", () => {
     await expect(getAccessToken("sa1", linkedinAdapter() as never)).rejects.toThrow(/expired on .* Reconnect it in Social Platforms/);
     expect(tables.social_accounts[0].needs_reconnect_at).toBeTruthy();
     expect(sendReconnectNeededEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses an account the customer disconnected: a clear typed error, and its login is never read", async () => {
+    seedAccount("linkedin", 30, { disconnected_at: new Date().toISOString() });
+    rpc.mockClear();
+    await expect(getAccessToken("sa1", linkedinAdapter() as never)).rejects.toBeInstanceOf(DisconnectedAccountError);
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("still reads a normal, unexpired token unchanged", async () => {

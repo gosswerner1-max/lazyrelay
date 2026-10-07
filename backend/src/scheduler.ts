@@ -224,10 +224,20 @@ export interface TokenAccountRow {
   token_expires_at: string | null;
   needs_reconnect_at: string | null;
   reconnect_notified_at: string | null;
+  disconnected_at?: string | null;
 }
 
 export const TOKEN_ACCOUNT_COLUMNS =
-  "id, account_id, platform, display_name, access_token_vault_id, refresh_token_vault_id, token_expires_at, needs_reconnect_at, reconnect_notified_at";
+  "id, account_id, platform, display_name, access_token_vault_id, refresh_token_vault_id, token_expires_at, needs_reconnect_at, reconnect_notified_at, disconnected_at";
+
+/** The customer disconnected this account, and its stored login was wiped (tokenWipe.ts). Background jobs treat this as
+ *  "nothing to do", not as a failure. */
+export class DisconnectedAccountError extends Error {
+  constructor() {
+    super("This account is disconnected. Reconnect it to use it again.");
+    this.name = "DisconnectedAccountError";
+  }
+}
 
 /** True when the adapter can renew this account's token: either through a
  *  stored refresh token, or in place with the access token itself (Threads). */
@@ -291,6 +301,7 @@ export async function getAccessToken(socialAccountId: string, adapter: PlatformA
     .single();
   if (error || !account) throw error ?? new Error("social account not found");
   const row = account as TokenAccountRow;
+  if (row.disconnected_at) throw new DisconnectedAccountError();
 
   const expiresMs = row.token_expires_at !== null ? new Date(row.token_expires_at).getTime() : null;
   const isExpired = expiresMs !== null && expiresMs - TOKEN_REFRESH_SKEW_MS < Date.now();

@@ -3,6 +3,7 @@ import { supabase } from "./supabase.js";
 import { getAccessToken, runSchedulerCycle } from "./scheduler.js";
 import { generateDuePosts } from "./recurringScheduler.js";
 import { runTokenRefreshCycle } from "./tokenRefresher.js";
+import { runPrivacySweep } from "./privacySweep.js";
 import { purgeExpiredConnects } from "./platforms/connect.js";
 import { runWebhookDeliveryCycle } from "./webhook.js";
 import { runReplySenderCycle } from "./replySender.js";
@@ -201,7 +202,14 @@ async function main() {
       .then((r) => {
         if (r.refreshed || r.flagged || r.warned || r.failed) console.log("Token refresh cycle:", JSON.stringify(r));
       })
-      .catch((err) => console.error("Token refresh cycle error:", summarizeIfHtmlError(err)));
+      .catch((err) => console.error("Token refresh cycle error:", summarizeIfHtmlError(err)))
+      // Privacy sweep (2026-10-07): wipe the stored logins of disconnected accounts, delete comments and DMs outside the
+      // 30 day tracking window. See privacySweep.ts.
+      .then(() => runPrivacySweep(supabase))
+      .then((r) => {
+        if (r.tokensWiped || r.tokenFailures || r.commentsDeleted || r.dmsDeleted || r.purgeFailed) console.log("Privacy sweep:", JSON.stringify(r));
+      })
+      .catch((err) => console.error("Privacy sweep error:", summarizeIfHtmlError(err)));
   setInterval(runTokenJob, TOKEN_REFRESH_INTERVAL_MS);
   setTimeout(runTokenJob, 60_000);
 
