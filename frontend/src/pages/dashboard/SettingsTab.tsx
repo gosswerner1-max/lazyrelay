@@ -775,7 +775,7 @@ export function SettingsTab() {
                   <p className="pricing-price">
                     $59.99<span className="pricing-period">/mo</span>
                   </p>
-                  <p className="pricing-note">40 accounts, unlimited posts, AI-agent access, priority support</p>
+                  <p className="pricing-note">30 accounts, unlimited posts, AI-agent access, priority support</p>
                   {renderTierAction("business", "Pro")}
                 </div>
                 <div className="pricing-card">
@@ -783,7 +783,7 @@ export function SettingsTab() {
                   <p className="pricing-price">
                     $99.99<span className="pricing-period">/mo</span>
                   </p>
-                  <p className="pricing-note">100 accounts, unlimited posts, AI-agent access, priority support</p>
+                  <p className="pricing-note">50 accounts, unlimited posts, AI-agent access, priority support</p>
                   {renderTierAction("enterprise", "Business")}
                 </div>
               </div>

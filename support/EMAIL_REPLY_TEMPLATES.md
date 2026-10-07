@@ -61,8 +61,8 @@ Here's how the plans break down:
 
 - Free — $0, no card required (3 connected accounts, 10 posts per account)
 - Starter — $29.99/mo (20 connected accounts, unlimited scheduled posts)
-- Pro — $59.99/mo (40 connected accounts, 5 recurring schedules)
-- Business — $99.99/mo (100 connected accounts, unlimited recurring schedules)
+- Pro — $59.99/mo (30 connected accounts, 5 recurring schedules)
+- Business — $99.99/mo (50 connected accounts, unlimited recurring schedules)
 
 [If they asked about a specific tier or limit, answer that directly here instead of listing all four.]
 
