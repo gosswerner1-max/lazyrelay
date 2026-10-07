@@ -292,7 +292,7 @@ export function registerLazyRelayTools(server: McpServer, rawCall: LazyRelayRawC
   def(
     "list_scheduled_posts",
     "List posts",
-    "This account's upcoming and recent posts with their status (draft, needs_approval, pending, posted, failed) and whether each is confirmed live. Returns a short summary of each post; set detail to true for the full records. Filter by status or account to keep it small.",
+    "This account's upcoming and recent posts with their status (draft, needs_approval, pending, posted, failed) and whether each is confirmed live. Returns a short summary of each post; set detail to true for the full records. Filter by status or account to keep it small. The total in the answer is the number of posts returned after filtering and the limit, not the number of posts that exist.",
     READ,
     {
       status: z.enum(["draft", "needs_approval", "pending", "posting", "posted", "failed"]).optional().describe("Only posts with this status"),
@@ -310,7 +310,7 @@ export function registerLazyRelayTools(server: McpServer, rawCall: LazyRelayRawC
   def(
     "delete_scheduled_post",
     "Cancel a post",
-    "Cancel a pending or waiting-for-approval post before it goes out. Has no effect on a post that has already gone out.",
+    "Delete a post from LazyRelay. Use it to cancel a pending or waiting-for-approval post before it goes out. It also works on a post that has already gone out, but then it removes only LazyRelay's record: the post stays live on the platform. A post that is being published right now cannot be deleted, so try again in a moment.",
     DESTROY,
     idField,
     async ({ id }, call) => {
@@ -400,7 +400,7 @@ export function registerLazyRelayTools(server: McpServer, rawCall: LazyRelayRawC
   def(
     "get_mentions",
     "Read recent comments",
-    "Recent comments on this account's posts, on the platforms that let LazyRelay read them (Facebook, Instagram, Mastodon, Bluesky, YouTube, Dev.to, Hashnode).",
+    "Recent comments on this account's newest posts, from Dev.to, Hashnode, YouTube, Mastodon, Bluesky, Lemmy, WordPress, Telegram and Discord. Facebook and Instagram comments are included only where Meta allows LazyRelay to read them. LazyRelay keeps comments for up to 30 days, then deletes them.",
     READ_LIVE,
     {},
     (_args, call) => call("/mentions"),

@@ -1,0 +1,1125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LazyRelay MCP Server: All 27 Tools and Input Schemas | LazyRelay</title>
+<meta name="description" content="Every tool the LazyRelay MCP server exposes to AI agents (27 in total), with its exact description and full input schema. Connect through the hosted server or the local npm package." />
+<link rel="canonical" href="https://lazyrelay.com/mcp/tools/" />
+<link rel="icon" type="image/png" href="/favicon.png" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 860px; margin: 0 auto; padding: 24px; }
+  main { max-width: 860px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
+  .wordmark .dot { color: #ff5630; }
+  a { color: #ff5630; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  h1 { font-family: Georgia, serif; color: #14171f; font-size: 36px; margin-bottom: 10px; line-height: 1.2; }
+  h2 { font-family: Georgia, serif; color: #14171f; font-size: 22px; margin-top: 48px; }
+  h3 { font-family: Georgia, serif; color: #14171f; font-size: 18px; margin: 36px 0 6px; }
+  .subtitle { color: #5b6472; font-size: 17px; margin-top: 0; margin-bottom: 20px; max-width: 700px; }
+  .note { color: #5b6472; font-size: 14px; }
+  strong { color: #14171f; }
+  ol, ul { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  code { background: #f0f1f3; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+  pre { background: #f0f1f3; padding: 14px 16px; border-radius: 8px; overflow-x: auto; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; border-bottom: 1px solid #e5e7eb; padding: 8px 10px; vertical-align: top; }
+  .tool { border-top: 1px solid #e5e7eb; }
+</style>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"ItemList","name":"LazyRelay MCP tools","numberOfItems":27,"itemListElement":[{"@type":"ListItem","position":1,"name":"list_connected_accounts","description":"List every social account connected to this LazyRelay account, with platform, display name and the id the posting tools need. Accounts that need reconnecting say so."},{"@type":"ListItem","position":2,"name":"list_workspaces","description":"List this account's brands (workspaces), with the id needed to file a post under a specific one."},{"@type":"ListItem","position":3,"name":"get_platform_rules","description":"What a platform accepts BEFORE you post: text limit, image and video rules, how many images per post, which fields are required (for example TikTok's privacy level, Pinterest's board), features (stories, threads, first comment) and the options it reads. Pass a platform such as instagram or tiktok, or leave it out for all of them."},{"@type":"ListItem","position":4,"name":"get_tiktok_creator_info","description":"For one connected TikTok account: the privacy levels it can use, whether comments, duets and stitches are allowed, and the longest video. Call this before posting to TikTok, because tiktokPrivacyLevel is required and must be one of the levels returned."},{"@type":"ListItem","position":5,"name":"list_pinterest_boards","description":"For one connected Pinterest account: its boards with their ids. A Pinterest post needs a boardId from this list."},{"@type":"ListItem","position":6,"name":"get_next_free_slot","description":"The account's next free posting time for one connected account, from the posting times saved in Settings. Returns an ISO timestamp to use as scheduledFor. Says so plainly if no posting times are saved."},{"@type":"ListItem","position":7,"name":"list_posting_slots","description":"The posting times saved in Settings (days, time, time zone)."},{"@type":"ListItem","position":8,"name":"list_snippets","description":"The account's saved text snippets (hashtag groups, sign-offs) and which one is the signature, to paste into a post."},{"@type":"ListItem","position":9,"name":"schedule_post","description":"Schedule a post to ONE connected account (call once per account to post to several). Use list_connected_accounts for the id and get_platform_rules to see what the platform needs. TikTok needs tiktokPrivacyLevel, Pinterest needs boardId. Set requiresApproval to hold it for a client to approve first."},{"@type":"ListItem","position":10,"name":"publish_post_now","description":"Publish to one connected account right away instead of scheduling. The scheduler picks it up within moments, it is not published synchronously: call list_scheduled_posts afterwards and check verifiedLive to confirm it really went live. Same fields as schedule_post."},{"@type":"ListItem","position":11,"name":"create_draft","description":"Save a post as a draft without choosing an account or a time yet. It is never posted until it is scheduled with schedule_draft. Good for a plan a human will finish."},{"@type":"ListItem","position":12,"name":"schedule_draft","description":"Turn a draft into a real scheduled post by choosing the account and the time. The platform's rules are checked now, so an error here tells you what to fix."},{"@type":"ListItem","position":13,"name":"update_post","description":"Edit a draft, a post waiting for approval, or a still-pending post: its text, media, tags, options and so on. Not possible once it is posting or done. To change the time, use reschedule_post."},{"@type":"ListItem","position":14,"name":"reschedule_post","description":"Move a pending post to a new time. Passing the current time posts it right away. The platform's rules for that time are checked again."},{"@type":"ListItem","position":15,"name":"pause_post","description":"Hold a pending post so it does not go out at its time. Resume it later with resume_post."},{"@type":"ListItem","position":16,"name":"resume_post","description":"Let a paused post go out again. If its time has passed it goes out right away."},{"@type":"ListItem","position":17,"name":"list_scheduled_posts","description":"This account's upcoming and recent posts with their status (draft, needs_approval, pending, posted, failed) and whether each is confirmed live. Returns a short summary of each post; set detail to true for the full records. Filter by status or account to keep it small. The total in the answer is the number of posts returned after filtering and the limit, not the number of posts that exist."},{"@type":"ListItem","position":18,"name":"delete_scheduled_post","description":"Delete a post from LazyRelay. Use it to cancel a pending or waiting-for-approval post before it goes out. It also works on a post that has already gone out, but then it removes only LazyRelay's record: the post stays live on the platform. A post that is being published right now cannot be deleted, so try again in a moment."},{"@type":"ListItem","position":19,"name":"get_proof_link","description":"A public link that shows a post was really confirmed live, to share with a client. Only works for a post confirmed live, and the API key must be allowed to share proof."},{"@type":"ListItem","position":20,"name":"approve_post","description":"Approve a post that is waiting for approval, so it is scheduled. Only do this when the account owner has asked you to."},{"@type":"ListItem","position":21,"name":"create_review_link","description":"Create a link a client opens (no account needed) to see the posts waiting for approval, approve them, ask for changes and comment. Send them the link at lazyrelay.com/review/\u003ctoken>. Needs a plan that includes review links."},{"@type":"ListItem","position":22,"name":"list_review_links","description":"The account's client review links with their status and how many are allowed on the plan."},{"@type":"ListItem","position":23,"name":"revoke_review_link","description":"Stop a client review link working at once."},{"@type":"ListItem","position":24,"name":"get_post_feedback","description":"The conversation on a post waiting for approval: what the client said, whether they asked for changes, and any replies."},{"@type":"ListItem","position":25,"name":"reply_to_post_feedback","description":"Add a reply to the client conversation on a post. The client sees it on their review page."},{"@type":"ListItem","position":26,"name":"get_analytics_summary","description":"Post counts, verified-live rate, per-platform breakdown and engagement totals for a recent window. Filter by brand or by a tag to compare campaigns; availableTags lists the tags in use."},{"@type":"ListItem","position":27,"name":"get_mentions","description":"Recent comments on this account's newest posts, from Dev.to, Hashnode, YouTube, Mastodon, Bluesky, Lemmy, WordPress, Telegram and Discord. Facebook and Instagram comments are included only where Meta allows LazyRelay to read them. LazyRelay keeps comments for up to 30 days, then deletes them."}]}</script>
+</head>
+<body>
+<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
+<main>
+<a class="back" href="/mcp/">&larr; Back to AI agent integrations</a>
+<h1>LazyRelay MCP Server: Tools and Input Schemas</h1>
+<p class="subtitle">LazyRelay exposes 27 tools over the Model Context Protocol, including a listening stream for comments on your own posts. Each is listed below exactly as the server describes it to an AI agent, with its full input schema. This page is generated from the server's own tool definitions.</p>
+<h2>Connect</h2>
+<ol>
+<li><strong>Hosted server.</strong> Add a custom remote MCP connector in your client and point it at <code>https://lazyrelaylazyrelay-backend.onrender.com/mcp</code>. The client signs you in with OAuth.</li>
+<li><strong>Local server.</strong> Run <code>npx -y @lazyrelay/mcp-server</code> with <code>LAZYRELAY_API_KEY</code> set to an API key from the API Keys tab of the dashboard. A key acts as your account, so treat it like a password.</li>
+</ol>
+<p>MCP and API-key access is included on every plan, including Free. <a href="/mcp/">Setup guides for 15 AI agents and editors</a> &middot; <a href="/docs/">REST API docs</a> &middot; <a href="https://lazyrelaylazyrelay-backend.onrender.com/api/openapi.json">OpenAPI 3.1</a></p>
+<h2>Where the server is listed</h2>
+<ul>
+<li><strong>Glama, as a server:</strong> <a href="https://glama.ai/mcp/servers/gosswerner1-max/lazyrelay">https://glama.ai/mcp/servers/gosswerner1-max/lazyrelay</a> (built from the public repository).</li>
+<li><strong>Glama, as a connector:</strong> <a href="https://glama.ai/mcp/connectors/com.onrender.lazyrelaylazyrelay-backend/lazy-relay">https://glama.ai/mcp/connectors/com.onrender.lazyrelaylazyrelay-backend/lazy-relay</a> (the hosted server, OAuth sign-in, no API key).</li>
+<li><strong>Official MCP Registry:</strong> <code>io.github.gosswerner1-max/lazyrelay-mcp-server</code>, package <code>@lazyrelay/mcp-server</code>. <a href="https://registry.modelcontextprotocol.io/v0/servers?search=lazyrelay">Look it up in the registry</a>.</li>
+</ul>
+<h2>How the tools behave</h2>
+<ul>
+<li>Every tool is a thin call to LazyRelay's own REST API, so plan limits, validation and platform rules are enforced in one place, whichever way you connect.</li>
+<li>Each tool declares whether it is read-only, destructive, safe to repeat, and whether it reaches a live platform, so a client can decide what to confirm with you.</li>
+<li>A failed call returns <code>isError: true</code> with <code>{ "error": { "kind", "status", "message", "hint", "retryable" } }</code>. <code>kind</code> is one of <code>validation</code>, <code>plan_limit</code>, <code>auth</code>, <code>permission</code>, <code>not_found</code>, <code>conflict</code>, <code>rate_limited</code>, <code>server</code>, <code>unknown</code>.</li>
+</ul>
+<h2>The 27 tools</h2>
+<table><thead><tr><th>Tool</th><th>Title</th><th>Behaviour</th></tr></thead><tbody>
+<tr><td><a href="#list_connected_accounts"><code>list_connected_accounts</code></a></td><td>List connected accounts</td><td>read-only, safe to repeat</td></tr>
+<tr><td><a href="#list_workspaces"><code>list_workspaces</code></a></td><td>List brands</td><td>read-only, safe to repeat</td></tr>
+<tr><td><a href="#get_platform_rules"><code>get_platform_rules</code></a></td><td>Look up a platform's rules</td><td>read-only, safe to repeat</td></tr>
+<tr><td><a href="#get_tiktok_creator_info"><code>get_tiktok_creator_info</code></a></td><td>Check what a TikTok account allows</td><td>read-only, safe to repeat, reaches a live platform</td></tr>
+<tr><td><a href="#list_pinterest_boards"><code>list_pinterest_boards</code></a></td><td>List a Pinterest account's boards</td><td>read-only, safe to repeat, reaches a live platform</td></tr>
+<tr><td><a href="#get_next_free_slot"><code>get_next_free_slot</code></a></td><td>Find the next free posting time</td><td>read-only, safe to repeat</td></tr>
+<tr><td><a href="#list_posting_slots"><code>list_posting_slots</code></a></td><td>List saved posting times</td><td>read-only, safe to repeat</td></tr>
+<tr><td><a href="#list_snippets"><code>list_snippets</code></a></td><td>List saved snippets</td><td>read-only, safe to repeat</td></tr>
+<tr><td><a href="#schedule_post"><code>schedule_post</code></a></td><td>Schedule a post</td><td>changes data, reaches a live platform</td></tr>
+<tr><td><a href="#publish_post_now"><code>publish_post_now</code></a></td><td>Publish a post now</td><td>changes data, reaches a live platform</td></tr>
+<tr><td><a href="#create_draft"><code>create_draft</code></a></td><td>Save a draft</td><td>changes data</td></tr>
+<tr><td><a href="#schedule_draft"><code>schedule_draft</code></a></td><td>Schedule a saved draft</td><td>changes data, reaches a live platform</td></tr>
+<tr><td><a href="#update_post"><code>update_post</code></a></td><td>Edit a post</td><td>changes data, safe to repeat</td></tr>
+<tr><td><a href="#reschedule_post"><code>reschedule_post</code></a></td><td>Move a post to a new time</td><td>changes data, safe to repeat</td></tr>
+<tr><td><a href="#pause_post"><code>pause_post</code></a></td><td>Pause a pending post</td><td>changes data, safe to repeat</td></tr>
+<tr><td><a href="#resume_post"><code>resume_post</code></a></td><td>Resume a paused post</td><td>changes data, safe to repeat</td></tr>
+<tr><td><a href="#list_scheduled_posts"><code>list_scheduled_posts</code></a></td><td>List posts</td><td>read-only, safe to repeat</td></tr>
+<tr><td><a href="#delete_scheduled_post"><code>delete_scheduled_post</code></a></td><td>Cancel a post</td><td>changes data, destructive, safe to repeat</td></tr>
+<tr><td><a href="#get_proof_link"><code>get_proof_link</code></a></td><td>Get a proof-of-publish link</td><td>read-only, safe to repeat</td></tr>
+<tr><td><a href="#approve_post"><code>approve_post</code></a></td><td>Approve a waiting post</td><td>changes data, safe to repeat</td></tr>
+<tr><td><a href="#create_review_link"><code>create_review_link</code></a></td><td>Create a client review link</td><td>changes data</td></tr>
+<tr><td><a href="#list_review_links"><code>list_review_links</code></a></td><td>List client review links</td><td>read-only, safe to repeat</td></tr>
+<tr><td><a href="#revoke_review_link"><code>revoke_review_link</code></a></td><td>Stop a client review link</td><td>changes data, destructive, safe to repeat</td></tr>
+<tr><td><a href="#get_post_feedback"><code>get_post_feedback</code></a></td><td>Read client feedback on a post</td><td>read-only, safe to repeat</td></tr>
+<tr><td><a href="#reply_to_post_feedback"><code>reply_to_post_feedback</code></a></td><td>Reply to client feedback</td><td>changes data</td></tr>
+<tr><td><a href="#get_analytics_summary"><code>get_analytics_summary</code></a></td><td>Get analytics</td><td>read-only, safe to repeat</td></tr>
+<tr><td><a href="#get_mentions"><code>get_mentions</code></a></td><td>Read recent comments</td><td>read-only, safe to repeat, reaches a live platform</td></tr>
+</tbody></table>
+<section class="tool" id="list_connected_accounts">
+<h3>list_connected_accounts</h3>
+<p><strong>Title:</strong> List connected accounts<br><strong>Behaviour:</strong> read-only, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>List every social account connected to this LazyRelay account, with platform, display name and the id the posting tools need. Accounts that need reconnecting say so.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {},
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="list_workspaces">
+<h3>list_workspaces</h3>
+<p><strong>Title:</strong> List brands<br><strong>Behaviour:</strong> read-only, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>List this account's brands (workspaces), with the id needed to file a post under a specific one.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {},
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="get_platform_rules">
+<h3>get_platform_rules</h3>
+<p><strong>Title:</strong> Look up a platform's rules<br><strong>Behaviour:</strong> read-only, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>What a platform accepts BEFORE you post: text limit, image and video rules, how many images per post, which fields are required (for example TikTok's privacy level, Pinterest's board), features (stories, threads, first comment) and the options it reads. Pass a platform such as instagram or tiktok, or leave it out for all of them.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;platform&quot;: {
+      &quot;description&quot;: &quot;For example instagram, tiktok, pinterest, youtube. Leave out for all platforms&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    }
+  },
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="get_tiktok_creator_info">
+<h3>get_tiktok_creator_info</h3>
+<p><strong>Title:</strong> Check what a TikTok account allows<br><strong>Behaviour:</strong> read-only, safe to repeat, reaches a live platform.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>For one connected TikTok account: the privacy levels it can use, whether comments, duets and stitches are allowed, and the longest video. Call this before posting to TikTok, because tiktokPrivacyLevel is required and must be one of the levels returned.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;socialAccountId&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;A TikTok account id from list_connected_accounts&quot;
+    }
+  },
+  &quot;required&quot;: [
+    &quot;socialAccountId&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="list_pinterest_boards">
+<h3>list_pinterest_boards</h3>
+<p><strong>Title:</strong> List a Pinterest account's boards<br><strong>Behaviour:</strong> read-only, safe to repeat, reaches a live platform.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>For one connected Pinterest account: its boards with their ids. A Pinterest post needs a boardId from this list.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;socialAccountId&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;A Pinterest account id from list_connected_accounts&quot;
+    }
+  },
+  &quot;required&quot;: [
+    &quot;socialAccountId&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="get_next_free_slot">
+<h3>get_next_free_slot</h3>
+<p><strong>Title:</strong> Find the next free posting time<br><strong>Behaviour:</strong> read-only, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>The account's next free posting time for one connected account, from the posting times saved in Settings. Returns an ISO timestamp to use as scheduledFor. Says so plainly if no posting times are saved.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;socialAccountId&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The connected account id, from list_connected_accounts&quot;
+    }
+  },
+  &quot;required&quot;: [
+    &quot;socialAccountId&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="list_posting_slots">
+<h3>list_posting_slots</h3>
+<p><strong>Title:</strong> List saved posting times<br><strong>Behaviour:</strong> read-only, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>The posting times saved in Settings (days, time, time zone).</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {},
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="list_snippets">
+<h3>list_snippets</h3>
+<p><strong>Title:</strong> List saved snippets<br><strong>Behaviour:</strong> read-only, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>The account's saved text snippets (hashtag groups, sign-offs) and which one is the signature, to paste into a post.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {},
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="schedule_post">
+<h3>schedule_post</h3>
+<p><strong>Title:</strong> Schedule a post<br><strong>Behaviour:</strong> changes data, reaches a live platform.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>Schedule a post to ONE connected account (call once per account to post to several). Use list_connected_accounts for the id and get_platform_rules to see what the platform needs. TikTok needs tiktokPrivacyLevel, Pinterest needs boardId. Set requiresApproval to hold it for a client to approve first.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;socialAccountId&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The connected account id to post to, from list_connected_accounts&quot;
+    },
+    &quot;content&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The post text or caption&quot;
+    },
+    &quot;scheduledFor&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;ISO 8601 timestamp for when to post, in the future&quot;
+    },
+    &quot;requiresApproval&quot;: {
+      &quot;description&quot;: &quot;Hold the post until someone approves it (in the dashboard or through a client review link)&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;mediaUrl&quot;: {
+      &quot;description&quot;: &quot;A publicly accessible image or video URL to attach&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;mediaUrls&quot;: {
+      &quot;description&quot;: &quot;Extra images after mediaUrl for a multi-image post. Call get_platform_rules for how many the platform takes&quot;,
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;items&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      }
+    },
+    &quot;coverImageUrl&quot;: {
+      &quot;description&quot;: &quot;A still cover image for a video (Pinterest video pins need one)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;mediaAltText&quot;: {
+      &quot;description&quot;: &quot;Accessibility description of the main image (Mastodon and Bluesky use it)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;firstComment&quot;: {
+      &quot;description&quot;: &quot;A first comment posted right after publishing (Facebook and Instagram only)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;firstCommentDelayMinutes&quot;: {
+      &quot;description&quot;: &quot;Wait this many minutes after the post goes live before posting firstComment (0 to 1440, Facebook and Instagram only). 0 or left out posts it right away. Needs firstComment&quot;,
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0,
+      &quot;maximum&quot;: 1440
+    },
+    &quot;tags&quot;: {
+      &quot;description&quot;: &quot;Up to 5 short labels for filtering analytics by campaign&quot;,
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;items&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      }
+    },
+    &quot;selfReplyText&quot;: {
+      &quot;description&quot;: &quot;A follow-up comment added once the post reaches selfReplyAtLikes likes (Facebook and Instagram only)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;selfReplyAtLikes&quot;: {
+      &quot;description&quot;: &quot;The like count that triggers selfReplyText&quot;,
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: -9007199254740991,
+      &quot;maximum&quot;: 9007199254740991
+    },
+    &quot;boardId&quot;: {
+      &quot;description&quot;: &quot;Pinterest only: the board to pin to. Get it from list_pinterest_boards&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;destinationLink&quot;: {
+      &quot;description&quot;: &quot;Pinterest only: where a click on the pin goes&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;tiktokPrivacyLevel&quot;: {
+      &quot;description&quot;: &quot;TikTok only, REQUIRED for TikTok: call get_tiktok_creator_info to see which levels the account allows&quot;,
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;PUBLIC_TO_EVERYONE&quot;,
+        &quot;MUTUAL_FOLLOW_FRIENDS&quot;,
+        &quot;SELF_ONLY&quot;
+      ]
+    },
+    &quot;tiktokDisableComment&quot;: {
+      &quot;description&quot;: &quot;TikTok only: turn comments off (default true, comments off)&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokDisableDuet&quot;: {
+      &quot;description&quot;: &quot;TikTok only: turn duets off (default true)&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokDisableStitch&quot;: {
+      &quot;description&quot;: &quot;TikTok only: turn stitches off (default true)&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokBrandOrganic&quot;: {
+      &quot;description&quot;: &quot;TikTok only: the video promotes the creator's own brand&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokBrandContent&quot;: {
+      &quot;description&quot;: &quot;TikTok only: the video is a paid partnership&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;options&quot;: {
+      &quot;description&quot;: &quot;Platform-specific settings for the account you post to: tiktok {aiGenerated}; youtube {title, privacy public|unlisted|private, madeForKids, tags[], aiGenerated}; instagram {placement feed|reel|story, trialReel, trialGraduation manual|auto}; facebook {placement feed|story}; linkedin {documentUrl (https PDF), documentTitle}; threads, bluesky, mastodon and x {chain: [follow-up texts]} for a thread. Send only the key that belongs to the account's platform.&quot;,
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;propertyNames&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      },
+      &quot;additionalProperties&quot;: {}
+    }
+  },
+  &quot;required&quot;: [
+    &quot;socialAccountId&quot;,
+    &quot;content&quot;,
+    &quot;scheduledFor&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="publish_post_now">
+<h3>publish_post_now</h3>
+<p><strong>Title:</strong> Publish a post now<br><strong>Behaviour:</strong> changes data, reaches a live platform.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>Publish to one connected account right away instead of scheduling. The scheduler picks it up within moments, it is not published synchronously: call list_scheduled_posts afterwards and check verifiedLive to confirm it really went live. Same fields as schedule_post.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;socialAccountId&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The connected account id to post to, from list_connected_accounts&quot;
+    },
+    &quot;content&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The post text or caption&quot;
+    },
+    &quot;mediaUrl&quot;: {
+      &quot;description&quot;: &quot;A publicly accessible image or video URL to attach&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;mediaUrls&quot;: {
+      &quot;description&quot;: &quot;Extra images after mediaUrl for a multi-image post. Call get_platform_rules for how many the platform takes&quot;,
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;items&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      }
+    },
+    &quot;coverImageUrl&quot;: {
+      &quot;description&quot;: &quot;A still cover image for a video (Pinterest video pins need one)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;mediaAltText&quot;: {
+      &quot;description&quot;: &quot;Accessibility description of the main image (Mastodon and Bluesky use it)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;firstComment&quot;: {
+      &quot;description&quot;: &quot;A first comment posted right after publishing (Facebook and Instagram only)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;firstCommentDelayMinutes&quot;: {
+      &quot;description&quot;: &quot;Wait this many minutes after the post goes live before posting firstComment (0 to 1440, Facebook and Instagram only). 0 or left out posts it right away. Needs firstComment&quot;,
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0,
+      &quot;maximum&quot;: 1440
+    },
+    &quot;tags&quot;: {
+      &quot;description&quot;: &quot;Up to 5 short labels for filtering analytics by campaign&quot;,
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;items&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      }
+    },
+    &quot;selfReplyText&quot;: {
+      &quot;description&quot;: &quot;A follow-up comment added once the post reaches selfReplyAtLikes likes (Facebook and Instagram only)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;selfReplyAtLikes&quot;: {
+      &quot;description&quot;: &quot;The like count that triggers selfReplyText&quot;,
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: -9007199254740991,
+      &quot;maximum&quot;: 9007199254740991
+    },
+    &quot;boardId&quot;: {
+      &quot;description&quot;: &quot;Pinterest only: the board to pin to. Get it from list_pinterest_boards&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;destinationLink&quot;: {
+      &quot;description&quot;: &quot;Pinterest only: where a click on the pin goes&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;tiktokPrivacyLevel&quot;: {
+      &quot;description&quot;: &quot;TikTok only, REQUIRED for TikTok: call get_tiktok_creator_info to see which levels the account allows&quot;,
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;PUBLIC_TO_EVERYONE&quot;,
+        &quot;MUTUAL_FOLLOW_FRIENDS&quot;,
+        &quot;SELF_ONLY&quot;
+      ]
+    },
+    &quot;tiktokDisableComment&quot;: {
+      &quot;description&quot;: &quot;TikTok only: turn comments off (default true, comments off)&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokDisableDuet&quot;: {
+      &quot;description&quot;: &quot;TikTok only: turn duets off (default true)&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokDisableStitch&quot;: {
+      &quot;description&quot;: &quot;TikTok only: turn stitches off (default true)&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokBrandOrganic&quot;: {
+      &quot;description&quot;: &quot;TikTok only: the video promotes the creator's own brand&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokBrandContent&quot;: {
+      &quot;description&quot;: &quot;TikTok only: the video is a paid partnership&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;options&quot;: {
+      &quot;description&quot;: &quot;Platform-specific settings for the account you post to: tiktok {aiGenerated}; youtube {title, privacy public|unlisted|private, madeForKids, tags[], aiGenerated}; instagram {placement feed|reel|story, trialReel, trialGraduation manual|auto}; facebook {placement feed|story}; linkedin {documentUrl (https PDF), documentTitle}; threads, bluesky, mastodon and x {chain: [follow-up texts]} for a thread. Send only the key that belongs to the account's platform.&quot;,
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;propertyNames&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      },
+      &quot;additionalProperties&quot;: {}
+    }
+  },
+  &quot;required&quot;: [
+    &quot;socialAccountId&quot;,
+    &quot;content&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="create_draft">
+<h3>create_draft</h3>
+<p><strong>Title:</strong> Save a draft<br><strong>Behaviour:</strong> changes data.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>Save a post as a draft without choosing an account or a time yet. It is never posted until it is scheduled with schedule_draft. Good for a plan a human will finish.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;content&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The draft text&quot;
+    },
+    &quot;mediaUrl&quot;: {
+      &quot;description&quot;: &quot;A publicly accessible image or video URL to attach&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;mediaUrls&quot;: {
+      &quot;description&quot;: &quot;Extra images after mediaUrl for a multi-image post. Call get_platform_rules for how many the platform takes&quot;,
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;items&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      }
+    },
+    &quot;coverImageUrl&quot;: {
+      &quot;description&quot;: &quot;A still cover image for a video (Pinterest video pins need one)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;mediaAltText&quot;: {
+      &quot;description&quot;: &quot;Accessibility description of the main image (Mastodon and Bluesky use it)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;firstComment&quot;: {
+      &quot;description&quot;: &quot;A first comment posted right after publishing (Facebook and Instagram only)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;firstCommentDelayMinutes&quot;: {
+      &quot;description&quot;: &quot;Wait this many minutes after the post goes live before posting firstComment (0 to 1440, Facebook and Instagram only). 0 or left out posts it right away. Needs firstComment&quot;,
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0,
+      &quot;maximum&quot;: 1440
+    },
+    &quot;tags&quot;: {
+      &quot;description&quot;: &quot;Up to 5 short labels for filtering analytics by campaign&quot;,
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;items&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      }
+    },
+    &quot;selfReplyText&quot;: {
+      &quot;description&quot;: &quot;A follow-up comment added once the post reaches selfReplyAtLikes likes (Facebook and Instagram only)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;selfReplyAtLikes&quot;: {
+      &quot;description&quot;: &quot;The like count that triggers selfReplyText&quot;,
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: -9007199254740991,
+      &quot;maximum&quot;: 9007199254740991
+    },
+    &quot;boardId&quot;: {
+      &quot;description&quot;: &quot;Pinterest only: the board to pin to. Get it from list_pinterest_boards&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;destinationLink&quot;: {
+      &quot;description&quot;: &quot;Pinterest only: where a click on the pin goes&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;tiktokPrivacyLevel&quot;: {
+      &quot;description&quot;: &quot;TikTok only, REQUIRED for TikTok: call get_tiktok_creator_info to see which levels the account allows&quot;,
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;PUBLIC_TO_EVERYONE&quot;,
+        &quot;MUTUAL_FOLLOW_FRIENDS&quot;,
+        &quot;SELF_ONLY&quot;
+      ]
+    },
+    &quot;tiktokDisableComment&quot;: {
+      &quot;description&quot;: &quot;TikTok only: turn comments off (default true, comments off)&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokDisableDuet&quot;: {
+      &quot;description&quot;: &quot;TikTok only: turn duets off (default true)&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokDisableStitch&quot;: {
+      &quot;description&quot;: &quot;TikTok only: turn stitches off (default true)&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokBrandOrganic&quot;: {
+      &quot;description&quot;: &quot;TikTok only: the video promotes the creator's own brand&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokBrandContent&quot;: {
+      &quot;description&quot;: &quot;TikTok only: the video is a paid partnership&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;options&quot;: {
+      &quot;description&quot;: &quot;Platform-specific settings for the account you post to: tiktok {aiGenerated}; youtube {title, privacy public|unlisted|private, madeForKids, tags[], aiGenerated}; instagram {placement feed|reel|story, trialReel, trialGraduation manual|auto}; facebook {placement feed|story}; linkedin {documentUrl (https PDF), documentTitle}; threads, bluesky, mastodon and x {chain: [follow-up texts]} for a thread. Send only the key that belongs to the account's platform.&quot;,
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;propertyNames&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      },
+      &quot;additionalProperties&quot;: {}
+    }
+  },
+  &quot;required&quot;: [
+    &quot;content&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="schedule_draft">
+<h3>schedule_draft</h3>
+<p><strong>Title:</strong> Schedule a saved draft<br><strong>Behaviour:</strong> changes data, reaches a live platform.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>Turn a draft into a real scheduled post by choosing the account and the time. The platform's rules are checked now, so an error here tells you what to fix.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The post id, from list_scheduled_posts&quot;
+    },
+    &quot;socialAccountId&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The connected account id to post to&quot;
+    },
+    &quot;content&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The final post text&quot;
+    },
+    &quot;scheduledFor&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;ISO 8601 timestamp for when to post, in the future&quot;
+    },
+    &quot;requiresApproval&quot;: {
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;mediaUrl&quot;: {
+      &quot;description&quot;: &quot;A publicly accessible image or video URL to attach&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;mediaUrls&quot;: {
+      &quot;description&quot;: &quot;Extra images after mediaUrl for a multi-image post. Call get_platform_rules for how many the platform takes&quot;,
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;items&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      }
+    },
+    &quot;coverImageUrl&quot;: {
+      &quot;description&quot;: &quot;A still cover image for a video (Pinterest video pins need one)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;mediaAltText&quot;: {
+      &quot;description&quot;: &quot;Accessibility description of the main image (Mastodon and Bluesky use it)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;firstComment&quot;: {
+      &quot;description&quot;: &quot;A first comment posted right after publishing (Facebook and Instagram only)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;firstCommentDelayMinutes&quot;: {
+      &quot;description&quot;: &quot;Wait this many minutes after the post goes live before posting firstComment (0 to 1440, Facebook and Instagram only). 0 or left out posts it right away. Needs firstComment&quot;,
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0,
+      &quot;maximum&quot;: 1440
+    },
+    &quot;tags&quot;: {
+      &quot;description&quot;: &quot;Up to 5 short labels for filtering analytics by campaign&quot;,
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;items&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      }
+    },
+    &quot;selfReplyText&quot;: {
+      &quot;description&quot;: &quot;A follow-up comment added once the post reaches selfReplyAtLikes likes (Facebook and Instagram only)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;selfReplyAtLikes&quot;: {
+      &quot;description&quot;: &quot;The like count that triggers selfReplyText&quot;,
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: -9007199254740991,
+      &quot;maximum&quot;: 9007199254740991
+    },
+    &quot;boardId&quot;: {
+      &quot;description&quot;: &quot;Pinterest only: the board to pin to. Get it from list_pinterest_boards&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;destinationLink&quot;: {
+      &quot;description&quot;: &quot;Pinterest only: where a click on the pin goes&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;tiktokPrivacyLevel&quot;: {
+      &quot;description&quot;: &quot;TikTok only, REQUIRED for TikTok: call get_tiktok_creator_info to see which levels the account allows&quot;,
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;PUBLIC_TO_EVERYONE&quot;,
+        &quot;MUTUAL_FOLLOW_FRIENDS&quot;,
+        &quot;SELF_ONLY&quot;
+      ]
+    },
+    &quot;tiktokDisableComment&quot;: {
+      &quot;description&quot;: &quot;TikTok only: turn comments off (default true, comments off)&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokDisableDuet&quot;: {
+      &quot;description&quot;: &quot;TikTok only: turn duets off (default true)&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokDisableStitch&quot;: {
+      &quot;description&quot;: &quot;TikTok only: turn stitches off (default true)&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokBrandOrganic&quot;: {
+      &quot;description&quot;: &quot;TikTok only: the video promotes the creator's own brand&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokBrandContent&quot;: {
+      &quot;description&quot;: &quot;TikTok only: the video is a paid partnership&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;options&quot;: {
+      &quot;description&quot;: &quot;Platform-specific settings for the account you post to: tiktok {aiGenerated}; youtube {title, privacy public|unlisted|private, madeForKids, tags[], aiGenerated}; instagram {placement feed|reel|story, trialReel, trialGraduation manual|auto}; facebook {placement feed|story}; linkedin {documentUrl (https PDF), documentTitle}; threads, bluesky, mastodon and x {chain: [follow-up texts]} for a thread. Send only the key that belongs to the account's platform.&quot;,
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;propertyNames&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      },
+      &quot;additionalProperties&quot;: {}
+    }
+  },
+  &quot;required&quot;: [
+    &quot;id&quot;,
+    &quot;socialAccountId&quot;,
+    &quot;content&quot;,
+    &quot;scheduledFor&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="update_post">
+<h3>update_post</h3>
+<p><strong>Title:</strong> Edit a post<br><strong>Behaviour:</strong> changes data, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>Edit a draft, a post waiting for approval, or a still-pending post: its text, media, tags, options and so on. Not possible once it is posting or done. To change the time, use reschedule_post.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The post id, from list_scheduled_posts&quot;
+    },
+    &quot;content&quot;: {
+      &quot;description&quot;: &quot;New text&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;mediaUrl&quot;: {
+      &quot;description&quot;: &quot;A publicly accessible image or video URL to attach&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;mediaUrls&quot;: {
+      &quot;description&quot;: &quot;Extra images after mediaUrl for a multi-image post. Call get_platform_rules for how many the platform takes&quot;,
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;items&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      }
+    },
+    &quot;coverImageUrl&quot;: {
+      &quot;description&quot;: &quot;A still cover image for a video (Pinterest video pins need one)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;mediaAltText&quot;: {
+      &quot;description&quot;: &quot;Accessibility description of the main image (Mastodon and Bluesky use it)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;firstComment&quot;: {
+      &quot;description&quot;: &quot;A first comment posted right after publishing (Facebook and Instagram only)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;firstCommentDelayMinutes&quot;: {
+      &quot;description&quot;: &quot;Wait this many minutes after the post goes live before posting firstComment (0 to 1440, Facebook and Instagram only). 0 or left out posts it right away. Needs firstComment&quot;,
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 0,
+      &quot;maximum&quot;: 1440
+    },
+    &quot;tags&quot;: {
+      &quot;description&quot;: &quot;Up to 5 short labels for filtering analytics by campaign&quot;,
+      &quot;type&quot;: &quot;array&quot;,
+      &quot;items&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      }
+    },
+    &quot;selfReplyText&quot;: {
+      &quot;description&quot;: &quot;A follow-up comment added once the post reaches selfReplyAtLikes likes (Facebook and Instagram only)&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;selfReplyAtLikes&quot;: {
+      &quot;description&quot;: &quot;The like count that triggers selfReplyText&quot;,
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: -9007199254740991,
+      &quot;maximum&quot;: 9007199254740991
+    },
+    &quot;boardId&quot;: {
+      &quot;description&quot;: &quot;Pinterest only: the board to pin to. Get it from list_pinterest_boards&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;destinationLink&quot;: {
+      &quot;description&quot;: &quot;Pinterest only: where a click on the pin goes&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;tiktokPrivacyLevel&quot;: {
+      &quot;description&quot;: &quot;TikTok only, REQUIRED for TikTok: call get_tiktok_creator_info to see which levels the account allows&quot;,
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;PUBLIC_TO_EVERYONE&quot;,
+        &quot;MUTUAL_FOLLOW_FRIENDS&quot;,
+        &quot;SELF_ONLY&quot;
+      ]
+    },
+    &quot;tiktokDisableComment&quot;: {
+      &quot;description&quot;: &quot;TikTok only: turn comments off (default true, comments off)&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokDisableDuet&quot;: {
+      &quot;description&quot;: &quot;TikTok only: turn duets off (default true)&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokDisableStitch&quot;: {
+      &quot;description&quot;: &quot;TikTok only: turn stitches off (default true)&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokBrandOrganic&quot;: {
+      &quot;description&quot;: &quot;TikTok only: the video promotes the creator's own brand&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;tiktokBrandContent&quot;: {
+      &quot;description&quot;: &quot;TikTok only: the video is a paid partnership&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    },
+    &quot;options&quot;: {
+      &quot;description&quot;: &quot;Platform-specific settings for the account you post to: tiktok {aiGenerated}; youtube {title, privacy public|unlisted|private, madeForKids, tags[], aiGenerated}; instagram {placement feed|reel|story, trialReel, trialGraduation manual|auto}; facebook {placement feed|story}; linkedin {documentUrl (https PDF), documentTitle}; threads, bluesky, mastodon and x {chain: [follow-up texts]} for a thread. Send only the key that belongs to the account's platform.&quot;,
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;propertyNames&quot;: {
+        &quot;type&quot;: &quot;string&quot;
+      },
+      &quot;additionalProperties&quot;: {}
+    }
+  },
+  &quot;required&quot;: [
+    &quot;id&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="reschedule_post">
+<h3>reschedule_post</h3>
+<p><strong>Title:</strong> Move a post to a new time<br><strong>Behaviour:</strong> changes data, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>Move a pending post to a new time. Passing the current time posts it right away. The platform's rules for that time are checked again.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The post id, from list_scheduled_posts&quot;
+    },
+    &quot;scheduledFor&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;ISO 8601 timestamp for the new time&quot;
+    }
+  },
+  &quot;required&quot;: [
+    &quot;id&quot;,
+    &quot;scheduledFor&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="pause_post">
+<h3>pause_post</h3>
+<p><strong>Title:</strong> Pause a pending post<br><strong>Behaviour:</strong> changes data, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>Hold a pending post so it does not go out at its time. Resume it later with resume_post.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The post id, from list_scheduled_posts&quot;
+    }
+  },
+  &quot;required&quot;: [
+    &quot;id&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="resume_post">
+<h3>resume_post</h3>
+<p><strong>Title:</strong> Resume a paused post<br><strong>Behaviour:</strong> changes data, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>Let a paused post go out again. If its time has passed it goes out right away.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The post id, from list_scheduled_posts&quot;
+    }
+  },
+  &quot;required&quot;: [
+    &quot;id&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="list_scheduled_posts">
+<h3>list_scheduled_posts</h3>
+<p><strong>Title:</strong> List posts<br><strong>Behaviour:</strong> read-only, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>This account's upcoming and recent posts with their status (draft, needs_approval, pending, posted, failed) and whether each is confirmed live. Returns a short summary of each post; set detail to true for the full records. Filter by status or account to keep it small. The total in the answer is the number of posts returned after filtering and the limit, not the number of posts that exist.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;status&quot;: {
+      &quot;description&quot;: &quot;Only posts with this status&quot;,
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;draft&quot;,
+        &quot;needs_approval&quot;,
+        &quot;pending&quot;,
+        &quot;posting&quot;,
+        &quot;posted&quot;,
+        &quot;failed&quot;
+      ]
+    },
+    &quot;socialAccountId&quot;: {
+      &quot;description&quot;: &quot;Only posts for this account&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;limit&quot;: {
+      &quot;description&quot;: &quot;At most this many posts, default 50&quot;,
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 1,
+      &quot;maximum&quot;: 200
+    },
+    &quot;detail&quot;: {
+      &quot;description&quot;: &quot;Return the full records instead of the short summary&quot;,
+      &quot;type&quot;: &quot;boolean&quot;
+    }
+  },
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="delete_scheduled_post">
+<h3>delete_scheduled_post</h3>
+<p><strong>Title:</strong> Cancel a post<br><strong>Behaviour:</strong> changes data, destructive, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>Delete a post from LazyRelay. Use it to cancel a pending or waiting-for-approval post before it goes out. It also works on a post that has already gone out, but then it removes only LazyRelay's record: the post stays live on the platform. A post that is being published right now cannot be deleted, so try again in a moment.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The post id, from list_scheduled_posts&quot;
+    }
+  },
+  &quot;required&quot;: [
+    &quot;id&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="get_proof_link">
+<h3>get_proof_link</h3>
+<p><strong>Title:</strong> Get a proof-of-publish link<br><strong>Behaviour:</strong> read-only, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>A public link that shows a post was really confirmed live, to share with a client. Only works for a post confirmed live, and the API key must be allowed to share proof.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The post id, from list_scheduled_posts&quot;
+    }
+  },
+  &quot;required&quot;: [
+    &quot;id&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="approve_post">
+<h3>approve_post</h3>
+<p><strong>Title:</strong> Approve a waiting post<br><strong>Behaviour:</strong> changes data, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>Approve a post that is waiting for approval, so it is scheduled. Only do this when the account owner has asked you to.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The post id, from list_scheduled_posts&quot;
+    }
+  },
+  &quot;required&quot;: [
+    &quot;id&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="create_review_link">
+<h3>create_review_link</h3>
+<p><strong>Title:</strong> Create a client review link<br><strong>Behaviour:</strong> changes data.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>Create a link a client opens (no account needed) to see the posts waiting for approval, approve them, ask for changes and comment. Send them the link at lazyrelay.com/review/&lt;token&gt;. Needs a plan that includes review links.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;label&quot;: {
+      &quot;description&quot;: &quot;Who it is for, for example Acme&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;brandLabel&quot;: {
+      &quot;description&quot;: &quot;Only show posts for this brand&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;expiresInDays&quot;: {
+      &quot;description&quot;: &quot;Days until the link stops working, default 30&quot;,
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 1,
+      &quot;maximum&quot;: 90
+    }
+  },
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="list_review_links">
+<h3>list_review_links</h3>
+<p><strong>Title:</strong> List client review links<br><strong>Behaviour:</strong> read-only, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>The account's client review links with their status and how many are allowed on the plan.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {},
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="revoke_review_link">
+<h3>revoke_review_link</h3>
+<p><strong>Title:</strong> Stop a client review link<br><strong>Behaviour:</strong> changes data, destructive, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>Stop a client review link working at once.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The link id, from list_review_links&quot;
+    }
+  },
+  &quot;required&quot;: [
+    &quot;id&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="get_post_feedback">
+<h3>get_post_feedback</h3>
+<p><strong>Title:</strong> Read client feedback on a post<br><strong>Behaviour:</strong> read-only, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>The conversation on a post waiting for approval: what the client said, whether they asked for changes, and any replies.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The post id, from list_scheduled_posts&quot;
+    }
+  },
+  &quot;required&quot;: [
+    &quot;id&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="reply_to_post_feedback">
+<h3>reply_to_post_feedback</h3>
+<p><strong>Title:</strong> Reply to client feedback<br><strong>Behaviour:</strong> changes data.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>Add a reply to the client conversation on a post. The client sees it on their review page.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;id&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The post id, from list_scheduled_posts&quot;
+    },
+    &quot;body&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;The reply, up to 1000 characters&quot;
+    }
+  },
+  &quot;required&quot;: [
+    &quot;id&quot;,
+    &quot;body&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="get_analytics_summary">
+<h3>get_analytics_summary</h3>
+<p><strong>Title:</strong> Get analytics<br><strong>Behaviour:</strong> read-only, safe to repeat.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>Post counts, verified-live rate, per-platform breakdown and engagement totals for a recent window. Filter by brand or by a tag to compare campaigns; availableTags lists the tags in use.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;days&quot;: {
+      &quot;description&quot;: &quot;How many days back, default 30&quot;,
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;minimum&quot;: 1,
+      &quot;maximum&quot;: 90
+    },
+    &quot;brand&quot;: {
+      &quot;description&quot;: &quot;Only this brand&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    },
+    &quot;tag&quot;: {
+      &quot;description&quot;: &quot;Only posts with this tag&quot;,
+      &quot;type&quot;: &quot;string&quot;
+    }
+  },
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+<section class="tool" id="get_mentions">
+<h3>get_mentions</h3>
+<p><strong>Title:</strong> Read recent comments<br><strong>Behaviour:</strong> read-only, safe to repeat, reaches a live platform.</p>
+<p><strong>Description, exactly as the server sends it:</strong></p>
+<pre><code>Recent comments on this account's newest posts, from Dev.to, Hashnode, YouTube, Mastodon, Bluesky, Lemmy, WordPress, Telegram and Discord. Facebook and Instagram comments are included only where Meta allows LazyRelay to read them. LazyRelay keeps comments for up to 30 days, then deletes them.</code></pre>
+<p><strong>Input schema (JSON Schema):</strong></p>
+<pre><code>{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {},
+  &quot;additionalProperties&quot;: false
+}</code></pre>
+</section>
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/docs">API &amp; MCP Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>
