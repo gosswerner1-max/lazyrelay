@@ -209,6 +209,8 @@ export function StatTile({
   delta,
   icon,
   accent = "#8b93a1",
+  onClick,
+  actionLabel,
 }: {
   label: string;
   value: string;
@@ -217,10 +219,18 @@ export function StatTile({
   /** Hex color for the icon badge — a literal hex (not a CSS var) since the
    *  badge background is derived from it via alpha suffix (`${accent}22`). */
   accent?: string;
+  /** When given, the tile is a real button that runs this (for example, opens the tab with the detail behind the number). */
+  onClick?: () => void;
+  /** What the click does, read out by screen readers and shown as a tooltip. Only used with onClick. */
+  actionLabel?: string;
 }) {
   const Icon = icon ? StatIcons[icon] : null;
+  const Tag = onClick ? "button" : "div";
   return (
-    <div className="chart-stat-tile">
+    <Tag
+      className={onClick ? "chart-stat-tile chart-stat-tile-link" : "chart-stat-tile"}
+      {...(onClick ? { type: "button" as const, onClick, title: actionLabel, "aria-label": `${label}: ${value}. ${actionLabel ?? ""}`.trim() } : {})}
+    >
       {Icon && (
         <span className="chart-stat-icon" style={{ background: `${accent}22`, color: accent }}>
           <Icon size={16} />
@@ -233,7 +243,7 @@ export function StatTile({
           {delta.text}
         </span>
       )}
-    </div>
+    </Tag>
   );
 }
 
@@ -850,9 +860,12 @@ export function OverviewPanel({
   loading,
   hasAccounts = true,
   onConnectAccount,
+  onOpenTab,
 }: {
   analytics: AnalyticsSummary | null;
   loading: boolean;
+  /** When given, the four top tiles open the tab that holds the detail behind each number. */
+  onOpenTab?: (tab: "Posts" | "Failed" | "Analytics") => void;
   /** Whether the customer has any connected social account yet — a
    *  brand-new signup won't. Defaults true so every existing caller (and
    *  the dev-only fixture preview, which has no real account data) keeps
@@ -890,19 +903,37 @@ export function OverviewPanel({
             const totalEngagement = platformsWithData.reduce((sum, e) => sum + e.likes + e.comments + e.shares, 0);
             return (
               <KpiRow>
-                <StatTile label="Total posts" value={formatCompact(analytics.totalPosts)} icon="posts" accent="#3b82f6" />
-                <StatTile label="Failed" value={formatCompact(analytics.byStatus.failed ?? 0)} icon="alert" accent="#f97316" />
+                <StatTile
+                  label="Total posts"
+                  value={formatCompact(analytics.totalPosts)}
+                  icon="posts"
+                  accent="#3b82f6"
+                  onClick={onOpenTab ? () => onOpenTab("Posts") : undefined}
+                  actionLabel="Open the Posts tab"
+                />
+                <StatTile
+                  label="Failed"
+                  value={formatCompact(analytics.byStatus.failed ?? 0)}
+                  icon="alert"
+                  accent="#f97316"
+                  onClick={onOpenTab ? () => onOpenTab("Failed") : undefined}
+                  actionLabel="Open the Failed tab"
+                />
                 <StatTile
                   label="Verified live"
                   value={analytics.verifiedLiveRate === null ? "—" : `${Math.round(analytics.verifiedLiveRate * 100)}%`}
                   icon="check"
                   accent="#16a34a"
+                  onClick={onOpenTab ? () => onOpenTab("Posts") : undefined}
+                  actionLabel="Open the Posts tab"
                 />
                 <StatTile
                   label="Total engagement"
                   value={platformsWithData.length > 0 ? formatCompact(totalEngagement) : "—"}
                   icon="spark"
                   accent="#8b5cf6"
+                  onClick={onOpenTab ? () => onOpenTab("Analytics") : undefined}
+                  actionLabel="Open the Analytics tab for likes, comments and shares by platform"
                 />
               </KpiRow>
             );

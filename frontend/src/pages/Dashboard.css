@@ -707,6 +707,21 @@
   box-shadow: var(--shadow-lg, var(--shadow));
 }
 
+/* A tile that opens a tab (2026-10-07): a real <button> that looks exactly like the plain tile. */
+.chart-stat-tile-link {
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+}
+
+.chart-stat-tile-link:focus-visible {
+  outline: 2px solid var(--accent, #ff7a45);
+  outline-offset: 2px;
+}
+
 /* The 2-column panel grid -- "Daily volume" + "Posts by platform" (donut)
    as one row, "Post status" + "Posts by platform" (ranked bars) as the
    next -- mirrors the reference's own "big chart + donut" then

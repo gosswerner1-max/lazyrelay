@@ -26,6 +26,7 @@ export function OverviewTab() {
           loading={analyticsLoading}
           hasAccounts={accounts.length > 0}
           onConnectAccount={() => setTab("Social Platforms")}
+          onOpenTab={setTab}
         />
       </>
   );
