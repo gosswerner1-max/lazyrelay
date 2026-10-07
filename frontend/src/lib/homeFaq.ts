@@ -2,7 +2,10 @@
 // FAQPage structured data, so the two can never drift apart: the schema text
 // must equal the visible text word for word. Every answer is 40 to 60 words and
 // uses only facts stated on the site (see the optimization payload review of
-// 2026-10-06). Plain ASCII only.
+// 2026-10-06) or verified in the code (the 2026-10-07 capabilities review): the 30 day
+// comment and DM retention (privacySweep.ts, DPA), the AI provider (Anthropic, DPA), the
+// double-send protections (scheduler.ts) and the nine platforms shown in the Mentions
+// tab (pages/dashboard/mentionsPlatforms.ts). Plain ASCII only.
 export interface FaqItem {
   q: string;
   a: string;
@@ -40,6 +43,26 @@ export const HOME_FAQ: FaqItem[] = [
   {
     q: "What happens if a post fails to publish?",
     a: "LazyRelay does not mark a post as done just because it was sent. It separately verifies that the post is live. If that check fails, you see the post flagged in your dashboard, not silently hidden. LazyRelay also tells you before a post is scheduled if a file is too big for a platform.",
+  },
+  {
+    q: "How long does LazyRelay keep comments and direct messages?",
+    a: "LazyRelay keeps a copy of comments and direct messages for up to 30 days so they can show in your dashboard. A scheduled job then deletes them. After that, only a short classification remains, such as a category and a one-line reason. When you disconnect an account, LazyRelay also erases its stored login.",
+  },
+  {
+    q: "Which AI does LazyRelay use?",
+    a: "LazyRelay's AI features run on Anthropic's Claude models. They cover caption and hashtag suggestions, content ideas, analytics insights, comment sorting and the support assistant. AI output is a draft for you to review. Our Data Processing Agreement states that Anthropic does not train its models on this data.",
+  },
+  {
+    q: "Can LazyRelay post the same thing twice?",
+    a: "LazyRelay is built to prevent it. A due post is claimed by one worker before anything is sent, so two workers cannot send it. If a platform accepted a post but the live check did not finish, LazyRelay checks again instead of publishing twice. A post it cannot confirm is shown as failed, so you can check the platform.",
+  },
+  {
+    q: "Does LazyRelay reply to comments by itself?",
+    a: "No. LazyRelay never replies to a comment on its own. AI sorts incoming comments into categories such as needs attention, and you choose what to answer. In the dashboard you can reply to Mastodon and Bluesky comments directly. On other platforms, you reply on the platform itself.",
+  },
+  {
+    q: "Which platforms show comments in LazyRelay?",
+    a: "LazyRelay shows comments from 9 platforms in one place: dev.to, Hashnode, YouTube, Mastodon, Bluesky, Lemmy, WordPress, Telegram and Discord. Facebook, Instagram and Threads are coming soon. Comments are kept for up to 30 days, then deleted. You can reply from the dashboard on Mastodon and Bluesky.",
   },
 ];
 

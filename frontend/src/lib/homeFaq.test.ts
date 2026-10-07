@@ -4,9 +4,9 @@ import { HOME_FAQ, homeFaqSchema, homeFaqSchemaJson } from "./homeFaq";
 const words = (s: string) => s.trim().split(/\s+/).length;
 
 describe("home page FAQ", () => {
-  it("has 8 distinct questions", () => {
-    expect(HOME_FAQ).toHaveLength(8);
-    expect(new Set(HOME_FAQ.map((i) => i.q)).size).toBe(8);
+  it("has 13 distinct questions", () => {
+    expect(HOME_FAQ).toHaveLength(13);
+    expect(new Set(HOME_FAQ.map((i) => i.q)).size).toBe(13);
   });
 
   it("every answer is 40 to 60 words", () => {

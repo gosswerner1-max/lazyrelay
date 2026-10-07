@@ -102,7 +102,7 @@
 </div>
 
 <h2>Using this from an AI agent: the MCP server</h2>
-<p>If you're connecting an AI agent (Claude Desktop, Claude Code, Cursor, or anything else that speaks MCP) rather than writing HTTP calls by hand, use LazyRelay's own MCP server instead of calling the API directly. It wraps every endpoint above as a real tool the agent can call.</p>
+<p>If you're connecting an AI agent (Claude Desktop, Claude Code, Cursor, or anything else that speaks MCP) rather than writing HTTP calls by hand, use LazyRelay's own MCP server instead of calling the API directly. It wraps every endpoint above as a real tool the agent can call. Every tool, with its exact description and input schema, is listed in the <a href="/mcp/tools/">MCP tool reference</a>.</p>
 <pre class="code-block"><code>{
   "mcpServers": {
     "lazyrelay": {

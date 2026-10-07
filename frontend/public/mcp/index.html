@@ -75,6 +75,8 @@
   <div class="step"><span class="step-num">3</span><p>Ask it to schedule a post, check what's queued, or confirm one actually went live.</p></div>
 </div>
 
+<p class="note">Looking for the full tool list? The <a href="/mcp/tools/">MCP tool reference</a> has all 27 tools with their exact descriptions and input schemas.</p>
+
 <h2>The part most AI-agent schedulers skip</h2>
 <p>Almost every "post from your AI agent" integration stops at the API call &mdash; your agent asks for a post, the API says 200 OK, and that's treated as done. It isn't. Rate limits, silent moderation holds, and platform-side failures can all eat a "successful" request. LazyRelay's <code>list_scheduled_posts</code> tool returns real Proof-of-Publish status, so you can ask your agent to check whether a post actually went live, not just whether the request was accepted.</p>
 
