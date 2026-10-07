@@ -18,9 +18,10 @@ import { useDashboard } from "./DashboardContext";
 // never advertises something that would silently fail.
 const MENTIONS_LIVE_PLATFORMS = new Set(["devto", "hashnode", "mastodon", "bluesky", "youtube"]);
 
-// Reply-from-here is parked (Werner, 2026-10-07): comments are read-only in
-// this tab for every platform until the draft-first reply loop is built.
-const REPLIES_LIVE = false;
+// Reply-from-here is live only for Mastodon and Bluesky (Werner, 2026-10-07).
+// Every other platform stays read-only in this tab until the draft-first reply
+// loop is built. The server still decides what a platform can do (canReply).
+const REPLY_LIVE_PLATFORMS = new Set(["mastodon", "bluesky"]);
 
 const PLATFORM_LABELS: Record<string, string> = {
   devto: "dev.to",
@@ -57,8 +58,9 @@ export function MentionsTab() {
       <h2>Mentions &amp; comments</h2>
       <p className="muted">
         Comments on your recent posts, pulled directly from each platform. Dev.to, Hashnode, Mastodon, Bluesky
-        and YouTube comments show here today (read-only: reply on the platform itself). Facebook and Instagram
-        are coming soon. Every other platform's comments still live on the platform itself.
+        and YouTube comments show here today, with reply-from-here on Mastodon and Bluesky (on the others, reply
+        on the platform itself). Facebook and Instagram are coming soon. Every other platform's comments still
+        live on the platform itself.
       </p>
       {mentionsLoading && <Spinner />}
       {!mentionsLoading && mentions && mentions.length === 0 && <p className="empty">No recent posted content yet.</p>}
@@ -134,7 +136,7 @@ export function MentionsTab() {
                             <span className="mentions-comment-author">{c.author}</span>
                             <span className="mentions-comment-text">{c.text}</span>
                             <TriageBadge triage={c.triage} />
-                            {REPLIES_LIVE && post.canReply && (
+                            {REPLY_LIVE_PLATFORMS.has(post.platform) && post.canReply && (
                               replySentCommentId === c.id ? (
                                 <span className="mentions-reply-sent">Reply sent</span>
                               ) : (
