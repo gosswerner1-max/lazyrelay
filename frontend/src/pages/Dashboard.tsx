@@ -46,8 +46,14 @@ const MORE_TABS: Tab[] = ["Analytics", "Mentions", "DMs", "Bio Page"];
 // Set 2026-09-08 to hide both tabs behind "Coming soon" rather than advertise
 // a capability that would silently fail for any real customer. Flip back to
 // true once those permissions clear Meta's App Review.
+// Split 2026-10-07: the Mentions tab is always open now, because dev.to and
+// Hashnode comments are read-only, need no Meta permission and work today.
+// Which platforms show real comments is MENTIONS_LIVE_PLATFORMS in
+// MentionsTab.tsx; every other platform shows a "Coming soon" row there. This
+// flag now only gates the DMs tab and the notification bell (both count
+// Facebook and Instagram items).
 const COMMENTS_DMS_LIVE = false;
-const DISABLED_TABS: Tab[] = COMMENTS_DMS_LIVE ? [] : ["Mentions", "DMs"];
+const DISABLED_TABS: Tab[] = COMMENTS_DMS_LIVE ? [] : ["DMs"];
 
 export function Dashboard() {
   const state = useDashboardState();

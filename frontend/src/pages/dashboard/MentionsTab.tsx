@@ -11,6 +11,32 @@ import { accountMatchesBrand, localDateKey } from "./dashboardHelpers";
 import { BrandFilterSelect, TriageBadge } from "./dashboardComponents";
 import { useDashboard } from "./DashboardContext";
 
+// Platforms whose comments are shown in this tab: dev.to, Hashnode, Mastodon,
+// Bluesky and YouTube. None of them depends on a Meta permission. Every other
+// platform that can return comments (Facebook, Instagram, ...) stays out until
+// it is approved and checked, and shows a "Coming soon" row instead, so the tab
+// never advertises something that would silently fail.
+const MENTIONS_LIVE_PLATFORMS = new Set(["devto", "hashnode", "mastodon", "bluesky", "youtube"]);
+
+// Reply-from-here is live only for Mastodon and Bluesky (Werner, 2026-10-07).
+// Every other platform stays read-only in this tab until the draft-first reply
+// loop is built. The server still decides what a platform can do (canReply).
+const REPLY_LIVE_PLATFORMS = new Set(["mastodon", "bluesky"]);
+
+const PLATFORM_LABELS: Record<string, string> = {
+  devto: "dev.to",
+  hashnode: "Hashnode",
+  facebook: "Facebook",
+  instagram: "Instagram",
+  mastodon: "Mastodon",
+  bluesky: "Bluesky",
+  youtube: "YouTube",
+  lemmy: "Lemmy",
+  telegram: "Telegram",
+  wordpress: "WordPress",
+  discord: "Discord",
+};
+
 export function MentionsTab() {
   const {
     accounts,
@@ -31,15 +57,22 @@ export function MentionsTab() {
     <section>
       <h2>Mentions &amp; comments</h2>
       <p className="muted">
-        Comments on your recent posts, pulled directly from each platform. Facebook, Instagram, Mastodon,
-        Bluesky, and YouTube support this today, with reply-from-here on Facebook, Instagram, Mastodon, and
-        Bluesky. Every other platform's comments still live on the platform itself, not here yet.
+        Comments on your recent posts, pulled directly from each platform. Dev.to, Hashnode, Mastodon, Bluesky
+        and YouTube comments show here today, with reply-from-here on Mastodon and Bluesky (on the others, reply
+        on the platform itself). Facebook and Instagram are coming soon. Every other platform's comments still
+        live on the platform itself.
       </p>
       {mentionsLoading && <Spinner />}
       {!mentionsLoading && mentions && mentions.length === 0 && <p className="empty">No recent posted content yet.</p>}
       {!mentionsLoading && mentions && mentions.length > 0 && (() => {
-        const attentionCount = mentions.reduce((sum, p) => sum + p.comments.filter((c) => c.triage?.needsAttention).length, 0);
-        const brandFilteredMentions = mentions.filter((p) => accountMatchesBrand(accounts.find((a) => a.id === p.socialAccountId), brandFilter));
+        const liveMentions = mentions.filter((p) => MENTIONS_LIVE_PLATFORMS.has(p.platform));
+        // One line per platform that has posts but is not live yet (never its comments).
+        const comingSoonCounts = new Map<string, number>();
+        for (const p of mentions) {
+          if (!MENTIONS_LIVE_PLATFORMS.has(p.platform)) comingSoonCounts.set(p.platform, (comingSoonCounts.get(p.platform) ?? 0) + 1);
+        }
+        const attentionCount = liveMentions.reduce((sum, p) => sum + p.comments.filter((c) => c.triage?.needsAttention).length, 0);
+        const brandFilteredMentions = liveMentions.filter((p) => accountMatchesBrand(accounts.find((a) => a.id === p.socialAccountId), brandFilter));
         const visiblePosts = mentionsAttentionOnly
           ? brandFilteredMentions.map((p) => ({ ...p, comments: p.comments.filter((c) => c.triage?.needsAttention) })).filter((p) => p.comments.length > 0)
           : brandFilteredMentions;
@@ -103,7 +136,7 @@ export function MentionsTab() {
                             <span className="mentions-comment-author">{c.author}</span>
                             <span className="mentions-comment-text">{c.text}</span>
                             <TriageBadge triage={c.triage} />
-                            {post.canReply && (
+                            {REPLY_LIVE_PLATFORMS.has(post.platform) && post.canReply && (
                               replySentCommentId === c.id ? (
                                 <span className="mentions-reply-sent">Reply sent</span>
                               ) : (
@@ -137,6 +170,23 @@ export function MentionsTab() {
             </details>
           );
           })}
+          {comingSoonCounts.size > 0 && (
+            <ul className="mentions-list">
+              {[...comingSoonCounts.entries()].map(([platform, count]) => (
+                <li key={platform} className="mentions-post">
+                  <div className="post-platform">
+                    <PlatformIcon platform={platform} size={14} />
+                    {PLATFORM_LABELS[platform] ?? platform}
+                    <span className="coming-soon-badge">Coming soon</span>
+                  </div>
+                  <p className="mentions-unsupported">
+                    Comments on your {count} recent {PLATFORM_LABELS[platform] ?? platform} post{count === 1 ? "" : "s"} will
+                    show here once {PLATFORM_LABELS[platform] ?? platform} comments are switched on.
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
         </>
         );
       })()}
