@@ -231,5 +231,12 @@ export async function runReplySenderCycle<A extends SenderAdapter>(deps: SenderD
   } catch (err) {
     console.error("[replySender] cycle failed:", errorText(err));
   }
+  // One line per cycle that actually did something (an idle cycle every 30 seconds stays silent), so a live test and
+  // the day-to-day have something to read in the server log. Draft ids only: never the reply text.
+  if (summary.outcomes.length > 0 || summary.stuckFailed > 0) {
+    console.log(
+      `[replySender] cycle: ${JSON.stringify(summary.counts)}${summary.stuckFailed > 0 ? ` stuckFailed=${summary.stuckFailed}` : ""} drafts=${summary.outcomes.map((o) => `${o.id}:${o.outcome}`).join(",")}`,
+    );
+  }
   return summary;
 }

@@ -60,6 +60,7 @@ beforeEach(() => {
   reply = vi.fn<Reply>(async () => ({ success: true, errorMessage: null, platformReplyId: "reply-1" }));
   getToken = vi.fn<SenderDeps["getToken"]>(async () => "token-abc");
   vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(console, "log").mockImplementation(() => {});
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -208,6 +209,38 @@ describe("the cycle: what is sent", () => {
     expect(s.counts).toEqual({ failed_unconfirmed: 1, sent: 1 });
     expect(byId("a").status).toBe("failed");
     expect(byId("b").status).toBe("sent");
+  });
+});
+
+describe("the cycle: what it writes to the server log", () => {
+  it("writes one line when it sent something, with the counts and the draft ids, and never the reply text", async () => {
+    seed("a", { draft_text: "PRIVATE-REPLY-TEXT" });
+    await run();
+    expect(console.log).toHaveBeenCalledTimes(1);
+    const line = (console.log as unknown as { mock: { calls: string[][] } }).mock.calls[0][0];
+    expect(line).toBe('[replySender] cycle: {"sent":1} drafts=a:sent');
+    expect(line).not.toContain("PRIVATE-REPLY-TEXT");
+  });
+
+  it("writes the failure outcomes too, one line per cycle", async () => {
+    seed("a");
+    seed("b", { decided_at: new Date(T0.getTime() - minutes(1)).toISOString() });
+    reply.mockResolvedValueOnce({ success: false, errorMessage: "Mastodon reply failed (HTTP 429)" }).mockResolvedValueOnce({ success: false, errorMessage: "Mastodon reply failed (HTTP 401)" });
+    await run();
+    expect(console.log).toHaveBeenCalledTimes(1);
+    expect((console.log as unknown as { mock: { calls: string[][] } }).mock.calls[0][0]).toBe('[replySender] cycle: {"retry_scheduled":1,"failed":1} drafts=a:retry_scheduled,b:failed');
+  });
+
+  it("notes stuck sends cleaned up in the line", async () => {
+    seed("stuck", { status: "sending", updated_at: new Date(T0.getTime() - STUCK_SENDING_MS - minutes(1)).toISOString() });
+    await run();
+    expect((console.log as unknown as { mock: { calls: string[][] } }).mock.calls[0][0]).toBe("[replySender] cycle: {} stuckFailed=1 drafts=");
+  });
+
+  it("an idle cycle, or one that is switched off, writes nothing", async () => {
+    await run();
+    await run({ env: {} });
+    expect(console.log).not.toHaveBeenCalled();
   });
 });
 
