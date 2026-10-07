@@ -12,6 +12,9 @@ import { supabase } from "./supabase.js";
 import { buildPlatformRegistry } from "./platforms/registry.js";
 import { getAccessToken } from "./scheduler.js";
 import { triageItems } from "./commentTriage.js";
+import { replyDraftsEnabled } from "./replyDrafts.js";
+import { draftForPolledPost } from "./replyDrafting.js";
+import { defaultGenerate, REPLY_DRAFT_MODEL } from "./replyDraftingModel.js";
 
 // Mirrors dmAutomationPoller's own 30-day "all posts" window — comments on
 // an older post essentially never get new activity, and bounding this is
@@ -56,6 +59,9 @@ async function pollMentions(registry: ReturnType<typeof buildPlatformRegistry>) 
   let postsPolled = 0;
   let commentsCached = 0;
   let errored = 0;
+  // Draft-first reply loop: suggested replies are written only while REPLY_DRAFTS_ENABLED is exactly "true" (off by default)
+  // and an Anthropic key exists. Nothing is ever sent from here; see replyDrafting.ts.
+  const generate = replyDraftsEnabled() ? defaultGenerate() : null;
 
   for (const post of (posts ?? []) as unknown as MentionPostRow[]) {
     if (postsPolled >= MAX_MENTION_POST_POLLS_PER_RUN) break;
@@ -85,7 +91,7 @@ async function pollMentions(registry: ReturnType<typeof buildPlatformRegistry>) 
       // /mentions never has to wait on a live classification call — by the
       // time a customer opens the tab, every cached comment already has a
       // triage verdict sitting in comment_triage.
-      await triageItems(
+      const triage = await triageItems(
         post.account_id,
         "comment",
         commentsResult.comments.map((c) => ({ itemId: c.id, sourceSignature: c.id, author: c.author, text: c.text })),
@@ -120,6 +126,22 @@ async function pollMentions(registry: ReturnType<typeof buildPlatformRegistry>) 
           console.error(`mentionsAndDmsPoller: failed to cache ${rows.length} comments for post ${post.id}:`, upsertError.message);
         } else {
           commentsCached += rows.length;
+        }
+      }
+
+      if (generate && commentsResult.comments.length > 0) {
+        const run = await draftForPolledPost(
+          { db: supabase, generate, modelName: REPLY_DRAFT_MODEL },
+          {
+            accountId: post.account_id,
+            scheduledPostId: post.id,
+            socialAccountId: post.social_account_id,
+            comments: commentsResult.comments.map((c) => ({ id: c.id, author: c.author, text: c.text, createdAt: c.createdAt })),
+            triage,
+          },
+        );
+        if (run && (run.modelCalls > 0 || run.counts.drafted || run.counts.needs_input)) {
+          console.log(`mentionsAndDmsPoller: reply drafts for post ${post.id}: ${JSON.stringify(run.counts)} (${run.modelCalls} model calls)`);
         }
       }
     } catch (err) {
