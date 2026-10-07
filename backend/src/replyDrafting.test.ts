@@ -157,7 +157,7 @@ describe("checking the model's answer", () => {
   const check = (raw: string, over: Partial<typeof ctx> = {}) => validateModelReply(raw, { ...ctx, ...over });
 
   it("accepts a plain reply that only uses the owner's own facts", () => {
-    expect(check(GOOD)).toEqual({ kind: "reply", text: "We open at 9am, Monday to Friday. Hope to see you!" });
+    expect(check(GOOD)).toEqual({ kind: "reply", text: "We open at 9am, Monday to Friday. Hope to see you." });
   });
 
   it("finds the JSON even with words or a code fence around it", () => {
@@ -227,9 +227,24 @@ describe("checking the model's answer", () => {
     }
   });
 
-  it("turns long dashes into plain hyphens", () => {
-    const v = check(reply("We open at 9am — Monday to Friday"));
-    expect(v).toEqual({ kind: "reply", text: "We open at 9am - Monday to Friday" });
+  it("turns every kind of dash into a comma, and keeps hyphens inside words", () => {
+    expect(check(reply("We open at 9am — Monday to Friday"))).toEqual({ kind: "reply", text: "We open at 9am, Monday to Friday" });
+    expect(check(reply("We open at 9am – Monday to Friday"))).toEqual({ kind: "reply", text: "We open at 9am, Monday to Friday" });
+    expect(check(reply("We open at 9am - Monday to Friday"))).toEqual({ kind: "reply", text: "We open at 9am, Monday to Friday" });
+    expect(check(reply("We open at 9am -- Monday to Friday"))).toEqual({ kind: "reply", text: "We open at 9am, Monday to Friday" });
+    expect(check(reply("Our no-fee, flat-rate plan"))).toEqual({ kind: "reply", text: "Our no-fee, flat-rate plan" });
+  });
+
+  it("turns exclamation marks into full stops and drops a stock opener", () => {
+    expect(check(reply("Great question! We open at 9am. See you there!"))).toEqual({ kind: "reply", text: "We open at 9am. See you there." });
+    expect(check(reply("Good point, we open at 9am!!"))).toEqual({ kind: "reply", text: "We open at 9am." });
+  });
+
+  it("the style rules are in the prompt the model is given", () => {
+    const { system } = buildDraftRequest({ voiceProfile: null, postText: "Open 9am", facts: [], platform: "mastodon" }, { author: "a", text: "When?" });
+    expect(system).toMatch(/Never use dashes of any kind/);
+    expect(system).toMatch(/No exclamation marks/);
+    expect(system).toMatch(/not an advertisement/);
   });
 });
 
@@ -316,7 +331,7 @@ describe("the drafting run: writing drafts", () => {
     expect(rows()).toHaveLength(1);
     expect(rows()[0]).toMatchObject({
       account_id: "acc1", scheduled_post_id: "p1", social_account_id: "sa1", platform_comment_id: "c1",
-      triage_category: "question", status: "pending_review", draft_text: "We open at 9am, Monday to Friday. Hope to see you!", model: "test-model",
+      triage_category: "question", status: "pending_review", draft_text: "We open at 9am, Monday to Friday. Hope to see you.", model: "test-model",
     });
   });
 
