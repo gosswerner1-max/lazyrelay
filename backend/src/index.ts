@@ -1,10 +1,11 @@
 import "dotenv/config";
 import { supabase } from "./supabase.js";
-import { runSchedulerCycle } from "./scheduler.js";
+import { getAccessToken, runSchedulerCycle } from "./scheduler.js";
 import { generateDuePosts } from "./recurringScheduler.js";
 import { runTokenRefreshCycle } from "./tokenRefresher.js";
 import { purgeExpiredConnects } from "./platforms/connect.js";
 import { runWebhookDeliveryCycle } from "./webhook.js";
+import { runReplySenderCycle } from "./replySender.js";
 import { RSS_CHECK_INTERVAL_MS, runRssCycle } from "./rssPoller.js";
 import { buildPlatformRegistry } from "./platforms/registry.js";
 import { StubMorAdapter } from "./billing/stub.js";
@@ -167,6 +168,16 @@ async function main() {
   setInterval(() => {
     runWebhookDeliveryCycle().catch((err) => console.error("Webhook delivery cycle error:", summarizeIfHtmlError(err)));
   }, WEBHOOK_CYCLE_INTERVAL_MS);
+
+  // Approved replies (replySender.ts): every 30 seconds, post the replies a person approved in the dashboard. The cycle
+  // does nothing unless REPLY_DRAFTS_ENABLED is exactly "true" (off by default), so this timer is inert until then.
+  // Failures only log; this must never affect posting.
+  const REPLY_SENDER_INTERVAL_MS = 30_000;
+  setInterval(() => {
+    runReplySenderCycle({ db: supabase, getAdapter: (platform) => registry.get(platform), getToken: getAccessToken }).catch((err) =>
+      console.error("Reply sender cycle error:", summarizeIfHtmlError(err)),
+    );
+  }, REPLY_SENDER_INTERVAL_MS);
 
   // RSS feeds (rssPoller.ts): new items become drafts, never posts. Every 30
   // minutes; failures only log and can never affect posting.

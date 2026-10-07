@@ -409,6 +409,21 @@ export interface ReplyDraft {
   comment: { id: string; author: string; text: string; url: string | null; createdAt: string | null };
 }
 
+// An approved reply that LazyRelay could not post (GET /mentions/drafts, "failed").
+export interface FailedReplySend {
+  id: string;
+  /** The reply that was meant to go out (the owner's wording if they changed it). */
+  replyText: string;
+  /** Why it did not go out, in plain words. */
+  error: string;
+  /** LazyRelay cannot tell whether it was posted: the owner must look at their account before trying again. */
+  uncertain: boolean;
+  tries: number;
+  decidedAt: string | null;
+  post: ReplyDraft["post"];
+  comment: ReplyDraft["comment"];
+}
+
 export interface MentionOtherPlatform {
   platform: string;
   count: number;
@@ -729,11 +744,15 @@ export const api = {
     authedFetch(platforms && platforms.length > 0 ? `/mentions?platforms=${encodeURIComponent(platforms.join(","))}` : "/mentions"),
 
   // enabled is false while the draft-first reply loop is switched off on the server: show nothing then.
-  getReplyDrafts: (): Promise<{ enabled: boolean; drafts: ReplyDraft[] }> => authedFetch("/mentions/drafts"),
+  getReplyDrafts: (): Promise<{ enabled: boolean; drafts: ReplyDraft[]; failed?: FailedReplySend[]; waitingToSend?: number }> => authedFetch("/mentions/drafts"),
 
   // editedText only when the owner changed the wording (or wrote it, for "needs_input"); otherwise approve as suggested.
   approveReplyDraft: (id: string, editedText?: string | null): Promise<{ success: boolean; status: string }> =>
     authedFetch(`/mentions/drafts/${encodeURIComponent(id)}/approve`, { method: "POST", body: JSON.stringify(editedText ? { editedText } : {}) }),
+
+  // A reply that could not be sent goes back to be posted again (the tries start from zero).
+  retryReplyDraft: (id: string): Promise<{ success: boolean; status: string }> =>
+    authedFetch(`/mentions/drafts/${encodeURIComponent(id)}/retry`, { method: "POST", body: JSON.stringify({}) }),
 
   discardReplyDraft: (id: string): Promise<{ success: boolean; status: string }> =>
     authedFetch(`/mentions/drafts/${encodeURIComponent(id)}/discard`, { method: "POST", body: JSON.stringify({}) }),

@@ -7,7 +7,7 @@
 // switched off on the server (GET /mentions/drafts answers enabled: false).
 
 import { useCallback, useEffect, useState } from "react";
-import { api, type ReplyDraft } from "../../lib/api";
+import { api, type FailedReplySend, type ReplyDraft } from "../../lib/api";
 import { canApprove, categoryLabel, currentText, editedTextToSend, excerpt, expiryLabel, wordingState } from "../../lib/replyDraftHelpers";
 import { PlatformIcon } from "../../components/PlatformIcon";
 
@@ -23,13 +23,19 @@ export interface SuggestedRepliesViewProps {
   errors: Record<string, string>;
   /** One short line of feedback ("Reply approved."), or null. */
   notice: string | null;
+  /** Approved replies that LazyRelay has not posted yet. */
+  waitingToSend: number;
+  /** Approved replies that could not be posted. */
+  failed: FailedReplySend[];
   onType: (id: string, text: string) => void;
   onApprove: (draft: ReplyDraft) => void;
   onDiscard: (draft: ReplyDraft) => void;
+  onRetry: (failed: FailedReplySend) => void;
+  onDismiss: (failed: FailedReplySend) => void;
   now?: Date;
 }
 
-export function SuggestedRepliesView({ drafts, typed, busyId, errors, notice, onType, onApprove, onDiscard, now }: SuggestedRepliesViewProps) {
+export function SuggestedRepliesView({ drafts, typed, busyId, errors, notice, waitingToSend, failed, onType, onApprove, onDiscard, onRetry, onDismiss, now }: SuggestedRepliesViewProps) {
   return (
     <section className="suggested-replies" aria-labelledby="suggested-replies-heading">
       <h3 id="suggested-replies-heading" className="suggested-heading">
@@ -42,6 +48,11 @@ export function SuggestedRepliesView({ drafts, typed, busyId, errors, notice, on
       {notice && (
         <p className="suggested-notice" role="status">
           {notice}
+        </p>
+      )}
+      {waitingToSend > 0 && (
+        <p className="suggested-waiting" role="status">
+          {waitingToSend === 1 ? "1 approved reply is" : `${waitingToSend} approved replies are`} waiting to be posted.
         </p>
       )}
       {drafts.length === 0 && <p className="empty">No suggested replies waiting.</p>}
@@ -118,6 +129,58 @@ export function SuggestedRepliesView({ drafts, typed, busyId, errors, notice, on
           );
         })}
       </ul>
+
+      {failed.length > 0 && (
+        <div className="suggested-failed">
+          <h4 className="suggested-failed-heading">
+            Replies that could not be sent <span className="suggested-count">{failed.length}</span>
+          </h4>
+          <ul className="suggested-list">
+            {failed.map((f) => {
+              const busy = busyId === f.id;
+              const platform = f.post?.platform ?? "";
+              return (
+                <li key={f.id} className="suggested-card">
+                  <div className="post-platform">
+                    {platform && <PlatformIcon platform={platform} size={14} />}
+                    {platformName(platform)}
+                    {f.post?.url && (
+                      <a href={f.post.url} target="_blank" rel="noopener noreferrer" className="mentions-view-link">
+                        View post
+                      </a>
+                    )}
+                  </div>
+                  {f.comment.text && (
+                    <div className="suggested-comment">
+                      <span className="mentions-comment-author">{f.comment.author}</span>
+                      <span className="mentions-comment-text">{f.comment.text}</span>
+                    </div>
+                  )}
+                  <p className="suggested-label">Your reply</p>
+                  <p className="suggested-sent-text">{f.replyText}</p>
+                  <p className={f.uncertain ? "suggested-failure suggested-failure-uncertain" : "suggested-failure"}>
+                    {f.uncertain && <strong>Look at your account first. </strong>}
+                    {f.error}
+                  </p>
+                  <div className="suggested-actions">
+                    <button type="button" className="btn-primary" disabled={busy} onClick={() => onRetry(f)}>
+                      {busy ? "Working..." : f.uncertain ? "I checked, try again" : "Try again"}
+                    </button>
+                    <button type="button" className="suggested-discard" disabled={busy} onClick={() => onDismiss(f)}>
+                      Dismiss
+                    </button>
+                  </div>
+                  {errors[f.id] && (
+                    <p className="suggested-error" role="alert">
+                      {errors[f.id]}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }
@@ -126,22 +189,28 @@ export function SuggestedRepliesView({ drafts, typed, busyId, errors, notice, on
 export function SuggestedReplies() {
   const [enabled, setEnabled] = useState(false);
   const [drafts, setDrafts] = useState<ReplyDraft[] | null>(null);
+  const [failed, setFailed] = useState<FailedReplySend[]>([]);
+  const [waitingToSend, setWaitingToSend] = useState(0);
   const [typed, setTyped] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState<string | null>(null);
 
-  const load = useCallback(async (): Promise<ReplyDraft[]> => {
+  // Returns the ids of everything on screen after the refresh (waiting drafts and failed sends).
+  const load = useCallback(async (): Promise<Set<string>> => {
     try {
       const res = await api.getReplyDrafts();
       setEnabled(res.enabled);
       setDrafts(res.drafts);
-      return res.drafts;
+      setFailed(res.failed ?? []);
+      setWaitingToSend(res.waitingToSend ?? 0);
+      return new Set([...res.drafts.map((d) => d.id), ...(res.failed ?? []).map((f) => f.id)]);
     } catch {
       // A failed load is not worth an error banner on a tab that has other content: show nothing and let the next visit retry.
       setEnabled(false);
       setDrafts([]);
-      return [];
+      setFailed([]);
+      return new Set();
     }
   }, []);
 
@@ -149,7 +218,8 @@ export function SuggestedReplies() {
     void load();
   }, [load]);
 
-  const finish = (draft: ReplyDraft, message: string) => {
+  const finish = (draft: ReplyDraft, message: string, queued = false) => {
+    if (queued) setWaitingToSend((n) => n + 1);
     setDrafts((prev) => (prev ?? []).filter((d) => d.id !== draft.id));
     setTyped((prev) => {
       const next = { ...prev };
@@ -162,10 +232,10 @@ export function SuggestedReplies() {
   // The list is refreshed after any failure. If the draft is still there the message stays on its card (the owner can fix the
   // wording and try again); if it is gone (somebody else already handled it, in another tab or a teammate) its card disappears,
   // so the message moves to the notice line instead of vanishing with it.
-  const fail = async (draft: ReplyDraft, err: unknown) => {
+  const fail = async (item: { id: string }, err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
-    const refreshed = await load();
-    if (refreshed.some((d) => d.id === draft.id)) setErrors((prev) => ({ ...prev, [draft.id]: message }));
+    const stillThere = await load();
+    if (stillThere.has(item.id)) setErrors((prev) => ({ ...prev, [item.id]: message }));
     else setNotice(message);
   };
 
@@ -175,7 +245,7 @@ export function SuggestedReplies() {
     setErrors((prev) => ({ ...prev, [draft.id]: "" }));
     try {
       await api.approveReplyDraft(draft.id, editedTextToSend(draft, typed));
-      finish(draft, "Reply approved.");
+      finish(draft, "Reply approved. LazyRelay will post it shortly.", true);
     } catch (err) {
       await fail(draft, err);
     } finally {
@@ -197,6 +267,37 @@ export function SuggestedReplies() {
     }
   };
 
+  const retry = async (item: FailedReplySend) => {
+    setBusyId(item.id);
+    setNotice(null);
+    setErrors((prev) => ({ ...prev, [item.id]: "" }));
+    try {
+      await api.retryReplyDraft(item.id);
+      setFailed((prev) => prev.filter((f) => f.id !== item.id));
+      setWaitingToSend((n) => n + 1);
+      setNotice("Reply queued to be posted again.");
+    } catch (err) {
+      await fail(item, err);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const dismiss = async (item: FailedReplySend) => {
+    setBusyId(item.id);
+    setNotice(null);
+    setErrors((prev) => ({ ...prev, [item.id]: "" }));
+    try {
+      await api.discardReplyDraft(item.id);
+      setFailed((prev) => prev.filter((f) => f.id !== item.id));
+      setNotice("Reply dismissed.");
+    } catch (err) {
+      await fail(item, err);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   if (!enabled || drafts === null) return null;
   return (
     <SuggestedRepliesView
@@ -205,9 +306,13 @@ export function SuggestedReplies() {
       busyId={busyId}
       errors={errors}
       notice={notice}
+      waitingToSend={waitingToSend}
+      failed={failed}
       onType={(id, text) => setTyped((prev) => ({ ...prev, [id]: text }))}
       onApprove={(d) => void approve(d)}
       onDiscard={(d) => void discard(d)}
+      onRetry={(f) => void retry(f)}
+      onDismiss={(f) => void dismiss(f)}
     />
   );
 }

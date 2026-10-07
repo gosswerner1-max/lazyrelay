@@ -135,7 +135,7 @@ describe("old-format accounts (bare tokens) are unchanged", () => {
     plain(calls[0], `https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(DID)}&collection=app.bsky.feed.post&rkey=r1`);
 
     calls = [];
-    expect(await a.replyToComment("at://x/y/z", "thanks", JWT)).toEqual({ success: true, errorMessage: null });
+    expect(await a.replyToComment("at://x/y/z", "thanks", JWT)).toMatchObject({ success: true, errorMessage: null, platformReplyId: expect.any(String) });
     expect(calls.map((c) => c.url)).toEqual([
       "https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=at%3A%2F%2Fx%2Fy%2Fz&depth=0&parentHeight=10",
       "https://bsky.social/xrpc/com.atproto.server.getSession",
@@ -258,7 +258,7 @@ describe("accounts hosted on another server", () => {
     guarded(calls[0], `${PDS}/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(DID)}&collection=app.bsky.feed.post&rkey=r1`);
 
     calls = [];
-    expect(await a.replyToComment("at://x/y/z", "thanks", tok)).toEqual({ success: true, errorMessage: null });
+    expect(await a.replyToComment("at://x/y/z", "thanks", tok)).toMatchObject({ success: true, errorMessage: null, platformReplyId: expect.any(String) });
     // The thread lookup is the shared public service, the session and record go to the account's server.
     expect(calls[0].url).toContain("https://public.api.bsky.app/");
     guarded(calls[1], `${PDS}/xrpc/com.atproto.server.getSession`);

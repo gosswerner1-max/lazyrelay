@@ -143,6 +143,10 @@ async function pollMentions(registry: ReturnType<typeof buildPlatformRegistry>) 
         if (run && (run.modelCalls > 0 || run.counts.drafted || run.counts.needs_input)) {
           console.log(`mentionsAndDmsPoller: reply drafts for post ${post.id}: ${JSON.stringify(run.counts)} (${run.modelCalls} model calls)`);
         }
+        // REPLY_DRAFTS_DEBUG=true: say what happened to EVERY comment (including the skipped ones), for testing. Ids only.
+        if (run && process.env.REPLY_DRAFTS_DEBUG === "true") {
+          console.log(`mentionsAndDmsPoller: reply draft outcomes for post ${post.id}: ${run.outcomes.map((o) => `${o.commentId}=${o.outcome}`).join(" ")}`);
+        }
       }
     } catch (err) {
       console.error(`mentionsAndDmsPoller: getComments failed for post ${post.id}:`, err instanceof Error ? err.message : err);

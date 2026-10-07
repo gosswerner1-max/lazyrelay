@@ -639,7 +639,7 @@ export class MastodonAdapter implements PlatformAdapter {
         return { success: false, errorMessage: this.msg(c, json.error, `Mastodon reply failed (HTTP ${res.status})`) };
       }
 
-      return { success: true, errorMessage: null };
+      return { success: true, errorMessage: null, platformReplyId: String(json.id) };
     } catch (err) {
       if (err instanceof CustomerHostError) return { success: false, errorMessage: err.message };
       throw err;

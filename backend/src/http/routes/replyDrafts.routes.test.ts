@@ -78,12 +78,13 @@ describe("while the kill switch is off", () => {
   it("the list is empty and says drafts are off, even though a draft exists", async () => {
     const r = await request(app()).get("/mentions/drafts");
     expect(r.status).toBe(200);
-    expect(r.body).toEqual({ enabled: false, drafts: [] });
+    expect(r.body).toEqual({ enabled: false, drafts: [], failed: [], waitingToSend: 0 });
   });
 
   it("approve and discard answer 404 and change nothing", async () => {
     expect((await request(app()).post(`/mentions/drafts/${ID1}/approve`).send({})).status).toBe(404);
     expect((await request(app()).post(`/mentions/drafts/${ID1}/discard`).send({})).status).toBe(404);
+    expect((await request(app()).post(`/mentions/drafts/${ID1}/retry`).send({})).status).toBe(404);
     expect(byId(ID1).status).toBe("pending_review");
   });
 });
@@ -137,7 +138,7 @@ describe("GET /mentions/drafts", () => {
   });
 
   it("an empty list is fine", async () => {
-    expect((await request(app()).get("/mentions/drafts")).body).toEqual({ enabled: true, drafts: [] });
+    expect((await request(app()).get("/mentions/drafts")).body).toEqual({ enabled: true, drafts: [], failed: [], waitingToSend: 0 });
   });
 
   it("uses the platform's own reply limit", async () => {
@@ -262,5 +263,93 @@ describe("POST /mentions/drafts/:id/discard", () => {
 
   it("an id that is not a real id is a 404", async () => {
     expect((await request(app()).post("/mentions/drafts/abc/discard").send({})).status).toBe(404);
+  });
+});
+
+const failedDraft = (id: string, over: Record<string, unknown> = {}) =>
+  draft(id, { status: "failed", edited_text: "Our own words", decided_at: "2026-10-07T09:00:00.000Z", send_attempts: 1, error: "Mastodon reply failed (HTTP 401)", ...over });
+
+describe("replies that could not be sent", () => {
+  it("are listed with the reason, the wording, the tries and the comment, newest decision first, for this account only", async () => {
+    rows().push(
+      failedDraft(ID1, { platform_comment_id: "c-11", decided_at: "2026-10-07T09:00:00.000Z" }),
+      failedDraft(ID2, { platform_comment_id: "c-22", decided_at: "2026-10-07T10:00:00.000Z", send_attempts: 5, error: "Could not send after 5 tries. Last problem: Mastodon reply failed (HTTP 429)" }),
+      failedDraft(ID3, { account_id: "acc2", scheduled_post_id: "p9", platform_comment_id: "c-11" }),
+      draft(ID4, { status: "sent", platform_comment_id: "c-44" }),
+    );
+    const r = await request(app()).get("/mentions/drafts");
+    expect(r.body.failed.map((f: any) => f.id)).toEqual([ID2, ID1]);
+    expect(r.body.failed[1]).toEqual({
+      id: ID1, replyText: "Our own words", error: "Mastodon reply failed (HTTP 401)", uncertain: false, tries: 1, decidedAt: "2026-10-07T09:00:00.000Z",
+      post: { id: "p1", platform: "bluesky", content: "We open at 9am", url: "https://bsky.app/post/1" },
+      comment: { id: "c-11", author: "maria", text: "What time do you open?", url: null, createdAt: "2026-10-07T07:00:00.000Z" },
+    });
+    expect(r.body.failed[0]).toMatchObject({ tries: 5, comment: { author: "tom" } });
+    expect(JSON.stringify(r.body)).not.toMatch(/SOMEONE ELSE|private to acc2/);
+  });
+
+  it("the reply text is the suggestion when the owner did not change it", async () => {
+    rows().push(failedDraft(ID1, { edited_text: null }));
+    expect((await request(app()).get("/mentions/drafts")).body.failed[0].replyText).toBe("Thanks for asking!");
+  });
+
+  it("flags the ones LazyRelay cannot be sure about, so the owner is told to look first", async () => {
+    rows().push(
+      failedDraft(ID1, { platform_comment_id: "c-11", error: "LazyRelay could not confirm whether this reply was posted (The request timed out). Check your account before trying again, so it is not posted twice." }),
+      failedDraft(ID2, { platform_comment_id: "c-22", error: "LazyRelay stopped while sending this reply, so it may or may not have been posted. Check your account before trying again, so it is not posted twice." }),
+      failedDraft(ID3, { platform_comment_id: "c-33", error: "Mastodon reply failed (HTTP 403)" }),
+    );
+    const byFailedId = Object.fromEntries((await request(app()).get("/mentions/drafts")).body.failed.map((f: any) => [f.id, f.uncertain]));
+    expect(byFailedId).toEqual({ [ID1]: true, [ID2]: true, [ID3]: false });
+  });
+
+  it("shows even when nothing is waiting for a decision", async () => {
+    rows().push(failedDraft(ID1));
+    const r = await request(app()).get("/mentions/drafts");
+    expect(r.body.drafts).toEqual([]);
+    expect(r.body.failed).toHaveLength(1);
+  });
+
+  it("counts this account's approved and sending replies that are still waiting to go out", async () => {
+    rows().push(
+      draft(ID1, { status: "approved", platform_comment_id: "c-a" }),
+      draft(ID2, { status: "sending", platform_comment_id: "c-b" }),
+      draft(ID3, { status: "sent", platform_comment_id: "c-c" }),
+      draft(ID4, { status: "approved", account_id: "acc2", platform_comment_id: "c-d" }),
+    );
+    expect((await request(app()).get("/mentions/drafts")).body.waitingToSend).toBe(2);
+  });
+
+  it("can be tried again: back to approved with the tries and the error cleared, and who asked recorded", async () => {
+    rows().push(failedDraft(ID1, { send_attempts: 5, next_attempt_at: "2026-10-08T00:00:00.000Z" }));
+    const r = await request(app()).post(`/mentions/drafts/${ID1}/retry`).send({});
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ success: true, status: "approved" });
+    expect(byId(ID1)).toMatchObject({ status: "approved", error: null, send_attempts: 0, next_attempt_at: null, decided_by: "user1" });
+  });
+
+  it("only a failed reply can be tried again", async () => {
+    for (const [i, status] of (["pending_review", "needs_input", "approved", "sending", "sent", "discarded", "expired"] as const).entries()) {
+      const id = `bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb0${i}`;
+      rows().push(draft(id, { status, sent_at: "x", platform_comment_id: `cc-${i}` }));
+      expect((await request(app()).post(`/mentions/drafts/${id}/retry`).send({})).status, status).toBe(409);
+      expect(byId(id).status).toBe(status);
+    }
+  });
+
+  it("another account cannot retry it, an API key cannot retry, a bad id is a 404", async () => {
+    rows().push(failedDraft(ID1));
+    expect((await request(app()).post(`/mentions/drafts/${ID1}/retry`).set("x-test-account", "acc2").send({})).status).toBe(409);
+    expect((await request(app()).post(`/mentions/drafts/${ID1}/retry`).set("x-test-auth", "apikey").send({})).status).toBe(403);
+    expect((await request(app()).post("/mentions/drafts/nope/retry").send({})).status).toBe(404);
+    expect(byId(ID1).status).toBe("failed");
+  });
+
+  it("can be dismissed with the discard route", async () => {
+    rows().push(failedDraft(ID1));
+    const r = await request(app()).post(`/mentions/drafts/${ID1}/discard`).send({});
+    expect(r.status).toBe(200);
+    expect(byId(ID1)).toMatchObject({ status: "discarded", decided_by: "user1" });
+    expect((await request(app()).get("/mentions/drafts")).body.failed).toEqual([]);
   });
 });

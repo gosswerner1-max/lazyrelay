@@ -184,7 +184,7 @@ describe("old-format accounts (bare token) are unchanged", () => {
     expect(comments.comments).toEqual([{ id: "r1", author: "bob", text: "hi", url: null, createdAt: null }]);
     expectPlain(calls[1], "https://mastodon.social/api/v1/statuses/s1/context");
 
-    expect(await a.replyToComment("r1", "thanks", TOKEN)).toEqual({ success: true, errorMessage: null });
+    expect(await a.replyToComment("r1", "thanks", TOKEN)).toMatchObject({ success: true, errorMessage: null, platformReplyId: expect.any(String) });
     expectPlain(calls[2], "https://mastodon.social/api/v1/statuses");
     expect(JSON.parse(calls[2].init!.body)).toEqual({ status: "thanks", in_reply_to_id: "r1", visibility: "public" });
 
@@ -300,7 +300,7 @@ describe("accounts on a customer's own instance", () => {
     expect((await a.getComments("s1", c)).comments).toEqual([{ id: "r1", author: "Bo", text: "yo", url: null, createdAt: null }]);
     expectGuarded(calls[2], `${ORIGIN}/api/v1/statuses/s1/context`);
 
-    expect(await a.replyToComment("r1", "thanks", c)).toEqual({ success: true, errorMessage: null });
+    expect(await a.replyToComment("r1", "thanks", c)).toMatchObject({ success: true, errorMessage: null, platformReplyId: expect.any(String) });
     expectGuarded(calls[3], `${ORIGIN}/api/v1/statuses`);
 
     expect(await a.postChainReply({ rootPostId: "s1", parentPostId: "s1", text: "more", accessToken: c })).toEqual({ success: true, platformPostId: "new1", errorMessage: null });
