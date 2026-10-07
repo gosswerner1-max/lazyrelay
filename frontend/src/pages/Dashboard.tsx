@@ -49,7 +49,7 @@ const MORE_TABS: Tab[] = ["Analytics", "Mentions", "DMs", "Bio Page"];
 // Split 2026-10-07: the Mentions tab is always open now, because dev.to and
 // Hashnode comments are read-only, need no Meta permission and work today.
 // Which platforms show real comments is MENTIONS_LIVE_PLATFORMS in
-// MentionsTab.tsx; every other platform shows a "Coming soon" row there. This
+// dashboardHelpers.ts; only Facebook, Instagram and Threads show a "Coming soon" row there. This
 // flag now only gates the DMs tab and the notification bell (both count
 // Facebook and Instagram items).
 const COMMENTS_DMS_LIVE = false;
