@@ -3214,3 +3214,190 @@
   gap: 8px;
   cursor: pointer;
 }
+
+/* Suggested replies: the review screen for the draft-first reply loop (top of the Mentions tab). */
+.suggested-replies {
+  margin: 0 0 28px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--signal);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.suggested-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--ink);
+}
+
+.suggested-count {
+  min-width: 22px;
+  padding: 1px 8px;
+  border-radius: 11px;
+  background: var(--signal-bg);
+  color: var(--signal);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.suggested-intro {
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+
+.suggested-notice {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--confirm-bg);
+  color: var(--confirm);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.suggested-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.suggested-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.suggested-post {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--wire);
+}
+
+.suggested-comment {
+  margin: 10px 0 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 13px;
+}
+
+.suggested-kind {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--signal-bg);
+  color: var(--signal);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.suggested-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--wire);
+}
+
+.suggested-hint {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--warn);
+}
+
+.suggested-text {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.suggested-text:focus {
+  outline: 2px solid var(--signal);
+  outline-offset: 1px;
+}
+
+.suggested-text:disabled {
+  opacity: 0.6;
+}
+
+.suggested-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--wire);
+}
+
+.suggested-chars-over {
+  color: var(--error);
+  font-weight: 600;
+}
+
+.suggested-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.suggested-discard {
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--wire);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.suggested-discard:hover:not(:disabled) {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.suggested-discard:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.suggested-error {
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--error-bg);
+  color: var(--error);
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .suggested-actions button {
+    flex: 1 1 100%;
+  }
+}

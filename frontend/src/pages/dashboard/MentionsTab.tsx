@@ -10,6 +10,7 @@ import { Spinner } from "../../components/Spinner";
 import { accountMatchesBrand, localDateKey, MENTIONS_LIVE_PLATFORMS } from "./dashboardHelpers";
 import { BrandFilterSelect, TriageBadge } from "./dashboardComponents";
 import { useDashboard } from "./DashboardContext";
+import { SuggestedReplies } from "./SuggestedReplies";
 
 // Reply-from-here is live only for Mastodon and Bluesky (Werner, 2026-10-07).
 // Every other platform stays read-only in this tab until the draft-first reply
@@ -56,6 +57,7 @@ export function MentionsTab() {
         on the platform itself). Facebook and Instagram are coming soon. Every other platform's comments still
         live on the platform itself.
       </p>
+      <SuggestedReplies />
       {mentionsLoading && <Spinner />}
       {!mentionsLoading && mentions && mentions.length === 0 && <p className="empty">No recent posted content yet.</p>}
       {!mentionsLoading && mentions && mentions.length > 0 && (() => {

@@ -394,6 +394,21 @@ export interface MentionComment {
   triage?: Triage | null;
 }
 
+// A suggested reply waiting for a person to approve, edit or discard it (GET /mentions/drafts).
+export interface ReplyDraft {
+  id: string;
+  status: "pending_review" | "needs_input";
+  triageCategory: string;
+  /** The model's suggestion. Null for "needs_input": there is no suggestion, the owner writes the reply. */
+  draftText: string | null;
+  /** The longest reply this platform accepts. */
+  replyLimit: number;
+  createdAt: string;
+  expiresAt: string;
+  post: { id: string; platform: string; content: string; url: string | null } | null;
+  comment: { id: string; author: string; text: string; url: string | null; createdAt: string | null };
+}
+
 export interface MentionOtherPlatform {
   platform: string;
   count: number;
@@ -712,6 +727,16 @@ export const api = {
   // and also returns otherPlatforms (recent post counts of the platforms left out, for the "Coming soon" rows).
   getMentions: (platforms?: readonly string[]): Promise<{ posts: MentionPost[]; otherPlatforms?: MentionOtherPlatform[] }> =>
     authedFetch(platforms && platforms.length > 0 ? `/mentions?platforms=${encodeURIComponent(platforms.join(","))}` : "/mentions"),
+
+  // enabled is false while the draft-first reply loop is switched off on the server: show nothing then.
+  getReplyDrafts: (): Promise<{ enabled: boolean; drafts: ReplyDraft[] }> => authedFetch("/mentions/drafts"),
+
+  // editedText only when the owner changed the wording (or wrote it, for "needs_input"); otherwise approve as suggested.
+  approveReplyDraft: (id: string, editedText?: string | null): Promise<{ success: boolean; status: string }> =>
+    authedFetch(`/mentions/drafts/${encodeURIComponent(id)}/approve`, { method: "POST", body: JSON.stringify(editedText ? { editedText } : {}) }),
+
+  discardReplyDraft: (id: string): Promise<{ success: boolean; status: string }> =>
+    authedFetch(`/mentions/drafts/${encodeURIComponent(id)}/discard`, { method: "POST", body: JSON.stringify({}) }),
 
   replyToMention: (postId: string, commentId: string, text: string): Promise<{ success: boolean }> =>
     authedFetch("/mentions/reply", { method: "POST", body: JSON.stringify({ postId, commentId, text }) }),
