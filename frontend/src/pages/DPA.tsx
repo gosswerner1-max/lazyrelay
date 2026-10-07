@@ -7,7 +7,7 @@ interface DPAProps {
   onBack: () => void;
 }
 
-const LAST_UPDATED = "7 September 2026";
+const LAST_UPDATED = "7 October 2026";
 
 export function DPA({ onBack }: DPAProps) {
   useEffect(() => {
@@ -76,9 +76,10 @@ export function DPA({ onBack }: DPAProps) {
             <li>Content and media you upload to schedule for publishing.</li>
             <li>
               Comments and direct messages sent by people who interact with your connected social accounts —
-              these are read live from each platform when you view them and are not stored by LazyRelay
-              beyond an AI-generated classification (a category, e.g. "needs attention," plus a short
-              summary reason of eight words or fewer) — never the verbatim message.
+              these are read from each platform and kept by LazyRelay for up to 30 days, then deleted, so they
+              can be shown in your dashboard. After that, only an AI-generated classification remains (a
+              category, e.g. "needs attention," plus a short summary reason of eight words or fewer) — never
+              the verbatim message.
             </li>
             <li>Basic technical/usage data (e.g. error logs) needed to operate the Service reliably.</li>
           </ul>
@@ -142,8 +143,8 @@ export function DPA({ onBack }: DPAProps) {
             Social media access tokens are encrypted and stored separately from ordinary database records,
             accessible only through LazyRelay's own backend — never as plain text in any table. Connections
             between your browser, LazyRelay, and our infrastructure providers use encrypted connections.
-            Comments and direct messages are read on demand and not persisted beyond a short classification
-            tag. See our <a href="/privacy">Privacy Policy</a> for further detail.
+            Comments and direct messages are kept for up to 30 days, then deleted; after that only a short
+            classification tag remains. See our <a href="/privacy">Privacy Policy</a> for further detail.
           </p>
 
           <h3>Data subject rights</h3>
