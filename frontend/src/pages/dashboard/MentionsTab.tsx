@@ -7,16 +7,9 @@
 import { type MentionPost } from "../../lib/api";
 import { PlatformIcon } from "../../components/PlatformIcon";
 import { Spinner } from "../../components/Spinner";
-import { accountMatchesBrand, localDateKey } from "./dashboardHelpers";
+import { accountMatchesBrand, localDateKey, MENTIONS_LIVE_PLATFORMS } from "./dashboardHelpers";
 import { BrandFilterSelect, TriageBadge } from "./dashboardComponents";
 import { useDashboard } from "./DashboardContext";
-
-// Platforms whose comments are shown in this tab: dev.to, Hashnode, Mastodon,
-// Bluesky and YouTube. None of them depends on a Meta permission. Every other
-// platform that can return comments (Facebook, Instagram, ...) stays out until
-// it is approved and checked, and shows a "Coming soon" row instead, so the tab
-// never advertises something that would silently fail.
-const MENTIONS_LIVE_PLATFORMS = new Set(["devto", "hashnode", "mastodon", "bluesky", "youtube"]);
 
 // Reply-from-here is live only for Mastodon and Bluesky (Werner, 2026-10-07).
 // Every other platform stays read-only in this tab until the draft-first reply
@@ -43,6 +36,7 @@ export function MentionsTab() {
     brandFilter,
     setBrandFilter,
     mentions,
+    mentionsOther,
     mentionsLoading,
     mentionsAttentionOnly,
     setMentionsAttentionOnly,
@@ -65,12 +59,11 @@ export function MentionsTab() {
       {mentionsLoading && <Spinner />}
       {!mentionsLoading && mentions && mentions.length === 0 && <p className="empty">No recent posted content yet.</p>}
       {!mentionsLoading && mentions && mentions.length > 0 && (() => {
-        const liveMentions = mentions.filter((p) => MENTIONS_LIVE_PLATFORMS.has(p.platform));
-        // One line per platform that has posts but is not live yet (never its comments).
-        const comingSoonCounts = new Map<string, number>();
-        for (const p of mentions) {
-          if (!MENTIONS_LIVE_PLATFORMS.has(p.platform)) comingSoonCounts.set(p.platform, (comingSoonCounts.get(p.platform) ?? 0) + 1);
-        }
+        // The server already sends only the live platforms' posts (newest 15 of those). The filter below is a
+        // safety net, so a platform that is not live can never show its comments here.
+        const liveMentions = mentions.filter((p) => MENTIONS_LIVE_PLATFORMS.includes(p.platform));
+        // One line per platform that has posts but is not live yet (never its comments); the counts come from the server.
+        const comingSoonCounts = new Map<string, number>(mentionsOther.filter((o) => !MENTIONS_LIVE_PLATFORMS.includes(o.platform)).map((o) => [o.platform, o.count]));
         const attentionCount = liveMentions.reduce((sum, p) => sum + p.comments.filter((c) => c.triage?.needsAttention).length, 0);
         const brandFilteredMentions = liveMentions.filter((p) => accountMatchesBrand(accounts.find((a) => a.id === p.socialAccountId), brandFilter));
         const visiblePosts = mentionsAttentionOnly

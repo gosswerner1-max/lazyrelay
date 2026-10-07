@@ -10,6 +10,7 @@ import { tieredRateLimit } from "../rateLimit.js";
 import { triageItems, type TriageItem, type TriageResult } from "../../commentTriage.js";
 import type { CommentItem } from "../../platforms/types.js";
 import { dbError } from "./shared.js";
+import { fetchMentionPosts, fetchOtherPlatformCounts, parsePlatformsParam } from "../../mentionsQuery.js";
 
 export function buildInboxRouter(registry: PlatformAdapterRegistry): Router {
   const router = Router();
@@ -27,14 +28,19 @@ export function buildInboxRouter(registry: PlatformAdapterRegistry): Router {
   // migration 0058_mentions_dms_cache.sql. Post-level metadata
   // (content/scheduledFor/platformPostUrl) still comes straight from
   // scheduled_posts/post_results since the cache only stores comments.
+  //
+  // Optional ?platforms=devto,hashnode,... : only those platforms, and the limit of
+  // 15 posts is applied AFTER that filter (see mentionsQuery.ts). The answer then
+  // also carries otherPlatforms (recent post counts of the platforms left out) so
+  // the dashboard can show its "Coming soon" rows. Without the parameter nothing
+  // changes: newest 15 posts across every platform, no otherPlatforms.
   router.get("/mentions", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data: posts, error } = await req.db!
-      .from("scheduled_posts")
-      .select("id, content, scheduled_for, social_account_id, social_accounts(platform), post_results(platform_post_id, platform_post_url, verified_live)")
-      .eq("account_id", req.accountId)
-      .eq("status", "posted")
-      .order("scheduled_for", { ascending: false })
-      .limit(15);
+    const parsed = parsePlatformsParam(req.query.platforms);
+    if (!parsed.ok) {
+      res.status(400).json({ error: "platforms must be a comma-separated list of platform ids, for example devto,hashnode" });
+      return;
+    }
+    const { data: posts, error } = await fetchMentionPosts(req.db!, req.accountId!, parsed.platforms);
     if (error) {
       dbError(res, error, "GET /mentions");
       return;
@@ -121,6 +127,11 @@ export function buildInboxRouter(registry: PlatformAdapterRegistry): Router {
       .from("notification_view_state")
       .upsert({ account_id: req.accountId, mentions_last_viewed_at: new Date().toISOString() }, { onConflict: "account_id" });
 
+    if (parsed.platforms) {
+      const otherPlatforms = await fetchOtherPlatformCounts(req.db!, req.accountId!, parsed.platforms);
+      res.json({ posts: results, otherPlatforms });
+      return;
+    }
     res.json({ posts: results });
   });
 

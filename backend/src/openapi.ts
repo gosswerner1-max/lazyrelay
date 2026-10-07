@@ -285,7 +285,7 @@ function paths(): Json {
         errors: [401],
       }),
     },
-    "/mentions": { get: op("listMentions", { tag: "Analytics", summary: "Recent comments on your posts, where the platform lets LazyRelay read them", errors: [401] }) },
+    "/mentions": { get: op("listMentions", { tag: "Analytics", summary: "Recent comments on your posts, where the platform lets LazyRelay read them", description: "Without a filter this covers your 15 newest posted posts across every platform. With platforms, only those platforms are considered and the 15 newest posts are taken from them (the answer then also lists otherPlatforms: recent post counts of the platforms left out).", parameters: [{ name: "platforms", in: "query", required: false, description: "Comma-separated platform ids, for example devto,hashnode. Letters, digits and underscores only, at most 30.", schema: { type: "string" } }], errors: [400, 401] }) },
     "/mentions/reply": { post: op("replyToMention", { tag: "Analytics", summary: "Reply to a comment from GET /mentions", body: jsonBody({ type: "object", required: ["postId", "commentId", "text"], properties: { postId: { type: "string" }, commentId: { type: "string" }, text: { type: "string" } } }), errors: [400, 401, 404] }) },
     "/brands": { get: op("listBrands", { tag: "Accounts", summary: "Brands (workspaces)", errors: [401] }) },
 
