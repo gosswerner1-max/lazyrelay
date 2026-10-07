@@ -400,7 +400,7 @@ export function registerLazyRelayTools(server: McpServer, rawCall: LazyRelayRawC
   def(
     "get_mentions",
     "Read recent comments",
-    "Recent comments on this account's posts, on the platforms that let LazyRelay read them (Facebook, Instagram, Mastodon, Bluesky, YouTube).",
+    "Recent comments on this account's posts, on the platforms that let LazyRelay read them (Facebook, Instagram, Mastodon, Bluesky, YouTube, Dev.to, Hashnode).",
     READ_LIVE,
     {},
     (_args, call) => call("/mentions"),
