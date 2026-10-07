@@ -14,13 +14,13 @@ import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
 import type { OAuthGrant } from "@supabase/supabase-js";
-import { api, type SocialAccount, type Brand, type BrandCapacity, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type DMConversation, type DMMessage, type DMAutomation, type TeamMember, type SeatCapacity } from "../../lib/api";
+import { api, type SocialAccount, type Brand, type BrandCapacity, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type MentionOtherPlatform, type DMConversation, type DMMessage, type DMAutomation, type TeamMember, type SeatCapacity } from "../../lib/api";
 import { PLATFORM_LIMIT_EVENT, type PlatformLimitDetail } from "../../lib/platformLimit";
 import { isTiktokDisclosureIncomplete } from "../../lib/tiktokDisclosure";
 import { getStoredPromoCode } from "../../lib/promo";
 import { getStoredReferralCode } from "../../lib/referral";
 import { isVideoTooLongForTiktok, tiktokVideoTooLongMessage, type TiktokCreatorInfo } from "../../lib/tiktokPostChecks";
-import { type Tab, TOUR_SEEN_KEY, GCAL_PROMPT_SEEN_KEY, useIsMobile, connectParams, parseCsv } from "./dashboardHelpers";
+import { type Tab, TOUR_SEEN_KEY, GCAL_PROMPT_SEEN_KEY, useIsMobile, connectParams, parseCsv, MENTIONS_LIVE_PLATFORMS } from "./dashboardHelpers";
 
 export function useDashboardState() {
   const { signOut, session } = useAuth();
@@ -470,6 +470,7 @@ export function useDashboardState() {
   const [planTime, setPlanTime] = useState("");
   const [promotingPlanId, setPromotingPlanId] = useState<string | null>(null);
   const [mentions, setMentions] = useState<MentionPost[] | null>(null);
+  const [mentionsOther, setMentionsOther] = useState<MentionOtherPlatform[]>([]);
   const [mentionsLoading, setMentionsLoading] = useState(false);
   const [mentionsAttentionOnly, setMentionsAttentionOnly] = useState(false);
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
@@ -705,8 +706,11 @@ export function useDashboardState() {
     if (tab !== "Mentions" || mentions !== null) return;
     setMentionsLoading(true);
     api
-      .getMentions()
-      .then((res) => setMentions(res.posts))
+      .getMentions(MENTIONS_LIVE_PLATFORMS)
+      .then((res) => {
+        setMentions(res.posts);
+        setMentionsOther(res.otherPlatforms ?? []);
+      })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setMentionsLoading(false));
   }, [tab, mentions]);
@@ -2941,6 +2945,7 @@ export function useDashboardState() {
     setPlanTime,
     promotingPlanId,
     mentions,
+    mentionsOther,
     mentionsLoading,
     mentionsAttentionOnly,
     setMentionsAttentionOnly,

@@ -394,6 +394,11 @@ export interface MentionComment {
   triage?: Triage | null;
 }
 
+export interface MentionOtherPlatform {
+  platform: string;
+  count: number;
+}
+
 export interface MentionPost {
   postId: string;
   socialAccountId: string;
@@ -703,7 +708,10 @@ export const api = {
   ): Promise<{ insight: string } | { insufficientData: true; postsWithData: number; needed: number }> =>
     authedFetch("/analytics/insight", { method: "POST", body: JSON.stringify({ days, brand, tag }) }),
 
-  getMentions: (): Promise<{ posts: MentionPost[] }> => authedFetch("/mentions"),
+  // With a platform list the server filters first and takes the newest 15 posts of those platforms only,
+  // and also returns otherPlatforms (recent post counts of the platforms left out, for the "Coming soon" rows).
+  getMentions: (platforms?: readonly string[]): Promise<{ posts: MentionPost[]; otherPlatforms?: MentionOtherPlatform[] }> =>
+    authedFetch(platforms && platforms.length > 0 ? `/mentions?platforms=${encodeURIComponent(platforms.join(","))}` : "/mentions"),
 
   replyToMention: (postId: string, commentId: string, text: string): Promise<{ success: boolean }> =>
     authedFetch("/mentions/reply", { method: "POST", body: JSON.stringify({ postId, commentId, text }) }),
