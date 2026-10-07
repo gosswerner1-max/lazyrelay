@@ -9,7 +9,7 @@ import { acquireBillingLock, releaseBillingLock } from "../../billing/locks.js";
 import { buildCheckoutTransaction } from "../../billing/paddle.js";
 import { Environment } from "@paddle/paddle-node-sdk";
 import type { MerchantOfRecordAdapter } from "../../billing/types.js";
-import { requireAuth, requireOwner, type AuthedRequest } from "../auth.js";
+import { requireAuth, requireHumanAuth, requireOwner, type AuthedRequest } from "../auth.js";
 import { tieredRateLimit } from "../rateLimit.js";
 import { getBrandCapacity } from "../../brandLimits.js";
 import { getSeatCapacity, MAX_SEAT_ADDONS_PER_ACCOUNT } from "../../seatLimits.js";
@@ -111,7 +111,7 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
   // Only meaningful once MOR_API_KEY + the tier's price ID env vars exist
   // (see BILLING_KNOWLEDGE.md) — reports a clear error rather than a
   // confusing Paddle SDK exception if they don't.
-  router.post("/subscription/checkout", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.post("/subscription/checkout", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { tier, promoCode, referralCode } = req.body ?? {};
     if (tier !== "pro" && tier !== "business" && tier !== "enterprise" && tier !== "agency" && tier !== "agency_plus") {
       res.status(400).json({
@@ -260,7 +260,7 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
   // comment in billing/types.ts for why no local DB write happens here —
   // the resulting webhook is the source of truth, same as every other
   // subscription-lifecycle change.
-  router.post("/subscription/change-tier", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.post("/subscription/change-tier", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { tier } = req.body ?? {};
     if (tier !== "pro" && tier !== "business" && tier !== "enterprise" && tier !== "agency" && tier !== "agency_plus") {
       res.status(400).json({
@@ -339,7 +339,7 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
   // The cancellation flow — this is THE trust-critical endpoint. Cancels
   // with the Merchant of Record first; only then does the local record
   // get marked cancelled. See billing/sync.ts for the full reasoning.
-  router.post("/subscription/cancel", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.post("/subscription/cancel", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { feedback, acknowledgedDataDeletion } = req.body ?? {};
     const result = await cancelSubscription(
       req.accountId!,
@@ -384,7 +384,7 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
   // their tier's base amount. Same checkout-overlay pattern as
   // /subscription/checkout, just a different customData shape (see
   // buildCheckoutTransaction in billing/paddle.ts).
-  router.post("/storage-addons/checkout", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.post("/storage-addons/checkout", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { gbAmount } = req.body ?? {};
     if (!STORAGE_ADDON_GB_OPTIONS.includes(gbAmount)) {
       res.status(400).json({ error: `gbAmount must be one of ${STORAGE_ADDON_GB_OPTIONS.join(", ")}` });
@@ -466,7 +466,7 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
 
   // Cancels a single storage add-on — does not touch the account's main
   // tier subscription. See billing/sync.ts's cancelStorageAddon.
-  router.post("/storage-addons/:id/cancel", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.post("/storage-addons/:id/cancel", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const result = await cancelStorageAddon(req.accountId!, String(req.params.id), morAdapter);
     if (!result.success) {
       res.status(502).json({ error: result.errorMessage ?? "Cancellation failed at the payment provider" });
@@ -504,7 +504,7 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
   // slot). Same free-tier exclusion and pattern as /storage-addons/checkout —
   // a customer already on a paid tier who wants MORE brands than their
   // tier's base allowance.
-  router.post("/brand-addons/checkout", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.post("/brand-addons/checkout", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const tier = await resolveTier(req.accountId!);
     if (tier === "free") {
       res.status(403).json({ error: "Brand add-ons aren't available on the Free tier — upgrade to a paid plan first." });
@@ -572,7 +572,7 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
 
   // Cancels a single brand add-on — does not touch the account's main tier
   // subscription. See billing/sync.ts's cancelBrandAddon.
-  router.post("/brand-addons/:id/cancel", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.post("/brand-addons/:id/cancel", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const result = await cancelBrandAddon(req.accountId!, String(req.params.id), morAdapter);
     if (!result.success) {
       res.status(502).json({ error: result.errorMessage ?? "Cancellation failed at the payment provider" });
@@ -606,7 +606,7 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
     res.json({ addons: data, baseLimit: capacity.baseLimit, addonSlots: capacity.addonSlots, totalLimit: capacity.totalLimit });
   });
 
-  router.post("/seat-addons/checkout", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.post("/seat-addons/checkout", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const tier = await resolveTier(req.accountId!);
     if (tier !== "enterprise" && tier !== "agency" && tier !== "agency_plus") {
       res.status(403).json({ error: "Seat add-ons are only available on Business, Agency, or Agency Plus — upgrade first." });
@@ -674,7 +674,7 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
 
   // Cancels a single seat add-on — does not touch the account's main tier
   // subscription. See billing/sync.ts's cancelSeatAddon.
-  router.post("/seat-addons/:id/cancel", requireAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
+  router.post("/seat-addons/:id/cancel", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const result = await cancelSeatAddon(req.accountId!, String(req.params.id), morAdapter);
     if (!result.success) {
       res.status(502).json({ error: result.errorMessage ?? "Cancellation failed at the payment provider" });
