@@ -6,7 +6,7 @@
 import "dotenv/config";
 import { supabase } from "./supabase.js";
 import { buildPlatformRegistry } from "./platforms/registry.js";
-import { getAccessToken } from "./scheduler.js";
+import { getAccessToken, DisconnectedAccountError } from "./scheduler.js";
 import type { CommentItem } from "./platforms/types.js";
 
 // Meta's own Private Reply eligibility window — a comment older than this
@@ -108,6 +108,7 @@ async function main() {
     try {
       accessToken = await getAccessToken(automation.social_account_id, adapter);
     } catch (err) {
+      if (err instanceof DisconnectedAccountError) continue; // disconnected on purpose: nothing to do
       console.error(`dmAutomationPoller: could not get access token for automation ${automation.id}:`, err instanceof Error ? err.message : err);
       continue;
     }

@@ -12,7 +12,7 @@
 import "dotenv/config";
 import { supabase } from "./supabase.js";
 import { buildPlatformRegistry } from "./platforms/registry.js";
-import { getAccessToken } from "./scheduler.js";
+import { getAccessToken, DisconnectedAccountError } from "./scheduler.js";
 import type { PlatformAdapter, PostMetrics } from "./platforms/types.js";
 import { runSelfReply, type SelfReplyPost } from "./selfReply.js";
 
@@ -155,6 +155,8 @@ async function main() {
       const accessToken = await getAccessToken(c.socialAccountId, adapter);
       metrics = await adapter.getPostMetrics!(c.platformPostId, accessToken);
     } catch (err) {
+      // The customer disconnected this account and its login was wiped: nothing to read, and no error row to store.
+      if (err instanceof DisconnectedAccountError) continue;
       metrics = {
         likes: null,
         comments: null,

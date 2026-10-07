@@ -14,6 +14,7 @@ import { requireAuth, type AuthedRequest } from "../auth.js";
 import { tieredRateLimit, publicRateLimit } from "../rateLimit.js";
 import { checkAccountLimit } from "../../accountLimits.js";
 import { getAccessToken } from "../../scheduler.js";
+import { wipeConnectionTokens } from "../../tokenWipe.js";
 import { getFrontendUrl, dbError } from "./shared.js";
 import { validateBody, optionalNullableString } from "../validation.js";
 import { normalizeMastodonInstance } from "../../platforms/mastodon.js";
@@ -402,12 +403,13 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
   // do it. Soft-delete via `disconnected_at`, the same reversible pattern
   // this table already uses everywhere else (GET /social-accounts already
   // filters on it) — not a hard delete, consistent with how the rest of
-  // this schema treats "removed." The stored token itself is left in the
-  // vault rather than actively revoked: none of the three manual platforms
-  // (Bluesky app password, Telegram bot admin, Discord webhook) expose a
-  // programmatic revoke, and the real OAuth platforms' tokens simply
-  // become unreachable dead weight once this row stops being selectable —
-  // same as every other soft-deleted row in this system.
+  // this schema treats "removed." The stored login IS destroyed (2026-10-07,
+  // Werner: the Data Deletion page promises disconnecting revokes LazyRelay's
+  // access token): its Vault secrets are overwritten right after the row is
+  // marked disconnected (tokenWipe.ts), and a sweep retries anything that
+  // failed, so a failure here never blocks the disconnect. This does not call
+  // the platform to revoke its own copy; the customer can also remove
+  // LazyRelay from that platform's connected-apps settings.
   router.delete("/social-accounts/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { data, error, count } = await req.db!
       .from("social_accounts")
@@ -425,6 +427,7 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
       res.status(404).json({ error: "Not found, not owned by this caller, or already disconnected" });
       return;
     }
+    await wipeConnectionTokens(supabase, "social_accounts", "id", req.params.id as string);
     res.status(204).end();
   });
 

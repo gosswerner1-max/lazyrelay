@@ -7,6 +7,7 @@
 // needs to serve 15+ platforms.
 
 import { supabase } from "../supabase.js";
+import { wipeConnectionTokens, wipeVaultSecrets } from "../tokenWipe.js";
 import { getAuthorizeUrl as buildAuthorizeUrl, exchangeCode, fetchConnectedEmail, type GoogleTokens } from "./oauthClient.js";
 import { startWatchingConnection, stopWatchingConnection } from "./pushNotifications.js";
 
@@ -100,6 +101,15 @@ export async function completeGoogleCalendarConnect(
     refreshVaultId = data;
   }
 
+  const { data: previous } = await supabase
+    .from("google_calendar_connections")
+    .select("access_token_vault_id, refresh_token_vault_id")
+    .eq("account_id", stateRow.account_id)
+    .maybeSingle();
+  // Remember the login the row holds now, before the save below re-points it at the new one.
+  const replacedAccessVaultId: string | null = previous?.access_token_vault_id ?? null;
+  const replacedRefreshVaultId: string | null = previous?.refresh_token_vault_id ?? null;
+
   const { data: connection, error: insertError } = await supabase
     .from("google_calendar_connections")
     .upsert(
@@ -111,12 +121,21 @@ export async function completeGoogleCalendarConnect(
         google_calendar_id: googleCalendarId,
         connected_email: connectedEmail,
         disconnected_at: null,
+        tokens_wiped_at: null,
       },
       { onConflict: "account_id" },
     )
     .select("id")
     .single();
   if (insertError || !connection) throw insertError ?? new Error("Failed to save the Google Calendar connection");
+
+  // The login the row used to point at would otherwise stay in Vault for good (2026-10-07).
+  if (previous) {
+    await wipeVaultSecrets(supabase, [
+      replacedAccessVaultId === accessVaultId ? null : replacedAccessVaultId,
+      replacedRefreshVaultId === refreshVaultId ? null : replacedRefreshVaultId,
+    ]);
+  }
 
   // Best-effort -- a failed subscribe never fails the connect itself, the
   // connection just relies on the poller's hourly safety net until the next
@@ -150,4 +169,6 @@ export async function disconnectGoogleCalendar(accountId: string): Promise<void>
     .eq("account_id", accountId)
     .is("disconnected_at", null);
   if (error) throw error;
+  // Stopping the watch above needed the login; now that it is done, destroy it (2026-10-07). The sweep retries a failure.
+  await wipeConnectionTokens(supabase, "google_calendar_connections", "account_id", accountId);
 }

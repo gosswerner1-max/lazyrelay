@@ -5,6 +5,7 @@
 // "subscribe" call needed.
 
 import { supabase } from "../supabase.js";
+import { wipeConnectionTokens, wipeVaultSecrets } from "../tokenWipe.js";
 import { getAuthorizeUrl as buildAuthorizeUrl, exchangeCode, fetchConnectedEmail, type GoogleTokens } from "./oauthClient.js";
 import { HEADER_ROW, SHEET_TAB_TITLE } from "./sheetMapper.js";
 
@@ -114,6 +115,15 @@ export async function completeGoogleSheetsConnect(
     refreshVaultId = data;
   }
 
+  const { data: previous } = await supabase
+    .from("google_sheets_connections")
+    .select("access_token_vault_id, refresh_token_vault_id")
+    .eq("account_id", stateRow.account_id)
+    .maybeSingle();
+  // Remember the login the row holds now, before the save below re-points it at the new one.
+  const replacedAccessVaultId: string | null = previous?.access_token_vault_id ?? null;
+  const replacedRefreshVaultId: string | null = previous?.refresh_token_vault_id ?? null;
+
   const { data: connection, error: insertError } = await supabase
     .from("google_sheets_connections")
     .upsert(
@@ -125,12 +135,21 @@ export async function completeGoogleSheetsConnect(
         spreadsheet_id: spreadsheetId,
         connected_email: connectedEmail,
         disconnected_at: null,
+        tokens_wiped_at: null,
       },
       { onConflict: "account_id" },
     )
     .select("id")
     .single();
   if (insertError || !connection) throw insertError ?? new Error("Failed to save the Google Sheets connection");
+
+  // The login the row used to point at would otherwise stay in Vault for good (2026-10-07).
+  if (previous) {
+    await wipeVaultSecrets(supabase, [
+      replacedAccessVaultId === accessVaultId ? null : replacedAccessVaultId,
+      replacedRefreshVaultId === refreshVaultId ? null : replacedRefreshVaultId,
+    ]);
+  }
 
   return { connectionId: connection.id, accountId: stateRow.account_id, spreadsheetTitle: SPREADSHEET_TITLE };
 }
@@ -146,4 +165,6 @@ export async function disconnectGoogleSheets(accountId: string): Promise<void> {
     .eq("account_id", accountId)
     .is("disconnected_at", null);
   if (error) throw error;
+  // Destroy the stored login (2026-10-07). The sweep retries a failure.
+  await wipeConnectionTokens(supabase, "google_sheets_connections", "account_id", accountId);
 }

@@ -10,7 +10,7 @@
 import "dotenv/config";
 import { supabase } from "./supabase.js";
 import { buildPlatformRegistry } from "./platforms/registry.js";
-import { getAccessToken } from "./scheduler.js";
+import { getAccessToken, DisconnectedAccountError } from "./scheduler.js";
 import { triageItems } from "./commentTriage.js";
 import { replyDraftsEnabled } from "./replyDrafts.js";
 import { draftForPolledPost } from "./replyDrafting.js";
@@ -78,6 +78,7 @@ async function pollMentions(registry: ReturnType<typeof buildPlatformRegistry>) 
     try {
       accessToken = await getAccessToken(post.social_account_id, adapter);
     } catch (err) {
+      if (err instanceof DisconnectedAccountError) continue; // disconnected on purpose: nothing to read, nothing to report
       console.error(`mentionsAndDmsPoller: could not get access token for post ${post.id}:`, err instanceof Error ? err.message : err);
       errored += 1;
       continue;
@@ -196,6 +197,10 @@ async function pollDms(registry: ReturnType<typeof buildPlatformRegistry>) {
     accountsPolled += 1;
     try {
       const convResult = await adapter.getConversations(accessToken);
+      // Only conversations updated inside the 30 day tracking window are kept. One with no date at all is not cached either:
+      // its age cannot be known, so the retention sweep could never tell when to delete it (privacySweep.ts).
+      const windowStart = Date.now() - MENTIONS_POLL_WINDOW_MS;
+      convResult.conversations = convResult.conversations.filter((c) => !!c.updatedAt && Date.parse(c.updatedAt) >= windowStart);
 
       await triageItems(
         account.account_id,
