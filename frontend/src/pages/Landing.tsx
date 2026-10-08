@@ -374,6 +374,15 @@ const FOOTER_BADGES: FooterBadge[] = [
     width: 250,
     height: 54,
   },
+  {
+    href: "https://www.directree.io",
+    rel: "noopener",
+    className: "directree-badge",
+    imgSrc: "https://www.directree.io/badge/directree-badge-lightmode.svg",
+    alt: "Verified on directree",
+    width: 200,
+    height: 37,
+  },
 ];
 
 // SourceForge's badge (added 2026-09-03) isn't a static image like every
