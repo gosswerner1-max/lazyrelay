@@ -61,6 +61,7 @@
 
 const { getSupabaseClient } = require("../shared/supabaseClient.js");
 const { isInternalTestAccount } = require("../shared/internalTestAccounts.js");
+const { generatePartnerCode, buildReferralUrl, isPaddleSafe } = require("../shared/referralLinks.js");
 
 const REFUND_HOLD_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -191,14 +192,27 @@ async function markPaid(supabase, code, amountStr) {
 }
 
 async function addPartner(supabase, code, name, email, planStr) {
-  const normalizedCode = code.trim().toLowerCase();
-  if (!/^[a-z0-9-]{3,40}$/.test(normalizedCode)) {
-    throw new Error(`code must be 3-40 lowercase letters/digits/hyphens, got: "${code}"`);
-  }
   const plan = (planStr ?? "").trim().toUpperCase();
   const preset = PLAN_PRESETS[plan];
   if (!preset) {
     throw new Error(`plan must be "A" (20%/12mo, 10% viewer discount) or "B" (30%/3mo then 20%/9mo, no viewer discount), got: "${planStr}"`);
+  }
+  // code "auto" (added 2026-10-08): make a unique code from the partner's name instead of typing one.
+  let normalizedCode;
+  if (code.trim().toLowerCase() === "auto") {
+    const { data: existing, error: listError } = await supabase.from("referral_partners").select("code");
+    if (listError) throw new Error(`reading existing partner codes: ${listError.message}`);
+    const taken = new Set((existing ?? []).map((r) => String(r.code).toLowerCase()));
+    normalizedCode = generatePartnerCode(name, (c) => taken.has(c));
+  } else {
+    normalizedCode = code.trim().toLowerCase();
+  }
+  if (!/^[a-z0-9-]{3,40}$/.test(normalizedCode)) {
+    throw new Error(`code must be 3-40 lowercase letters/digits/hyphens, got: "${code}"`);
+  }
+  // Plan A codes are also Paddle discount codes, and Paddle accepts letters and numbers only (checked 2026-10-08).
+  if (preset.givesViewerDiscount && !isPaddleSafe(normalizedCode)) {
+    throw new Error(`Plan A code "${normalizedCode}" cannot be a Paddle discount code (letters and numbers only, up to 32). Use a code without hyphens, or "auto".`);
   }
 
   const { error } = await supabase.from("referral_partners").insert({
@@ -214,15 +228,16 @@ async function addPartner(supabase, code, name, email, planStr) {
   console.log(`Created partner "${name}" — code "${normalizedCode}", Plan ${plan}.`);
   if (preset.givesViewerDiscount) {
     console.log(`REMINDER: create a matching Paddle discount now — code "${normalizedCode}", 10% off, recurring, maximum_recurring_intervals 3.`);
-    console.log(`Send them either: "use code ${normalizedCode} at checkout" or a link with ?promo=${normalizedCode}`);
+    console.log(`Send them either: "use code ${normalizedCode} at checkout" or this link: ${buildReferralUrl({ code: normalizedCode, plan })}`);
   } else {
-    console.log(`No Paddle discount needed for Plan B. Send them: https://lazyrelay.com/?ref=${normalizedCode}`);
+    console.log(`No Paddle discount needed for Plan B. Send them: ${buildReferralUrl({ code: normalizedCode, plan })}`);
   }
+  console.log(`Per-channel link (add a place name so you can tell where clicks come from): ${buildReferralUrl({ code: normalizedCode, plan, channel: "youtube" })}`);
 }
 
 // Exported for ops/reports/test-referral-report.js — the real tiering/cutoff
 // math, without needing a live Supabase connection to exercise it.
-module.exports = { addMonths, rateForSale, netExTaxDollars, PLAN_PRESETS };
+module.exports = { addMonths, rateForSale, netExTaxDollars, PLAN_PRESETS, addPartner };
 
 async function main() {
   const supabase = getSupabaseClient();
@@ -239,7 +254,7 @@ async function main() {
   if (args[0] === "--add-partner") {
     const [, code, name, email, plan] = args;
     if (!code || !name || !email || !plan) {
-      console.error('Usage: node referral_report.js --add-partner <code> <name> <email> <A|B>');
+      console.error('Usage: node referral_report.js --add-partner <code|auto> <name> <email> <A|B>   ("auto" makes a unique code from the name)');
       process.exit(1);
     }
     await addPartner(supabase, code, name, email, plan);
