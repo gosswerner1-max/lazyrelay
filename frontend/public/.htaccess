@@ -262,7 +262,14 @@
   RewriteCond %{HTTP_HOST} ^www\.lazyrelay\.com$ [NC]
   RewriteRule ^(.*)$ https://lazyrelay.com%{REQUEST_URI} [L,R=301]
 
+  # SPA fallback, narrowed 2026-10-08 (SEO sweep). It used to send EVERY unknown address to the app, which answered 200 with the
+  # home page, so Google could not tell a dead page from a live one (a "soft 404") and kept old addresses indexed. Now only the
+  # app's own routes (App.tsx PATH_TO_VIEW plus the self-owned prefixes) fall back to index.html. Anything else gets a real 404
+  # and the page in /404.html. If a NEW client-side route is added to App.tsx it must be added to this list too.
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_URI} ^/(?:(?:dashboard|pricing|terms|privacy|dpa|data-deletion|contact|partners|docs|login|signup|forgot-password|reset-password)/?|(?:connect|bio|verify|feedback|review)/.+|oauth/consent/?|team/accept/?)$
   RewriteRule . /index.html [L]
 </IfModule>
+
+ErrorDocument 404 /404.html
