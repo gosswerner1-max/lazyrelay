@@ -37,7 +37,8 @@ for (const file of walk(PUBLIC)) {
     const body = html.replace(/<(script|style|nav|header|footer)\b[\s\S]*?<\/\1>/gi, " ");
     const p = /<p[^>]*>([\s\S]*?)<\/p>/i.exec(body)?.[1]?.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
     if (p && p.length > 40) {
-      desc = esc(unesc(p).slice(0, 155).replace(/\s+\S*$/, "").trim() + (p.length > 155 ? "..." : ""));
+      const flat = unesc(p);
+      desc = esc(flat.length > 155 ? flat.slice(0, 155).replace(/\s+\S*$/, "").trim() + "..." : flat);
       inject.push(`<meta name="description" content="${desc}" />`);
       notes.push("description");
     }
