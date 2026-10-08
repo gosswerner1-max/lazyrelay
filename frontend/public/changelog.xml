@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>LazyRelay changelog</title>
+  <subtitle>What is actually shipped, in plain language, most recent first.</subtitle>
+  <link rel="self" type="application/atom+xml" href="https://lazyrelay.com/changelog.xml"/>
+  <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/"/>
+  <id>https://lazyrelay.com/changelog/</id>
+  <updated>2026-10-08T00:00:00Z</updated>
+  <author><name>LazyRelay</name></author>
+  <entry>
+    <title>LazyRelay update, October 8, 2026</title>
+    <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/#d-2026-10-08"/>
+    <id>https://lazyrelay.com/changelog/#d-2026-10-08</id>
+    <updated>2026-10-08T00:00:00Z</updated>
+    <summary type="text">Updated the code libraries LazyRelay is built on to patched versions that close the security advisories we had open.</summary>
+  </entry>
+  <entry>
+    <title>LazyRelay update, October 7, 2026</title>
+    <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/#d-2026-10-07"/>
+    <id>https://lazyrelay.com/changelog/#d-2026-10-07</id>
+    <updated>2026-10-07T00:00:00Z</updated>
+    <summary type="text">The Mentions tab now shows comments from nine platforms in one place: dev.to, Hashnode, Mastodon, Bluesky, YouTube, Lemmy, WordPress, Telegram and Discord. You... | Clicking a number on the Overview tab now opens the tab behind it: Total posts and Verified live open Posts, Failed opens Failed, and Total engagement opens... | Privacy: the stored login for a connected account is now wiped as soon as you disconnect it, and a reconnect replaces the old login. Comments and direct... | Plan and billing changes can now only be made from a signed-in dashboard session, never with an API key. The connected-account limits on the Pro and Business... | The public MCP tool reference lists all 27 tools, and the docs and comparison pages now say 27 everywhere (some still said 9). | Fixed: the engagement numbers on the Overview and Analytics tabs stopped updating for about a day (6 to 7 October). They update again.</summary>
+  </entry>
+  <entry>
+    <title>LazyRelay update, October 1, 2026</title>
+    <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/#d-2026-10-01"/>
+    <id>https://lazyrelay.com/changelog/#d-2026-10-01</id>
+    <updated>2026-10-01T00:00:00Z</updated>
+    <summary type="text">Slack is now a place you can publish. Connect it from the Social Platforms tab, add the LazyRelay Slack app to your workspace, and pick one public channel to...</summary>
+  </entry>
+  <entry>
+    <title>LazyRelay update, September 30, 2026</title>
+    <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/#d-2026-09-30"/>
+    <id>https://lazyrelay.com/changelog/#d-2026-09-30</id>
+    <updated>2026-09-30T00:00:00Z</updated>
+    <summary type="text">Four new places to publish: WordPress (your own self-hosted site), dev.to, Hashnode, and Lemmy. Each one gets the same scheduling and the same Proof-of-Publish... | For WordPress, dev.to, and Hashnode you can choose to save a post as a draft on the platform instead of publishing it. A draft ends cleanly as &quot;saved as a... | Client review links: send a client a private link where they can approve a post, ask for changes, or comment, with no login. | A Node SDK and command-line tool (@lazyrelay/sdk) and an n8n node (n8n-nodes-lazyrelay) on npm, both MIT-licensed, plus an OpenAPI description of the API and a... | The MCP server now has 27 tools, including reschedule, pause, and resume. | Mastodon accounts on any server can now connect, not just mastodon.social: click the Mastodon tile and type the server your account is on. Bluesky accounts... | When you connect YouTube, TikTok, or Tumblr, LazyRelay now asks the platform to show its own account or login screen, so a browser that is already signed in to... | The Settings tab is split into sub-tabs so it is no longer one long page. | The connect pages for Bluesky, Telegram, Discord, and the four new platforms now send what you paste (an app password, an API key) in the request itself rather...</summary>
+  </entry>
+  <entry>
+    <title>LazyRelay update, September 2, 2026</title>
+    <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/#d-2026-09-02"/>
+    <id>https://lazyrelay.com/changelog/#d-2026-09-02</id>
+    <updated>2026-09-02T00:00:00Z</updated>
+    <summary type="text">LazyRelay's MCP server now works with 15 AI agents and editors, up from 7 — added Perplexity, Notion, Manus, OpenClaw, Antigravity, Raycast, Gemini CLI, and VS... | A new Integrations page, linked directly from the homepage, groups every supported AI agent and automation tool in one place instead of burying them in the... | Three new MCP tools: list_workspaces, publish_post_now, and update_post — an agent can now publish immediately, edit a post before it goes out, and list your... | New public In the Works page.</summary>
+  </entry>
+  <entry>
+    <title>LazyRelay update, August 10, 2026</title>
+    <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/#d-2026-08-10"/>
+    <id>https://lazyrelay.com/changelog/#d-2026-08-10</id>
+    <updated>2026-08-10T00:00:00Z</updated>
+    <summary type="text">Added a &quot;first comment&quot; option to the compose form for Facebook and Instagram, so a follow-up comment (handy for hashtags) posts automatically right after your... | Added a Guides section covering scheduler comparisons, platform coverage, and how several AI features actually work.</summary>
+  </entry>
+  <entry>
+    <title>LazyRelay update, August 8, 2026</title>
+    <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/#d-2026-08-08"/>
+    <id>https://lazyrelay.com/changelog/#d-2026-08-08</id>
+    <updated>2026-08-08T00:00:00Z</updated>
+    <summary type="text">Shareable Proof-of-Publish links: turn any verified post into a public link you can send a client, franchise contact, or boss as proof it actually went live. | Optional email alerts the moment a post genuinely fails to publish, instead of only finding out by checking the dashboard. | AI-powered &quot;needs attention&quot; filter for Mentions and DMs, so you can see which comments and DMs are actually worth opening without reading the full list. | A webhook that fires the moment Proof-of-Publish confirms a post is live, for anyone wiring LazyRelay into their own tools. | &quot;Not sure what to post? Get ideas&quot; button in the compose form, generating post ideas grounded in your business and recent posts. | Brand labels for connected accounts, with filtering across every dashboard view, for anyone running more than one business through LazyRelay. | An on-demand AI insight on the Analytics tab comparing your best- and worst-performing posts.</summary>
+  </entry>
+  <entry>
+    <title>LazyRelay update, August 7, 2026</title>
+    <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/#d-2026-08-07"/>
+    <id>https://lazyrelay.com/changelog/#d-2026-08-07</id>
+    <updated>2026-08-07T00:00:00Z</updated>
+    <summary type="text">Real engagement analytics (likes, comments, shares, views), not just post counts. | Comments inbox extended to Facebook and Instagram, with reply capability added across Facebook, Instagram, Mastodon, and Bluesky. | DM inbox for Facebook and Instagram. | DM automation: automatically send a DM to anyone who comments a specific keyword. | A public API and MCP server, plus a documentation page, for anyone who wants to schedule and manage posts programmatically or through an AI agent.</summary>
+  </entry>
+  <entry>
+    <title>LazyRelay update, August 6, 2026</title>
+    <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/#d-2026-08-06"/>
+    <id>https://lazyrelay.com/changelog/#d-2026-08-06</id>
+    <updated>2026-08-06T00:00:00Z</updated>
+    <summary type="text">Threads posting confirmed live end to end. | Tumblr connected as a supported platform. | Added a &quot;Disconnect&quot; button for connected accounts. | Fixed a bug where a post's status sometimes didn't refresh automatically on the Overview tab. | Redesigned the Overview page with real charts instead of a plain list.</summary>
+  </entry>
+  <entry>
+    <title>LazyRelay update, July 31, 2026</title>
+    <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/#d-2026-07-31"/>
+    <id>https://lazyrelay.com/changelog/#d-2026-07-31</id>
+    <updated>2026-07-31T00:00:00Z</updated>
+    <summary type="text">Analytics dashboard, Phase 1: total posts, per-platform success rates, and a daily volume trend. | Visual content calendar (month view). | Bulk CSV import: schedule up to 200 posts at once, with a per-row preview before importing. | AI caption generator. | Best-time-to-post suggestions, honestly labeled as general guidance, not personalized. | Approval workflow: mark a post as needing sign-off before it goes out. | AI hashtag suggestions. | Link-in-bio page. | Read-only comment tracking for YouTube, Mastodon, and Bluesky. | Browser extension for scheduling a page, link, or image directly from wherever you find it.</summary>
+  </entry>
+</feed>

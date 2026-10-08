@@ -6,6 +6,7 @@
 <title>Changelog | LazyRelay</title>
 <meta name="description" content="What's new in LazyRelay: real, dated updates to scheduling, analytics, comments, DMs, and the API." />
 <link rel="canonical" href="https://lazyrelay.com/changelog/" />
+<link rel="alternate" type="application/atom+xml" title="LazyRelay changelog" href="/changelog.xml" />
     <link rel="icon" type="image/png" href="/favicon.png" />
 <link rel="stylesheet" href="/circuit-bg.css" />
 <script src="/consent.js" defer></script>
@@ -36,12 +37,27 @@
 <h1>Changelog</h1>
 <p class="subtitle">What's actually shipped, in plain language, most recent first. See <a href="/in-the-works">In the Works</a> for what's next.</p>
 
-<span class="entry-date">October 1, 2026</span>
+<span class="entry-date" id="d-2026-10-08">October 8, 2026</span>
+<ul>
+  <li>Updated the code libraries LazyRelay is built on to patched versions that close the security advisories we had open.</li>
+</ul>
+
+<span class="entry-date" id="d-2026-10-07">October 7, 2026</span>
+<ul>
+  <li>The Mentions tab now shows comments from nine platforms in one place: dev.to, Hashnode, Mastodon, Bluesky, YouTube, Lemmy, WordPress, Telegram and Discord. You can reply from the dashboard on Mastodon and Bluesky. Facebook, Instagram and Threads show "Coming soon" while we wait for Meta's app reviews.</li>
+  <li>Clicking a number on the Overview tab now opens the tab behind it: Total posts and Verified live open Posts, Failed opens Failed, and Total engagement opens Analytics.</li>
+  <li>Privacy: the stored login for a connected account is now wiped as soon as you disconnect it, and a reconnect replaces the old login. Comments and direct messages kept for the Mentions tab are deleted after 30 days. The Data Processing Agreement says the same.</li>
+  <li>Plan and billing changes can now only be made from a signed-in dashboard session, never with an API key. The connected-account limits on the Pro and Business plan cards now read 30 and 50.</li>
+  <li>The public MCP tool reference lists all 27 tools, and the docs and comparison pages now say 27 everywhere (some still said 9).</li>
+  <li>Fixed: the engagement numbers on the Overview and Analytics tabs stopped updating for about a day (6 to 7 October). They update again.</li>
+</ul>
+
+<span class="entry-date" id="d-2026-10-01">October 1, 2026</span>
 <ul>
   <li>Slack is now a place you can publish. Connect it from the Social Platforms tab, add the LazyRelay Slack app to your workspace, and pick one public channel to post to. Slack posts are text and links only for now, with no images or videos. Your text can never ping @channel or mention anyone. Each post gets the same Proof-of-Publish check: it counts as live once Slack confirms the message exists, and the link to that message in Slack is saved as the proof. Private channels are not offered; to use one, invite the LazyRelay app to it in Slack first.</li>
 </ul>
 
-<span class="entry-date">September 30, 2026</span>
+<span class="entry-date" id="d-2026-09-30">September 30, 2026</span>
 <ul>
   <li>Four new places to publish: WordPress (your own self-hosted site), dev.to, Hashnode, and Lemmy. Each one gets the same scheduling and the same Proof-of-Publish read-back as the rest. Hashnode's own API now requires the Pro plan on your blog, so a Hashnode connection needs that.</li>
   <li>For WordPress, dev.to, and Hashnode you can choose to save a post as a draft on the platform instead of publishing it. A draft ends cleanly as "saved as a draft" rather than counting as a failed post.</li>
@@ -54,7 +70,7 @@
   <li>The connect pages for Bluesky, Telegram, Discord, and the four new platforms now send what you paste (an app password, an API key) in the request itself rather than in the web address, so it no longer ends up in server logs.</li>
 </ul>
 
-<span class="entry-date">September 2, 2026</span>
+<span class="entry-date" id="d-2026-09-02">September 2, 2026</span>
 <ul>
   <li>LazyRelay's MCP server now works with 15 AI agents and editors, up from 7 — added Perplexity, Notion, Manus, OpenClaw, Antigravity, Raycast, Gemini CLI, and VS Code / GitHub Copilot, each with its own setup guide.</li>
   <li>A new <a href="/mcp">Integrations page</a>, linked directly from the homepage, groups every supported AI agent and automation tool in one place instead of burying them in the guides list.</li>
@@ -62,13 +78,13 @@
   <li>New public <a href="/in-the-works">In the Works</a> page.</li>
 </ul>
 
-<span class="entry-date">August 10, 2026</span>
+<span class="entry-date" id="d-2026-08-10">August 10, 2026</span>
 <ul>
   <li>Added a "first comment" option to the compose form for Facebook and Instagram, so a follow-up comment (handy for hashtags) posts automatically right after your post goes live.</li>
   <li>Added a Guides section covering scheduler comparisons, platform coverage, and how several AI features actually work.</li>
 </ul>
 
-<span class="entry-date">August 8, 2026</span>
+<span class="entry-date" id="d-2026-08-08">August 8, 2026</span>
 <ul>
   <li>Shareable Proof-of-Publish links: turn any verified post into a public link you can send a client, franchise contact, or boss as proof it actually went live.</li>
   <li>Optional email alerts the moment a post genuinely fails to publish, instead of only finding out by checking the dashboard.</li>
@@ -79,7 +95,7 @@
   <li>An on-demand AI insight on the Analytics tab comparing your best- and worst-performing posts.</li>
 </ul>
 
-<span class="entry-date">August 7, 2026</span>
+<span class="entry-date" id="d-2026-08-07">August 7, 2026</span>
 <ul>
   <li>Real engagement analytics (likes, comments, shares, views), not just post counts.</li>
   <li>Comments inbox extended to Facebook and Instagram, with reply capability added across Facebook, Instagram, Mastodon, and Bluesky.</li>
@@ -88,7 +104,7 @@
   <li>A public API and MCP server, plus a documentation page, for anyone who wants to schedule and manage posts programmatically or through an AI agent.</li>
 </ul>
 
-<span class="entry-date">August 6, 2026</span>
+<span class="entry-date" id="d-2026-08-06">August 6, 2026</span>
 <ul>
   <li>Threads posting confirmed live end to end.</li>
   <li>Tumblr connected as a supported platform.</li>
@@ -97,7 +113,7 @@
   <li>Redesigned the Overview page with real charts instead of a plain list.</li>
 </ul>
 
-<span class="entry-date">July 31, 2026</span>
+<span class="entry-date" id="d-2026-07-31">July 31, 2026</span>
 <ul>
   <li>Analytics dashboard, Phase 1: total posts, per-platform success rates, and a daily volume trend.</li>
   <li>Visual content calendar (month view).</li>
