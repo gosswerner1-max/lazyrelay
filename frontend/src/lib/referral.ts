@@ -54,3 +54,37 @@ export function getStoredReferralCode(): string | null {
     return null;
   }
 }
+
+/** Reads the optional channel word from a partner link (`utm_content`, for example "youtube"). Same shape rules as the database
+ *  accepts: 1 to 30 lowercase letters, numbers, - or _. Anything else is ignored. */
+export function readChannelParam(search: string): string | null {
+  const v = new URLSearchParams(search).get("utm_content");
+  if (!v) return null;
+  const t = v.trim().toLowerCase();
+  return /^[a-z0-9_-]{1,30}$/.test(t) ? t : null;
+}
+
+const CLICK_SESSION_KEY = "lazyrelay_ref_click_counted";
+
+/** Counts one open of a partner's link, anonymously (2026-10-08). Sends only the code and the channel word: no cookie, no visitor id, no
+ *  IP address is stored (the server adds 1 to a per-day counter). Once per browser tab session per code, remembered in sessionStorage,
+ *  which is cleared when the tab closes and is not a cookie. Failures are ignored: counting must never break a page. */
+export function reportReferralClick(refCode: string | null, channel: string | null): void {
+  if (!refCode) return;
+  try {
+    if (sessionStorage.getItem(CLICK_SESSION_KEY) === refCode) return;
+    sessionStorage.setItem(CLICK_SESSION_KEY, refCode);
+  } catch {
+    // sessionStorage unavailable: count anyway (a repeat count is better than none).
+  }
+  try {
+    void fetch(`${import.meta.env.VITE_API_URL}/public/referral/click`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: refCode, channel: channel ?? "" }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // ignore
+  }
+}

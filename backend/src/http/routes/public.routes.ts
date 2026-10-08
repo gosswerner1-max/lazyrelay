@@ -412,6 +412,27 @@ export function buildPublicRouter(): Router {
     res.json({ received: true });
   });
 
+  // Partner link click counting (2026-10-08, Werner's go). Anonymous and cookieless: the browser sends only the partner code and the
+  // optional channel word from the link (utm_content). Nothing about the visitor is stored (no IP, no cookie, no account id): the
+  // database function (migration 0118) adds 1 to a per-day counter. It ALWAYS answers 204, whether the code exists or not, so the
+  // route cannot be used to find out which partner codes are real, and a stale or mistyped link never shows an error.
+  const referralClickBodySchema = z.object({
+    code: z.string().trim().min(1).max(40),
+    channel: z.string().trim().max(30).optional(),
+  });
+  router.post("/public/referral/click", publicRateLimit, async (req, res) => {
+    const body = referralClickBodySchema.safeParse(req.body);
+    if (body.success) {
+      const code = body.data.code.toLowerCase();
+      const channel = (body.data.channel ?? "").toLowerCase();
+      if (/^[a-z0-9-]{1,40}$/.test(code) && /^[a-z0-9_-]{0,30}$/.test(channel)) {
+        const { error } = await supabase.rpc("record_referral_click", { p_code: code, p_channel: channel });
+        if (error) console.error("POST /public/referral/click:", error.message);
+      }
+    }
+    res.status(204).end();
+  });
+
   return router;
 }
 

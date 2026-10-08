@@ -149,6 +149,14 @@ async function computePartnerCommission(supabase, partner) {
   return { partner, referredAccountCount: realAccounts.length, lifetimeCommission: commission, owedNow };
 }
 
+// Link opens in the last 30 days, from the anonymous counter (migration 0118). Returns null if the counter does not exist yet.
+async function clicksLast30Days(supabase, code) {
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const { data, error } = await supabase.from("referral_click_counts").select("clicks").eq("code", code).gte("day", since);
+  if (error) return null;
+  return (data ?? []).reduce((sum, r) => sum + Number(r.clicks), 0);
+}
+
 async function runReport(supabase) {
   const { data: partners, error } = await supabase.from("referral_partners").select("*").eq("status", "approved");
   if (error) throw new Error(`referral_partners lookup: ${error.message}`);
@@ -164,6 +172,8 @@ async function runReport(supabase) {
     const plan = partner.gives_viewer_discount ? "A (viewer discount)" : "B (no viewer discount)";
     console.log(`${partner.name} (${partner.code}) — ${partner.email} — Plan ${plan}`);
     console.log(`  Rate: ${partner.commission_rate_months_1_3}% months 1-3, ${partner.commission_rate_months_4_12}% months 4-12, capped at 12 months`);
+    const clicks = await clicksLast30Days(supabase, partner.code);
+    console.log(`  Link opens, last 30 days: ${clicks === null ? "not available yet" : clicks}`);
     console.log(`  Referred accounts (real, code-redeemed): ${result.referredAccountCount}`);
     console.log(`  Commission earned so far: $${result.lifetimeCommission.toFixed(2)}`);
     console.log(`  Already paid out: $${Number(partner.total_paid_out).toFixed(2)}`);

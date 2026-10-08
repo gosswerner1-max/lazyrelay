@@ -21,7 +21,7 @@ import { ResetPassword } from "./pages/ResetPassword";
 import { Spinner } from "./components/Spinner";
 import { CookieConsent } from "./components/CookieConsent";
 import { MfaChallenge } from "./components/MfaChallenge";
-import { readRefParam, captureReferralCode } from "./lib/referral";
+import { readRefParam, readChannelParam, captureReferralCode, reportReferralClick } from "./lib/referral";
 import { dashboardRedirectTarget } from "./lib/dashboardRedirect";
 import { readPromoParam, capturePromoCode } from "./lib/promo";
 import "./App.css";
@@ -113,6 +113,8 @@ const INITIAL_AUTH_HASH_ERROR = parseAuthHashError();
 // needs to react to, so it happens directly here rather than in a
 // render-time hook.
 captureReferralCode(readRefParam(window.location.search));
+// Anonymous, cookieless click count for the partner whose link this is (once per browser tab session). See lib/referral.ts.
+reportReferralClick(readRefParam(window.location.search), readChannelParam(window.location.search));
 // Same reasoning as the referral capture just above -- a launch-discount
 // ?promo= link needs to survive from landing-page click-through to
 // whenever the customer actually upgrades, possibly days later.

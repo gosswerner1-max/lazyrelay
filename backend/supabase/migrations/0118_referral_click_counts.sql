@@ -1,6 +1,4 @@
--- DRAFT, NOT APPLIED, NOT IN THE MIGRATIONS FOLDER ON PURPOSE (2026-10-08, partner program step 6).
--- Move it to backend/supabase/migrations/0118_referral_click_counts.sql only after Werner approves the design and the code that calls it.
---
+-- Anonymous per-day partner link click counts (2026-10-08, partner program step 6, Werner approved). Applied from this file.
 -- What it adds: an anonymous, per-day count of how many times each partner's link was opened, split by the optional channel word
 -- (utm_content, for example "youtube"). Nothing personal is stored: no IP address, no cookie, no user agent, no account id.
 -- That keeps it outside POPIA's personal-information rules and means a partner can be shown "clicks" without being shown anyone's data.
