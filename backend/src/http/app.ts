@@ -202,6 +202,15 @@ export function buildApp(
   // isKnownAdminKey, NOT requireAdmin — see its doc comment in auth.ts. The
   // admin-key guard auto-revokes on use without a registered job, which on
   // a liveness probe would destroy the key.
+  // Database-free liveness for Render's own health check. Render gives up
+  // after 5 s, but /health below waits on Supabase (up to 10 s), so a Supabase
+  // or network slowdown made Render restart a perfectly alive process
+  // (2026-10-08, about 11 minutes down). This answers while the process can
+  // serve HTTP; /health stays the database-aware check for our watcher.
+  app.get("/health/live", (_req, res) => {
+    res.json({ status: "ok" });
+  });
+
   app.get("/health", async (req, res) => {
     try {
       const { error } = await supabase.from("accounts").select("id", { head: true, count: "exact" }).limit(1);
