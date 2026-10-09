@@ -15,6 +15,7 @@ import { Environment } from "@paddle/paddle-node-sdk";
 import { buildApp } from "./http/app.js";
 import { fetchSupabaseOAuthMetadata } from "./http/mcpAuth.js";
 import { checkProductionConfig } from "./startupConfigCheck.js";
+import { retryStartupCheck } from "./startupRetry.js";
 import type { MerchantOfRecordAdapter } from "./billing/types.js";
 
 // How often the scheduler checks for due posts. Combined with scheduler.ts's
@@ -42,11 +43,23 @@ function summarizeIfHtmlError(err: unknown): unknown {
 }
 
 async function main() {
-  const { error } = await supabase.from("accounts").select("id").limit(1);
-  if (error) {
-    console.error("Supabase connection failed:", summarizeIfHtmlError(error));
-    process.exit(1);
-  }
+  // Retry with back-off (about 3 minutes in all) so a brief Supabase or
+  // network blip does not turn into a crash loop; still exits if it never
+  // answers, so a real misconfiguration is not hidden.
+  const connected = await retryStartupCheck(
+    async () => {
+      const { error } = await supabase.from("accounts").select("id").limit(1);
+      return error ? { ok: false, error } : { ok: true };
+    },
+    {
+      onFailure: (attempt, total, err, nextDelayMs) =>
+        console.error(
+          `Supabase connection failed (attempt ${attempt}/${total}${nextDelayMs === null ? ", giving up" : `, retrying in ${nextDelayMs / 1000}s`}):`,
+          summarizeIfHtmlError(err),
+        ),
+    },
+  );
+  if (!connected) process.exit(1);
   console.log("Connected to Supabase.");
 
   // Every configured platform gets its own live PlatformAdapter in the
