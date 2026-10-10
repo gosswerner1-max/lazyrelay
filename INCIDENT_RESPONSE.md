@@ -199,7 +199,9 @@ steps, already tested end-to-end:
 2. Push all migrations (`supabase db push`). The old `0007`/`0023` duplicate-version
    quirk is fixed (the second files are now `0120` and `0121`, and a test fails if two
    migrations ever share a number); never use `--include-all` against a project with
-   real history, only against a genuinely empty one.
+   real history, only against a genuinely empty one. Right after the push, and before any
+   test account exists, run `alter database postgres set app.signup_webhook_disabled = 'on';`
+   (see `backend/README.md`) so the scratch project does not post to production.
 3. Restore `auth.users` first (accounts foreign-keys into it) — a bare
    public-schema restore fails without this.
 4. Restore the rest of the tables in FK-dependency order (or disable/
