@@ -66,3 +66,16 @@ export async function resolveTier(accountId: string): Promise<Tier> {
   const isPaidInGoodStanding = data?.tier !== "free" && (data?.status === "active" || data?.status === "trialing");
   return isPaidInGoodStanding ? (data!.tier as Tier) : "free";
 }
+
+/** X "bring your own key" (BYOK) plan gate (Werner, 2026-10-10). The ONE place that decides who may connect X with
+ *  their own developer keys: Pro, Business, Agency and Agency Plus. Free and Starter are blocked entirely. Every
+ *  caller (GET /platforms, the keys route, the generic connect route) goes through canUseXByok; the frontend never
+ *  decides. Keyed by DB tier code, which matches the public plan name. */
+export const X_BYOK_ALLOWED_TIERS: ReadonlySet<Tier> = new Set<Tier>(["pro", "business", "agency", "agency_plus"]);
+
+/** The cheapest plan that unlocks X BYOK, in public wording, for "Upgrade to ..." copy. */
+export const X_BYOK_REQUIRED_PLAN_NAME = TIER_DISPLAY_NAMES.pro;
+
+export function canUseXByok(tier: Tier): boolean {
+  return X_BYOK_ALLOWED_TIERS.has(tier);
+}
