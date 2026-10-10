@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>About LazyRelay: Who Runs It and How It Works | LazyRelay</title>
+<meta name="description" content="What LazyRelay is, who runs it, and plain answers on login storage, AI agent access, AI use and failed posts. Posts to 17 platforms and checks each went live." />
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+<link rel="canonical" href="https://lazyrelay.com/about/" />
+<link rel="icon" type="image/png" href="/favicon.png" />
+<meta property="og:title" content="About LazyRelay: Who Runs It and How It Works | LazyRelay" />
+<meta property="og:description" content="What LazyRelay is, who runs it, and plain answers on login storage, AI agent access, AI use and failed posts. Posts to 17 platforms and checks each went live." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://lazyrelay.com/about/" />
+<meta property="og:site_name" content="LazyRelay" />
+<meta property="og:locale" content="en_US" />
+<meta property="og:image" content="https://lazyrelay.com/og-image-1200x630.jpg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="LazyRelay logo with the tagline Automate. Schedule. Publish. Repeat., and icons for smart scheduling, auto posting and flexible storage, linked to social platform icons." />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="About LazyRelay: Who Runs It and How It Works | LazyRelay" />
+<meta name="twitter:description" content="What LazyRelay is, who runs it, and plain answers on login storage, AI agent access, AI use and failed posts. Posts to 17 platforms and checks each went live." />
+<meta name="twitter:image" content="https://lazyrelay.com/og-image-1200x630.jpg" />
+<script src="/consent.js" defer></script>
+<style>
+  :root {
+    color-scheme: light;
+    --ink: #14171f; --paper: #f5f6f8; --wire: #5b6472; --line: #dde1e6;
+    --orange: #ff5630; --orange-text: #c82400; --orange-deep: #a81e00; --orange-tint: #ffe9e1;
+    --teal: #0d7d8c; --teal-text: #0a6270; --teal-tint: #d6f3f6;
+    --violet: #7c3aed; --violet-text: #5b21b6; --violet-tint: #ece4fd;
+    --green: #157a52; --green-text: #0f6b46; --green-tint: #d4f2e4;
+    --night: #040b1d;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--paper); color: var(--ink); line-height: 1.6; }
+  a { color: var(--orange-text); }
+  a:focus-visible, summary:focus-visible, .btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; border-radius: 6px; }
+  .hero a:focus-visible, .dev a:focus-visible, .site-top a:focus-visible { outline-color: #fff; }
+  .skip { position: absolute; left: 12px; top: -60px; background: #fff; color: var(--ink); padding: 10px 14px; border-radius: 8px; z-index: 10; font-weight: 700; }
+  .skip:focus { top: 12px; }
+  h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; line-height: 1.15; margin: 0; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+
+  .site-top { background: var(--night); color: #fff; }
+  .site-top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 14px; padding-bottom: 14px; }
+  .wordmark { font-family: Georgia, serif; font-weight: 700; font-size: 22px; color: #fff; text-decoration: none; }
+  .wordmark .dot { color: #ff8a6b; }
+  .site-top nav { display: flex; gap: 18px; flex-wrap: wrap; }
+  .site-top nav a { color: #fff; text-decoration: none; font-weight: 600; font-size: 15px; padding: 4px 0; border-bottom: 2px solid transparent; }
+  .site-top nav a:hover { border-bottom-color: #ff8a6b; }
+
+  .hero { background: radial-gradient(900px 380px at 88% -10%, rgba(255, 86, 48, 0.55), transparent 60%), radial-gradient(700px 360px at -5% 110%, rgba(13, 125, 140, 0.75), transparent 60%), radial-gradient(600px 300px at 55% 120%, rgba(124, 58, 237, 0.6), transparent 60%), var(--night); color: #fff; padding: 48px 0 84px; }
+  .eyebrow { display: inline-block; background: var(--orange); color: var(--ink); font-weight: 800; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; padding: 5px 12px; border-radius: 999px; }
+  .hero h1 { font-size: clamp(34px, 7vw, 58px); margin: 16px 0 14px; max-width: 760px; }
+  .hero h1 em { font-style: normal; color: #ff8a6b; }
+  .lead { font-size: clamp(17px, 2.6vw, 20px); max-width: 700px; color: #e8ebf1; margin: 0 0 22px; }
+  .cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn { display: inline-block; text-decoration: none; font-weight: 800; padding: 12px 22px; border-radius: 10px; font-size: 16px; transition: transform 0.15s ease; }
+  .btn:hover { transform: translateY(-2px); }
+  .btn-primary { background: var(--orange); color: var(--ink); }
+  .btn-ghost { border: 2px solid #fff; color: #fff; }
+
+  .stats { margin-top: -52px; position: relative; }
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .stat { border-radius: 14px; padding: 16px 16px 14px; color: #fff; box-shadow: 0 10px 24px -12px rgba(4, 11, 29, 0.6); }
+  .stat b { display: block; font-family: Georgia, serif; font-size: clamp(30px, 5vw, 44px); line-height: 1; }
+  .stat span { display: block; font-size: 14px; font-weight: 600; margin-top: 6px; }
+  .stat-orange { background: var(--orange-text); }
+  .stat-teal { background: var(--teal); }
+  .stat-violet { background: var(--violet); }
+  .stat-green { background: var(--green); }
+
+  section.block { padding: 36px 0 8px; }
+  .section-title { font-size: clamp(26px, 4.4vw, 36px); margin-bottom: 8px; }
+  .section-lead { margin: 0 0 18px; max-width: 720px; color: var(--wire); font-size: 17px; }
+  .cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .card { border-radius: 16px; padding: 20px 20px 18px; border-top: 8px solid; }
+  .card h3 { font-size: 21px; margin-bottom: 8px; }
+  .card p { margin: 0; font-size: 16px; }
+  .card-orange { background: var(--orange-tint); border-color: var(--orange); }
+  .card-teal { background: var(--teal-tint); border-color: var(--teal); }
+  .card-violet { background: var(--violet-tint); border-color: var(--violet); }
+  .card-green { background: var(--green-tint); border-color: var(--green); }
+
+  .dev { margin-top: 36px; background: linear-gradient(120deg, #3b1a8a 0%, var(--night) 70%); color: #fff; padding: 32px 0; }
+  .dev h2 { font-size: clamp(24px, 4vw, 32px); margin-bottom: 10px; }
+  .dev p { margin: 0 0 16px; max-width: 760px; color: #e8ebf1; }
+  .dev a.pill { display: inline-block; margin: 0 8px 8px 0; background: #fff; color: var(--ink); text-decoration: none; font-weight: 700; padding: 8px 16px; border-radius: 999px; }
+  .dev a.pill:hover { background: #ffd9cc; }
+
+  .who { display: grid; grid-template-columns: 1.1fr 1fr; gap: 14px; }
+  .panel { background: #fff; border: 2px solid var(--ink); border-radius: 16px; padding: 20px; }
+  .panel h3 { font-size: 21px; margin-bottom: 8px; }
+  .panel p { margin: 0 0 10px; }
+  .panel dl { margin: 0; display: grid; gap: 8px; }
+  .panel dt { font-weight: 800; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--teal-text); }
+  .panel dd { margin: 0; overflow-wrap: anywhere; }
+  .panel-yellow { background: #ffe9a8; }
+  .legal-links { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px; font-weight: 600; }
+
+  #faq { padding-top: 40px; }
+  .faq-list { display: grid; gap: 10px; margin-top: 14px; }
+  .faq { background: #fff; border-radius: 12px; border: 2px solid var(--line); border-left-width: 10px; }
+  .faq-orange { border-left-color: var(--orange); }
+  .faq-teal { border-left-color: var(--teal); }
+  .faq-violet { border-left-color: var(--violet); }
+  .faq-green { border-left-color: var(--green); }
+  .faq summary { list-style: none; cursor: pointer; display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 14px 16px; font-weight: 700; font-size: 17px; }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after { content: ""; flex: none; width: 11px; height: 11px; margin-top: 8px; border-right: 3px solid var(--ink); border-bottom: 3px solid var(--ink); transform: rotate(45deg); transition: transform 0.2s ease; }
+  .faq[open] summary::after { transform: rotate(-135deg); margin-top: 12px; }
+  .faq[open] { border-color: var(--ink); }
+  .faq[open].faq-orange { border-left-color: var(--orange); }
+  .faq[open].faq-teal { border-left-color: var(--teal); }
+  .faq[open].faq-violet { border-left-color: var(--violet); }
+  .faq[open].faq-green { border-left-color: var(--green); }
+  .faq .a { margin: 0; padding: 0 16px 16px; font-size: 16px; max-width: 760px; }
+
+  .closer { margin: 36px 0 0; background: var(--orange); color: var(--ink); padding: 28px 0; }
+  .closer .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .closer h2 { font-size: clamp(22px, 4vw, 30px); }
+  .closer .btn { background: var(--ink); color: #fff; }
+
+  footer.site-foot { background: var(--night); color: #cfd5df; padding: 22px 0; font-size: 14px; }
+  footer.site-foot a { color: #ffb199; }
+  footer.site-foot p { margin: 4px 0; }
+
+  @media (max-width: 760px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .cards, .who { grid-template-columns: 1fr; }
+    .hero { padding: 36px 0 76px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .btn, .faq summary::after { transition: none; }
+    .btn:hover { transform: none; }
+  }
+</style>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"AboutPage","@id":"https://lazyrelay.com/about/#webpage","url":"https://lazyrelay.com/about/","name":"About LazyRelay","description":"What LazyRelay is, who runs it, and plain answers on login storage, AI agent access, AI use and failed posts. Posts to 17 platforms and checks each went live.","inLanguage":"en","isPartOf":{"@id":"https://lazyrelay.com/#website"},"about":{"@id":"https://lazyrelay.com/#software"},"publisher":{"@id":"https://lazyrelay.com/#organization"}},{"@type":"FAQPage","@id":"https://lazyrelay.com/about/#faq","isPartOf":{"@id":"https://lazyrelay.com/about/#webpage"},"mainEntity":[{"@type":"Question","name":"How does LazyRelay store the login tokens of my connected social accounts?","acceptedAnswer":{"@type":"Answer","text":"Login tokens are stored in Supabase Vault, which encrypts them at rest. The database keeps only a reference ID for each secret, and the functions that read or write them can be run only by LazyRelay's server, not from a browser or a signed-in user session. When you disconnect an account, the stored login is overwritten."}},{"@type":"Question","name":"How does LazyRelay's hosted MCP server authenticate AI agents?","acceptedAnswer":{"@type":"Answer","text":"The /mcp endpoint accepts OAuth 2.1 bearer tokens and checks each one against the identity provider's published signing keys (JWKS, ES256). A token must be issued for the MCP server itself, so ordinary dashboard session tokens are rejected there. API keys are the other way in, for the REST API and the local npm package."}},{"@type":"Question","name":"Which AI tools can connect to LazyRelay?","acceptedAnswer":{"@type":"Answer","text":"LazyRelay has setup pages for 15 tools: Claude, ChatGPT, Perplexity, Notion, Manus, OpenClaw, Cursor, Windsurf, Antigravity, Codex CLI, Gemini CLI, VS Code, n8n, Make and Raycast. For n8n there is a community node package, n8n-nodes-lazyrelay. Zapier is a private, invite-only app."}},{"@type":"Question","name":"Which AI model does LazyRelay use, and what does it do with my comments?","acceptedAnswer":{"@type":"Answer","text":"Comment and direct message sorting, plus the optional caption, hashtag and idea helpers, call Anthropic's Claude Haiku 4.5 directly from LazyRelay's servers, using LazyRelay's own API key. Comment and reply text is kept out of LazyRelay's analytics. LazyRelay never replies to a comment on its own, and AI-suggested replies are not yet available."}},{"@type":"Question","name":"What happens when a platform keeps failing?","acceptedAnswer":{"@type":"Answer","text":"Every post is checked after publishing. A failed post that could still succeed is retried up to 3 times, after waits of 2, 4 and 8 minutes. If a platform returns 5 failures in a row, LazyRelay pauses posting to that platform for 5 minutes, then resumes. This protects your queue from repeated errors; it does not replace each platform's own content rules."}}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-top">
+  <div class="wrap">
+    <a class="wordmark" href="/">Lazy<span class="dot">Relay</span></a>
+    <nav aria-label="Main">
+      <a href="/pricing">Pricing</a>
+      <a href="/developers/">Developers</a>
+      <a href="/docs/mcp-api/">MCP &amp; API docs</a>
+      <a href="/contact">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+<section class="hero" aria-labelledby="about-h1">
+  <div class="wrap">
+    <span class="eyebrow">About LazyRelay</span>
+    <h1 id="about-h1">Schedule it. <em>Know it went live.</em></h1>
+    <p class="lead">LazyRelay schedules social media posts across 17 platforms and independently verifies each one actually went live, not just that it was sent.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/pricing">See plans and get started free</a>
+      <a class="btn btn-ghost" href="#faq">Read the FAQ</a>
+    </div>
+  </div>
+</section>
+
+<section class="stats" aria-label="LazyRelay at a glance">
+  <div class="wrap">
+    <div class="stat-grid">
+      <div class="stat stat-orange"><b>17</b><span>platforms to schedule to</span></div>
+      <div class="stat stat-teal"><b>27</b><span>MCP tools for AI agents</span></div>
+      <div class="stat stat-violet"><b>15</b><span>AI tool setup guides</span></div>
+      <div class="stat stat-green"><b>$0</b><span>Free plan, no card required</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" aria-labelledby="what-h">
+  <div class="wrap">
+    <h2 class="section-title" id="what-h">What LazyRelay does</h2>
+    <p class="section-lead">One place to schedule, publish and check your posts, built around a simple idea: a post is only done when it is really live.</p>
+    <div class="cards">
+      <div class="card card-orange">
+        <h3>Scheduled posting to 17 platforms</h3>
+        <p>Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress, dev.to, Hashnode, Lemmy and Slack. LazyRelay checks every 30 seconds and sends posts when they are due.</p>
+      </div>
+      <div class="card card-teal">
+        <h3>Proof-of-Publish</h3>
+        <p>After publishing, LazyRelay independently checks with the platform that each post is live, instead of trusting the first accepted response. A post it cannot confirm is flagged in your dashboard, not hidden.</p>
+      </div>
+      <div class="card card-violet">
+        <h3>Comments in one stream</h3>
+        <p>LazyRelay reads comments on the posts you publish through it from 9 platforms into one place. It does not track mentions elsewhere on the web, and comments are kept for up to 30 days.</p>
+      </div>
+      <div class="card card-green">
+        <h3>Free to start</h3>
+        <p>The Free plan costs $0 and needs no credit card. AI-agent, MCP and API access is included on every plan, including Free.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="dev" aria-labelledby="dev-h">
+  <div class="wrap">
+    <h2 id="dev-h">Built for AI agents and developers too</h2>
+    <p>A REST API described in OpenAPI 3.1, a hosted MCP server with 27 tools, a Node SDK and command line tool, and an n8n node. Connect an AI assistant, an editor or your own code.</p>
+    <a class="pill" href="/docs/mcp-api/">MCP tools and API reference</a>
+    <a class="pill" href="/developers/">For developers</a>
+    <a class="pill" href="/mcp/">AI tool setup guides</a>
+  </div>
+</section>
+
+<section class="block" aria-labelledby="who-h">
+  <div class="wrap">
+    <h2 class="section-title" id="who-h">Who runs LazyRelay</h2>
+    <div class="who">
+      <div class="panel">
+        <h3>IPE Projects (Pty) Ltd</h3>
+        <p>LazyRelay is operated by IPE Projects (Pty) Ltd, a company registered in South Africa (registration number 2021/003176/07).</p>
+        <div class="legal-links">
+          <a href="/privacy">Privacy Policy</a>
+          <a href="/terms">Terms of Service</a>
+          <a href="/dpa">Data Processing Agreement</a>
+          <a href="/refunds">Refund Policy</a>
+        </div>
+      </div>
+      <div class="panel panel-yellow">
+        <h3>Get in touch</h3>
+        <dl>
+          <div><dt>General and press</dt><dd><a href="mailto:hello@lazyrelay.com">hello@lazyrelay.com</a></dd></div>
+          <div><dt>Support</dt><dd><a href="mailto:support@lazyrelay.com">support@lazyrelay.com</a></dd></div>
+          <div><dt>Billing and account</dt><dd><a href="mailto:accounts@lazyrelay.com">accounts@lazyrelay.com</a></dd></div>
+        </dl>
+        <p style="margin-top:10px;"><a href="/contact">Contact page</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="faq" aria-labelledby="faq-h">
+  <div class="wrap">
+    <h2 class="section-title" id="faq-h">Frequently asked questions</h2>
+    <p class="section-lead">Direct answers about security, AI agents, AI use and failed posts. Select a question to open it.</p>
+    <div class="faq-list">
+    <details class="faq faq-orange">
+      <summary><span class="q">How does LazyRelay store the login tokens of my connected social accounts?</span></summary>
+      <p class="a">Login tokens are stored in Supabase Vault, which encrypts them at rest. The database keeps only a reference ID for each secret, and the functions that read or write them can be run only by LazyRelay's server, not from a browser or a signed-in user session. When you disconnect an account, the stored login is overwritten.</p>
+    </details>
+    <details class="faq faq-teal">
+      <summary><span class="q">How does LazyRelay's hosted MCP server authenticate AI agents?</span></summary>
+      <p class="a">The /mcp endpoint accepts OAuth 2.1 bearer tokens and checks each one against the identity provider's published signing keys (JWKS, ES256). A token must be issued for the MCP server itself, so ordinary dashboard session tokens are rejected there. API keys are the other way in, for the REST API and the local npm package.</p>
+    </details>
+    <details class="faq faq-violet">
+      <summary><span class="q">Which AI tools can connect to LazyRelay?</span></summary>
+      <p class="a">LazyRelay has setup pages for 15 tools: Claude, ChatGPT, Perplexity, Notion, Manus, OpenClaw, Cursor, Windsurf, Antigravity, Codex CLI, Gemini CLI, VS Code, n8n, Make and Raycast. For n8n there is a community node package, n8n-nodes-lazyrelay. Zapier is a private, invite-only app.</p>
+    </details>
+    <details class="faq faq-green">
+      <summary><span class="q">Which AI model does LazyRelay use, and what does it do with my comments?</span></summary>
+      <p class="a">Comment and direct message sorting, plus the optional caption, hashtag and idea helpers, call Anthropic's Claude Haiku 4.5 directly from LazyRelay's servers, using LazyRelay's own API key. Comment and reply text is kept out of LazyRelay's analytics. LazyRelay never replies to a comment on its own, and AI-suggested replies are not yet available.</p>
+    </details>
+    <details class="faq faq-orange">
+      <summary><span class="q">What happens when a platform keeps failing?</span></summary>
+      <p class="a">Every post is checked after publishing. A failed post that could still succeed is retried up to 3 times, after waits of 2, 4 and 8 minutes. If a platform returns 5 failures in a row, LazyRelay pauses posting to that platform for 5 minutes, then resumes. This protects your queue from repeated errors; it does not replace each platform's own content rules.</p>
+    </details>
+    </div>
+  </div>
+</section>
+
+<section class="closer" aria-label="Get started">
+  <div class="wrap">
+    <h2>Ready to see your posts verified live?</h2>
+    <a class="btn" href="/pricing">See plans and get started free</a>
+  </div>
+</section>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/docs">API &amp; MCP Docs</a> &middot; <a href="/docs/mcp-api/">MCP tools and security</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+    <p>&copy; 2026 LazyRelay. All rights reserved.</p>
+  </div>
+</footer>
+</body>
+</html>

@@ -14,6 +14,7 @@ LazyRelay is a social media scheduling platform built around Proof-of-Publish: i
 - [Integrations](https://lazyrelay.com/mcp/): Connect LazyRelay to 15 AI agents and editors (Claude, ChatGPT, Gemini, Cursor, Notion, and more) plus Zapier, all via one hosted MCP server.
 - [Platform Coverage](https://lazyrelay.com/platform-features/): Feature-by-platform breakdown across all 17 supported platforms.
 - [Guides](https://lazyrelay.com/guides/): Full guide index.
+- [About LazyRelay](https://lazyrelay.com/about/): What LazyRelay is, who operates it, and short answers on login storage, MCP authentication, which AI model it uses and how failed posts are handled.
 
 ## Guides
 
