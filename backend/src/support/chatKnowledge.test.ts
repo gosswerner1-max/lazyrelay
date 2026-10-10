@@ -10,7 +10,7 @@ describe("support bot knowledge: platforms", () => {
   const prompt = buildSupportSystemPrompt(null);
   const line = (prompt.split("\n").find((l) => l.startsWith("PLATFORMS LazyRelay posts to today:")) ?? "");
 
-  it("lists every platform LazyRelay can post to (X is only coming soon), Slack included", () => {
+  it("lists every platform LazyRelay can post to (X is described separately: own developer keys), Slack included", () => {
     // Nostr is built but switched off (NOSTR_PLATFORM_PUBLIC): like X, it is not listed to customers until release.
     const labels = getPlatformRules().filter((r) => r.platform !== "x" && r.platform !== "nostr" && r.platform !== "whop").map((r) => r.label);
     expect(labels).toContain("Slack");
