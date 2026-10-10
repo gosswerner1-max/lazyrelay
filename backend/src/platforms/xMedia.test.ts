@@ -2,7 +2,7 @@
 // and a refusal names the exact step. fetch is injected; nothing real is called.
 
 import { describe, it, expect } from "vitest";
-import { createXMediaUploader, MEDIA_SEGMENT_BYTES, X_MEDIA_FLOW, mediaCategoryFor } from "./xMedia.js";
+import { createXMediaUploader, MEDIA_SEGMENT_BYTES, X_MEDIA_UPLOAD_CONFIG, mediaCategoryFor } from "./xMedia.js";
 import { X_TEST_BUNDLE } from "./xTestKit.js";
 
 type Call = { url: string; method: string; auth: string; body: unknown };
@@ -21,7 +21,8 @@ const png = { bytes: Buffer.from("png-bytes"), mimeType: "image/png" };
 
 describe("the selector", () => {
   it("defaults to the v2 flow until the live probe says otherwise", () => {
-    expect(X_MEDIA_FLOW).toBe("v2");
+    expect(X_MEDIA_UPLOAD_CONFIG.flow).toBe("v2");
+    expect(X_MEDIA_UPLOAD_CONFIG.maxSegmentBytes).toBe(8_388_608);
   });
   it("picks the upload category from the type", () => {
     expect([mediaCategoryFor("image/jpeg"), mediaCategoryFor("image/gif"), mediaCategoryFor("video/mp4")]).toEqual(["tweet_image", "tweet_gif", "tweet_video"]);
@@ -93,7 +94,7 @@ describe("v2 flow", () => {
 describe("v1.1 fallback flow", () => {
   it("INIT, APPEND, FINALIZE on upload.twitter.com, signed, with the command in the query or multipart body", async () => {
     const h = harness((c) => (c.url.includes("command=INIT") ? reply(200, { media_id_string: "9001" }) : new Response(null, { status: 204 })));
-    const r = await createXMediaUploader("v1", X_TEST_BUNDLE, { fetchImpl: h.fetchImpl }).upload(png);
+    const r = await createXMediaUploader("v1.1", X_TEST_BUNDLE, { fetchImpl: h.fetchImpl }).upload(png);
     expect(r).toMatchObject({ ok: true, mediaId: "9001" });
     expect(h.calls[0].url).toBe("https://upload.twitter.com/1.1/media/upload.json?command=INIT&total_bytes=9&media_type=image%2Fpng&media_category=tweet_image");
     expect(h.calls[1].url).toBe("https://upload.twitter.com/1.1/media/upload.json");
@@ -105,7 +106,7 @@ describe("v1.1 fallback flow", () => {
 
   it("reports a v1.1 refusal at its step", async () => {
     const h = harness((c) => (c.url.includes("command=INIT") ? reply(200, { media_id_string: "1" }) : reply(401, { errors: [{ code: 89, message: "Invalid or expired token." }] })));
-    const r = await createXMediaUploader("v1", X_TEST_BUNDLE, { fetchImpl: h.fetchImpl }).upload(png);
+    const r = await createXMediaUploader("v1.1", X_TEST_BUNDLE, { fetchImpl: h.fetchImpl }).upload(png);
     expect(r).toMatchObject({ ok: false, failedStep: "append" });
     if (r.ok) throw new Error("unreachable");
     expect(r.steps[r.steps.length - 1]).toMatchObject({ status: 401, error: { title: "code 89", detail: "Invalid or expired token." } });

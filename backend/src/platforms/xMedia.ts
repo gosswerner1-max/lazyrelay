@@ -5,29 +5,48 @@
 //         POST   https://api.x.com/2/media/upload/{id}/append         (multipart, segments)
 //         POST   https://api.x.com/2/media/upload/{id}/finalize
 //         GET    https://api.x.com/2/media/upload?command=STATUS&media_id={id}
-//   "v1"  the older chunked flow on https://upload.twitter.com/1.1/media/upload.json
+//   "v1.1" the older chunked flow on https://upload.twitter.com/1.1/media/upload.json
 //         (command=INIT, APPEND, FINALIZE, STATUS)
 //
-// X_MEDIA_FLOW below is the selector. It is "v2" until scripts/live-x-byok-probe.ts has been run with real keys and
-// reported which flow works; then change this one constant. Both flows are signed with OAuth 1.0a; the JSON, multipart
+// X_MEDIA_UPLOAD_CONFIG.flow below is the selector. It stays "v2" until scripts/live-x-byok-probe.ts has been run with
+// real keys and reported which flow works; then change that one field. Both flows are signed with OAuth 1.0a; the JSON, multipart
 // and octet bodies are not part of the signature (oauth1.ts), only the query string is.
 
 import { createXSignedFetch, describeXFailure, readJson, readXError, X_API_BASE, type XErrorInfo, type XSignedFetch } from "./xApi.js";
 import type { XByokBundle } from "./xByok.js";
 
-export type XMediaFlow = "v2" | "v1";
+export type XMediaFlow = "v2" | "v1.1";
 
-/** THE selector. Default v2; flip to "v1" only after the live probe says v2 refuses 1.0a keys and v1.1 works. */
-export const X_MEDIA_FLOW: XMediaFlow = "v2";
+export interface XMediaUploadConfig {
+  /** THE selector. */
+  flow: XMediaFlow;
+  /** v2 base, e.g. https://api.x.com/2/media/upload (initialize, {id}/append, {id}/finalize, ?command=STATUS). */
+  v2Url: string;
+  /** v1.1 endpoint (command=INIT, APPEND, FINALIZE, STATUS). */
+  v1Url: string;
+  /** Size of one APPEND segment. */
+  maxSegmentBytes: number;
+  /** Status polls before giving up on processing (video, GIF). */
+  statusPollMaxAttempts: number;
+  /** Wait between status polls. */
+  statusPollIntervalMs: number;
+}
 
-export const V1_UPLOAD_URL = "https://upload.twitter.com/1.1/media/upload.json";
-export const V2_UPLOAD_URL = `${X_API_BASE}/2/media/upload`;
+// PLACEHOLDER: unverified against live X with OAuth 1.0a, see project-x-byok-architecture note (section 0). Neither flow is
+// proven to accept a customer's 1.0a user keys; both are implemented and unit-tested against mocks only. Do not treat
+// either as working until the live probe has reported.
+export const X_MEDIA_UPLOAD_CONFIG: XMediaUploadConfig = {
+  flow: "v2",
+  v2Url: `${X_API_BASE}/2/media/upload`,
+  v1Url: "https://upload.twitter.com/1.1/media/upload.json",
+  maxSegmentBytes: 8_388_608,
+  statusPollMaxAttempts: 20,
+  statusPollIntervalMs: 3_000,
+};
 
-/** Size of one APPEND segment. X accepts up to 5 MB (v1.1) and 8 MB (v2) per segment; 4 MB is safe for both. */
-export const MEDIA_SEGMENT_BYTES = 4 * 1024 * 1024;
-const PROCESSING_TIMEOUT_MS = 60_000;
-const DEFAULT_POLL_MS = 3_000;
-const MAX_POLL_MS = 10_000;
+export const V1_UPLOAD_URL = X_MEDIA_UPLOAD_CONFIG.v1Url;
+export const V2_UPLOAD_URL = X_MEDIA_UPLOAD_CONFIG.v2Url;
+export const MEDIA_SEGMENT_BYTES = X_MEDIA_UPLOAD_CONFIG.maxSegmentBytes;
 
 export interface XMediaInput {
   bytes: Buffer;
@@ -53,6 +72,8 @@ export interface XMediaUploader {
 export interface XMediaUploaderOptions {
   /** Wait between status polls. Tests pass an instant one. */
   sleep?: (ms: number) => Promise<void>;
+  /** Overrides parts of X_MEDIA_UPLOAD_CONFIG (tests use a tiny segment size). */
+  config?: Partial<XMediaUploadConfig>;
   /** Replaces global fetch (tests, the live probe). */
   fetchImpl?: typeof fetch;
 }
@@ -87,6 +108,7 @@ function mediaIdOf(body: unknown): string | null {
 
 export function createXMediaUploader(flow: XMediaFlow, bundle: XByokBundle, options: XMediaUploaderOptions = {}): XMediaUploader {
   const signed: XSignedFetch = createXSignedFetch(bundle, options.fetchImpl);
+  const cfg: XMediaUploadConfig = { ...X_MEDIA_UPLOAD_CONFIG, ...options.config };
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
 
   return {
@@ -101,9 +123,9 @@ export function createXMediaUploader(flow: XMediaFlow, bundle: XByokBundle, opti
 
       const isV2 = flow === "v2";
       const initUrl = (): string => {
-        if (isV2) return `${V2_UPLOAD_URL}/initialize`;
+        if (isV2) return `${cfg.v2Url}/initialize`;
         const q = new URLSearchParams({ command: "INIT", total_bytes: String(media.bytes.length), media_type: media.mimeType, media_category: mediaCategoryFor(media.mimeType) });
-        return `${V1_UPLOAD_URL}?${q.toString()}`;
+        return `${cfg.v1Url}?${q.toString()}`;
       };
 
       // 1. INIT / initialize
@@ -123,9 +145,9 @@ export function createXMediaUploader(flow: XMediaFlow, bundle: XByokBundle, opti
       pass("initialize", initRes);
 
       // 2. APPEND, one request per segment
-      const segments = Math.max(1, Math.ceil(media.bytes.length / MEDIA_SEGMENT_BYTES));
+      const segments = Math.max(1, Math.ceil(media.bytes.length / cfg.maxSegmentBytes));
       for (let i = 0; i < segments; i++) {
-        const chunk = media.bytes.subarray(i * MEDIA_SEGMENT_BYTES, (i + 1) * MEDIA_SEGMENT_BYTES);
+        const chunk = media.bytes.subarray(i * cfg.maxSegmentBytes, (i + 1) * cfg.maxSegmentBytes);
         const form = new FormData();
         if (!isV2) {
           form.append("command", "APPEND");
@@ -135,7 +157,7 @@ export function createXMediaUploader(flow: XMediaFlow, bundle: XByokBundle, opti
         form.append("media", new Blob([new Uint8Array(chunk)], { type: media.mimeType }));
         let appendRes: Response;
         try {
-          appendRes = await signed({ method: "POST", url: isV2 ? `${V2_UPLOAD_URL}/${encodeURIComponent(mediaId)}/append` : V1_UPLOAD_URL, multipart: form });
+          appendRes = await signed({ method: "POST", url: isV2 ? `${cfg.v2Url}/${encodeURIComponent(mediaId)}/append` : cfg.v1Url, multipart: form });
         } catch {
           return fail("append", null, null, "could not reach X");
         }
@@ -148,8 +170,8 @@ export function createXMediaUploader(flow: XMediaFlow, bundle: XByokBundle, opti
       try {
         finalRes = await signed(
           isV2
-            ? { method: "POST", url: `${V2_UPLOAD_URL}/${encodeURIComponent(mediaId)}/finalize` }
-            : { method: "POST", url: `${V1_UPLOAD_URL}?${new URLSearchParams({ command: "FINALIZE", media_id: mediaId }).toString()}` },
+            ? { method: "POST", url: `${cfg.v2Url}/${encodeURIComponent(mediaId)}/finalize` }
+            : { method: "POST", url: `${cfg.v1Url}?${new URLSearchParams({ command: "FINALIZE", media_id: mediaId }).toString()}` },
         );
       } catch {
         return fail("finalize", null, null, "could not reach X");
@@ -161,14 +183,15 @@ export function createXMediaUploader(flow: XMediaFlow, bundle: XByokBundle, opti
       // 4. STATUS polling, only when X says the media is still being processed (video, GIF)
       let info = unwrap(finalBody).processing_info as ProcessingInfo | undefined;
       const needsPolling = !!info;
-      const deadline = Date.now() + PROCESSING_TIMEOUT_MS;
+      let attempts = 0;
       while (info && info.state !== "succeeded") {
         if (info.state === "failed") return fail("status", null, null, "X could not process the media");
-        if (Date.now() >= deadline) return fail("status", null, null, "X did not finish processing the media in time");
-        await sleep(Math.min(MAX_POLL_MS, Math.max(1, info.check_after_secs ?? 0) * 1000 || DEFAULT_POLL_MS));
+        if (attempts >= cfg.statusPollMaxAttempts) return fail("status", null, null, "X did not finish processing the media in time");
+        attempts += 1;
+        await sleep(cfg.statusPollIntervalMs);
         const statusUrl = isV2
-          ? `${V2_UPLOAD_URL}?${new URLSearchParams({ command: "STATUS", media_id: mediaId }).toString()}`
-          : `${V1_UPLOAD_URL}?${new URLSearchParams({ command: "STATUS", media_id: mediaId }).toString()}`;
+          ? `${cfg.v2Url}?${new URLSearchParams({ command: "STATUS", media_id: mediaId }).toString()}`
+          : `${cfg.v1Url}?${new URLSearchParams({ command: "STATUS", media_id: mediaId }).toString()}`;
         let statusRes: Response;
         try {
           statusRes = await signed({ method: "GET", url: statusUrl });

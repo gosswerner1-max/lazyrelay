@@ -164,7 +164,7 @@ describe("post", () => {
       if (c.url.includes("upload.twitter.com")) return reply(200, {});
       return reply(201, { data: { id: "t9" } });
     };
-    const r = await new XAdapter({ mediaFlow: "v1" }).post(post({ mediaUrl: "https://cdn.example.com/a.png" }));
+    const r = await new XAdapter({ mediaFlow: "v1.1" }).post(post({ mediaUrl: "https://cdn.example.com/a.png" }));
     expect(r.success).toBe(true);
     expect(calls[0].url).toContain("https://upload.twitter.com/1.1/media/upload.json?command=INIT");
     expect(JSON.parse(calls[calls.length - 1].body as string).media).toEqual({ media_ids: ["v1id"] });

@@ -12,7 +12,7 @@
 import { fetchMediaForStreaming } from "./streamUpload.js";
 import type { PlatformAdapter, PostRequest, PostAttemptResult, VerifyResult, OAuthExchangeResult, PostMetrics } from "./types.js";
 import { createXSignedFetch, describeXFailure, readJson, X_API_BASE, type XSignedFetch } from "./xApi.js";
-import { createXMediaUploader, X_MEDIA_FLOW, type XMediaFlow, type XMediaUploaderOptions } from "./xMedia.js";
+import { createXMediaUploader, X_MEDIA_UPLOAD_CONFIG, type XMediaFlow, type XMediaUploaderOptions } from "./xMedia.js";
 import { parseXBundle, X_BUNDLE_INVALID_CODE, type XByokBundle } from "./xByok.js";
 
 const TWEETS_URL = `${X_API_BASE}/2/tweets`;
@@ -38,10 +38,10 @@ interface XTweetMetricsResponse {
 }
 
 export interface XAdapterOptions {
-  /** Which media flow to use. Defaults to the X_MEDIA_FLOW constant in xMedia.ts. */
+  /** Which media flow to use. Defaults to X_MEDIA_UPLOAD_CONFIG.flow in xMedia.ts. */
   mediaFlow?: XMediaFlow;
   /** Passed to the media uploader (tests use an instant sleep). */
-  media?: Pick<XMediaUploaderOptions, "sleep">;
+  media?: Pick<XMediaUploaderOptions, "sleep" | "config">;
 }
 
 export class XAdapter implements PlatformAdapter {
@@ -91,7 +91,7 @@ export class XAdapter implements PlatformAdapter {
     const media = await fetchMediaForStreaming(mediaUrl);
     if (!media) return { error: `Could not upload media from ${mediaUrl}` };
     const bytes = Buffer.from(await new Response(media.body).arrayBuffer());
-    const uploader = createXMediaUploader(this.options.mediaFlow ?? X_MEDIA_FLOW, bundle, this.options.media);
+    const uploader = createXMediaUploader(this.options.mediaFlow ?? X_MEDIA_UPLOAD_CONFIG.flow, bundle, this.options.media);
     const result = await uploader.upload({ bytes, mimeType: media.contentType });
     if (!result.ok) return { error: `Could not upload media from ${mediaUrl}: ${result.errorMessage}` };
     return { mediaId: result.mediaId };
