@@ -43,6 +43,16 @@
      Found live by Werner, 2026-08-10, recurred and re-fixed 2026-08-18. */
   --hero-bg: #040b1d;
 
+  /* Vibrant landing palette (design/vibrant-homepage-overhaul, 2026-10-10).
+     NEW names only: no existing variable above is changed, so the dashboard and
+     every other page keep their own light/dark theme. The landing page maps
+     --paper/--surface onto these inside `.landing` (see the end of App.css). */
+  --midnight: #0b0f19;
+  --velvet: #141b2d;
+  --crimson: #c82400;
+  --coral: #ff5630;
+  --coral-glow: rgba(255, 86, 48, 0.2);
+
   --font-display: "League Spartan", system-ui, sans-serif;
   --font-body: "Work Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
