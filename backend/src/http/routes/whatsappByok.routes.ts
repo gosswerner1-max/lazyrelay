@@ -20,6 +20,8 @@
 //     the token: it travels inside the same Vault string, is never echoed, logged, put in an error or stored in a column,
 //     and is wiped with the token on disconnect. Saving a new one overwrites the old. Re-saving the login WITHOUT one keeps
 //     the secret already stored for that same connection, so rotating the token never silently switches inbound off.
+//     The one way to remove a stored secret is an explicit `clearAppSecret: true` on the save request (refused together
+//     with an appSecret); the response is unchanged and says nothing about the secret.
 
 import express, { type NextFunction, type Request, type Response, type Router } from "express";
 import rateLimit from "express-rate-limit";
@@ -85,10 +87,15 @@ const credentialsShape = {
   appSecret: appSecretField,
 };
 const checkSchema = z.object(credentialsShape);
-const connectSchema = z.object({
-  ...credentialsShape,
-  acceptedTerms: z.literal(true, { error: "You need to tick the box to accept the terms before connecting" }),
-});
+const connectSchema = z
+  .object({
+    ...credentialsShape,
+    acceptedTerms: z.literal(true, { error: "You need to tick the box to accept the terms before connecting" }),
+    // OPTIONAL, save only: true removes the App Secret already stored for this connection (inbound goes off). Anything
+    // but the boolean true is refused, so it can never be set by accident.
+    clearAppSecret: z.literal(true, { error: "clearAppSecret can only be true" }).optional(),
+  })
+  .refine((v) => !(v.clearAppSecret && v.appSecret), { message: "Send either a new App Secret or clearAppSecret, not both", path: ["clearAppSecret"] });
 
 const REASON_RESPONSE: Record<string, { status: number; error: string }> = {
   invalid: { status: 400, error: "Meta did not accept this token. Check you copied the whole system user token, and that it has not expired or been revoked." },
@@ -192,7 +199,7 @@ export function registerWhatsAppByokRoutes(
       res.status(400).json({ error: body.error });
       return;
     }
-    const { acceptedTerms: _accepted, ...bundle } = body.data;
+    const { acceptedTerms: _accepted, clearAppSecret, ...bundle } = body.data;
     const check = await prove(adapter, bundle, req, res);
     if (!check) return;
 
@@ -231,7 +238,7 @@ export function registerWhatsAppByokRoutes(
       // The ONLY place the token is written: into Vault, encrypted at rest, as part of the stored login. The returned
       // value is an opaque uuid that the row keeps; no token column exists.
       let toStore: WhatsAppBundle = bundle;
-      if (existing && !bundle.appSecret && existing.access_token_vault_id && !existing.disconnected_at) {
+      if (existing && !bundle.appSecret && !clearAppSecret && existing.access_token_vault_id && !existing.disconnected_at) {
         // Keep the secret already on file for this same connection when the customer only rotates the token.
         const { data: previous } = await supabase.rpc("read_social_token", { p_vault_id: existing.access_token_vault_id });
         const kept = parseWhatsAppBundle(typeof previous === "string" ? previous : null)?.appSecret;

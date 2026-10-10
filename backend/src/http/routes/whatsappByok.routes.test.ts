@@ -561,6 +561,37 @@ describe("the optional App Secret (inbound webhooks): handled exactly like the t
     expect(stored()?.appSecret).toBe(OTHER);
   });
 
+  it("re-saving without an App Secret keeps the stored one (several rotations) and never returns or logs it", async () => {
+    await request(appWith()).post("/social-accounts/whatsapp/byok").send({ ...BODY, appSecret: SECRET });
+    for (const suffix of ["_r1", "_r2"]) {
+      const r = await request(appWith()).post("/social-accounts/whatsapp/byok").send({ ...BODY, systemUserToken: TOKEN + suffix });
+      expect(r.status).toBe(200);
+      expect(JSON.stringify([r.body, logged])).not.toContain(SECRET);
+    }
+    expect(stored()).toMatchObject({ systemUserToken: TOKEN + "_r2", appSecret: SECRET });
+  });
+
+  it("clearAppSecret: true removes the stored secret on purpose (and only then); the response is unchanged", async () => {
+    await request(appWith()).post("/social-accounts/whatsapp/byok").send({ ...BODY, appSecret: SECRET });
+    const r = await request(appWith()).post("/social-accounts/whatsapp/byok").send({ ...BODY, clearAppSecret: true });
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ ok: true, displayName: "Acme Cafe", keyHint: "****0987" });
+    expect(stored()?.appSecret).toBeUndefined();
+    expect(stored()?.systemUserToken).toBe(TOKEN);
+    expect(JSON.stringify([...vault.values()])).not.toContain(SECRET);
+  });
+
+  it("clearAppSecret is refused together with an App Secret, and for anything but the boolean true", async () => {
+    await request(appWith()).post("/social-accounts/whatsapp/byok").send({ ...BODY, appSecret: SECRET });
+    const both = await request(appWith()).post("/social-accounts/whatsapp/byok").send({ ...BODY, appSecret: OTHER, clearAppSecret: true });
+    expect(both.status).toBe(400);
+    expect(JSON.stringify(both.body)).not.toContain(OTHER);
+    for (const bad of [false, "true", 1]) {
+      expect((await request(appWith()).post("/social-accounts/whatsapp/byok").send({ ...BODY, clearAppSecret: bad })).status, String(bad)).toBe(400);
+    }
+    expect(stored()?.appSecret).toBe(SECRET); // none of the refused requests touched it
+  });
+
   it("a wiped login (disconnect) holds no secret at all", async () => {
     await request(appWith()).post("/social-accounts/whatsapp/byok").send({ ...BODY, appSecret: SECRET });
     const id = tables.social_accounts[0].access_token_vault_id as string;
