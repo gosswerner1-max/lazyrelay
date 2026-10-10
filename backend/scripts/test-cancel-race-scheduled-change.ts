@@ -65,14 +65,14 @@ async function main() {
       deriveCancelAtPeriodEnd({ scheduledChange: { action: "pause" } }) === false,
     );
 
-    // 1) Genuine first-ever webhook: account goes active on "business", no
+    // 1) Genuine first-ever webhook: account goes active on "pro", no
     // cancellation scheduled. Establishes the baseline row.
     const createdEvent: SubscriptionEvent = {
       kind: "tier",
       morSubscriptionId,
       accountEmail: email,
       accountId,
-      tier: "business",
+      tier: "pro",
       status: "active",
       currentPeriodEnd: periodEnd,
       occurredAt: new Date(Date.now() - 120_000).toISOString(),

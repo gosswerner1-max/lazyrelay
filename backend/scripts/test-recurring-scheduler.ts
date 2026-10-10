@@ -108,7 +108,7 @@ await (async () => {
   await supabase.from("accounts").upsert({ id: accountId, email });
   await supabase.from("subscriptions").insert({
     account_id: accountId,
-    tier: "pro",
+    tier: "starter",
     status: "active",
     mor_subscription_id: `mor_recurring_test_${Date.now()}`,
     current_period_end: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),

@@ -22,7 +22,7 @@ async function main() {
     {
       account_id: accountId,
       mor_subscription_id: `sub_tier_cascade_${Date.now()}`,
-      tier: "pro",
+      tier: "starter",
       status: "active",
       current_period_end: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
       updated_at: new Date().toISOString(),

@@ -38,13 +38,13 @@ async function main() {
   const accountId = user.user.id;
   await supabase.from("accounts").upsert({ id: accountId, email });
 
-  // Put the account on Starter ("pro") so add-on checkout would be allowed
+  // Put the account on Starter ("starter") so add-on checkout would be allowed
   // (Free tier is blocked in routes.ts) and so the base quota is Starter's.
   await supabase.from("subscriptions").upsert(
     {
       account_id: accountId,
       mor_subscription_id: `sub_tier_test_${Date.now()}`,
-      tier: "pro",
+      tier: "starter",
       status: "active",
       current_period_end: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
       updated_at: new Date().toISOString(),

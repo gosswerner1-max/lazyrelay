@@ -13,7 +13,7 @@ describe("shouldShowBrandingTag", () => {
   });
 
   it("never shows the tag on any paid tier, regardless of the column's value", () => {
-    for (const tier of ["pro", "business", "enterprise", "agency", "agency_plus"] as const) {
+    for (const tier of ["starter", "pro", "business", "agency", "agency_plus"] as const) {
       expect(shouldShowBrandingTag(tier, true)).toBe(false);
       expect(shouldShowBrandingTag(tier, undefined)).toBe(false);
     }

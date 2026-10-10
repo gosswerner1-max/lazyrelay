@@ -12,6 +12,16 @@ import { PaddleMorAdapter } from "../src/billing/paddle.js";
 
 const WEBHOOK_SECRET = "pdl_ntfset_test_secret";
 
+// Tier is resolved from the Paddle price id via the PADDLE_PRICE_ID_* env vars
+// (billing/tierResolution.ts), so give the in-process adapter fake ones.
+process.env.PADDLE_PRICE_ID_STARTER = "pri_test_starter";
+process.env.PADDLE_PRICE_ID_PRO = "pri_test_pro";
+process.env.PADDLE_PRICE_ID_BUSINESS = "pri_test_business";
+
+function fakeItem(priceId: string) {
+  return { status: "active", quantity: 1, recurring: true, price: { id: priceId } };
+}
+
 function signPayload(rawBody: string): string {
   const ts = Math.floor(Date.now() / 1000);
   const h1 = crypto.createHmac("sha256", WEBHOOK_SECRET).update(`${ts}:${rawBody}`).digest("hex");
@@ -29,8 +39,8 @@ function fakeSubscriptionNotification(overrides: Record<string, unknown> = {}) {
     updated_at: new Date().toISOString(),
     collection_mode: "automatic",
     billing_cycle: { interval: "month", frequency: 1 },
-    items: [],
-    custom_data: { accountEmail: "customer@example.com", tier: "pro" },
+    items: [fakeItem("pri_test_starter")],
+    custom_data: { accountEmail: "customer@example.com", tier: "pro" }, // legacy code: old "pro" was Starter
     current_billing_period: { starts_at: new Date().toISOString(), ends_at: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString() },
     ...overrides,
   };
@@ -117,7 +127,7 @@ async function main() {
       const rawBody = buildEventPayload("subscription.created", fakeSubscriptionNotification({ status: "active" }));
       const event = await adapter.parseWebhookEvent(rawBody, signPayload(rawBody));
       assertEqual(event && "status" in event ? event.status : undefined, "active", "status");
-      assertEqual(event && "tier" in event ? event.tier : undefined, "pro", "tier");
+      assertEqual(event && "tier" in event ? event.tier : undefined, "starter", "tier (legacy custom_data pro + Starter price id)");
       assertEqual(event && "accountEmail" in event ? event.accountEmail : undefined, "customer@example.com", "accountEmail");
       assertEqual(event && "morSubscriptionId" in event ? event.morSubscriptionId : undefined, "sub_test123", "morSubscriptionId");
     }),
@@ -125,11 +135,11 @@ async function main() {
     test("subscription.updated (past_due) maps correctly", async () => {
       const rawBody = buildEventPayload(
         "subscription.updated",
-        fakeSubscriptionNotification({ status: "past_due", custom_data: { accountEmail: "x@example.com", tier: "business" } })
+        fakeSubscriptionNotification({ status: "past_due", items: [fakeItem("pri_test_pro")], custom_data: { accountEmail: "x@example.com", tier: "business" } })
       );
       const event = await adapter.parseWebhookEvent(rawBody, signPayload(rawBody));
       assertEqual(event && "status" in event ? event.status : undefined, "past_due", "status");
-      assertEqual(event && "tier" in event ? event.tier : undefined, "business", "tier");
+      assertEqual(event && "tier" in event ? event.tier : undefined, "pro", "tier (legacy custom_data business + Pro price id)");
     }),
 
     test("subscription.paused maps to past_due (payment-lapse state, not full cancellation)", async () => {

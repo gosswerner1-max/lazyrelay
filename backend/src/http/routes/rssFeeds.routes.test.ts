@@ -39,7 +39,7 @@ const RSS = "<rss><channel><item><title>One</title><guid>g1</guid></item><item><
 beforeEach(() => {
   for (const k of Object.keys(tables)) delete tables[k];
   auth.accountId = "acc1";
-  setTier("acc1", "enterprise"); // 5 feeds; the plan tests below change it
+  setTier("acc1", "business"); // 5 feeds; the plan tests below change it
   feedFetch.result = { ok: true, text: RSS };
 });
 
@@ -65,10 +65,10 @@ describe("rss feeds API", () => {
   });
 
   it("stops at the limit, counting only this account", async () => {
-    tables.rss_feeds = Array.from({ length: RSS_FEED_LIMITS.enterprise }, (_, i) => ({ id: `f${i}`, account_id: "acc1", url: "u", enabled: true }));
+    tables.rss_feeds = Array.from({ length: RSS_FEED_LIMITS.business }, (_, i) => ({ id: `f${i}`, account_id: "acc1", url: "u", enabled: true }));
     expect((await request(app()).post("/rss-feeds").send({ url: "https://example.com/feed.xml" })).status).toBe(403);
     auth.accountId = "acc2";
-    setTier("acc2", "enterprise");
+    setTier("acc2", "business");
     expect((await request(app()).post("/rss-feeds").send({ url: "https://example.com/feed.xml" })).status).toBe(201);
   });
 
@@ -81,13 +81,13 @@ describe("rss feeds API", () => {
   });
 
   it("each plan gets its own cap: Starter 1, Pro 3", async () => {
-    setTier("acc1", "pro"); // displays as Starter
+    setTier("acc1", "starter"); // displays as Starter
     expect((await request(app()).get("/rss-feeds")).body.maxFeeds).toBe(1);
     expect((await request(app()).post("/rss-feeds").send({ url: "https://example.com/a.xml" })).status).toBe(201);
     const second = await request(app()).post("/rss-feeds").send({ url: "https://example.com/b.xml" });
     expect(second.status).toBe(403);
     expect(second.body.error).toMatch(/allows 1 RSS feed\./);
-    setTier("acc1", "business"); // displays as Pro
+    setTier("acc1", "pro"); // displays as Pro
     expect((await request(app()).get("/rss-feeds")).body.maxFeeds).toBe(3);
     expect((await request(app()).post("/rss-feeds").send({ url: "https://example.com/b.xml" })).status).toBe(201);
   });
