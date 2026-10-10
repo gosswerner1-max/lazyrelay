@@ -105,3 +105,15 @@ export function isWhatsappPlanGateError(err: unknown): boolean {
   const { code, message } = err as { code?: unknown; message?: unknown };
   return code === WHATSAPP_DB_GATE_CODE || (typeof message === "string" && message.includes(WHATSAPP_DB_GATE_MESSAGE));
 }
+
+/** The database-side X own-keys plan gate (migration 0126, trigger social_accounts_x_byok_plan_gate) rejects a write with
+ *  SQLSTATE 'LRXB1' and the message below. The X BYOK save route turns that into the same fixed plan answer as its own
+ *  application gate (HTTP 403, X_BYOK_PLAN_MESSAGE) instead of a 500. Matches the code or the message, so it still works
+ *  if a client layer drops one of them. */
+export const X_BYOK_DB_GATE_CODE = "LRXB1";
+export const X_BYOK_DB_GATE_MESSAGE = "x own keys requires the Pro plan or above";
+export function isXByokPlanGateError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const { code, message } = err as { code?: unknown; message?: unknown };
+  return code === X_BYOK_DB_GATE_CODE || (typeof message === "string" && message.includes(X_BYOK_DB_GATE_MESSAGE));
+}
