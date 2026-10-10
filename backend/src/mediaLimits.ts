@@ -357,6 +357,16 @@ export function validateMediaForPlatform(platform: Platform, media: MediaMeta): 
   }
 
   if (isVideo(media.mimeType)) {
+    // LinkedIn's generic fallback rules list video types, but the LinkedIn adapter only
+    // uploads images (linkedin.ts uploadImage), so a video would pass here and then fail
+    // at post time. Refuse it up front with a message that names platforms that take video.
+    if (platform === "linkedin") {
+      return {
+        valid: false,
+        reason: "LinkedIn publishing currently supports image uploads only. To post video content, please target YouTube, TikTok, or Instagram.",
+        unchecked,
+      };
+    }
     unchecked.push("video duration", "video resolution/aspect ratio");
     if (rules.video.allowedMimeTypes.length === 0) {
       return { valid: false, reason: `${platform} does not accept video posts through LazyRelay. Use an image instead.`, unchecked };
