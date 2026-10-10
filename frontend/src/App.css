@@ -2948,3 +2948,147 @@ button[type="submit"]:not(.btn-outline),
 .ai-tool-tile:hover .ai-tool-label {
   color: var(--ink);
 }
+
+/* ==========================================================================
+   Vibrant landing overhaul (design/vibrant-homepage-overhaul, 2026-10-10)
+   Werner's brief: deep colour density, no flat white, tighter vertical rhythm,
+   glass feature cards, gradient titles, Ray pinned bottom-right. Everything is
+   scoped to `.landing-vibrant` (a class only the home page carries) so the dashboard and the legal
+   pages keep their own theme, and it is appended at the end so the original
+   rules above stay as the fallback and one block can be reverted on its own.
+   No markup, structured data (JSON-LD), canonical or meta tag is touched here.
+   ========================================================================== */
+
+/* 1. Midnight canvas + velvet surfaces, always dark on the home page (light or
+      dark OS setting). Crimson stays the solid accent, coral the glow/accent. */
+.landing-vibrant {
+  --paper: var(--midnight);
+  --surface: var(--velvet);
+  --ink: #f2f3f6;
+  --wire: #aab3c2;
+  --line: rgba(255, 255, 255, 0.1);
+  --signal: var(--coral);
+  --signal-solid: var(--crimson);
+  --signal-solid-hover: #e32d00;
+  --signal-bg: rgba(255, 86, 48, 0.14);
+  --signal-hover: #ff7452;
+  --confirm: #3ec98a;
+  --confirm-bg: rgba(62, 201, 138, 0.14);
+  --shadow: rgba(0, 0, 0, 0.45) 0 6px 20px -6px;
+  color-scheme: dark;
+  background: var(--midnight);
+  color: var(--wire);
+}
+
+/* Overscroll / areas outside the page wrapper must not flash the old light grey. */
+html:has(.landing-vibrant),
+body:has(.landing-vibrant) {
+  background: #0b0f19;
+}
+
+/* 2. Vertical rhythm: every content row is capped at 3.5rem (56px), tighter on
+      small screens. Gaps between a heading and its content come down a step. */
+.landing-vibrant .landing-section {
+  padding-block: clamp(2.25rem, 5vw, 3.5rem);
+}
+
+.landing-vibrant .landing-section h2 {
+  margin-bottom: 1.5rem;
+}
+
+.landing-vibrant .landing-hero {
+  padding-block: 2.5rem 3.5rem;
+}
+
+.landing-vibrant .landing-newsletter {
+  margin-block: 2rem;
+}
+
+/* 3. Glass feature cards with a thin coral glow border. */
+.landing-vibrant .landing-step,
+.landing-vibrant .landing-feature,
+.landing-vibrant .landing-bento-tile {
+  background: linear-gradient(160deg, rgba(20, 27, 45, 0.78), rgba(20, 27, 45, 0.5));
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 86, 48, 0.2);
+  box-shadow: 0 0 22px rgba(255, 86, 48, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.landing-vibrant .landing-step,
+.landing-vibrant .landing-feature {
+  border-top: 3px solid var(--crimson);
+}
+
+.landing-vibrant .landing-bento-tile:hover {
+  border-color: rgba(255, 86, 48, 0.55);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.35), 0 0 28px rgba(255, 86, 48, 0.22);
+}
+
+.landing-vibrant .landing-bento-tile--wide {
+  background: linear-gradient(120deg, rgba(200, 36, 0, 0.28), rgba(20, 27, 45, 0.6) 60%);
+}
+
+/* 4. Gradient title text (white into coral). Kept behind @supports with the
+      plain colour as the fallback, so a browser without background-clip:text
+      still shows readable white titles. The gradient ends at coral (#ff5630,
+      about 6:1 on midnight), not crimson, so the end of a title stays legible. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .landing-vibrant .landing-hero-headline,
+  .landing-vibrant .landing-section h2 {
+    background: linear-gradient(95deg, #ffffff 0%, #ffd9cf 38%, #ff5630 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  /* h2 is a block as wide as the section; shrink it to its text so the gradient
+     spans the words, not the empty space either side. */
+  .landing-vibrant .landing-section h2 {
+    width: fit-content;
+    max-width: 100%;
+    margin-inline: auto;
+  }
+}
+
+/* 5. Ray (the support assistant) pinned bottom-right on the home page, in the
+      brand crimson-to-coral. It is the same fixed element as before; this moves
+      it to 2rem, lifts it within the page's own stacking context (the cookie
+      notice and any dashboard overlay live outside it and stay above), and gives
+      it an always-on glow pulse. The bubble itself has no dismiss control. */
+.landing-vibrant .support-widget {
+  position: fixed;
+  right: 2rem;
+  bottom: 2rem;
+  z-index: 9999;
+}
+
+.landing-vibrant .support-bubble {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(var(--midnight), var(--midnight)) padding-box,
+    linear-gradient(135deg, var(--crimson), var(--coral)) border-box;
+  box-shadow: 0 8px 26px -4px rgba(200, 36, 0, 0.6), 0 0 0 0 rgba(255, 86, 48, 0.55);
+  animation: ray-glow 2.4s ease-in-out infinite;
+}
+
+.landing-vibrant .support-bubble-ring {
+  border-color: var(--coral);
+}
+
+@keyframes ray-glow {
+  0%,
+  100% {
+    box-shadow: 0 8px 26px -4px rgba(200, 36, 0, 0.6), 0 0 0 0 rgba(255, 86, 48, 0.5);
+  }
+  50% {
+    box-shadow: 0 8px 30px -2px rgba(255, 86, 48, 0.75), 0 0 0 12px rgba(255, 86, 48, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-vibrant .support-bubble {
+    animation: none;
+  }
+}
