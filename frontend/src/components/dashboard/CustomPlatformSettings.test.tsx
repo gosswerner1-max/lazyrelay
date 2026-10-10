@@ -21,8 +21,9 @@ import componentSource from "./CustomPlatformSettings.tsx?raw";
 // The exact words Werner approved for X, typed out again here on purpose: if the shared constant is ever edited, this fails.
 const X_APPROVED =
   "I understand that by using my own custom keys, all publishing and media upload charges are billed directly to my personal X developer wallet according to X's pay-per-use consumption rates. I accept full responsibility for managing my own credit balance and agree to X's Developer terms.";
-// NOT legal wording. A stand-in string so the WhatsApp save flow can be exercised while the real text is unwritten.
-const TEST_ONLY_CONSENT = "TEST ONLY consent stand-in, not approved wording.";
+// The exact words Werner approved for WhatsApp (2026-10-10), typed out again here on purpose: if the shared constant is ever edited, this fails.
+const WA_APPROVED =
+  "I understand that custom WhatsApp messaging requires active payment credentials linked directly to my Meta Business portfolio. All conversational template billing is handled by Meta directly. I accept full responsibility for compliance with Meta's Business Policies.";
 
 const X_OK: PlatformInfo = { platform: "x", configured: true, comingSoon: false, requiresPlan: "Pro", allowed: true };
 const WA_OK: PlatformInfo = { platform: "whatsapp", configured: true, comingSoon: false, requiresPlan: "Business", allowed: true };
@@ -189,18 +190,26 @@ describe("WhatsApp: the form", () => {
   }
   const save = () => screen.getByRole("button", { name: "Save and connect" });
 
-  it("the WhatsApp consent wording is NOT written yet: it is null, and nothing here invents it", () => {
-    expect(WHATSAPP_BYOK_CONSENT_TEXT).toBeNull();
+  it("the shared constant is exactly the approved wording, with a straight apostrophe and no dashes", () => {
+    expect(WHATSAPP_BYOK_CONSENT_TEXT).toBe(WA_APPROVED);
+    expect(WHATSAPP_BYOK_CONSENT_TEXT).not.toMatch(/[‘’—–]/);
   });
 
-  it("while the wording is missing there is no checkbox, saving is off even when everything is filled, and the page says why", async () => {
+  it("the approved wording appears byte for byte in the rendered panel, next to a checkbox", () => {
+    const { container } = render(<CustomPlatformSettings platforms={[WA_OK]} />);
+    expect(container.innerHTML).toContain(WA_APPROVED);
+    expect(screen.getByRole("checkbox").closest("label")).toHaveTextContent(WA_APPROVED);
+  });
+
+  it("saving stays off until everything is filled AND the box is ticked; checking needs no box", async () => {
     const user = userEvent.setup();
     render(<CustomPlatformSettings platforms={[WA_OK]} />);
-    await fillWa(user);
-    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
     expect(save()).toBeDisabled();
-    expect(screen.getByRole("note")).toHaveTextContent(/consent wording for WhatsApp is not published yet/i);
+    await fillWa(user);
+    expect(save()).toBeDisabled(); // box not ticked
     expect(screen.getByRole("button", { name: "Check my credentials" })).toBeEnabled(); // checking stores nothing
+    await user.click(screen.getByRole("checkbox"));
+    expect(save()).toBeEnabled();
   });
 
   it("says plainly that publishing to WhatsApp is not available yet", () => {
@@ -219,7 +228,7 @@ describe("WhatsApp: the form", () => {
 
   it("flags wrong input in plain words and keeps Check and Save off", async () => {
     const user = userEvent.setup();
-    render(<CustomPlatformSettings platforms={[WA_OK]} whatsappConsentText={TEST_ONLY_CONSENT} />);
+    render(<CustomPlatformSettings platforms={[WA_OK]} />);
     await user.type(screen.getByLabelText("WhatsApp Business Account ID (WABA ID)"), "abc12345");
     await user.type(screen.getByLabelText("Phone number ID"), "+27 82 000 0000");
     await user.type(screen.getByLabelText("System user token"), "short");
@@ -230,15 +239,15 @@ describe("WhatsApp: the form", () => {
     expect(save()).toBeDisabled();
   });
 
-  it("with the wording supplied: Save needs the box, sends the trimmed values once, then clears the token", async () => {
+  it("Save needs the box, sends the trimmed values once, then clears the token", async () => {
     api.connectWhatsAppCredentials.mockResolvedValue({ ok: true, displayName: "Acme Cafe", keyHint: "****0987" });
     const onConnected = vi.fn();
     const user = userEvent.setup();
-    render(<CustomPlatformSettings platforms={[WA_OK]} whatsappConsentText={TEST_ONLY_CONSENT} onConnected={onConnected} />);
+    render(<CustomPlatformSettings platforms={[WA_OK]} onConnected={onConnected} />);
     await fillWa(user);
     expect(save()).toBeDisabled();
     const box = screen.getByRole("checkbox");
-    expect(box.closest("label")).toHaveTextContent(TEST_ONLY_CONSENT);
+    expect(box.closest("label")).toHaveTextContent(WA_APPROVED);
     await user.click(box);
     expect(save()).toBeEnabled();
     await user.click(save());
@@ -253,7 +262,7 @@ describe("WhatsApp: the form", () => {
   it("clears the token and shows the error when the backend refuses (a plan below Business answers 400)", async () => {
     api.connectWhatsAppCredentials.mockRejectedValue(new Error("Connecting WhatsApp with your own Meta credentials is available on the Business plan and above."));
     const user = userEvent.setup();
-    render(<CustomPlatformSettings platforms={[WA_OK]} whatsappConsentText={TEST_ONLY_CONSENT} />);
+    render(<CustomPlatformSettings platforms={[WA_OK]} />);
     await fillWa(user);
     await user.click(screen.getByRole("checkbox"));
     await user.click(save());
@@ -275,7 +284,7 @@ describe("WhatsApp: the form", () => {
   it("never writes the token or the ids to localStorage or sessionStorage", async () => {
     api.connectWhatsAppCredentials.mockResolvedValue({ ok: true, displayName: null, keyHint: "****0987" });
     const user = userEvent.setup();
-    render(<CustomPlatformSettings platforms={[WA_OK]} whatsappConsentText={TEST_ONLY_CONSENT} />);
+    render(<CustomPlatformSettings platforms={[WA_OK]} />);
     await fillWa(user);
     await user.click(screen.getByRole("checkbox"));
     await user.click(save());

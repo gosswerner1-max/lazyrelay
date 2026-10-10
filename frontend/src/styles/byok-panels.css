@@ -226,12 +226,6 @@
   accent-color: var(--byok-crimson);
 }
 
-.byok-consent--pending {
-  border-style: dashed;
-  border-color: var(--byok-glow);
-  color: var(--byok-muted);
-}
-
 .byok-actions {
   display: flex;
   gap: 0.5rem;

@@ -15,13 +15,15 @@ import { SnippetsSection } from "./SnippetsSection";
 import { PostingSlotsSection } from "./PostingSlotsSection";
 import { RssFeedsSection } from "./RssFeedsSection";
 import { ReviewLinksSection } from "./ReviewLinksSection";
+import { CustomPlatformSettings } from "../../components/dashboard/CustomPlatformSettings";
 
-type SettingsSub = "general" | "security" | "team" | "automation" | "billing";
+type SettingsSub = "general" | "security" | "team" | "automation" | "keys" | "billing";
 const SETTINGS_SUBS: { id: SettingsSub; label: string }[] = [
   { id: "general", label: "General" },
   { id: "security", label: "Security" },
   { id: "team", label: "Team" },
   { id: "automation", label: "Automation" },
+  { id: "keys", label: "Custom developer keys" },
   { id: "billing", label: "Plan & billing" },
 ];
 
@@ -107,6 +109,8 @@ export function SettingsTab() {
     handleAnnounceAdminAction,
     currentTier,
     accounts,
+    platforms,
+    refresh,
     setError,
   } = useDashboard();
   // The plan banner's Upgrade button asks for the Billing section, so open that sub-tab and scroll to it.
@@ -120,6 +124,12 @@ export function SettingsTab() {
     billingSectionRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
     setScrollToBillingPending(false);
   }, [scrollToBillingPending, sub, billingSectionRef, setScrollToBillingPending]);
+  // "Custom developer keys" (X and WhatsApp with the customer's own credentials) appears only when the backend lists one of
+  // those platforms for THIS account: with the feature switches off there is no sub-tab at all. The backend decides who may
+  // connect (plan, release switch); this only decides whether there is anything to show.
+  const hasByokPlatforms = platforms.some((p) => p.platform === "x" || p.platform === "whatsapp");
+  // If the platforms disappear while the sub-tab is open, show General instead of an empty page (derived, not an effect).
+  const view: SettingsSub = sub === "keys" && !hasByokPlatforms ? "general" : sub;
   const webhookChannels = accounts.map((a) => ({
     id: a.id,
     label: `${a.platform.charAt(0).toUpperCase()}${a.platform.slice(1)}: ${a.display_name ?? a.platform_account_id}`,
@@ -128,13 +138,15 @@ export function SettingsTab() {
   return (
     <>
       <nav className="settings-subtabs" aria-label="Settings sections">
-        {SETTINGS_SUBS.map((t) => (
-          <button key={t.id} type="button" className={t.id === sub ? "settings-subtab-active" : ""} onClick={() => setSub(t.id)}>
+        {SETTINGS_SUBS.filter((t) => t.id !== "keys" || hasByokPlatforms).map((t) => (
+          <button key={t.id} type="button" className={t.id === view ? "settings-subtab-active" : ""} onClick={() => setSub(t.id)}>
             {t.label}
           </button>
         ))}
       </nav>
-      {sub === "billing" && (
+
+      {view === "keys" && hasByokPlatforms && <CustomPlatformSettings platforms={platforms} onConnected={() => void refresh()} />}
+      {view === "billing" && (
       <section>
         <h2>Storage</h2>
         {storageUsage && (() => {
@@ -219,7 +231,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {sub === "general" && (
+      {view === "general" && (
       <section>
         <h2>Account</h2>
         <form onSubmit={handleSaveBusinessName} className="account-name-form">
@@ -262,7 +274,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {sub === "security" && (
+      {view === "security" && (
       <section>
         <h2>Two-factor authentication</h2>
         <p className="section-note">
@@ -360,7 +372,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {sub === "general" && (
+      {view === "general" && (
       <section>
         <h2>Failure alerts</h2>
         <p className="section-note">
@@ -380,7 +392,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {sub === "general" && (
+      {view === "general" && (
       <section>
         <h2>LazyRelay branding</h2>
         <p className="section-note">
@@ -401,7 +413,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {sub === "automation" && (<>
+      {view === "automation" && (<>
       <WebhooksSection channels={webhookChannels} onError={setError} />
 
       <SnippetsSection onError={setError} />
@@ -413,7 +425,7 @@ export function SettingsTab() {
       <ReviewLinksSection brands={[...new Set(accounts.map((a) => a.brand_label).filter((b): b is string => !!b))]} onError={setError} />
       </>)}
 
-      {sub === "automation" && (
+      {view === "automation" && (
       <section className={GOOGLE_INTEGRATIONS_LIVE ? undefined : "settings-section-disabled"}>
         <h2>
           Google Calendar {!GOOGLE_INTEGRATIONS_LIVE && <span className="coming-soon-badge">Coming soon</span>}
@@ -450,7 +462,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {sub === "automation" && (
+      {view === "automation" && (
       <section className={GOOGLE_INTEGRATIONS_LIVE ? undefined : "settings-section-disabled"}>
         <h2>
           Google Sheets {!GOOGLE_INTEGRATIONS_LIVE && <span className="coming-soon-badge">Coming soon</span>}
@@ -492,7 +504,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {sub === "team" && (() => {
+      {view === "team" && (() => {
         const myMembership = team.find((m) => m.user_id === session?.user.id);
         const isOwner = !myMembership || myMembership.role === "owner";
         // Mirrors checkSeatLimit's own counting rule (seatLimits.ts): every
@@ -610,7 +622,7 @@ export function SettingsTab() {
         );
       })()}
 
-      {sub === "security" && (
+      {view === "security" && (
       <section>
         <h2>Authorize admin support access</h2>
         <p className="section-note">
@@ -630,7 +642,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {sub === "billing" && currentTier !== "free" && (
+      {view === "billing" && currentTier !== "free" && (
       <section>
         <h2>Buy more storage</h2>
         <p className="section-note">Add extra space on top of your plan's included storage. Cancel any add-on separately, any time.</p>
@@ -677,7 +689,7 @@ export function SettingsTab() {
       </section>
       )}
 
-      {sub === "billing" && (
+      {view === "billing" && (
       <section ref={billingSectionRef}>
         <h2>Billing</h2>
         {(() => {

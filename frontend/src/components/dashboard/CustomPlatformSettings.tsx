@@ -26,8 +26,6 @@ export interface CustomPlatformSettingsProps {
   platforms: PlatformInfo[];
   /** Called after a connection was saved, so the dashboard can reload its account list. */
   onConnected?: (platform: "x" | "whatsapp") => void;
-  /** Tests only. Defaults to WHATSAPP_BYOK_CONSENT_TEXT, which is null until Werner approves the wording. */
-  whatsappConsentText?: string | null;
 }
 
 const GENERIC_ERROR = "Something went wrong. Please try again.";
@@ -222,15 +220,7 @@ function XCard({ info, onConnected }: { info: PlatformInfo; onConnected?: Custom
   );
 }
 
-function WhatsAppCard({
-  info,
-  consentText,
-  onConnected,
-}: {
-  info: PlatformInfo;
-  consentText: string | null;
-  onConnected?: CustomPlatformSettingsProps["onConnected"];
-}) {
+function WhatsAppCard({ info, onConnected }: { info: PlatformInfo; onConnected?: CustomPlatformSettingsProps["onConnected"] }) {
   const [fields, setFields] = useState<WhatsAppFields>(EMPTY_WHATSAPP_FIELDS);
   const [showToken, setShowToken] = useState(false);
   const [accepted, setAccepted] = useState(false);
@@ -248,7 +238,6 @@ function WhatsAppCard({
   };
   const problems = whatsAppFieldErrors(fields);
   const complete = whatsAppFieldsComplete(fields);
-  const consentReady = consentText !== null;
 
   if (info.allowed === false) {
     return (
@@ -284,7 +273,7 @@ function WhatsAppCard({
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!consentReady || !accepted || !complete || busy) return;
+    if (!accepted || !complete || busy) return;
     setError(null);
     setBusy("save");
     const toSend = trimmed();
@@ -329,21 +318,15 @@ function WhatsAppCard({
           />
         </div>
         <p className="byok-card__hint">The token is stored encrypted and is never shown again. You can remove it any time.</p>
-        {consentReady ? (
-          <label className="byok-consent">
-            <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
-            <span>{consentText}</span>
-          </label>
-        ) : (
-          <p className="byok-consent byok-consent--pending" role="note">
-            The consent wording for WhatsApp is not published yet, so saving is switched off. You can still check your credentials.
-          </p>
-        )}
+        <label className="byok-consent">
+          <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
+          <span>{WHATSAPP_BYOK_CONSENT_TEXT}</span>
+        </label>
         <div className="byok-actions">
           <button type="button" className="byok-secondary" disabled={!complete || busy !== null} onClick={handleCheck}>
             {busy === "check" ? "Checking..." : "Check my credentials"}
           </button>
-          <button type="submit" className="byok-primary" disabled={!consentReady || !accepted || !complete || busy !== null}>
+          <button type="submit" className="byok-primary" disabled={!accepted || !complete || busy !== null}>
             {busy === "save" ? "Connecting..." : "Save and connect"}
           </button>
         </div>
@@ -367,7 +350,7 @@ function WhatsAppCard({
   );
 }
 
-export function CustomPlatformSettings({ platforms, onConnected, whatsappConsentText }: CustomPlatformSettingsProps) {
+export function CustomPlatformSettings({ platforms, onConnected }: CustomPlatformSettingsProps) {
   const x = platforms.find((p) => p.platform === "x");
   const whatsapp = platforms.find((p) => p.platform === "whatsapp");
   if (!x && !whatsapp) return null;
@@ -383,7 +366,7 @@ export function CustomPlatformSettings({ platforms, onConnected, whatsappConsent
       </div>
       <div className={`byok-panels__grid${x && whatsapp ? " byok-panels__grid--two" : ""}`}>
         {x && <XCard info={x} onConnected={onConnected} />}
-        {whatsapp && <WhatsAppCard info={whatsapp} consentText={whatsappConsentText !== undefined ? whatsappConsentText : WHATSAPP_BYOK_CONSENT_TEXT} onConnected={onConnected} />}
+        {whatsapp && <WhatsAppCard info={whatsapp} onConnected={onConnected} />}
       </div>
     </section>
   );

@@ -2,14 +2,10 @@
 // The backend (routes/whatsappByok.routes.ts) is the authority on who may connect and on every value's format; the
 // checks here only save a round trip and keep obviously wrong input out of the request.
 
-/** The consent the customer must tick before their credentials are sent.
- *
- *  NOT WRITTEN YET, ON PURPOSE. Werner approved the X wording byte for byte (see X_BYOK_CONSENT_TEXT); no approved
- *  WhatsApp wording exists. This is legal text about who pays Meta and who answers for recipients' consent, so it must
- *  not be invented in code. While this is null the panel shows the WhatsApp form but keeps "Save and connect" disabled
- *  and says so. To switch it on: replace null with the approved string, byte for byte (straight apostrophes, no extra
- *  spaces), and add the same string to the test that pins it. */
-export const WHATSAPP_BYOK_CONSENT_TEXT: string | null = null;
+/** The consent the customer must tick before their credentials are sent. BYTE FOR BYTE what Werner approved
+ *  (2026-10-10): straight apostrophe, no extra spaces. Used by the component and by its test; change it nowhere else. */
+export const WHATSAPP_BYOK_CONSENT_TEXT =
+  "I understand that custom WhatsApp messaging requires active payment credentials linked directly to my Meta Business portfolio. All conversational template billing is handled by Meta directly. I accept full responsibility for compliance with Meta's Business Policies.";
 
 /** Meta ids (WhatsApp Business Account id, phone number id) are numeric strings. Same rule as the backend and its
  *  database CHECK (migration 0124). */

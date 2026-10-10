@@ -2694,6 +2694,8 @@ export function useDashboardState() {
     coverImageInputRef,
     accounts,
     platforms,
+    // Reloads everything the dashboard shows. The Custom Developer Keys sub-tab calls it after a connection is saved.
+    refresh,
     posts,
     setPosts,
     subscription,
