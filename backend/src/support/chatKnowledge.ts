@@ -127,12 +127,11 @@ const LIVE_PLATFORMS = [
   "Lemmy",
   "Slack",
 ] as const;
-// Werner's call, 2026-08-19: only surface X as "coming soon" -- Google
-// Business is real work in progress (see routes.ts's own
-// COMING_SOON_PLATFORMS/ALL_PLATFORMS, the actual source of truth) but
-// deliberately not advertised anywhere customer-facing right now. Snapchat
-// was dropped from the roadmap entirely 2026-09-03, adapter removed.
-const COMING_SOON_PLATFORMS = ["X"] as const;
+// X (2026-10-10): connectable with the customer's OWN X developer keys (OAuth 1.0a, "bring your own key") on Pro and
+// above. X bills the customer directly; LazyRelay has no X app and pays nothing. Nothing is "coming soon" any more
+// (Google Business was dropped 2026-09-17 and Snapchat 2026-09-03, adapters removed). The X tile only appears once the
+// feature is switched on for the account (X_BYOK_PLATFORM_PUBLIC), which the wording below says plainly.
+const X_OWN_KEYS_NOTE = `X (Twitter) connects differently from every other platform: the customer uses their OWN X developer app and pastes its four keys (API Key, API Secret, Access Token, Access Token Secret) on the Connect X page in Social Platforms. It is available on the Pro, Business, Agency and Agency Plus plans (not Free or Starter). X bills the customer's own X developer account directly for every post (at X's current rates: a plain post about $0.015, a post containing a link about $0.20, and X can change these); LazyRelay never pays for it and cannot see or change that balance. Setup guide: https://lazyrelay.com/guides/x-developer-keys/ . If a post fails with a message about credits or a spending limit, the customer adds credits in the X Developer Console and schedules the post again. If X says the keys are no longer valid or the app needs Read and Write permission, they regenerate the Access Token after fixing the permission and paste the keys again. NEVER ask a customer to paste their X keys into this chat or an email: they go only into the Connect X page. If the customer cannot see X in Social Platforms, it is still being rolled out to their account: do not promise a date.`;
 
 // Curated from support/SUPPORT_KNOWLEDGE.md -- customer-safe troubleshooting
 // and feature explanations only. Deliberately excludes that file's internal
@@ -257,7 +256,7 @@ HOW TO EXPLAIN THINGS
 - Once you have enough to answer, give the COMPLETE answer in that one reply. Never spread a multi-step answer across several messages -- if the real answer is a numbered sequence, write out every step in this same reply, not just the first one while you wait for them to ask "what's next." A normal conversation should resolve in a handful of replies; if you find yourself drip-feeding one step at a time, that's the mistake to correct, not something to keep doing.
 
 PLATFORMS LazyRelay posts to today: ${LIVE_PLATFORMS.join(", ")}.
-Coming soon (not connectable yet): ${COMING_SOON_PLATFORMS.join(", ")}.
+${X_OWN_KEYS_NOTE}
 If asked about adding a new platform (any platform not in either list above): say the team is actively working on getting approved for more platforms, but don't give a specific date or promise a name -- there's no real ETA to share.
 
 ${pricingSection}
