@@ -95,12 +95,22 @@ async function main() {
     `After scheduler run, status: ${listAfter[0]?.status} -> ${listAfter[0]?.status === "posted" ? "PASS" : "FAIL"}`,
   );
 
-  // Cancel subscription — first without a subscription (should fail cleanly)
+  // Cancel subscription — first without a subscription (should fail cleanly). Cancelling needs the
+  // data-deletion notice acknowledged first (enforced server-side), so check both refusals: without
+  // the acknowledgement it is a 400 caller error, and with it a missing subscription is a 502.
+  const cancelNoAckRes = await fetch(`http://localhost:${PORT}/api/subscription/cancel`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${jwt}`, "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  console.log(`Cancel without acknowledging the data-deletion notice status: ${cancelNoAckRes.status} -> ${cancelNoAckRes.status === 400 ? "PASS" : "FAIL"}`);
+
   const cancelNoSubRes = await fetch(`http://localhost:${PORT}/api/subscription/cancel`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${jwt}` },
+    headers: { Authorization: `Bearer ${jwt}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ acknowledgedDataDeletion: true }),
   });
-  console.log(`Cancel with no subscription status: ${cancelNoSubRes.status} -> ${cancelNoSubRes.status === 502 ? "PASS" : "FAIL"}`);
+  console.log(`Cancel with no subscription (notice acknowledged) status: ${cancelNoSubRes.status} -> ${cancelNoSubRes.status === 502 ? "PASS" : "FAIL"}`);
 
   // Cleanup
   await supabase.auth.admin.deleteUser(user.user.id);
