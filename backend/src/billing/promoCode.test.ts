@@ -32,7 +32,7 @@ const BASE_PARAMS = {
   kind: "tier" as const,
   accountEmail: "test@example.com",
   accountId: "acct_test",
-  tier: "pro" as const,
+  tier: "starter" as const,
   priceId: "pri_test_starter",
 };
 

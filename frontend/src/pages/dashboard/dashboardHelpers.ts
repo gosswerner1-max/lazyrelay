@@ -36,7 +36,7 @@ export const UNBRANDED_FILTER_VALUE = "__unbranded__";
 // Display-only mirror of the backend's BRAND_LIMITS (brandLimits.ts), which is
 // the real enforcer. Used to show "N/cap" and pre-disable the create control;
 // the server still rejects an over-cap create regardless of this.
-export const BRAND_LIMITS_DISPLAY: Record<string, number> = { free: 1, pro: 2, business: 4, enterprise: 7 };
+export const BRAND_LIMITS_DISPLAY: Record<string, number> = { free: 1, starter: 2, pro: 4, business: 7 };
 export function brandCapFor(tier: string | undefined): number {
   return BRAND_LIMITS_DISPLAY[tier ?? "free"] ?? 1;
 }

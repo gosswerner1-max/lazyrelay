@@ -46,7 +46,7 @@ async function main() {
     {
       account_id: accountId,
       mor_subscription_id: originalMorSubscriptionId,
-      tier: "business",
+      tier: "pro",
       status: "past_due",
       current_period_end: new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString(),
       updated_at: new Date().toISOString(),
@@ -77,7 +77,7 @@ async function main() {
     const checkoutRes = await fetch(`${base}/api/subscription/checkout`, {
       method: "POST",
       headers: { Authorization: `Bearer ${sessionData.session.access_token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ tier: "enterprise" }),
+      body: JSON.stringify({ tier: "business" }),
     });
     const checkoutBody = await checkoutRes.json();
     check(

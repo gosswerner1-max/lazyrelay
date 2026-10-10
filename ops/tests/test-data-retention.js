@@ -5,8 +5,11 @@
 // runSelfTest.js's harness (different shape) — run directly:
 //   node ops/tests/test-data-retention.js
 //
-// Uses a plain @example.com address deliberately, NOT @lazyrelay.invalid --
-// isInternalTestAccount() excludes that domain, which would make the
+// Uses an @retention-fixture.invalid address (the same pattern as
+// test-abandoned-accounts.js): a different second-level domain under the
+// RFC 2606-reserved .invalid TLD, so it can never receive mail. Deliberately
+// NOT @lazyrelay.invalid or @example.com -- isInternalTestAccount() excludes
+// both (example.com/.org/.net since 2026-08-31), which would make the
 // find-functions skip this account and defeat the point of testing them.
 
 const { getSupabaseClient } = require("../shared/supabaseClient.js");
@@ -23,7 +26,7 @@ function daysAgo(n) {
 }
 
 async function seedAccount(emailPrefix, cancelledDaysAgo, subStatus, reminderSentDaysAgo = undefined) {
-  const email = `${emailPrefix}-${Date.now()}@example.com`;
+  const email = `${emailPrefix}-${Date.now()}@retention-fixture.invalid`;
   const { data: user, error: userError } = await supabase.auth.admin.createUser({ email, email_confirm: true });
   if (userError || !user.user) throw userError ?? new Error("no user created");
   const accountId = user.user.id;

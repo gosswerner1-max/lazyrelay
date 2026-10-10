@@ -8,16 +8,15 @@ import { resolveTier, type Tier } from "./tier.js";
  *  a cost control, so a customer well within it could still generate
  *  hundreds of times a day. These numbers are a starting point, not tied to
  *  external research — easy to tune once real usage data exists.
- *  `null` = unlimited. Keyed by DB code — pro displays as "Starter",
- *  business displays as "Pro", enterprise displays as "Business" (see
- *  tier.ts's Tier type comment). */
+ *  `null` = unlimited. Keyed by DB code, which
+ *  matches the public plan name (see tier.ts's Tier type comment). */
 export const AI_GENERATION_DAILY_LIMIT: Record<Tier, number | null> = {
   free: 5,
-  pro: 20, // "Starter"
-  business: 50, // "Pro"
-  enterprise: 100, // "Business"
-  agency: 100, // mirrors enterprise — not part of the 2026-08-17 Agency pricing decision, revisit with real usage data
-  agency_plus: 100, // mirrors enterprise, same reasoning
+  starter: 20,
+  pro: 50,
+  business: 100,
+  agency: 100, // mirrors business — not part of the 2026-08-17 Agency pricing decision, revisit with real usage data
+  agency_plus: 100, // mirrors business, same reasoning
 };
 
 function todayUTC(): string {

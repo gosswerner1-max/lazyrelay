@@ -155,7 +155,7 @@ export function useDashboardState() {
   const pendingSeatAddonRef = useRef(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
-  const [billingBusy, setBillingBusy] = useState<"pro" | "business" | "enterprise" | "agency" | "agency_plus" | "cancel" | null>(null);
+  const [billingBusy, setBillingBusy] = useState<"starter" | "pro" | "business" | "agency" | "agency_plus" | "cancel" | null>(null);
   // The Billing section's own 3-card grid, plus the "See Agency plans"
   // reveal below it — mirrors Landing.tsx's AGENCY_PRICING pattern exactly
   // (same reasoning: 5 cards in one row doesn't fit, and agencies are a
@@ -173,7 +173,7 @@ export function useDashboardState() {
   // 2026-08-21 after Werner flagged live that an accidental click would
   // otherwise change the plan with zero confirmation.
   const [pendingTierChange, setPendingTierChange] = useState<{
-    tier: "pro" | "business" | "enterprise" | "agency" | "agency_plus";
+    tier: "starter" | "pro" | "business" | "agency" | "agency_plus";
     displayName: string;
   } | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -505,7 +505,7 @@ export function useDashboardState() {
   const [insightLoading, setInsightLoading] = useState(false);
   const [insightResult, setInsightResult] = useState<{ insight: string } | { insufficientData: true; postsWithData: number; needed: number } | null>(null);
   const [finalizingUpgrade, setFinalizingUpgrade] = useState(false);
-  const pendingTierRef = useRef<"pro" | "business" | "enterprise" | "agency" | "agency_plus" | null>(null);
+  const pendingTierRef = useRef<"starter" | "pro" | "business" | "agency" | "agency_plus" | null>(null);
   const pendingStorageAddonRef = useRef<5 | 20 | 50 | null>(null);
 
   async function refresh() {
@@ -2026,7 +2026,7 @@ export function useDashboardState() {
     }
   }
 
-  async function handleUpgrade(tier: "pro" | "business" | "enterprise" | "agency" | "agency_plus") {
+  async function handleUpgrade(tier: "starter" | "pro" | "business" | "agency" | "agency_plus") {
     setBillingBusy(tier);
     setError(null);
     try {
@@ -2057,7 +2057,7 @@ export function useDashboardState() {
   // needed since the existing saved payment method is charged directly, so
   // this just calls the API and polls the same way handleUpgrade does while
   // waiting for the resulting webhook to land.
-  async function handleChangeTier(tier: "pro" | "business" | "enterprise" | "agency" | "agency_plus") {
+  async function handleChangeTier(tier: "starter" | "pro" | "business" | "agency" | "agency_plus") {
     setBillingBusy(tier);
     setError(null);
     try {
@@ -2663,9 +2663,9 @@ export function useDashboardState() {
 
   const tierNames = {
     free: "Free",
-    pro: "Starter",
-    business: "Pro",
-    enterprise: "Business",
+    starter: "Starter",
+    pro: "Pro",
+    business: "Business",
     agency: "Agency",
     agency_plus: "Agency Plus",
   } as const;

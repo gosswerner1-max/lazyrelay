@@ -64,7 +64,7 @@ beforeEach(() => {
   tables.social_accounts = [{ id: "mine", account_id: "me", platform: "pinterest" }];
   tables.scheduled_posts = [];
   tables.post_results = [];
-  tables.subscriptions = [{ account_id: "me", tier: "pro", status: "active" }];
+  tables.subscriptions = [{ account_id: "me", tier: "starter", status: "active" }];
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
 });

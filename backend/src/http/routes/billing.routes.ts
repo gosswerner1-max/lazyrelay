@@ -7,6 +7,7 @@ import { supabase } from "../../supabase.js";
 import { cancelSubscription, cancelStorageAddon, cancelBrandAddon, cancelSeatAddon } from "../../billing/sync.js";
 import { acquireBillingLock, releaseBillingLock } from "../../billing/locks.js";
 import { buildCheckoutTransaction } from "../../billing/paddle.js";
+import { priceIdForTier } from "../../billing/tierResolution.js";
 import { Environment } from "@paddle/paddle-node-sdk";
 import type { MerchantOfRecordAdapter } from "../../billing/types.js";
 import { requireAuth, requireHumanAuth, requireOwner, type AuthedRequest } from "../auth.js";
@@ -113,10 +114,10 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
   // confusing Paddle SDK exception if they don't.
   router.post("/subscription/checkout", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { tier, promoCode, referralCode } = req.body ?? {};
-    if (tier !== "pro" && tier !== "business" && tier !== "enterprise" && tier !== "agency" && tier !== "agency_plus") {
+    if (tier !== "starter" && tier !== "pro" && tier !== "business" && tier !== "agency" && tier !== "agency_plus") {
       res.status(400).json({
         error:
-          'tier must be "pro" (Starter), "business" (Pro), "enterprise" (Business), "agency" (Agency), or "agency_plus" (Agency Plus) — use the Free tier by just not upgrading',
+          'tier must be "starter", "pro", "business", "agency", or "agency_plus". Use the Free tier by just not upgrading',
       });
       return;
     }
@@ -137,20 +138,10 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
     const partnerCode = discountCode ?? referral;
 
     const apiKey = process.env.MOR_API_KEY;
-    // Internal tier codes were kept stable across the Starter/Pro/Business
-    // rename (see tier.ts) — the env var names below reflect the CURRENT
-    // display name, not the internal code, so double-check this mapping
-    // against tier.ts's TIER_DISPLAY_NAMES before changing either.
-    const priceId =
-      tier === "pro"
-        ? process.env.PADDLE_PRICE_ID_STARTER
-        : tier === "business"
-          ? process.env.PADDLE_PRICE_ID_PRO
-          : tier === "enterprise"
-            ? process.env.PADDLE_PRICE_ID_BUSINESS
-            : tier === "agency"
-              ? process.env.PADDLE_PRICE_ID_AGENCY
-              : process.env.PADDLE_PRICE_ID_AGENCY_PLUS;
+    // The tier code and its PADDLE_PRICE_ID_* env var share a name now (see
+    // TIER_PRICE_ID_ENV_VARS in billing/tierResolution.ts, which the webhook
+    // also uses in reverse to turn a price id back into a tier).
+    const priceId = priceIdForTier(tier);
     if (!apiKey || !priceId) {
       res.status(503).json({
         error: "Billing isn't live yet — no Paddle account/price configured. See BILLING_KNOWLEDGE.md.",
@@ -262,25 +253,16 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
   // subscription-lifecycle change.
   router.post("/subscription/change-tier", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const { tier } = req.body ?? {};
-    if (tier !== "pro" && tier !== "business" && tier !== "enterprise" && tier !== "agency" && tier !== "agency_plus") {
+    if (tier !== "starter" && tier !== "pro" && tier !== "business" && tier !== "agency" && tier !== "agency_plus") {
       res.status(400).json({
         error:
-          'tier must be "pro" (Starter), "business" (Pro), "enterprise" (Business), "agency" (Agency), or "agency_plus" (Agency Plus)',
+          'tier must be "starter", "pro", "business", "agency", or "agency_plus"',
       });
       return;
     }
 
     const apiKey = process.env.MOR_API_KEY;
-    const priceId =
-      tier === "pro"
-        ? process.env.PADDLE_PRICE_ID_STARTER
-        : tier === "business"
-          ? process.env.PADDLE_PRICE_ID_PRO
-          : tier === "enterprise"
-            ? process.env.PADDLE_PRICE_ID_BUSINESS
-            : tier === "agency"
-              ? process.env.PADDLE_PRICE_ID_AGENCY
-              : process.env.PADDLE_PRICE_ID_AGENCY_PLUS;
+    const priceId = priceIdForTier(tier);
     if (!apiKey || !priceId) {
       res.status(503).json({
         error: "Billing isn't live yet — no Paddle account/price configured. See BILLING_KNOWLEDGE.md.",
@@ -584,8 +566,8 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
   // Seat add-ons (Agency pricing pass, 2026-08-17) — same three-route shape
   // as brand add-ons above, but with a stricter tier gate: brand add-ons are
   // buyable on any paid tier, while seats only exist on Business/Agency/
-  // Agency Plus (see SEAT_LIMITS in seatLimits.ts) — so this excludes "pro"
-  // and "business" (internal codes; Starter/Pro displayed), not just "free".
+  // Agency Plus (see SEAT_LIMITS in seatLimits.ts) — so this excludes "starter"
+  // and "pro", not just "free".
   router.get("/seat-addons", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     // seat_addons: service-role only throughout this file --
     // 0054_agency_tiers_and_seats.sql: "No client-facing RLS policies...
@@ -608,7 +590,7 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
 
   router.post("/seat-addons/checkout", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     const tier = await resolveTier(req.accountId!);
-    if (tier !== "enterprise" && tier !== "agency" && tier !== "agency_plus") {
+    if (tier !== "business" && tier !== "agency" && tier !== "agency_plus") {
       res.status(403).json({ error: "Seat add-ons are only available on Business, Agency, or Agency Plus — upgrade first." });
       return;
     }

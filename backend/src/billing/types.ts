@@ -26,7 +26,11 @@ export interface SubscriptionEvent {
   // the pre-fix checkout code, still in flight across the deploy, still
   // resolves correctly via the accountEmail fallback.
   accountId?: string;
-  tier: "free" | "pro" | "business" | "enterprise" | "agency" | "agency_plus";
+  // Resolved from the Paddle price id (see tierResolution.ts). undefined means
+  // the tier could not be resolved safely (a legacy ambiguous customData code
+  // with no matching price id): syncSubscriptionFromWebhook then leaves the
+  // account's stored tier unchanged and still syncs status/period/cancellation.
+  tier?: "free" | "starter" | "pro" | "business" | "agency" | "agency_plus";
   status: "trialing" | "active" | "past_due" | "cancelled";
   currentPeriodEnd: string; // ISO timestamp
   // Paddle's own event.occurredAt (2026-08-25, pre-launch audit fix) — used

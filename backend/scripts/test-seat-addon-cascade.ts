@@ -44,12 +44,12 @@ async function main() {
   const accountId = user.user.id;
   await supabase.from("accounts").upsert({ id: accountId, email });
 
-  // enterprise (Business) = 2 included seats, per SEAT_LIMITS.
+  // business = 2 included seats, per SEAT_LIMITS.
   await supabase.from("subscriptions").upsert(
     {
       account_id: accountId,
       mor_subscription_id: `sub_tier_seat_cascade_${Date.now()}`,
-      tier: "enterprise",
+      tier: "business",
       status: "active",
       current_period_end: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
       updated_at: new Date().toISOString(),

@@ -92,10 +92,10 @@ async function main() {
   const invitee = await createTestUser("invitee");
   const stranger = await createTestUser("stranger");
   // Both owner and stranger invite someone in this suite -- both need a real
-  // seat-bearing tier now that /team/invite is gated. "enterprise" (Business)
+  // seat-bearing tier now that /team/invite is gated. "business"
   // gives 2 included seats, enough for the single invite each sends here.
-  await seedSubscription(owner.id, "enterprise");
-  await seedSubscription(stranger.id, "enterprise");
+  await seedSubscription(owner.id, "business");
+  await seedSubscription(stranger.id, "business");
 
   // 1. Solo baseline: brand-new user with zero invites resolves to
   //    themselves exactly like pre-v1 behavior, on an ordinary existing route.
@@ -296,11 +296,11 @@ async function main() {
     check("the owner row can't be removed", res.status === 400, `HTTP ${res.status}`);
   }
 
-  // 14. Seat cap is actually enforced -- a Business (enterprise) account has
+  // 14. Seat cap is actually enforced -- a Business account has
   //     2 included seats; the 3rd invite must be rejected once both are used.
   {
     const capOwner = await createTestUser("cap-owner");
-    await seedSubscription(capOwner.id, "enterprise");
+    await seedSubscription(capOwner.id, "business");
     const capInvitee1 = await createTestUser("cap-invitee-1");
     const capInvitee2 = await createTestUser("cap-invitee-2");
 
@@ -335,7 +335,7 @@ async function main() {
   //     owner-only, same gate as invite/remove.
   {
     const resendOwner = await createTestUser("resend-owner");
-    await seedSubscription(resendOwner.id, "enterprise");
+    await seedSubscription(resendOwner.id, "business");
     const resendInvitee = await createTestUser("resend-invitee");
 
     await fetch(`${base}/api/team/invite`, {
@@ -394,7 +394,7 @@ async function main() {
   //     even with a genuinely valid token.
   {
     const expiryOwner = await createTestUser("expiry-owner");
-    await seedSubscription(expiryOwner.id, "enterprise");
+    await seedSubscription(expiryOwner.id, "business");
     const expiryInvitee = await createTestUser("expiry-invitee");
 
     await fetch(`${base}/api/team/invite`, {

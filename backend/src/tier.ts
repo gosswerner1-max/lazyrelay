@@ -1,22 +1,20 @@
 import { supabase } from "./supabase.js";
 
-/** Internal database tier codes are deliberately NOT the same as the
- *  customer-facing plan names, to avoid a live-data migration when the
- *  naming was restructured 2026-07-23 (Free/Pro/Business ->
- *  Free/Starter/Pro/Business). The old "pro" and "business" DB values keep
- *  their existing rows and meaning at the storage layer; only what they
- *  DISPLAY as changed. "enterprise" is the one genuinely new code, added
- *  purely additively (see migration 0011) — no existing subscriber rows
- *  needed to change at all, unlike the earlier 0006 tier-rename migration
- *  that caused a real production incident when it wasn't actually applied.
+/** Internal database tier codes match the public plan names exactly (renamed
+ *  in migration 0119; before that, "pro" stored Starter, "business" stored
+ *  Pro and "enterprise" stored Business, a historical offset left over from
+ *  the 2026-07-23 restructure). Anything that reads a tier code from OUTSIDE
+ *  the database (Paddle custom data on subscriptions created before the
+ *  rename, old stored metadata) must go through billing/tierResolution.ts,
+ *  because the old and new meanings of "pro" and "business" collide.
  */
-export type Tier = "free" | "pro" | "business" | "enterprise" | "agency" | "agency_plus";
+export type Tier = "free" | "starter" | "pro" | "business" | "agency" | "agency_plus";
 
 export const TIER_DISPLAY_NAMES: Record<Tier, string> = {
   free: "Free",
-  pro: "Starter",
-  business: "Pro",
-  enterprise: "Business",
+  starter: "Starter",
+  pro: "Pro",
+  business: "Business",
   agency: "Agency",
   agency_plus: "Agency Plus",
 };
@@ -29,38 +27,36 @@ export const TIER_DISPLAY_NAMES: Record<Tier, string> = {
  *  per-tier number gives a cleaner, more marketable upgrade ladder and
  *  ties access to something the customer actually values (how many
  *  distinct content cadences they run), rather than an arbitrary resource
- *  cap. `null` = unlimited. Keyed by DB code — see the Tier type comment
- *  above for why "pro" here means the tier that DISPLAYS as "Starter".
+ *  cap. `null` = unlimited. Keyed by DB code (matches the public plan name).
  */
 export const RECURRING_SCHEDULE_SLOT_LIMITS: Record<Tier, number | null> = {
   free: 0,
-  pro: 3, // displays as "Starter"
-  business: 5, // displays as "Pro"
-  enterprise: null, // displays as "Business" — unlimited
-  agency: null, // unlimited, mirrors enterprise
-  agency_plus: null, // unlimited, mirrors enterprise
+  starter: 3,
+  pro: 5,
+  business: null, // unlimited
+  agency: null, // unlimited, mirrors business
+  agency_plus: null, // unlimited, mirrors business
 };
 
 /** RSS feed caps (2026-09-30, Werner approved): a paid convenience feature, capped per
- *  plan like recurring schedules. Free has none. Keyed by DB code (see the Tier type
- *  comment: "pro" DISPLAYS as Starter, "business" as Pro, "enterprise" as Business). */
+ *  plan like recurring schedules. Free has none. Keyed by DB code (matches the public plan name). */
 export const RSS_FEED_LIMITS: Record<Tier, number> = {
   free: 0,
-  pro: 1, // Starter
-  business: 3, // Pro
-  enterprise: 5, // Business
+  starter: 1,
+  pro: 3,
+  business: 5,
   agency: 5,
   agency_plus: 5,
 };
 
 /** Active client review links (master list #23): two per brand the plan allows, since a client
- *  often has more than one person approving. Free has none. Keyed by DB code ("pro" displays as
- *  Starter, "business" as Pro, "enterprise" as Business). Werner decided 2026-09-30. */
+ *  often has more than one person approving. Free has none. Keyed by DB code (matches the
+ *  public plan name). Werner decided 2026-09-30. */
 export const REVIEW_LINK_LIMITS: Record<Tier, number> = {
   free: 0,
-  pro: 4, // Starter: 2 brands
-  business: 8, // Pro: 4 brands
-  enterprise: 14, // Business: 7 brands
+  starter: 4, // 2 brands
+  pro: 8, // 4 brands
+  business: 14, // 7 brands
   agency: 24, // 12 brands
   agency_plus: 40, // 20 brands
 };

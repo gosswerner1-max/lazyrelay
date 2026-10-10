@@ -6,16 +6,16 @@ import { resolveTier, type Tier } from "./tier.js";
  *  plan let one login run an agency's worth of client businesses for a flat
  *  fee. A "brand" groups connected accounts by business for filtering — still
  *  one login / one subscription, NOT multi-tenant workspaces with separate
- *  billing. Keyed by DB code — see the Tier type comment in tier.ts for why
- *  "pro" here DISPLAYS as "Starter". Deliberately capped even at the top
+ *  billing. Keyed by DB code, which
+ *  matches the public plan name (see tier.ts). Deliberately capped even at the top
  *  self-serve tier: an agency running many client brands is a Phase-2
  *  Agency-tier conversation, not a Business plan.
  */
 export const BRAND_LIMITS: Record<Tier, number> = {
   free: 1,
-  pro: 2, // displays as "Starter"
-  business: 4, // displays as "Pro"
-  enterprise: 7, // displays as "Business"
+  starter: 2,
+  pro: 4,
+  business: 7,
   agency: 12, // Agency tier (2026-08-17)
   agency_plus: 20, // Agency Plus
 };

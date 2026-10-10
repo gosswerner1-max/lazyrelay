@@ -31,17 +31,17 @@ const { isInternalTestAccount } = require("../shared/internalTestAccounts.js");
 // needing its own copy in backend/src vs ops/.
 const TIER_PRICE_USD = {
   free: 0,
-  pro: 29.99,
-  business: 59.99,
-  enterprise: 99.99,
+  starter: 29.99,
+  pro: 59.99,
+  business: 99.99,
   agency: 149.99,
   agency_plus: 199.99,
 };
 const TIER_DISPLAY_NAMES = {
   free: "Free",
-  pro: "Starter",
-  business: "Pro",
-  enterprise: "Business",
+  starter: "Starter",
+  pro: "Pro",
+  business: "Business",
   agency: "Agency",
   agency_plus: "Agency Plus",
 };
