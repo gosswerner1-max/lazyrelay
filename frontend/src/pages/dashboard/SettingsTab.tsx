@@ -501,7 +501,7 @@ export function SettingsTab() {
         const seatsUsed = team.filter((m) => m.role !== "owner").length;
         const seatTotalLimit = seatCapacity?.totalLimit ?? 0;
         const atSeatCap = seatTotalLimit > 0 && seatsUsed >= seatTotalLimit;
-        const canBuySeatAddon = subscription?.tier === "enterprise" || subscription?.tier === "agency" || subscription?.tier === "agency_plus";
+        const canBuySeatAddon = subscription?.tier === "business" || subscription?.tier === "agency" || subscription?.tier === "agency_plus";
         return (
       <section>
         <h2>Seats</h2>
@@ -683,9 +683,9 @@ export function SettingsTab() {
         {(() => {
           const tierNames = {
     free: "Free",
-    pro: "Starter",
-    business: "Pro",
-    enterprise: "Business",
+    starter: "Starter",
+    pro: "Pro",
+    business: "Business",
     agency: "Agency",
     agency_plus: "Agency Plus",
   } as const;
@@ -721,7 +721,7 @@ export function SettingsTab() {
           //    existing checkout-overlay flow via handleUpgrade.
           // 3. Already on a different paid tier -> the real proration flow
           //    via handleChangeTier, no checkout overlay needed.
-          function renderTierAction(tierCode: "pro" | "business" | "enterprise" | "agency" | "agency_plus", displayName: string) {
+          function renderTierAction(tierCode: "starter" | "pro" | "business" | "agency" | "agency_plus", displayName: string) {
             if (subscription?.tier === tierCode && !isCancelling) {
               return (
                 <button className="cta cta-current-plan" disabled>
@@ -768,7 +768,7 @@ export function SettingsTab() {
                     $29.99<span className="pricing-period">/mo</span>
                   </p>
                   <p className="pricing-note">20 accounts, unlimited posts, AI-agent access</p>
-                  {renderTierAction("pro", "Starter")}
+                  {renderTierAction("starter", "Starter")}
                 </div>
                 <div className="pricing-card">
                   <h3>Pro: 10GB storage</h3>
@@ -776,7 +776,7 @@ export function SettingsTab() {
                     $59.99<span className="pricing-period">/mo</span>
                   </p>
                   <p className="pricing-note">30 accounts, unlimited posts, AI-agent access, priority support</p>
-                  {renderTierAction("business", "Pro")}
+                  {renderTierAction("pro", "Pro")}
                 </div>
                 <div className="pricing-card">
                   <h3>Business: 20GB storage</h3>
@@ -784,7 +784,7 @@ export function SettingsTab() {
                     $99.99<span className="pricing-period">/mo</span>
                   </p>
                   <p className="pricing-note">50 accounts, unlimited posts, AI-agent access, priority support</p>
-                  {renderTierAction("enterprise", "Business")}
+                  {renderTierAction("business", "Business")}
                 </div>
               </div>
 
