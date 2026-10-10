@@ -179,7 +179,7 @@ export function SettingsTab() {
       </div>
 
       <div role="tabpanel" id={panelId} aria-labelledby={tabId(view)}>
-      {view === "keys" && hasByokPlatforms && <CustomPlatformSettings platforms={platforms} onConnected={() => void refresh()} onSeePlans={() => setSub("billing")} />}
+      {view === "keys" && hasByokPlatforms && <CustomPlatformSettings platforms={platforms} onConnected={() => void refresh()} onSeePlans={() => setSub("billing")} accounts={accounts} />}
       {view === "billing" && (
       <section>
         <h2>Storage</h2>

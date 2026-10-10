@@ -1,5 +1,5 @@
 import { useId, useState, type FormEvent } from "react";
-import { api, type PlatformInfo, type WhatsAppCredentialFields } from "../../lib/api";
+import { api, type PlatformInfo, type SocialAccount, type WhatsAppCredentialFields } from "../../lib/api";
 import { PlatformIcon } from "../PlatformIcon";
 import { EMPTY_X_KEYS, X_BYOK_CONSENT_TEXT, X_BYOK_GUIDE_URL, xKeysComplete, type XKeyFields } from "../../lib/xByok";
 import {
@@ -11,8 +11,9 @@ import {
   type WhatsAppFields,
 } from "../../lib/whatsappByok";
 import { WhatsAppInboundStatus } from "./WhatsAppInboundStatus";
+import { WhatsAppThreadViewer } from "./WhatsAppThreadViewer";
 import { WhatsAppWebhookDetails } from "./WhatsAppWebhookDetails";
-import { useWhatsAppWebhookInfo } from "./useWhatsAppWebhookInfo";
+import { useWhatsAppWebhookInfo, type WebhookInfoState } from "./useWhatsAppWebhookInfo";
 import "../../styles/byok-panels.css";
 
 // "Custom developer keys": where a customer links their OWN developer credentials for X and for WhatsApp, so the
@@ -32,6 +33,9 @@ export interface CustomPlatformSettingsProps {
   /** Shown as a "See plans" button on a card the plan does not include. The Settings view passes its own way of
    *  opening the Plan & billing sub-tab, so this panel adds no route. */
   onSeePlans?: () => void;
+  /** The account's connected social accounts. The WhatsApp ones feed the message history viewer; leave it out and the
+   *  viewer just says there is nothing connected yet. */
+  accounts?: SocialAccount[];
 }
 
 const GENERIC_ERROR = "Something went wrong. Please try again.";
@@ -102,6 +106,7 @@ function Field({ label, name, value, onChange, error, secret, shown, onToggleSho
 }
 
 type CardProps = { info: PlatformInfo; onConnected?: CustomPlatformSettingsProps["onConnected"]; onSeePlans?: () => void };
+type WhatsAppCardProps = CardProps & { webhookInfo: WebhookInfoState; onSaved: () => void };
 
 function XCard({ info, onConnected, onSeePlans }: CardProps) {
   const [keys, setKeys] = useState<XKeyFields>(EMPTY_X_KEYS);
@@ -252,7 +257,7 @@ function XCard({ info, onConnected, onSeePlans }: CardProps) {
   );
 }
 
-function WhatsAppCard({ info, onConnected, onSeePlans }: CardProps) {
+function WhatsAppCard({ info, onConnected, onSeePlans, webhookInfo, onSaved }: WhatsAppCardProps) {
   const [fields, setFields] = useState<WhatsAppFields>(EMPTY_WHATSAPP_FIELDS);
   const [showToken, setShowToken] = useState(false);
   const [showAppSecret, setShowAppSecret] = useState(false);
@@ -260,9 +265,6 @@ function WhatsAppCard({ info, onConnected, onSeePlans }: CardProps) {
   const [busy, setBusy] = useState<"check" | "save" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ name: string | null; saved: boolean } | null>(null);
-  // Bumped after a connection was saved, so the inbound status chips reload.
-  const [reloadKey, setReloadKey] = useState(0);
-  const webhookInfo = useWhatsAppWebhookInfo(info.allowed !== false, reloadKey);
 
   const set = (field: keyof WhatsAppFields) => (value: string) => {
     setFields((f) => ({ ...f, [field]: value }));
@@ -325,7 +327,7 @@ function WhatsAppCard({ info, onConnected, onSeePlans }: CardProps) {
       setFields(EMPTY_WHATSAPP_FIELDS);
       setAccepted(false);
       setResult({ name: r.displayName, saved: true });
-      setReloadKey((k) => k + 1);
+      onSaved(); // the inbound status reloads
       onConnected?.("whatsapp");
     } catch (err) {
       clearSecret();
@@ -411,9 +413,14 @@ function WhatsAppCard({ info, onConnected, onSeePlans }: CardProps) {
   );
 }
 
-export function CustomPlatformSettings({ platforms, onConnected, onSeePlans }: CustomPlatformSettingsProps) {
+export function CustomPlatformSettings({ platforms, onConnected, onSeePlans, accounts }: CustomPlatformSettingsProps) {
   const x = platforms.find((p) => p.platform === "x");
   const whatsapp = platforms.find((p) => p.platform === "whatsapp");
+  const whatsappOpen = Boolean(whatsapp) && whatsapp?.allowed !== false;
+  // Bumped after a WhatsApp connection was saved, so the inbound status reloads. Locked plan: nothing is requested.
+  const [reloadKey, setReloadKey] = useState(0);
+  const webhookInfo = useWhatsAppWebhookInfo(whatsappOpen, reloadKey);
+  const inboundReady = webhookInfo.status === "ready" ? Object.fromEntries(webhookInfo.info.connections.map((c) => [c.socialAccountId, c.inboundReady])) : undefined;
   if (!x && !whatsapp) return null;
 
   return (
@@ -427,8 +434,11 @@ export function CustomPlatformSettings({ platforms, onConnected, onSeePlans }: C
       </div>
       <div className={`byok-panels__grid${x && whatsapp ? " byok-panels__grid--two" : ""}`}>
         {x && <XCard info={x} onConnected={onConnected} onSeePlans={onSeePlans} />}
-        {whatsapp && <WhatsAppCard info={whatsapp} onConnected={onConnected} onSeePlans={onSeePlans} />}
+        {whatsapp && <WhatsAppCard info={whatsapp} onConnected={onConnected} onSeePlans={onSeePlans} webhookInfo={webhookInfo} onSaved={() => setReloadKey((k) => k + 1)} />}
       </div>
+      {whatsappOpen && (
+        <WhatsAppThreadViewer accounts={accounts ?? []} triageEnabled={webhookInfo.status === "ready" ? webhookInfo.info.triageEnabled : null} inboundReady={inboundReady} />
+      )}
     </section>
   );
 }
