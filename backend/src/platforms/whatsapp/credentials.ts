@@ -17,6 +17,11 @@ export interface WhatsAppBundle {
   wabaId: string;
   /** Phone number id (the id Meta's API takes, not the phone number itself). Not a secret. */
   phoneNumberId: string;
+  /** OPTIONAL. The App Secret of the customer's OWN Meta app, the key Meta signs inbound webhook deliveries with
+   *  (X-Hub-Signature-256). A secret like the token, and stored the same way: only inside this Vault string, wiped with it
+   *  on disconnect, never in a column, a log line, an error or a response. Without it the connection can still send, but
+   *  inbound messages are not accepted (a delivery that cannot be verified is dropped). */
+  appSecret?: string;
 }
 
 /** The code the adapter reports (never the bundle) when it cannot use the stored login. postErrors.ts turns it into
@@ -42,8 +47,22 @@ export const WHATSAPP_TOKEN_PATTERN = /^[A-Za-z0-9._-]+$/;
 export const WHATSAPP_TOKEN_MIN_LENGTH = 20;
 export const WHATSAPP_TOKEN_MAX_LENGTH = 512;
 
+/** Meta app secrets are 32 hex characters today; the pattern allows any letters and digits of a plausible length so a
+ *  format change on Meta's side does not lock customers out, while still keeping the stored value free of quotes,
+ *  whitespace and anything else that has no business in a key. */
+export const WHATSAPP_APP_SECRET_PATTERN = /^[A-Za-z0-9]{16,64}$/;
+export const WHATSAPP_APP_SECRET_MIN_LENGTH = 16;
+export const WHATSAPP_APP_SECRET_MAX_LENGTH = 64;
+
 export function serializeWhatsAppBundle(bundle: WhatsAppBundle): string {
-  return JSON.stringify({ v: 1, systemUserToken: bundle.systemUserToken, wabaId: bundle.wabaId, phoneNumberId: bundle.phoneNumberId });
+  return JSON.stringify({
+    v: 1,
+    systemUserToken: bundle.systemUserToken,
+    wabaId: bundle.wabaId,
+    phoneNumberId: bundle.phoneNumberId,
+    // Additive: a bundle without an app secret is byte for byte what version 1 always was.
+    ...(bundle.appSecret ? { appSecret: bundle.appSecret } : {}),
+  });
 }
 
 /** Returns the bundle, or null for anything that is not a complete, well formed version 1 bundle. Never throws. */
@@ -52,11 +71,14 @@ export function parseWhatsAppBundle(stored: string | null | undefined): WhatsApp
   try {
     const p = JSON.parse(stored) as Record<string, unknown>;
     if (p.v !== 1) return null;
-    const { systemUserToken, wabaId, phoneNumberId } = p;
+    const { systemUserToken, wabaId, phoneNumberId, appSecret } = p;
     if (typeof systemUserToken !== "string" || systemUserToken.length < WHATSAPP_TOKEN_MIN_LENGTH || !WHATSAPP_TOKEN_PATTERN.test(systemUserToken)) return null;
     if (typeof wabaId !== "string" || !META_ID_PATTERN.test(wabaId)) return null;
     if (typeof phoneNumberId !== "string" || !META_ID_PATTERN.test(phoneNumberId)) return null;
-    return { systemUserToken, wabaId, phoneNumberId };
+    // Optional and additive. A stored app secret that is malformed is treated as absent rather than making the whole
+    // login unusable: sending keeps working, and inbound stays off until a good one is saved.
+    const goodSecret = typeof appSecret === "string" && WHATSAPP_APP_SECRET_PATTERN.test(appSecret) ? appSecret : undefined;
+    return { systemUserToken, wabaId, phoneNumberId, ...(goodSecret ? { appSecret: goodSecret } : {}) };
   } catch {
     return null;
   }

@@ -9,7 +9,7 @@ import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { tables } from "../testFakeSupabase.js";
+import { tables, vault } from "../testFakeSupabase.js";
 
 const triage = vi.hoisted(() => ({ calls: [] as Array<{ accountId: string; type: string; items: Array<Record<string, string>> }>, impl: null as null | (() => Promise<unknown>) }));
 vi.mock("../commentTriage.js", () => ({
@@ -23,6 +23,8 @@ vi.mock("../supabase.js", async () => {
   const f = await import("../testFakeSupabase.js");
   return { supabase: { from: (t: string) => f.makeBuilder(t), rpc: (fn: string, args: Record<string, unknown>) => f.fakeRpc(fn, args) }, createUserClient: vi.fn() };
 });
+const security = vi.hoisted(() => ({ events: [] as Array<{ type: string; detail: string }> }));
+vi.mock("./securityAlerts.js", () => ({ recordSecurityEvent: (type: string, detail: string) => void security.events.push({ type, detail }) }));
 // 30 requests a minute per IP is right in production and would stop this test file after a handful of calls.
 vi.mock("./rateLimit.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./rateLimit.js")>();
@@ -32,11 +34,14 @@ vi.mock("./rateLimit.js", async (importOriginal) => {
 const { supabase } = await import("../supabase.js");
 const { buildApp } = await import("./app.js");
 const { StubMorAdapter } = await import("../billing/stub.js");
-const { extractWhatsAppTextMessages, whatsAppWebhookIdle } = await import("./whatsappWebhooks.js");
+const { extractWhatsAppTextMessages, whatsAppWebhookIdle, NO_APP_SECRET_LOG_LINE } = await import("./whatsappWebhooks.js");
+const { serializeWhatsAppBundle } = await import("../platforms/whatsapp/credentials.js");
 
 // Fake values that merely look the right shape. None is a real credential.
 const VERIFY_TOKEN = "test-verify-token-not-real-0123456789";
-const APP_SECRET = "test-app-secret-not-real-0123456789";
+const APP_SECRET = "TestAppSecretNotReal0123456789abcdef";
+const OTHER_SECRET = "OtherAppSecretNotReal9876543210fedcba";
+const TOKEN = "test_whatsapp_system_user_token_not_real_0123456789";
 const WABA = "123456789012345";
 const PHONE = "109876543210987";
 const FROM = "27820001111";
@@ -90,9 +95,12 @@ const send = (body: string, sig: string | null = sign(body)) => {
 
 const account = (over: Record<string, unknown> = {}) => ({
   id: "sa1", account_id: "acc1", platform: "whatsapp", platform_account_id: PHONE,
-  whatsapp_business_account_id: WABA, whatsapp_phone_number_id: PHONE,
+  whatsapp_business_account_id: WABA, whatsapp_phone_number_id: PHONE, access_token_vault_id: "v1",
   byok_status: "valid", paused_at: null, disconnected_at: null, credential_mode: "byok", ...over,
 });
+/** Puts a connection's login in the fake Vault, with or without an app secret. */
+const putLogin = (vaultId: string, appSecret: string | null = APP_SECRET, ids = { wabaId: WABA, phoneNumberId: PHONE }) =>
+  vault.set(vaultId, serializeWhatsAppBundle({ systemUserToken: TOKEN, ...ids, ...(appSecret ? { appSecret } : {}) }));
 const setTier = (tier: string, acc = "acc1") => {
   tables.subscriptions = (tables.subscriptions ?? []).filter((r) => r.account_id !== acc);
   tables.subscriptions.push({ account_id: acc, tier, status: "active" });
@@ -103,12 +111,14 @@ let logged: string[];
 beforeEach(() => {
   for (const k of Object.keys(tables)) delete tables[k];
   tables.social_accounts = [account()];
+  vault.clear();
+  putLogin("v1");
+  security.events = [];
   setTier("business");
   triage.calls = [];
   triage.impl = null;
   process.env.WHATSAPP_BYOK_ENABLED = "true";
   process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = VERIFY_TOKEN;
-  process.env.WHATSAPP_APP_SECRET = APP_SECRET;
   logged = [];
   const grab = (...a: unknown[]) => void logged.push(a.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(" "));
   vi.spyOn(console, "log").mockImplementation(grab);
@@ -162,39 +172,122 @@ describe("GET /api/webhooks/whatsapp: Meta's handshake, public", () => {
   });
 });
 
-describe("POST /api/webhooks/whatsapp: the signature is the gate", () => {
-  it("a missing, wrong or mismatched signature gets 403 and touches nothing", async () => {
-    const body = delivery();
-    for (const sig of [null, "", "sha256=deadbeef", sign(body, "some-other-secret"), sign(body + " ")]) {
-      const r = await send(body, sig);
-      expect(r.status, String(sig)).toBe(403);
-    }
-    await whatsAppWebhookIdle();
+describe("POST /api/webhooks/whatsapp: the connection's own app secret is the gate", () => {
+  const nothing = () => {
     expect(stored()).toHaveLength(0);
     expect(triage.calls).toHaveLength(0);
+  };
+
+  it("a missing, wrong or mismatched signature is answered 200 like any delivery, stores nothing and is recorded as a security event", async () => {
+    const body = delivery();
+    const bad = [null, "", "sha256=deadbeef", sign(body, "some-other-secret"), sign(body + " ")];
+    for (const sig of bad) {
+      const r = await send(body, sig);
+      expect(r.status, String(sig)).toBe(200);
+      expect(r.text).toBe("EVENT_RECEIVED");
+    }
+    await whatsAppWebhookIdle();
+    nothing();
+    expect(security.events).toHaveLength(bad.length);
+    expect(security.events.every((e) => e.type === "whatsapp_bad_signature")).toBe(true);
+    // the recorded detail carries no id, no name, no text
+    expect(JSON.stringify(security.events)).not.toMatch(/\d{5,}|Thandi|premium/);
+  });
+
+  it("a correctly signed delivery is stored: the signature is checked against the connection's app secret from Vault", async () => {
+    await send(delivery());
+    await whatsAppWebhookIdle();
+    expect(stored()).toHaveLength(1);
+    expect(security.events).toHaveLength(0);
   });
 
   it("a body edited after signing is refused", async () => {
     const body = delivery();
-    const r = await send(body.replace("premium", "free"), sign(body));
-    expect(r.status).toBe(403);
-    expect(triage.calls).toHaveLength(0);
+    await send(body.replace("premium", "free"), sign(body));
+    await whatsAppWebhookIdle();
+    nothing();
   });
 
   it("a delivery that is not JSON content cannot match a signature, even with a correct one for its bytes", async () => {
     const body = delivery();
     const r = await request(app()).post("/api/webhooks/whatsapp").set("Content-Type", "text/plain").set("X-Hub-Signature-256", sign(body)).send(body);
-    expect(r.status).toBe(403);
-    expect(stored()).toHaveLength(0);
+    expect(r.status).toBe(200);
+    await whatsAppWebhookIdle();
+    nothing();
   });
 
-  it("fails closed with a 500 if the app secret is not configured, and is a 404 while the feature is off", async () => {
+  it("a connection with no app secret saved drops the delivery with one fixed log line, whoever signed it", async () => {
+    putLogin("v1", null);
     const body = delivery();
+    expect((await send(body)).status).toBe(200);
+    await whatsAppWebhookIdle();
+    nothing();
+    expect(logged).toContain(NO_APP_SECRET_LOG_LINE);
+    expect(NO_APP_SECRET_LOG_LINE).toBe("whatsapp inbound disabled until an app secret is saved");
+    // an old bundle (no appSecret key at all), a wiped one and a missing Vault entry behave the same: dropped
+    vault.set("v1", JSON.stringify({ v: 1, systemUserToken: TOKEN, wabaId: WABA, phoneNumberId: PHONE }));
+    await send(body);
+    vault.set("v1", "revoked");
+    await send(body);
+    vault.delete("v1");
+    await send(body);
+    await whatsAppWebhookIdle();
+    nothing();
+  });
+
+  it("the global WHATSAPP_APP_SECRET setting is gone: setting it changes nothing", async () => {
+    process.env.WHATSAPP_APP_SECRET = OTHER_SECRET;
+    const body = delivery();
+    await send(body, sign(body, OTHER_SECRET));
+    await whatsAppWebhookIdle();
+    nothing();
     delete process.env.WHATSAPP_APP_SECRET;
-    expect((await send(body)).status).toBe(500);
-    process.env.WHATSAPP_APP_SECRET = APP_SECRET;
+  });
+
+  it("two connections with different app secrets are verified independently, each only by its own", async () => {
+    tables.social_accounts = [account(), account({ id: "sa2", account_id: "acc2", access_token_vault_id: "v2" })];
+    putLogin("v2", OTHER_SECRET);
+    setTier("business", "acc2");
+    const body = delivery();
+    // signed with acc1's secret: only acc1 gets it
+    await send(body, sign(body, APP_SECRET));
+    await whatsAppWebhookIdle();
+    expect(stored().map((r) => r.account_id)).toEqual(["acc1"]);
+    // signed with acc2's secret: only acc2 gets it (a different timestamp so it is newer for acc1's cache too)
+    const body2 = delivery({ messages: [{ timestamp: AT + 500, id: "wamid.SECOND" }] });
+    await send(body2, sign(body2, OTHER_SECRET));
+    await whatsAppWebhookIdle();
+    expect(stored().map((r) => r.account_id).sort()).toEqual(["acc1", "acc2"]);
+    expect(stored().filter((r) => r.account_id === "acc1")).toHaveLength(1);
+  });
+
+  it("another customer's app secret cannot forge a message into this connection", async () => {
+    tables.social_accounts = [
+      account(),
+      account({ id: "sa2", account_id: "acc2", whatsapp_business_account_id: "555555555555555", whatsapp_phone_number_id: "444444444444444", platform_account_id: "444444444444444", access_token_vault_id: "v2" }),
+    ];
+    putLogin("v2", OTHER_SECRET, { wabaId: "555555555555555", phoneNumberId: "444444444444444" });
+    setTier("business", "acc2");
+    const body = delivery(); // addressed to acc1's number
+    await send(body, sign(body, OTHER_SECRET)); // signed by acc2's app
+    await whatsAppWebhookIdle();
+    nothing();
+  });
+
+  it("the app secret never appears in a log line, a security event or a response", async () => {
+    const body = delivery();
+    const r1 = await send(body);
+    const r2 = await send(body, "sha256=bad");
+    putLogin("v1", null);
+    await send(body);
+    await whatsAppWebhookIdle();
+    const all = logged.join("\n") + JSON.stringify(security.events) + r1.text + r2.text + JSON.stringify(r1.headers) + JSON.stringify(r2.headers);
+    for (const needle of [APP_SECRET, OTHER_SECRET, TOKEN]) expect(all).not.toContain(needle);
+  });
+
+  it("is a 404 while the feature is off", async () => {
     process.env.WHATSAPP_BYOK_ENABLED = "off";
-    expect((await send(body)).status).toBe(404);
+    expect((await send(delivery())).status).toBe(404);
     expect(stored()).toHaveLength(0);
   });
 

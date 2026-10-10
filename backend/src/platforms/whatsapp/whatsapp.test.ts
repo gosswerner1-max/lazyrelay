@@ -52,6 +52,18 @@ describe("the stored login", () => {
     expect(parseWhatsAppBundle(stored)).toEqual(BUNDLE);
   });
 
+  it("carries an optional app secret additively: absent changes nothing, a good one round-trips, a malformed one is dropped, not fatal", () => {
+    const SECRET = "AppSecretNotReal0123456789abcdefAB";
+    expect(JSON.parse(serializeWhatsAppBundle({ ...BUNDLE, appSecret: SECRET }))).toEqual({ v: 1, systemUserToken: WA_TEST_TOKEN, wabaId: WABA, phoneNumberId: PHONE, appSecret: SECRET });
+    expect(parseWhatsAppBundle(serializeWhatsAppBundle({ ...BUNDLE, appSecret: SECRET }))).toEqual({ ...BUNDLE, appSecret: SECRET });
+    // an old stored bundle (no appSecret key) still parses to exactly what it did before
+    expect(parseWhatsAppBundle(JSON.stringify({ v: 1, systemUserToken: WA_TEST_TOKEN, wabaId: WABA, phoneNumberId: PHONE }))).toEqual(BUNDLE);
+    const good = JSON.parse(serializeWhatsAppBundle(BUNDLE));
+    for (const bad of ["short", "has spaces 0123456789abc", 12345678901234567890, "a".repeat(100), "", null]) {
+      expect(parseWhatsAppBundle(JSON.stringify({ ...good, appSecret: bad })), String(bad)).toEqual(BUNDLE);
+    }
+  });
+
   it("rejects anything that is not a complete, well formed version 1 login, and never throws", () => {
     const good = JSON.parse(serializeWhatsAppBundle(BUNDLE));
     const bad: unknown[] = [

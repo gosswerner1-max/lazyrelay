@@ -513,3 +513,61 @@ describe("migration 0125 (database plan gate) and the route's handling of it", (
     expect(r.status).toBe(500);
   });
 });
+
+describe("the optional App Secret (inbound webhooks): handled exactly like the token", () => {
+  const SECRET = "AppSecretNotReal0123456789abcdefAB";
+  const OTHER = "OtherSecretNotReal9876543210zyxwvu";
+  const stored = () => parseWhatsAppBundle([...vault.values()][0]);
+
+  it("is optional: a login without one still saves, and an old-shape bundle is exactly as before", async () => {
+    const r = await request(appWith()).post("/social-accounts/whatsapp/byok").send(BODY);
+    expect(r.status).toBe(200);
+    expect(JSON.parse([...vault.values()][0])).toEqual({ v: 1, systemUserToken: TOKEN, wabaId: WABA, phoneNumberId: PHONE });
+  });
+
+  it("is saved inside the Vault string next to the token, and nowhere else (no column, no response, no log)", async () => {
+    const r = await request(appWith()).post("/social-accounts/whatsapp/byok").send({ ...BODY, appSecret: SECRET });
+    expect(r.status).toBe(200);
+    expect(stored()?.appSecret).toBe(SECRET);
+    expect(r.body).toEqual({ ok: true, displayName: "Acme Cafe", keyHint: "****0987" });
+    expect(JSON.stringify(tables.social_accounts)).not.toContain(SECRET);
+    expect(JSON.stringify([r.body, logged, ctx.selects])).not.toContain(SECRET);
+  });
+
+  it("check accepts it, proves the rest, stores nothing and does not echo it", async () => {
+    const r = await request(appWith()).post("/social-accounts/whatsapp/byok/check").send({ ...CREDS, appSecret: SECRET });
+    expect(r.status).toBe(200);
+    expect(vault.size).toBe(0);
+    expect(JSON.stringify([r.body, logged])).not.toContain(SECRET);
+  });
+
+  it("a blank field counts as not given; a malformed one is refused before Meta or Vault and is never echoed", async () => {
+    expect((await request(appWith()).post("/social-accounts/whatsapp/byok/check").send({ ...CREDS, appSecret: "   " })).status).toBe(200);
+    for (const bad of ["short", "has spaces in it 0123456789", "a".repeat(80), "quote\"0123456789abcdef", "<script>0123456789ab"]) {
+      const r = await request(appWith()).post("/social-accounts/whatsapp/byok").send({ ...BODY, appSecret: bad });
+      expect(r.status, bad).toBe(400);
+      expect(r.body.error).toMatch(/App Secret/);
+      expect(JSON.stringify(r.body)).not.toContain(bad);
+    }
+    expect(vault.size).toBe(0);
+  });
+
+  it("saving a new one overwrites the old; saving without one keeps the secret already on file for that connection", async () => {
+    await request(appWith()).post("/social-accounts/whatsapp/byok").send({ ...BODY, appSecret: SECRET });
+    await request(appWith()).post("/social-accounts/whatsapp/byok").send({ ...BODY, systemUserToken: TOKEN + "_rotated" });
+    expect(vault.size).toBe(1);
+    expect(stored()).toMatchObject({ systemUserToken: TOKEN + "_rotated", appSecret: SECRET });
+    await request(appWith()).post("/social-accounts/whatsapp/byok").send({ ...BODY, appSecret: OTHER });
+    expect(stored()?.appSecret).toBe(OTHER);
+  });
+
+  it("a wiped login (disconnect) holds no secret at all", async () => {
+    await request(appWith()).post("/social-accounts/whatsapp/byok").send({ ...BODY, appSecret: SECRET });
+    const id = tables.social_accounts[0].access_token_vault_id as string;
+    const { wipeVaultSecrets } = await import("../../tokenWipe.js");
+    const { supabase } = await import("../../supabase.js");
+    await wipeVaultSecrets(supabase as never, [id]);
+    expect(vault.get(id)).toBe("revoked");
+    expect(parseWhatsAppBundle(vault.get(id))).toBeNull();
+  });
+});

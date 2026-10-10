@@ -3,36 +3,39 @@ import type { Request, Response } from "express";
 import { supabase } from "../supabase.js";
 import { triageItems, type TriageItem } from "../commentTriage.js";
 import { checkWhatsappPlan } from "../accountLimits.js";
-import { META_ID_PATTERN } from "../platforms/whatsapp/credentials.js";
+import { META_ID_PATTERN, parseWhatsAppBundle } from "../platforms/whatsapp/credentials.js";
+import { recordSecurityEvent } from "./securityAlerts.js";
 
 // WhatsApp (bring your own key), real-time inbound messages. Mounted in app.ts at /api/webhooks/whatsapp, OUTSIDE the
 // dashboard's authorization: Meta's servers call it, not a signed-in person. What protects it instead:
 //
 //   GET  the one-time handshake. Meta sends hub.mode, hub.verify_token and hub.challenge; the token must equal
 //        WHATSAPP_WEBHOOK_VERIFY_TOKEN (timing-safe) and the challenge is echoed back as plain text.
-//   POST real deliveries. Meta signs the RAW body with the app secret (X-Hub-Signature-256: sha256=<hex hmac>); it is
-//        checked against WHATSAPP_APP_SECRET before anything else happens, and a bad signature gets 403. Without that
-//        check anyone who knows a phone number id (an identifier, not a secret) could forge messages into a customer's
-//        inbox and run up LazyRelay's AI bill. A valid delivery is answered 200 "EVENT_RECEIVED" at once (Meta retries
-//        anything slower and floods on failure) and processed after the response.
+//   POST real deliveries. EVERY customer brings their OWN Meta app, and Meta signs each delivery with THAT app's secret
+//        (X-Hub-Signature-256: sha256=<hex hmac of the raw body>). So the secret that proves a delivery is genuine is not
+//        a server setting: it is the customer's App Secret, kept in their Vault entry next to their token. The order is:
+//          1. answer 200 "EVENT_RECEIVED" at once (Meta retries anything slower and floods on failure),
+//          2. parse the body and find the connection by WABA id AND phone number id (identifiers, not secrets: they
+//             only route),
+//          3. read that connection's login from Vault with the service-role client and verify the signature over the
+//             RAW body with THAT connection's app secret, in constant time,
+//          4. only then store anything.
+//        No app secret saved for the connection: the delivery is dropped (fixed log line, no ids). A bad or missing
+//        signature: dropped and counted by the security event recorder (one event never alerts). Because the secret is
+//        only known after the lookup, a delivery is never answered 403: a genuine, a forged and an unknown delivery all
+//        get the same 200.
 //
 // Both are dormant (404) unless WHATSAPP_BYOK_ENABLED=true, like every other part of the feature.
-//
-// KNOWN LIMIT, STATED PLAINLY: one global WHATSAPP_APP_SECRET verifies deliveries from ONE Meta app. A customer who
-// brings their own Meta app signs with THEIR app secret, which LazyRelay does not hold. Until per-account app secrets
-// exist (a field at connect time, kept in Vault), this only verifies deliveries from an app LazyRelay controls.
 //
 // WHAT HAPPENS TO A MESSAGE. WhatsApp inbound text is a direct message, not a comment on a post, so it goes where every
 // other direct message goes: dm_conversations_cache (one row per contact, newest message as the snippet; the 30 day
 // purge of migration 0117 already covers it) and a triage verdict in comment_triage via triageItems (item type "dm").
-// There is no separate "mentions" table: a new one would keep a stranger's phone number and message text with no
-// retention. Fail closed everywhere: a WABA id plus phone number id that matches no connected, active WhatsApp row, an
+// Fail closed everywhere: a WABA id plus phone number id that matches no connected, active WhatsApp row, an
 // account whose own keys are out of credit, a paused row or a plan below Business stores nothing and costs nothing.
 //
-// Message text, names and phone numbers are never logged.
+// Message text, names, phone numbers and secrets are never logged.
 
 const VERIFY_TOKEN_ENV = "WHATSAPP_WEBHOOK_VERIFY_TOKEN";
-const APP_SECRET_ENV = "WHATSAPP_APP_SECRET";
 const MAX_CHALLENGE_LENGTH = 256;
 /** A delivery can batch many messages; this bounds the work (and the AI batches) one delivery can cause. */
 const MAX_MESSAGES_PER_DELIVERY = 200;
@@ -86,32 +89,26 @@ export function handleWhatsAppWebhookEvent(req: Request, res: Response): void {
     res.status(404).end();
     return;
   }
-  const appSecret = process.env[APP_SECRET_ENV];
-  if (!appSecret) {
-    console.error(`${APP_SECRET_ENV} is not set -- refusing an unverifiable WhatsApp webhook delivery.`);
-    res.status(500).end();
-    return;
-  }
   // express.raw() in app.ts: the HMAC is over the exact bytes Meta sent. Anything else (wrong content type) is empty and
-  // cannot match.
+  // cannot match any signature.
   const rawBody = req.body instanceof Buffer ? req.body : Buffer.alloc(0);
   const signatureHeader = req.header("X-Hub-Signature-256") ?? "";
-  const expectedSignature = "sha256=" + createHmac("sha256", appSecret).update(rawBody).digest("hex");
-  if (!safeEqual(signatureHeader, expectedSignature)) {
-    console.error("WhatsApp webhook signature verification failed.");
-    res.status(403).end();
-    return;
-  }
 
-  // Meta needs the answer within seconds and retries a slow or failing endpoint, so answer first.
+  // Answer first: the verifying secret is the connection's own and is only known after the lookup below.
   res.status(200).type("text/plain").send("EVENT_RECEIVED");
 
-  const work = processWhatsAppEvent(rawBody)
-    .then((s) => console.log(`[whatsapp-webhook] processed: messages=${s.messages} stored=${s.stored} unmatched=${s.unmatched} blocked=${s.blocked}`))
+  const work = processWhatsAppEvent(rawBody, signatureHeader)
+    .then((s) => console.log(`[whatsapp-webhook] processed: messages=${s.messages} stored=${s.stored} unmatched=${s.unmatched} blocked=${s.blocked} rejected=${s.rejected}`))
     // The error message only: it never carries the payload.
     .catch((err) => console.error("[whatsapp-webhook] processing failed:", err instanceof Error ? err.message : "unknown error"))
     .finally(() => inflight.delete(work));
   inflight.add(work);
+}
+
+/** HMAC-SHA256 over the raw body, compared in constant time against the X-Hub-Signature-256 header. */
+export function signatureMatches(rawBody: Buffer, header: string, appSecret: string): boolean {
+  const expected = "sha256=" + createHmac("sha256", appSecret).update(rawBody).digest("hex");
+  return safeEqual(header, expected);
 }
 
 // ---------------------------------------------------------------- parsing
@@ -195,8 +192,10 @@ export interface WhatsAppEventSummary {
   stored: number;
   /** Messages for a WABA id + phone number id that matches no connected, active WhatsApp row. */
   unmatched: number;
-  /** Messages for a matched row that was refused: out of credit, paused, or a plan below Business. */
+  /** Messages for a matched row that was refused: out of credit, paused, a plan below Business, or no saved app secret. */
   blocked: number;
+  /** Messages for a matched row whose signature did not verify against that connection's own app secret. */
+  rejected: number;
 }
 
 interface WhatsAppAccountRow {
@@ -204,14 +203,28 @@ interface WhatsAppAccountRow {
   account_id: string;
   byok_status: string | null;
   paused_at: string | null;
+  access_token_vault_id: string | null;
 }
 
 /** Whole-second ISO string in the form the database hands back for a timestamptz, so the triage cache signature written
  *  here equals the one the DM list computes later (no second AI call for the same message). */
 const signatureOf = (d: Date): string => d.toISOString().slice(0, 19) + "+00:00";
 
-export async function processWhatsAppEvent(rawBody: Buffer): Promise<WhatsAppEventSummary> {
-  const summary: WhatsAppEventSummary = { messages: 0, stored: 0, unmatched: 0, blocked: 0 };
+export const NO_APP_SECRET_LOG_LINE = "whatsapp inbound disabled until an app secret is saved";
+
+/** Reads the connection's login from Vault (service role only) and returns its app secret, or why there is none.
+ *  Nothing from the login is ever logged or thrown. */
+async function loadAppSecret(vaultId: string | null): Promise<{ secret: string } | { missing: true } | { unreadable: true }> {
+  if (!vaultId) return { missing: true };
+  const { data, error } = await supabase.rpc("read_social_token", { p_vault_id: vaultId });
+  if (error) return { unreadable: true };
+  const bundle = parseWhatsAppBundle(typeof data === "string" ? data : null);
+  return bundle?.appSecret ? { secret: bundle.appSecret } : { missing: true };
+}
+
+export async function processWhatsAppEvent(rawBody: Buffer, signatureHeader: string): Promise<WhatsAppEventSummary> {
+  const summary: WhatsAppEventSummary = { messages: 0, stored: 0, unmatched: 0, blocked: 0, rejected: 0 };
+
   let payload: unknown;
   try {
     payload = JSON.parse(rawBody.toString("utf8"));
@@ -237,7 +250,7 @@ export async function processWhatsAppEvent(rawBody: Buffer): Promise<WhatsAppEve
     // the signature above is the real gate and this lookup only routes.
     const { data: rows, error } = await supabase
       .from("social_accounts")
-      .select("id, account_id, byok_status, paused_at")
+      .select("id, account_id, byok_status, paused_at, access_token_vault_id")
       .eq("platform", "whatsapp")
       .eq("whatsapp_business_account_id", wabaId)
       .eq("whatsapp_phone_number_id", phoneNumberId)
@@ -252,6 +265,25 @@ export async function processWhatsAppEvent(rawBody: Buffer): Promise<WhatsAppEve
     for (const account of accounts) {
       if (account.byok_status === "out_of_credit" || account.paused_at) {
         summary.blocked += group.length;
+        continue;
+      }
+      // The signature, with THIS connection's own app secret. Several accounts can share one number id: each is verified
+      // with its own secret, and only the one whose secret signed the body gets the message.
+      const loaded = await loadAppSecret(account.access_token_vault_id);
+      if ("unreadable" in loaded) {
+        console.error("[whatsapp-webhook] could not read a stored login; delivery dropped.");
+        summary.blocked += group.length;
+        continue;
+      }
+      if ("missing" in loaded) {
+        console.warn(NO_APP_SECRET_LOG_LINE);
+        summary.blocked += group.length;
+        continue;
+      }
+      if (!signatureMatches(rawBody, signatureHeader, loaded.secret)) {
+        // One bad signature is noise (a stale or misconfigured app); a flood trips the recorder's threshold. No ids.
+        recordSecurityEvent("whatsapp_bad_signature", "WhatsApp webhook delivery failed signature verification");
+        summary.rejected += group.length;
         continue;
       }
       if (!planOk.has(account.account_id)) planOk.set(account.account_id, (await checkWhatsappPlan(account.account_id)) === null);

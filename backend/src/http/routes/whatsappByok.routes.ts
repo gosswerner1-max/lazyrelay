@@ -16,6 +16,10 @@
 //     or a log line.
 //   - Response is { ok, displayName, keyHint } and nothing else. The token is never returned, never stored in a column
 //     and never selected back.
+//   - The optional App Secret (the customer's own Meta app, which signs inbound webhook deliveries) is handled exactly like
+//     the token: it travels inside the same Vault string, is never echoed, logged, put in an error or stored in a column,
+//     and is wiped with the token on disconnect. Saving a new one overwrites the old. Re-saving the login WITHOUT one keeps
+//     the secret already stored for that same connection, so rotating the token never silently switches inbound off.
 
 import express, { type NextFunction, type Request, type Response, type Router } from "express";
 import rateLimit from "express-rate-limit";
@@ -31,8 +35,10 @@ import type { PlatformAdapterRegistry } from "../../platforms/connect.js";
 import { WhatsAppAdapter } from "../../platforms/whatsapp/adapter.js";
 import {
   META_ID_PATTERN,
+  parseWhatsAppBundle,
   serializeWhatsAppBundle,
   whatsappKeyHint,
+  WHATSAPP_APP_SECRET_PATTERN,
   WHATSAPP_TOKEN_MAX_LENGTH,
   WHATSAPP_TOKEN_MIN_LENGTH,
   WHATSAPP_TOKEN_PATTERN,
@@ -58,6 +64,15 @@ export const whatsappByokJsonParser = [
 const idField = (label: string) =>
   z.string({ error: `${label} is required` }).trim().regex(META_ID_PATTERN, `${label} should be the numeric ID from Meta (digits only, no spaces)`);
 
+// OPTIONAL: the App Secret of the customer's own Meta app, used to verify the signature on inbound webhook deliveries.
+// A blank field counts as not given. The message never repeats what was typed.
+const appSecretField = z
+  .string()
+  .trim()
+  .optional()
+  .transform((v) => (v ? v : undefined))
+  .refine((v) => v === undefined || WHATSAPP_APP_SECRET_PATTERN.test(v), "App Secret should be the letters and numbers Meta shows for your app (16 to 64 characters, no spaces)");
+
 const credentialsShape = {
   wabaId: idField("WhatsApp Business Account ID"),
   phoneNumberId: idField("Phone number ID"),
@@ -67,6 +82,7 @@ const credentialsShape = {
     .min(WHATSAPP_TOKEN_MIN_LENGTH, "System user token looks too short")
     .max(WHATSAPP_TOKEN_MAX_LENGTH, "System user token looks too long")
     .regex(WHATSAPP_TOKEN_PATTERN, "System user token should only contain letters, numbers, dots, dashes and underscores (no spaces)"),
+  appSecret: appSecretField,
 };
 const checkSchema = z.object(credentialsShape);
 const connectSchema = z.object({
@@ -214,7 +230,14 @@ export function registerWhatsAppByokRoutes(
 
       // The ONLY place the token is written: into Vault, encrypted at rest, as part of the stored login. The returned
       // value is an opaque uuid that the row keeps; no token column exists.
-      const login = serializeWhatsAppBundle(bundle);
+      let toStore: WhatsAppBundle = bundle;
+      if (existing && !bundle.appSecret && existing.access_token_vault_id && !existing.disconnected_at) {
+        // Keep the secret already on file for this same connection when the customer only rotates the token.
+        const { data: previous } = await supabase.rpc("read_social_token", { p_vault_id: existing.access_token_vault_id });
+        const kept = parseWhatsAppBundle(typeof previous === "string" ? previous : null)?.appSecret;
+        if (kept) toStore = { ...bundle, appSecret: kept };
+      }
+      const login = serializeWhatsAppBundle(toStore);
       let vaultId: string;
       if (existing) {
         const { error } = await supabase.rpc("update_social_token", { p_vault_id: existing.access_token_vault_id, p_new_token: login });
