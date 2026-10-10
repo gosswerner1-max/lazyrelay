@@ -196,9 +196,10 @@ steps, already tested end-to-end:
    project after real data loss, use Supabase's own dashboard restore from
    its daily snapshot — the drill tested the cross-project path
    specifically, which is strictly harder).
-2. Push all migrations (`supabase db push`) — watch for the known `0007`/
-   `0023` duplicate-migration-version quirk; never use `--include-all`
-   against a project with real history, only against a genuinely empty one.
+2. Push all migrations (`supabase db push`). The old `0007`/`0023` duplicate-version
+   quirk is fixed (the second files are now `0120` and `0121`, and a test fails if two
+   migrations ever share a number); never use `--include-all` against a project with
+   real history, only against a genuinely empty one.
 3. Restore `auth.users` first (accounts foreign-keys into it) — a bare
    public-schema restore fails without this.
 4. Restore the rest of the tables in FK-dependency order (or disable/

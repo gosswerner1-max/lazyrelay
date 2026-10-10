@@ -354,7 +354,7 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
     // one subscription row, but Paddle issues a brand-new subscription id
     // on every checkout, so conflicting on mor_subscription_id let a
     // cancel-then-resubscribe insert a second row instead of updating the
-    // existing one (found live 2026-07-22; see migration 0007's note).
+    // existing one (found live 2026-07-22; see migration 0120's note).
     // ignoreDuplicates makes this a pure no-op if a row already exists
     // (whether current or stale) -- it only actually inserts on this
     // account's genuine first-ever webhook, and .select() tells us which
