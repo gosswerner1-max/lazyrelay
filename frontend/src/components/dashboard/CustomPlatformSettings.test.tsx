@@ -70,6 +70,22 @@ describe("what shows, decided by the platform list the backend sends", () => {
     expect(screen.queryAllByRole("textbox")).toHaveLength(0);
     expect(screen.queryByRole("button", { name: /Save and connect/ })).not.toBeInTheDocument();
   });
+
+  it("a locked card offers See plans, which calls the Settings view's own way to the Plan & billing sub-tab", async () => {
+    const onSeePlans = vi.fn();
+    const user = userEvent.setup();
+    render(<CustomPlatformSettings platforms={[{ ...X_OK, allowed: false }, { ...WA_OK, allowed: false }]} onSeePlans={onSeePlans} />);
+    const buttons = screen.getAllByRole("button", { name: "See plans" });
+    expect(buttons).toHaveLength(2);
+    await user.click(buttons[0]);
+    await user.click(buttons[1]);
+    expect(onSeePlans).toHaveBeenCalledTimes(2);
+  });
+
+  it("an unlocked card has no See plans button", () => {
+    render(<CustomPlatformSettings platforms={[X_OK, WA_OK]} onSeePlans={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "See plans" })).not.toBeInTheDocument();
+  });
 });
 
 describe("X: the exact consent text and the guide link", () => {
@@ -105,15 +121,22 @@ describe("X: the form", () => {
   }
   const save = () => screen.getByRole("button", { name: "Save and connect" });
 
-  it("the two secrets are hidden until the customer asks to see them", async () => {
+  it("the three secrets (API Secret, Access Token, Access Token Secret) are hidden until the customer asks to see them", async () => {
     const user = userEvent.setup();
     render(<CustomPlatformSettings platforms={[X_OK]} />);
     const secret = screen.getByLabelText("API Secret (Consumer Secret)") as HTMLInputElement;
     expect(secret.type).toBe("password");
     expect((screen.getByLabelText("Access Token Secret") as HTMLInputElement).type).toBe("password");
-    expect((screen.getByLabelText("API Key (Consumer Key)") as HTMLInputElement).type).toBe("text");
+    const accessToken = screen.getByLabelText("Access Token") as HTMLInputElement;
+    expect(accessToken.type).toBe("password");
+    expect(accessToken.autocomplete).toBe("off");
+    expect((screen.getByLabelText("API Key (Consumer Key)") as HTMLInputElement).type).toBe("text"); // an identifier, not a secret
     await user.click(screen.getByRole("button", { name: "Show API Secret (Consumer Secret)" }));
     expect(secret.type).toBe("text");
+    await user.click(screen.getByRole("button", { name: "Show Access Token" }));
+    expect(accessToken.type).toBe("text");
+    await user.click(screen.getByRole("button", { name: "Hide Access Token" }));
+    expect(accessToken.type).toBe("password");
   });
 
   it("Save stays off until all four are filled AND the box is ticked", async () => {
@@ -142,6 +165,7 @@ describe("X: the form", () => {
     expect(onConnected).toHaveBeenCalledWith("x");
     expect((screen.getByLabelText("API Secret (Consumer Secret)") as HTMLInputElement).value).toBe("");
     expect((screen.getByLabelText("Access Token Secret") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("Access Token") as HTMLInputElement).value).toBe("");
     expect((screen.getByLabelText("API Key (Consumer Key)") as HTMLInputElement).value).toBe("");
     expect(screen.getByRole("checkbox")).not.toBeChecked();
   });
@@ -156,6 +180,8 @@ describe("X: the form", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("X did not accept these keys.");
     expect((screen.getByLabelText("API Secret (Consumer Secret)") as HTMLInputElement).value).toBe("");
     expect((screen.getByLabelText("Access Token Secret") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("Access Token") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("Access Token") as HTMLInputElement).type).toBe("password"); // hiding is reset too
   });
 
   it("Check proves the keys without saving anything", async () => {
@@ -184,7 +210,7 @@ describe("X: the form", () => {
 
 describe("WhatsApp: the form", () => {
   async function fillWa(user: ReturnType<typeof userEvent.setup>) {
-    await user.type(screen.getByLabelText("WhatsApp Business Account ID (WABA ID)"), FAKE_WA.wabaId);
+    await user.type(screen.getByLabelText("WABA ID"), FAKE_WA.wabaId);
     await user.type(screen.getByLabelText("Phone number ID"), FAKE_WA.phoneNumberId);
     await user.type(screen.getByLabelText("System user token"), FAKE_WA.systemUserToken);
   }
@@ -217,6 +243,21 @@ describe("WhatsApp: the form", () => {
     expect(screen.getByText(/Publishing to WhatsApp is not available yet/)).toBeInTheDocument();
   });
 
+  it("says in one plain sentence, between the consent box and the buttons, that sending is not available yet", () => {
+    render(<CustomPlatformSettings platforms={[WA_OK]} />);
+    const sentence = screen.getByText("WhatsApp sending is not available yet. Saving only stores your connection.");
+    expect(sentence.textContent).not.toMatch(/[\u2018\u2019\u2013\u2014-]/);
+    const consent = screen.getByRole("checkbox").closest("label") as HTMLElement;
+    const save = screen.getByRole("button", { name: "Save and connect" });
+    expect(consent.compareDocumentPosition(sentence) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(sentence.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("uses a short WABA ID label so the two ID fields line up when the label would wrap", () => {
+    render(<CustomPlatformSettings platforms={[WA_OK]} />);
+    expect(screen.getByLabelText("WABA ID")).toHaveAttribute("placeholder", "WhatsApp Business Account ID");
+  });
+
   it("the token is hidden until the customer asks to see it", async () => {
     const user = userEvent.setup();
     render(<CustomPlatformSettings platforms={[WA_OK]} />);
@@ -229,7 +270,7 @@ describe("WhatsApp: the form", () => {
   it("flags wrong input in plain words and keeps Check and Save off", async () => {
     const user = userEvent.setup();
     render(<CustomPlatformSettings platforms={[WA_OK]} />);
-    await user.type(screen.getByLabelText("WhatsApp Business Account ID (WABA ID)"), "abc12345");
+    await user.type(screen.getByLabelText("WABA ID"), "abc12345");
     await user.type(screen.getByLabelText("Phone number ID"), "+27 82 000 0000");
     await user.type(screen.getByLabelText("System user token"), "short");
     expect(screen.getByText(/numeric ID from Meta: digits only/)).toBeInTheDocument();
@@ -306,12 +347,56 @@ describe("the field rules match the backend", () => {
 describe("the stylesheet cannot leak into the rest of the dashboard", () => {
   const noComments = css.replace(/\/\*[\s\S]*?\*\//g, "");
 
-  it("every selector belongs to .byok-panels, .byok-card or another .byok- class: nothing global", () => {
-    const blocks = noComments.split("}").map((b) => b.split("{")[0].trim()).filter(Boolean);
-    const selectors = blocks.filter((s) => !s.startsWith("@") && !/^\d+%$|^(from|to)$/.test(s)).flatMap((s) => s.split(",").map((x) => x.trim()));
-    expect(selectors.length).toBeGreaterThan(20);
-    for (const sel of selectors) expect(sel, sel).toMatch(/^\.byok-/);
-    expect(noComments).not.toMatch(/(^|[\s,{}])(:root|html|body)\b/);
+  interface Rule {
+    /** The selector list of a style rule, or the at-rule header (e.g. "@media (min-width: 640px)") */
+    prelude: string;
+    body: string;
+    children: Rule[];
+  }
+  /** A small brace parser: enough for plain CSS with nested @media / @supports blocks. */
+  function parse(text: string): Rule[] {
+    const out: Rule[] = [];
+    let i = 0;
+    while (i < text.length) {
+      const open = text.indexOf("{", i);
+      if (open < 0) break;
+      const prelude = text.slice(i, open).trim();
+      let depth = 1;
+      let k = open + 1;
+      while (k < text.length && depth > 0) {
+        if (text[k] === "{") depth++;
+        else if (text[k] === "}") depth--;
+        k++;
+      }
+      const inner = text.slice(open + 1, k - 1);
+      const isGroup = /^@(media|supports|layer|container)\b/.test(prelude);
+      out.push({ prelude, body: isGroup ? "" : inner, children: isGroup ? parse(inner) : [] });
+      i = k;
+    }
+    return out;
+  }
+  const flat = (rules: Rule[]): Rule[] => rules.flatMap((r) => [r, ...flat(r.children)]);
+  const all = flat(parse(noComments));
+  const styleRules = all.filter((r) => !r.prelude.startsWith("@"));
+  const selectors = styleRules.flatMap((r) => r.prelude.split(",").map((x) => x.trim()));
+
+  it("parses the whole file into style rules (a sanity check on the parser itself)", () => {
+    expect(styleRules.length).toBeGreaterThan(40);
+    expect(all.some((r) => r.prelude.startsWith("@media") && r.children.length > 0)).toBe(true);
+    expect(all.some((r) => r.prelude.startsWith("@supports") && r.children.length > 0)).toBe(true);
+  });
+
+  it("every selector, including those inside @media and @supports, is the .byok-panels root or sits under it", () => {
+    for (const sel of selectors) expect(sel, sel).toMatch(/^\.byok-panels(?![\w-])/);
+  });
+
+  it("has no :root, html, body or universal rule anywhere, and no unprefixed @keyframes", () => {
+    for (const sel of selectors) {
+      expect(sel, sel).not.toMatch(/(^|[\s>+~(,])(:root|html|body)(?![\w-])/);
+      expect(sel, sel).not.toMatch(/(^|[\s>+~(,])\*/);
+    }
+    for (const r of all.filter((x) => /^@(-webkit-)?keyframes\b/.test(x.prelude))) expect(r.prelude, r.prelude).toMatch(/^@(-webkit-)?keyframes\s+byok-/);
+    expect(noComments).not.toMatch(/@font-face|@import|@property/);
   });
 
   it("carries the brand tokens: midnight, slate and coral", () => {
@@ -322,8 +407,33 @@ describe("the stylesheet cannot leak into the rest of the dashboard", () => {
     expect(css).toMatch(/rgba\(255, 86, 48/);
   });
 
-  it("has no flat white background anywhere", () => {
-    expect(noComments).not.toMatch(/background(-color)?:\s*(#fff\b|#ffffff\b|white\b)/i);
+  it("has no flat white (#fff, #ffffff, white, Canvas) in any background declaration", () => {
+    const declarations = styleRules.flatMap((r) => r.body.split(";").map((d) => d.trim()));
+    const backgrounds = declarations.filter((d) => /^background[\w-]*\s*:/i.test(d));
+    expect(backgrounds.length).toBeGreaterThan(5);
+    for (const d of backgrounds) {
+      expect(d, d).not.toMatch(/#fff(fff)?\b|\bwhite\b|\bcanvas\b|rgba?\(\s*255\s*,\s*255\s*,\s*255\s*(,\s*1(\.0+)?\s*)?\)/i);
+    }
+  });
+
+  it("the cards and the secondary and show buttons get the coral hover shadow, and reduced motion switches it off", () => {
+    expect(noComments).toMatch(/\.byok-panels \.byok-card:hover\s*\{[^}]*box-shadow:[^;}]*255, 86, 48/);
+    expect(noComments).toMatch(/\.byok-panels \.byok-actions \.byok-secondary:hover:not\(:disabled\)\s*\{[^}]*box-shadow:[^;}]*255, 86, 48/);
+    expect(noComments).toMatch(/\.byok-panels \.byok-reveal:hover\s*\{[^}]*box-shadow:[^;}]*255, 86, 48/);
+    const reduced = all.find((r) => r.prelude.startsWith("@media (prefers-reduced-motion: reduce)"));
+    expect(reduced).toBeDefined();
+    const text = JSON.stringify(reduced!.children);
+    expect(text).toContain(".byok-reveal:hover");
+    expect(text).toContain(".byok-secondary:hover:not(:disabled)");
+    expect(text).toContain(".byok-card:hover:not(:focus-within)");
+  });
+
+  it("the field, button and card borders use the lighter slate edge, not the old 12% white or 28% coral lines", () => {
+    expect(css).toMatch(/--byok-edge:\s*#5d6c8c/i);
+    expect(noComments).not.toMatch(/--byok-line/);
+    const checked = styleRules.filter((r) => /^\.byok-panels \.byok-(field input|reveal|consent|card|actions \.byok-secondary)$/.test(r.prelude));
+    expect(checked.length).toBe(5);
+    for (const r of checked) expect(r.body, r.prelude).toMatch(/border:\s*1px solid var\(--byok-edge\)/);
   });
 
   it("is imported by the panel component itself, so it loads only where the panel is used", () => {

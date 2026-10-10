@@ -26,9 +26,26 @@ export interface CustomPlatformSettingsProps {
   platforms: PlatformInfo[];
   /** Called after a connection was saved, so the dashboard can reload its account list. */
   onConnected?: (platform: "x" | "whatsapp") => void;
+  /** Shown as a "See plans" button on a card the plan does not include. The Settings view passes its own way of
+   *  opening the Plan & billing sub-tab, so this panel adds no route. */
+  onSeePlans?: () => void;
 }
 
 const GENERIC_ERROR = "Something went wrong. Please try again.";
+/** The note on a card the plan does not include, with the way to the plans. */
+function LockedNote({ info, onSeePlans }: { info: PlatformInfo; onSeePlans?: () => void }) {
+  return (
+    <>
+      <p className="byok-card__note">{upgradeNote(info)}</p>
+      {onSeePlans && (
+        <button type="button" className="byok-linkbtn" onClick={onSeePlans}>
+          See plans
+        </button>
+      )}
+    </>
+  );
+}
+
 const messageOf = (err: unknown): string => (err instanceof Error && err.message ? err.message : GENERIC_ERROR);
 
 interface FieldProps {
@@ -81,10 +98,13 @@ function Field({ label, name, value, onChange, error, secret, shown, onToggleSho
   );
 }
 
-function XCard({ info, onConnected }: { info: PlatformInfo; onConnected?: CustomPlatformSettingsProps["onConnected"] }) {
+type CardProps = { info: PlatformInfo; onConnected?: CustomPlatformSettingsProps["onConnected"]; onSeePlans?: () => void };
+
+function XCard({ info, onConnected, onSeePlans }: CardProps) {
   const [keys, setKeys] = useState<XKeyFields>(EMPTY_X_KEYS);
   const [showApiSecret, setShowApiSecret] = useState(false);
   const [showTokenSecret, setShowTokenSecret] = useState(false);
+  const [showAccessToken, setShowAccessToken] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState<"check" | "save" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -95,8 +115,9 @@ function XCard({ info, onConnected }: { info: PlatformInfo; onConnected?: Custom
     setResult(null);
   };
   const clearSecrets = () => {
-    setKeys((k) => ({ ...k, apiSecret: "", accessTokenSecret: "" }));
+    setKeys((k) => ({ ...k, apiSecret: "", accessToken: "", accessTokenSecret: "" }));
     setShowApiSecret(false);
+    setShowAccessToken(false);
     setShowTokenSecret(false);
   };
   const filled = xKeysComplete(keys);
@@ -107,7 +128,7 @@ function XCard({ info, onConnected }: { info: PlatformInfo; onConnected?: Custom
         <h3 className="byok-card__title">
           <PlatformIcon platform="x" size={16} /> X <span className="byok-card__badge">Plan upgrade needed</span>
         </h3>
-        <p className="byok-card__note">{upgradeNote(info)}</p>
+        <LockedNote info={info} onSeePlans={onSeePlans} />
       </section>
     );
   }
@@ -176,7 +197,15 @@ function XCard({ info, onConnected }: { info: PlatformInfo; onConnected?: Custom
         <div className="byok-fields">
           <Field label="API Key (Consumer Key)" name="x-api-key" value={keys.apiKey} onChange={set("apiKey")} />
           <Field label="API Secret (Consumer Secret)" name="x-api-secret" value={keys.apiSecret} onChange={set("apiSecret")} secret shown={showApiSecret} onToggleShown={() => setShowApiSecret((v) => !v)} />
-          <Field label="Access Token" name="x-access-token" value={keys.accessToken} onChange={set("accessToken")} />
+          <Field
+            label="Access Token"
+            name="x-access-token"
+            value={keys.accessToken}
+            onChange={set("accessToken")}
+            secret
+            shown={showAccessToken}
+            onToggleShown={() => setShowAccessToken((v) => !v)}
+          />
           <Field
             label="Access Token Secret"
             name="x-access-token-secret"
@@ -220,7 +249,7 @@ function XCard({ info, onConnected }: { info: PlatformInfo; onConnected?: Custom
   );
 }
 
-function WhatsAppCard({ info, onConnected }: { info: PlatformInfo; onConnected?: CustomPlatformSettingsProps["onConnected"] }) {
+function WhatsAppCard({ info, onConnected, onSeePlans }: CardProps) {
   const [fields, setFields] = useState<WhatsAppFields>(EMPTY_WHATSAPP_FIELDS);
   const [showToken, setShowToken] = useState(false);
   const [accepted, setAccepted] = useState(false);
@@ -245,7 +274,7 @@ function WhatsAppCard({ info, onConnected }: { info: PlatformInfo; onConnected?:
         <h3 className="byok-card__title">
           <PlatformIcon platform="whatsapp" size={16} /> WhatsApp <span className="byok-card__badge">Plan upgrade needed</span>
         </h3>
-        <p className="byok-card__note">{upgradeNote(info)}</p>
+        <LockedNote info={info} onSeePlans={onSeePlans} />
       </section>
     );
   }
@@ -303,7 +332,7 @@ function WhatsAppCard({ info, onConnected }: { info: PlatformInfo; onConnected?:
       <p className="byok-card__hint">You can link your number now. Publishing to WhatsApp is not available yet, so nothing will be sent through it.</p>
       <form onSubmit={handleSubmit} autoComplete="off">
         <div className="byok-fields">
-          <Field label="WhatsApp Business Account ID (WABA ID)" name="whatsapp-waba-id" value={fields.wabaId} onChange={set("wabaId")} error={problems.wabaId} />
+          <Field label="WABA ID" placeholder="WhatsApp Business Account ID" name="whatsapp-waba-id" value={fields.wabaId} onChange={set("wabaId")} error={problems.wabaId} />
           <Field label="Phone number ID" name="whatsapp-phone-number-id" value={fields.phoneNumberId} onChange={set("phoneNumberId")} error={problems.phoneNumberId} />
           <Field
             label="System user token"
@@ -322,6 +351,7 @@ function WhatsAppCard({ info, onConnected }: { info: PlatformInfo; onConnected?:
           <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
           <span>{WHATSAPP_BYOK_CONSENT_TEXT}</span>
         </label>
+        <p className="byok-card__hint">WhatsApp sending is not available yet. Saving only stores your connection.</p>
         <div className="byok-actions">
           <button type="button" className="byok-secondary" disabled={!complete || busy !== null} onClick={handleCheck}>
             {busy === "check" ? "Checking..." : "Check my credentials"}
@@ -350,7 +380,7 @@ function WhatsAppCard({ info, onConnected }: { info: PlatformInfo; onConnected?:
   );
 }
 
-export function CustomPlatformSettings({ platforms, onConnected }: CustomPlatformSettingsProps) {
+export function CustomPlatformSettings({ platforms, onConnected, onSeePlans }: CustomPlatformSettingsProps) {
   const x = platforms.find((p) => p.platform === "x");
   const whatsapp = platforms.find((p) => p.platform === "whatsapp");
   if (!x && !whatsapp) return null;
@@ -365,8 +395,8 @@ export function CustomPlatformSettings({ platforms, onConnected }: CustomPlatfor
         </p>
       </div>
       <div className={`byok-panels__grid${x && whatsapp ? " byok-panels__grid--two" : ""}`}>
-        {x && <XCard info={x} onConnected={onConnected} />}
-        {whatsapp && <WhatsAppCard info={whatsapp} onConnected={onConnected} />}
+        {x && <XCard info={x} onConnected={onConnected} onSeePlans={onSeePlans} />}
+        {whatsapp && <WhatsAppCard info={whatsapp} onConnected={onConnected} onSeePlans={onSeePlans} />}
       </div>
     </section>
   );
