@@ -26,7 +26,7 @@ LazyRelay is a social media scheduling platform built around Proof-of-Publish: i
 - [Proof a Post Went Live](https://lazyrelay.com/proof-post-went-live/): Sharing verifiable proof of a live post with a client, franchise, or boss.
 - [Analytics Insight](https://lazyrelay.com/social-media-analytics-insight/): Turning raw analytics numbers into an actual next step.
 - [Connect to Zapier](https://lazyrelay.com/connect-zapier/): Automate scheduling with 9,000+ apps via Zapier, no code required.
-- [Connect X With Your Own Developer Keys](https://lazyrelay.com/guides/x-developer-keys/): Step-by-step setup of your own X developer app and keys, and what X charges per post.
+- [Connect X (Twitter) with your own developer keys (BYOK)](https://lazyrelay.com/guides/x-developer-keys/): Step-by-step setup of your own X developer app and keys, and what X charges per post.
 - [Connect to Make](https://lazyrelay.com/connect-make/): Schedule and publish from Make scenarios with copy-paste HTTP and webhook settings.
 - [OpenAPI](https://lazyrelaylazyrelay-backend.onrender.com/api/openapi.json): The public REST API as an OpenAPI 3.1 document, for tools, code generators and agents.
 - [Free Social Media Tools](https://lazyrelay.com/free-tools/): Free, no-sign-up tools for people who post to several platforms: check whether a post fits each platform, and see what repeated posting costs you.

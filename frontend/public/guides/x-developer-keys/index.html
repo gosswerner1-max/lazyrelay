@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Connect X With Your Own Developer Keys | LazyRelay</title>
-<meta name="description" content="A plain, step-by-step guide to getting the four keys from your own X developer account, setting Read and Write permission, and connecting X to LazyRelay. Includes what X charges per post." />
+<title>Connect X (Twitter) with your own developer keys (BYOK) | LazyRelay</title>
+<meta name="description" content="Connect X (Twitter) to LazyRelay with your own developer keys (BYOK) on Pro, Business, Agency and Agency Plus. Step-by-step setup, what X charges per post, and how your keys are kept private." />
 <link rel="canonical" href="https://lazyrelay.com/guides/x-developer-keys/" />
     <link rel="icon" type="image/png" href="/favicon.png" />
 <link rel="stylesheet" href="/circuit-bg.css" />
@@ -31,62 +31,48 @@
   th, td { border-bottom: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; }
   code { background: #f0f1f3; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
 </style>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","url":"https://lazyrelay.com/guides/x-developer-keys/","name":"Connect X With Your Own Developer Keys","description":"A plain, step-by-step guide to getting the four keys from your own X developer account, setting Read and Write permission, and connecting X to LazyRelay. Includes what X charges per post.","isPartOf":{"@type":"WebSite","name":"LazyRelay","url":"https://lazyrelay.com/"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","url":"https://lazyrelay.com/guides/x-developer-keys/","name":"Connect X (Twitter) with your own developer keys (BYOK)","description":"Connect X (Twitter) to LazyRelay with your own developer keys (BYOK) on Pro, Business, Agency and Agency Plus. Step-by-step setup, what X charges per post, and how your keys are kept private.","isPartOf":{"@type":"WebSite","name":"LazyRelay","url":"https://lazyrelay.com/"}}</script>
 </head>
 <body>
 <script src="/circuit-bg.js" defer></script>
 <header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
 <main>
 <a class="back" href="/guides">&larr; Back to guides</a>
-<h1>Connect X With Your Own Developer Keys</h1>
-<p class="subtitle">About five minutes. You create a small X developer app that belongs to you, copy four keys from it, and paste them into LazyRelay.</p>
+<h1>Connect X (Twitter) with your own developer keys</h1>
+<p class="subtitle">LazyRelay supports Bring Your Own Key (BYOK) for X on Pro, Business, Agency and Agency Plus plans. You publish through your own X developer account, so you stay in control of your keys, your budget and your spending limit.</p>
 
-<h2>How this works, and who pays</h2>
-<p>LazyRelay does not have an X account of its own to post with. Instead, you use <strong>your own X developer app</strong>, and X bills <strong>your own X developer account</strong> directly for each post. LazyRelay never pays for it and never sees your X balance. Connecting X this way is available on the <strong>Pro, Business, Agency and Agency Plus</strong> plans.</p>
-
-<h2>What X charges (check X for today's prices)</h2>
-<p>These are X's pay-per-use prices as we last read them. X sets them and can change them at any time, so always check X's own pricing page before you add credits.</p>
-<table>
-  <tr><th>What you post</th><th>About what X charges</th></tr>
-  <tr><td>A plain text post</td><td>$0.015</td></tr>
-  <tr><td>A post that contains a link</td><td>$0.20</td></tr>
-</table>
-<p class="note">LazyRelay also checks that each post is really live after it is sent. That check is a request to X too, so it can use a small amount of credit on top of the price above.</p>
-
-<h2>The steps</h2>
-<ol>
-  <li><strong>Create an X developer account.</strong> Sign in to X in your browser, then open the X Developer Console and sign up for a developer account. Use the same X account you want LazyRelay to post to.</li>
-  <li><strong>Add credits and set a spending limit.</strong> In the Developer Console, open billing, add a small amount of credit, and set a spending limit you are comfortable with. If your credits run out, X refuses new posts until you add more.</li>
-  <li><strong>Create a project and an app.</strong> In the Developer Console, create a project, then create an app inside it. Any name works.</li>
-  <li><strong>Set the app permission to Read and Write. Do this before step 6.</strong> Open your app's settings, find the user authentication (or app permissions) section, and choose <strong>Read and Write</strong>. If X asks for a callback address or website address on this screen, type your own website. LazyRelay does not use them.</li>
-  <li><strong>Open the Keys and tokens tab</strong> of your app.</li>
-  <li><strong>Generate your keys, in this order.</strong>
-    <ol>
-      <li>Generate the <strong>API Key</strong> and <strong>API Secret</strong> (X may call them Consumer Key and Consumer Secret). Copy both.</li>
-      <li>Then generate the <strong>Access Token</strong> and <strong>Access Token Secret</strong>. Check that X labels the Access Token as <strong>Read and Write</strong>. If it says Read only, go back to step 4, change the permission, then regenerate the Access Token. A token made before you changed the permission stays read-only.</li>
-    </ol>
-  </li>
-  <li><strong>Paste the four keys into LazyRelay.</strong> In your dashboard open <strong>Social Platforms</strong>, choose the <strong>X</strong> tile, then <strong>Connect X</strong>. Paste the API Key, API Secret, Access Token and Access Token Secret, tick the box to confirm that X bills your developer account, and choose <strong>Check my keys</strong>. When it shows your handle, choose <strong>Save and connect</strong>.</li>
-</ol>
-
-<h2>If something goes wrong</h2>
-<table>
-  <tr><th>What you see</th><th>What to do</th></tr>
-  <tr><td>"X did not accept these keys"</td><td>Copy the four values again. Make sure the two secrets were not swapped and no spaces were copied with them.</td></tr>
-  <tr><td>A post fails and mentions credits or a spending limit</td><td>Add credits or raise the spending limit in the X Developer Console, then schedule the post again. LazyRelay does not retry these.</td></tr>
-  <tr><td>"Your X app needs Read and Write permission"</td><td>Change the app permission to Read and Write, regenerate the Access Token and Access Token Secret, and paste the new keys into LazyRelay.</td></tr>
-  <tr><td>X stops accepting your keys later</td><td>Regenerating keys in X makes the old ones stop working. Paste the new keys into LazyRelay to reconnect.</td></tr>
-</table>
-
-<h2>Keeping your keys safe</h2>
+<h2>&#128737; Why BYOK is a power move</h2>
 <ul>
-  <li>The four keys give full control of your X account, so treat them like a password.</li>
-  <li><strong>LazyRelay support will never ask you to send your keys</strong> in chat, by email or in any other way. They go only into the Connect X page.</li>
-  <li>LazyRelay stores the keys encrypted, and you can remove them at any time by disconnecting X in Social Platforms. To cut off access completely, also regenerate the keys in the X Developer Console.</li>
+  <li><strong>Direct line to X:</strong> Your posts are published with your own developer credentials, on your own X developer account. No shared company key sits in the middle.</li>
+  <li><strong>Your own limits:</strong> Your X developer account has its own rate limits and spending limit, so what you use never affects other LazyRelay customers, and theirs never affects you. X&#39;s limits and your plan&#39;s rules still apply.</li>
+  <li><strong>Transparent consumption:</strong> LazyRelay adds no X charges. X bills your developer account directly for what you actually use.</li>
+  <li><strong>Privacy:</strong> Your four keys are stored encrypted in our Vault. They are never shown back to you or to our support team in the app, and support will never ask you for them. Disconnect any time to erase our copy. To revoke fully, regenerate the keys in your X console.</li>
 </ul>
 
+<h2>What X charges</h2>
+<p>X sets and changes its own pay-per-use rates. These are the standard rates as of October 2026.</p>
+<table>
+  <tr><th>Action</th><th>Cost billed by X</th></tr>
+  <tr><td>Plain text post</td><td>about $0.015 per post</td></tr>
+  <tr><td>Post containing a link</td><td>about $0.20 per post</td></tr>
+  <tr><td>Reading a post back to confirm it is live</td><td>about $0.005, once per post</td></tr>
+</table>
+<p class="note">LazyRelay confirms each post is live with one read of that post. We do not poll your posts for metrics on X connections that use your own keys, so a quiet account does not drain your balance in the background. Check <a href="https://docs.x.com/x-api/getting-started/pricing" target="_blank" rel="noopener noreferrer">X&#39;s pricing page</a> for the current rates.</p>
+
+<h2>Step-by-step setup</h2>
+<ol>
+  <li><strong>Open the X developer console.</strong> Go to <a href="https://developer.x.com" target="_blank" rel="noopener noreferrer">developer.x.com</a> and sign in with the X profile you want to post from. Sign up for a developer account. X charges per use from a credit balance.</li>
+  <li><strong>Add credits and set a spending limit.</strong> Open Billing in the console, load a small starter balance and set a hard monthly spending limit so you stay in control of your budget.</li>
+  <li><strong>Create your app.</strong> Click Create Project, then Create App, and give it a name you will recognise.</li>
+  <li><strong>Set Read and Write permissions.</strong> Open the app&#39;s Settings, find User authentication settings and click Set up or Edit. Set App permissions to Read and Write. Choose &quot;Web App, Automated App or Bot&quot; as the type. X asks for a callback URL and a website URL: enter https://lazyrelay.com for both. Save. Do this BEFORE step 5, because tokens keep the permission they were created with.</li>
+  <li><strong>Copy your four keys.</strong> Open Keys and tokens. Generate and copy the API Key and API Secret. Then generate and copy the Access Token and Access Token Secret, and check that the Access Token says Read and Write. If it says Read only, regenerate it after saving step 4.</li>
+  <li><strong>Connect in LazyRelay.</strong> Open Social Platforms, choose X, paste the four values, tick the acknowledgement box, press &quot;Check my keys&quot;, then &quot;Save and connect&quot;.</li>
+</ol>
+
+<p><strong>LazyRelay support will never ask you for your keys. Never paste them into a chat or an email.</strong></p>
+
 <div class="cta-box">
-  <p style="margin-top:0;"><strong>Ready to connect?</strong> X with your own keys is included from the Pro plan.</p>
+  <p style="margin-top:0;"><strong>BYOK for X is available on Pro and above.</strong></p>
   <a class="button" href="/pricing">See plans</a>
 </div>
 
