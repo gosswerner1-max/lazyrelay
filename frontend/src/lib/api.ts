@@ -79,6 +79,43 @@ export interface SocialAccount {
   byokKeyHint?: string | null;
 }
 
+export interface WhatsAppCredentialFields {
+  wabaId: string;
+  phoneNumberId: string;
+  systemUserToken: string;
+  appSecret?: string;
+}
+
+export interface WhatsAppWebhookInfo {
+  webhookUrl: string;
+  /** The shared handshake string (not an API credential), or null while it is not configured on the server. */
+  verifyToken: string | null;
+  verifyTokenConfigured: boolean;
+  connections: Array<{ socialAccountId: string; displayName: string; inboundReady: boolean }>;
+  triageEnabled: boolean;
+}
+
+export interface WhatsAppMessage {
+  id: string;
+  wamid: string;
+  /** Keyed hash that identifies one thread. Never a phone number. */
+  contactKey: string;
+  /** Masked number such as "+27 ** *** 1111". */
+  contactDisplay: string | null;
+  contactName: string | null;
+  text: string;
+  receivedAt: string;
+  triageCategory: string | null;
+  needsAttention: boolean | null;
+  triageReason: string | null;
+  triagedAt: string | null;
+}
+
+export interface WhatsAppMessagesPage {
+  messages: WhatsAppMessage[];
+  nextBefore: string | null;
+}
+
 export interface Brand {
   id: string;
   name: string;
@@ -633,10 +670,23 @@ export const api = {
     authedFetch("/social-accounts/x/byok", { method: "POST", body: JSON.stringify({ ...keys, acceptedTerms: true }) }),
   // WhatsApp with the customer's own Meta credentials (Business plan and above). check proves them and stores nothing;
   // connect proves, stores and connects. The backend answers { ok, displayName, keyHint } only, and never the token.
-  checkWhatsAppCredentials: (fields: { wabaId: string; phoneNumberId: string; systemUserToken: string }): Promise<{ ok: true; displayName: string | null; keyHint: string }> =>
+  // App Secret (optional): the customer's own Meta app secret, sent only when typed, never returned. clearAppSecret: true
+  // (save only) removes the one already stored; the backend refuses it together with an appSecret.
+  checkWhatsAppCredentials: (fields: WhatsAppCredentialFields): Promise<{ ok: true; displayName: string | null; keyHint: string }> =>
     authedFetch("/social-accounts/whatsapp/byok/check", { method: "POST", body: JSON.stringify(fields) }),
-  connectWhatsAppCredentials: (fields: { wabaId: string; phoneNumberId: string; systemUserToken: string }): Promise<{ ok: true; displayName: string | null; keyHint: string }> =>
+  connectWhatsAppCredentials: (fields: WhatsAppCredentialFields & { clearAppSecret?: true }): Promise<{ ok: true; displayName: string | null; keyHint: string }> =>
     authedFetch("/social-accounts/whatsapp/byok", { method: "POST", body: JSON.stringify({ ...fields, acceptedTerms: true }) }),
+  // What the customer needs to point their own Meta app's webhook at LazyRelay, and per connection whether inbound is ready
+  // (a boolean; the App Secret itself is never sent to the browser). A plan below Business answers 400 with the fixed message.
+  getWhatsAppWebhookInfo: (): Promise<WhatsAppWebhookInfo> => authedFetch("/whatsapp/webhook-info"),
+  // Stored inbound WhatsApp messages of one connection, newest first. Pass nextBefore from the last page as before.
+  getWhatsAppMessages: (params: { socialAccountId: string; contactKey?: string; limit?: number; before?: string }): Promise<WhatsAppMessagesPage> => {
+    const q = new URLSearchParams({ social_account_id: params.socialAccountId });
+    if (params.contactKey) q.set("contact_key", params.contactKey);
+    if (params.limit) q.set("limit", String(params.limit));
+    if (params.before) q.set("before", params.before);
+    return authedFetch(`/whatsapp/messages?${q.toString()}`);
+  },
 
   listScheduledPosts: (): Promise<ScheduledPost[]> => authedFetch("/scheduled-posts"),
   // Real pagination for History — `before` is the oldest post's

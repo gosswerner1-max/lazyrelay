@@ -14,14 +14,18 @@ export const META_ID_PATTERN = /^[0-9]{5,25}$/;
 export const WHATSAPP_TOKEN_PATTERN = /^[A-Za-z0-9._-]+$/;
 export const WHATSAPP_TOKEN_MIN_LENGTH = 20;
 export const WHATSAPP_TOKEN_MAX_LENGTH = 512;
+/** Same rule as the backend (WHATSAPP_APP_SECRET_PATTERN): letters and digits only, 16 to 64 characters. */
+export const WHATSAPP_APP_SECRET_PATTERN = /^[A-Za-z0-9]{16,64}$/;
 
 export interface WhatsAppFields {
   wabaId: string;
   phoneNumberId: string;
   systemUserToken: string;
+  /** OPTIONAL. The App Secret of the customer's own Meta app. Blank means not given. */
+  appSecret?: string;
 }
 
-export const EMPTY_WHATSAPP_FIELDS: WhatsAppFields = { wabaId: "", phoneNumberId: "", systemUserToken: "" };
+export const EMPTY_WHATSAPP_FIELDS: WhatsAppFields = { wabaId: "", phoneNumberId: "", systemUserToken: "", appSecret: "" };
 
 /** One short, plain-language problem per wrong field (empty object when all three look right). A field the customer
  *  has not typed into yet is not reported: only wrong input is. */
@@ -35,10 +39,14 @@ export function whatsAppFieldErrors(f: WhatsAppFields): Partial<Record<keyof Wha
   if (token && (token.length < WHATSAPP_TOKEN_MIN_LENGTH || token.length > WHATSAPP_TOKEN_MAX_LENGTH || !WHATSAPP_TOKEN_PATTERN.test(token))) {
     out.systemUserToken = "This does not look like a whole system user token. Copy it again without spaces.";
   }
+  const secret = (f.appSecret ?? "").trim();
+  if (secret && !WHATSAPP_APP_SECRET_PATTERN.test(secret)) {
+    out.appSecret = "This should be the App Secret from your Meta app: letters and numbers only, 16 to 64 characters, no spaces.";
+  }
   return out;
 }
 
-/** All three filled in AND well formed. */
+/** The required three filled in AND everything typed (including the optional App Secret) well formed. */
 export function whatsAppFieldsComplete(f: WhatsAppFields): boolean {
   const filled = f.wabaId.trim() && f.phoneNumberId.trim() && f.systemUserToken.trim();
   return Boolean(filled) && Object.keys(whatsAppFieldErrors(f)).length === 0;

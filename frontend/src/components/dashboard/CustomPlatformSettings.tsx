@@ -1,5 +1,5 @@
 import { useId, useState, type FormEvent } from "react";
-import { api, type PlatformInfo } from "../../lib/api";
+import { api, type PlatformInfo, type WhatsAppCredentialFields } from "../../lib/api";
 import { PlatformIcon } from "../PlatformIcon";
 import { EMPTY_X_KEYS, X_BYOK_CONSENT_TEXT, X_BYOK_GUIDE_URL, xKeysComplete, type XKeyFields } from "../../lib/xByok";
 import {
@@ -10,6 +10,8 @@ import {
   whatsAppFieldsComplete,
   type WhatsAppFields,
 } from "../../lib/whatsappByok";
+import { WhatsAppInboundStatus } from "./WhatsAppInboundStatus";
+import { useWhatsAppWebhookInfo } from "./useWhatsAppWebhookInfo";
 import "../../styles/byok-panels.css";
 
 // "Custom developer keys": where a customer links their OWN developer credentials for X and for WhatsApp, so the
@@ -252,18 +254,24 @@ function XCard({ info, onConnected, onSeePlans }: CardProps) {
 function WhatsAppCard({ info, onConnected, onSeePlans }: CardProps) {
   const [fields, setFields] = useState<WhatsAppFields>(EMPTY_WHATSAPP_FIELDS);
   const [showToken, setShowToken] = useState(false);
+  const [showAppSecret, setShowAppSecret] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState<"check" | "save" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ name: string | null; saved: boolean } | null>(null);
+  // Bumped after a connection was saved, so the inbound status chips reload.
+  const [reloadKey, setReloadKey] = useState(0);
+  const webhookInfo = useWhatsAppWebhookInfo(info.allowed !== false, reloadKey);
 
   const set = (field: keyof WhatsAppFields) => (value: string) => {
     setFields((f) => ({ ...f, [field]: value }));
     setResult(null);
   };
+  // Both secrets (the token and the optional App Secret) leave the form together, on submit and on every error.
   const clearSecret = () => {
-    setFields((f) => ({ ...f, systemUserToken: "" }));
+    setFields((f) => ({ ...f, systemUserToken: "", appSecret: "" }));
     setShowToken(false);
+    setShowAppSecret(false);
   };
   const problems = whatsAppFieldErrors(fields);
   const complete = whatsAppFieldsComplete(fields);
@@ -279,11 +287,15 @@ function WhatsAppCard({ info, onConnected, onSeePlans }: CardProps) {
     );
   }
 
-  const trimmed = (): WhatsAppFields => ({
-    wabaId: fields.wabaId.trim(),
-    phoneNumberId: fields.phoneNumberId.trim(),
-    systemUserToken: fields.systemUserToken.trim(),
-  });
+  const trimmed = (): WhatsAppCredentialFields => {
+    const appSecret = (fields.appSecret ?? "").trim();
+    return {
+      wabaId: fields.wabaId.trim(),
+      phoneNumberId: fields.phoneNumberId.trim(),
+      systemUserToken: fields.systemUserToken.trim(),
+      ...(appSecret ? { appSecret } : {}), // only sent when typed
+    };
+  };
 
   async function handleCheck() {
     setError(null);
@@ -312,6 +324,7 @@ function WhatsAppCard({ info, onConnected, onSeePlans }: CardProps) {
       setFields(EMPTY_WHATSAPP_FIELDS);
       setAccepted(false);
       setResult({ name: r.displayName, saved: true });
+      setReloadKey((k) => k + 1);
       onConnected?.("whatsapp");
     } catch (err) {
       clearSecret();
@@ -345,8 +358,24 @@ function WhatsAppCard({ info, onConnected, onSeePlans }: CardProps) {
             shown={showToken}
             onToggleShown={() => setShowToken((v) => !v)}
           />
+          <Field
+            label="App Secret (optional)"
+            name="whatsapp-app-secret"
+            value={fields.appSecret ?? ""}
+            onChange={set("appSecret")}
+            error={problems.appSecret}
+            wide
+            secret
+            shown={showAppSecret}
+            onToggleShown={() => setShowAppSecret((v) => !v)}
+          />
         </div>
-        <p className="byok-card__hint">The token is stored encrypted and is never shown again. You can remove it any time.</p>
+        <p className="byok-card__hint">
+          The App Secret is on your Meta app under App settings, Basic. Without it you can still link your number, but inbound messages stay off until it is saved. Saving again
+          without one keeps the one already saved.
+        </p>
+        <p className="byok-card__hint">The token and App Secret are stored encrypted and are never shown again. You can remove them any time.</p>
+        <WhatsAppInboundStatus state={webhookInfo} />
         <label className="byok-consent">
           <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
           <span>{WHATSAPP_BYOK_CONSENT_TEXT}</span>
