@@ -5,6 +5,7 @@ import type { PlatformAdapter, PostAttemptResult } from "./platforms/types.js";
 import { notifyOps } from "./notify.js";
 import { clearReconnect, flagReconnect, isPermanentAuthError, platformLabel } from "./tokenHealth.js";
 import { X_BUNDLE_INVALID_CODE } from "./platforms/xByok.js";
+import { WHATSAPP_BUNDLE_INVALID_CODE } from "./platforms/whatsapp/credentials.js";
 import { classifyPostError, PINTEREST_BLOCKED_LINK_MESSAGE, PINTEREST_BLOCKED_LINK_PATTERN, type PostErrorKind } from "./postErrors.js";
 import { resolvePostLimitAt } from "./pinterestWarmup.js";
 import { sendFailureAlert, sendAccountPausedAlert, sendPinterestPausedAlert } from "./email.js";
@@ -36,6 +37,8 @@ const CLAIM_BATCH_SIZE = Number(process.env.SCHEDULER_CLAIM_BATCH_SIZE) || 10;
 const MAX_RETRIES = 3;
 // Never wait longer than this for a platform-supplied retry time (X sends a rate-limit window of about 15 minutes).
 const MAX_PLATFORM_RETRY_WAIT_MS = 20 * 60_000;
+// WhatsApp (Meta error 131049) asks for a day; honoured in full, but never longer than that.
+const MAX_WHATSAPP_DEFER_WAIT_MS = 25 * 60 * 60_000;
 const BACKOFF_BASE_MINUTES = 2;
 
 // Circuit breaker: trips after CONSECUTIVE_FAILURE_THRESHOLD failures in a
@@ -48,16 +51,19 @@ const BACKOFF_BASE_MINUTES = 2;
 const CONSECUTIVE_FAILURE_THRESHOLD = 5;
 const BREAKER_COOLDOWN_MS = 5 * 60_000;
 
-// Customer-owned credentials (X "bring your own key"): the failure is the customer's (an empty X wallet, regenerated
-// keys), so it must never stop anyone else. The breaker and the proactive rate limiter below are therefore keyed per
-// connected account for these (`x:<social account id>`), trip sooner, stay open longer, and never notify ops.
+// Customer-owned credentials (X and WhatsApp "bring your own key"): the failure is the customer's (an empty X wallet,
+// regenerated keys, a Meta billing or token fault), so it must never stop anyone else. The breaker and the proactive rate
+// limiter below are therefore keyed per connected account for these (`x:<social account id>`, `whatsapp:<social account
+// id>`), trip sooner, stay open longer, and never notify ops.
 export const BYOK_CONSECUTIVE_FAILURE_THRESHOLD = 3;
 export const BYOK_BREAKER_COOLDOWN_MS = 15 * 60_000;
 
 /** The key the circuit breaker and rate limiter use for a post: the platform name, except for a connection that uses
- *  the customer's own keys, which gets its own `${platform}:${social_account_id}` so it can never affect another. */
+ *  the customer's own keys, which gets its own `${platform}:${social_account_id}` so it can never affect another.
+ *  WhatsApp is ALWAYS per account (LazyRelay has no WhatsApp app: every connection is the customer's own Meta account),
+ *  even if a row's mode were missing. */
 export function breakerKey(platform: string, socialAccountId: string, credentialMode: string | null | undefined): string {
-  return credentialMode === "byok" ? `${platform}:${socialAccountId}` : platform;
+  return credentialMode === "byok" || platform === "whatsapp" ? `${platform}:${socialAccountId}` : platform;
 }
 // Platform names never contain a colon, so a colon means a per-account (customer-owned) key.
 const isPerAccountKey = (key: string): boolean => key.includes(":");
@@ -105,7 +111,7 @@ function recordFailure(platform: string): void {
   state.consecutiveFailures += 1;
   if (isPerAccountKey(platform)) {
     if (state.consecutiveFailures >= BYOK_CONSECUTIVE_FAILURE_THRESHOLD && !state.trippedUntil) {
-      // No notifyOps: this is one customer's own X app, there is nothing for LazyRelay ops to do about it.
+      // No notifyOps: this is one customer's own X app or Meta account, there is nothing for LazyRelay ops to do about it.
       state.trippedUntil = Date.now() + BYOK_BREAKER_COOLDOWN_MS;
       console.warn(`Circuit breaker tripped for customer-owned connection "${platform}" after ${state.consecutiveFailures} consecutive failures -- pausing it for ${BYOK_BREAKER_COOLDOWN_MS / 60_000} minutes.`);
     }
@@ -187,24 +193,28 @@ interface DuePost {
   retry_count: number;
   platform: string;
   platform_account_id?: string | null;
-  /** 'platform' or 'byok'. Looked up only for X posts (attachCredentialModes); undefined for every other platform, or
-   *  for an X post whose lookup failed (then the post is put back, never guessed at). */
+  /** 'platform' or 'byok'. Looked up only for X and WhatsApp posts (attachCredentialModes); undefined for every other
+   *  platform, or for an X or WhatsApp post whose lookup failed (then the post is put back, never guessed at). */
   credential_mode?: string | null;
 }
 
-/** X posts only: reads each connection's credential_mode ('byok' = the customer's own keys). One cheap query per
- *  cycle, and only when an X post was claimed, so no other platform ever depends on the column. A failed lookup leaves
- *  the mode undefined and the cycle puts the post back rather than guessing. */
+/** Platforms whose connections can hold the customer's own credentials: only these ever read credential_mode. */
+const BYOK_PLATFORMS: ReadonlySet<string> = new Set(["x", "whatsapp"]);
+const hasCredentialMode = (platform: string): boolean => BYOK_PLATFORMS.has(platform);
+
+/** X and WhatsApp posts only: reads each connection's credential_mode ('byok' = the customer's own credentials). One
+ *  cheap query per cycle, and only when such a post was claimed, so no other platform ever depends on the column. A
+ *  failed lookup leaves the mode undefined and the cycle puts the post back rather than guessing. */
 async function attachCredentialModes(posts: DuePost[]): Promise<DuePost[]> {
-  const xAccountIds = [...new Set(posts.filter((p) => p.platform === "x").map((p) => p.social_account_id))];
-  if (xAccountIds.length === 0) return posts;
-  const { data, error } = await supabase.from("social_accounts").select("id, credential_mode").in("id", xAccountIds);
+  const accountIds = [...new Set(posts.filter((p) => hasCredentialMode(p.platform)).map((p) => p.social_account_id))];
+  if (accountIds.length === 0) return posts;
+  const { data, error } = await supabase.from("social_accounts").select("id, credential_mode").in("id", accountIds);
   if (error) {
-    console.warn(`[scheduler] could not read the X credential mode (${error.message}); X posts go back to pending.`);
+    console.warn(`[scheduler] could not read the credential mode (${error.message}); X and WhatsApp posts go back to pending.`);
     return posts;
   }
   const modes = new Map((data ?? []).map((r) => [r.id as string, (r.credential_mode as string | null) ?? "platform"]));
-  for (const p of posts) if (p.platform === "x") p.credential_mode = modes.get(p.social_account_id) ?? "platform";
+  for (const p of posts) if (hasCredentialMode(p.platform)) p.credential_mode = modes.get(p.social_account_id) ?? "platform";
   return posts;
 }
 
@@ -603,18 +613,19 @@ export function appendTagWithinBudget(base: string | null, tag: string, budget: 
  *  Only once MAX_RETRIES is exhausted does this become a real, alerted
  *  failure — this is what actually backs the Proof-of-Publish promise
  *  against transient errors instead of just the happy path. */
-/** True when the credentials behind a post are the customer's own (every X connection: LazyRelay has no X app). Such a
- *  failure is theirs to fix, so it is never reported to LazyRelay ops. */
+/** True when the credentials behind a post are the customer's own (every X and WhatsApp connection: LazyRelay has no X
+ *  or WhatsApp app). Such a failure is theirs to fix, so it is never reported to LazyRelay ops. */
 function customerOwnsCredentials(post: Pick<DuePost, "platform" | "credential_mode">): boolean {
-  return post.platform === "x" || post.credential_mode === "byok";
+  return post.platform === "x" || post.platform === "whatsapp" || post.credential_mode === "byok";
 }
 
-/** X bring-your-own-key: records what a failure says about the customer's keys (invalid / out of credit) so the tile
- *  can show it, and puts it back to 'valid' after a post goes through. Best effort, never blocks the post. */
+/** Bring-your-own-key (X, WhatsApp): records what a failure says about the customer's credentials (invalid / out of
+ *  credit) so the tile can show it, and puts it back to 'valid' after a post goes through. Writes ONE row, the post's
+ *  own connection (matched on its id), never any other. Best effort, never blocks the post. */
 async function setByokStatus(post: DuePost, status: "valid" | "invalid" | "out_of_credit"): Promise<void> {
   if (post.credential_mode !== "byok") return;
   const { error } = await supabase.from("social_accounts").update({ byok_status: status }).eq("id", post.social_account_id);
-  if (error) console.warn(`[scheduler] could not record the X key status for account ${post.social_account_id}: ${error.message}`);
+  if (error) console.warn(`[scheduler] could not record the ${post.platform} credential status for account ${post.social_account_id}: ${error.message}`);
 }
 
 async function handleFailure(
@@ -642,7 +653,8 @@ async function handleFailure(
     const backoffMinutes = BACKOFF_BASE_MINUTES * 2 ** post.retry_count;
     // Wait at least as long as the platform asked (capped, so one odd header cannot park a post for days).
     const backoffAt = Date.now() + backoffMinutes * 60_000;
-    const platformAt = retryNotBefore ? Math.min(retryNotBefore, Date.now() + MAX_PLATFORM_RETRY_WAIT_MS) : 0;
+    const platformWaitCap = post.platform === "whatsapp" ? MAX_WHATSAPP_DEFER_WAIT_MS : MAX_PLATFORM_RETRY_WAIT_MS;
+    const platformAt = retryNotBefore ? Math.min(retryNotBefore, Date.now() + platformWaitCap) : 0;
     const nextAttempt = new Date(Math.max(backoffAt, platformAt)).toISOString();
     await supabase
       .from("scheduled_posts")
@@ -1054,6 +1066,12 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
       await failAttempt(post, adapter.platform, X_BUNDLE_INVALID_CODE);
       return;
     }
+    // WhatsApp is the same: only ever the customer's own Meta credentials. A connection that is not one is dropped with
+    // the fixed reconnect reason (customer-owned, so it never tells ops and never counts toward a breaker).
+    if (post.platform === "whatsapp" && post.credential_mode !== "byok") {
+      await failAttempt(post, adapter.platform, WHATSAPP_BUNDLE_INVALID_CODE);
+      return;
+    }
 
     // Platform daily-limit backstop. Not a failure of any kind, so it skips
     // handleFailure's retry count, the post_results row and the circuit
@@ -1285,7 +1303,7 @@ export async function runSchedulerCycle(registry: PlatformAdapterRegistry): Prom
   console.log(`Claimed ${due.length} due post(s).`);
   await Promise.all(
     due.map(async (post) => {
-      if (post.platform === "x" && post.credential_mode === undefined) {
+      if (hasCredentialMode(post.platform) && post.credential_mode === undefined) {
         // The credential-mode lookup failed this cycle: put the post back instead of guessing which kind of connection it is.
         await unclaimPost(post);
         return;
