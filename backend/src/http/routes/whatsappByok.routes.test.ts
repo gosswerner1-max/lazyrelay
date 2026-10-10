@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tables, vault } from "../../testFakeSupabase.js";
 
-const ctx = vi.hoisted(() => ({ account: "acc1", method: "jwt", selects: [] as string[], rpcCalls: [] as string[] }));
+const ctx = vi.hoisted(() => ({ account: "acc1", method: "jwt", selects: [] as string[], rpcCalls: [] as string[], dbGateError: null as null | { code?: string; message: string } }));
 vi.mock("../auth.js", async () => {
   const f = await import("../../testFakeSupabase.js");
   return {
@@ -45,7 +45,14 @@ vi.mock("../../supabase.js", async () => {
   const f = await import("../../testFakeSupabase.js");
   return {
     supabase: {
-      from: (t: string) => f.makeBuilder(t),
+      from: (t: string) => {
+        const b: any = f.makeBuilder(t);
+        // Tests only: make the next social_accounts write fail the way the 0125 database trigger would.
+        if (t === "social_accounts" && ctx.dbGateError) {
+          b.upsert = () => ({ then: (resolve: (v: unknown) => unknown) => Promise.resolve({ data: null, error: ctx.dbGateError }).then(resolve) });
+        }
+        return b;
+      },
       rpc: (fn: string, args: Record<string, unknown>) => {
         ctx.rpcCalls.push(fn);
         return f.fakeRpc(fn, args);
@@ -60,7 +67,7 @@ const { registerWhatsAppByokRoutes, WHATSAPP_BYOK_FAILED_VALIDATIONS_PER_DAY, wh
 const { WhatsAppAdapter } = await import("../../platforms/whatsapp/adapter.js");
 const { parseWhatsAppBundle } = await import("../../platforms/whatsapp/credentials.js");
 const { WHATSAPP_BYOK_ALLOWED_TIERS, canUseWhatsappByok } = await import("../../tier.js");
-const { checkWhatsappPlan } = await import("../../accountLimits.js");
+const { checkWhatsappPlan, isWhatsappPlanGateError, WHATSAPP_DB_GATE_CODE, WHATSAPP_DB_GATE_MESSAGE, WHATSAPP_PLAN_MESSAGE } = await import("../../accountLimits.js");
 import type { Tier } from "../../tier.js";
 
 // Fake values that merely look the right shape. None is a real Meta credential.
@@ -111,6 +118,7 @@ beforeEach(() => {
   ctx.method = "jwt";
   ctx.selects = [];
   ctx.rpcCalls = [];
+  ctx.dbGateError = null;
   metaCalls = [];
   metaAuth = [];
   metaReply = metaOk;
@@ -447,5 +455,61 @@ describe("migration 0124 (static check of the SQL file)", () => {
     expect(code).toMatch(/platform = 'whatsapp' and credential_mode = 'byok'/);
     expect(code).toMatch(/whatsapp_business_account_id is not null and whatsapp_phone_number_id is not null/);
     expect(code).toMatch(/\^\[0-9\]\{5,25\}\$/);
+  });
+});
+
+describe("migration 0125 (database plan gate) and the route's handling of it", () => {
+  const sql = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../../supabase/migrations/0125_whatsapp_plan_gate_trigger.sql"), "utf8");
+  const code = sql.split(/\r?\n/).filter((l) => !l.trim().startsWith("--")).join("\n");
+  const listOf = (re: RegExp) => (re.exec(code)?.[1] ?? "").split(",").map((s) => s.trim().replace(/'/g, "")).sort();
+
+  it("the tier list in the SQL equals WHATSAPP_BYOK_ALLOWED_TIERS in tier.ts", () => {
+    expect(code).toMatch(/v_tier in \(([^)]*)\)/);
+    expect(listOf(/v_tier in \(([^)]*)\)/)).toEqual([...WHATSAPP_BYOK_ALLOWED_TIERS].sort());
+  });
+
+  it("only active and trialing count, as in resolveTier", () => {
+    expect(listOf(/v_status in \(([^)]*)\)/)).toEqual(["active", "trialing"]);
+  });
+
+  it("is a SECURITY DEFINER trigger function with a pinned search_path, EXECUTE revoked from public, one transaction", () => {
+    expect(code).toMatch(/security definer/);
+    expect(code).toMatch(/set search_path = public, pg_temp/);
+    expect(code).toMatch(/revoke execute on function public\.enforce_whatsapp_plan_gate\(\) from public/);
+    expect(code).toMatch(/before insert or update on public\.social_accounts/);
+    expect(code).toMatch(/^begin;/m);
+    expect(code).toMatch(/^commit;/m);
+    expect(sql).toMatch(/-- ROLLBACK/);
+  });
+
+  it("raises the distinctive code and message the backend maps", () => {
+    expect(code).toContain("'whatsapp requires the Business plan or above'");
+    expect(code).toContain("errcode = 'LRWA1'");
+    expect(WHATSAPP_DB_GATE_CODE).toBe("LRWA1");
+    expect(WHATSAPP_DB_GATE_MESSAGE).toBe("whatsapp requires the Business plan or above");
+  });
+
+  it("isWhatsappPlanGateError matches the code or the message, and nothing else", () => {
+    expect(isWhatsappPlanGateError({ code: "LRWA1", message: "x" })).toBe(true);
+    expect(isWhatsappPlanGateError({ message: "whatsapp requires the Business plan or above" })).toBe(true);
+    expect(isWhatsappPlanGateError({ code: "23505", message: "duplicate key" })).toBe(false);
+    expect(isWhatsappPlanGateError(null)).toBe(false);
+  });
+
+  it("when the database trigger refuses the row, the save route answers the fixed HTTP 400 plan message, not a 500, and leaves no secret behind", async () => {
+    ctx.dbGateError = { code: "LRWA1", message: WHATSAPP_DB_GATE_MESSAGE };
+    const r = await request(appWith()).post("/social-accounts/whatsapp/byok").send(BODY);
+    expect(r.status).toBe(400);
+    expect(r.body.error).toBe(WHATSAPP_PLAN_MESSAGE);
+    expect(r.body.requiresPlan).toBe("Business");
+    expect(tables.social_accounts).toHaveLength(0);
+    expect([...vault.values()].some((v) => leaks(v))).toBe(false); // the just-stored login was overwritten
+    expect(leaks([r.body, logged])).toBe(false);
+  });
+
+  it("any other database error is still a generic 500", async () => {
+    ctx.dbGateError = { code: "23505", message: "duplicate key value violates unique constraint" };
+    const r = await request(appWith()).post("/social-accounts/whatsapp/byok").send(BODY);
+    expect(r.status).toBe(500);
   });
 });

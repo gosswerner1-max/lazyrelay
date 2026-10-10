@@ -93,3 +93,15 @@ export async function checkWhatsappPlan(accountId: string): Promise<string | nul
     return WHATSAPP_PLAN_MESSAGE;
   }
 }
+
+/** The database-side WhatsApp plan gate (migration 0125, trigger social_accounts_whatsapp_plan_gate) rejects a write with
+ *  SQLSTATE 'LRWA1' and the message below. A route that saves a WhatsApp row turns that into the same fixed HTTP 400 plan
+ *  message as checkWhatsappPlan instead of a 500. Matches the code or the message, so it still works if a client layer
+ *  drops one of them. */
+export const WHATSAPP_DB_GATE_CODE = "LRWA1";
+export const WHATSAPP_DB_GATE_MESSAGE = "whatsapp requires the Business plan or above";
+export function isWhatsappPlanGateError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const { code, message } = err as { code?: unknown; message?: unknown };
+  return code === WHATSAPP_DB_GATE_CODE || (typeof message === "string" && message.includes(WHATSAPP_DB_GATE_MESSAGE));
+}

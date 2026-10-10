@@ -23,7 +23,7 @@ import { z } from "zod";
 import { requireAuth, requireHumanAuth, type AuthedRequest } from "../auth.js";
 import { tieredRateLimit } from "../rateLimit.js";
 import { supabase } from "../../supabase.js";
-import { checkAccountLimit, checkNewDistinctAccountLimit, checkWhatsappPlan } from "../../accountLimits.js";
+import { checkAccountLimit, checkNewDistinctAccountLimit, checkWhatsappPlan, isWhatsappPlanGateError, WHATSAPP_PLAN_MESSAGE } from "../../accountLimits.js";
 import { WHATSAPP_BYOK_REQUIRED_PLAN_NAME } from "../../tier.js";
 import { wipeVaultSecrets } from "../../tokenWipe.js";
 import { validateBody } from "../validation.js";
@@ -184,6 +184,7 @@ export function registerWhatsAppByokRoutes(
     const keyHint = whatsappKeyHint(bundle.phoneNumberId);
     const displayName = check.verifiedName ?? check.displayPhoneNumber ?? `WhatsApp ${keyHint}`;
     let newVaultId: string | null = null;
+    let blockedByDatabase = false;
     try {
       // Rotating the token of a connection we already have (same phone number) updates its Vault secret in place; a new
       // number is checked against the plan's limits first, exactly like every other connect.
@@ -249,10 +250,19 @@ export function registerWhatsAppByokRoutes(
         },
         { onConflict: "account_id,platform,platform_account_id" },
       );
-      if (upsertError) throw new Error("save");
+      if (upsertError) {
+        // The database plan gate (migration 0125) is the backstop behind checkWhatsappPlan: if it refuses the row,
+        // answer the same fixed plan message as the route's own gate (HTTP 400), not a 500.
+        blockedByDatabase = isWhatsappPlanGateError(upsertError);
+        throw new Error("save");
+      }
     } catch {
       // A secret stored for a row that was never saved would sit in Vault for good: overwrite it.
       if (newVaultId) await wipeVaultSecrets(supabase, [newVaultId]);
+      if (blockedByDatabase) {
+        res.status(400).json({ error: WHATSAPP_PLAN_MESSAGE, requiresPlan: WHATSAPP_BYOK_REQUIRED_PLAN_NAME });
+        return;
+      }
       console.error("[whatsapp-byok] saving a connection failed (details withheld: they can hold credential material)");
       res.status(500).json({ error: SAVE_FAILED });
       return;
