@@ -4,6 +4,7 @@ import type { PlatformAdapterRegistry } from "./platforms/connect.js";
 import type { PlatformAdapter, PostAttemptResult } from "./platforms/types.js";
 import { notifyOps } from "./notify.js";
 import { clearReconnect, flagReconnect, isPermanentAuthError, platformLabel } from "./tokenHealth.js";
+import { X_BUNDLE_INVALID_CODE } from "./platforms/xByok.js";
 import { classifyPostError, PINTEREST_BLOCKED_LINK_MESSAGE, PINTEREST_BLOCKED_LINK_PATTERN, type PostErrorKind } from "./postErrors.js";
 import { resolvePostLimitAt } from "./pinterestWarmup.js";
 import { sendFailureAlert, sendAccountPausedAlert, sendPinterestPausedAlert } from "./email.js";
@@ -33,6 +34,8 @@ const CLAIM_BATCH_SIZE = Number(process.env.SCHEDULER_CLAIM_BATCH_SIZE) || 10;
 // error shouldn't kill a post that would have gone through on a later
 // attempt. 3 retries at 2/4/8 minutes, then it's a real failure.
 const MAX_RETRIES = 3;
+// Never wait longer than this for a platform-supplied retry time (X sends a rate-limit window of about 15 minutes).
+const MAX_PLATFORM_RETRY_WAIT_MS = 20 * 60_000;
 const BACKOFF_BASE_MINUTES = 2;
 
 // Circuit breaker: trips after CONSECUTIVE_FAILURE_THRESHOLD failures in a
@@ -44,6 +47,25 @@ const BACKOFF_BASE_MINUTES = 2;
 // just the one whose posts are currently failing.
 const CONSECUTIVE_FAILURE_THRESHOLD = 5;
 const BREAKER_COOLDOWN_MS = 5 * 60_000;
+
+// Customer-owned credentials (X "bring your own key"): the failure is the customer's (an empty X wallet, regenerated
+// keys), so it must never stop anyone else. The breaker and the proactive rate limiter below are therefore keyed per
+// connected account for these (`x:<social account id>`), trip sooner, stay open longer, and never notify ops.
+export const BYOK_CONSECUTIVE_FAILURE_THRESHOLD = 3;
+export const BYOK_BREAKER_COOLDOWN_MS = 15 * 60_000;
+
+/** The key the circuit breaker and rate limiter use for a post: the platform name, except for a connection that uses
+ *  the customer's own keys, which gets its own `${platform}:${social_account_id}` so it can never affect another. */
+export function breakerKey(platform: string, socialAccountId: string, credentialMode: string | null | undefined): string {
+  return credentialMode === "byok" ? `${platform}:${socialAccountId}` : platform;
+}
+// Platform names never contain a colon, so a colon means a per-account (customer-owned) key.
+const isPerAccountKey = (key: string): boolean => key.includes(":");
+
+/** The platform key the error classifier uses: BYOK connections have their own rule set (postErrors.ts). */
+export function classifierPlatform(platform: string, credentialMode: string | null | undefined): string {
+  return platform === "x" && credentialMode === "byok" ? "x_byok" : platform;
+}
 
 interface BreakerState {
   consecutiveFailures: number;
@@ -81,6 +103,14 @@ function recordSuccess(platform: string): void {
 function recordFailure(platform: string): void {
   const state = getBreaker(platform);
   state.consecutiveFailures += 1;
+  if (isPerAccountKey(platform)) {
+    if (state.consecutiveFailures >= BYOK_CONSECUTIVE_FAILURE_THRESHOLD && !state.trippedUntil) {
+      // No notifyOps: this is one customer's own X app, there is nothing for LazyRelay ops to do about it.
+      state.trippedUntil = Date.now() + BYOK_BREAKER_COOLDOWN_MS;
+      console.warn(`Circuit breaker tripped for customer-owned connection "${platform}" after ${state.consecutiveFailures} consecutive failures -- pausing it for ${BYOK_BREAKER_COOLDOWN_MS / 60_000} minutes.`);
+    }
+    return;
+  }
   if (state.consecutiveFailures >= CONSECUTIVE_FAILURE_THRESHOLD && !state.trippedUntil) {
     state.trippedUntil = Date.now() + BREAKER_COOLDOWN_MS;
     void notifyOps(
@@ -157,6 +187,25 @@ interface DuePost {
   retry_count: number;
   platform: string;
   platform_account_id?: string | null;
+  /** 'platform' or 'byok'. Looked up only for X posts (attachCredentialModes); undefined for every other platform, or
+   *  for an X post whose lookup failed (then the post is put back, never guessed at). */
+  credential_mode?: string | null;
+}
+
+/** X posts only: reads each connection's credential_mode ('byok' = the customer's own keys). One cheap query per
+ *  cycle, and only when an X post was claimed, so no other platform ever depends on the column. A failed lookup leaves
+ *  the mode undefined and the cycle puts the post back rather than guessing. */
+async function attachCredentialModes(posts: DuePost[]): Promise<DuePost[]> {
+  const xAccountIds = [...new Set(posts.filter((p) => p.platform === "x").map((p) => p.social_account_id))];
+  if (xAccountIds.length === 0) return posts;
+  const { data, error } = await supabase.from("social_accounts").select("id, credential_mode").in("id", xAccountIds);
+  if (error) {
+    console.warn(`[scheduler] could not read the X credential mode (${error.message}); X posts go back to pending.`);
+    return posts;
+  }
+  const modes = new Map((data ?? []).map((r) => [r.id as string, (r.credential_mode as string | null) ?? "platform"]));
+  for (const p of posts) if (p.platform === "x") p.credential_mode = modes.get(p.social_account_id) ?? "platform";
+  return posts;
 }
 
 /** Finds posts due to go out and claims them (status pending -> posting)
@@ -200,13 +249,15 @@ async function claimDuePosts(): Promise<DuePost[]> {
   if (claimError) throw claimError;
   if (!claimed || claimed.length === 0) return [];
 
-  return claimed.map((p) => {
-    // Supabase's PostgREST client types a to-one embed as an array even
-    // though the FK guarantees exactly one row here.
-    const account = Array.isArray(p.social_accounts) ? p.social_accounts[0] : p.social_accounts;
-    const { social_accounts: _social_accounts, ...rest } = p as typeof p & { social_accounts: unknown };
-    return { ...rest, platform: account?.platform, platform_account_id: account?.platform_account_id ?? null } as DuePost;
-  });
+  return attachCredentialModes(
+    claimed.map((p) => {
+      // Supabase's PostgREST client types a to-one embed as an array even
+      // though the FK guarantees exactly one row here.
+      const account = Array.isArray(p.social_accounts) ? p.social_accounts[0] : p.social_accounts;
+      const { social_accounts: _social_accounts, ...rest } = p as typeof p & { social_accounts: unknown };
+      return { ...rest, platform: account?.platform, platform_account_id: account?.platform_account_id ?? null } as DuePost;
+    }),
+  );
 }
 
 // A token within this many ms of its stated expiry is treated as already
@@ -552,7 +603,28 @@ export function appendTagWithinBudget(base: string | null, tag: string, budget: 
  *  Only once MAX_RETRIES is exhausted does this become a real, alerted
  *  failure — this is what actually backs the Proof-of-Publish promise
  *  against transient errors instead of just the happy path. */
-async function handleFailure(post: DuePost, message: string, kind: PostErrorKind = "retry", raw?: string): Promise<void> {
+/** True when the credentials behind a post are the customer's own (every X connection: LazyRelay has no X app). Such a
+ *  failure is theirs to fix, so it is never reported to LazyRelay ops. */
+function customerOwnsCredentials(post: Pick<DuePost, "platform" | "credential_mode">): boolean {
+  return post.platform === "x" || post.credential_mode === "byok";
+}
+
+/** X bring-your-own-key: records what a failure says about the customer's keys (invalid / out of credit) so the tile
+ *  can show it, and puts it back to 'valid' after a post goes through. Best effort, never blocks the post. */
+async function setByokStatus(post: DuePost, status: "valid" | "invalid" | "out_of_credit"): Promise<void> {
+  if (post.credential_mode !== "byok") return;
+  const { error } = await supabase.from("social_accounts").update({ byok_status: status }).eq("id", post.social_account_id);
+  if (error) console.warn(`[scheduler] could not record the X key status for account ${post.social_account_id}: ${error.message}`);
+}
+
+async function handleFailure(
+  post: DuePost,
+  message: string,
+  kind: PostErrorKind = "retry",
+  raw?: string,
+  /** The platform said when it will accept another try (X's rate-limit reset), ms since epoch. */
+  retryNotBefore?: number,
+): Promise<void> {
   if (kind === "fatal" || kind === "reconnect") {
     // Retrying cannot help (a blocked link, a duplicate, a bad file, a daily
     // cap, or a dead login), and every retry is another rejected request
@@ -561,14 +633,17 @@ async function handleFailure(post: DuePost, message: string, kind: PostErrorKind
     // each retried three times for the same "blocked this link" rejection.
     await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id);
     console.warn(`Post ${post.id} failed without retrying (${kind}): ${raw ?? message}`);
-    if (kind === "reconnect") await flagAccountForReconnect(post, message);
+    if (kind === "reconnect") await flagAccountForReconnect(post, message, customerOwnsCredentials(post));
     await maybeSendFailureAlert(post, post.content, message, false);
     await emitPostProblem(post, "post.failed", message, { reasonKind: kind });
     return;
   }
   if (post.retry_count < MAX_RETRIES) {
     const backoffMinutes = BACKOFF_BASE_MINUTES * 2 ** post.retry_count;
-    const nextAttempt = new Date(Date.now() + backoffMinutes * 60_000).toISOString();
+    // Wait at least as long as the platform asked (capped, so one odd header cannot park a post for days).
+    const backoffAt = Date.now() + backoffMinutes * 60_000;
+    const platformAt = retryNotBefore ? Math.min(retryNotBefore, Date.now() + MAX_PLATFORM_RETRY_WAIT_MS) : 0;
+    const nextAttempt = new Date(Math.max(backoffAt, platformAt)).toISOString();
     await supabase
       .from("scheduled_posts")
       .update({ status: "pending", retry_count: post.retry_count + 1, scheduled_for: nextAttempt })
@@ -581,7 +656,7 @@ async function handleFailure(post: DuePost, message: string, kind: PostErrorKind
 
   await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id);
   console.error(`Post ${post.id} permanently failed after ${MAX_RETRIES + 1} attempts: ${raw ?? message}`);
-  await notifyOps(`Post ${post.id} permanently failed after ${MAX_RETRIES + 1} attempts: ${raw ?? message}`);
+  if (!customerOwnsCredentials(post)) await notifyOps(`Post ${post.id} permanently failed after ${MAX_RETRIES + 1} attempts: ${raw ?? message}`);
   await maybeSendFailureAlert(post, post.content, message, false);
   // If the platform did accept it, it may well be live: say "unconfirmed", never "failed".
   const accepted = await findAcceptedPublish(post.id);
@@ -595,14 +670,14 @@ async function handleFailure(post: DuePost, message: string, kind: PostErrorKind
 /** Flags the post's connected account as needing a reconnect (once per
  *  problem, see tokenHealth.ts). Best effort: never let this block the
  *  failure handling itself. */
-async function flagAccountForReconnect(post: DuePost, reason: string): Promise<void> {
+async function flagAccountForReconnect(post: DuePost, reason: string, skipOps = false): Promise<void> {
   try {
     const { data: row } = await supabase
       .from("social_accounts")
       .select("id, account_id, platform, display_name, needs_reconnect_at, reconnect_notified_at")
       .eq("id", post.social_account_id)
       .maybeSingle();
-    if (row) await flagReconnect(row, reason, { expired: true });
+    if (row) await flagReconnect(row, reason, { expired: true, skipOps });
   } catch (err) {
     console.error("[scheduler] could not flag account for reconnect:", err instanceof Error ? err.message : err);
   }
@@ -615,8 +690,10 @@ async function flagAccountForReconnect(post: DuePost, reason: string): Promise<v
  *  when it says something about the platform's health (a customer's blocked
  *  link or a duplicate does not), then hand off to handleFailure. */
 async function failAttempt(post: DuePost, platform: string, raw: string): Promise<void> {
-  const classified = classifyPostError(platform, raw);
-  if (classified.kind === "retry" || classified.kind === "ours") recordFailure(platform);
+  const classified = classifyPostError(classifierPlatform(platform, post.credential_mode), raw);
+  // Per account for a customer's own keys (see breakerKey), per platform for everyone else.
+  if (classified.kind === "retry" || classified.kind === "ours") recordFailure(breakerKey(platform, post.social_account_id, post.credential_mode));
+  if (classified.byokStatus) await setByokStatus(post, classified.byokStatus);
   await supabase.from("post_results").insert({
     scheduled_post_id: post.id,
     account_id: post.account_id,
@@ -629,7 +706,7 @@ async function failAttempt(post: DuePost, platform: string, raw: string): Promis
     // know the reason is already plain language (older rows are translated there).
     raw_error_message: classified.message === raw ? null : raw,
   });
-  await handleFailure(post, classified.message, classified.kind, raw);
+  await handleFailure(post, classified.message, classified.kind, raw, classified.retryNotBefore);
   // After handleFailure, so this post already counts as a failed outcome. Not
   // recordFailure: a customer's blocked link says nothing about Pinterest's health.
   if (platform === "pinterest" && classified.kind === "fatal" && classified.message === PINTEREST_BLOCKED_LINK_MESSAGE) {
@@ -969,6 +1046,15 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
       return;
     }
 
+    // X works only with the customer's own keys. A connection that is not one (made before bring-your-own-key, or its
+    // bundle is gone) is dropped here, cleanly: it fails with the fixed "reconnect with your own keys" reason, is
+    // flagged needs-reconnect through the usual path, is never sent to X, never counts toward any breaker and never
+    // tells ops (failAttempt counts only retry and ours; the reconnect flag is quiet for customer-owned credentials).
+    if (post.platform === "x" && post.credential_mode !== "byok") {
+      await failAttempt(post, adapter.platform, X_BUNDLE_INVALID_CODE);
+      return;
+    }
+
     // Platform daily-limit backstop. Not a failure of any kind, so it skips
     // handleFailure's retry count, the post_results row and the circuit
     // breaker entirely -- the post just goes back to pending, pushed out to
@@ -1057,7 +1143,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
       } else {
         await supabase.from("post_results").insert({ scheduled_post_id: post.id, account_id: post.account_id, platform_post_id: attempt.platformPostId, ...draftFields });
       }
-      recordSuccess(adapter.platform);
+      recordSuccess(breakerKey(adapter.platform, post.social_account_id, post.credential_mode));
       await supabase.from("scheduled_posts").update({ status: "posted" }).eq("id", post.id);
       return;
     }
@@ -1068,7 +1154,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     // commenting on something LazyRelay can't actually vouch for yet.
     const verifiedAt = new Date().toISOString();
     const rawVerifyError = verification.errorMessage ?? "post published but verification could not confirm it went live";
-    const verifyFailure = verification.verifiedLive ? null : classifyPostError(adapter.platform, rawVerifyError);
+    const verifyFailure = verification.verifiedLive ? null : classifyPostError(classifierPlatform(adapter.platform, post.credential_mode), rawVerifyError);
     const resultFields = {
       platform_post_url: verification.platformPostUrl,
       verified_live: verification.verifiedLive,
@@ -1092,12 +1178,14 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
           .single();
 
     if (verifyFailure) {
-      if (verifyFailure.kind === "retry" || verifyFailure.kind === "ours") recordFailure(adapter.platform);
-      await handleFailure(post, verifyFailure.message, verifyFailure.kind, rawVerifyError);
+      if (verifyFailure.kind === "retry" || verifyFailure.kind === "ours") recordFailure(breakerKey(adapter.platform, post.social_account_id, post.credential_mode));
+      if (verifyFailure.byokStatus) await setByokStatus(post, verifyFailure.byokStatus);
+      await handleFailure(post, verifyFailure.message, verifyFailure.kind, rawVerifyError, verifyFailure.retryNotBefore);
       return;
     }
 
-    recordSuccess(adapter.platform);
+    recordSuccess(breakerKey(adapter.platform, post.social_account_id, post.credential_mode));
+    await setByokStatus(post, "valid");
     await supabase.from("scheduled_posts").update({ status: "posted" }).eq("id", post.id);
     await maybeSendWebhook(post, verification.platformPostUrl, verifiedAt);
 
@@ -1197,13 +1285,19 @@ export async function runSchedulerCycle(registry: PlatformAdapterRegistry): Prom
   console.log(`Claimed ${due.length} due post(s).`);
   await Promise.all(
     due.map(async (post) => {
-      if (isBreakerTripped(post.platform)) {
-        console.warn(`Un-claiming post ${post.id} — circuit breaker open for platform "${post.platform}".`);
+      if (post.platform === "x" && post.credential_mode === undefined) {
+        // The credential-mode lookup failed this cycle: put the post back instead of guessing which kind of connection it is.
         await unclaimPost(post);
         return;
       }
-      if (isRateLimited(post.platform)) {
-        console.warn(`Un-claiming post ${post.id} — proactive rate limit reached for platform "${post.platform}" this window.`);
+      const key = breakerKey(post.platform, post.social_account_id, post.credential_mode);
+      if (isBreakerTripped(key)) {
+        console.warn(`Un-claiming post ${post.id} — circuit breaker open for "${key}".`);
+        await unclaimPost(post);
+        return;
+      }
+      if (isRateLimited(key)) {
+        console.warn(`Un-claiming post ${post.id} — proactive rate limit reached for "${key}" this window.`);
         await unclaimPost(post);
         return;
       }
