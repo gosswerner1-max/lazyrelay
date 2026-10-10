@@ -5,6 +5,7 @@ import { resolveTier } from "./tier.js";
 import { syncPostToCalendar } from "./googleCalendar/outboundSync.js";
 import { syncAccountSheet } from "./googleSheets/outboundSync.js";
 import { fetchCountedPosts } from "./postCreation.js";
+import { isWhatsappSendBlocked } from "./platforms/whatsapp/sendSupport.js";
 import { ROLLING_WINDOW_MS, getRolling24hPostLimit, wouldExceedRolling24hLimit } from "./platformPostLimits.js";
 import { effectiveLimitAt, loadWarmupState } from "./pinterestWarmup.js";
 
@@ -213,6 +214,8 @@ export async function generateDuePosts(): Promise<void> {
     for (const occurrenceAt of occurrences) {
       for (const target of slot.recurring_schedule_targets) {
         if (pausedIds.has(target.social_account_id)) continue;
+        // WhatsApp sending is not built (needs approved Meta template models): never generate a post for it.
+        if (isWhatsappSendBlocked(platformByAccountId.get(target.social_account_id))) continue;
         rows.push({
           account_id: slot.account_id,
           social_account_id: target.social_account_id,

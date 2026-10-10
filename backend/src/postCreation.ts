@@ -32,6 +32,7 @@ import { resolvePostLimitAt } from "./pinterestWarmup.js";
 import { NOSTR_TEXT_LIMIT, NOSTR_TEXT_LIMIT_BYTES } from "./platforms/nostrConstants.js";
 import { WHOP_TEXT_LIMIT } from "./platforms/whopApi.js";
 import { checkPinterestLinkWarnings, type PostWarning } from "./pinterestLinkWarnings.js";
+import { isWhatsappSendBlocked, whatsappSendBlockedBody } from "./platforms/whatsapp/sendSupport.js";
 
 /** Free tier: 10 posts per connected account per calendar month. */
 export const FREE_TIER_MONTHLY_POSTS_PER_ACCOUNT = 10;
@@ -236,6 +237,13 @@ export async function validatePostFields(
     .single();
   if (accountError || !account || account.account_id !== accountId) {
     return { status: 403, body: { error: "Social account not found or not owned by this caller" } };
+  }
+
+  // WhatsApp sending is not built (needs approved Meta template models): refuse now, create nothing. This one check
+  // covers every caller of validatePostFields: POST /scheduled-posts, bulk import (per row), duplicate, the MCP and API
+  // tools (they call these routes) and draft promotion.
+  if (isWhatsappSendBlocked(account.platform)) {
+    return { status: 400, body: whatsappSendBlockedBody() };
   }
 
   // TikTok's Content Sharing Guidelines require our own UI to show this as

@@ -17,6 +17,10 @@ vi.mock("./email.js", () => ({ sendFailureAlert: vi.fn(), sendAccountPausedAlert
 const dispatchWebhookEvent = vi.fn(async (_e: Record<string, unknown>) => {});
 vi.mock("./webhook.js", () => ({ dispatchWebhookEvent: (e: Record<string, unknown>) => dispatchWebhookEvent(e) }));
 
+// These tests are about what happens when a WhatsApp post DOES reach the adapter, which today the scheduler's
+// "sending is not built" guard prevents (schedulerWhatsappIntercept.test.ts covers that). Pretend sending is built.
+vi.mock("./platforms/whatsapp/sendSupport.js", async (orig) => ({ ...(await orig<typeof import("./platforms/whatsapp/sendSupport.js")>()), whatsappSendingSupported: () => true, isWhatsappSendBlocked: () => false }));
+
 const { runSchedulerCycle, breakerKey, classifierPlatform, BYOK_CONSECUTIVE_FAILURE_THRESHOLD } = await import("./scheduler.js");
 const { WHATSAPP_BILLING_MESSAGE, WHATSAPP_INVALID_TOKEN_MESSAGE } = await import("./postErrors.js");
 const { WHATSAPP_NOT_BYOK_MESSAGE, WHATSAPP_BUNDLE_INVALID_CODE } = await import("./platforms/whatsapp/credentials.js");

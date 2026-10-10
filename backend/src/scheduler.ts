@@ -6,6 +6,7 @@ import { notifyOps } from "./notify.js";
 import { clearReconnect, flagReconnect, isPermanentAuthError, platformLabel } from "./tokenHealth.js";
 import { X_BUNDLE_INVALID_CODE } from "./platforms/xByok.js";
 import { WHATSAPP_BUNDLE_INVALID_CODE } from "./platforms/whatsapp/credentials.js";
+import { isWhatsappSendBlocked, WHATSAPP_SEND_NOT_SUPPORTED_CODE, WHATSAPP_SEND_NOT_SUPPORTED_MESSAGE } from "./platforms/whatsapp/sendSupport.js";
 import { classifyPostError, PINTEREST_BLOCKED_LINK_MESSAGE, PINTEREST_BLOCKED_LINK_PATTERN, type PostErrorKind } from "./postErrors.js";
 import { resolvePostLimitAt } from "./pinterestWarmup.js";
 import { sendFailureAlert, sendAccountPausedAlert, sendPinterestPausedAlert } from "./email.js";
@@ -1030,6 +1031,34 @@ async function processFirstComment(row: FirstCommentRow, registry: PlatformAdapt
   return true;
 }
 
+/** A claimed post aimed at a WhatsApp connection while WhatsApp sending is not built (sendSupport.ts). Post creation
+ *  already refuses these, so what arrives here was written around that guard (straight to the database) or is old. It is
+ *  failed ONCE with the fixed message: the adapter and the worker are never called, nothing is retried, no breaker counts
+ *  it, ops is not told (it is neither an outage nor a customer-credential fault), and the customer's webhook gets the
+ *  normal post.failed event a single time. The status update is conditional on the claim ('posting'), so the row always
+ *  leaves the claim state and can never be claimed again. */
+async function failUnsupportedWhatsappPost(post: DuePost): Promise<void> {
+  const { data: failed, error } = await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id).eq("status", "posting").select("id");
+  if (error) {
+    // Could not release the claim: leave it to the stuck-post sweep rather than loop or pretend.
+    console.error(`[scheduler] could not fail unsupported WhatsApp post ${post.id}: ${error.message}`);
+    return;
+  }
+  if (!failed || failed.length === 0) return; // someone else already moved it: nothing more to do, no second event
+  await supabase.from("post_results").insert({
+    scheduled_post_id: post.id,
+    account_id: post.account_id,
+    platform_post_id: null,
+    platform_post_url: null,
+    verified_live: false,
+    verification_checked_at: new Date().toISOString(),
+    error_message: WHATSAPP_SEND_NOT_SUPPORTED_MESSAGE,
+    raw_error_message: WHATSAPP_SEND_NOT_SUPPORTED_CODE,
+  });
+  console.warn(`Post ${post.id} failed without sending: WhatsApp sending is not supported yet.`);
+  await emitPostProblem(post, "post.failed", WHATSAPP_SEND_NOT_SUPPORTED_MESSAGE, { reasonKind: WHATSAPP_SEND_NOT_SUPPORTED_CODE });
+}
+
 async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Promise<void> {
   const adapter = registry.get(post.platform);
   if (!adapter) {
@@ -1303,6 +1332,12 @@ export async function runSchedulerCycle(registry: PlatformAdapterRegistry): Prom
   console.log(`Claimed ${due.length} due post(s).`);
   await Promise.all(
     due.map(async (post) => {
+      // First, before any lookup, breaker or rate limit: this post can never be sent, so nothing about it may be retried,
+      // counted or held back (which would only leave it claimed).
+      if (isWhatsappSendBlocked(post.platform)) {
+        await failUnsupportedWhatsappPost(post);
+        return;
+      }
       if (hasCredentialMode(post.platform) && post.credential_mode === undefined) {
         // The credential-mode lookup failed this cycle: put the post back instead of guessing which kind of connection it is.
         await unclaimPost(post);
