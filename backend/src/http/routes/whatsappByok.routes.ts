@@ -22,6 +22,13 @@
 //     the secret already stored for that same connection, so rotating the token never silently switches inbound off.
 //     The one way to remove a stored secret is an explicit `clearAppSecret: true` on the save request (refused together
 //     with an appSecret); the response is unchanged and says nothing about the secret.
+//   - DELETE /social-accounts/whatsapp/:socialAccountId/app-secret removes ONLY the App Secret of one existing connection,
+//     with just the connection id (the UI can never read the token back, so it cannot re-send the full login). Plan gate
+//     choice: NOT plan gated, on purpose. Removing a secret only reduces access, and an owner who downgraded must still be
+//     able to take stored credential material out. Everything else still applies: signed-in human only, the feature
+//     flag (fail closed), the connection must belong to the caller's account (404 otherwise), its own rate limit. It reads
+//     the Vault login with the service-role client, drops only the appSecret key, writes it back in place (same secret
+//     id) and answers { ok: true, inboundReady: false }. Idempotent. Nothing secret is returned, logged or echoed.
 
 import express, { type NextFunction, type Request, type Response, type Router } from "express";
 import rateLimit from "express-rate-limit";
@@ -53,6 +60,10 @@ const SAVE_FAILED = "Could not save your WhatsApp credentials. Please try again.
 export const WHATSAPP_BYOK_FAILED_VALIDATIONS_PER_DAY = 15;
 const RATE_WINDOW_MS = 15 * 60_000;
 const RATE_MAX = 5;
+const REMOVE_RATE_MAX = 10;
+const CONNECTION_NOT_FOUND = "That WhatsApp connection was not found.";
+const REMOVE_FAILED = "Could not remove the App Secret. Please try again.";
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Max 4 KB, with an error handler that answers a fixed line: body-parser's own error carries the raw body, which here
  *  holds a token, and app.ts's catch-all would log it. */
@@ -173,6 +184,14 @@ export function registerWhatsAppByokRoutes(
     }
     return check;
   }
+
+  // Removing a stored App Secret has its own counters, so it never uses up the credential-checking budget above.
+  const removeLimitOpts = { windowMs: RATE_WINDOW_MS, max: opts.rateMax ?? REMOVE_RATE_MAX, standardHeaders: false, legacyHeaders: false, validate: false } as const;
+  const removeTooMany = (_req: Request, res: Response) => {
+    res.status(429).json({ error: "Too many attempts. Wait a few minutes and try again." });
+  };
+  const removePerAccount = rateLimit({ ...removeLimitOpts, keyGenerator: (req: Request) => (req as AuthedRequest).accountId ?? "unknown", handler: removeTooMany });
+  const removePerIp = rateLimit({ ...removeLimitOpts, handler: removeTooMany });
 
   const chain = [requireAuth, humanOnly, tieredRateLimit, perIp, perAccount, ...whatsappByokJsonParser];
 
@@ -298,5 +317,59 @@ export function registerWhatsAppByokRoutes(
       return;
     }
     res.json({ ok: true, displayName, keyHint });
+  });
+
+  // "Remove saved App Secret": needs only the connection id. See the header for the plan-gate choice (none, on purpose).
+  router.delete("/social-accounts/whatsapp/:socialAccountId/app-secret", requireAuth, humanOnly, tieredRateLimit, removePerIp, removePerAccount, async (req: AuthedRequest, res: Response) => {
+    const adapter = registry.get("whatsapp");
+    if (!(adapter instanceof WhatsAppAdapter) || !canSee("whatsapp", req.accountId)) {
+      res.status(400).json({ error: NOT_AVAILABLE });
+      return;
+    }
+    const id = String(req.params.socialAccountId ?? "");
+    if (!UUID_PATTERN.test(id)) {
+      res.status(404).json({ error: CONNECTION_NOT_FOUND });
+      return;
+    }
+    try {
+      // Scoped to the caller's account: someone else's id is simply not found.
+      const { data: row, error: lookupError } = await supabase
+        .from("social_accounts")
+        .select("id, access_token_vault_id")
+        .eq("id", id)
+        .eq("account_id", req.accountId!)
+        .eq("platform", "whatsapp")
+        .is("disconnected_at", null)
+        .maybeSingle();
+      if (lookupError) throw new Error("lookup");
+      if (!row) {
+        res.status(404).json({ error: CONNECTION_NOT_FOUND });
+        return;
+      }
+      const vaultId = row.access_token_vault_id as string | null;
+      if (vaultId) {
+        const { data: stored, error: readError } = await supabase.rpc("read_social_token", { p_vault_id: vaultId });
+        if (readError) throw new Error("vault");
+        // Only a stored login that is a JSON object with an appSecret key is rewritten; every other field is carried over
+        // untouched. Nothing to remove (or nothing readable) means nothing is written: the call is idempotent.
+        let next: string | null = null;
+        if (typeof stored === "string" && stored.startsWith("{")) {
+          const parsed = JSON.parse(stored) as Record<string, unknown>;
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && "appSecret" in parsed) {
+            delete parsed.appSecret;
+            next = JSON.stringify(parsed);
+          }
+        }
+        if (next !== null) {
+          const { error: writeError } = await supabase.rpc("update_social_token", { p_vault_id: vaultId, p_new_token: next });
+          if (writeError) throw new Error("vault");
+        }
+      }
+    } catch {
+      console.error("[whatsapp-byok] removing an app secret failed (details withheld: they can hold credential material)");
+      res.status(500).json({ error: REMOVE_FAILED });
+      return;
+    }
+    res.json({ ok: true, inboundReady: false });
   });
 }

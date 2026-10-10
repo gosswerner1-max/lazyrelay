@@ -602,3 +602,171 @@ describe("the optional App Secret (inbound webhooks): handled exactly like the t
     expect(parseWhatsAppBundle(vault.get(id))).toBeNull();
   });
 });
+
+describe("DELETE /social-accounts/whatsapp/:socialAccountId/app-secret (remove a saved App Secret, id only)", () => {
+  const SECRET = "AppSecretNotReal0123456789abcdefAB";
+  const CONN = "aaaaaaaa-1111-4111-8111-111111111111";
+  const OTHER_CONN = "bbbbbbbb-2222-4222-8222-222222222222";
+  const del = (id: string = CONN, a = appWith()) => request(a).delete(`/social-accounts/whatsapp/${id}/app-secret`);
+  const stored = () => JSON.parse([...vault.values()][0]) as Record<string, unknown>;
+  const leaksSecret = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v)).includes(SECRET);
+
+  /** A saved WhatsApp connection holding an App Secret, with a uuid id so the route's id check accepts it. */
+  async function connect(withSecret = true) {
+    const r = await request(appWith()).post("/social-accounts/whatsapp/byok").send(withSecret ? { ...BODY, appSecret: SECRET } : BODY);
+    expect(r.status).toBe(200);
+    tables.social_accounts[0].id = CONN;
+    ctx.rpcCalls = [];
+    logged = [];
+  }
+
+  it("removes only the App Secret: token and ids are unchanged, the same Vault secret is updated in place, the answer is fixed", async () => {
+    await connect();
+    const vaultId = tables.social_accounts[0].access_token_vault_id as string;
+    const before = stored();
+    const r = await del();
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ ok: true, inboundReady: false });
+    expect(vault.size).toBe(1);
+    expect(tables.social_accounts[0].access_token_vault_id).toBe(vaultId);
+    const { appSecret: _gone, ...expected } = before;
+    expect(stored()).toEqual(expected);
+    expect(stored()).toEqual({ v: 1, systemUserToken: TOKEN, wabaId: WABA, phoneNumberId: PHONE });
+    expect(parseWhatsAppBundle(vault.get(vaultId))?.appSecret).toBeUndefined();
+    expect(ctx.rpcCalls).toEqual(["read_social_token", "update_social_token"]);
+  });
+
+  it("the secret never appears in a response, a log line, a column list or the connection row", async () => {
+    await connect();
+    const r = await del();
+    expect(leaksSecret([r.body, r.text, logged, ctx.selects, tables.social_accounts, [...vault.values()]])).toBe(false);
+    expect(leaks([r.body, logged])).toBe(false); // nor the token
+  });
+
+  it("is idempotent: clearing when none is saved answers ok and writes nothing", async () => {
+    await connect(false);
+    const vaultId = tables.social_accounts[0].access_token_vault_id as string;
+    const before = vault.get(vaultId);
+    for (let i = 0; i < 2; i++) {
+      const r = await del();
+      expect(r.status).toBe(200);
+      expect(r.body).toEqual({ ok: true, inboundReady: false });
+    }
+    expect(ctx.rpcCalls).not.toContain("update_social_token");
+    expect(vault.get(vaultId)).toBe(before);
+    // and twice after a real removal
+    await request(appWith()).post("/social-accounts/whatsapp/byok").send({ ...BODY, appSecret: SECRET });
+    expect((await del()).status).toBe(200);
+    expect((await del()).status).toBe(200);
+    expect(stored()).toEqual({ v: 1, systemUserToken: TOKEN, wabaId: WABA, phoneNumberId: PHONE });
+  });
+
+  it("an unreadable login (not JSON) is left alone and still answers ok", async () => {
+    await connect();
+    vault.set(tables.social_accounts[0].access_token_vault_id as string, "revoked");
+    expect((await del()).status).toBe(200);
+    expect([...vault.values()][0]).toBe("revoked");
+  });
+
+  it("the plan does not gate removal (it only reduces access): all six tier codes succeed, even after a downgrade", async () => {
+    for (const tier of ["free", "starter", "pro", "business", "agency", "agency_plus"] as Tier[]) {
+      for (const k of Object.keys(tables)) delete tables[k];
+      vault.clear();
+      tables.social_accounts = [];
+      setTier("business");
+      await connect();
+      setTier(tier); // downgraded (or not) after connecting
+      const r = await del();
+      expect(r.status, tier).toBe(200);
+      expect(r.body, tier).toEqual({ ok: true, inboundReady: false });
+      expect(stored().appSecret, tier).toBeUndefined();
+      expect(stored().systemUserToken, tier).toBe(TOKEN);
+    }
+  });
+
+  it("flag gate, fail closed: not registered, or not switched on for this account, is refused and changes nothing", async () => {
+    await connect();
+    expect((await del(CONN, appWith(new Map() as never))).status).toBe(400);
+    delete process.env.WHATSAPP_BYOK_PLATFORM_PUBLIC;
+    const off = await del();
+    expect(off.status).toBe(400);
+    expect(off.body.error).toMatch(/isn't available to connect yet/);
+    expect(stored().appSecret).toBe(SECRET);
+    process.env.WHATSAPP_BYOK_TEST_ACCOUNT_IDS = "acc1";
+    expect((await del()).status).toBe(200);
+  });
+
+  it("an API key is refused", async () => {
+    await connect();
+    ctx.method = "apiKey";
+    expect((await del()).status).toBe(403);
+    expect(stored().appSecret).toBe(SECRET);
+  });
+
+  it("cross-account isolation: someone else's connection id is a 404 and their secret is untouched", async () => {
+    await connect();
+    ctx.account = "acc2";
+    setTier("business", "acc2");
+    const r = await del();
+    expect(r.status).toBe(404);
+    expect(leaksSecret([r.body, logged])).toBe(false);
+    expect(stored().appSecret).toBe(SECRET);
+    expect(ctx.rpcCalls).not.toContain("update_social_token");
+  });
+
+  it("404 for an unknown id, a malformed id, a disconnected connection and another platform's row", async () => {
+    await connect();
+    expect((await del(OTHER_CONN)).status).toBe(404);
+    expect((await del("not-a-uuid")).status).toBe(404);
+    tables.social_accounts[0].disconnected_at = new Date().toISOString();
+    expect((await del()).status).toBe(404);
+    tables.social_accounts[0].disconnected_at = null;
+    tables.social_accounts[0].platform = "x";
+    expect((await del()).status).toBe(404);
+    expect(stored().appSecret).toBe(SECRET);
+  });
+
+  it("a Vault write failure answers a fixed 500 with no value in it or in the log, and the stored login is unchanged", async () => {
+    await connect();
+    const { supabase } = await import("../../supabase.js");
+    const original = (supabase as unknown as { rpc: (fn: string, args: Record<string, unknown>) => unknown }).rpc;
+    (supabase as unknown as { rpc: unknown }).rpc = (fn: string, args: Record<string, unknown>) =>
+      fn === "update_social_token" ? Promise.resolve({ data: null, error: { message: `boom ${SECRET}` } }) : original(fn, args);
+    let r;
+    try {
+      r = await del();
+    } finally {
+      (supabase as unknown as { rpc: unknown }).rpc = original;
+    }
+    expect(r.status).toBe(500);
+    expect(r.body.error).toMatch(/Could not remove the App Secret/);
+    expect(leaksSecret([r.body, logged])).toBe(false);
+    expect(stored().appSecret).toBe(SECRET);
+  });
+
+  it("has its own rate limit that does not use up the credential-checking budget", async () => {
+    await connect();
+    const limited = appWith(registry(), { rateMax: 2 });
+    expect((await del(CONN, limited)).status).toBe(200);
+    expect((await del(CONN, limited)).status).toBe(200);
+    const third = await del(CONN, limited);
+    expect(third.status).toBe(429);
+    expect(leaksSecret(third.body)).toBe(false);
+    // separate counters: removals on a fresh app do not eat into the five credential checks
+    const fresh = appWith();
+    for (let i = 0; i < 4; i++) expect((await del(CONN, fresh)).status).toBe(200);
+    for (let i = 0; i < 5; i++) expect((await request(fresh).post("/social-accounts/whatsapp/byok/check").send(CREDS)).status).toBe(200);
+  });
+
+  it("afterwards webhook-info reports inboundReady false for that connection (true before)", async () => {
+    await connect();
+    process.env.WHATSAPP_BYOK_ENABLED = "true";
+    const { buildWhatsAppWebhookInfoRouter } = await import("./whatsappWebhookInfo.routes.js");
+    const info = express();
+    info.use(buildWhatsAppWebhookInfoRouter());
+    const readyOf = async () => (await request(info).get("/whatsapp/webhook-info")).body.connections.find((c: { socialAccountId: string }) => c.socialAccountId === CONN)?.inboundReady;
+    expect(await readyOf()).toBe(true);
+    expect((await del()).status).toBe(200);
+    expect(await readyOf()).toBe(false);
+  });
+});
