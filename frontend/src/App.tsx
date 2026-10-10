@@ -10,6 +10,7 @@ import { DataDeletion } from "./pages/DataDeletion";
 import { Contact } from "./pages/Contact";
 import { Partners } from "./pages/Partners";
 import { ConnectForm } from "./pages/ConnectForm";
+import { ConnectX } from "./pages/ConnectX";
 import { BioPage } from "./pages/BioPage";
 import { VerifyPage } from "./pages/VerifyPage";
 import { FeedbackForm } from "./pages/FeedbackForm";
@@ -259,6 +260,8 @@ function Root() {
   // collection) must render regardless of auth state — they're reached by
   // redirecting the browser here mid-flow, and identity comes entirely
   // from the one-time `state` token in the URL, not the Supabase session.
+  // X with the customer's own keys: its own page, and unlike the others it needs the signed-in session (no state token).
+  if (window.location.pathname.replace(/\/$/, "") === "/connect/x") return <ConnectX />;
   const connectMatch = /^\/connect\/([a-z]+)$/.exec(window.location.pathname);
   if (connectMatch && (MANUAL_CONNECT_PLATFORMS as readonly string[]).includes(connectMatch[1])) {
     const state = new URLSearchParams(window.location.search).get("state");

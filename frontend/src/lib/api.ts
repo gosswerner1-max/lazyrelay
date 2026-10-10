@@ -73,6 +73,10 @@ export interface SocialAccount {
   // is the real, capped brand entity (migration 0047).
   brand_label: string | null;
   brand_id: string | null;
+  // X connected with the customer's own developer keys (non-secret markers only; the keys are never sent to the browser).
+  credentialMode?: "platform" | "byok";
+  byokStatus?: "valid" | "invalid" | "out_of_credit" | null;
+  byokKeyHint?: string | null;
 }
 
 export interface Brand {
@@ -275,6 +279,9 @@ export interface PlatformInfo {
   platform: string;
   configured: boolean;
   comingSoon: boolean;
+  // X only (connect with your own developer keys): the plan that unlocks it, and whether THIS account's plan does.
+  requiresPlan?: string;
+  allowed?: boolean;
 }
 
 export interface Account {
@@ -617,6 +624,13 @@ export const api = {
     if (!res.ok) throw new Error(body.error ?? `Connect failed: ${res.status}`);
     return body;
   },
+
+  // X with the customer's own keys. check proves them and stores nothing; connect proves, stores and connects. The
+  // backend answers { ok, handle, keyHint } only.
+  checkXKeys: (keys: { apiKey: string; apiSecret: string; accessToken: string; accessTokenSecret: string }): Promise<{ ok: true; handle: string; keyHint: string }> =>
+    authedFetch("/social-accounts/x/byok/check", { method: "POST", body: JSON.stringify(keys) }),
+  connectXKeys: (keys: { apiKey: string; apiSecret: string; accessToken: string; accessTokenSecret: string }): Promise<{ ok: true; handle: string; keyHint: string }> =>
+    authedFetch("/social-accounts/x/byok", { method: "POST", body: JSON.stringify({ ...keys, acceptedTerms: true }) }),
 
   listScheduledPosts: (): Promise<ScheduledPost[]> => authedFetch("/scheduled-posts"),
   // Real pagination for History — `before` is the oldest post's
