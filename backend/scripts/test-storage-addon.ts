@@ -56,7 +56,7 @@ async function main() {
 
   const baseline = await getStorageUsage(accountId);
   console.log("Baseline usage (Starter tier, no add-ons):", baseline);
-  if (baseline.quotaBytes !== STORAGE_QUOTA_BYTES.pro || baseline.addonBytes !== 0) {
+  if (baseline.quotaBytes !== STORAGE_QUOTA_BYTES.starter || baseline.addonBytes !== 0) {
     console.error("FAIL: expected the Starter base quota with 0 add-on bytes.");
     pass = false;
   } else {
@@ -68,7 +68,7 @@ async function main() {
   await syncSubscriptionFromWebhook(addon1);
   const usageAfterAddon1 = await getStorageUsage(accountId);
   console.log("Usage after +5GB add-on webhook:", usageAfterAddon1);
-  if (usageAfterAddon1.quotaBytes !== STORAGE_QUOTA_BYTES.pro + 5 * GB || usageAfterAddon1.addonBytes !== 5 * GB) {
+  if (usageAfterAddon1.quotaBytes !== STORAGE_QUOTA_BYTES.starter + 5 * GB || usageAfterAddon1.addonBytes !== 5 * GB) {
     console.error("FAIL: quota should grow by exactly the 5GB add-on.");
     pass = false;
   } else {
@@ -82,7 +82,7 @@ async function main() {
   await syncSubscriptionFromWebhook(addon2);
   const usageAfterAddon2 = await getStorageUsage(accountId);
   console.log("Usage after stacking a +20GB add-on:", usageAfterAddon2);
-  if (usageAfterAddon2.quotaBytes !== STORAGE_QUOTA_BYTES.pro + 25 * GB || usageAfterAddon2.addonBytes !== 25 * GB) {
+  if (usageAfterAddon2.quotaBytes !== STORAGE_QUOTA_BYTES.starter + 25 * GB || usageAfterAddon2.addonBytes !== 25 * GB) {
     console.error("FAIL: two stacked add-ons should sum (5GB + 20GB = 25GB), not replace each other.");
     pass = false;
   } else {
@@ -126,7 +126,7 @@ async function main() {
 
   const usageAfterCancel = await getStorageUsage(accountId);
   console.log("Usage right after cancelling the +5GB add-on (should be unchanged until period end):", usageAfterCancel);
-  if (usageAfterCancel.quotaBytes !== STORAGE_QUOTA_BYTES.pro + 25 * GB || usageAfterCancel.addonBytes !== 25 * GB) {
+  if (usageAfterCancel.quotaBytes !== STORAGE_QUOTA_BYTES.starter + 25 * GB || usageAfterCancel.addonBytes !== 25 * GB) {
     console.error("FAIL: quota should stay unchanged immediately after cancelling — it only counts status, not cancel_at_period_end.");
     pass = false;
   } else {
