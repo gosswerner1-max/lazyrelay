@@ -58,10 +58,14 @@ export function verifyWhatsAppWebhook(req: Request, res: Response): void {
     res.status(404).end();
     return;
   }
+  // The verify token is a HANDSHAKE token, not a credential: it is a string we choose and each customer types into the
+  // webhook settings of their OWN Meta app, so Meta can check that the endpoint it was pointed at is ours. It protects
+  // nothing (it proves no identity and unlocks no data); the per-customer app secret signature is what protects
+  // deliveries. Unset means the handshake cannot succeed for anyone: fail closed with 403, the same answer as a wrong token.
   const expectedToken = process.env[VERIFY_TOKEN_ENV];
   if (!expectedToken) {
     console.error(`${VERIFY_TOKEN_ENV} is not set -- refusing the WhatsApp webhook verification handshake.`);
-    res.status(500).end();
+    res.status(403).end();
     return;
   }
   const mode = req.query["hub.mode"];
@@ -204,6 +208,15 @@ interface WhatsAppAccountRow {
   byok_status: string | null;
   paused_at: string | null;
   access_token_vault_id: string | null;
+  needs_reconnect_at: string | null;
+  disconnected_at: string | null;
+  tokens_wiped_at: string | null;
+}
+
+/** A connection may receive messages only while it is a working, owned, current login. Everything else is dropped, and
+ *  anything unexpected (an unknown status) fails closed: only an explicitly valid status passes. */
+export function isReceivingConnection(a: WhatsAppAccountRow): boolean {
+  return a.byok_status === "valid" && !a.needs_reconnect_at && !a.paused_at && !a.disconnected_at && !a.tokens_wiped_at;
 }
 
 /** Whole-second ISO string in the form the database hands back for a timestamptz, so the triage cache signature written
@@ -250,11 +263,12 @@ export async function processWhatsAppEvent(rawBody: Buffer, signatureHeader: str
     // the signature above is the real gate and this lookup only routes.
     const { data: rows, error } = await supabase
       .from("social_accounts")
-      .select("id, account_id, byok_status, paused_at, access_token_vault_id")
+      .select("id, account_id, byok_status, paused_at, access_token_vault_id, needs_reconnect_at, disconnected_at, tokens_wiped_at")
       .eq("platform", "whatsapp")
       .eq("whatsapp_business_account_id", wabaId)
       .eq("whatsapp_phone_number_id", phoneNumberId)
-      .is("disconnected_at", null);
+      .is("disconnected_at", null)
+      .is("tokens_wiped_at", null);
     if (error) throw new Error("account lookup failed");
     const accounts = (rows ?? []) as WhatsAppAccountRow[];
     if (accounts.length === 0) {
@@ -263,7 +277,8 @@ export async function processWhatsAppEvent(rawBody: Buffer, signatureHeader: str
     }
 
     for (const account of accounts) {
-      if (account.byok_status === "out_of_credit" || account.paused_at) {
+      // Invalid or out-of-credit keys, a login that needs reconnecting, a paused, disconnected or wiped connection: nothing.
+      if (!isReceivingConnection(account)) {
         summary.blocked += group.length;
         continue;
       }

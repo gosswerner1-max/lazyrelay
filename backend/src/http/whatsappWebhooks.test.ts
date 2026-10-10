@@ -163,9 +163,13 @@ describe("GET /api/webhooks/whatsapp: Meta's handshake, public", () => {
     expect(r.headers["x-content-type-options"]).toBe("nosniff");
   });
 
-  it("is a 404 while the feature is off, and a 500 (fail closed) if the verify token is not configured", async () => {
+  it("is a 404 while the feature is off, and a 403 (fail closed, not a 500) if the verify token is not configured", async () => {
     delete process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
-    expect((await hs({ "hub.mode": "subscribe", "hub.verify_token": "", "hub.challenge": "1" })).status).toBe(500);
+    for (const token of ["", "anything", "undefined"]) {
+      const r = await hs({ "hub.mode": "subscribe", "hub.verify_token": token, "hub.challenge": "1" });
+      expect(r.status, token).toBe(403);
+      expect(r.text).toBe("");
+    }
     process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN = VERIFY_TOKEN;
     process.env.WHATSAPP_BYOK_ENABLED = "off";
     expect((await hs({ "hub.mode": "subscribe", "hub.verify_token": VERIFY_TOKEN, "hub.challenge": "1" })).status).toBe(404);
@@ -407,6 +411,39 @@ describe("fail closed: an unknown number, a refused account", () => {
     await deliver();
     nothingHappened();
     expect(logged.join("\n")).toMatch(/blocked=1/);
+  });
+
+  it("every state that is not a working login stores nothing and costs no AI call", async () => {
+    const states: Array<[string, Record<string, unknown>]> = [
+      ["byok_status invalid", { byok_status: "invalid" }],
+      ["byok_status out_of_credit", { byok_status: "out_of_credit" }],
+      ["byok_status missing", { byok_status: null }],
+      ["byok_status unknown", { byok_status: "mystery" }],
+      ["needs reconnect", { needs_reconnect_at: "2026-10-09T00:00:00Z" }],
+      ["paused", { paused_at: "2026-10-09T00:00:00Z" }],
+      ["disconnected", { disconnected_at: "2026-10-09T00:00:00Z" }],
+      ["tokens wiped", { tokens_wiped_at: "2026-10-09T00:00:00Z" }],
+    ];
+    for (const [label, over] of states) {
+      tables.social_accounts = [account(over)];
+      await deliver();
+      expect(stored(), label).toHaveLength(0);
+      expect(triage.calls, label).toHaveLength(0);
+    }
+    // and the same row, healthy, is stored: the states above are the only reason
+    tables.social_accounts = [account()];
+    await deliver();
+    expect(stored()).toHaveLength(1);
+  });
+
+  it("a plan-downgraded account is dropped before the login is used, and an unreadable plan fails closed", async () => {
+    setTier("pro");
+    await deliver();
+    nothingHappened();
+    setTier("business");
+    tables.subscriptions = undefined as never; // makes the plan lookup throw
+    await deliver();
+    nothingHappened();
   });
 
   it("a paused connection stores nothing", async () => {
