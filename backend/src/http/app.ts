@@ -9,6 +9,7 @@ import { xByokJsonParser } from "./routes/xByok.routes.js";
 import { whatsappByokJsonParser } from "./routes/whatsappByok.routes.js";
 import { buildWebhookHandler } from "./webhook.js";
 import { handleMetaWebhookVerification, handleMetaWebhookEvent } from "./metaWebhook.js";
+import { verifyWhatsAppWebhook, handleWhatsAppWebhookEvent } from "./whatsappWebhooks.js";
 import { handleSignupWebhook } from "./signupWebhook.js";
 import { publicRateLimit } from "./rateLimit.js";
 import { mountMcp } from "./mcpRoutes.js";
@@ -112,6 +113,19 @@ export function buildApp(
     publicRateLimit,
     express.raw({ type: "application/json" }),
     handleMetaWebhookEvent,
+  );
+
+  // WhatsApp (bring your own key) real-time inbound messages. Public on purpose: Meta's servers call it, not a signed-in
+  // person, so it sits here, before the CORS policy and the authenticated /api router, like the webhooks above. GET is
+  // Meta's one-time handshake (shared verify token); POST is real deliveries, HMAC-signed with the app secret over the raw
+  // body (same reason as the MOR and Meta webhooks), answered 200 EVENT_RECEIVED at once and processed after. Dormant
+  // (404) unless WHATSAPP_BYOK_ENABLED=true. See whatsappWebhooks.ts for what is checked and what is stored.
+  app.get("/api/webhooks/whatsapp", publicRateLimit, verifyWhatsAppWebhook);
+  app.post(
+    "/api/webhooks/whatsapp",
+    publicRateLimit,
+    express.raw({ type: "application/json", limit: "1mb" }),
+    handleWhatsAppWebhookEvent,
   );
 
   // Instant welcome email: a Supabase database trigger (migration 0088)
