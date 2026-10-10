@@ -4,7 +4,7 @@
 // live in one place (useDashboardState.tsx, called once by Dashboard.tsx)
 // and reach this file through DashboardContext.
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { CodeBlock } from "../../components/CodeBlock";
 import { MediaStorageList } from "../../components/MediaStorageList";
 import { formatBytes } from "../../lib/format";
@@ -135,17 +135,51 @@ export function SettingsTab() {
     label: `${a.platform.charAt(0).toUpperCase()}${a.platform.slice(1)}: ${a.display_name ?? a.platform_account_id}`,
   }));
 
+  const visibleSubs = SETTINGS_SUBS.filter((t) => t.id !== "keys" || hasByokPlatforms);
+  const idBase = useId();
+  const tabId = (id: SettingsSub) => `${idBase}-tab-${id}`;
+  const panelId = `${idBase}-panel`;
+  const tabRefs = useRef<Partial<Record<SettingsSub, HTMLButtonElement | null>>>({});
+  // WAI-ARIA tabs: one tab stop (the selected tab), arrow keys move between tabs, Home and End jump to the ends.
+  const onTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    let next = -1;
+    if (e.key === "ArrowRight") next = (index + 1) % visibleSubs.length;
+    else if (e.key === "ArrowLeft") next = (index - 1 + visibleSubs.length) % visibleSubs.length;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = visibleSubs.length - 1;
+    if (next < 0) return;
+    e.preventDefault();
+    const target = visibleSubs[next].id;
+    setSub(target);
+    tabRefs.current[target]?.focus();
+  };
+
   return (
     <>
-      <nav className="settings-subtabs" aria-label="Settings sections">
-        {SETTINGS_SUBS.filter((t) => t.id !== "keys" || hasByokPlatforms).map((t) => (
-          <button key={t.id} type="button" className={t.id === view ? "settings-subtab-active" : ""} onClick={() => setSub(t.id)}>
+      <div className="settings-subtabs" role="tablist" aria-label="Settings sections">
+        {visibleSubs.map((t, i) => (
+          <button
+            key={t.id}
+            ref={(el) => {
+              tabRefs.current[t.id] = el;
+            }}
+            type="button"
+            role="tab"
+            id={tabId(t.id)}
+            aria-selected={t.id === view}
+            aria-controls={panelId}
+            tabIndex={t.id === view ? 0 : -1}
+            className={t.id === view ? "settings-subtab-active" : ""}
+            onClick={() => setSub(t.id)}
+            onKeyDown={(e) => onTabKeyDown(e, i)}
+          >
             {t.label}
           </button>
         ))}
-      </nav>
+      </div>
 
-      {view === "keys" && hasByokPlatforms && <CustomPlatformSettings platforms={platforms} onConnected={() => void refresh()} />}
+      <div role="tabpanel" id={panelId} aria-labelledby={tabId(view)}>
+      {view === "keys" && hasByokPlatforms && <CustomPlatformSettings platforms={platforms} onConnected={() => void refresh()} onSeePlans={() => setSub("billing")} />}
       {view === "billing" && (
       <section>
         <h2>Storage</h2>
@@ -837,6 +871,7 @@ export function SettingsTab() {
         })()}
       </section>
       )}
+      </div>
     </>
   );
 }

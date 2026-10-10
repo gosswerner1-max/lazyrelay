@@ -61,6 +61,7 @@ import { SettingsTab } from "./SettingsTab";
 const X_OK = { platform: "x", configured: true, comingSoon: false, requiresPlan: "Pro", allowed: true };
 const WA_LOCKED = { platform: "whatsapp", configured: true, comingSoon: false, requiresPlan: "Business", allowed: false };
 const KEYS_TAB = { name: "Custom developer keys" };
+const tabNames = () => within(screen.getByRole("tablist", { name: "Settings sections" })).getAllByRole("tab").map((b) => b.textContent);
 
 afterEach(cleanup);
 beforeEach(() => {
@@ -69,21 +70,94 @@ beforeEach(() => {
   connectXKeys.mockReset();
 });
 
+describe("the Settings sub-nav is an accessible tab set", () => {
+  const ALL = ["General", "Security", "Team", "Automation", "Custom developer keys", "Plan & billing"];
+
+  it("has a tablist, tabs with aria-selected and aria-controls, and one tabpanel labelled by the selected tab", () => {
+    ctx.platforms = [X_OK];
+    render(<SettingsTab />);
+    const tabs = within(screen.getByRole("tablist", { name: "Settings sections" })).getAllByRole("tab");
+    expect(tabs.map((t) => t.textContent)).toEqual(ALL);
+    const panel = screen.getByRole("tabpanel");
+    for (const tab of tabs) {
+      expect(tab).toHaveAttribute("aria-controls", panel.id);
+      expect(tab).toHaveAttribute("aria-selected", tab.textContent === "General" ? "true" : "false");
+    }
+    expect(panel).toHaveAttribute("aria-labelledby", tabs[0].id);
+    expect(screen.getByRole("tabpanel", { name: "General" })).toBe(panel);
+  });
+
+  it("only the selected tab is in the tab order (roving tabindex)", async () => {
+    ctx.platforms = [X_OK];
+    const user = userEvent.setup();
+    render(<SettingsTab />);
+    const tabs = within(screen.getByRole("tablist")).getAllByRole("tab");
+    expect(tabs.map((t) => t.getAttribute("tabindex"))).toEqual(["0", "-1", "-1", "-1", "-1", "-1"]);
+    await user.click(tabs[3]);
+    expect(tabs.map((t) => t.getAttribute("tabindex"))).toEqual(["-1", "-1", "-1", "0", "-1", "-1"]);
+    expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", tabs[3].id);
+  });
+
+  it("ArrowRight and ArrowLeft move to the next and previous tab, wrapping round, and show its panel", async () => {
+    ctx.platforms = [X_OK];
+    const user = userEvent.setup();
+    render(<SettingsTab />);
+    const tabs = within(screen.getByRole("tablist")).getAllByRole("tab");
+    tabs[0].focus();
+    await user.keyboard("{ArrowRight}");
+    expect(tabs[1]).toHaveFocus();
+    expect(tabs[1]).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: "Two-factor authentication" })).toBeInTheDocument();
+    await user.keyboard("{ArrowLeft}{ArrowLeft}");
+    expect(tabs[5]).toHaveFocus(); // wrapped from the first to the last
+    expect(tabs[5]).toHaveAttribute("aria-selected", "true");
+    await user.keyboard("{ArrowRight}");
+    expect(tabs[0]).toHaveFocus(); // and back round
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("Home and End jump to the first and last tab, and the Custom developer keys tab is reachable by arrows", async () => {
+    ctx.platforms = [X_OK];
+    const user = userEvent.setup();
+    render(<SettingsTab />);
+    const tabs = within(screen.getByRole("tablist")).getAllByRole("tab");
+    tabs[0].focus();
+    await user.keyboard("{End}");
+    expect(tabs[5]).toHaveFocus();
+    expect(tabs[5]).toHaveAttribute("aria-selected", "true");
+    await user.keyboard("{ArrowLeft}");
+    expect(tabs[4]).toHaveFocus();
+    expect(screen.getByLabelText("API Key (Consumer Key)")).toBeInTheDocument();
+    await user.keyboard("{Home}");
+    expect(tabs[0]).toHaveFocus();
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("without the keys tab the arrows skip it (five tabs, wrapping at the ends)", async () => {
+    const user = userEvent.setup();
+    render(<SettingsTab />);
+    const tabs = within(screen.getByRole("tablist")).getAllByRole("tab");
+    expect(tabs).toHaveLength(5);
+    tabs[0].focus();
+    await user.keyboard("{ArrowLeft}");
+    expect(tabs[4]).toHaveFocus();
+    expect(tabs[4]).toHaveTextContent("Plan & billing");
+  });
+});
+
 describe("the Custom developer keys sub-tab", () => {
   it("is not there at all when the backend lists neither X nor WhatsApp (feature switches off)", () => {
     render(<SettingsTab />);
-    const nav = screen.getByRole("navigation", { name: "Settings sections" });
-    expect(within(nav).getByRole("button", { name: "General" })).toBeInTheDocument();
-    expect(within(nav).getByRole("button", { name: "Plan & billing" })).toBeInTheDocument();
-    expect(within(nav).queryByRole("button", KEYS_TAB)).not.toBeInTheDocument();
+    const nav = screen.getByRole("tablist", { name: "Settings sections" });
+    expect(within(nav).getByRole("tab", { name: "General" })).toBeInTheDocument();
+    expect(within(nav).getByRole("tab", { name: "Plan & billing" })).toBeInTheDocument();
+    expect(within(nav).queryByRole("tab", KEYS_TAB)).not.toBeInTheDocument();
   });
 
   it("appears between Automation and Plan & billing when X is listed", () => {
     ctx.platforms = [X_OK];
     render(<SettingsTab />);
-    const labels = within(screen.getByRole("navigation", { name: "Settings sections" }))
-      .getAllByRole("button")
-      .map((b) => b.textContent);
+    const labels = tabNames();
     expect(labels).toEqual(["General", "Security", "Team", "Automation", "Custom developer keys", "Plan & billing"]);
   });
 
@@ -92,20 +166,31 @@ describe("the Custom developer keys sub-tab", () => {
     const user = userEvent.setup();
     render(<SettingsTab />);
     expect(screen.queryByLabelText("API Key (Consumer Key)")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", KEYS_TAB));
+    await user.click(screen.getByRole("tab", KEYS_TAB));
     expect(screen.getByRole("heading", { name: "Custom developer keys" })).toBeInTheDocument();
     expect(screen.getByLabelText("API Key (Consumer Key)")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Account" })).not.toBeInTheDocument(); // General is gone while this is open
-    expect(screen.getByRole("button", KEYS_TAB)).toHaveClass("settings-subtab-active");
+    expect(screen.getByRole("tab", KEYS_TAB)).toHaveClass("settings-subtab-active");
   });
 
   it("shows the upgrade note, and no form, for a plan that does not include it", async () => {
     ctx.platforms = [WA_LOCKED];
     const user = userEvent.setup();
     render(<SettingsTab />);
-    await user.click(screen.getByRole("button", KEYS_TAB));
+    await user.click(screen.getByRole("tab", KEYS_TAB));
     expect(screen.getByText("Available on the Business plan and above.")).toBeInTheDocument();
     expect(screen.queryByLabelText("System user token")).not.toBeInTheDocument();
+  });
+
+  it("See plans on a locked card opens the Plan & billing sub-tab of the same Settings view", async () => {
+    ctx.platforms = [WA_LOCKED];
+    const user = userEvent.setup();
+    render(<SettingsTab />);
+    await user.click(screen.getByRole("tab", KEYS_TAB));
+    await user.click(screen.getByRole("button", { name: "See plans" }));
+    expect(screen.getByRole("tab", { name: "Plan & billing" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByText("Available on the Business plan and above.")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Storage" })).toBeInTheDocument();
   });
 
   it("reloads the dashboard after a connection is saved", async () => {
@@ -113,7 +198,7 @@ describe("the Custom developer keys sub-tab", () => {
     connectXKeys.mockResolvedValue({ ok: true, handle: "acme", keyHint: "****2345" });
     const user = userEvent.setup();
     render(<SettingsTab />);
-    await user.click(screen.getByRole("button", KEYS_TAB));
+    await user.click(screen.getByRole("tab", KEYS_TAB));
     await user.type(screen.getByLabelText("API Key (Consumer Key)"), "fakeApiKey12345");
     await user.type(screen.getByLabelText("API Secret (Consumer Secret)"), "fakeApiSecret12345");
     await user.type(screen.getByLabelText("Access Token"), "99-fakeAccessToken123");
@@ -128,12 +213,12 @@ describe("the Custom developer keys sub-tab", () => {
     ctx.platforms = [X_OK];
     const user = userEvent.setup();
     const { rerender } = render(<SettingsTab />);
-    await user.click(screen.getByRole("button", KEYS_TAB));
+    await user.click(screen.getByRole("tab", KEYS_TAB));
     expect(screen.getByLabelText("API Key (Consumer Key)")).toBeInTheDocument();
     ctx.platforms = [];
     rerender(<SettingsTab />);
     await waitFor(() => expect(screen.queryByLabelText("API Key (Consumer Key)")).not.toBeInTheDocument());
-    expect(screen.queryByRole("button", KEYS_TAB)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "General" })).toHaveClass("settings-subtab-active");
+    expect(screen.queryByRole("tab", KEYS_TAB)).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "General" })).toHaveClass("settings-subtab-active");
   });
 });
