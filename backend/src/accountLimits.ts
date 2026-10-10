@@ -1,5 +1,5 @@
 import { supabase } from "./supabase.js";
-import { resolveTier, type Tier } from "./tier.js";
+import { resolveTier, canUseWhatsappByok, WHATSAPP_BYOK_REQUIRED_PLAN_NAME, type Tier } from "./tier.js";
 
 /** Real per-tier connected-account caps, added 2026-07-23 alongside the
  *  Starter/Pro/Business restructure. Deliberately NOT unlimited even at
@@ -77,4 +77,19 @@ export async function checkNewDistinctAccountLimit(accountId: string): Promise<s
     return `You've connected ${limit} different accounts in the last ${DISTINCT_ACCOUNT_WINDOW_DAYS} days — your plan's real limit, even if you've since disconnected some. A slot frees up ${DISTINCT_ACCOUNT_WINDOW_DAYS} days after that account was first connected, or upgrade for more.`;
   }
   return null;
+}
+
+/** Customer-facing wording when a plan below Business tries to connect WhatsApp (see tier.ts, canUseWhatsappByok). */
+export const WHATSAPP_PLAN_MESSAGE = `Connecting WhatsApp with your own Meta credentials is available on the ${WHATSAPP_BYOK_REQUIRED_PLAN_NAME} plan and above.`;
+
+/** The WhatsApp plan gate, in the same shape as checkAccountLimit: a customer-facing reason when this account may NOT
+ *  connect or save a WhatsApp channel, otherwise null. Fails CLOSED: if the plan cannot be read, the answer is "not
+ *  allowed", never "allowed". Callers turn a non-null answer into HTTP 400 (routes/whatsappByok.routes.ts and the
+ *  generic connect route in routes/socialAccounts.routes.ts). */
+export async function checkWhatsappPlan(accountId: string): Promise<string | null> {
+  try {
+    return canUseWhatsappByok(await resolveTier(accountId)) ? null : WHATSAPP_PLAN_MESSAGE;
+  } catch {
+    return WHATSAPP_PLAN_MESSAGE;
+  }
 }

@@ -103,12 +103,34 @@ const X_BYOK_RULES: Rule[] = [
   },
 ];
 
+// ---- WhatsApp with the customer's own Meta credentials. The adapter reports two fixed codes (platforms/whatsapp/
+// credentials.ts) and nothing from Meta's own text. Both are "fatal"/"reconnect", never "retry" or "ours": a customer's
+// own Meta account failing must not trip the shared per-platform circuit breaker for every other customer, and must
+// never page ops as if LazyRelay were at fault.
+export const WHATSAPP_NOT_SENT_MESSAGE = "WhatsApp sending is not available yet. Nothing was sent to WhatsApp. Remove this post or move it to another platform.";
+
+const WHATSAPP_RULES: Rule[] = [
+  {
+    platform: "whatsapp",
+    test: /whatsapp_byok_bundle_invalid/i,
+    kind: "reconnect",
+    message: () => "This WhatsApp connection does not hold your own Meta credentials. Reconnect WhatsApp with your own Meta credentials in Social Platforms.",
+  },
+  {
+    platform: "whatsapp",
+    test: /whatsapp_send_not_built/i,
+    kind: "fatal",
+    message: () => WHATSAPP_NOT_SENT_MESSAGE,
+  },
+];
+
 const RULES: Rule[] = [
   ...X_BYOK_RULES,
+  ...WHATSAPP_RULES,
   // ---- Our side: never the customer's fault ----
   // (Not for X: LazyRelay has no X app, every X credential is the customer's own, so an app-secret error there is theirs.)
   {
-    except: ["x", "x_byok"],
+    except: ["x", "x_byok", "whatsapp"],
     test: /invalid_client|client (key|secret) (or (key|secret) )?(is |are )?(incorrect|invalid)|app secret|unaudited_client_can_only_post_to_private_accounts|url_ownership_unverified|reached_active_user_cap/i,
     kind: "ours",
     message: (p) => `LazyRelay hit a temporary problem connecting to ${p}. We have been alerted and will try again automatically. You don't need to do anything.`,

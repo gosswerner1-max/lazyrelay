@@ -121,6 +121,7 @@ async function main() {
       `TUMBLR_CLIENT_SECRET=${process.env.TUMBLR_CLIENT_SECRET ? "set" : "MISSING"} ` +
       `TUMBLR_REDIRECT_URI=${process.env.TUMBLR_REDIRECT_URI ? "set" : "MISSING"}; ` +
       `X_BYOK_ENABLED=${process.env.X_BYOK_ENABLED === "true" ? "on" : "off"}; ` +
+      `WHATSAPP_BYOK_ENABLED=${process.env.WHATSAPP_BYOK_ENABLED === "true" ? "on" : "off"}; ` +
       `WORDPRESS_CONNECT_PAGE_URL=${process.env.WORDPRESS_CONNECT_PAGE_URL ? "set" : "MISSING"} ` +
       `DEVTO_CONNECT_PAGE_URL=${process.env.DEVTO_CONNECT_PAGE_URL ? "set" : "MISSING"} ` +
       `HASHNODE_CONNECT_PAGE_URL=${process.env.HASHNODE_CONNECT_PAGE_URL ? "set" : "MISSING"} ` +

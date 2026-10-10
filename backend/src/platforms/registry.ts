@@ -22,6 +22,7 @@ import { LemmyAdapter } from "./lemmy.js";
 import { SlackAdapter } from "./slack.js";
 import { NostrAdapter } from "./nostr.js";
 import { WhopAdapter } from "./whop.js";
+import { WhatsAppAdapter } from "./whatsapp/adapter.js";
 import { APP_ID as WHOP_APP_ID_PATTERN } from "./whopApi.js";
 import type { PlatformAdapter } from "./types.js";
 
@@ -130,6 +131,13 @@ export function buildPlatformRegistry(): Map<string, PlatformAdapter> {
     } else {
       console.warn("WHOP_APP_ID is set but is not a Whop app id (app_...): Whop stays switched off.");
     }
+  }
+  // WhatsApp is bring-your-own-key only: there is no LazyRelay WhatsApp app and no WhatsApp token in the environment.
+  // The adapter is stateless; each connection's Meta system user token is decrypted from Vault at run time. Registered
+  // when WHATSAPP_BYOK_ENABLED=true and nothing else; even then hidden from customers until WHATSAPP_BYOK_PLATFORM_PUBLIC
+  // (or WHATSAPP_BYOK_TEST_ACCOUNT_IDS) switches it on, see socialAccounts.routes.ts.
+  if (process.env.WHATSAPP_BYOK_ENABLED === "true") {
+    registry.set("whatsapp", new WhatsAppAdapter());
   }
   if (registry.size === 0) {
     registry.set("tiktok", new StubAdapter());
