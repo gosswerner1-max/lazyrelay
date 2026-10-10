@@ -221,7 +221,7 @@ async function main() {
       // 30 day tracking window. See privacySweep.ts.
       .then(() => runPrivacySweep(supabase))
       .then((r) => {
-        if (r.tokensWiped || r.tokenFailures || r.commentsDeleted || r.dmsDeleted || r.messagesDeleted || r.purgeFailed) console.log("Privacy sweep:", JSON.stringify(r));
+        if (r.tokensWiped || r.tokenFailures || r.commentsDeleted || r.dmsDeleted || r.messagesDeleted || r.triageDeleted || r.purgeFailed) console.log("Privacy sweep:", JSON.stringify(r));
       })
       .catch((err) => console.error("Privacy sweep error:", summarizeIfHtmlError(err)));
   setInterval(runTokenJob, TOKEN_REFRESH_INTERVAL_MS);

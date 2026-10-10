@@ -24,7 +24,7 @@ beforeEach(() => {
   for (const k of Object.keys(tables)) delete tables[k];
   vault.clear();
   purgeCalls.length = 0;
-  purge = () => ({ data: [{ comments_deleted: 4, dms_deleted: "2", messages_deleted: "7" }], error: null });
+  purge = () => ({ data: [{ comments_deleted: 4, dms_deleted: "2", messages_deleted: "7", triage_deleted: 9 }], error: null });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -39,7 +39,7 @@ describe("runPrivacySweep", () => {
   it("asks the database to delete everything older than 30 days and reports the counts", async () => {
     const r = await runPrivacySweep(db, NOW);
     expect(purgeCalls).toEqual([{ p_cutoff: "2026-09-07T12:00:00.000Z" }]);
-    expect(r).toMatchObject({ commentsDeleted: 4, dmsDeleted: 2, messagesDeleted: 7, purgeFailed: false });
+    expect(r).toMatchObject({ commentsDeleted: 4, dmsDeleted: 2, messagesDeleted: 7, triageDeleted: 9, purgeFailed: false });
   });
 
   it("reads a single-object answer as well as a one-row array", async () => {
@@ -49,7 +49,7 @@ describe("runPrivacySweep", () => {
 
   it("a database without the messages column yet (migration 0127 not applied) still parses: no messages deleted", async () => {
     purge = () => ({ data: [{ comments_deleted: 1, dms_deleted: 1 }], error: null });
-    expect(await runPrivacySweep(db, NOW)).toMatchObject({ commentsDeleted: 1, dmsDeleted: 1, messagesDeleted: 0, purgeFailed: false });
+    expect(await runPrivacySweep(db, NOW)).toMatchObject({ commentsDeleted: 1, dmsDeleted: 1, messagesDeleted: 0, triageDeleted: 0, purgeFailed: false });
   });
 
   it("wipes disconnected logins in the same pass", async () => {

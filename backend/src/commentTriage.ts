@@ -179,6 +179,8 @@ export async function triageItems(accountId: string, itemType: "comment" | "dm",
         needs_attention: result.needsAttention,
         category: result.category,
         reason: result.reason,
+        // Refreshed on every re-classification, so it means "last classified" (the 30 day purge keys on it).
+        classified_at: new Date().toISOString(),
       };
     });
 

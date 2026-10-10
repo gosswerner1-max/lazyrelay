@@ -16,7 +16,13 @@
 --     delivers twice is stored once).
 --   * contact_name (the WhatsApp profile name) and text are personal data and fall under the same 30 day retention:
 --     purge_stored_messages() now also deletes whatsapp_messages older than the cutoff, by received_at. Its old columns
---     are unchanged, a new one (messages_deleted) is added at the end, so backend/src/privacySweep.ts keeps parsing.
+--     are unchanged, new ones (messages_deleted, triage_deleted) are added at the end, so backend/src/privacySweep.ts
+--     keeps parsing.
+--   * The same function now also deletes comment_triage rows older than the cutoff. Those rows hold a model-written
+--     reason about a stranger's comment or DM, and nothing purged them, although the privacy promise is that comment and
+--     DM text is gone after 30 days. The timestamp is classified_at (the only timestamp the table has); the triage code
+--     now refreshes it every time it classifies an item again, so it means "last classified". A verdict that is purged
+--     while its item is still on screen is simply re-classified on the next view (one more AI call, no data lost).
 --
 -- Access: RLS on. A signed-in member of the owning account may READ their account's rows. There are no insert, update or
 -- delete policies and the browser-facing roles hold no write privilege: only the backend's service-role client writes.
@@ -100,7 +106,7 @@ grant all on whatsapp_messages to service_role;
 -- changed in place). Same name, same argument, same SECURITY DEFINER and search_path, same grants as in 0117.
 drop function if exists purge_stored_messages(timestamptz);
 create function purge_stored_messages(p_cutoff timestamptz)
-returns table (comments_deleted bigint, dms_deleted bigint, messages_deleted bigint)
+returns table (comments_deleted bigint, dms_deleted bigint, messages_deleted bigint, triage_deleted bigint)
 language plpgsql
 security definer
 set search_path = public
@@ -109,6 +115,7 @@ declare
   v_comments bigint;
   v_dms bigint;
   v_messages bigint;
+  v_triage bigint;
 begin
   with gone as (
     delete from mention_comments_cache m
@@ -133,7 +140,15 @@ begin
   )
   select count(*) into v_messages from gone;
 
-  return query select v_comments, v_dms, v_messages;
+  -- Cached triage verdicts (comments and DMs): by when they were last classified.
+  with gone as (
+    delete from comment_triage t
+    where t.classified_at < p_cutoff
+    returning 1
+  )
+  select count(*) into v_triage from gone;
+
+  return query select v_comments, v_dms, v_messages, v_triage;
 end;
 $$;
 
