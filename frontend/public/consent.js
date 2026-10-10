@@ -76,7 +76,7 @@
       "close this banner to continue with only essential cookies.</p>" +
       '<div style="margin:0 0 14px;"><a href="/privacy" style="color:#1a73e8;text-decoration:underline;">Privacy Policy</a></div>' +
       '<div style="display:flex;flex-direction:column;gap:8px;">' +
-      '<button data-consent-action="accept" style="background:#ff5630;color:#fff;border:none;border-radius:6px;padding:10px;font-weight:600;font-size:13px;cursor:pointer;">Accept All</button>' +
+      '<button data-consent-action="accept" style="background:#c82400;color:#fff;border:none;border-radius:6px;padding:10px;font-weight:600;font-size:13px;cursor:pointer;">Accept All</button>' +
       '<button data-consent-action="reject" style="background:#14171f;color:#fff;border:none;border-radius:6px;padding:10px;font-weight:600;font-size:13px;cursor:pointer;">Reject Non-Essential</button>' +
       "</div>";
     document.body.appendChild(el);
