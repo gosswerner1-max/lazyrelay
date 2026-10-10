@@ -596,3 +596,123 @@
     transform: none;
   }
 }
+
+/* Remove App Secret: a small secondary button on a ready connection, and an inline confirm that opens inside the card. */
+.byok-panels .byok-conns__state {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.5rem;
+  min-width: 0;
+}
+
+.byok-panels .byok-conns__name:focus-visible {
+  outline: 2px solid var(--byok-coral);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.byok-panels .byok-conns__remove,
+.byok-panels .byok-confirm__cancel,
+.byok-panels .byok-confirm__danger {
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  min-height: 2rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.byok-panels .byok-conns__remove,
+.byok-panels .byok-confirm__cancel {
+  background: transparent;
+  color: var(--byok-ink);
+  border: 1px solid var(--byok-edge);
+}
+
+.byok-panels .byok-conns__remove:hover,
+.byok-panels .byok-confirm__cancel:hover:not(:disabled) {
+  border-color: var(--byok-coral);
+  box-shadow: 0 0 0 1px rgba(255, 86, 48, 0.35), 0 0 14px rgba(255, 86, 48, 0.28);
+}
+
+.byok-panels .byok-confirm__danger {
+  background: var(--byok-crimson);
+  color: #ffffff;
+  border: 1px solid transparent;
+}
+
+.byok-panels .byok-confirm__danger:hover:not(:disabled) {
+  box-shadow: 0 0 0 1px rgba(255, 86, 48, 0.5), 0 0 18px rgba(255, 86, 48, 0.4);
+}
+
+.byok-panels .byok-conns__remove:focus-visible,
+.byok-panels .byok-confirm__cancel:focus-visible,
+.byok-panels .byok-confirm__danger:focus-visible {
+  outline: 2px solid var(--byok-coral);
+  outline-offset: 2px;
+}
+
+.byok-panels .byok-conns__remove:disabled,
+.byok-panels .byok-confirm__cancel:disabled,
+.byok-panels .byok-confirm__danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.byok-panels .byok-confirm {
+  flex: 1 1 100%;
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.625rem 0.75rem;
+  background: rgba(11, 15, 25, 0.85);
+  border: 1px solid var(--byok-coral);
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px rgba(255, 86, 48, 0.12), 0 0 18px rgba(255, 86, 48, 0.12);
+}
+
+.byok-panels .byok-confirm__title {
+  margin: 0;
+  color: var(--byok-ink);
+  font-weight: 600;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.byok-panels .byok-confirm__text {
+  margin: 0;
+  color: var(--byok-muted);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.byok-panels .byok-confirm__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.byok-panels .byok-confirm__error {
+  margin: 0;
+  color: var(--byok-error);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.byok-panels .byok-inbound__live {
+  margin: 0;
+  min-height: 0;
+  color: var(--byok-ok);
+  font-size: 0.82rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .byok-panels .byok-conns__remove,
+  .byok-panels .byok-confirm__cancel,
+  .byok-panels .byok-confirm__danger {
+    transition: none;
+  }
+}

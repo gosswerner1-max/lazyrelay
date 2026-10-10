@@ -676,6 +676,10 @@ export const api = {
     authedFetch("/social-accounts/whatsapp/byok/check", { method: "POST", body: JSON.stringify(fields) }),
   connectWhatsAppCredentials: (fields: WhatsAppCredentialFields & { clearAppSecret?: true }): Promise<{ ok: true; displayName: string | null; keyHint: string }> =>
     authedFetch("/social-accounts/whatsapp/byok", { method: "POST", body: JSON.stringify({ ...fields, acceptedTerms: true }) }),
+  // Removes ONLY the saved App Secret of one WhatsApp connection, by its id (no token needed; the token and IDs are not changed).
+  // Inbound goes off for that number. Safe to repeat. The answer holds no secret.
+  removeWhatsAppAppSecret: (socialAccountId: string): Promise<{ ok: true; inboundReady: false }> =>
+    authedFetch(`/social-accounts/whatsapp/${encodeURIComponent(socialAccountId)}/app-secret`, { method: "DELETE" }),
   // What the customer needs to point their own Meta app's webhook at LazyRelay, and per connection whether inbound is ready
   // (a boolean; the App Secret itself is never sent to the browser). A plan below Business answers 400 with the fixed message.
   getWhatsAppWebhookInfo: (): Promise<WhatsAppWebhookInfo> => authedFetch("/whatsapp/webhook-info"),

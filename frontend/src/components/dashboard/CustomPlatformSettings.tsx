@@ -378,7 +378,7 @@ function WhatsAppCard({ info, onConnected, onSeePlans, webhookInfo, onSaved }: W
           without one keeps the one already saved.
         </p>
         <p className="byok-card__hint">The token and App Secret are stored encrypted and are never shown again. You can remove them any time.</p>
-        <WhatsAppInboundStatus state={webhookInfo} />
+        <WhatsAppInboundStatus state={webhookInfo} onSecretRemoved={onSaved} />
         <WhatsAppWebhookDetails state={webhookInfo} />
         <label className="byok-consent">
           <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
