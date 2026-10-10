@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Request, Response } from "express";
 import { supabase } from "../supabase.js";
-import { triageItems, type TriageItem } from "../commentTriage.js";
+import { triageItems, sanitizeUntrustedMessage, type TriageItem } from "../commentTriage.js";
 import { checkWhatsappPlan } from "../accountLimits.js";
 import { META_ID_PATTERN, parseWhatsAppBundle } from "../platforms/whatsapp/credentials.js";
 import { recordSecurityEvent } from "./securityAlerts.js";
@@ -44,6 +44,29 @@ const MAX_MESSAGES_PER_DELIVERY = 200;
 const MAX_TEXT_CHARS = 1000;
 const MAX_NAME_CHARS = 80;
 const WA_ID_PATTERN = /^[0-9]{5,20}$/;
+
+/** AI triage of inbound WhatsApp text is OFF unless this is exactly the string 'true'. Until the Privacy Policy names it,
+ *  messages are captured and cached but no message text is ever sent to the AI provider. */
+export const TRIAGE_FLAG_ENV = "WHATSAPP_INBOUND_TRIAGE_ENABLED";
+const triageEnabled = (): boolean => process.env[TRIAGE_FLAG_ENV] === "true";
+
+/** Most messages one account can send to the AI per UTC day. It bounds the bill one connected number (or someone who
+ *  floods it with validly signed messages) can cause; beyond it messages are still stored, unclassified. In memory like
+ *  the other abuse limiters in this backend: a deploy resetting the count early is a small, accepted gap. */
+export const WHATSAPP_TRIAGE_DAILY_CAP = 200;
+const triageToday = new Map<string, { day: string; count: number }>();
+export function resetWhatsAppTriageCap(): void {
+  triageToday.clear();
+}
+/** Reserves up to `wanted` triage slots for the account today and returns how many it got (0 when the cap is reached). */
+function reserveTriageSlots(accountId: string, wanted: number): number {
+  const day = new Date().toISOString().slice(0, 10);
+  const entry = triageToday.get(accountId);
+  const used = entry && entry.day === day ? entry.count : 0;
+  const granted = Math.max(0, Math.min(wanted, WHATSAPP_TRIAGE_DAILY_CAP - used));
+  triageToday.set(accountId, { day, count: used + granted });
+  return granted;
+}
 
 const featureOn = (): boolean => process.env.WHATSAPP_BYOK_ENABLED === "true";
 
@@ -353,11 +376,15 @@ async function storeAndTriage(account: WhatsAppAccountRow, group: WhatsAppTextMe
     toTriage.push({ itemId: m.from, sourceSignature: signatureOf(m.at), author: m.name ?? "WhatsApp contact", text: m.text });
   }
 
-  if (toTriage.length > 0) {
+  // Triage is off by default (see TRIAGE_FLAG_ENV): the messages above are already stored, unclassified, and nothing
+  // leaves for the AI provider. When on, only up to the account's daily allowance goes; the rest stays unclassified.
+  const allowed = toTriage.length > 0 && triageEnabled() ? reserveTriageSlots(account.account_id, toTriage.length) : 0;
+  if (allowed > 0) {
+    const forModel = toTriage.slice(0, allowed).map((i) => ({ ...i, author: sanitizeUntrustedMessage(i.author, 80) || "WhatsApp contact", text: sanitizeUntrustedMessage(i.text, MAX_TEXT_CHARS) }));
     try {
       // Writes its verdicts to comment_triage itself. No API key or a failed call leaves the message unclassified, never
       // "routine", and never loses the message that is already stored.
-      await triageItems(account.account_id, "dm", toTriage);
+      await triageItems(account.account_id, "dm", forModel);
     } catch (err) {
       console.error("[whatsapp-webhook] triage failed:", err instanceof Error ? err.message : "unknown error");
     }
