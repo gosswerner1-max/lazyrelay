@@ -6,7 +6,7 @@
 
 type Json = Record<string, unknown>;
 
-const PLATFORM_LIST = "instagram, facebook, tiktok, youtube, pinterest, linkedin, threads, bluesky, mastodon, x, tumblr, telegram, discord, wordpress, devto, hashnode, lemmy, slack, nostr, whop";
+const PLATFORM_LIST = "instagram, facebook, tiktok, youtube, pinterest, linkedin, threads, bluesky, mastodon, x, tumblr, telegram, discord, wordpress, devto, hashnode, lemmy, slack, nostr, whop, whatsapp";
 
 const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
 const jsonBody = (schema: Json, required = true) => ({ required, content: { "application/json": { schema } } });

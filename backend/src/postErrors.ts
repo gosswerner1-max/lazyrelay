@@ -39,7 +39,7 @@ export type PostErrorKind ="retry" | "fatal" | "reconnect" | "ours";
 export interface ClassifiedPostError {
   kind: PostErrorKind;
   message: string;
-  /** X bring-your-own-key only: what this failure says about the customer’s keys, for social_accounts.byok_status. */
+  /** Bring-your-own-key only (X and WhatsApp): what this failure says about the customer’s credentials, for social_accounts.byok_status. */
   byokStatus?: "invalid" | "out_of_credit";
   /** Retry-class only: the earliest time (ms since epoch) the platform will accept another try, when it said so. */
   retryNotBefore?: number;
@@ -49,8 +49,10 @@ interface Rule {
   platform?: string | string[];
   /** Platform keys this rule must never apply to. */
   except?: string[];
-  /** X bring-your-own-key: sets byok_status on the account. */
+  /** Bring-your-own-key (X, WhatsApp): sets byok_status on the account. */
   byokStatus?: "invalid" | "out_of_credit";
+  /** Retry-class only: the platform asked for this long before another try (WhatsApp 131049), ms from now. */
+  deferMs?: number;
   test: RegExp;
   kind: PostErrorKind;
   /** `raw` is the adapter's own text, for the few rules that quote part of it (Whop's validation message). */
@@ -103,12 +105,136 @@ const X_BYOK_RULES: Rule[] = [
   },
 ];
 
+// ---- WhatsApp with the customer's own Meta credentials. The adapter reports two fixed codes (platforms/whatsapp/
+// credentials.ts) and nothing from Meta's own text. Both are "fatal"/"reconnect", never "retry" or "ours": a customer's
+// own Meta account failing must not trip the shared per-platform circuit breaker for every other customer, and must
+// never page ops as if LazyRelay were at fault.
+export const WHATSAPP_NOT_SENT_MESSAGE = "WhatsApp sending is not available yet. Nothing was sent to WhatsApp. Remove this post or move it to another platform.";
+
+export const WHATSAPP_BILLING_MESSAGE =
+  "Meta could not charge your WhatsApp Business account: there is no payment method on it, or its credit line is used up. Fix billing in Meta Business Suite, then schedule the post again.";
+export const WHATSAPP_INVALID_TOKEN_MESSAGE =
+  "Meta no longer accepts your WhatsApp access token, or it is missing a permission. Open Social Platforms and update your WhatsApp credentials.";
+/** Meta's 131049 advice is to wait; one day. */
+export const WHATSAPP_DEFER_MS = 24 * 60 * 60_000;
+
+/** A regex for Meta error code(s) `alternatives`, in the shapes a raw error carries them: `code=190`, `"code": 190`,
+ *  `(#190)`. The lookahead stops 10 matching 100, 3 matching 368 and so on. */
+function metaCode(alternatives: string): RegExp {
+  return new RegExp(`(?:\\bcode["']?\\s*[=:]\\s*|\\(#)(?:${alternatives})(?!\\d)`, "i");
+}
+
+const WHATSAPP_RULES: Rule[] = [
+  {
+    platform: "whatsapp",
+    test: /whatsapp_byok_bundle_invalid/i,
+    kind: "reconnect",
+    byokStatus: "invalid",
+    message: () => "This WhatsApp connection does not hold your own Meta credentials. Reconnect WhatsApp with your own Meta credentials in Social Platforms.",
+  },
+  {
+    platform: "whatsapp",
+    test: /whatsapp_send_not_built/i,
+    kind: "fatal",
+    message: () => WHATSAPP_NOT_SENT_MESSAGE,
+  },
+
+  // ---- Meta's own error codes (official WhatsApp Cloud API error page, read 2026-10-10; classify on the NUMBER, never
+  // on Meta's title). Order matters: billing first, then the one deferral, then the specific 132069 retry before the whole
+  // 132000 series, then reconnect, retry and the fatal list. A raw error is read in any of the shapes the code can arrive
+  // in: `code=190`, `"code": 190` (Graph JSON) or `(#190)`. A code that matches nothing here falls through to the generic
+  // rules below, exactly as before.
+  {
+    // 131042: no payment method, or the credit line is used up. Fatal until the customer fixes billing in Meta.
+    platform: "whatsapp",
+    test: metaCode("131042"),
+    kind: "fatal",
+    byokStatus: "out_of_credit",
+    message: () => WHATSAPP_BILLING_MESSAGE,
+  },
+  {
+    // 131049: Meta chose not to deliver, to keep the ecosystem healthy. Meta's advice is to wait; defer a day.
+    platform: "whatsapp",
+    test: metaCode("131049"),
+    kind: "retry",
+    deferMs: WHATSAPP_DEFER_MS,
+    message: () => "Meta chose not to deliver this message right now to keep WhatsApp healthy. LazyRelay will try again in about 24 hours.",
+  },
+  {
+    platform: "whatsapp",
+    test: metaCode("132069"),
+    kind: "retry",
+    message: (p) => `${p} is limiting this template right now. LazyRelay will try again automatically.`,
+  },
+  {
+    // 0 auth exception, 10 permission denied, 190 access token, 200 to 299 permission errors, 131005 access denied.
+    platform: "whatsapp",
+    test: metaCode("0|10|190|2\\d\\d|131005"),
+    kind: "reconnect",
+    byokStatus: "invalid",
+    message: () => WHATSAPP_INVALID_TOKEN_MESSAGE,
+  },
+  {
+    // 80007 and 130429 rate limits, 131056 pair rate limit.
+    platform: "whatsapp",
+    test: metaCode("80007|130429|131056"),
+    kind: "retry",
+    message: (p) => `${p} is limiting requests right now. LazyRelay will try again automatically.`,
+  },
+  {
+    // 131016 service unavailable, 131057 account in maintenance, 133004 server temporarily unavailable, 131000 something went wrong.
+    platform: "whatsapp",
+    test: metaCode("131016|131057|133004|131000"),
+    kind: "retry",
+    message: (p) => `${p} had a temporary problem. LazyRelay will try again automatically.`,
+  },
+  {
+    platform: "whatsapp",
+    test: metaCode("131047"),
+    kind: "fatal",
+    message: () => "WhatsApp only allows free-form messages within 24 hours of the customer's last message. Outside that window an approved message template is needed, so this was not sent.",
+  },
+  {
+    platform: "whatsapp",
+    test: metaCode("131050"),
+    kind: "fatal",
+    message: () => "This person has opted out of messages from your business, so WhatsApp refused it. They must be removed from your sending list.",
+  },
+  {
+    platform: "whatsapp",
+    test: metaCode("131048"),
+    kind: "fatal",
+    message: () => "WhatsApp has limited this number because too many recent messages were reported or blocked. Pause sending from it and check its quality rating in Meta Business Suite.",
+  },
+  {
+    // 131031 account locked or restricted, 368 temporarily blocked for a policy violation.
+    platform: "whatsapp",
+    test: metaCode("131031|368"),
+    kind: "fatal",
+    message: () => "Meta has restricted this WhatsApp Business account. Only Meta can lift that: check Business Support Home in Meta Business Suite.",
+  },
+  {
+    // 3 capability or permissions issue, 100 invalid parameter, 131008/131009 bad parameter, 131021 sender is also the
+    // recipient, 131026 message undeliverable (per recipient), 131037 display name approval needed, 131045 number not
+    // registered, 131051 to 131053 media or message type problems, 132000 series template problems, 133010 number not
+    // registered, 134011 message blocked by policy, 135000 generic user error.
+    platform: "whatsapp",
+    test: metaCode("3|100|131008|131009|131021|131026|131037|131045|13105[123]|132\\d{3}|133010|134011|135000"),
+    kind: "fatal",
+    message: (_p, raw) => {
+      const n = /(?:\bcode["']?\s*[=:]\s*|\(#)(\d+)/i.exec(raw)?.[1];
+      return `WhatsApp refused this message${n ? ` (Meta error ${n})` : ""}. Retrying will not help, so it was not retried. Check the message, the recipient and your WhatsApp setup in Meta Business Suite.`;
+    },
+  },
+];
+
 const RULES: Rule[] = [
   ...X_BYOK_RULES,
+  ...WHATSAPP_RULES,
   // ---- Our side: never the customer's fault ----
   // (Not for X: LazyRelay has no X app, every X credential is the customer's own, so an app-secret error there is theirs.)
   {
-    except: ["x", "x_byok"],
+    except: ["x", "x_byok", "whatsapp"],
     test: /invalid_client|client (key|secret) (or (key|secret) )?(is |are )?(incorrect|invalid)|app secret|unaudited_client_can_only_post_to_private_accounts|url_ownership_unverified|reached_active_user_cap/i,
     kind: "ours",
     message: (p) => `LazyRelay hit a temporary problem connecting to ${p}. We have been alerted and will try again automatically. You don't need to do anything.`,
@@ -384,6 +510,7 @@ export function classifyPostError(platform: string, raw: string): ClassifiedPost
     if (rule.test.test(raw)) {
       const out: ClassifiedPostError = { kind: rule.kind, message: rule.message(label, raw) };
       if (rule.byokStatus) out.byokStatus = rule.byokStatus;
+      if (rule.deferMs) out.retryNotBefore = Date.now() + rule.deferMs;
       if (platform === "x_byok" && rule.kind === "retry") {
         // X says when its rate-limit window resets (x-rate-limit-reset, surfaced by the adapter as reset=<epoch seconds>).
         const reset = /\breset=(\d{9,11})\b/.exec(raw);

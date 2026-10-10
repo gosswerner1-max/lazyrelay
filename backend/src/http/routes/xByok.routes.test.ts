@@ -5,10 +5,13 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import request from "supertest";
 import express from "express";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { tables, vault } from "../../testFakeSupabase.js";
 import { X_TEST_BUNDLE } from "../../platforms/xTestKit.js";
 
-const ctx = vi.hoisted(() => ({ account: "acc1", method: "jwt", selects: [] as string[], rpcCalls: [] as string[] }));
+const ctx = vi.hoisted(() => ({ account: "acc1", method: "jwt", selects: [] as string[], rpcCalls: [] as string[], dbGateError: null as null | { code?: string; message: string } }));
 vi.mock("../auth.js", async () => {
   const f = await import("../../testFakeSupabase.js");
   return {
@@ -42,7 +45,14 @@ vi.mock("../../supabase.js", async () => {
   const f = await import("../../testFakeSupabase.js");
   return {
     supabase: {
-      from: (t: string) => f.makeBuilder(t),
+      from: (t: string) => {
+        const b: any = f.makeBuilder(t);
+        // Tests only: make the next social_accounts write fail the way the 0126 database trigger would.
+        if (t === "social_accounts" && ctx.dbGateError) {
+          b.upsert = () => ({ then: (resolve: (v: unknown) => unknown) => Promise.resolve({ data: null, error: ctx.dbGateError }).then(resolve) });
+        }
+        return b;
+      },
       rpc: (fn: string, args: Record<string, unknown>) => {
         ctx.rpcCalls.push(fn);
         return f.fakeRpc(fn, args);
@@ -56,7 +66,9 @@ const { buildSocialAccountsRouter } = await import("./socialAccounts.routes.js")
 const { registerXByokRoutes, X_BYOK_FAILED_VALIDATIONS_PER_DAY, xByokJsonParser } = await import("./xByok.routes.js");
 const { XAdapter } = await import("../../platforms/x.js");
 const { parseXBundle } = await import("../../platforms/xByok.js");
-const { TIER_DISPLAY_NAMES } = await import("../../tier.js");
+const { TIER_DISPLAY_NAMES, X_BYOK_ALLOWED_TIERS, X_BYOK_REQUIRED_PLAN_NAME } = await import("../../tier.js");
+const { isXByokPlanGateError, X_BYOK_DB_GATE_CODE, X_BYOK_DB_GATE_MESSAGE } = await import("../../accountLimits.js");
+const { X_BYOK_PLAN_MESSAGE } = await import("./xByok.routes.js");
 import type { Tier } from "../../tier.js";
 
 const KEYS = { apiKey: X_TEST_BUNDLE.apiKey, apiSecret: X_TEST_BUNDLE.apiSecret, accessToken: X_TEST_BUNDLE.accessToken, accessTokenSecret: X_TEST_BUNDLE.accessTokenSecret };
@@ -103,6 +115,7 @@ beforeEach(() => {
   ctx.method = "jwt";
   ctx.selects = [];
   ctx.rpcCalls = [];
+  ctx.dbGateError = null;
   xCalls = 0;
   xReply = meOk();
   process.env.X_BYOK_PLATFORM_PUBLIC = "true";
@@ -476,5 +489,95 @@ describe("no response, row or log ever contains key material", () => {
     await run(() => request(appWith()).get("/platforms"));
     expect(outputs.some((t) => leaks(t as string))).toBe(false);
     expect(leaks(errorLog)).toBe(false);
+  });
+});
+
+describe("migration 0126 (database plan gate for X own keys) and the route's handling of it", () => {
+  const sql = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../../supabase/migrations/0126_x_byok_plan_gate_trigger.sql"), "utf8");
+  const code = sql.split(/\r?\n/).filter((l) => !l.trim().startsWith("--")).join("\n");
+  const listOf = (re: RegExp) => (re.exec(code)?.[1] ?? "").split(",").map((s) => s.trim().replace(/'/g, "")).sort();
+
+  it("the tier list in the SQL equals X_BYOK_ALLOWED_TIERS in tier.ts", () => {
+    expect(code).toMatch(/v_tier in \(([^)]*)\)/);
+    expect(listOf(/v_tier in \(([^)]*)\)/)).toEqual([...X_BYOK_ALLOWED_TIERS].sort());
+  });
+
+  it("only active and trialing count, as in resolveTier", () => {
+    expect(listOf(/v_status in \(([^)]*)\)/)).toEqual(["active", "trialing"]);
+  });
+
+  it("is a SECURITY DEFINER trigger function with a pinned search_path, EXECUTE revoked, one transaction, own names", () => {
+    expect(code).toMatch(/security definer/);
+    expect(code).toMatch(/set search_path = public, pg_temp/);
+    expect(code).toMatch(/revoke execute on function public\.enforce_x_byok_plan_gate\(\) from public, anon, authenticated/);
+    expect(code).toMatch(/before insert or update on public\.social_accounts/);
+    expect(code).toMatch(/^begin;/m);
+    expect(code).toMatch(/^commit;/m);
+    expect(sql).toMatch(/-- ROLLBACK/);
+    expect(code).not.toMatch(/enforce_whatsapp_plan_gate|social_accounts_whatsapp_plan_gate/); // the WhatsApp trigger is untouched
+  });
+
+  it("raises the distinctive code and message the backend maps", () => {
+    expect(code).toContain("'x own keys requires the Pro plan or above'");
+    expect(code).toContain("errcode = 'LRXB1'");
+    expect(X_BYOK_DB_GATE_CODE).toBe("LRXB1");
+    expect(X_BYOK_DB_GATE_MESSAGE).toBe("x own keys requires the Pro plan or above");
+  });
+
+  it("isXByokPlanGateError matches the code or the message, and nothing else", () => {
+    expect(isXByokPlanGateError({ code: "LRXB1", message: "x" })).toBe(true);
+    expect(isXByokPlanGateError({ message: "x own keys requires the Pro plan or above" })).toBe(true);
+    expect(isXByokPlanGateError({ code: "LRWA1", message: "whatsapp requires the Business plan or above" })).toBe(false);
+    expect(isXByokPlanGateError({ code: "23505", message: "duplicate key" })).toBe(false);
+    expect(isXByokPlanGateError(null)).toBe(false);
+  });
+
+  it("when the database trigger refuses the row, the save route answers the SAME 403 plan answer as its own gate", async () => {
+    ctx.dbGateError = { code: "LRXB1", message: X_BYOK_DB_GATE_MESSAGE };
+    const r = await request(appWith()).post("/social-accounts/x/byok").send(BODY);
+    expect(r.status).toBe(403);
+    expect(r.body).toEqual({ error: X_BYOK_PLAN_MESSAGE, requiresPlan: X_BYOK_REQUIRED_PLAN_NAME });
+    // identical to what the application gate answers for a Free account
+    ctx.dbGateError = null;
+    setTier("free");
+    const app = await request(appWith()).post("/social-accounts/x/byok").send(BODY);
+    expect(app.status).toBe(r.status);
+    expect(app.body).toEqual(r.body);
+  });
+
+  it("a refused save stores no row and overwrites the just-stored Vault login", async () => {
+    ctx.dbGateError = { code: "LRXB1", message: X_BYOK_DB_GATE_MESSAGE };
+    const r = await request(appWith()).post("/social-accounts/x/byok").send(BODY);
+    expect(r.status).toBe(403);
+    expect(ctx.rpcCalls.filter((f) => f === "store_social_token")).toHaveLength(1);
+    expect(tables.social_accounts).toHaveLength(0);
+    expect([...vault.values()].some((v) => leaks(v))).toBe(false);
+    expect(leaks([r.body, errorLog])).toBe(false);
+  });
+
+  it("the message alone (code dropped by a client layer) is mapped too", async () => {
+    ctx.dbGateError = { message: X_BYOK_DB_GATE_MESSAGE };
+    const r = await request(appWith()).post("/social-accounts/x/byok").send(BODY);
+    expect(r.status).toBe(403);
+  });
+
+  it("any other database error is still a generic 500", async () => {
+    ctx.dbGateError = { code: "23505", message: "duplicate key value violates unique constraint" };
+    const r = await request(appWith()).post("/social-accounts/x/byok").send(BODY);
+    expect(r.status).toBe(500);
+    expect(r.body.error).toBe("Could not save your keys. Please try again.");
+  });
+
+  it("the WhatsApp gate error is not mistaken for the X one (500, not the X plan message)", async () => {
+    ctx.dbGateError = { code: "LRWA1", message: "whatsapp requires the Business plan or above" };
+    const r = await request(appWith()).post("/social-accounts/x/byok").send(BODY);
+    expect(r.status).toBe(500);
+  });
+
+  it("the check route writes nothing, so there is no row for the trigger to refuse", async () => {
+    ctx.dbGateError = { code: "LRXB1", message: X_BYOK_DB_GATE_MESSAGE };
+    const r = await request(appWith()).post("/social-accounts/x/byok/check").send(KEYS);
+    expect(r.status).toBe(200);
+    expect(ctx.rpcCalls).toEqual([]);
   });
 });
