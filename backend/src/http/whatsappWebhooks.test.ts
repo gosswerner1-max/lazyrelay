@@ -5,6 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import request from "supertest";
+import express from "express";
 import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -35,7 +36,7 @@ vi.mock("./rateLimit.js", async (importOriginal) => {
 const { supabase } = await import("../supabase.js");
 const { buildApp } = await import("./app.js");
 const { StubMorAdapter } = await import("../billing/stub.js");
-const { extractWhatsAppTextMessages, whatsAppWebhookIdle, NO_APP_SECRET_LOG_LINE, WHATSAPP_TRIAGE_DAILY_CAP, resetWhatsAppTriageCap } = await import("./whatsappWebhooks.js");
+const { buildWhatsAppWebhookLimits, WHATSAPP_WEBHOOK_MAX_BYTES, handleWhatsAppWebhookEvent: rawHandler, extractWhatsAppTextMessages, whatsAppWebhookIdle, NO_APP_SECRET_LOG_LINE, WHATSAPP_TRIAGE_DAILY_CAP, resetWhatsAppTriageCap } = await import("./whatsappWebhooks.js");
 const { serializeWhatsAppBundle } = await import("../platforms/whatsapp/credentials.js");
 
 // Fake values that merely look the right shape. None is a real credential.
@@ -298,11 +299,14 @@ describe("POST /api/webhooks/whatsapp: the connection's own app secret is the ga
     expect(stored()).toHaveLength(0);
   });
 
-  it("an oversized body is refused before it is parsed", async () => {
-    const body = JSON.stringify({ object: "whatsapp_business_account", pad: "x".repeat(1_100_000) });
-    const r = await send(body);
-    expect(r.status).toBeGreaterThanOrEqual(400);
+  it("an oversized body (over Meta's documented 3 MB) is refused before it is parsed; one just under it is accepted", async () => {
+    expect(WHATSAPP_WEBHOOK_MAX_BYTES).toBe(3 * 1024 * 1024);
+    const big = JSON.stringify({ object: "whatsapp_business_account", pad: "x".repeat(WHATSAPP_WEBHOOK_MAX_BYTES + 10) });
+    const r = await send(big);
+    expect(r.status).toBe(413);
     expect(stored()).toHaveLength(0);
+    const ok = JSON.stringify({ object: "whatsapp_business_account", entry: [], pad: "x".repeat(2_500_000) });
+    expect((await send(ok)).status).toBe(200);
   });
 
   it("the route sits before the dashboard's authenticated router and the CORS policy, in app.ts", () => {
@@ -313,7 +317,45 @@ describe("POST /api/webhooks/whatsapp: the connection's own app secret is the ga
     expect(at).toBeGreaterThan(0);
     expect(at).toBeLessThan(src.indexOf('app.use("/api", buildRouter('));
     expect(at).toBeLessThan(src.indexOf("allowedOrigins") > 0 ? src.indexOf("allowedOrigins") : src.indexOf("cors("));
-    expect(src).toMatch(/"\/api\/webhooks\/whatsapp",\s+publicRateLimit,\s+express\.raw\(\{ type: "application\/json", limit: "1mb" \}\)/);
+    expect(src).toMatch(/\.\.\.buildWhatsAppWebhookLimits\(\),\s+express\.raw\(\{ type: "application\/json", limit: WHATSAPP_WEBHOOK_MAX_BYTES \}\)/);
+  });
+});
+
+describe("route limits: generous for Meta's bursts, firm against a flood", () => {
+  it("a burst of 100 valid deliveries through the real app is not throttled", async () => {
+    const bodies = Array.from({ length: 100 }, (_, i) => delivery({ messages: [{ id: `wamid.BURST${i}`, timestamp: AT + i }] }));
+    const results = await Promise.all(bodies.map((b) => send(b)));
+    expect(results.map((r) => r.status)).toEqual(Array(100).fill(200));
+    await whatsAppWebhookIdle();
+  });
+
+  it("the limiter used is not the 30 a minute public one", () => {
+    const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "whatsappWebhooks.ts"), "utf8");
+    expect(src).toMatch(/WHATSAPP_WEBHOOK_PER_IP_PER_MINUTE = 600/);
+    expect(src).toMatch(/WHATSAPP_WEBHOOK_GLOBAL_PER_MINUTE = 6000/);
+  });
+
+  it("a flood past the per-IP ceiling gets 429, and the global ceiling stops all callers together", async () => {
+    const mini = (opts: { perIp?: number; global?: number }) => {
+      const a = express();
+      a.set("trust proxy", true);
+      a.post("/hook", ...buildWhatsAppWebhookLimits(opts), express.raw({ type: "application/json", limit: WHATSAPP_WEBHOOK_MAX_BYTES }), rawHandler);
+      return a;
+    };
+    const flood = mini({ perIp: 20, global: 1000 });
+    const codes: number[] = [];
+    for (let i = 0; i < 30; i++) codes.push((await request(flood).post("/hook").set("Content-Type", "application/json").send("{}")).status);
+    expect(codes.slice(0, 20).every((c) => c === 200)).toBe(true);
+    expect(codes.slice(20).every((c) => c === 429)).toBe(true);
+    // another source address is still served under the per-IP ceiling...
+    expect((await request(flood).post("/hook").set("X-Forwarded-For", "203.0.113.9").set("Content-Type", "application/json").send("{}")).status).toBe(200);
+    // ...until the global ceiling is hit
+    const global = mini({ perIp: 1000, global: 10 });
+    const g: number[] = [];
+    for (let i = 0; i < 14; i++) g.push((await request(global).post("/hook").set("X-Forwarded-For", `203.0.113.${i}`).set("Content-Type", "application/json").send("{}")).status);
+    expect(g.slice(0, 10).every((c) => c === 200)).toBe(true);
+    expect(g.slice(10).every((c) => c === 429)).toBe(true);
+    await whatsAppWebhookIdle();
   });
 });
 

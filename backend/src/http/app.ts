@@ -9,7 +9,7 @@ import { xByokJsonParser } from "./routes/xByok.routes.js";
 import { whatsappByokJsonParser } from "./routes/whatsappByok.routes.js";
 import { buildWebhookHandler } from "./webhook.js";
 import { handleMetaWebhookVerification, handleMetaWebhookEvent } from "./metaWebhook.js";
-import { verifyWhatsAppWebhook, handleWhatsAppWebhookEvent } from "./whatsappWebhooks.js";
+import { verifyWhatsAppWebhook, handleWhatsAppWebhookEvent, buildWhatsAppWebhookLimits, WHATSAPP_WEBHOOK_MAX_BYTES } from "./whatsappWebhooks.js";
 import { handleSignupWebhook } from "./signupWebhook.js";
 import { publicRateLimit } from "./rateLimit.js";
 import { mountMcp } from "./mcpRoutes.js";
@@ -123,8 +123,9 @@ export function buildApp(
   app.get("/api/webhooks/whatsapp", publicRateLimit, verifyWhatsAppWebhook);
   app.post(
     "/api/webhooks/whatsapp",
-    publicRateLimit,
-    express.raw({ type: "application/json", limit: "1mb" }),
+    // Not publicRateLimit (30 a minute): Meta bursts and retries. Oversize guard, global ceiling, generous per-IP ceiling.
+    ...buildWhatsAppWebhookLimits(),
+    express.raw({ type: "application/json", limit: WHATSAPP_WEBHOOK_MAX_BYTES }),
     handleWhatsAppWebhookEvent,
   );
 

@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
+import rateLimit from "express-rate-limit";
 import { supabase } from "../supabase.js";
 import { triageItems, sanitizeUntrustedMessage, type TriageItem } from "../commentTriage.js";
 import { checkWhatsappPlan } from "../accountLimits.js";
@@ -390,4 +391,38 @@ async function storeAndTriage(account: WhatsAppAccountRow, group: WhatsAppTextMe
     }
   }
   return written;
+}
+
+// ---------------------------------------------------------------- route limits
+
+/** Meta documents webhook payloads of up to 3 MB (developers.facebook.com, WhatsApp Cloud API, "Set up webhooks":
+ *  "Webhook payloads can be up to 3 MB"). Checked 2026-10-10. */
+export const WHATSAPP_WEBHOOK_MAX_BYTES = 3 * 1024 * 1024;
+/** Meta can burst (it retries a failing endpoint for days and batches deliveries), so this is far more generous than the
+ *  30 a minute publicRateLimit gives the other public endpoints. Per source IP, and one ceiling for all callers together. */
+export const WHATSAPP_WEBHOOK_PER_IP_PER_MINUTE = 600;
+export const WHATSAPP_WEBHOOK_GLOBAL_PER_MINUTE = 6000;
+
+/** Cheapest check first: a declared size over the ceiling is refused before any body is read or parsed. (express.raw
+ *  enforces the same limit on the bytes actually sent, which covers a lying or missing Content-Length.) */
+export function rejectOversizeWebhook(req: Request, res: Response, next: NextFunction): void {
+  const declared = Number(req.header("content-length"));
+  if (Number.isFinite(declared) && declared > WHATSAPP_WEBHOOK_MAX_BYTES) {
+    res.status(413).end();
+    return;
+  }
+  next();
+}
+
+/** The middleware chain for POST, in order: oversize guard, a global ceiling, a per-IP ceiling. Built per call so tests
+ *  can use small numbers and each app instance has its own counters. */
+export function buildWhatsAppWebhookLimits(opts: { perIp?: number; global?: number } = {}) {
+  const tooMany = (_req: Request, res: Response) => {
+    recordSecurityEvent("rate_limited", "WhatsApp webhook request rate ceiling reached");
+    res.status(429).end();
+  };
+  const common = { windowMs: 60_000, standardHeaders: false, legacyHeaders: false, handler: tooMany, validate: false } as const;
+  const globalCeiling = rateLimit({ ...common, max: opts.global ?? WHATSAPP_WEBHOOK_GLOBAL_PER_MINUTE, keyGenerator: () => "whatsapp-webhook-global" });
+  const perIp = rateLimit({ ...common, max: opts.perIp ?? WHATSAPP_WEBHOOK_PER_IP_PER_MINUTE, keyGenerator: (req: Request) => req.ip ?? "unknown" });
+  return [rejectOversizeWebhook, globalCeiling, perIp];
 }
