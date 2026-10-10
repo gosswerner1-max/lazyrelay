@@ -382,6 +382,51 @@
   border-color: var(--byok-error);
 }
 
+/* Webhook details: the steps and the two copy fields. */
+.byok-panels .byok-webhook {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  background: rgba(11, 15, 25, 0.6);
+  border: 1px solid var(--byok-edge);
+  border-radius: 10px;
+  min-width: 0;
+}
+
+.byok-panels .byok-webhook__title {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--byok-ink);
+}
+
+.byok-panels .byok-steps {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.82rem;
+}
+
+.byok-panels .byok-steps code {
+  padding: 0 0.3rem;
+  background: rgba(255, 86, 48, 0.14);
+  border: 1px solid var(--byok-edge);
+  border-radius: 5px;
+  color: var(--byok-ink);
+  font-size: 0.8rem;
+}
+
+.byok-panels .byok-field input[readonly] {
+  text-overflow: ellipsis;
+}
+
+.byok-panels .byok-copy__live {
+  min-height: 1.1em;
+  color: var(--byok-ok);
+  font-weight: 400;
+  font-size: 0.8rem;
+}
+
 /* Reduced motion: no transitions, no lift and no hover glow (the border colour change still shows the hover). */
 @media (prefers-reduced-motion: reduce) {
   .byok-panels .byok-card,

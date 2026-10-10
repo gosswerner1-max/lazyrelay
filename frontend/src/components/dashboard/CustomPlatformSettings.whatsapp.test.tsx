@@ -185,3 +185,69 @@ describe("inbound status chips", () => {
     expect(api.getWhatsAppMessages).not.toHaveBeenCalled();
   });
 });
+
+describe("webhook details", () => {
+  it("shows the live callback URL and the verify token with the plain steps, and the one calm sentence about the token", async () => {
+    render(<CustomPlatformSettings platforms={[WA_OK]} />);
+    const url = (await screen.findByLabelText("Callback URL")) as HTMLInputElement;
+    expect(url.value).toBe(INFO.webhookUrl);
+    expect(url.readOnly).toBe(true);
+    expect((screen.getByLabelText("Verify token") as HTMLInputElement).value).toBe(INFO.verifyToken);
+    expect(screen.getByText(/WhatsApp, then Configuration/)).toBeInTheDocument();
+    expect(screen.getByText("messages")).toBeInTheDocument();
+    const note = screen.getByText(/same shared handshake string for everyone/);
+    expect(note.textContent).toMatch(/cannot send or read any message/);
+    expect(note.textContent).toMatch(/your own App Secret/);
+    expect(note.textContent?.toLowerCase()).not.toContain("password");
+  });
+
+  it("each Copy button copies its own value and announces Copied in a polite live region", async () => {
+    const user = userEvent.setup();
+    render(<CustomPlatformSettings platforms={[WA_OK]} />);
+    await screen.findByLabelText("Callback URL");
+    await user.click(screen.getByRole("button", { name: "Copy Callback URL" }));
+    expect(await navigator.clipboard.readText()).toBe(INFO.webhookUrl);
+    const live = screen.getAllByRole("status").filter((el) => el.getAttribute("aria-live") === "polite");
+    expect(live.some((el) => el.textContent === "Copied")).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Copy Verify token" }));
+    expect(await navigator.clipboard.readText()).toBe(INFO.verifyToken);
+  });
+
+  it("falls back to selecting the text when the clipboard API is missing, and says what to do if even that fails", async () => {
+    const user = userEvent.setup();
+    render(<CustomPlatformSettings platforms={[WA_OK]} />);
+    await screen.findByLabelText("Callback URL");
+    Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true });
+    const exec = vi.fn(() => true);
+    Object.defineProperty(document, "execCommand", { value: exec, configurable: true });
+    await user.click(screen.getByRole("button", { name: "Copy Callback URL" }));
+    expect(exec).toHaveBeenCalledWith("copy");
+    await waitFor(() => expect(screen.getAllByRole("status").some((el) => el.textContent === "Copied")).toBe(true));
+    exec.mockReturnValue(false);
+    await user.click(screen.getByRole("button", { name: "Copy Verify token" }));
+    await waitFor(() => expect(screen.getByText(/Could not copy automatically/)).toBeInTheDocument());
+  });
+
+  it("an unset verify token shows the not-configured message and no token field or Copy button for it", async () => {
+    api.getWhatsAppWebhookInfo.mockResolvedValue({ ...INFO, verifyToken: null, verifyTokenConfigured: false });
+    render(<CustomPlatformSettings platforms={[WA_OK]} />);
+    expect(await screen.findByText("The verify token is not configured yet. Ask support and they will set it up.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Verify token")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Copy Verify token" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy Callback URL" })).toBeInTheDocument();
+  });
+
+  it("a failed load says so calmly and shows no URL or token", async () => {
+    api.getWhatsAppWebhookInfo.mockRejectedValue(new Error("Request failed: 500"));
+    render(<CustomPlatformSettings platforms={[WA_OK]} />);
+    expect(await screen.findByText(/webhook details could not be loaded/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Callback URL")).not.toBeInTheDocument();
+  });
+
+  it("never prints the App Secret or the system user token anywhere in the details", async () => {
+    const { container } = render(<CustomPlatformSettings platforms={[WA_OK]} />);
+    await screen.findByLabelText("Callback URL");
+    expect(container.innerHTML).not.toContain(FAKE_SECRET);
+    expect(container.innerHTML).not.toContain(FAKE_WA.systemUserToken);
+  });
+});

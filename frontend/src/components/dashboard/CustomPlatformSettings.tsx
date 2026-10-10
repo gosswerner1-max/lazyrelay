@@ -11,6 +11,7 @@ import {
   type WhatsAppFields,
 } from "../../lib/whatsappByok";
 import { WhatsAppInboundStatus } from "./WhatsAppInboundStatus";
+import { WhatsAppWebhookDetails } from "./WhatsAppWebhookDetails";
 import { useWhatsAppWebhookInfo } from "./useWhatsAppWebhookInfo";
 import "../../styles/byok-panels.css";
 
@@ -376,6 +377,7 @@ function WhatsAppCard({ info, onConnected, onSeePlans }: CardProps) {
         </p>
         <p className="byok-card__hint">The token and App Secret are stored encrypted and are never shown again. You can remove them any time.</p>
         <WhatsAppInboundStatus state={webhookInfo} />
+        <WhatsAppWebhookDetails state={webhookInfo} />
         <label className="byok-consent">
           <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
           <span>{WHATSAPP_BYOK_CONSENT_TEXT}</span>
