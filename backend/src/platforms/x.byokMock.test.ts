@@ -290,7 +290,7 @@ describe("(d) every request carries a well-formed OAuth 1.0a Authorization heade
       expect(HEADER.test(s.auth)).toBe(true);
       expect(field(s.auth, "oauth_consumer_key") === X_TEST_BUNDLE.apiKey).toBe(true);
       expect(field(s.auth, "oauth_token") === X_TEST_BUNDLE.accessToken).toBe(true);
-      expect(leaksSecret(s.auth)).toBe(false); // the two secrets are never sent, only used to sign
+      expect(s.auth.includes(X_TEST_BUNDLE.apiSecret) || s.auth.includes(X_TEST_BUNDLE.accessTokenSecret)).toBe(false); // the two secrets are never sent, only used to sign
       expect(/^Bearer/i.test(s.auth)).toBe(false);
       nonces.add(field(s.auth, "oauth_nonce"));
     }
