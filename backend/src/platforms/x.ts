@@ -1,269 +1,133 @@
-import { randomBytes, createHash } from "node:crypto";
-import { supabase } from "../supabase.js";
+// X (Twitter), "bring your own key" only (Werner, 2026-10-10). LazyRelay has no X app of its own: the customer creates
+// an X developer app, pays X for its use, and pastes the four OAuth 1.0a values (API Key, API Secret, Access Token,
+// Access Token Secret). They are stored as ONE JSON string in the connection's Vault secret (see xByok.ts) and arrive
+// here as the "access token" string on every call. Each call parses that bundle and signs its own request
+// (RFC 5849 HMAC-SHA1, oauth1.ts); nothing is cached, logged or put in an error.
+//
+// There is no OAuth redirect, no refresh and no corporate X credential: getAuthorizeUrl and exchangeCode exist only
+// because the PlatformAdapter interface requires them, and the connection is made through POST
+// /social-accounts/x/byok (http/routes/xByok.routes.ts). A connection whose stored login is not a valid bundle fails
+// with the fixed "does not use your own keys" reason (postErrors.ts) instead of sending anything to X.
+
 import { fetchMediaForStreaming } from "./streamUpload.js";
-import type {
-  PlatformAdapter,
-  PostRequest,
-  PostAttemptResult,
-  VerifyResult,
-  OAuthExchangeResult,
-  PostMetrics,
-} from "./types.js";
+import type { PlatformAdapter, PostRequest, PostAttemptResult, VerifyResult, OAuthExchangeResult, PostMetrics } from "./types.js";
+import { createXSignedFetch, describeXFailure, readJson, X_API_BASE, type XSignedFetch } from "./xApi.js";
+import { createXMediaUploader, X_MEDIA_FLOW, type XMediaFlow, type XMediaUploaderOptions } from "./xMedia.js";
+import { parseXBundle, X_BUNDLE_INVALID_CODE, type XByokBundle } from "./xByok.js";
 
-// X's OAuth 2.0 Authorization Code flow is PKCE-only — even a confidential
-// (client-secret-holding) app must send a code_challenge, unlike every other
-// adapter in this codebase. The verifier is generated here and stashed on
-// the oauth_states row (see 0121_x_platform_pkce_verifier.sql) since getAuthorizeUrl only
-// returns a URL, not a value connect.ts could hold onto itself.
-const AUTHORIZE_URL = "https://twitter.com/i/oauth2/authorize";
-const TOKEN_URL = "https://api.twitter.com/2/oauth2/token";
-const TWEETS_URL = "https://api.twitter.com/2/tweets";
-const ME_URL = "https://api.twitter.com/2/users/me";
-const MEDIA_UPLOAD_URL = "https://upload.twitter.com/1.1/media/upload.json";
+const TWEETS_URL = `${X_API_BASE}/2/tweets`;
+const ME_URL = `${X_API_BASE}/2/users/me`;
 
-const SCOPES = "tweet.read tweet.write users.read offline.access";
+const CONNECT_ELSEWHERE = "X is connected with your own developer keys from Social Platforms, not through a sign-in redirect.";
 
-function base64url(input: Buffer): string {
-  return input.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-interface XTokenResponse {
-  access_token?: string;
-  refresh_token?: string;
-  expires_in?: number;
-  error?: string;
-  error_description?: string;
-}
-
-interface XUserResponse {
-  data?: { id?: string; username?: string };
-  errors?: { message?: string }[];
-}
+export type XKeyCheck =
+  | { ok: true; id: string; username: string; name: string | null }
+  | { ok: false; reason: "invalid" | "out_of_credit" | "forbidden" | "rate_limited" | "unreachable" };
 
 interface XTweetResponse {
   data?: { id?: string; text?: string };
-  errors?: { message?: string }[];
 }
-
+interface XUserResponse {
+  data?: { id?: string; username?: string; name?: string };
+}
 interface XTweetMetricsResponse {
   data?: {
     id?: string;
     public_metrics?: { like_count?: number; reply_count?: number; retweet_count?: number; impression_count?: number };
   };
-  errors?: { message?: string }[];
 }
 
-interface XMediaUploadResponse {
-  media_id_string?: string;
-  errors?: { message?: string }[];
-  processing_info?: { state?: string; check_after_secs?: number; progress_percent?: number };
+export interface XAdapterOptions {
+  /** Which media flow to use. Defaults to the X_MEDIA_FLOW constant in xMedia.ts. */
+  mediaFlow?: XMediaFlow;
+  /** Passed to the media uploader (tests use an instant sleep). */
+  media?: Pick<XMediaUploaderOptions, "sleep">;
 }
-
-// Video/GIF uploads don't finish processing at FINALIZE -- X's own docs say
-// a FINALIZE response carrying a `processing_info` field means the caller
-// must poll `command: STATUS` until `state` reaches "succeeded" before the
-// media_id can be attached to a tweet; using it before then fails outright.
-// Same bug class as the 2026-09-23 Mastodon fix, found the same day by
-// auditing every adapter for this exact pattern.
-const MEDIA_PROCESSING_TIMEOUT_MS = 60_000;
-const MEDIA_PROCESSING_POLL_MS = 3_000;
 
 export class XAdapter implements PlatformAdapter {
   readonly platform: "x" = "x";
+  readonly byok = true;
+  /** The customer typed the account themselves: there is nothing to confirm after the keys check out. */
+  readonly skipConnectConfirmation = true;
 
-  constructor(
-    private readonly clientId: string,
-    private readonly clientSecret: string,
-    private readonly redirectUri: string,
-  ) {}
+  constructor(private readonly options: XAdapterOptions = {}) {}
 
-  async getAuthorizeUrl(state: string): Promise<string> {
-    const verifier = base64url(randomBytes(32));
-    const challenge = base64url(createHash("sha256").update(verifier).digest());
-
-    // state is already a real oauth_states row id (created by
-    // connect.ts before this is called) — updating it in place is safe,
-    // there's no race with the row's own creation.
-    const { error } = await supabase.from("oauth_states").update({ pkce_verifier: verifier }).eq("id", state);
-    if (error) throw error;
-
-    const params = new URLSearchParams({
-      response_type: "code",
-      client_id: this.clientId,
-      redirect_uri: this.redirectUri,
-      scope: SCOPES,
-      state,
-      code_challenge: challenge,
-      code_challenge_method: "S256",
-    });
-    return `${AUTHORIZE_URL}?${params.toString()}`;
+  async getAuthorizeUrl(): Promise<string> {
+    throw new Error(CONNECT_ELSEWHERE);
   }
 
-  async exchangeCode(code: string, pkceVerifier?: string): Promise<OAuthExchangeResult> {
-    if (!pkceVerifier) {
-      throw new Error("X connect flow lost its PKCE verifier — please try connecting again");
-    }
+  async exchangeCode(): Promise<OAuthExchangeResult> {
+    throw new Error(CONNECT_ELSEWHERE);
+  }
 
-    const basicAuth = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString("base64");
-    const body = new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: this.redirectUri,
-      code_verifier: pkceVerifier,
-    });
+  private signedFor(bundle: XByokBundle): XSignedFetch {
+    return createXSignedFetch(bundle);
+  }
 
-    const res = await fetch(TOKEN_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${basicAuth}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: body.toString(),
-    });
-    const json = (await res.json()) as XTokenResponse;
-    if (!res.ok || !json.access_token) {
-      throw new Error(json.error_description ?? json.error ?? "X token exchange failed");
-    }
-
-    let displayName: string | null = null;
-    let platformAccountId = "unknown";
+  /** Proves all four values with a signed GET /2/users/me and returns the account they belong to. Used by the keys
+   *  route; the result never carries X's body or any value. */
+  async verifyKeys(bundle: XByokBundle): Promise<XKeyCheck> {
+    let res: Response;
     try {
-      const meRes = await fetch(ME_URL, { headers: { Authorization: `Bearer ${json.access_token}` } });
-      const meJson = (await meRes.json()) as XUserResponse;
-      if (meJson.data?.id) {
-        platformAccountId = meJson.data.id;
-        displayName = meJson.data.username ?? null;
-      }
+      res = await this.signedFor(bundle)({ method: "GET", url: ME_URL });
     } catch {
-      // Best-effort — non-fatal, same pattern as every other adapter's
-      // display-name lookup.
+      return { ok: false, reason: "unreachable" };
     }
-
-    return {
-      accessToken: json.access_token,
-      refreshToken: json.refresh_token ?? null,
-      expiresAt: json.expires_in ? new Date(Date.now() + json.expires_in * 1000).toISOString() : null,
-      platformAccountId,
-      displayName,
-    };
+    const json = (await readJson(res)) as XUserResponse | null;
+    if (res.ok && json?.data?.id && json.data.username) {
+      return { ok: true, id: json.data.id, username: json.data.username, name: json.data.name ?? null };
+    }
+    const text = describeXFailure(res, json, bundle);
+    if (res.status === 402 || /credit|usage-capped|spending limit/i.test(text)) return { ok: false, reason: "out_of_credit" };
+    if (res.status === 401) return { ok: false, reason: "invalid" };
+    if (res.status === 403) return { ok: false, reason: "forbidden" };
+    if (res.status === 429) return { ok: false, reason: "rate_limited" };
+    return { ok: false, reason: res.status >= 500 ? "unreachable" : "invalid" };
   }
 
-  // v1.1 chunked media upload — the only media-upload endpoint X exposes;
-  // there is still no v2 equivalent. Confirmed live in X's own docs that
-  // this endpoint accepts an OAuth 2.0 user-context Bearer token, not just
-  // OAuth 1.0a, despite living under the legacy /1.1/ path.
-  private async uploadMedia(mediaUrl: string, accessToken: string): Promise<string | null> {
-    // SECURITY FIX (2026-09-14): this used a bare fetch() with only the
-    // redirect guard, never re-checking isSafeMediaUrl at the actual
-    // fetch point the way every other adapter does via
-    // fetchMediaForStreaming -- x.ts predates the 2026-09-05 streaming
-    // refactor and was missed. Still buffers into memory here (X's v1.1
-    // chunked-upload protocol needs an upfront total_bytes count, same
-    // constraint streamUpload.ts's own comment notes for Pinterest), so
-    // this only closes the SSRF gap, not the separate memory-scaling one.
+  private async uploadMedia(mediaUrl: string, bundle: XByokBundle): Promise<{ mediaId: string } | { error: string }> {
+    // fetchMediaForStreaming re-checks the URL (SSRF guard) at the fetch point, like every other adapter. The whole
+    // file is buffered because chunked upload needs the total size up front.
     const media = await fetchMediaForStreaming(mediaUrl);
-    if (!media) return null;
-    const buffer = Buffer.from(await new Response(media.body).arrayBuffer());
-    const mimeType = media.contentType;
-    const authHeader = { Authorization: `Bearer ${accessToken}` };
-
-    const initParams = new URLSearchParams({
-      command: "INIT",
-      total_bytes: String(buffer.length),
-      media_type: mimeType,
-    });
-    const initRes = await fetch(`${MEDIA_UPLOAD_URL}?${initParams.toString()}`, {
-      method: "POST",
-      headers: authHeader,
-    });
-    const initJson = (await initRes.json()) as XMediaUploadResponse;
-    if (!initRes.ok || !initJson.media_id_string) return null;
-    const mediaId = initJson.media_id_string;
-
-    const form = new FormData();
-    form.append("command", "APPEND");
-    form.append("media_id", mediaId);
-    form.append("segment_index", "0");
-    form.append("media", new Blob([buffer]));
-    const appendRes = await fetch(MEDIA_UPLOAD_URL, { method: "POST", headers: authHeader, body: form });
-    if (!appendRes.ok) return null;
-
-    const finalizeParams = new URLSearchParams({ command: "FINALIZE", media_id: mediaId });
-    const finalizeRes = await fetch(`${MEDIA_UPLOAD_URL}?${finalizeParams.toString()}`, {
-      method: "POST",
-      headers: authHeader,
-    });
-    if (!finalizeRes.ok) return null;
-    const finalizeJson = (await finalizeRes.json()) as XMediaUploadResponse;
-
-    if (finalizeJson.processing_info) {
-      const ready = await this.waitForMediaReady(mediaId, authHeader);
-      if (!ready) return null;
-    }
-
-    return mediaId;
-  }
-
-  private async waitForMediaReady(mediaId: string, authHeader: Record<string, string>): Promise<boolean> {
-    const deadline = Date.now() + MEDIA_PROCESSING_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, MEDIA_PROCESSING_POLL_MS));
-      const statusParams = new URLSearchParams({ command: "STATUS", media_id: mediaId });
-      const res = await fetch(`${MEDIA_UPLOAD_URL}?${statusParams.toString()}`, { headers: authHeader });
-      if (!res.ok) return false;
-      const json = (await res.json()) as XMediaUploadResponse;
-      const state = json.processing_info?.state;
-      if (state === "succeeded") return true;
-      if (state === "failed") return false;
-      // "pending" / "in_progress" -- keep polling.
-    }
-    return false;
+    if (!media) return { error: `Could not upload media from ${mediaUrl}` };
+    const bytes = Buffer.from(await new Response(media.body).arrayBuffer());
+    const uploader = createXMediaUploader(this.options.mediaFlow ?? X_MEDIA_FLOW, bundle, this.options.media);
+    const result = await uploader.upload({ bytes, mimeType: media.contentType });
+    if (!result.ok) return { error: `Could not upload media from ${mediaUrl}: ${result.errorMessage}` };
+    return { mediaId: result.mediaId };
   }
 
   async post(request: PostRequest): Promise<PostAttemptResult> {
+    const bundle = parseXBundle(request.accessToken);
+    if (!bundle) return { success: false, platformPostId: null, errorMessage: X_BUNDLE_INVALID_CODE };
+
     const mediaIds: string[] = [];
     if (request.mediaUrl) {
-      const mediaId = await this.uploadMedia(request.mediaUrl, request.accessToken);
-      if (!mediaId) {
-        return { success: false, platformPostId: null, errorMessage: `Could not upload media from ${request.mediaUrl}` };
-      }
-      mediaIds.push(mediaId);
-      // Extra images (X allows up to 4 photos per post, images only).
-      for (const extraUrl of request.mediaUrls ?? []) {
-        const extraId = await this.uploadMedia(extraUrl, request.accessToken);
-        if (!extraId) {
-          return { success: false, platformPostId: null, errorMessage: `Could not upload media from ${extraUrl}` };
-        }
-        mediaIds.push(extraId);
+      for (const url of [request.mediaUrl, ...(request.mediaUrls ?? [])]) {
+        const uploaded = await this.uploadMedia(url, bundle);
+        if ("error" in uploaded) return { success: false, platformPostId: null, errorMessage: uploaded.error };
+        mediaIds.push(uploaded.mediaId);
       }
     }
 
-    const res = await fetch(TWEETS_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${request.accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        text: request.content,
-        ...(mediaIds.length > 0 ? { media: { media_ids: mediaIds } } : {}),
-      }),
-    });
-    const json = (await res.json()) as XTweetResponse;
-
-    if (!res.ok || !json.data?.id) {
-      return {
-        success: false,
-        platformPostId: null,
-        errorMessage: json.errors?.[0]?.message ?? `X post creation failed (HTTP ${res.status})`,
-      };
+    let res: Response;
+    try {
+      res = await this.signedFor(bundle)({
+        method: "POST",
+        url: TWEETS_URL,
+        json: { text: request.content, ...(mediaIds.length > 0 ? { media: { media_ids: mediaIds } } : {}) },
+      });
+    } catch {
+      return { success: false, platformPostId: null, errorMessage: "X post creation failed (could not reach X)" };
     }
-
+    const json = (await readJson(res)) as XTweetResponse | null;
+    if (!res.ok || !json?.data?.id) {
+      return { success: false, platformPostId: null, errorMessage: describeXFailure(res, json, bundle) };
+    }
     return { success: true, platformPostId: json.data.id, errorMessage: null };
   }
 
-  // Thread chains: POST /2/tweets with reply.in_reply_to_tweet_id = the
-  // previous tweet's id (docs.x.com create-post). Returns the new tweet id.
+  // Thread chains: POST /2/tweets with reply.in_reply_to_tweet_id = the previous tweet's id.
   async postChainReply(input: {
     rootPostId: string;
     parentPostId: string;
@@ -271,70 +135,57 @@ export class XAdapter implements PlatformAdapter {
     accessToken: string;
     platformAccountId?: string | null;
   }): Promise<{ success: boolean; platformPostId: string | null; errorMessage: string | null }> {
-    const res = await fetch(TWEETS_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${input.accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ text: input.text, reply: { in_reply_to_tweet_id: input.parentPostId } }),
-    });
-    const json = (await res.json().catch(() => ({}))) as XTweetResponse & { detail?: string; title?: string };
-    if (!res.ok || !json.data?.id) {
-      return {
-        success: false,
-        platformPostId: null,
-        errorMessage: json.errors?.[0]?.message ?? json.detail ?? json.title ?? `X thread reply failed (HTTP ${res.status})`,
-      };
+    const bundle = parseXBundle(input.accessToken);
+    if (!bundle) return { success: false, platformPostId: null, errorMessage: X_BUNDLE_INVALID_CODE };
+    let res: Response;
+    try {
+      res = await this.signedFor(bundle)({
+        method: "POST",
+        url: TWEETS_URL,
+        json: { text: input.text, reply: { in_reply_to_tweet_id: input.parentPostId } },
+      });
+    } catch {
+      return { success: false, platformPostId: null, errorMessage: "X thread reply failed (could not reach X)" };
+    }
+    const json = (await readJson(res)) as XTweetResponse | null;
+    if (!res.ok || !json?.data?.id) {
+      return { success: false, platformPostId: null, errorMessage: describeXFailure(res, json, bundle) };
     }
     return { success: true, platformPostId: json.data.id, errorMessage: null };
   }
 
-  // Real independent Proof-of-Publish check: GET the tweet back by id
-  // rather than trusting post()'s response, per the discipline every other
-  // adapter follows.
+  // Real independent Proof-of-Publish check: GET the tweet back by id rather than trusting post()'s response.
   async verifyPublished(platformPostId: string, accessToken: string): Promise<VerifyResult> {
-    const res = await fetch(`${TWEETS_URL}/${platformPostId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    const json = (await res.json()) as XTweetResponse;
-
-    if (!res.ok || json.data?.id !== platformPostId) {
-      return {
-        verifiedLive: false,
-        platformPostUrl: null,
-        errorMessage: json.errors?.[0]?.message ?? `X post verification failed (HTTP ${res.status})`,
-      };
+    const bundle = parseXBundle(accessToken);
+    if (!bundle) return { verifiedLive: false, platformPostUrl: null, errorMessage: X_BUNDLE_INVALID_CODE };
+    let res: Response;
+    try {
+      res = await this.signedFor(bundle)({ method: "GET", url: `${TWEETS_URL}/${encodeURIComponent(platformPostId)}` });
+    } catch {
+      return { verifiedLive: false, platformPostUrl: null, errorMessage: "X post verification failed (could not reach X)" };
     }
-
-    return {
-      verifiedLive: true,
-      platformPostUrl: `https://x.com/i/status/${platformPostId}`,
-      errorMessage: null,
-    };
+    const json = (await readJson(res)) as XTweetResponse | null;
+    if (!res.ok || json?.data?.id !== platformPostId) {
+      return { verifiedLive: false, platformPostUrl: null, errorMessage: describeXFailure(res, json, bundle) };
+    }
+    return { verifiedLive: true, platformPostUrl: `https://x.com/i/status/${platformPostId}`, errorMessage: null };
   }
 
-  // public_metrics is covered by the already-granted tweet.read scope —
-  // includes an impression_count, unlike most platforms, so this is the one
-  // adapter of the 6 that can report a real `views` number.
+  // public_metrics includes an impression_count, unlike most platforms, so X can report a real `views` number.
   async getPostMetrics(platformPostId: string, accessToken: string): Promise<PostMetrics> {
-    const url = new URL(`${TWEETS_URL}/${platformPostId}`);
+    const none = (errorMessage: string): PostMetrics => ({ likes: null, comments: null, shares: null, views: null, errorMessage });
+    const bundle = parseXBundle(accessToken);
+    if (!bundle) return none(X_BUNDLE_INVALID_CODE);
+    const url = new URL(`${TWEETS_URL}/${encodeURIComponent(platformPostId)}`);
     url.searchParams.set("tweet.fields", "public_metrics");
-    const res = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    const json = (await res.json().catch(() => ({}))) as XTweetMetricsResponse;
-
-    if (!res.ok || !json.data?.id) {
-      return {
-        likes: null,
-        comments: null,
-        shares: null,
-        views: null,
-        errorMessage: json.errors?.[0]?.message ?? `Could not load metrics (HTTP ${res.status})`,
-      };
+    let res: Response;
+    try {
+      res = await this.signedFor(bundle)({ method: "GET", url: url.toString() });
+    } catch {
+      return none("Could not load metrics (could not reach X)");
     }
-
+    const json = (await readJson(res)) as XTweetMetricsResponse | null;
+    if (!res.ok || !json?.data?.id) return none(describeXFailure(res, json, bundle));
     const m = json.data.public_metrics ?? {};
     return {
       likes: m.like_count ?? null,

@@ -13,6 +13,7 @@ import { fetchMediaForStreaming } from "./streamUpload.js";
 import { BlueskyAdapter } from "./bluesky.js";
 import { MastodonAdapter } from "./mastodon.js";
 import { XAdapter } from "./x.js";
+import { X_TEST_LOGIN } from "./xTestKit.js";
 
 const U = (n: number) => `https://cdn.example.com/${n}.jpg`;
 const json = (status: number, body: unknown) => ({ ok: status < 400, status, json: async () => body }) as Response;
@@ -168,11 +169,8 @@ describe("X multi-image", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string, init?: { body?: unknown }) => {
-        if (url.includes("media/upload.json")) {
-          if (url.includes("command=INIT")) return json(200, { media_id_string: `x${++n}` });
-          if (url.includes("command=FINALIZE")) return json(200, {});
-          return json(200, {}); // APPEND
-        }
+        if (url.endsWith("/2/media/upload/initialize")) return json(200, { data: { id: `x${++n}` } });
+        if (url.includes("/2/media/upload/")) return json(200, { data: {} }); // append, finalize
         if (url.endsWith("/2/tweets")) {
           tweets.push(JSON.parse(init!.body as string));
           return json(201, { data: { id: "t1" } });
@@ -188,10 +186,11 @@ describe("X multi-image", () => {
     });
   });
 
-  const adapter = () => new XAdapter("id", "secret", "https://cb");
+  const adapter = () => new XAdapter();
+  const xReq = (over: Record<string, unknown> = {}) => req({ accessToken: X_TEST_LOGIN, ...over });
 
   it("uploads each image in order and tweets once with all media ids in order", async () => {
-    const r = await adapter().post(req());
+    const r = await adapter().post(xReq());
     expect(r.success).toBe(true);
     expect(inits).toEqual([U(1), U(2), U(3)]);
     expect(tweets).toHaveLength(1);
@@ -204,19 +203,19 @@ describe("X multi-image", () => {
       const bytes = new TextEncoder().encode(url);
       return { body: new Blob([bytes]).stream(), sizeBytes: bytes.byteLength, contentType: "image/jpeg" };
     });
-    const r = await adapter().post(req());
+    const r = await adapter().post(xReq());
     expect(r.success).toBe(false);
     expect(r.errorMessage).toContain(U(2));
     expect(tweets).toHaveLength(0);
   });
 
   it("single image path is unchanged", async () => {
-    await adapter().post(req({ mediaUrls: undefined }));
+    await adapter().post(xReq({ mediaUrls: undefined }));
     expect(tweets[0].media).toEqual({ media_ids: ["x1"] });
   });
 
   it("text-only post sends no media", async () => {
-    await adapter().post(req({ mediaUrl: null, mediaUrls: undefined }));
+    await adapter().post(xReq({ mediaUrl: null, mediaUrls: undefined }));
     expect(tweets[0].media).toBeUndefined();
   });
 });
