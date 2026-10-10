@@ -158,7 +158,7 @@ function isValid(secret, rawBody, signatureHeader) {
   body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
   header, footer { max-width: 960px; margin: 0 auto; padding: 24px; }
   main { max-width: 960px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
-  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: var(--ink); text-decoration: none; }
+  .wordmark { display: inline-block; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: var(--ink); text-decoration: none; }
   .wordmark .dot { color: var(--orange-text); }
   a { color: var(--orange-text); }
   a:focus-visible, summary:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; border-radius: 4px; }
