@@ -46,18 +46,25 @@ export function makeBuilder(table: string) {
   b.update = (p: Row, o?: { count?: string }) => ((mode = "update"), (payload = p), o?.count && (wantCount = true), b);
   b.insert = (p: Row | Row[]) => ((mode = "insert"), (payload = p), b);
   b.delete = () => ((mode = "delete"), b);
-  b.upsert = (p: Row, o?: { onConflict?: string }) => ((mode = "upsert"), (payload = p), (conflictCols = (o?.onConflict ?? "id").split(",")), b);
+  let ignoreDuplicates = false;
+  b.upsert = (p: Row | Row[], o?: { onConflict?: string; ignoreDuplicates?: boolean }) => ((mode = "upsert"), (payload = p), (conflictCols = (o?.onConflict ?? "id").split(",")), (ignoreDuplicates = o?.ignoreDuplicates === true), b);
   b.then = (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) => {
     let out: Row[];
     if (mode === "upsert") {
-      const existing = rows().find((r) => conflictCols.every((c) => r[c] === (payload as Row)[c]));
-      if (existing) {
-        Object.assign(existing, payload);
-        out = [existing];
-      } else {
-        const row = { id: `id${++idCounter}`, created_at: new Date(Date.now() + idCounter).toISOString(), ...payload };
-        rows().push(row);
-        out = [row];
+      // One row or an array, like the real client. With ignoreDuplicates a conflicting row is left alone and, like the real
+      // client, is NOT in the returned rows (so a caller can tell what was newly inserted).
+      out = [];
+      for (const p of (Array.isArray(payload) ? payload : [payload]) as Row[]) {
+        const existing = rows().find((r) => conflictCols.every((c) => r[c] === p[c]));
+        if (existing) {
+          if (ignoreDuplicates) continue;
+          Object.assign(existing, p);
+          out.push(existing);
+        } else {
+          const row = { id: `id${++idCounter}`, created_at: new Date(Date.now() + idCounter).toISOString(), ...p };
+          rows().push(row);
+          out.push(row);
+        }
       }
     } else if (mode === "delete") {
       const doomed = rows().filter((r) => filters.every((f) => f(r)));

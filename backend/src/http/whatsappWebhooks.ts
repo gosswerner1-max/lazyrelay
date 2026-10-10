@@ -2,9 +2,10 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import { supabase } from "../supabase.js";
-import { triageItems, sanitizeUntrustedMessage, type TriageItem } from "../commentTriage.js";
+import { classifyUntrustedMessages, sanitizeUntrustedMessage, MAX_ITEMS_PER_BATCH, type TriageItem, type TriageResult } from "../commentTriage.js";
 import { checkWhatsappPlan } from "../accountLimits.js";
 import { META_ID_PATTERN, parseWhatsAppBundle } from "../platforms/whatsapp/credentials.js";
+import { contactHashKey, contactKeyFor, maskPhone, messageKeyFor } from "../platforms/whatsapp/contactPrivacy.js";
 import { recordSecurityEvent } from "./securityAlerts.js";
 
 // WhatsApp (bring your own key), real-time inbound messages. Mounted in app.ts at /api/webhooks/whatsapp, OUTSIDE the
@@ -28,9 +29,13 @@ import { recordSecurityEvent } from "./securityAlerts.js";
 //
 // Both are dormant (404) unless WHATSAPP_BYOK_ENABLED=true, like every other part of the feature.
 //
-// WHAT HAPPENS TO A MESSAGE. WhatsApp inbound text is a direct message, not a comment on a post, so it goes where every
-// other direct message goes: dm_conversations_cache (one row per contact, newest message as the snippet; the 30 day
-// purge of migration 0117 already covers it) and a triage verdict in comment_triage via triageItems (item type "dm").
+// WHAT HAPPENS TO A MESSAGE. One row per message in whatsapp_messages (migration 0127), so a customer can read a whole
+// thread. The sender's phone number is never stored or logged: the row holds a keyed hash of it (contact_key, per account)
+// and a mask (contact_display), and Meta's message id is stored as a keyed hash as well (it embeds the number). With no
+// WHATSAPP_CONTACT_HASH_KEY the message is dropped. A repeat delivery of the same message is a no-op, and only newly
+// inserted rows are ever sent for AI triage (which is off unless WHATSAPP_INBOUND_TRIAGE_ENABLED=true). The 30 day purge
+// (purge_stored_messages) deletes these rows by received_at. This path writes nothing to dm_conversations_cache or
+// comment_triage.
 // Fail closed everywhere: a WABA id plus phone number id that matches no connected, active WhatsApp row, an
 // account whose own keys are out of credit, a paused row or a plan below Business stores nothing and costs nothing.
 //
@@ -40,9 +45,13 @@ const VERIFY_TOKEN_ENV = "WHATSAPP_WEBHOOK_VERIFY_TOKEN";
 const MAX_CHALLENGE_LENGTH = 256;
 /** A delivery can batch many messages; this bounds the work (and the AI batches) one delivery can cause. */
 const MAX_MESSAGES_PER_DELIVERY = 200;
-/** WhatsApp text is at most 4096 characters; the stored snippet and the triage input stop here (same ceiling the reply
- *  drafting prompt uses for a comment), which also bounds the AI cost of one message. */
-const MAX_TEXT_CHARS = 1000;
+/** WhatsApp text is at most 4096 characters; the whole message is kept (so a thread reads properly). */
+const MAX_STORED_TEXT_CHARS = 4096;
+/** Only this much of a message is ever sent to the AI (same ceiling the reply drafting prompt uses for a comment), which
+ *  bounds the cost of one message. */
+const MAX_TRIAGE_TEXT_CHARS = 1000;
+/** Meta message ids look like wamid.HBgL...=; this is a loose shape check, not a format promise. */
+const WAMID_PATTERN = /^[A-Za-z0-9._=+\/-]{5,300}$/;
 const MAX_NAME_CHARS = 80;
 const WA_ID_PATTERN = /^[0-9]{5,20}$/;
 
@@ -146,7 +155,11 @@ export interface WhatsAppTextMessage {
   wabaId: string;
   /** metadata.phone_number_id: which of the business's numbers received it. */
   phoneNumberId: string;
-  /** The sender's WhatsApp id (their phone number, digits only). */
+  /** Meta's message id. Used only to de-duplicate, and only after it is turned into a keyed hash (it embeds the sender's
+   *  number). */
+  wamid: string;
+  /** The sender's WhatsApp id (their phone number, digits only). Used in memory to derive the contact key and the mask;
+   *  never stored and never logged. */
   from: string;
   /** The sender's profile name, when Meta sent one. */
   name: string | null;
@@ -159,7 +172,7 @@ const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const asString = (v: unknown): string | null => (typeof v === "string" ? v : typeof v === "number" ? String(v) : null);
 
 /** Pulls the plain text messages out of a delivery (entry[].changes[].value.messages[]). Everything else in a delivery
- *  (delivery receipts, reactions, media, templates, unknown types) is skipped. Never throws. */
+ *  (delivery receipts, reactions, media, templates, unknown types, a message with no usable id) is skipped. Never throws. */
 export function extractWhatsAppTextMessages(payload: unknown, now: Date = new Date()): { messages: WhatsAppTextMessage[]; skipped: number } {
   const out: WhatsAppTextMessage[] = [];
   let skipped = 0;
@@ -185,8 +198,9 @@ export function extractWhatsAppTextMessages(payload: unknown, now: Date = new Da
       }
       for (const m of asArray(value.messages)) {
         const from = isRecord(m) ? asString(m.from) : null;
+        const wamid = isRecord(m) ? asString(m.id) : null;
         const body = isRecord(m) && m.type === "text" && isRecord(m.text) ? asString(m.text.body) : null;
-        if (!isRecord(m) || !from || !WA_ID_PATTERN.test(from) || body === null || body.trim() === "") {
+        if (!isRecord(m) || !from || !WA_ID_PATTERN.test(from) || !wamid || !WAMID_PATTERN.test(wamid) || body === null || body.trim() === "") {
           skipped += 1;
           continue;
         }
@@ -200,9 +214,10 @@ export function extractWhatsAppTextMessages(payload: unknown, now: Date = new Da
         out.push({
           wabaId,
           phoneNumberId,
+          wamid,
           from,
           name: rawName ? rawName.replace(/[\r\n]+/g, " ").trim().slice(0, MAX_NAME_CHARS) || null : null,
-          text: body.trim().slice(0, MAX_TEXT_CHARS),
+          text: body.trim().slice(0, MAX_STORED_TEXT_CHARS),
           at,
         });
       }
@@ -216,11 +231,12 @@ export function extractWhatsAppTextMessages(payload: unknown, now: Date = new Da
 export interface WhatsAppEventSummary {
   /** Text messages found in the delivery. */
   messages: number;
-  /** Conversations written (one per contact per connected number). */
+  /** Messages newly stored (a message Meta delivered twice counts once). */
   stored: number;
   /** Messages for a WABA id + phone number id that matches no connected, active WhatsApp row. */
   unmatched: number;
-  /** Messages for a matched row that was refused: out of credit, paused, a plan below Business, or no saved app secret. */
+  /** Messages for a matched row that was refused: out of credit, paused, a plan below Business, no saved app secret, or no
+   *  contact hash key configured. */
   blocked: number;
   /** Messages for a matched row whose signature did not verify against that connection's own app secret. */
   rejected: number;
@@ -243,11 +259,8 @@ export function isReceivingConnection(a: WhatsAppAccountRow): boolean {
   return a.byok_status === "valid" && !a.needs_reconnect_at && !a.paused_at && !a.disconnected_at && !a.tokens_wiped_at;
 }
 
-/** Whole-second ISO string in the form the database hands back for a timestamptz, so the triage cache signature written
- *  here equals the one the DM list computes later (no second AI call for the same message). */
-const signatureOf = (d: Date): string => d.toISOString().slice(0, 19) + "+00:00";
-
 export const NO_APP_SECRET_LOG_LINE = "whatsapp inbound disabled until an app secret is saved";
+export const NO_CONTACT_KEY_LOG_LINE = "whatsapp inbound disabled until WHATSAPP_CONTACT_HASH_KEY is set";
 
 /** Reads the connection's login from Vault (service role only) and returns its app secret, or why there is none.
  *  Nothing from the login is ever logged or thrown. */
@@ -266,7 +279,8 @@ export async function processWhatsAppEvent(rawBody: Buffer, signatureHeader: str
   try {
     payload = JSON.parse(rawBody.toString("utf8"));
   } catch {
-    console.error("[whatsapp-webhook] delivery was not valid JSON despite a valid signature.");
+    // Not necessarily an attack: the signature is not checked yet. Nothing from the body is logged.
+    console.error("[whatsapp-webhook] delivery was not valid JSON; dropped.");
     return summary;
   }
   const { messages } = extractWhatsAppTextMessages(payload);
@@ -284,7 +298,7 @@ export async function processWhatsAppEvent(rawBody: Buffer, signatureHeader: str
   for (const group of byNumber.values()) {
     const { wabaId, phoneNumberId } = group[0];
     // BOTH ids must match the same connected WhatsApp row. The ids are identifiers, not secrets, which is exactly why
-    // the signature above is the real gate and this lookup only routes.
+    // the signature below is the real gate and this lookup only routes.
     const { data: rows, error } = await supabase
       .from("social_accounts")
       .select("id, account_id, byok_status, paused_at, access_token_vault_id, needs_reconnect_at, disconnected_at, tokens_wiped_at")
@@ -330,67 +344,81 @@ export async function processWhatsAppEvent(rawBody: Buffer, signatureHeader: str
         summary.blocked += group.length;
         continue;
       }
+      // Fail closed on privacy: without the server's hash key no phone number can be turned into a safe key, and the raw
+      // number must never be stored, so the message is dropped (it is not kept anywhere).
+      if (!contactHashKey()) {
+        console.warn(NO_CONTACT_KEY_LOG_LINE);
+        summary.blocked += group.length;
+        continue;
+      }
       summary.stored += await storeAndTriage(account, group);
     }
   }
   return summary;
 }
 
-/** One conversation per contact: the newest message of this delivery, unless the stored one is already newer (Meta can
- *  deliver out of order or twice; a repeat changes nothing). Returns how many conversations were written. */
+/** One database row per message. The unique key (social_account_id, wamid) makes a repeat delivery a no-op, and only a
+ *  row that was newly inserted is ever sent for triage, so a retry costs nothing. Two different messages in the same
+ *  second are two rows (there is no per-conversation overwrite any more). Returns how many rows were newly inserted. */
 async function storeAndTriage(account: WhatsAppAccountRow, group: WhatsAppTextMessage[]): Promise<number> {
-  const newest = new Map<string, WhatsAppTextMessage>();
+  const rows: Array<Record<string, unknown>> = [];
   for (const m of group) {
-    const seen = newest.get(m.from);
-    if (!seen || m.at > seen.at) newest.set(m.from, m);
+    const contactKey = contactKeyFor(account.account_id, m.from);
+    const messageKey = messageKeyFor(account.account_id, m.wamid);
+    if (!contactKey || !messageKey) continue; // cannot happen after the key check above; never store without both
+    rows.push({
+      account_id: account.account_id,
+      social_account_id: account.id,
+      wamid: messageKey,
+      contact_key: contactKey,
+      contact_display: maskPhone(m.from),
+      contact_name: m.name,
+      text: m.text,
+      received_at: m.at.toISOString(),
+    });
   }
+  if (rows.length === 0) return 0;
 
-  const { data: existing, error } = await supabase
-    .from("dm_conversations_cache")
-    .select("conversation_id, conversation_updated_at")
-    .eq("social_account_id", account.id)
-    .in("conversation_id", [...newest.keys()]);
-  if (error) throw new Error("conversation lookup failed");
-  const storedAt = new Map((existing ?? []).map((r) => [r.conversation_id as string, r.conversation_updated_at ? new Date(r.conversation_updated_at as string) : null]));
-
-  const toTriage: TriageItem[] = [];
-  let written = 0;
-  const fetchedAt = new Date().toISOString();
-  for (const m of newest.values()) {
-    const prior = storedAt.get(m.from);
-    if (prior && prior >= m.at) continue;
-    const { error: upsertError } = await supabase.from("dm_conversations_cache").upsert(
-      {
-        account_id: account.account_id,
-        social_account_id: account.id,
-        conversation_id: m.from,
-        participant_id: m.from,
-        participant_name: m.name ?? "WhatsApp contact",
-        snippet: m.text,
-        conversation_updated_at: m.at.toISOString(),
-        fetched_at: fetchedAt,
-      },
-      { onConflict: "social_account_id,conversation_id" },
-    );
-    if (upsertError) throw new Error("conversation write failed");
-    written += 1;
-    toTriage.push({ itemId: m.from, sourceSignature: signatureOf(m.at), author: m.name ?? "WhatsApp contact", text: m.text });
-  }
+  // Insert, ignoring rows whose (social_account_id, wamid) already exists; the result holds only the rows that are new.
+  const { data: inserted, error } = await supabase
+    .from("whatsapp_messages")
+    .upsert(rows, { onConflict: "social_account_id,wamid", ignoreDuplicates: true })
+    .select("id, text, contact_name");
+  if (error) throw new Error("message write failed");
+  const fresh = (inserted ?? []) as Array<{ id: string; text: string; contact_name: string | null }>;
+  if (fresh.length === 0) return 0;
 
   // Triage is off by default (see TRIAGE_FLAG_ENV): the messages above are already stored, unclassified, and nothing
   // leaves for the AI provider. When on, only up to the account's daily allowance goes; the rest stays unclassified.
-  const allowed = toTriage.length > 0 && triageEnabled() ? reserveTriageSlots(account.account_id, toTriage.length) : 0;
+  const allowed = triageEnabled() ? reserveTriageSlots(account.account_id, fresh.length) : 0;
   if (allowed > 0) {
-    const forModel = toTriage.slice(0, allowed).map((i) => ({ ...i, author: sanitizeUntrustedMessage(i.author, 80) || "WhatsApp contact", text: sanitizeUntrustedMessage(i.text, MAX_TEXT_CHARS) }));
+    const items: TriageItem[] = fresh.slice(0, allowed).map((r) => ({
+      itemId: r.id,
+      sourceSignature: "",
+      author: sanitizeUntrustedMessage(r.contact_name ?? "", 80) || "WhatsApp contact",
+      text: sanitizeUntrustedMessage(r.text, MAX_TRIAGE_TEXT_CHARS),
+    }));
     try {
-      // Writes its verdicts to comment_triage itself. No API key or a failed call leaves the message unclassified, never
-      // "routine", and never loses the message that is already stored.
-      await triageItems(account.account_id, "dm", forModel);
+      // Failure, no API key or an unusable answer leaves the message unclassified (null), never "routine", and never
+      // loses the message that is already stored.
+      // One model call classifies at most MAX_ITEMS_PER_BATCH items, so a larger set goes in chunks.
+      const verdicts = new Map<string, TriageResult>();
+      for (let i = 0; i < items.length; i += MAX_ITEMS_PER_BATCH) {
+        for (const [id, v] of await classifyUntrustedMessages(items.slice(i, i + MAX_ITEMS_PER_BATCH))) verdicts.set(id, v);
+      }
+      const triagedAt = new Date().toISOString();
+      for (const [id, v] of verdicts) {
+        const { error: updateError } = await supabase
+          .from("whatsapp_messages")
+          .update({ triage_category: v.category, needs_attention: v.needsAttention, triage_reason: v.reason, triaged_at: triagedAt })
+          .eq("id", id);
+        if (updateError) console.error("[whatsapp-webhook] could not save a triage verdict.");
+      }
     } catch (err) {
       console.error("[whatsapp-webhook] triage failed:", err instanceof Error ? err.message : "unknown error");
     }
   }
-  return written;
+  return fresh.length;
 }
 
 // ---------------------------------------------------------------- route limits

@@ -11,6 +11,7 @@ import { buildBrandsRouter } from "./routes/brands.routes.js";
 import { buildMediaRouter } from "./routes/media.routes.js";
 import { buildPostsRouter } from "./routes/posts.routes.js";
 import { buildInboxRouter } from "./routes/inbox.routes.js";
+import { buildWhatsAppMessagesRouter } from "./routes/whatsappMessages.routes.js";
 import { buildReplyDraftsRouter } from "./routes/replyDrafts.routes.js";
 import { buildAnalyticsRouter } from "./routes/analytics.routes.js";
 import { buildRecurringSchedulesRouter } from "./routes/recurringSchedules.routes.js";
@@ -46,6 +47,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.use(buildMediaRouter());
   router.use(buildPostsRouter());
   router.use(buildInboxRouter(registry));
+  router.use(buildWhatsAppMessagesRouter());
   router.use(buildReplyDraftsRouter());
   router.use(buildAnalyticsRouter());
   router.use(buildRecurringSchedulesRouter());

@@ -36,7 +36,7 @@ export interface TriageItem {
 // how many comments/conversations are in one response — any items beyond
 // this simply come back unclassified this request and get picked up (and
 // cached) on a later one, same as an uncached item today.
-const MAX_ITEMS_PER_BATCH = 30;
+export const MAX_ITEMS_PER_BATCH = 30;
 
 function getClient(): Anthropic | null {
   const apiKey = process.env.ANTHROPIC_API_KEY;
