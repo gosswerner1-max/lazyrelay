@@ -9,9 +9,9 @@ import { resolveTier, type Tier } from "./tier.js";
  *  generic "reached your limit of 0" phrasing. */
 export const SEAT_LIMITS: Record<Tier, number> = {
   free: 0,
-  pro: 0, // displays as "Starter"
-  business: 0, // displays as "Pro"
-  enterprise: 2, // displays as "Business"
+  starter: 0,
+  pro: 0,
+  business: 2,
   agency: 3,
   agency_plus: 6,
 };

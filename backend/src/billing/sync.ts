@@ -298,7 +298,10 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
   const subscriptionRow = {
     account_id: accountId,
     mor_subscription_id: event.morSubscriptionId,
-    tier: event.tier,
+    // Fail-closed tier (see billing/tierResolution.ts): an unresolvable legacy
+    // tier leaves this column out of the write entirely, so the stored tier
+    // is untouched while status/period/cancellation still sync.
+    ...(event.tier ? { tier: event.tier } : {}),
     status: event.status,
     current_period_end: event.currentPeriodEnd,
     // See the matching comment on the storage_addons upsert above.
@@ -308,10 +311,12 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
   };
 
   const applyIfNewer = async () => {
-    const { data, error } = await supabase
-      .from("subscriptions")
-      .update(subscriptionRow)
-      .eq("account_id", accountId)
+    let query = supabase.from("subscriptions").update(subscriptionRow).eq("account_id", accountId);
+    // With no resolved tier, only touch the row for this SAME Paddle
+    // subscription: keeping the stored tier is only meaningful if it was
+    // stored for this subscription, not a previous one the customer replaced.
+    if (!event.tier) query = query.eq("mor_subscription_id", event.morSubscriptionId);
+    const { data, error } = await query
       .or(`last_webhook_occurred_at.is.null,last_webhook_occurred_at.lt.${safeOccurredAt}`)
       .select("account_id");
     if (error) throw error;
@@ -319,6 +324,27 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
   };
 
   let winningRow = await applyIfNewer();
+  if (winningRow.length === 0 && !event.tier) {
+    // Nothing updated and there is no tier to INSERT a row with (tier is NOT
+    // NULL). Either the update was genuinely stale, or there is no row for
+    // this subscription yet. Never invent a tier. A real entitlement-granting
+    // event that cannot be stored is surfaced loudly (500, Paddle retries)
+    // instead of silently leaving a paying customer on Free.
+    const { data: existing, error: existingError } = await supabase
+      .from("subscriptions")
+      .select("mor_subscription_id, last_webhook_occurred_at")
+      .eq("account_id", accountId)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    const sameSubscriptionStale = existing?.mor_subscription_id === event.morSubscriptionId;
+    if (!sameSubscriptionStale && (event.status === "active" || event.status === "trialing")) {
+      throw new Error(
+        `Cannot store ${event.status} subscription ${event.morSubscriptionId} for account ${accountId}: its tier could not be resolved (see the [paddle] WARNING above) and no stored row can safely carry it.`,
+      );
+    }
+    console.log(`Skipping webhook for account ${accountId} (subscription ${event.morSubscriptionId}): ${sameSubscriptionStale ? "stale" : "tier unresolved and not entitlement-granting"}, event occurred at ${event.occurredAt}.`);
+    return;
+  }
   if (winningRow.length === 0) {
     // No row was updated: either no subscription row exists yet for this
     // account (its first-ever webhook), or the existing row is already
@@ -409,7 +435,8 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
       .from("accounts")
       .update({ cancelled_at: null, data_deletion_ack_at: null, data_deletion_reminder_sent_at: null })
       .eq("id", accountId);
-    await enforceAccountLimitForTier(accountId, event.tier as Tier);
+    // Unresolved tier = stored tier untouched = nothing new to enforce.
+    if (event.tier) await enforceAccountLimitForTier(accountId, event.tier as Tier);
   }
 }
 
