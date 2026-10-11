@@ -1,0 +1,75 @@
+:root{--navy:#1b2a49;--navy2:#2c3e66;--sage:#9caf88;--sage-l:#edf1e8;--ink:#1f2937;--line:#b9c2cf;--mute:#5b6676}
+@page{size:A4;margin:0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Helvetica Neue",Arial,"Liberation Sans",sans-serif;color:var(--ink);font-size:9pt;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{width:210mm;height:297mm;padding:0;position:relative;overflow:hidden;page-break-after:always;break-after:page;display:flex;flex-direction:column;background:#fff}
+.page:last-child{page-break-after:auto;break-after:auto}
+header{background:var(--navy);color:#fff;padding:7mm 12mm 5mm;border-bottom:2.2mm solid var(--sage);display:flex;justify-content:space-between;align-items:flex-end;gap:8mm}
+header small{display:block;color:var(--sage);font-size:7.5pt;letter-spacing:.14em;text-transform:uppercase;margin-bottom:1mm}
+header h1{font-size:17pt;letter-spacing:.02em;font-weight:700}
+header p{font-size:8pt;color:#d5dbe6;text-align:right;max-width:75mm;line-height:1.3}
+main{flex:1;padding:5mm 12mm 3mm;display:flex;flex-direction:column;gap:3.2mm;min-height:0}
+footer{display:flex;justify-content:space-between;padding:2.5mm 0 5mm;font-size:7pt;color:var(--mute);border-top:.3mm solid var(--line);margin:0 12mm}
+h3{font-size:8.5pt;color:var(--navy);text-transform:uppercase;letter-spacing:.07em;border-left:1.6mm solid var(--sage);padding-left:2mm;margin-bottom:1.8mm}
+.pnl{margin:0}.pnl.sage{background:var(--sage-l);border-radius:1.5mm;padding:3mm}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:4mm}
+.cols>div{min-width:0}
+.cols>div>.pnl+.pnl{margin-top:3.2mm}
+.ln{height:7.6mm;border-bottom:.25mm solid var(--line)}
+.box{border:.3mm solid var(--line);border-radius:1.5mm;padding:2mm 2.5mm 1mm}
+.box.sage{background:var(--sage-l);border-color:#c9d4bd}
+.lbl{font-size:7.5pt;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em}
+.fgrid{display:grid;gap:2.5mm 4mm}
+.fld{display:flex;align-items:flex-end;gap:2mm;min-width:0;height:7.5mm}
+.fld span{font-size:7.5pt;font-weight:700;color:var(--navy);white-space:nowrap}
+.fld i{flex:1;border-bottom:.3mm solid var(--navy2);height:1px;margin-bottom:1.2mm}
+.fld.big{height:9mm}.fld.big span{font-size:9pt}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:6mm}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th,td{border:.25mm solid var(--line)}
+th{background:var(--navy);color:#fff;font-size:6.8pt;text-transform:uppercase;letter-spacing:.03em;padding:1.4mm 1mm;text-align:left;font-weight:600;vertical-align:middle}
+td{padding:0 1mm}
+tr:nth-child(even) td{background:#f7f9f5}
+.sch th{width:15mm;background:var(--sage-l);color:var(--navy);text-align:center;font-size:7.5pt}
+.sch td{background:#fff!important}
+.wk th.l{text-align:left;background:var(--sage-l);color:var(--navy);width:34%;font-size:8pt;text-transform:none;letter-spacing:0;padding-left:2mm}
+.wk td{background:#fff!important}
+.wk tr:first-child th{background:var(--navy);color:#fff;text-align:center;text-transform:uppercase}
+.wk tr:first-child th.l{background:var(--navy);color:#fff;text-transform:uppercase}
+.chk{list-style:none;display:grid;gap:2.1mm 5mm}
+.chk.c1{grid-template-columns:1fr}.chk.c2{grid-template-columns:1fr 1fr}
+.chk li{display:flex;gap:2.2mm;align-items:center;font-size:8.4pt;line-height:1.2}
+.chk b{flex:none;width:3.6mm;height:3.6mm;border:.4mm solid var(--navy);border-radius:.6mm;background:#fff}
+.chips{display:flex;flex-wrap:wrap;gap:1.4mm;align-items:center;font-size:7.5pt}
+.chips b{color:var(--navy);margin-right:1mm}
+.chip{background:var(--sage-l);border:.25mm solid var(--sage);color:var(--navy);border-radius:5mm;padding:.7mm 2.4mm;font-size:7pt}
+.muted{font-size:7.5pt;color:var(--mute)}
+.goal{font-size:8pt;font-weight:700;color:var(--navy);text-align:center;padding:2mm;background:var(--sage-l);border-radius:1.5mm}
+.warn{border:.4mm solid var(--navy);border-left:2mm solid var(--navy);padding:3mm;font-size:8.5pt;line-height:1.4;background:#f4f6fa}
+.scale{display:flex;gap:1.5mm;margin-top:1.5mm}
+.scale span{flex:1;border:.3mm solid var(--line);border-radius:1mm;text-align:center;font-size:7pt;padding:1.6mm 0;color:var(--navy)}
+.prio3{list-style:none}
+.prio3 li{display:flex;gap:3mm;align-items:flex-end;counter-increment:p}
+.prio3{counter-reset:p}.prio3 li:before{content:counter(p);flex:none;width:6mm;height:6mm;border-radius:50%;background:var(--navy);color:#fff;font-weight:700;font-size:8pt;text-align:center;line-height:6mm;margin-bottom:.8mm}
+.prio3 li .ln{flex:1;height:9mm}
+.pnl p{font-size:8.5pt;line-height:1.45;margin-bottom:2mm}
+/* routine */
+.rts{display:flex;flex-direction:column;gap:3mm}
+.rt{display:flex;gap:4mm;align-items:center;border-left:1.6mm solid var(--sage);background:var(--sage-l);padding:3mm 4mm;border-radius:0 1.5mm 1.5mm 0}
+.rt b{font-size:15pt;color:var(--navy);width:20mm}
+.rt h4{font-size:10pt;color:var(--navy)}.rt p{font-size:8.5pt;color:var(--ink);margin-top:.5mm}
+/* cover */
+.cover{background:#fff}
+.cv-top{background:var(--navy);color:#fff;padding:20mm 16mm 12mm;position:relative;border-bottom:4mm solid var(--sage)}
+.cv-badge{display:inline-block;background:var(--sage);color:var(--navy);font-weight:700;font-size:8pt;letter-spacing:.16em;padding:1.6mm 4mm;border-radius:5mm}
+.cv-top h1{font-size:34pt;line-height:1.05;margin:7mm 0 3mm;letter-spacing:.02em}
+.cv-top p{font-size:12pt;color:#d5dbe6}
+.cv-rule{width:30mm;height:1.2mm;background:var(--sage);margin-top:7mm}
+.cv-main{padding:8mm 16mm 2mm;gap:5mm}
+.cv-card{border:.3mm solid var(--line);border-radius:2mm;padding:4mm 5mm}
+.cv-card h2{font-size:10pt;color:var(--navy);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3mm;border-left:1.6mm solid var(--sage);padding-left:2mm}
+.cv-cols{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
+.prio,.how{padding-left:5mm;font-size:8.8pt;line-height:1.35;display:grid;gap:2mm}
+.prio li::marker,.how li::marker{color:var(--sage);font-weight:700}
+.cv-card.note{background:var(--sage-l);border-color:#c9d4bd}
+.toc{display:grid;grid-template-columns:1fr 1fr;gap:1.4mm 6mm;font-size:8.3pt;color:var(--navy)}
