@@ -79,7 +79,7 @@ const MORE_FEATURES = [
   "Best-time suggestions: general, platform-by-platform posting-time guidance",
   "Approval workflow: mark a post as needing sign-off before it goes out",
   "Link-in-bio page: a simple, hosted link page you can share as one URL",
-  "Browser extension: right-click any page, link, or image to send it to LazyRelay",
+  "Browser extension (Developer Manual Install Only): right-click any page, link, or image to send it to LazyRelay; load it unpacked from the repository, it is not in any browser store",
   "Two-factor authentication: optional TOTP-based 2FA plus one-time recovery codes, for extra account security",
 ];
 

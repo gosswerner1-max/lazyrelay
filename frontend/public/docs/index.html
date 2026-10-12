@@ -16,8 +16,8 @@
   main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
   .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
   .wordmark .dot { color: #ff5630; }
-  a { color: #ff5630; }
-  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  a { color: #c82400; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #c82400; }
   h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
   h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
   h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
@@ -103,7 +103,7 @@
 </div>
 
 <h2>Using this from an AI agent: the MCP server</h2>
-<p>If you're connecting an AI agent (Claude Desktop, Claude Code, Cursor, or anything else that speaks MCP) rather than writing HTTP calls by hand, use LazyRelay's own MCP server instead of calling the API directly. It wraps every endpoint above as a real tool the agent can call. Every tool, with its exact description and input schema, is listed in the <a href="/mcp/tools/">MCP tool reference</a>.</p>
+<p>If you're connecting an AI agent (Claude Desktop, Claude Code, Cursor, or anything else that speaks MCP) rather than writing HTTP calls by hand, use LazyRelay's own MCP server instead of calling the API directly. It wraps every endpoint above as a real tool the agent can call. Every tool, with its exact description and input schema, is listed in the <a href="/mcp/tools/">MCP tool reference</a>. For the tools grouped by job, webhook signing, rate limits per plan and package versions, see <a href="/docs/mcp-api/">MCP tools, webhooks and limits</a>.</p>
 <pre class="code-block"><code>{
   "mcpServers": {
     "lazyrelay": {
@@ -174,7 +174,7 @@
 
 </main>
 <footer>
-  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/connect-zapier">Connect to Zapier</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a></p>
+  <p><a href="/">Home</a> &middot; <a href="/about/">About</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/docs/mcp-api/">MCP tools and limits</a> &middot; <a href="/connect-zapier">Connect to Zapier</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a></p>
   <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
 </footer>
 <script>

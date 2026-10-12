@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MCP Tools, Webhooks and Rate Limits: Developer Docs | LazyRelay</title>
+<meta name="description" content="Catalogue of LazyRelay's 27 MCP tools grouped by job, how webhooks are signed and retried, how the hosted MCP endpoint and API keys are secured, and the request limit for each plan." />
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+<link rel="canonical" href="https://lazyrelay.com/docs/mcp-api/" />
+<link rel="icon" type="image/png" href="/favicon.png" />
+<meta property="og:title" content="MCP Tools, Webhooks and Rate Limits: Developer Docs | LazyRelay" />
+<meta property="og:description" content="Catalogue of LazyRelay's 27 MCP tools grouped by job, how webhooks are signed and retried, how the hosted MCP endpoint and API keys are secured, and the request limit for each plan." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://lazyrelay.com/docs/mcp-api/" />
+<meta property="og:site_name" content="LazyRelay" />
+<meta property="og:locale" content="en_US" />
+<meta property="og:image" content="https://lazyrelay.com/og-image-1200x630.jpg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="MCP Tools, Webhooks and Rate Limits: Developer Docs | LazyRelay" />
+<meta name="twitter:description" content="Catalogue of LazyRelay's 27 MCP tools grouped by job, how webhooks are signed and retried, how the hosted MCP endpoint and API keys are secured, and the request limit for each plan." />
+<meta name="twitter:image" content="https://lazyrelay.com/og-image-1200x630.jpg" />
+<link rel="stylesheet" href="/circuit-bg.css" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: light; --orange-text: #c82400; --teal: #0d7d8c; --teal-text: #0a6270; --violet: #7c3aed; --violet-text: #5b21b6; --green: #157a52; --green-text: #0f6b46; --ink: #14171f; --wire: #5b6472; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
+  header, footer { max-width: 960px; margin: 0 auto; padding: 24px; }
+  main { max-width: 960px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
+  .wordmark { display: inline-block; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: var(--ink); text-decoration: none; }
+  .wordmark .dot { color: var(--orange-text); }
+  a { color: var(--orange-text); }
+  a:focus-visible, summary:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; border-radius: 4px; }
+  a.back { display: inline-block; margin: 8px 0 20px; text-decoration: none; }
+  h1 { font-family: Georgia, serif; color: var(--ink); font-size: clamp(30px, 5vw, 40px); margin: 0 0 10px; line-height: 1.2; }
+  h2 { font-family: Georgia, serif; color: var(--ink); font-size: 24px; margin: 48px 0 8px; padding-top: 10px; border-top: 6px solid var(--orange-text); }
+  h3 { font-family: Georgia, serif; color: var(--ink); font-size: 19px; margin: 28px 0 6px; }
+  .subtitle { color: var(--wire); font-size: 17px; margin: 0 0 18px; max-width: 720px; }
+  .note { color: var(--wire); font-size: 14px; }
+  strong { color: var(--ink); }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; background: #f0f1f3; padding: 2px 6px; border-radius: 4px; font-size: 13px; color: var(--ink); overflow-wrap: anywhere; }
+  pre.code-block { background: #14171f; color: #e5e7eb; border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 0 0 16px; font-size: 13px; line-height: 1.5; }
+  pre.code-block code { background: none; padding: 0; color: #e5e7eb; white-space: pre; }
+  .toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; padding: 0; list-style: none; }
+  .toc li { margin: 0; }
+  .toc a { display: inline-block; background: #14171f; color: #fff; text-decoration: none; font-weight: 700; font-size: 14px; padding: 7px 14px; border-radius: 999px; }
+  .toc a:hover { background: var(--orange-text); }
+  .toc a:focus-visible { outline-color: var(--orange-text); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 4px; font-size: 14px; }
+  .table-wrap { overflow-x: auto; margin: 0 0 8px; -webkit-overflow-scrolling: touch; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 560px; }
+  th, td { text-align: left; border-bottom: 1px solid #dde1e6; padding: 9px 10px; vertical-align: top; }
+  th { color: var(--ink); background: #f5f6f8; }
+  td.tn { white-space: nowrap; }
+  td.th { min-width: 140px; }
+  td.td { min-width: 260px; }
+  .simple-table table { min-width: 0; max-width: 520px; }
+  .chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin: 1px 0; white-space: nowrap; }
+  .chip-read { background: #d6f3f6; color: #0a6270; }
+  .chip-write { background: #ffe9a8; color: #6b4300; }
+  .chip-danger { background: #ffd9d6; color: #8a1c14; }
+  .chip-safe { background: #d4f2e4; color: #0f6b46; }
+  .chip-live { background: #ece4fd; color: #5b21b6; }
+  .group { border-left: 8px solid; padding-left: 14px; margin: 24px 0; }
+  .group h3 { margin-top: 0; }
+  .group .count { font-family: system-ui, sans-serif; font-size: 13px; font-weight: 700; color: var(--wire); margin-left: 6px; }
+  .group-blurb { margin: 0 0 10px; }
+  .group-teal { border-color: var(--teal); }
+  .group-orange { border-color: #ff5630; }
+  .group-violet { border-color: var(--violet); }
+  .group-green { border-color: var(--green); }
+  .card-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 12px 0; }
+  .card { border: 2px solid #14171f; border-radius: 12px; padding: 14px 16px; background: #fff; }
+  .card h3 { margin: 0 0 6px; font-size: 17px; }
+  .card p { margin: 0 0 6px; font-size: 14px; }
+  .cta-box { background: #f5f6f8; border-left: 4px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
+  .cta-box a.button { display: inline-block; background: #c82400; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 700; margin-top: 8px; }
+  @media (max-width: 640px) { .card-row { grid-template-columns: 1fr; } main { padding: 0 16px 40px; } header, footer { padding: 16px; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebPage","@id":"https://lazyrelay.com/docs/mcp-api/#webpage","url":"https://lazyrelay.com/docs/mcp-api/","name":"MCP tools, webhooks and rate limits","description":"Catalogue of LazyRelay's 27 MCP tools grouped by job, how webhooks are signed and retried, how the hosted MCP endpoint and API keys are secured, and the request limit for each plan.","inLanguage":"en","isPartOf":{"@id":"https://lazyrelay.com/#website"},"about":{"@id":"https://lazyrelay.com/#software"},"publisher":{"@id":"https://lazyrelay.com/#organization"}}]}</script>
+</head>
+<body>
+<script src="/circuit-bg.js" defer></script>
+<header><a class="wordmark" href="/">Lazy<span class="dot">Relay</span></a></header>
+<main>
+<a class="back" href="/docs/">&larr; Back to API &amp; MCP docs</a>
+<h1>MCP tools, webhooks and limits</h1>
+<p class="subtitle">A reference for developers and AI agents: the 27 MCP tools grouped by job, how outbound webhooks are signed and retried, how the hosted MCP endpoint and API keys are secured, and the request limit for each plan. Install steps are not repeated here.</p>
+<ul class="toc">
+  <li><a href="#tools">27 MCP tools</a></li>
+  <li><a href="#security">Security primitives</a></li>
+  <li><a href="#rate-limits">Rate limits</a></li>
+  <li><a href="#links">Links and packages</a></li>
+</ul>
+<p class="note">Looking for setup? <a href="/docs/">REST API and MCP reference</a> &middot; <a href="/mcp/">Setup guides for 15 AI tools</a> &middot; <a href="/mcp/tools/">Full input schemas for every tool</a> &middot; <a href="/developers/">LazyRelay for developers</a></p>
+
+<h2 id="tools">The 27 MCP tools</h2>
+<p>Names and descriptions below are generated from the server's own tool definitions, so they are exactly what an AI agent receives. Each name links to its full input schema in the <a href="/mcp/tools/">MCP tool reference</a>. The hints are the MCP annotations each tool declares, so a client can decide what to confirm with you.</p>
+<div class="legend" aria-label="Hint legend">
+  <span class="chip chip-read">read-only</span> <span class="chip chip-write">changes data</span> <span class="chip chip-danger">destructive</span> <span class="chip chip-safe">safe to repeat</span> <span class="chip chip-live">reaches a live platform</span>
+</div>
+<section class="group group-teal" id="accounts-lookups">
+<h3>Accounts and lookups <span class="count">8 tools</span></h3>
+<p class="group-blurb">Find out what is connected and what each platform accepts before you post.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Tool</th><th scope="col">Hints</th><th scope="col">Description</th></tr></thead><tbody>
+<tr><td class="tn"><a href="/mcp/tools/#list_connected_accounts"><code>list_connected_accounts</code></a></td><td class="th"><span class="chip chip-read">read-only</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">List every social account connected to this LazyRelay account, with platform, display name and the id the posting tools need. Accounts that need reconnecting say so.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#list_workspaces"><code>list_workspaces</code></a></td><td class="th"><span class="chip chip-read">read-only</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">List this account's brands (workspaces), with the id needed to file a post under a specific one.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#get_platform_rules"><code>get_platform_rules</code></a></td><td class="th"><span class="chip chip-read">read-only</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">What a platform accepts BEFORE you post: text limit, image and video rules, how many images per post, which fields are required (for example TikTok's privacy level, Pinterest's board), features (stories, threads, first comment) and the options it reads. Pass a platform such as instagram or tiktok, or leave it out for all of them.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#get_tiktok_creator_info"><code>get_tiktok_creator_info</code></a></td><td class="th"><span class="chip chip-read">read-only</span> <span class="chip chip-safe">safe to repeat</span> <span class="chip chip-live">reaches a live platform</span></td><td class="td">For one connected TikTok account: the privacy levels it can use, whether comments, duets and stitches are allowed, and the longest video. Call this before posting to TikTok, because tiktokPrivacyLevel is required and must be one of the levels returned.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#list_pinterest_boards"><code>list_pinterest_boards</code></a></td><td class="th"><span class="chip chip-read">read-only</span> <span class="chip chip-safe">safe to repeat</span> <span class="chip chip-live">reaches a live platform</span></td><td class="td">For one connected Pinterest account: its boards with their ids. A Pinterest post needs a boardId from this list.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#get_next_free_slot"><code>get_next_free_slot</code></a></td><td class="th"><span class="chip chip-read">read-only</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">The account's next free posting time for one connected account, from the posting times saved in Settings. Returns an ISO timestamp to use as scheduledFor. Says so plainly if no posting times are saved.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#list_posting_slots"><code>list_posting_slots</code></a></td><td class="th"><span class="chip chip-read">read-only</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">The posting times saved in Settings (days, time, time zone).</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#list_snippets"><code>list_snippets</code></a></td><td class="th"><span class="chip chip-read">read-only</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">The account's saved text snippets (hashtag groups, sign-offs) and which one is the signature, to paste into a post.</td></tr>
+</tbody></table></div>
+</section>
+<section class="group group-orange" id="posting">
+<h3>Posting <span class="count">9 tools</span></h3>
+<p class="group-blurb">Create, schedule, edit, pause and cancel posts.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Tool</th><th scope="col">Hints</th><th scope="col">Description</th></tr></thead><tbody>
+<tr><td class="tn"><a href="/mcp/tools/#schedule_post"><code>schedule_post</code></a></td><td class="th"><span class="chip chip-write">changes data</span> <span class="chip chip-live">reaches a live platform</span></td><td class="td">Schedule a post to ONE connected account (call once per account to post to several). Use list_connected_accounts for the id and get_platform_rules to see what the platform needs. TikTok needs tiktokPrivacyLevel, Pinterest needs boardId. Set requiresApproval to hold it for a client to approve first.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#publish_post_now"><code>publish_post_now</code></a></td><td class="th"><span class="chip chip-write">changes data</span> <span class="chip chip-live">reaches a live platform</span></td><td class="td">Publish to one connected account right away instead of scheduling. The scheduler picks it up within moments, it is not published synchronously: call list_scheduled_posts afterwards and check verifiedLive to confirm it really went live. Same fields as schedule_post.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#create_draft"><code>create_draft</code></a></td><td class="th"><span class="chip chip-write">changes data</span></td><td class="td">Save a post as a draft without choosing an account or a time yet. It is never posted until it is scheduled with schedule_draft. Good for a plan a human will finish.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#schedule_draft"><code>schedule_draft</code></a></td><td class="th"><span class="chip chip-write">changes data</span> <span class="chip chip-live">reaches a live platform</span></td><td class="td">Turn a draft into a real scheduled post by choosing the account and the time. The platform's rules are checked now, so an error here tells you what to fix.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#update_post"><code>update_post</code></a></td><td class="th"><span class="chip chip-write">changes data</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">Edit a draft, a post waiting for approval, or a still-pending post: its text, media, tags, options and so on. Not possible once it is posting or done. To change the time, use reschedule_post.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#reschedule_post"><code>reschedule_post</code></a></td><td class="th"><span class="chip chip-write">changes data</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">Move a pending post to a new time. Passing the current time posts it right away. The platform's rules for that time are checked again.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#pause_post"><code>pause_post</code></a></td><td class="th"><span class="chip chip-write">changes data</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">Hold a pending post so it does not go out at its time. Resume it later with resume_post.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#resume_post"><code>resume_post</code></a></td><td class="th"><span class="chip chip-write">changes data</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">Let a paused post go out again. If its time has passed it goes out right away.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#delete_scheduled_post"><code>delete_scheduled_post</code></a></td><td class="th"><span class="chip chip-write">changes data</span> <span class="chip chip-danger">destructive</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">Delete a post from LazyRelay. Use it to cancel a pending or waiting-for-approval post before it goes out. It also works on a post that has already gone out, but then it removes only LazyRelay's record: the post stays live on the platform. A post that is being published right now cannot be deleted, so try again in a moment.</td></tr>
+</tbody></table></div>
+</section>
+<section class="group group-violet" id="client-approval">
+<h3>Client approval <span class="count">6 tools</span></h3>
+<p class="group-blurb">Approve waiting posts and run client review links and feedback.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Tool</th><th scope="col">Hints</th><th scope="col">Description</th></tr></thead><tbody>
+<tr><td class="tn"><a href="/mcp/tools/#approve_post"><code>approve_post</code></a></td><td class="th"><span class="chip chip-write">changes data</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">Approve a post that is waiting for approval, so it is scheduled. Only do this when the account owner has asked you to.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#create_review_link"><code>create_review_link</code></a></td><td class="th"><span class="chip chip-write">changes data</span></td><td class="td">Create a link a client opens (no account needed) to see the posts waiting for approval, approve them, ask for changes and comment. Send them the link at lazyrelay.com/review/&lt;token&gt;. Needs a plan that includes review links.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#list_review_links"><code>list_review_links</code></a></td><td class="th"><span class="chip chip-read">read-only</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">The account's client review links with their status and how many are allowed on the plan.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#revoke_review_link"><code>revoke_review_link</code></a></td><td class="th"><span class="chip chip-write">changes data</span> <span class="chip chip-danger">destructive</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">Stop a client review link working at once.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#get_post_feedback"><code>get_post_feedback</code></a></td><td class="th"><span class="chip chip-read">read-only</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">The conversation on a post waiting for approval: what the client said, whether they asked for changes, and any replies.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#reply_to_post_feedback"><code>reply_to_post_feedback</code></a></td><td class="th"><span class="chip chip-write">changes data</span></td><td class="td">Add a reply to the client conversation on a post. The client sees it on their review page.</td></tr>
+</tbody></table></div>
+</section>
+<section class="group group-green" id="results">
+<h3>Results <span class="count">4 tools</span></h3>
+<p class="group-blurb">Check what happened: post status and Proof-of-Publish, shareable proof, analytics and comments.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Tool</th><th scope="col">Hints</th><th scope="col">Description</th></tr></thead><tbody>
+<tr><td class="tn"><a href="/mcp/tools/#list_scheduled_posts"><code>list_scheduled_posts</code></a></td><td class="th"><span class="chip chip-read">read-only</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">This account's upcoming and recent posts with their status (draft, needs_approval, pending, posted, failed) and whether each is confirmed live. Returns a short summary of each post; set detail to true for the full records. Filter by status or account to keep it small. The total in the answer is the number of posts returned after filtering and the limit, not the number of posts that exist.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#get_proof_link"><code>get_proof_link</code></a></td><td class="th"><span class="chip chip-read">read-only</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">A public link that shows a post was really confirmed live, to share with a client. Only works for a post confirmed live, and the API key must be allowed to share proof.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#get_analytics_summary"><code>get_analytics_summary</code></a></td><td class="th"><span class="chip chip-read">read-only</span> <span class="chip chip-safe">safe to repeat</span></td><td class="td">Post counts, verified-live rate, per-platform breakdown and engagement totals for a recent window. Filter by brand or by a tag to compare campaigns; availableTags lists the tags in use.</td></tr>
+<tr><td class="tn"><a href="/mcp/tools/#get_mentions"><code>get_mentions</code></a></td><td class="th"><span class="chip chip-read">read-only</span> <span class="chip chip-safe">safe to repeat</span> <span class="chip chip-live">reaches a live platform</span></td><td class="td">Recent comments on this account's newest posts, from Dev.to, Hashnode, YouTube, Mastodon, Bluesky, Lemmy, WordPress, Telegram and Discord. Facebook and Instagram comments are included only where Meta allows LazyRelay to read them. LazyRelay keeps comments for up to 30 days, then deletes them.</td></tr>
+</tbody></table></div>
+</section>
+
+<h2 id="security">Security primitives</h2>
+<p>Only what the code does today.</p>
+
+<h3 id="webhooks">Outbound webhooks</h3>
+<p>LazyRelay can send an HTTP POST to an endpoint you register when something happens to a post or a connected account. You can register up to 5 endpoints in the dashboard under <strong>Settings, Webhooks</strong>; each has its own secret, shown once when it is created, and can be limited to chosen events and channels.</p>
+<div class="table-wrap simple-table"><table><thead><tr><th scope="col">Event</th><th scope="col">Sent when</th></tr></thead><tbody>
+<tr><td><code>post.verified</code></td><td>A post was confirmed live by the Proof-of-Publish check</td></tr>
+<tr><td><code>post.failed</code></td><td>A post did not go out</td></tr>
+<tr><td><code>post.unconfirmed</code></td><td>A post went out but could not be confirmed live</td></tr>
+<tr><td><code>channel.needs_reconnect</code></td><td>A connected account needs to be reconnected</td></tr>
+</tbody></table></div>
+<p>The JSON body holds <code>event</code>, <code>eventId</code> and <code>createdAt</code> plus the details of the event. The dashboard's Send test button sends <code>webhook.test</code>, once, with no retries.</p>
+<p><strong>Headers on every delivery</strong></p>
+<ul>
+<li><code>X-LazyRelay-Signature</code>: the HMAC-SHA256 of the raw JSON body, keyed with the endpoint secret, as lowercase hex with no prefix.</li>
+<li><code>X-LazyRelay-Event</code>: the event name, for example <code>post.verified</code>.</li>
+<li><code>X-LazyRelay-Delivery</code>: the event id. It is the same on every retry of one event, so use it to ignore a repeat.</li>
+<li><code>X-LazyRelay-Attempt</code>: 1 on the first try, up to 6.</li>
+</ul>
+<p><strong>Delivery and retries.</strong> Each attempt times out after 10 seconds. A 2xx answer counts as delivered. A 408, a 429, any 5xx and a connection error or timeout are retried; any other answer, including a redirect (redirects are never followed), is a final failure you can read in the delivery log. There are 6 attempts in total, over about 9 hours, with these waits after each failed attempt:</p>
+<div class="table-wrap simple-table"><table><thead><tr><th scope="col">After failed attempt</th><th scope="col">Wait before the next one</th></tr></thead><tbody>
+<tr><td>1</td><td>1 minute</td></tr>
+<tr><td>2</td><td>5 minutes</td></tr>
+<tr><td>3</td><td>30 minutes</td></tr>
+<tr><td>4</td><td>2 hours</td></tr>
+<tr><td>5</td><td>6 hours</td></tr>
+</tbody></table></div>
+<p><strong>Verify the signature</strong> against the raw body, before any JSON parsing, because re-serialising parsed JSON can change whitespace or key order. With the Node SDK (<code>@lazyrelay/sdk</code>), which compares in constant time:</p>
+<pre class="code-block"><code>import express from &quot;express&quot;;
+import { verifyWebhookSignature } from &quot;@lazyrelay/sdk&quot;;
+
+const app = express();
+
+app.post(&quot;/lazyrelay-webhook&quot;, express.raw({ type: &quot;application/json&quot; }), (req, res) =&gt; {
+  const ok = verifyWebhookSignature({
+    secret: process.env.LAZYRELAY_WEBHOOK_SECRET,
+    rawBody: req.body, // the raw bytes, before any JSON parsing
+    signature: req.get(&quot;X-LazyRelay-Signature&quot;),
+  });
+  if (!ok) return res.status(401).end();
+
+  const event = JSON.parse(req.body.toString(&quot;utf8&quot;));
+  // X-LazyRelay-Delivery is the same on every retry of one event: use it to ignore a repeat.
+  console.log(req.get(&quot;X-LazyRelay-Event&quot;), event.eventId);
+  res.status(200).end();
+});</code></pre>
+<p>Without the SDK, the same check with Node's built-in crypto:</p>
+<pre class="code-block"><code>import { createHmac, timingSafeEqual } from &quot;node:crypto&quot;;
+
+function isValid(secret, rawBody, signatureHeader) {
+  const received = String(signatureHeader || &quot;&quot;).trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(received)) return false;
+  const expected = createHmac(&quot;sha256&quot;, secret).update(rawBody).digest();
+  return timingSafeEqual(expected, Buffer.from(received, &quot;hex&quot;));
+}</code></pre>
+
+<h3 id="hosted-mcp">The hosted MCP endpoint</h3>
+<ul>
+<li><strong>Transport.</strong> <code>https://lazyrelaylazyrelay-backend.onrender.com/mcp</code> speaks MCP over Streamable HTTP in stateless mode: every request gets a fresh server and transport, so concurrent calls never share state.</li>
+<li><strong>Authentication.</strong> OAuth 2.1 bearer tokens only. Each token is verified against the identity provider's published signing keys (JWKS), with the algorithm pinned to ES256, and must have been issued for the MCP server itself. An ordinary dashboard session token is rejected there.</li>
+<li><strong>Discovery.</strong> The OAuth protected resource metadata (RFC 9728) is published under <code>/.well-known</code> on the same host, and an unauthenticated call gets a 401 with a <code>WWW-Authenticate</code> header pointing to it, which is how an MCP client finds the sign-in flow.</li>
+<li><strong>Rate limit.</strong> Applied after authentication, per account, using the ladder below.</li>
+</ul>
+
+<h3 id="api-keys">REST API keys</h3>
+<ul>
+<li>Keys start with <code>lzr_live_</code> and are sent as <code>Authorization: Bearer</code>. They work on the REST API and in the local <code>@lazyrelay/mcp-server</code> package, not on the hosted <code>/mcp</code> endpoint.</li>
+<li>A key is shown once, when you create it. LazyRelay stores only its SHA-256 hash.</li>
+<li>A key cannot create or revoke keys: that always needs a direct dashboard sign-in.</li>
+</ul>
+
+<h2 id="rate-limits">Rate limits</h2>
+<p>Requests are counted per account in a one minute window. The same ladder applies to authenticated REST API requests and to the hosted MCP endpoint. Over the limit, the API answers HTTP 429, and an MCP tool reports the error kind <code>rate_limited</code> with <code>retryable</code> set to true. A plan change can take up to a minute to apply.</p>
+<div class="table-wrap simple-table"><table><thead><tr><th scope="col">Plan</th><th scope="col">Limit per account</th></tr></thead><tbody>
+<tr><td>Free</td><td>60 requests per minute</td></tr>
+<tr><td>Starter</td><td>300 requests per minute</td></tr>
+<tr><td>Pro</td><td>450 requests per minute</td></tr>
+<tr><td>Business</td><td>600 requests per minute</td></tr>
+<tr><td>Agency</td><td>600 requests per minute</td></tr>
+<tr><td>Agency Plus</td><td>600 requests per minute</td></tr>
+</tbody></table></div>
+<p class="note">This limits request volume only. Plan limits on accounts, brands and posts are separate; see <a href="/pricing">pricing</a>.</p>
+
+<h2 id="links">Links and packages</h2>
+<div class="card-row">
+  <div class="card"><h3>OpenAPI 3.1</h3><p>The whole REST API as one public document, no key needed.</p><p><a href="https://lazyrelaylazyrelay-backend.onrender.com/api/openapi.json">https://lazyrelaylazyrelay-backend.onrender.com/api/openapi.json</a></p><p>API base URL: <code>https://lazyrelaylazyrelay-backend.onrender.com/api</code></p></div>
+  <div class="card"><h3>@lazyrelay/mcp-server 0.3.1</h3><p>The local MCP server, run with <code>npx -y @lazyrelay/mcp-server</code> and an API key.</p><p><a href="https://www.npmjs.com/package/@lazyrelay/mcp-server">npm package</a></p></div>
+  <div class="card"><h3>@lazyrelay/sdk 0.1.1</h3><p>Typed Node client, command line tool and the webhook signature helper. MIT licensed.</p><p><a href="https://www.npmjs.com/package/@lazyrelay/sdk">npm package</a></p></div>
+  <div class="card"><h3>n8n-nodes-lazyrelay 0.1.1</h3><p>The n8n community node and trigger node.</p><p><a href="https://www.npmjs.com/package/n8n-nodes-lazyrelay">npm package</a> &middot; <a href="/mcp/n8n/">n8n guide</a></p></div>
+</div>
+
+<div class="cta-box">
+  <p style="margin-top:0;"><strong>Start free, no card required.</strong> API, MCP and SDK access is included on every plan, including Free.</p>
+  <a class="button" href="/pricing">See plans and get started free</a>
+</div>
+
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/about/">About</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/docs">API &amp; MCP Docs</a> &middot; <a href="/developers/">Developers</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a></p>
+  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>
