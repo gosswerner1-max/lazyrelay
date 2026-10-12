@@ -7,6 +7,7 @@ import { runPrivacySweep } from "./privacySweep.js";
 import { purgeExpiredConnects } from "./platforms/connect.js";
 import { runWebhookDeliveryCycle } from "./webhook.js";
 import { runReplySenderCycle } from "./replySender.js";
+import { expireStaleDrafts, replyDraftsEnabled } from "./replyDrafts.js";
 import { RSS_CHECK_INTERVAL_MS, runRssCycle } from "./rssPoller.js";
 import { buildPlatformRegistry } from "./platforms/registry.js";
 import { StubMorAdapter } from "./billing/stub.js";
@@ -222,7 +223,14 @@ async function main() {
       .then((r) => {
         if (r.tokensWiped || r.tokenFailures || r.commentsDeleted || r.dmsDeleted || r.purgeFailed) console.log("Privacy sweep:", JSON.stringify(r));
       })
-      .catch((err) => console.error("Privacy sweep error:", summarizeIfHtmlError(err)));
+      .catch((err) => console.error("Privacy sweep error:", summarizeIfHtmlError(err)))
+      // Reply drafts nobody reviewed before their 7 day expiry become "expired" (replyDrafts.ts). Skipped while the
+      // reply loop is off, like the sender above.
+      .then(() => (replyDraftsEnabled() ? expireStaleDrafts(supabase) : 0))
+      .then((n) => {
+        if (n) console.log(`Expired ${n} stale reply draft(s).`);
+      })
+      .catch((err) => console.error("Reply draft expiry error:", summarizeIfHtmlError(err)));
   setInterval(runTokenJob, TOKEN_REFRESH_INTERVAL_MS);
   setTimeout(runTokenJob, 60_000);
 
