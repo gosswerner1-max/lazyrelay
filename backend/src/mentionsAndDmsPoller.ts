@@ -14,6 +14,7 @@ import { getAccessToken, DisconnectedAccountError } from "./scheduler.js";
 import { triageItems } from "./commentTriage.js";
 import { replyDraftsEnabled } from "./replyDrafts.js";
 import { draftForPolledPost } from "./replyDrafting.js";
+import { resolveTier } from "./tier.js";
 import { defaultGenerate, REPLY_DRAFT_MODEL } from "./replyDraftingModel.js";
 
 // Mirrors dmAutomationPoller's own 30-day "all posts" window — comments on
@@ -132,7 +133,7 @@ async function pollMentions(registry: ReturnType<typeof buildPlatformRegistry>) 
 
       if (generate && commentsResult.comments.length > 0) {
         const run = await draftForPolledPost(
-          { db: supabase, generate, modelName: REPLY_DRAFT_MODEL },
+          { db: supabase, generate, modelName: REPLY_DRAFT_MODEL, isPaidAccount: async (accountId) => (await resolveTier(accountId)) !== "free" },
           {
             accountId: post.account_id,
             scheduledPostId: post.id,
