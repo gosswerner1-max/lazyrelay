@@ -9,6 +9,8 @@
 //   node imap-tool.js list-drafts <mailbox>
 //   node imap-tool.js save-draft <mailbox> --to <addr> --subject <subj> --in-reply-to <msgid> --body-file <path>
 //   node imap-tool.js sort-mailbox <mailbox>
+//   node imap-tool.js flag <mailbox> <uid> [<uid> ...]     star messages (adds \Flagged only)
+//   node imap-tool.js unflag <mailbox> <uid> [<uid> ...]
 //   node imap-tool.js list-purge-candidates <mailbox> <folder> <days>
 //   node imap-tool.js purge-folder <mailbox> <folder> <days>
 //
@@ -88,6 +90,25 @@ async function deleteMessage(mailbox, folderName, uid) {
     try {
       await client.messageDelete([uid], { uid: true });
       console.log(JSON.stringify({ deleted: true, folderPath, uid }));
+    } finally {
+      lock.release();
+    }
+  } finally {
+    await client.logout();
+  }
+}
+
+async function setFlag(mailbox, uids, add) {
+  // Adds or removes the standard IMAP star (\\Flagged) on messages in the INBOX. Never touches \\Seen, never moves or
+  // deletes anything. Added 2026-10-06 so the overnight triage can mark what needs Werner's attention.
+  const client = await connect(mailbox);
+  try {
+    const lock = await client.getMailboxLock("INBOX");
+    try {
+      const ok = add
+        ? await client.messageFlagsAdd(uids.join(","), ["\\Flagged"], { uid: true })
+        : await client.messageFlagsRemove(uids.join(","), ["\\Flagged"], { uid: true });
+      console.log(JSON.stringify({ [add ? "flagged" : "unflagged"]: uids, ok }));
     } finally {
       lock.release();
     }
@@ -398,6 +419,19 @@ function isPromoHeaders(headersBuffer) {
   return !!getHeaderValue(headersBuffer, "list-unsubscribe");
 }
 
+// Security, login, billing and payment notices keep List-Unsubscribe headers too (Instagram/Facebook "new login",
+// Discord "verify login", Google and Paddle alerts), so the header alone filed real account alerts under Promotions
+// (found 2026-10-08: an Instagram login alert for the thelazydownload account sat in accounts@ Promotions).
+// Rule: these never get moved. Wrongly keeping a newsletter in INBOX costs nothing; hiding a security alert does.
+const KEEP_IN_INBOX_SUBJECT =
+  /new log[- ]?in|log[- ]?in (alert|attempt|from|to)|sign[- ]?in|security (alert|code|notice|check)|verif(y|ication)|password|two[- ]?factor|\b2fa\b|suspicious|unusual activity|account (access|suspended|disabled|locked|restricted|verification|alert)|payment (failed|received|declined|problem)|invoice|receipt|refund|chargeback|dispute|past due|billing|subscription (cancel|renew|ended|expired)|action required|domain (expir|renew)|ssl|certificate|(server|service|health check) (failure|down|alert)/i;
+const KEEP_IN_INBOX_SENDER = /^(security|alerts?|billing|payments?|abuse|account|accounts)[@+.-]/i;
+function mustStayInInbox(headersBuffer) {
+  const subject = getHeaderValue(headersBuffer, "subject") || "";
+  const from = (getHeaderValue(headersBuffer, "from") || "").replace(/^.*</, "").replace(/>.*$/, "").trim();
+  return KEEP_IN_INBOX_SUBJECT.test(subject) || KEEP_IN_INBOX_SENDER.test(from);
+}
+
 // Moves obviously-spam and obviously-promotional mail out of INBOX into their
 // own folders. This is a MOVE, not a delete — fully reversible, safe to run
 // unattended on every scheduled pass. Actual deletion is a separate, manual step
@@ -413,11 +447,11 @@ async function sortMailbox(mailbox) {
       if (client.mailbox.exists) {
         for await (const msg of client.fetch(
           "1:*",
-          { uid: true, headers: ["x-spam-flag", "x-spam-status", "list-unsubscribe"] }
+          { uid: true, headers: ["x-spam-flag", "x-spam-status", "list-unsubscribe", "subject", "from"] }
         )) {
           if (isSpamHeaders(msg.headers)) {
             spamUids.push(msg.uid);
-          } else if (isPromoHeaders(msg.headers)) {
+          } else if (isPromoHeaders(msg.headers) && !mustStayInInbox(msg.headers)) {
             promoUids.push(msg.uid);
           }
         }
@@ -682,6 +716,8 @@ async function main() {
   }
   if (cmd === "sort-mailbox") return sortMailbox(mailbox);
   if (cmd === "mark-read") return markRead(mailbox, rest);
+  if (cmd === "flag") return setFlag(mailbox, rest, true);
+  if (cmd === "unflag") return setFlag(mailbox, rest, false);
   if (cmd === "delete-message") return deleteMessage(mailbox, rest[0], rest[1]);
   if (cmd === "list-purge-candidates") return listPurgeCandidates(mailbox, rest[0], rest[1]);
   if (cmd === "purge-folder") return purgeFolder(mailbox, rest[0], rest[1]);

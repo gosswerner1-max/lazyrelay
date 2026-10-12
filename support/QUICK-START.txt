@@ -1,0 +1,203 @@
+================================================================================
+MORNING BRIEF DATA COLLECTOR - QUICK START
+================================================================================
+
+LOCATION: C:\Users\werne\Claude\LazyRelay\support\
+
+FILES CREATED:
+  data-collector.js              Main script (read emails + Active Priorities)
+  credentials.example.json       Template for email credentials
+  credentials.local.json         Your actual IMAP credentials (YOU FILL THIS IN)
+  DATA-COLLECTOR-README.md       Full documentation
+  SETUP-INSTRUCTIONS.md          Step-by-step setup guide
+  morning-brief-data.example.json Example JSON output
+  QUICK-START.txt               This file
+
+================================================================================
+STEP 1: SETUP (ONE TIME ONLY)
+================================================================================
+
+1. Copy credentials.example.json to credentials.local.json:
+   cp credentials.example.json credentials.local.json
+
+2. Open credentials.local.json and fill in the password for each mailbox:
+   "pass": "YOUR_PASSWORD_HERE"
+   (Same password for all four mailboxes per your setup)
+
+3. Save the file (keep it secret, it's gitignored)
+
+================================================================================
+STEP 2: RUN (MANUAL)
+================================================================================
+
+From PowerShell or Git Bash in this directory:
+
+  node data-collector.js
+
+Output:
+  - Reads all 4 LazyRelay email inboxes (unread only)
+  - Parses Active Priorities.md from the vault
+  - Categorizes items by priority
+  - Creates C:\Users\werne\Documents\werner-brain\morning-brief-data.json
+
+Expected output to console:
+  Starting data collection...
+  Fetching emails...
+    hello@lazyrelay.com: 3 unread
+    support@lazyrelay.com: 1 unread
+    accounts@lazyrelay.com: 0 unread
+    werner@lazyrelay.com: 2 unread
+  Parsing Active Priorities...
+    Found 15 open tasks
+
+  Data collection complete.
+  Output: C:\Users\werne\Documents\werner-brain\morning-brief-data.json
+  Items: 21 total
+    Critical: 2
+    Warning: 3
+    Review: 8
+    Info: 8
+
+================================================================================
+STEP 3: DASHBOARD INTEGRATION
+================================================================================
+
+The generated JSON file can be loaded by your Morning Brief dashboard.
+
+JSON location:
+  C:\Users\werne\Documents\werner-brain\morning-brief-data.json
+
+JSON format:
+  {
+    "timestamp": "ISO date",
+    "totalItems": N,
+    "byPriority": { critical: N, warning: N, review: N, info: N },
+    "items": [
+      {
+        "id": "email-123-hello@lazyrelay.com",
+        "priority": "critical|warning|review|info",
+        "source": "email|active-priorities",
+        "title": "Email subject or task title",
+        "description": "Preview text",
+        "date": "ISO timestamp",
+        ...
+      },
+      ...
+    ]
+  }
+
+See morning-brief-data.example.json for a complete example with all fields.
+
+================================================================================
+STEP 4: SCHEDULE (OPTIONAL)
+================================================================================
+
+To run automatically every morning at 8:00 AM, use:
+  - Windows Task Scheduler
+  - cron job (if on WSL/Linux)
+  - Claude Code scheduled task (.claude/scheduled-tasks/)
+
+Example cron:
+  0 8 * * * node C:\Users\werne\Claude\LazyRelay\support\data-collector.js
+
+================================================================================
+WHAT IT READS
+================================================================================
+
+EMAIL INBOXES (unread only):
+  - hello@lazyrelay.com
+  - support@lazyrelay.com
+  - accounts@lazyrelay.com
+  - werner@lazyrelay.com
+
+ACTIVE PRIORITIES:
+  - C:\Users\werne\Documents\werner-brain\Active Priorities.md (all open tasks)
+
+================================================================================
+PRIORITY CATEGORIES
+================================================================================
+
+CRITICAL (red):
+  - Email: errors, failures, security, urgent alerts
+  - Tasks: [lazyrelay] items, CRITICAL, NEW
+
+WARNING (orange):
+  - Email: action required, verify, confirm, appeals, review
+  - Tasks: [lazy-download] items, UPDATED
+
+REVIEW (yellow):
+  - Email: customer questions, support, feedback
+  - Tasks: customer/product related
+
+INFO (blue):
+  - Email: invoices, receipts, notifications, updates
+  - Tasks: [meta], DECIDED
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+ERROR: "Missing credentials.local.json"
+  → Copy credentials.example.json to credentials.local.json and fill password
+
+ERROR: "Cannot connect to IMAP"
+  → Check IMAP is enabled in cPanel
+  → Verify password is correct (test in Thunderbird first)
+
+ERROR: "Active Priorities.md not found"
+  → Vault location is: C:\Users\werne\Documents\werner-brain
+  → If moved, update VAULT_PATH in data-collector.js
+
+NO UNREAD EMAILS:
+  → Normal if you've read everything
+  → Only unread emails appear in dashboard
+  → Check Thunderbird to see all mail
+
+JSON FILE IS EMPTY:
+  → Check output directory exists and is writable
+  → Default output: C:\Users\werne\Documents\werner-brain\
+
+================================================================================
+DEPENDENCIES
+================================================================================
+
+Already installed (same as imap-tool.js):
+  - imapflow (IMAP client)
+  - mailparser (email parser)
+  - Node.js built-ins (fs, path)
+
+Verify with:
+  npm list imapflow mailparser
+
+If missing:
+  npm install imapflow mailparser
+
+================================================================================
+FILES YOU DON'T NEED TO EDIT
+================================================================================
+
+  data-collector.js        (ready to run as-is)
+  imap-tool.js            (existing support tool, not touched)
+  *.md files              (reference only)
+
+FILES YOU MUST CREATE/EDIT:
+
+  credentials.local.json   (COPY from .example.json and fill password)
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Read SETUP-INSTRUCTIONS.md for detailed setup
+2. Create credentials.local.json with your password
+3. Run: node data-collector.js
+4. Check the output JSON file to verify format
+5. Integrate with your Morning Brief dashboard
+6. Set up scheduling (optional)
+
+================================================================================
+Questions? See:
+  - DATA-COLLECTOR-README.md (full reference)
+  - SETUP-INSTRUCTIONS.md (detailed walkthrough)
+  - morning-brief-data.example.json (example output)
+================================================================================

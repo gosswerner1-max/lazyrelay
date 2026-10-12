@@ -1,0 +1,65 @@
+{
+  "_note": "Facts below were verified 2026-09-21 (chatKnowledge.ts, live site, database). If a real fact changes, update the expectation here in the same change. mustMatch = every pattern must appear in the reply. mustNotMatch = none may appear. Patterns are case-insensitive regular expressions.",
+  "questions": [
+    {
+      "id": "zapier-free",
+      "ask": "Is Zapier available on the Free plan?",
+      "mustMatch": ["\\byes\\b|every plan|all plans|including free"],
+      "mustNotMatch": ["paid plans? only|only (on|for|with) (a )?paid|not (available|included) (on|in) (the )?free|starter or (higher|above)"]
+    },
+    {
+      "id": "tiktok-public",
+      "ask": "Can LazyRelay post publicly to TikTok?",
+      "mustMatch": ["public|everyone"],
+      "mustNotMatch": ["sandbox|not (yet )?approved|awaiting (tiktok'?s? )?(approval|review)|pending (tiktok )?(approval|review)|under review|only post(s)? privately|private(ly)? only"]
+    },
+    {
+      "id": "pinterest-limit",
+      "ask": "How many pins per day can I schedule to one Pinterest account?",
+      "mustMatch": ["\\b10\\b|\\bten\\b"],
+      "mustNotMatch": ["\\b(15|20|25|50)\\b pins"]
+    },
+    {
+      "id": "free-accounts",
+      "ask": "How many social accounts can I connect on the Free plan?",
+      "mustMatch": ["\\b3\\b|three"],
+      "mustNotMatch": []
+    },
+    {
+      "id": "plan-prices",
+      "ask": "What plans do you offer and what do they cost?",
+      "mustMatch": ["29\\.99", "59\\.99", "99\\.99", "149\\.99", "199\\.99"],
+      "mustNotMatch": []
+    },
+    {
+      "id": "billing-live",
+      "ask": "Can I subscribe to a paid plan today?",
+      "mustMatch": ["\\byes\\b|can subscribe|upgrade|billing|settings"],
+      "mustNotMatch": ["coming soon|not (yet )?live|nobody can subscribe|no one can subscribe|can'?t subscribe yet|not available yet"]
+    },
+    {
+      "id": "cancel",
+      "ask": "How do I cancel my subscription?",
+      "mustMatch": ["billing"],
+      "mustNotMatch": ["email support to cancel|contact support to cancel|you can'?t cancel"]
+    },
+    {
+      "id": "dms-coming-soon",
+      "ask": "Can I reply to Instagram DMs from the LazyRelay dashboard?",
+      "mustMatch": ["coming soon|not (yet )?(available|open|live)|isn'?t (yet )?(available|open|live)|switched off|not yet"],
+      "mustNotMatch": ["yes,? you can reply|you can reply to (dms|messages) (in|from) (the )?dashboard|dm inbox is (live|available)"]
+    },
+    {
+      "id": "ai-optional",
+      "ask": "Does LazyRelay write my posts for me with AI automatically?",
+      "mustMatch": ["optional|only (if|when) you|nothing is generated|you write|on request|if you ask|when you ask"],
+      "mustNotMatch": ["writes? (all )?your posts for you automatically|ai (automatically )?(writes|generates) your posts"]
+    },
+    {
+      "id": "google-calendar",
+      "ask": "Does LazyRelay sync with Google Calendar?",
+      "mustMatch": ["google calendar"],
+      "mustNotMatch": ["coming soon|in progress|not (yet )?(available|supported|live)|awaiting (google )?(approval|review)"]
+    }
+  ]
+}
