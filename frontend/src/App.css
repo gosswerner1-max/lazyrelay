@@ -2986,7 +2986,6 @@ button[type="submit"]:not(.btn-outline),
   --lz-metal-to: #b9c6ff;
   --lz-electric: #8b5cf6;
   --lz-electric-bright: #a78bfa;
-  --lz-cyan: #22d3ee;
   --lz-electric-ring: rgba(167, 139, 250, 0.65);
   --lz-electric-glow: rgba(139, 92, 246, 0.38);
   --lz-shadow-card: inset 0 1px 0 var(--lz-highlight), 0 1px 2px rgba(2, 6, 18, 0.5),

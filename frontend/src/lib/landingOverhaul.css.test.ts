@@ -84,7 +84,7 @@ const REQUIRED_TOKENS = [
   "--lz-metal-to",
   "--lz-electric",
   "--lz-electric-bright",
-  "--lz-cyan",
+  
   "--lz-electric-ring",
   "--lz-electric-glow",
   "--lz-shadow-card",

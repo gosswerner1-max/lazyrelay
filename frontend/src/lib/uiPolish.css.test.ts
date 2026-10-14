@@ -118,13 +118,17 @@ describe("hover lifts only on hover-capable devices", () => {
 
   it("finds the two hover-lift rules", () => {
     // the original bento lift plus the landing overhaul's own (landingOverhaul.css.test.ts guards those in detail)
-    expect(lifts(flat(app)).map((r) => r.selector)).toContain(".landing-bento-tile:hover");
+    expect(lifts(flat(app)).map((r) => r.selector)).toEqual([
+      ".landing-bento-tile:hover",
+      ".landing:has(.landing-hero) .landing-step:hover, .landing:has(.landing-hero) .landing-feature:hover, .landing:has(.landing-hero) .pricing-card:hover",
+      ".landing:has(.landing-hero) .landing-bento-tile:hover",
+    ]);
     expect(lifts(flat(dashboard)).map((r) => r.selector)).toEqual([".overview-panel .chart-stat-tile:hover"]);
   });
 
   it("every hover-lift rule sits inside @media (hover: hover)", () => {
     const all = [...lifts(flat(app)), ...lifts(flat(dashboard))];
-    expect(all.length).toBeGreaterThanOrEqual(2);
+    expect(all.length).toBe(4);
     for (const r of all) {
       expect(r.ctx.some((c) => /\(hover:\s*hover\)/.test(c)), `${r.selector} is not inside @media (hover: hover)`).toBe(true);
     }
