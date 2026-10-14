@@ -310,7 +310,7 @@ ${retryRows}
 <div class="table-wrap simple-table"><table><thead><tr><th scope="col">Plan</th><th scope="col">Limit per account</th></tr></thead><tbody>
 ${rateRows}
 </tbody></table></div>
-<p class="note">This limits request volume only. Plan limits on accounts, brands and posts are separate; see <a href="/pricing">pricing</a>.</p>
+<p class="note">This limits request volume only. Plan limits on accounts, brands and posts are separate; see <a href="/pricing/">pricing</a>.</p>
 
 <h2 id="links">Links and packages</h2>
 <div class="card-row">
@@ -322,12 +322,12 @@ ${rateRows}
 
 <div class="cta-box">
   <p style="margin-top:0;"><strong>Start free, no card required.</strong> API, MCP and SDK access is included on every plan, including Free.</p>
-  <a class="button" href="/pricing">See plans and get started free</a>
+  <a class="button" href="/pricing/">See plans and get started free</a>
 </div>
 
 </main>
 <footer>
-  <p><a href="/">Home</a> &middot; <a href="/about/">About</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/docs">API &amp; MCP Docs</a> &middot; <a href="/developers/">Developers</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a></p>
+  <p><a href="/">Home</a> &middot; <a href="/about/">About</a> &middot; <a href="/guides/">Guides</a> &middot; <a href="/pricing/">Pricing</a> &middot; <a href="/docs/">API &amp; MCP Docs</a> &middot; <a href="/developers/">Developers</a> &middot; <a href="/terms/">Terms of Service</a> &middot; <a href="/privacy/">Privacy Policy</a></p>
   <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
 </footer>
 </body>

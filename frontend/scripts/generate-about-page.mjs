@@ -234,7 +234,7 @@ export function renderAboutPage() {
   <div class="wrap">
     <a class="wordmark" href="/">Lazy<span class="dot">Relay</span></a>
     <nav aria-label="Main">
-      <a href="/pricing">Pricing</a>
+      <a href="/pricing/">Pricing</a>
       <a href="/developers/">Developers</a>
       <a href="/docs/mcp-api/">MCP &amp; API docs</a>
       <a href="/contact">Contact</a>
@@ -249,7 +249,7 @@ export function renderAboutPage() {
     <h1 id="about-h1">Schedule it. <em>Know it went live.</em></h1>
     <p class="lead">LazyRelay schedules social media posts across 17 platforms and independently verifies each one actually went live, not just that it was sent.</p>
     <div class="cta-row">
-      <a class="btn btn-primary" href="/pricing">See plans and get started free</a>
+      <a class="btn btn-primary" href="/pricing/">See plans and get started free</a>
       <a class="btn btn-ghost" href="#faq">Read the FAQ</a>
     </div>
   </div>
@@ -309,10 +309,10 @@ export function renderAboutPage() {
         <h3>IPE Projects (Pty) Ltd</h3>
         <p>LazyRelay is operated by IPE Projects (Pty) Ltd, a company registered in South Africa (registration number 2021/003176/07).</p>
         <div class="legal-links">
-          <a href="/privacy">Privacy Policy</a>
-          <a href="/terms">Terms of Service</a>
-          <a href="/dpa">Data Processing Agreement</a>
-          <a href="/refunds">Refund Policy</a>
+          <a href="/privacy/">Privacy Policy</a>
+          <a href="/terms/">Terms of Service</a>
+          <a href="/dpa/">Data Processing Agreement</a>
+          <a href="/refunds/">Refund Policy</a>
         </div>
       </div>
       <div class="panel panel-yellow">
@@ -341,14 +341,14 @@ ${faqHtml()}
 <section class="closer" aria-label="Get started">
   <div class="wrap">
     <h2>Ready to see your posts verified live?</h2>
-    <a class="btn" href="/pricing">See plans and get started free</a>
+    <a class="btn" href="/pricing/">See plans and get started free</a>
   </div>
 </section>
 </main>
 
 <footer class="site-foot">
   <div class="wrap">
-    <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/docs">API &amp; MCP Docs</a> &middot; <a href="/docs/mcp-api/">MCP tools and security</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+    <p><a href="/">Home</a> &middot; <a href="/guides/">Guides</a> &middot; <a href="/pricing/">Pricing</a> &middot; <a href="/docs/">API &amp; MCP Docs</a> &middot; <a href="/docs/mcp-api/">MCP tools and security</a> &middot; <a href="/terms/">Terms of Service</a> &middot; <a href="/privacy/">Privacy Policy</a> &middot; <a href="/refunds/">Refund Policy</a></p>
     <p>&copy; 2026 LazyRelay. All rights reserved.</p>
   </div>
 </footer>

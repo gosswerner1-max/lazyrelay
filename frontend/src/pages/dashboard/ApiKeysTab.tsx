@@ -39,7 +39,7 @@ export function ApiKeysTab() {
           Let your own AI agent post and schedule directly through LazyRelay's API, without a browser or a human
           login. Full reference below.
         </p>
-        <a href="/docs" target="_blank" rel="noopener noreferrer" className="btn-outline api-docs-open-button">
+        <a href="/docs/" target="_blank" rel="noopener noreferrer" className="btn-outline api-docs-open-button">
           Open API &amp; MCP docs as its own page (to share with a developer)
         </a>
         <p className="security-notice">

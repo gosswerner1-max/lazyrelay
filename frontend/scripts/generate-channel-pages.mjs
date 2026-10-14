@@ -734,7 +734,7 @@ ${JSON.stringify(jsonLd, null, 2)}
 <script src="/circuit-bg.js" defer></script>
 <header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
 <main>
-<a class="back" href="/guides">&larr; Back to guides</a>
+<a class="back" href="/guides/">&larr; Back to guides</a>
 <h1>Schedule posts to ${esc(c.label)} with LazyRelay</h1>
 <p class="subtitle">${esc(c.intro)} LazyRelay's difference is Proof-of-Publish: after a post goes out, it checks ${esc(c.label)} again to confirm the post is really live.</p>
 
@@ -742,7 +742,7 @@ ${JSON.stringify(jsonLd, null, 2)}
 <ul>
 ${li(c.post(r))}
 </ul>
-<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features">What Works on Which Platform</a>.</p>
+<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features/">What Works on Which Platform</a>.</p>
 
 <h2>How to connect ${esc(c.label)}</h2>
 <ol>
@@ -751,7 +751,7 @@ ${li(c.connect(r))}
 
 <h2>How Proof-of-Publish works on ${esc(c.label)}</h2>
 <p>${esc(c.pop)}</p>
-<p>Want the general idea? Read <a href="/verify-post-published">Does Your Post Actually Publish?</a></p>
+<p>Want the general idea? Read <a href="/verify-post-published/">Does Your Post Actually Publish?</a></p>
 
 <h2>Limits and things to know</h2>
 <ul>
@@ -760,7 +760,7 @@ ${li(c.caveats)}
 
 <div class="cta-box">
   <p style="margin-top:0;"><strong>Schedule to ${esc(c.label)} and know it actually went live.</strong></p>
-  <a class="button" href="/pricing">See plans and get started free</a>
+  <a class="button" href="/pricing/">See plans and get started free</a>
 </div>
 
 <h2>Frequently asked questions</h2>
@@ -771,7 +771,7 @@ ${sources}
 
 </main>
 <footer>
-  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/platform-features">What Works on Which Platform</a> &middot; <a href="/verify-post-published">Does Your Post Actually Publish?</a> &middot; <a href="/docs">Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p><a href="/">Home</a> &middot; <a href="/guides/">Guides</a> &middot; <a href="/pricing/">Pricing</a> &middot; <a href="/platform-features/">What Works on Which Platform</a> &middot; <a href="/verify-post-published/">Does Your Post Actually Publish?</a> &middot; <a href="/docs/">Docs</a> &middot; <a href="/terms/">Terms of Service</a> &middot; <a href="/privacy/">Privacy Policy</a> &middot; <a href="/refunds/">Refund Policy</a></p>
   <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
 </footer>
 </body>

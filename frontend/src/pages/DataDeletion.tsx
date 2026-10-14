@@ -42,7 +42,7 @@ export function DataDeletion({ onBack }: DataDeletionProps) {
           <p>
             This page explains how to remove your data from LazyRelay, either a single connected platform, or
             your entire account. See our{" "}
-            <a href="/privacy">Privacy Policy</a> for what we store and why.
+            <a href="/privacy/">Privacy Policy</a> for what we store and why.
           </p>
 
           <h3>Disconnect a single platform (self-serve)</h3>

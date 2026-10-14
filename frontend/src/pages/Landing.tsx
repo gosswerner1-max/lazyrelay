@@ -572,8 +572,8 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           <a href="#pricing">Pricing</a>
           <a href="#faq">FAQ</a>
           <a href="#about">About</a>
-          <a href="/guides">Guides</a>
-          <a href="/mcp">Integrations</a>
+          <a href="/guides/">Guides</a>
+          <a href="/mcp/">Integrations</a>
           <button className="link" onClick={onDocs}>
             Docs
           </button>
@@ -600,10 +600,10 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           <a href="#about" onClick={() => setMobileMenuOpen(false)}>
             About
           </a>
-          <a href="/guides" onClick={() => setMobileMenuOpen(false)}>
+          <a href="/guides/" onClick={() => setMobileMenuOpen(false)}>
             Guides
           </a>
-          <a href="/mcp" onClick={() => setMobileMenuOpen(false)}>
+          <a href="/mcp/" onClick={() => setMobileMenuOpen(false)}>
             Integrations
           </a>
           <button
@@ -763,7 +763,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
                 disagreeing was a real hydration mismatch (found live
                 2026-08-25, see main.tsx). One unambiguous text node avoids
                 the whole class of issue. */}
-            Plus connects to <strong>9,000+ other apps</strong> via <a href="/connect-zapier">Zapier</a>
+            Plus connects to <strong>9,000+ other apps</strong> via <a href="/connect-zapier/">Zapier</a>
           </span>
         </div>
       </section>
@@ -976,13 +976,13 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           <button className="link" onClick={onDocs}>
             API &amp; MCP docs
           </button>
-          <a className="link" href="/guides">
+          <a className="link" href="/guides/">
             Guides
           </a>
-          <a className="link" href="/status">
+          <a className="link" href="/status/">
             Status
           </a>
-          <a className="link" href="/changelog">
+          <a className="link" href="/changelog/">
             Changelog
           </a>
           <button className="link" onClick={onPrivacy}>
@@ -994,10 +994,10 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           <button className="link" onClick={onDpa}>
             Data Processing Addendum
           </button>
-          <a className="link" href="/refunds">
+          <a className="link" href="/refunds/">
             Refund Policy
           </a>
-          <a className="link" href="/data-deletion">
+          <a className="link" href="/data-deletion/">
             Data Deletion
           </a>
           {/* suppressHydrationWarning (found 2026-09-04): Cloudflare's own

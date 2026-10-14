@@ -19,6 +19,7 @@ import { PinterestConnectModal } from "../components/PinterestConnectModal";
 import { MastodonServerModal } from "../components/MastodonServerModal";
 import { WhopConnectModal } from "../components/WhopConnectModal";
 import { describePlatformLimit } from "../lib/platformLimit";
+import { useNoindex } from "../lib/useCanonical";
 import { type Tab } from "./dashboard/dashboardHelpers";
 import { useDashboardState } from "./dashboard/useDashboardState";
 import { DashboardContext } from "./dashboard/DashboardContext";
@@ -56,6 +57,7 @@ const COMMENTS_DMS_LIVE = false;
 const DISABLED_TABS: Tab[] = COMMENTS_DMS_LIVE ? [] : ["DMs"];
 
 export function Dashboard() {
+  useNoindex("/dashboard");
   const state = useDashboardState();
   const {
     signOut,
@@ -164,7 +166,7 @@ export function Dashboard() {
         </div>
         <div className="header-actions">
           {COMMENTS_DMS_LIVE && <NotificationBell onOpenTab={setTab} />}
-          <a href="/guides" className="link">
+          <a href="/guides/" className="link">
             Guides
           </a>
           <button className="link" onClick={signOut}>
