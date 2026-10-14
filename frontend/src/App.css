@@ -2994,7 +2994,10 @@ button[type="submit"]:not(.btn-outline),
     0 16px 32px -8px rgba(2, 6, 18, 0.6), 0 40px 80px -20px rgba(2, 6, 18, 0.7);
 }
 
-/* Dark-slate page, whichever theme the visitor uses: the home page re-points the theme tokens it already reads. */
+/* Dark-slate page, ONLY when the visitor's system is in dark mode (Werner, 2026-10-14): light mode keeps the original
+   look. The home page re-points the theme tokens it already reads. Everything below sits inside this one media query. */
+@media (prefers-color-scheme: dark) {
+
 .landing:has(.landing-hero) {
   --paper: var(--lz-bg);
   --surface: var(--lz-surface-bottom);
@@ -3348,4 +3351,6 @@ button[type="submit"]:not(.btn-outline),
     color: CanvasText;
   }
 }
+}
+
 /* LANDING-OVERHAUL:END */

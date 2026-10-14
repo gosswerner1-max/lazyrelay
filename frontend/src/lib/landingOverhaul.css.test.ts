@@ -17,12 +17,17 @@ interface Rule {
   selector: string;
   body: string;
   ctx: string[];
+  // true when the rule sits inside @media (prefers-color-scheme: dark). That wrapper is transparent to ctx so the
+  // existing "base rule" checks (ctx.length === 0) keep meaning "not inside any other condition".
+  dark: boolean;
 }
+
+const DARK_MEDIA = /^@media\s*\(\s*prefers-color-scheme:\s*dark\s*\)$/;
 
 function parse(css: string): Rule[] {
   const src = css.replace(/\/\*[\s\S]*?\*\//g, "");
   let i = 0;
-  function walk(ctx: string[]): Rule[] {
+  function walk(ctx: string[], dark = false): Rule[] {
     const out: Rule[] = [];
     while (i < src.length) {
       const start = i;
@@ -30,13 +35,16 @@ function parse(css: string): Rule[] {
       if (i >= src.length || src[i] === "}") return out;
       const selector = src.slice(start, i).trim().replace(/\s+/g, " ");
       i++;
-      if (selector.startsWith("@media") || selector.startsWith("@supports")) {
-        out.push(...walk([...ctx, selector]));
+      if (DARK_MEDIA.test(selector)) {
+        out.push(...walk(ctx, true));
+        i++;
+      } else if (selector.startsWith("@media") || selector.startsWith("@supports")) {
+        out.push(...walk([...ctx, selector], dark));
         i++;
       } else {
         const b = i;
         while (i < src.length && src[i] !== "}") i++;
-        out.push({ selector, body: src.slice(b, i), ctx });
+        out.push({ selector, body: src.slice(b, i), ctx, dark });
         i++;
       }
     }
@@ -388,5 +396,20 @@ describe("density and scope", () => {
   it("every non-root selector in the block is landing-scoped (no dashboard or other-page selectors)", () => {
     for (const r of rules) for (const s of rawSelectors(r)) expect(s === ":root" || s.startsWith(SCOPE), `unscoped selector ${s}`).toBe(true);
     expect(block).not.toMatch(/\.dashboard|\.overview-|\.chart-stat|\.review-|\.auth-card/);
+  });
+});
+
+// ---- the dark look is dark-mode only (Werner, 2026-10-14) ------------------------------------------------------
+describe("the overhaul applies only when the visitor's system is in dark mode", () => {
+  it("every home-page rule sits inside @media (prefers-color-scheme: dark)", () => {
+    const scoped = rules.filter((r) => r.selector.includes(SCOPE));
+    expect(scoped.length).toBeGreaterThan(40);
+    const outside = scoped.filter((r) => !r.dark).map((r) => r.selector);
+    expect(outside, `outside the dark media query: ${outside.join(" | ")}`).toEqual([]);
+  });
+
+  it("nothing forces color-scheme: dark outside the dark media query", () => {
+    const forced = rules.filter((r) => /color-scheme:\s*dark/.test(r.body) && !r.dark);
+    expect(forced.map((r) => r.selector)).toEqual([]);
   });
 });
