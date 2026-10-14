@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type SupportAction } from "../lib/api";
+import { LazySpringPanel } from "./LazySpringPanel";
 import botHead from "../assets/support-bot-head.png";
 import thinking1 from "../assets/thinking-1.mp4";
 import thinking2 from "../assets/thinking-2.mp4";
@@ -183,8 +184,7 @@ export function SupportWidget({ context = "dashboard" }: { context?: "public" | 
 
   return (
     <div className="support-widget">
-      {isOpen && (
-        <div className="support-panel" role="dialog" aria-label="Ray, LazyRelay's AI support assistant">
+      <LazySpringPanel open={isOpen} origin="bottom right" className="support-panel" role="dialog" aria-label="Ray, LazyRelay's AI support assistant">
           <div className="support-panel-header">
             <div className="support-panel-header-title">
               <img src={botHead} alt="" className="support-panel-avatar" />
@@ -259,8 +259,7 @@ export function SupportWidget({ context = "dashboard" }: { context?: "public" | 
               Send
             </button>
           </form>
-        </div>
-      )}
+      </LazySpringPanel>
 
       {showGreeting && !isOpen && (
         <div className="support-greeting" role="status">
