@@ -8,6 +8,7 @@ import { AI_TOOLS, AiToolIcon } from "../components/AiToolIcon";
 import { RelaySignal } from "../components/RelaySignal";
 import { CircuitBackground } from "../components/CircuitBackground";
 import { SupportWidget } from "../components/SupportWidget";
+import { LazySpringPanel } from "../components/LazySpringPanel";
 import banner from "../assets/banner.jpg";
 import { HOME_FAQ, homeFaqSchemaJson } from "../lib/homeFaq";
 
@@ -584,57 +585,54 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
             Sign in
           </button>
         </nav>
+        <LazySpringPanel as="nav" open={mobileMenuOpen} origin="top right" id="mobile-nav-menu" className="mobile-nav-menu">
+            <a href="#features" onClick={() => setMobileMenuOpen(false)}>
+              Features
+            </a>
+            <a href="#pricing" onClick={() => setMobileMenuOpen(false)}>
+              Pricing
+            </a>
+            <a href="#faq" onClick={() => setMobileMenuOpen(false)}>
+              FAQ
+            </a>
+            <a href="#about" onClick={() => setMobileMenuOpen(false)}>
+              About
+            </a>
+            <a href="/guides/" onClick={() => setMobileMenuOpen(false)}>
+              Guides
+            </a>
+            <a href="/mcp/" onClick={() => setMobileMenuOpen(false)}>
+              Integrations
+            </a>
+            <button
+              className="link"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onDocs();
+              }}
+            >
+              Docs
+            </button>
+            <button
+              className="link"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onContact();
+              }}
+            >
+              Contact
+            </button>
+            <button
+              className="link"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onSignIn();
+              }}
+            >
+              Sign in
+            </button>
+        </LazySpringPanel>
       </header>
-
-      {mobileMenuOpen && (
-        <nav id="mobile-nav-menu" className="mobile-nav-menu">
-          <a href="#features" onClick={() => setMobileMenuOpen(false)}>
-            Features
-          </a>
-          <a href="#pricing" onClick={() => setMobileMenuOpen(false)}>
-            Pricing
-          </a>
-          <a href="#faq" onClick={() => setMobileMenuOpen(false)}>
-            FAQ
-          </a>
-          <a href="#about" onClick={() => setMobileMenuOpen(false)}>
-            About
-          </a>
-          <a href="/guides/" onClick={() => setMobileMenuOpen(false)}>
-            Guides
-          </a>
-          <a href="/mcp/" onClick={() => setMobileMenuOpen(false)}>
-            Integrations
-          </a>
-          <button
-            className="link"
-            onClick={() => {
-              setMobileMenuOpen(false);
-              onDocs();
-            }}
-          >
-            Docs
-          </button>
-          <button
-            className="link"
-            onClick={() => {
-              setMobileMenuOpen(false);
-              onContact();
-            }}
-          >
-            Contact
-          </button>
-          <button
-            className="link"
-            onClick={() => {
-              setMobileMenuOpen(false);
-              onSignIn();
-            }}
-          >
-            Sign in
-          </button>
-        </nav>
-      )}
 
       <section className="landing-hero">
         <h1 className="landing-hero-headline">Schedule everywhere. Know it's actually live.</h1>
