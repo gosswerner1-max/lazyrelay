@@ -1,4 +1,4 @@
-import icon from "../assets/icon.png";
+import icon from "../assets/icon.webp";
 
 interface BrandMarkProps {
   size?: number;

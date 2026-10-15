@@ -46,7 +46,7 @@ export function AiToolIcon({ tool, size = 44 }: { tool: AiTool; size?: number })
       style={{ width: size, height: size, background: tool.bg }}
       aria-hidden="true"
     >
-      <img src={`/ai-tools/${tool.icon}`} alt="" width={size} height={size} decoding="async" />
+      <img src={`/ai-tools/${tool.icon}`} alt="" width={size} height={size} loading="lazy" decoding="async" />
     </span>
   );
 }
