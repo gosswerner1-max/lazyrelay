@@ -29,7 +29,7 @@ export const ABOUT_FAQ = [
   },
   {
     q: "Which AI model does LazyRelay use, and what does it do with my comments?",
-    a: "Comment and direct message sorting, plus the optional caption, hashtag and idea helpers, call Anthropic's Claude Haiku 4.5 directly from LazyRelay's servers, using LazyRelay's own API key. Comment and reply text is kept out of LazyRelay's analytics. LazyRelay never replies to a comment on its own, and AI-suggested replies are not yet available.",
+    a: "Comment and direct message sorting, plus the optional caption, hashtag and idea helpers, call Anthropic's Claude Haiku 4.5 directly from LazyRelay's servers, using LazyRelay's own API key. Comment and reply text is kept out of LazyRelay's analytics. LazyRelay never replies to a comment on its own. On paid plans it can draft a suggested reply for Mastodon and Bluesky comments, and you decide whether to send it.",
   },
   {
     q: "What happens when a platform keeps failing?",

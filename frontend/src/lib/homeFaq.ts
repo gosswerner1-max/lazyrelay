@@ -67,7 +67,7 @@ export const HOME_FAQ: FaqItem[] = [
   },
   {
     q: "Are AI-suggested replies protected against prompt injection?",
-    a: "AI-suggested replies are not available yet. In that feature, comment text reaches the AI as quoted data with angle brackets neutralised. A suggestion may only use numbers and links from your own material, comments about refunds, legal or security matters get none, and nothing posts until you approve it. These checks belong to that feature only.",
+    a: "On paid plans, LazyRelay can draft replies to Mastodon and Bluesky comments. Comment text reaches the AI as quoted data with angle brackets neutralised. A draft may only use numbers from your material or the comment, and links from your material only. Refund, legal and security comments get no draft, and nothing posts until you approve it.",
   },
 ];
 
