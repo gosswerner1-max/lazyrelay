@@ -1,4 +1,5 @@
 import { platformLabel } from "./tokenHealth.js";
+import { X_NOT_BYOK_MESSAGE } from "./platforms/xByok.js";
 
 // Turns a raw platform error into (a) what the scheduler should DO about it
 // and (b) a plain-language reason the customer can act on. Written from the
@@ -38,19 +39,76 @@ export type PostErrorKind ="retry" | "fatal" | "reconnect" | "ours";
 export interface ClassifiedPostError {
   kind: PostErrorKind;
   message: string;
+  /** X bring-your-own-key only: what this failure says about the customer’s keys, for social_accounts.byok_status. */
+  byokStatus?: "invalid" | "out_of_credit";
+  /** Retry-class only: the earliest time (ms since epoch) the platform will accept another try, when it said so. */
+  retryNotBefore?: number;
 }
 
 interface Rule {
-  platform?: string;
+  platform?: string | string[];
+  /** Platform keys this rule must never apply to. */
+  except?: string[];
+  /** X bring-your-own-key: sets byok_status on the account. */
+  byokStatus?: "invalid" | "out_of_credit";
   test: RegExp;
   kind: PostErrorKind;
   /** `raw` is the adapter's own text, for the few rules that quote part of it (Whop's validation message). */
   message: (p: string, raw: string) => string;
 }
 
-const RULES: Rule[] = [
-  // ---- Our side: never the customer's fault ----
+// ---- X with the customer’s own keys (platform key "x_byok", see scheduler.ts classifierPlatform). The adapter reports
+// one compact line (x_api_error status=... title=... detail=...) built from X’s own error fields; these rules read it.
+// They sit above everything else so the generic "ours" rule below can never blame LazyRelay for a customer’s keys,
+// and nothing here changes how any other platform is classified. Order matters: credits first (X names them under
+// 402, 403 and 429), then app permissions, then dead keys, then the plain rate limit.
+export const X_BYOK_CREDIT_MESSAGE =
+  "Your X developer account has no credits or hit its spending limit. Add credits in the X Developer Console and schedule the post again.";
+export const X_BYOK_PERMISSION_MESSAGE = "Your X app needs Read and Write permission. Regenerate the Access Token after changing it.";
+export const X_BYOK_INVALID_KEYS_MESSAGE = "X no longer accepts your keys. Open Social Platforms and update them.";
+
+const X_BYOK_RULES: Rule[] = [
   {
+    platform: ["x", "x_byok"],
+    test: /x_byok_bundle_invalid/i,
+    kind: "reconnect",
+    byokStatus: "invalid",
+    message: () => X_NOT_BYOK_MESSAGE,
+  },
+  {
+    platform: "x_byok",
+    test: /status=402|\bcredits?\b|creditsdepleted|usage-capped|spending[ -]?limit|insufficient funds/i,
+    kind: "fatal",
+    byokStatus: "out_of_credit",
+    message: () => X_BYOK_CREDIT_MESSAGE,
+  },
+  {
+    platform: "x_byok",
+    test: /client-forbidden|oauth1[- ]?(app[- ])?permissions|app permissions|read[- ]only|write permission|cannot perform write|code 261\b/i,
+    kind: "fatal",
+    message: () => X_BYOK_PERMISSION_MESSAGE,
+  },
+  {
+    platform: "x_byok",
+    test: /status=401|code (32|89|135|215)\b|invalid or expired token|could not authenticate|invalid[ _]signature|bad authentication|token (has been )?revoked|app (has been )?(revoked|suspended)|suspended/i,
+    kind: "reconnect",
+    byokStatus: "invalid",
+    message: () => X_BYOK_INVALID_KEYS_MESSAGE,
+  },
+  {
+    platform: "x_byok",
+    test: /status=429|rate[ -]?limit|too many requests/i,
+    kind: "retry",
+    message: (p) => `${p} is limiting requests right now. LazyRelay will try again automatically.`,
+  },
+];
+
+const RULES: Rule[] = [
+  ...X_BYOK_RULES,
+  // ---- Our side: never the customer's fault ----
+  // (Not for X: LazyRelay has no X app, every X credential is the customer's own, so an app-secret error there is theirs.)
+  {
+    except: ["x", "x_byok"],
     test: /invalid_client|client (key|secret) (or (key|secret) )?(is |are )?(incorrect|invalid)|app secret|unaudited_client_can_only_post_to_private_accounts|url_ownership_unverified|reached_active_user_cap/i,
     kind: "ours",
     message: (p) => `LazyRelay hit a temporary problem connecting to ${p}. We have been alerted and will try again automatically. You don't need to do anything.`,
@@ -321,8 +379,18 @@ const RULES: Rule[] = [
 export function classifyPostError(platform: string, raw: string): ClassifiedPostError {
   const label = platformLabel(platform);
   for (const rule of RULES) {
-    if (rule.platform && rule.platform !== platform) continue;
-    if (rule.test.test(raw)) return { kind: rule.kind, message: rule.message(label, raw) };
+    if (rule.except?.includes(platform)) continue;
+    if (rule.platform && !(Array.isArray(rule.platform) ? rule.platform.includes(platform) : rule.platform === platform)) continue;
+    if (rule.test.test(raw)) {
+      const out: ClassifiedPostError = { kind: rule.kind, message: rule.message(label, raw) };
+      if (rule.byokStatus) out.byokStatus = rule.byokStatus;
+      if (platform === "x_byok" && rule.kind === "retry") {
+        // X says when its rate-limit window resets (x-rate-limit-reset, surfaced by the adapter as reset=<epoch seconds>).
+        const reset = /\breset=(\d{9,11})\b/.exec(raw);
+        if (reset) out.retryNotBefore = Number(reset[1]) * 1000;
+      }
+      return out;
+    }
   }
   // Unknown: exactly today's behavior (retry, raw text).
   return { kind: "retry", message: raw };

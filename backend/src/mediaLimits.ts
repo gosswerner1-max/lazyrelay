@@ -265,11 +265,9 @@ const RULES: Record<Platform, PlatformRules> = {
   // live 2026-09-05 and CORRECTED: the old v1.1 chunked media-upload
   // endpoints this file's numbers were based on were sunset June 2025. Real
   // v2 numbers: 8GB default / 16GB for Premium/verified accounts. The `x`
-  // adapter itself (platforms/x.ts) still calls the dead v1.1 endpoint as of
-  // 2026-09-05 — X posting is not live for customers (not funded, see
-  // registry.ts gating), so this is a real but not customer-impacting bug
-  // today. Flagged for a full v2 migration + real chunking rebuild whenever
-  // X gets funded, not patched here.
+  // adapter (platforms/x.ts, xMedia.ts) now implements the v2 flow with the v1.1
+  // flow as a fallback behind one selector (2026-10-10); which one X accepts for a
+  // customer's own OAuth 1.0a keys is UNVERIFIED until the live probe has run.
   x: {
     image: { maxSizeBytes: 5 * MB, allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"] },
     video: { maxSizeBytes: 8 * 1024 * MB, allowedMimeTypes: ["video/mp4", "video/quicktime"] },

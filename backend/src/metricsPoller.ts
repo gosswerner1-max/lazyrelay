@@ -15,6 +15,7 @@ import { buildPlatformRegistry } from "./platforms/registry.js";
 import { getAccessToken, DisconnectedAccountError } from "./scheduler.js";
 import type { PlatformAdapter, PostMetrics } from "./platforms/types.js";
 import { runSelfReply, type SelfReplyPost } from "./selfReply.js";
+import { withoutByokXReads } from "./metricsPolicy.js";
 
 const CHECKPOINTS: { key: string; ms: number }[] = [
   { key: "1h", ms: 3600_000 },
@@ -100,7 +101,7 @@ async function main() {
   }
 
   const now = Date.now();
-  const candidates: CandidateRow[] = [];
+  let candidates: CandidateRow[] = [];
   for (const row of rows) {
     if (!row.verification_checked_at || !row.platform_post_id) continue;
     const platform = extractPlatform(row.scheduled_posts && (row.scheduled_posts as { social_accounts?: unknown }).social_accounts);
@@ -133,6 +134,9 @@ async function main() {
       },
     });
   }
+
+  // X with the customer’s own keys is never polled: each read is billed to their own X wallet (metricsPolicy.ts).
+  candidates = await withoutByokXReads(candidates, supabase);
 
   if (candidates.length === 0) {
     console.log(`metricsPoller: ${rows.length} verified-live posts checked, none have a due checkpoint. Nothing to do.`);

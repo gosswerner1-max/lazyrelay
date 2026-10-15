@@ -268,6 +268,12 @@ export interface PlatformAdapter {
    *  confirmation before anything is saved (see connect.ts). */
   readonly skipConnectConfirmation?: boolean;
 
+  /** Set by adapters that act with the CUSTOMER’s own developer credentials (X: their own app, billed by X to them),
+   *  not LazyRelay’s. Such a connection is made through its own keys route instead of the OAuth redirect, its
+   *  login is a credential bundle rather than a token, and its failures are isolated per account (scheduler.ts) and
+   *  never reported to ops: the fault is the customer’s. Additive and optional; no other adapter sets it. */
+  readonly byok?: boolean;
+
   /** Set by adapters whose connect picker must return exactly ONE choice
    *  (Tumblr): connecting a second blog means connecting again. Two accounts
    *  sharing one login would share a refresh token that rotates on every use,

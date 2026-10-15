@@ -20,6 +20,8 @@ import { validateBody, optionalNullableString } from "../validation.js";
 import { normalizeMastodonInstance } from "../../platforms/mastodon.js";
 import { ConnectLimitError } from "../../platforms/mastodonInstanceLimit.js";
 import { registerWhopRoutes } from "./whopConnect.routes.js";
+import { registerXByokRoutes, X_BYOK_PLAN_MESSAGE } from "./xByok.routes.js";
+import { resolveTier, canUseXByok, X_BYOK_REQUIRED_PLAN_NAME } from "../../tier.js";
 
 // Every platform LazyRelay supports, in the shape the frontend's platform
 // picker grid needs. "x" had a comingSoon gate until 2026-07-31 — its
@@ -50,7 +52,9 @@ const ALL_PLATFORMS = [
   "linkedin", "threads", "facebook", "instagram", "discord", "tumblr", "x",
   "wordpress", "devto", "hashnode", "lemmy", "slack", "nostr", "whop",
 ] as const;
-const COMING_SOON_PLATFORMS = new Set<string>(["x"]);
+// Nothing is "coming soon" any more: X is connectable with the customer's own developer keys (Pro and above), and is
+// hidden entirely until X_BYOK_ENABLED registers it and X_BYOK_PLATFORM_PUBLIC (or a test account list) opens it.
+const COMING_SOON_PLATFORMS = new Set<string>();
 // New platforms stay out of the picker entirely until they are switched on for this deploy, so customers never
 // see a tile for something that is not ready. While a platform is being proven on real accounts it is switched on
 // only for the accounts named in ARTICLE_PLATFORMS_TEST_ACCOUNT_IDS (comma separated); once proven,
@@ -64,11 +68,13 @@ const COMING_SOON_PLATFORMS = new Set<string>(["x"]);
 // NOSTR_CONNECT_PAGE_URL is set.
 // Whop likewise has its own pair (WHOP_PLATFORM_PUBLIC, WHOP_TEST_ACCOUNT_IDS) and is only in the registry once both
 // WHOP_APP_API_KEY and WHOP_APP_ID are set. None of the other switches (Slack, Nostr, article platforms) opens it.
-const HIDDEN_UNTIL_CONFIGURED = new Set<string>(["wordpress", "devto", "hashnode", "lemmy", "slack", "nostr", "whop"]);
+// X likewise has its own pair (X_BYOK_PLATFORM_PUBLIC, X_BYOK_TEST_ACCOUNT_IDS) and is only in the registry once X_BYOK_ENABLED=true.
+const HIDDEN_UNTIL_CONFIGURED = new Set<string>(["wordpress", "devto", "hashnode", "lemmy", "slack", "nostr", "whop", "x"]);
 const GATE_ENV: Record<string, { publicFlag: string; testers: string }> = {
   slack: { publicFlag: "SLACK_PLATFORM_PUBLIC", testers: "SLACK_TEST_ACCOUNT_IDS" },
   nostr: { publicFlag: "NOSTR_PLATFORM_PUBLIC", testers: "NOSTR_TEST_ACCOUNT_IDS" },
   whop: { publicFlag: "WHOP_PLATFORM_PUBLIC", testers: "WHOP_TEST_ACCOUNT_IDS" },
+  x: { publicFlag: "X_BYOK_PLATFORM_PUBLIC", testers: "X_BYOK_TEST_ACCOUNT_IDS" },
 };
 const ARTICLE_GATE_ENV = { publicFlag: "ARTICLE_PLATFORMS_PUBLIC", testers: "ARTICLE_PLATFORMS_TEST_ACCOUNT_IDS" };
 function canSeePlatform(platform: string, accountId: string | undefined): boolean {
@@ -86,12 +92,24 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
   // supports, whether it's actually configured (in the registry) right
   // now, and whether it's a "coming soon" tile that should never be
   // clickable regardless of configuration.
-  router.get("/platforms", requireAuth, tieredRateLimit, (_req: AuthedRequest, res) => {
+  router.get("/platforms", requireAuth, tieredRateLimit, async (_req: AuthedRequest, res) => {
+    const visible = ALL_PLATFORMS.filter((platform) => !HIDDEN_UNTIL_CONFIGURED.has(platform) || (registry.has(platform) && canSeePlatform(platform, _req.accountId)));
+    // The X tile says whether THIS account's plan includes connecting with its own keys (the UI never decides).
+    // Looked up only when the X tile is shown.
+    let xAllowed = false;
+    if (visible.includes("x")) {
+      try {
+        xAllowed = canUseXByok(await resolveTier(_req.accountId!));
+      } catch {
+        xAllowed = false;
+      }
+    }
     res.json(
-      ALL_PLATFORMS.filter((platform) => !HIDDEN_UNTIL_CONFIGURED.has(platform) || (registry.has(platform) && canSeePlatform(platform, _req.accountId))).map((platform) => ({
+      visible.map((platform) => ({
         platform,
         configured: registry.has(platform),
         comingSoon: COMING_SOON_PLATFORMS.has(platform),
+        ...(platform === "x" ? { requiresPlan: X_BYOK_REQUIRED_PLAN_NAME, allowed: xAllowed } : {}),
       })),
     );
   });
@@ -109,6 +127,7 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
   });
 
   registerWhopRoutes(router, registry, canSeePlatform);
+  registerXByokRoutes(router, registry, canSeePlatform);
 
   // Starts the "connect your social account" flow — returns the URL the
   // frontend should redirect the user to. Real account identity comes from
@@ -126,6 +145,22 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
     }
     if (!canSeePlatform(platform, req.accountId)) {
       res.status(400).json({ error: `${platform} isn't available to connect yet.` });
+      return;
+    }
+    // X has no sign-in redirect either: the customer pastes their own developer keys (routes/xByok.routes.ts). The plan
+    // gate is enforced here too, so a free account gets the upgrade answer rather than a pointer to a form it cannot use.
+    if (platform === "x") {
+      let allowed = false;
+      try {
+        allowed = canUseXByok(await resolveTier(req.accountId!));
+      } catch {
+        allowed = false;
+      }
+      if (!allowed) {
+        res.status(403).json({ error: X_BYOK_PLAN_MESSAGE, requiresPlan: X_BYOK_REQUIRED_PLAN_NAME });
+        return;
+      }
+      res.status(400).json({ error: "X is connected with your own developer keys from Social Platforms, not through a sign-in redirect." });
       return;
     }
     // Whop has no sign-in redirect: it is connected from its own dialog (routes/whopConnect.routes.ts), where the
@@ -338,16 +373,37 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
   // the account itself with no user JWT to build a per-request client
   // from -- same account_id filter, same result either way.
   router.get("/social-accounts", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { data, error } = await req.db!
-      .from("social_accounts")
-      .select("id, platform, platform_account_id, display_name, connected_at, disconnected_at, needs_reconnect_at, brand_label, brand_id")
-      .eq("account_id", req.accountId)
-      .is("disconnected_at", null);
+    // The three X "own keys" markers (migration 0123) are only selected while X_BYOK_ENABLED is on, so this route cannot
+    // break on a database that does not have the columns yet. They are non-secret by design (a status and a masked hint).
+    const byokColumns = process.env.X_BYOK_ENABLED === "true";
+    // Two literal column lists (the plain one first): a test reads this source to prove no token column is selected.
+    const { data: rows, error } = !byokColumns
+      ? await req.db!
+          .from("social_accounts")
+          .select("id, platform, platform_account_id, display_name, connected_at, disconnected_at, needs_reconnect_at, brand_label, brand_id")
+          .eq("account_id", req.accountId)
+          .is("disconnected_at", null)
+      : await req.db!
+          .from("social_accounts")
+          .select("id, platform, platform_account_id, display_name, connected_at, disconnected_at, needs_reconnect_at, brand_label, brand_id, credential_mode, byok_status, byok_key_hint")
+          .eq("account_id", req.accountId)
+          .is("disconnected_at", null);
     if (error) {
       dbError(res, error, "GET /social-accounts");
       return;
     }
-    res.json(data);
+    if (!byokColumns) {
+      res.json(rows);
+      return;
+    }
+    res.json(
+      (rows as unknown as Array<Record<string, unknown>>).map(({ credential_mode, byok_status, byok_key_hint, ...rest }) => ({
+        ...rest,
+        credentialMode: credential_mode ?? "platform",
+        byokStatus: byok_status ?? null,
+        byokKeyHint: byok_key_hint ?? null,
+      })),
+    );
   });
 
   // Assign (or clear) a connected account's brand. brandId must reference a

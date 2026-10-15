@@ -9,6 +9,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run",
+    "test:x-byok-mock": "vitest run src/platforms/x.byokMock.test.ts",
     "stress-test": "tsx scripts/stress-test.ts",
     "load-test": "tsx scripts/load-test.ts",
     "test:security": "tsx scripts/security-test.ts",

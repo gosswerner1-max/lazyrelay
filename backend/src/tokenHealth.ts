@@ -43,6 +43,8 @@ const PLATFORM_LABEL: Record<string, string> = {
   discord: "Discord",
   telegram: "Telegram",
   x: "X",
+  // The classifier key for a customer-owned X connection (postErrors.ts); labelled like X.
+  x_byok: "X",
   wordpress: "WordPress",
   devto: "dev.to",
   hashnode: "Hashnode",
@@ -60,7 +62,7 @@ export const platformLabel = (p: string): string => PLATFORM_LABEL[p] ?? p;
 export async function flagReconnect(
   row: ReconnectSubject,
   reason: string,
-  opts: { expired: boolean; expiresAt?: string | null },
+  opts: { expired: boolean; expiresAt?: string | null; /** The fault is the customer’s (their own X keys): never tell ops. */ skipOps?: boolean },
 ): Promise<void> {
   const now = new Date().toISOString();
   const firstFlag = opts.expired && !row.needs_reconnect_at;
@@ -88,7 +90,7 @@ export async function flagReconnect(
 
   if (email && !isInternalTestAccount(email)) {
     sendReconnectNeededEmail(email, label, who, opts.expired, opts.expiresAt ?? null);
-  } else if (firstFlag || !opts.expired) {
+  } else if ((firstFlag || !opts.expired) && !opts.skipOps) {
     // Our own accounts (or none on file): no customer email, but never let it
     // pass silently.
     await notifyOps(`${label} connection "${who}" ${opts.expired ? "has expired and needs reconnecting" : "expires soon"} (${reason}). No customer email sent (internal or no address).`);

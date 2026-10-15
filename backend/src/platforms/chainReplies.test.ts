@@ -11,6 +11,7 @@ import { ThreadsAdapter } from "./threads.js";
 import { BlueskyAdapter } from "./bluesky.js";
 import { MastodonAdapter } from "./mastodon.js";
 import { XAdapter } from "./x.js";
+import { X_TEST_LOGIN } from "./xTestKit.js";
 
 type Call = { url: string; method: string; headers: Record<string, string>; raw: string | null };
 let calls: Call[];
@@ -185,7 +186,7 @@ describe("Mastodon", () => {
 });
 
 describe("X", () => {
-  const adapter = () => new XAdapter("id", "secret", "https://api.example.org/cb");
+  const adapter = () => new XAdapter();
   let n: number;
   beforeEach(() => {
     n = 0;
@@ -193,26 +194,26 @@ describe("X", () => {
   });
 
   it("posts /2/tweets with reply.in_reply_to_tweet_id", async () => {
-    const r = await adapter().postChainReply({ rootPostId: "main", parentPostId: "main", text: "yo", accessToken: "tok" });
+    const r = await adapter().postChainReply({ rootPostId: "main", parentPostId: "main", text: "yo", accessToken: X_TEST_LOGIN });
     expect(r).toEqual({ success: true, platformPostId: "t1", errorMessage: null });
-    expect(calls[0].url).toBe("https://api.twitter.com/2/tweets");
+    expect(calls[0].url).toBe("https://api.x.com/2/tweets");
     expect(calls[0].method).toBe("POST");
-    expect(calls[0].headers.Authorization).toBe("Bearer tok");
+    expect(calls[0].headers.Authorization).toMatch(/^OAuth .*oauth_signature=/);
     expect(JSON.parse(calls[0].raw!)).toEqual({ text: "yo", reply: { in_reply_to_tweet_id: "main" } });
   });
 
   it("threads a 3-item chain through runChain", async () => {
-    const out = await runChain(adapter(), { rootPostId: "main", texts: ["a", "b", "c"], accessToken: "tok" });
+    const out = await runChain(adapter(), { rootPostId: "main", texts: ["a", "b", "c"], accessToken: X_TEST_LOGIN });
     expect(out).toEqual({ posted: 3, error: null });
     expect(calls.map((c) => JSON.parse(c.raw!).reply.in_reply_to_tweet_id)).toEqual(["main", "t1", "t2"]);
   });
 
   it("returns the platform's message on refusal (errors array and problem detail)", async () => {
     handler = () => ({ status: 403, body: { errors: [{ message: "You are not allowed to reply" }] } });
-    let r = await adapter().postChainReply({ rootPostId: "m", parentPostId: "m", text: "x", accessToken: "t" });
-    expect(r).toEqual({ success: false, platformPostId: null, errorMessage: "You are not allowed to reply" });
+    let r = await adapter().postChainReply({ rootPostId: "m", parentPostId: "m", text: "x", accessToken: X_TEST_LOGIN });
+    expect(r).toEqual({ success: false, platformPostId: null, errorMessage: expect.stringContaining("You are not allowed to reply") });
     handler = () => ({ status: 403, body: { title: "Forbidden", detail: "Reply restricted" } });
-    r = await adapter().postChainReply({ rootPostId: "m", parentPostId: "m", text: "x", accessToken: "t" });
-    expect(r.errorMessage).toBe("Reply restricted");
+    r = await adapter().postChainReply({ rootPostId: "m", parentPostId: "m", text: "x", accessToken: X_TEST_LOGIN });
+    expect(r.errorMessage).toContain("Reply restricted");
   });
 });

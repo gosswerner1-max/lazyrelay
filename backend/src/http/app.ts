@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import multer from "multer";
 import { buildRouter } from "./routes.js";
 import { buildMfaRecoveryRouter } from "./mfaRecovery.js";
+import { xByokJsonParser } from "./routes/xByok.routes.js";
 import { buildWebhookHandler } from "./webhook.js";
 import { handleMetaWebhookVerification, handleMetaWebhookEvent } from "./metaWebhook.js";
 import { handleSignupWebhook } from "./signupWebhook.js";
@@ -165,6 +166,9 @@ export function buildApp(
     }),
   );
   app.use(cookieParser());
+  // The X "own keys" routes carry four secrets: they get a 4 KB parser of their own BEFORE the global one (which would
+  // otherwise accept 100 KB and log a malformed body through the catch-all below). See routes/xByok.routes.ts.
+  app.use("/api/social-accounts/x/byok", ...xByokJsonParser);
   app.use(express.json());
   app.use("/api", buildRouter(morAdapter, registry));
   // Own router, mounted separately -- see the doc comment at the top of

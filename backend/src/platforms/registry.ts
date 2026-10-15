@@ -89,8 +89,11 @@ export function buildPlatformRegistry(): Map<string, PlatformAdapter> {
       new TumblrAdapter(process.env.TUMBLR_CLIENT_ID, process.env.TUMBLR_CLIENT_SECRET, process.env.TUMBLR_REDIRECT_URI),
     );
   }
-  if (process.env.X_CLIENT_ID && process.env.X_CLIENT_SECRET && process.env.X_REDIRECT_URI) {
-    registry.set("x", new XAdapter(process.env.X_CLIENT_ID, process.env.X_CLIENT_SECRET, process.env.X_REDIRECT_URI));
+  // X is bring-your-own-key only (Werner, 2026-10-10): there is no LazyRelay X app and no X_CLIENT_ID/SECRET/REDIRECT_URI.
+  // Registered when X_BYOK_ENABLED=true and nothing else; even then hidden from customers until X_BYOK_PLATFORM_PUBLIC (or
+  // X_BYOK_TEST_ACCOUNT_IDS) switches it on, see socialAccounts.routes.ts. Credentials arrive per call, inside the login string.
+  if (process.env.X_BYOK_ENABLED === "true") {
+    registry.set("x", new XAdapter());
   }
   // Article and forum platforms (master list #27): the customer pastes a credential on LazyRelay's own connect
   // page (the same shape as Discord), so each only needs the address of that page.

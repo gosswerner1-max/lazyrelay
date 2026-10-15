@@ -8,6 +8,7 @@ import { PlatformIcon } from "../../components/PlatformIcon";
 import { AccountGroupList } from "../../components/AccountPicker";
 import { brandCapFor } from "./dashboardHelpers";
 import { useDashboard } from "./DashboardContext";
+import { byokBadge, X_CONNECT_PATH, xTileState } from "../../lib/xByok";
 
 export function SocialPlatformsTab() {
   const {
@@ -56,6 +57,11 @@ export function SocialPlatformsTab() {
                     {a.platform}
                   </span>
                   {a.display_name ?? a.platform_account_id}
+                  {a.platform === "x" && byokBadge(a.byokStatus) && (
+                    <span role="status" title={byokBadge(a.byokStatus)!.hint} style={{ color: "#ff5a1f", fontSize: 12, fontWeight: 600, marginLeft: 8 }}>
+                      {byokBadge(a.byokStatus)!.text}
+                    </span>
+                  )}
                   {a.needs_reconnect_at && (
                     <span role="status" style={{ color: "#ff5a1f", fontSize: 12, fontWeight: 600, marginLeft: 8 }}>
                       Reconnect needed: connect this account again below
@@ -212,6 +218,9 @@ export function SocialPlatformsTab() {
           // case and letting an unconfigured tile error on click.
           const disabled = p.comingSoon || !p.configured;
           const connectedCount = accounts.filter((a) => a.platform === p.platform).length;
+          // X is connected with the customer's own keys: locked behind a plan (the backend says which) or a link to the keys page.
+          const xTile = p.platform === "x" ? xTileState(p) : null;
+          const xLocked = xTile?.kind === "upgrade" && !disabled;
           return (
             <button
               key={p.platform}
@@ -223,12 +232,16 @@ export function SocialPlatformsTab() {
                   ? "Coming soon"
                   : !p.configured
                     ? "Not set up on this deploy yet"
-                    : connectedCount > 0
-                      ? "Connected: click to connect another account"
-                      : undefined
+                    : xLocked
+                      ? "Connecting X with your own developer keys is part of the Pro plan and above"
+                      : connectedCount > 0
+                        ? "Connected: click to connect another account"
+                        : undefined
               }
               onClick={() =>
-                p.platform === "pinterest"
+                p.platform === "x"
+                  ? window.location.assign(xLocked ? "/pricing" : X_CONNECT_PATH)
+                  : p.platform === "pinterest"
                   ? setShowPinterestConnectModal(true)
                   : p.platform === "mastodon"
                     ? setShowMastodonServerModal(true)
@@ -240,7 +253,8 @@ export function SocialPlatformsTab() {
               <PlatformIcon platform={p.platform} size={20} comingSoon={disabled} />
               <span className="platform-tile-name" style={p.platform === "devto" ? { textTransform: "none" } : undefined}>{p.platform === "devto" ? "dev.to" : p.platform}</span>
               {p.comingSoon && <span className="platform-tile-badge">Coming soon</span>}
-              {!disabled && connectedCount > 0 && (
+              {xLocked && xTile?.kind === "upgrade" && <span className="platform-tile-badge">{xTile.label}</span>}
+              {!disabled && !xLocked && connectedCount > 0 && (
                 <span className="platform-tile-badge platform-tile-badge-connected">
                   &#10003; Connected{connectedCount > 1 ? ` (${connectedCount})` : ""}
                 </span>
