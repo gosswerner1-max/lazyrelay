@@ -39,7 +39,7 @@ export const ABOUT_FAQ = [
 
 const URL_ = "https://lazyrelay.com/about/";
 const TITLE = "About LazyRelay: Who Runs It and How It Works | LazyRelay";
-const DESCRIPTION = "What LazyRelay is, who runs it, and plain answers on login storage, AI agent access, AI use and failed posts. Posts to 17 platforms and checks each went live.";
+const DESCRIPTION = "What LazyRelay is, who runs it, and plain answers on login storage, AI access and failed posts. Posts to 17 platforms and checks each.";
 const OG_ALT = "LazyRelay logo with the tagline Automate. Schedule. Publish. Repeat., and icons for smart scheduling, auto posting and flexible storage, linked to social platform icons.";
 
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

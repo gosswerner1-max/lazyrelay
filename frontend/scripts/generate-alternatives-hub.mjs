@@ -52,7 +52,7 @@ const page = `<!doctype html>
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>LazyRelay Compared With Other Social Media Schedulers | LazyRelay</title>
+<title>LazyRelay Compared With Other Social Schedulers</title>
 <meta name="description" content="Side-by-side comparisons of LazyRelay with ${items.length} other social media schedulers: pricing, platform coverage and independent post verification." />
 <link rel="canonical" href="https://lazyrelay.com/alternatives/" />
 <link rel="icon" type="image/png" href="/favicon.png" />

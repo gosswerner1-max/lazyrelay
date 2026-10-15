@@ -159,8 +159,8 @@ const PAGE_STYLE = `
 
 export function renderHtml(tools: CapturedTool[] = captureTools()): string {
   const n = tools.length;
-  const title = `LazyRelay MCP Server: All ${n} Tools and Input Schemas | LazyRelay`;
-  const description = `Every tool the LazyRelay MCP server exposes to AI agents (${n} in total), with its exact description and full input schema. Connect through the hosted server or the local npm package.`;
+  const title = `LazyRelay MCP Server: All ${n} Tools and Schemas`;
+  const description = `Every tool the LazyRelay MCP server exposes to AI agents (${n} in total), with its description and full input schema. Hosted server or npm package.`;
   const itemList = {
     "@context": "https://schema.org",
     "@type": "ItemList",
