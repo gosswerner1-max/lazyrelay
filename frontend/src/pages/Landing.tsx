@@ -63,7 +63,7 @@ const FEATURES = [
 // content from LazyRelay's own Pinterest account, confirm it live, then add it
 // back with its real handle.
 const PROOF_POSTS = [
-  { platform: "mastodon", handle: "lazyrelay", content: "Real talk: scheduling posts across 12 platforms should not mean logging into 12 dashboards. LazyRelay handles it from one place, with Proof-of-Publish confirming every post actually went live." },
+  { platform: "mastodon", handle: "lazyrelay", content: "Real talk: scheduling posts across 17 platforms should not mean logging into 17 dashboards. LazyRelay handles it from one place, with Proof-of-Publish confirming every post actually went live." },
   { platform: "bluesky", handle: "lazyrelay.bsky.social", content: "Schedule once, publish everywhere. LazyRelay verifies every post actually went live, not just accepted." },
   { platform: "telegram", handle: "LazyRelay", content: "LazyRelay update: schedule your content once and publish it across every platform your business runs on, with real Proof-of-Publish verification confirming it actually went live." },
   { platform: "discord", handle: "LazyRelay", content: "New from LazyRelay: schedule a post once, publish it everywhere, and know for certain it went live with real Proof-of-Publish verification." },
