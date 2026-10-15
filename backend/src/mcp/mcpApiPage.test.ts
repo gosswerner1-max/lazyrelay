@@ -77,11 +77,11 @@ describe("the committed page is up to date", () => {
 });
 
 describe("the facts on the page match the code they come from", () => {
-  it("rate limit ladder equals TIER_LIMITS in http/rateLimit.ts, by public plan name (code names are shifted by one)", () => {
+  it("rate limit ladder equals TIER_LIMITS in http/rateLimit.ts, by public plan name (codes match the public names since the 0119 rename)", () => {
     const src = read("backend/src/http/rateLimit.ts");
     const code: Record<string, number> = {};
-    for (const m of src.matchAll(/^\s+(free|pro|business|enterprise|agency|agency_plus): (\d+),/gm)) code[m[1]] = Number(m[2]);
-    const byPublicName: Record<string, string> = { Free: "free", Starter: "pro", Pro: "business", Business: "enterprise", Agency: "agency", "Agency Plus": "agency_plus" };
+    for (const m of src.matchAll(/^\s+(free|starter|pro|business|agency|agency_plus): (\d+),/gm)) code[m[1]] = Number(m[2]);
+    const byPublicName: Record<string, string> = { Free: "free", Starter: "starter", Pro: "pro", Business: "business", Agency: "agency", "Agency Plus": "agency_plus" };
     for (const { plan, perMinute } of RATE_LIMIT_LADDER) expect(code[byPublicName[plan]], plan).toBe(perMinute);
     expect(src).toContain("windowMs: 60_000");
     for (const { plan, perMinute } of RATE_LIMIT_LADDER) expect(page, plan).toContain(`<td>${plan}</td><td>${perMinute} requests per minute</td>`);

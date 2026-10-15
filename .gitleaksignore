@@ -1,2 +1,12 @@
 # Test fixtures that are fake on purpose (never real credentials).
 46729196cc2883bc95dfcbea4ada30f7b32f5d81:backend/src/platforms/nostr.test.ts:generic-api-key:27
+# X bring-your-own-key test fixtures: TEST/PROBE/ROTATED-prefixed dummies and the public sample values from X's own OAuth 1.0a documentation (never real credentials).
+6feeb5f2073e4a6f0b31691b48957779c3039d7f:backend/scripts/live-x-byok-probe.test.ts:generic-api-key:7
+41dff939d3bf18f85169c7c5200717b327a81992:backend/src/http/routes/xByok.routes.test.ts:generic-api-key:332
+d9aa5d7b7ae751d9f1957c1b86a3d5f4b3414d89:backend/src/platforms/oauth1.test.ts:generic-api-key:54
+d9aa5d7b7ae751d9f1957c1b86a3d5f4b3414d89:backend/src/platforms/oauth1.test.ts:generic-api-key:55
+d9aa5d7b7ae751d9f1957c1b86a3d5f4b3414d89:backend/src/platforms/oauth1.test.ts:generic-api-key:56
+d9aa5d7b7ae751d9f1957c1b86a3d5f4b3414d89:backend/src/platforms/oauth1.test.ts:generic-api-key:57
+d9aa5d7b7ae751d9f1957c1b86a3d5f4b3414d89:backend/src/platforms/oauth1.test.ts:generic-api-key:74
+d9aa5d7b7ae751d9f1957c1b86a3d5f4b3414d89:backend/src/platforms/xTestKit.ts:generic-api-key:6
+d9aa5d7b7ae751d9f1957c1b86a3d5f4b3414d89:backend/src/platforms/xTestKit.ts:generic-api-key:7
