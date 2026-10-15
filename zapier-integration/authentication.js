@@ -21,7 +21,7 @@ module.exports = {
       required: true,
       type: "password",
       helpText:
-        "Find or create this in your LazyRelay dashboard under Settings → API Keys. Requires a paid plan (Starter, Pro, or Business).",
+        "Find or create this in your LazyRelay dashboard in the API Keys tab. Available on every plan, including Free.",
     },
   ],
   test,

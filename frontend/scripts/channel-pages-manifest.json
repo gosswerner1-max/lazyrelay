@@ -45,7 +45,7 @@
     "slug": "mastodon",
     "url": "https://lazyrelay.com/schedule-to-mastodon/",
     "title": "Schedule Posts to Mastodon with LazyRelay | LazyRelay",
-    "description": "Schedule Mastodon posts with images, alt text and reply threads using LazyRelay. Connects to mastodon.social. Each post is read back to confirm it is live."
+    "description": "Schedule Mastodon posts with images, alt text and reply threads using LazyRelay. Works with any server. Each post is read back to confirm it is live."
   },
   {
     "slug": "bluesky",

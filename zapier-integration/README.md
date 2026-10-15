@@ -7,8 +7,8 @@ and reasoning.
 
 ## What it does
 
-- **Auth**: connects with a LazyRelay API key (Settings → API Keys in the
-  dashboard, paid tiers only).
+- **Auth**: connects with a LazyRelay API key (the API Keys tab in the
+  dashboard, every plan including Free).
 - **Trigger — New Post Published**: polls for posts that have been
   confirmed live (Proof-of-Publish verified).
 - **Action — Upload Media**: uploads an image/video, returns a URL.
@@ -23,7 +23,7 @@ and reasoning.
    npm install
    ```
 2. Copy `.env.example` to `.env` and fill in a real API key from your
-   LazyRelay dashboard (Settings → API Keys).
+   LazyRelay dashboard (API Keys tab).
 3. Run the tests:
    ```
    npm test

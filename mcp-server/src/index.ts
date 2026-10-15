@@ -5,7 +5,7 @@
 // of backend/src/mcp/lazyrelayTools.ts (run `npm run sync-tools` after changing it in the backend).
 //
 // Auth is the customer's own lzr_live_ API key (self-serve, generated from the LazyRelay dashboard's
-// Settings -> More -> API Keys), passed via the LAZYRELAY_API_KEY env var. Never hardcoded, never logged.
+// API Keys tab), passed via the LAZYRELAY_API_KEY env var. Never hardcoded, never logged.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { LazyRelayApiError, registerLazyRelayTools } from "./tools.js";
@@ -14,7 +14,7 @@ const API_BASE = process.env.LAZYRELAY_API_BASE ?? "https://lazyrelaylazyrelay-b
 const API_KEY = process.env.LAZYRELAY_API_KEY;
 
 if (!API_KEY) {
-  console.error("LAZYRELAY_API_KEY is not set. Get one from your LazyRelay dashboard: Settings -> More -> API Keys -> Create key.");
+  console.error("LAZYRELAY_API_KEY is not set. Get one from your LazyRelay dashboard: API Keys tab -> Create key.");
   process.exit(1);
 }
 

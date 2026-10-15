@@ -10,7 +10,7 @@
 //     durations, rolling post cap, source links and the "not verified" wording.
 //   - frontend/src/pages/ConnectForm.tsx        -> steps for the paste-a-credential platforms
 //   - backend/src/support/chatKnowledge.ts      -> customer-facing caveats (LinkedIn profile only,
-//     Mastodon = mastodon.social only, Bluesky app password, WordPress = own self-hosted site,
+//     Mastodon = any server, Bluesky app password, WordPress = own self-hosted site,
 //     Hashnode needs Pro plan, ...)
 //   - backend/src/platforms/<name>.ts verifyPublished() -> what Proof-of-Publish really checks
 //
@@ -328,9 +328,9 @@ const COPY = {
   mastodon: {
     slug: "mastodon",
     label: "Mastodon",
-    desc: "Schedule Mastodon posts with images, alt text and reply threads using LazyRelay. Connects to mastodon.social. Each post is read back to confirm it is live.",
-    intro: "LazyRelay schedules public posts to your Mastodon account on mastodon.social, then reads each one back to confirm it is live.",
-    connect: () => OAUTH_STEPS("Mastodon").concat(["Mastodon connects to mastodon.social only today. An account on a different Mastodon server cannot be connected yet."]),
+    desc: "Schedule Mastodon posts with images, alt text and reply threads using LazyRelay. Works with any server. Each post is read back to confirm it is live.",
+    intro: "LazyRelay schedules public posts to your Mastodon account on any Mastodon server, then reads each one back to confirm it is live.",
+    connect: () => OAUTH_STEPS("Mastodon").concat(["Mastodon works with any server. Type the address of the server your account is on, for example hachyderm.io, when you click the Mastodon tile."]),
     post: (r) => [
       textLine(r, "Mastodon", "That is the default on mastodon.social. Every Mastodon server sets its own limit, so another server may differ."),
       ...mediaLines(r, {
@@ -343,12 +343,12 @@ const COPY = {
     ],
     pop: "Creating a status on Mastodon is immediate. After that, LazyRelay makes a separate request for that status using the account's access and only marks the post confirmed live when Mastodon returns the same status ID. The link is the status address Mastodon gives back.",
     caveats: [
-      "Mastodon connects to mastodon.social only today. An account on another server, for example hachyderm.io, cannot be connected yet.",
+      "Mastodon works with any server, for example hachyderm.io. Type your server's address when you connect.",
       "Media limits are set per Mastodon server. LazyRelay's numbers are a fixed starting point that matches mastodon.social. Video duration is not verified.",
       "Rate limits are set per Mastodon server, and LazyRelay does not add a cap of its own.",
     ],
     faq: () => [
-      ["Can I connect a Mastodon account on another server?", "Not yet. LazyRelay connects to mastodon.social only today."],
+      ["Can I connect a Mastodon account on another server?", "Yes. LazyRelay works with any Mastodon server. Type the address of your server when you connect."],
       ["Does LazyRelay support Mastodon alt text and threads?", "Yes. You can add alt text of up to 1000 characters, and up to 10 follow-up posts that reply in order. Content Warning labels are not supported."],
       ["How many characters fit in a Mastodon post?", "500 by default on mastodon.social. Each Mastodon server sets its own limit, so another server may differ."],
       ["How do I know my Mastodon post is really live?", "LazyRelay requests the status back from Mastodon after posting and only marks it confirmed live when Mastodon returns the same status."],

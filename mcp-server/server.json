@@ -18,7 +18,7 @@
       },
       "environmentVariables": [
         {
-          "description": "Your LazyRelay API key. Get one from your LazyRelay dashboard: Settings -> More -> API Keys -> Create key.",
+          "description": "Your LazyRelay API key. Get one from your LazyRelay dashboard: API Keys tab -> Create key.",
           "isRequired": true,
           "format": "string",
           "isSecret": true,

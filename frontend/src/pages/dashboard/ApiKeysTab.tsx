@@ -209,7 +209,7 @@ export function ApiKeysTab() {
 
         <h3 className="api-mcp-heading">No install: the hosted MCP server</h3>
         <p className="section-note">
-          Prefer not to install anything, or connecting from claude.ai rather than a desktop app? Same 6 tools,
+          Prefer not to install anything, or connecting from claude.ai rather than a desktop app? Same 27 tools,
           same account, but you sign in with this LazyRelay account the first time you connect instead of using
           an API key.
         </p>
