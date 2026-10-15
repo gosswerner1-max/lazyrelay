@@ -16,8 +16,8 @@
   main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
   .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
   .wordmark .dot { color: #ff5630; }
-  a { color: #ff5630; }
-  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  a { color: #c82400; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #c82400; }
   h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
   h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
   h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
@@ -75,7 +75,7 @@
 <script src="/circuit-bg.js" defer></script>
 <header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
 <main>
-<a class="back" href="/guides">&larr; Back to guides</a>
+<a class="back" href="/guides/">&larr; Back to guides</a>
 <h1>Schedule posts to LinkedIn with LazyRelay</h1>
 <p class="subtitle">LazyRelay schedules text, image and PDF document posts to your personal LinkedIn profile. LazyRelay's difference is Proof-of-Publish: after a post goes out, it checks LinkedIn again to confirm the post is really live.</p>
 
@@ -88,7 +88,7 @@
   <li>Several files in one post: up to 9 images (no video in a multi-image post).</li>
   <li>PDF document: attach an https link that ends in .pdf under Platform options, with an optional document title of up to 100 characters. A post carries either images or a PDF document, not both.</li>
 </ul>
-<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features">What Works on Which Platform</a>.</p>
+<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features/">What Works on Which Platform</a>.</p>
 
 <h2>How to connect LinkedIn</h2>
 <ol>
@@ -101,7 +101,7 @@
 
 <h2>How Proof-of-Publish works on LinkedIn</h2>
 <p>LinkedIn's API gives LazyRelay a real post ID the moment the post is created, and LazyRelay then requests the post's public address. Here the check is weaker than on other platforms, and this page says so plainly: without a restricted LinkedIn permission that LazyRelay's connection does not use, nothing can confirm afterwards that a LinkedIn post is still there. So the check confirms that LinkedIn accepted the post and that its address does not come back as not found. A post that LinkedIn removes or filters after publishing cannot be detected this way.</p>
-<p>Want the general idea? Read <a href="/verify-post-published">Does Your Post Actually Publish?</a></p>
+<p>Want the general idea? Read <a href="/verify-post-published/">Does Your Post Actually Publish?</a></p>
 
 <h2>Limits and things to know</h2>
 <ul>
@@ -112,7 +112,7 @@
 
 <div class="cta-box">
   <p style="margin-top:0;"><strong>Schedule to LinkedIn and know it actually went live.</strong></p>
-  <a class="button" href="/pricing">See plans and get started free</a>
+  <a class="button" href="/pricing/">See plans and get started free</a>
 </div>
 
 <h2>Frequently asked questions</h2>
@@ -138,7 +138,7 @@
 
 </main>
 <footer>
-  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/platform-features">What Works on Which Platform</a> &middot; <a href="/verify-post-published">Does Your Post Actually Publish?</a> &middot; <a href="/docs">Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p><a href="/">Home</a> &middot; <a href="/guides/">Guides</a> &middot; <a href="/pricing/">Pricing</a> &middot; <a href="/platform-features/">What Works on Which Platform</a> &middot; <a href="/verify-post-published/">Does Your Post Actually Publish?</a> &middot; <a href="/docs/">Docs</a> &middot; <a href="/terms/">Terms of Service</a> &middot; <a href="/privacy/">Privacy Policy</a> &middot; <a href="/refunds/">Refund Policy</a></p>
   <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
 </footer>
 </body>

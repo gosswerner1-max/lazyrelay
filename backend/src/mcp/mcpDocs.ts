@@ -139,8 +139,8 @@ const PAGE_STYLE = `
   main { max-width: 860px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
   .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
   .wordmark .dot { color: #ff5630; }
-  a { color: #ff5630; }
-  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  a { color: #c82400; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #c82400; }
   h1 { font-family: Georgia, serif; color: #14171f; font-size: 36px; margin-bottom: 10px; line-height: 1.2; }
   h2 { font-family: Georgia, serif; color: #14171f; font-size: 22px; margin-top: 48px; }
   h3 { font-family: Georgia, serif; color: #14171f; font-size: 18px; margin: 36px 0 6px; }
@@ -224,7 +224,7 @@ export function renderHtml(tools: CapturedTool[] = captureTools()): string {
 ${body.join("\n")}
 </main>
 <footer>
-  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/docs">API &amp; MCP Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a></p>
+  <p><a href="/">Home</a> &middot; <a href="/guides/">Guides</a> &middot; <a href="/pricing/">Pricing</a> &middot; <a href="/docs/">API &amp; MCP Docs</a> &middot; <a href="/terms/">Terms of Service</a> &middot; <a href="/privacy/">Privacy Policy</a></p>
   <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
 </footer>
 </body>

@@ -428,7 +428,7 @@ export function SettingsTab() {
         {!GOOGLE_INTEGRATIONS_LIVE ? (
           <p className="section-note">
             Built and working, but waiting on Google's own app verification review before it can open up to real
-            customers. See <a href="/in-the-works">what's in the works</a>.
+            customers. See <a href="/in-the-works/">what's in the works</a>.
           </p>
         ) : gcalStatus === undefined ? (
           <p className="section-note">Checking your Google Calendar connection...</p>
@@ -463,7 +463,7 @@ export function SettingsTab() {
         {!GOOGLE_INTEGRATIONS_LIVE ? (
           <p className="section-note">
             Built and working, but waiting on Google's own app verification review before it can open up to real
-            customers. See <a href="/in-the-works">what's in the works</a>.
+            customers. See <a href="/in-the-works/">what's in the works</a>.
           </p>
         ) : gsheetStatus === undefined ? (
           <p className="section-note">Checking your Google Sheets connection...</p>

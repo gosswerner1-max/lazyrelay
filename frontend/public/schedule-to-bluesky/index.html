@@ -16,8 +16,8 @@
   main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
   .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
   .wordmark .dot { color: #ff5630; }
-  a { color: #ff5630; }
-  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  a { color: #c82400; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #c82400; }
   h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
   h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
   h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
@@ -83,7 +83,7 @@
 <script src="/circuit-bg.js" defer></script>
 <header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
 <main>
-<a class="back" href="/guides">&larr; Back to guides</a>
+<a class="back" href="/guides/">&larr; Back to guides</a>
 <h1>Schedule posts to Bluesky with LazyRelay</h1>
 <p class="subtitle">LazyRelay schedules Bluesky posts, images, video and reply threads using an app password, then reads each post back to confirm it is live. LazyRelay's difference is Proof-of-Publish: after a post goes out, it checks Bluesky again to confirm the post is really live.</p>
 
@@ -97,7 +97,7 @@
   <li>Alt text: you can add a description of up to 1000 characters. It applies to the first image only.</li>
   <li>Thread chain: add up to 10 follow-up posts under Platform options. Each replies to the one before it and is limited to 300 characters.</li>
 </ul>
-<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features">What Works on Which Platform</a>.</p>
+<p class="note">LazyRelay checks file size and format before a post is scheduled and tells you which limit was hit. For the full comparison of what each platform supports, see <a href="/platform-features/">What Works on Which Platform</a>.</p>
 
 <h2>How to connect Bluesky</h2>
 <ol>
@@ -109,7 +109,7 @@
 
 <h2>How Proof-of-Publish works on Bluesky</h2>
 <p>When a Bluesky post is created, the record is saved to your account, which is not quite the same as it being publicly visible. So LazyRelay reads that record back from Bluesky by its address and only marks the post confirmed live when Bluesky returns the same post. The link you can share is the bsky.app address of that post.</p>
-<p>Want the general idea? Read <a href="/verify-post-published">Does Your Post Actually Publish?</a></p>
+<p>Want the general idea? Read <a href="/verify-post-published/">Does Your Post Actually Publish?</a></p>
 
 <h2>Limits and things to know</h2>
 <ul>
@@ -120,7 +120,7 @@
 
 <div class="cta-box">
   <p style="margin-top:0;"><strong>Schedule to Bluesky and know it actually went live.</strong></p>
-  <a class="button" href="/pricing">See plans and get started free</a>
+  <a class="button" href="/pricing/">See plans and get started free</a>
 </div>
 
 <h2>Frequently asked questions</h2>
@@ -150,7 +150,7 @@
 
 </main>
 <footer>
-  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/platform-features">What Works on Which Platform</a> &middot; <a href="/verify-post-published">Does Your Post Actually Publish?</a> &middot; <a href="/docs">Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p><a href="/">Home</a> &middot; <a href="/guides/">Guides</a> &middot; <a href="/pricing/">Pricing</a> &middot; <a href="/platform-features/">What Works on Which Platform</a> &middot; <a href="/verify-post-published/">Does Your Post Actually Publish?</a> &middot; <a href="/docs/">Docs</a> &middot; <a href="/terms/">Terms of Service</a> &middot; <a href="/privacy/">Privacy Policy</a> &middot; <a href="/refunds/">Refund Policy</a></p>
   <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
 </footer>
 </body>

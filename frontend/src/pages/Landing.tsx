@@ -8,6 +8,7 @@ import { AI_TOOLS, AiToolIcon } from "../components/AiToolIcon";
 import { RelaySignal } from "../components/RelaySignal";
 import { CircuitBackground } from "../components/CircuitBackground";
 import { SupportWidget } from "../components/SupportWidget";
+import { LazySpringPanel } from "../components/LazySpringPanel";
 import banner from "../assets/banner.jpg";
 import { HOME_FAQ, homeFaqSchemaJson } from "../lib/homeFaq";
 
@@ -79,7 +80,7 @@ const MORE_FEATURES = [
   "Best-time suggestions: general, platform-by-platform posting-time guidance",
   "Approval workflow: mark a post as needing sign-off before it goes out",
   "Link-in-bio page: a simple, hosted link page you can share as one URL",
-  "Browser extension: right-click any page, link, or image to send it to LazyRelay",
+  "Browser extension (Developer Manual Install Only): right-click any page, link, or image to send it to LazyRelay; load it unpacked from the repository, it is not in any browser store",
   "Two-factor authentication: optional TOTP-based 2FA plus one-time recovery codes, for extra account security",
 ];
 
@@ -572,8 +573,8 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           <a href="#pricing">Pricing</a>
           <a href="#faq">FAQ</a>
           <a href="#about">About</a>
-          <a href="/guides">Guides</a>
-          <a href="/mcp">Integrations</a>
+          <a href="/guides/">Guides</a>
+          <a href="/mcp/">Integrations</a>
           <button className="link" onClick={onDocs}>
             Docs
           </button>
@@ -584,57 +585,54 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
             Sign in
           </button>
         </nav>
+        <LazySpringPanel as="nav" open={mobileMenuOpen} origin="top right" id="mobile-nav-menu" className="mobile-nav-menu">
+            <a href="#features" onClick={() => setMobileMenuOpen(false)}>
+              Features
+            </a>
+            <a href="#pricing" onClick={() => setMobileMenuOpen(false)}>
+              Pricing
+            </a>
+            <a href="#faq" onClick={() => setMobileMenuOpen(false)}>
+              FAQ
+            </a>
+            <a href="#about" onClick={() => setMobileMenuOpen(false)}>
+              About
+            </a>
+            <a href="/guides/" onClick={() => setMobileMenuOpen(false)}>
+              Guides
+            </a>
+            <a href="/mcp/" onClick={() => setMobileMenuOpen(false)}>
+              Integrations
+            </a>
+            <button
+              className="link"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onDocs();
+              }}
+            >
+              Docs
+            </button>
+            <button
+              className="link"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onContact();
+              }}
+            >
+              Contact
+            </button>
+            <button
+              className="link"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onSignIn();
+              }}
+            >
+              Sign in
+            </button>
+        </LazySpringPanel>
       </header>
-
-      {mobileMenuOpen && (
-        <nav id="mobile-nav-menu" className="mobile-nav-menu">
-          <a href="#features" onClick={() => setMobileMenuOpen(false)}>
-            Features
-          </a>
-          <a href="#pricing" onClick={() => setMobileMenuOpen(false)}>
-            Pricing
-          </a>
-          <a href="#faq" onClick={() => setMobileMenuOpen(false)}>
-            FAQ
-          </a>
-          <a href="#about" onClick={() => setMobileMenuOpen(false)}>
-            About
-          </a>
-          <a href="/guides" onClick={() => setMobileMenuOpen(false)}>
-            Guides
-          </a>
-          <a href="/mcp" onClick={() => setMobileMenuOpen(false)}>
-            Integrations
-          </a>
-          <button
-            className="link"
-            onClick={() => {
-              setMobileMenuOpen(false);
-              onDocs();
-            }}
-          >
-            Docs
-          </button>
-          <button
-            className="link"
-            onClick={() => {
-              setMobileMenuOpen(false);
-              onContact();
-            }}
-          >
-            Contact
-          </button>
-          <button
-            className="link"
-            onClick={() => {
-              setMobileMenuOpen(false);
-              onSignIn();
-            }}
-          >
-            Sign in
-          </button>
-        </nav>
-      )}
 
       <section className="landing-hero">
         <h1 className="landing-hero-headline">Schedule everywhere. Know it's actually live.</h1>
@@ -763,7 +761,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
                 disagreeing was a real hydration mismatch (found live
                 2026-08-25, see main.tsx). One unambiguous text node avoids
                 the whole class of issue. */}
-            Plus connects to <strong>9,000+ other apps</strong> via <a href="/connect-zapier">Zapier</a>
+            Plus connects to <strong>9,000+ other apps</strong> via <a href="/connect-zapier/">Zapier</a>
           </span>
         </div>
       </section>
@@ -976,13 +974,13 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           <button className="link" onClick={onDocs}>
             API &amp; MCP docs
           </button>
-          <a className="link" href="/guides">
+          <a className="link" href="/guides/">
             Guides
           </a>
-          <a className="link" href="/status">
+          <a className="link" href="/status/">
             Status
           </a>
-          <a className="link" href="/changelog">
+          <a className="link" href="/changelog/">
             Changelog
           </a>
           <button className="link" onClick={onPrivacy}>
@@ -994,10 +992,10 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           <button className="link" onClick={onDpa}>
             Data Processing Addendum
           </button>
-          <a className="link" href="/refunds">
+          <a className="link" href="/refunds/">
             Refund Policy
           </a>
-          <a className="link" href="/data-deletion">
+          <a className="link" href="/data-deletion/">
             Data Deletion
           </a>
           {/* suppressHydrationWarning (found 2026-09-04): Cloudflare's own

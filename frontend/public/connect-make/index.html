@@ -16,8 +16,8 @@
   main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
   .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
   .wordmark .dot { color: #ff5630; }
-  a { color: #ff5630; }
-  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  a { color: #c82400; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #c82400; }
   h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
   h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
   .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
@@ -37,7 +37,7 @@
 <script src="/circuit-bg.js" defer></script>
 <header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
 <main>
-<a class="back" href="/guides">&larr; Back to guides</a>
+<a class="back" href="/guides/">&larr; Back to guides</a>
 <h1>How to Connect LazyRelay to Make</h1>
 <p class="subtitle">Schedule and publish social posts from a Make scenario, and start a scenario when a post is confirmed live or fails.</p>
 
@@ -81,7 +81,7 @@
   <li>In LazyRelay, open <strong>Settings, then Webhooks</strong>, add an endpoint with that address, and pick the events: <code>post.verified</code> (confirmed live), <code>post.failed</code>, <code>post.unconfirmed</code> or <code>channel.needs_reconnect</code>. Press <strong>Send test</strong> so Make learns the data shape.</li>
   <li>Build the rest of the scenario. The data includes the post text, the platform, and the reason when something failed.</li>
 </ol>
-<p class="note">Webhooks are set up by a person in the dashboard, not through an API key. That is deliberate: a leaked key can never be used to point your webhooks somewhere else. Each delivery is signed with your endpoint's secret so a receiver can check it came from LazyRelay; the details are in the <a href="/docs">API docs</a>.</p>
+<p class="note">Webhooks are set up by a person in the dashboard, not through an API key. That is deliberate: a leaked key can never be used to point your webhooks somewhere else. Each delivery is signed with your endpoint's secret so a receiver can check it came from LazyRelay; the details are in the <a href="/docs/">API docs</a>.</p>
 
 <h2>Everything else the API can do</h2>
 <p>The full API is described as OpenAPI at <a href="https://lazyrelaylazyrelay-backend.onrender.com/api/openapi.json">/api/openapi.json</a>. Anything that reads OpenAPI (Postman, code generators, and tools that build Make or n8n requests from a spec) can use it. It covers scheduling, drafts, approvals, client review links, analytics, comments, saved posting times, RSS feeds and more.</p>

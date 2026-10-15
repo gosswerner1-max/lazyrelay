@@ -62,7 +62,7 @@ export function ApiDocs({ onBack }: ApiDocsProps) {
             The whole API is also described as an OpenAPI 3.1 document at{" "}
             <a href="https://lazyrelaylazyrelay-backend.onrender.com/api/openapi.json">/api/openapi.json</a>, for Postman, code generators, and
             tools that build requests from a spec. It lists only what an API key can do. New to automation tools? See the guides for{" "}
-            <a href="/connect-zapier">Zapier</a> and <a href="/connect-make">Make</a>.
+            <a href="/connect-zapier/">Zapier</a> and <a href="/connect-make/">Make</a>.
           </p>
 
           <h3>Endpoints</h3>

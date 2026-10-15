@@ -52,7 +52,7 @@ export interface PostContext {
 // checked. Every other platform is skipped here, whatever the triage says.
 export const DRAFTING_PLATFORMS: readonly string[] = ["mastodon", "bluesky"];
 export const MAX_DRAFTS_PER_POST_RUN = 5; // model calls for one post in one poll
-export const MAX_DRAFTS_PER_ACCOUNT_PER_DAY = 30; // cost cap
+export const MAX_DRAFTS_PER_ACCOUNT_PER_DAY = 50; // cost cap (Werner 2026-10-12, was 30)
 export const MAX_COMMENT_AGE_MS = 7 * 24 * 3600_000; // same window as a draft's own expiry
 export const MAX_CONSECUTIVE_MODEL_FAILURES = 2; // stop calling a model that is down
 export const MAX_COMMENT_CHARS_IN_PROMPT = 1000;
@@ -214,6 +214,7 @@ export type DraftOutcome =
   | "needs_input"
   | "skipped_disabled"
   | "skipped_platform"
+  | "skipped_plan"
   | "skipped_unclassified"
   | "skipped_escalate"
   | "skipped_own_comment"
@@ -237,6 +238,8 @@ export interface DraftingDeps {
   db: Db;
   generate: Generate;
   modelName: string;
+  /** True when the account is on a paid plan in good standing (any tier but Free). Drafting is a paid feature (Werner 2026-10-12). */
+  isPaidAccount: (accountId: string) => Promise<boolean>;
   env?: Record<string, string | undefined>;
   now?: () => Date;
 }
@@ -272,6 +275,15 @@ export async function draftRepliesForPost(
 
   if (!replyDraftsEnabled(deps.env)) return skipAll("skipped_disabled");
   if (!DRAFTING_PLATFORMS.includes(post.platform)) return skipAll("skipped_platform");
+
+  // Paid plans only. A failed lookup counts as "not paid": the model is never called for an account we could not confirm.
+  let paid = false;
+  try {
+    paid = await deps.isPaidAccount(post.accountId);
+  } catch (err) {
+    console.error("[replyDrafting] plan lookup failed, skipping drafts:", err instanceof Error ? err.message : err);
+  }
+  if (!paid) return skipAll("skipped_plan");
 
   // Cheap checks first, so the model is only asked about comments that can actually become a draft.
   const candidates: CommentToDraft[] = [];
