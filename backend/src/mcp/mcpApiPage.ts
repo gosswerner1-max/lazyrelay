@@ -231,6 +231,7 @@ function isValid(secret, rawBody, signatureHeader) {
 <meta property="og:image" content="https://lazyrelay.com/og-image-1200x630.jpg" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="LazyRelay logo with the tagline Automate. Schedule. Publish. Repeat., and icons for smart scheduling, auto posting and flexible storage, linked to social platform icons." />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${esc(TITLE)}" />
 <meta name="twitter:description" content="${esc(DESCRIPTION)}" />
