@@ -9,7 +9,7 @@ import { RelaySignal } from "../components/RelaySignal";
 import { CircuitBackground } from "../components/CircuitBackground";
 import { SupportWidget } from "../components/SupportWidget";
 import { LazySpringPanel } from "../components/LazySpringPanel";
-import banner from "../assets/banner.jpg";
+import banner from "../assets/banner.webp";
 import { HOME_FAQ, homeFaqSchemaJson } from "../lib/homeFaq";
 
 interface LandingProps {

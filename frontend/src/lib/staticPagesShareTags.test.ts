@@ -47,3 +47,22 @@ describe("static pages carry share and robots tags that mirror the page itself",
     expect(tag(html, "name", "robots")).toBe(ROBOTS);
   });
 });
+
+// Search-result length targets from the same Site Audit: a title of 30 to 60 characters and a description of 70 to
+// 155. The decoded text is measured, so &amp; counts as one character.
+const NAMED: Record<string, string> = { amp: "&", quot: '"', mdash: "—", ndash: "–", rsquo: "’", lsquo: "‘" };
+const unesc = (s: string) =>
+  s.replace(/&(?:#x([0-9a-f]+)|#(\d+)|([a-z]+));/gi, (m, hex, dec, name) =>
+    hex ? String.fromCodePoint(parseInt(hex, 16)) : dec ? String.fromCodePoint(Number(dec)) : (NAMED[name] ?? m),
+  );
+
+describe("static pages stay inside the search-result length targets", () => {
+  it.each(entries)("%s", (_path, html) => {
+    const title = unesc(html.match(/<title>([^<]*)<\/title>/)?.[1] ?? "");
+    const description = unesc(tag(html, "name", "description") ?? "");
+    expect(title.length, `title "${title}"`).toBeGreaterThanOrEqual(30);
+    expect(title.length, `title "${title}"`).toBeLessThanOrEqual(60);
+    expect(description.length, `description "${description}"`).toBeGreaterThanOrEqual(70);
+    expect(description.length, `description "${description}"`).toBeLessThanOrEqual(155);
+  });
+});

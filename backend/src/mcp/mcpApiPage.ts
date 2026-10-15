@@ -64,8 +64,8 @@ export interface PackageVersions {
 }
 
 const URL_ = "https://lazyrelay.com/docs/mcp-api/";
-const TITLE = "MCP Tools, Webhooks and Rate Limits: Developer Docs | LazyRelay";
-const DESCRIPTION = "Catalogue of LazyRelay's 27 MCP tools grouped by job, how webhooks are signed and retried, how the hosted MCP endpoint and API keys are secured, and the request limit for each plan.";
+const TITLE = "MCP Tools, Webhooks and Rate Limits: LazyRelay Docs";
+const DESCRIPTION = "All 27 LazyRelay MCP tools grouped by job, how webhooks are signed and retried, how API keys are secured, and the request limit for each plan.";
 const API_BASE = "https://lazyrelaylazyrelay-backend.onrender.com/api";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

@@ -27,13 +27,13 @@
     "slug": "youtube",
     "url": "https://lazyrelay.com/schedule-to-youtube/",
     "title": "Schedule Posts to YouTube with LazyRelay | LazyRelay",
-    "description": "Schedule YouTube video uploads with LazyRelay, with a custom title, privacy setting and tags. Each upload is checked against YouTube's own processing status."
+    "description": "Schedule YouTube uploads with LazyRelay, with a custom title, privacy setting and tags. Each upload is checked against YouTube's processing status."
   },
   {
     "slug": "linkedin",
     "url": "https://lazyrelay.com/schedule-to-linkedin/",
     "title": "Schedule Posts to LinkedIn with LazyRelay | LazyRelay",
-    "description": "Schedule LinkedIn posts with images or a PDF document to your personal profile with LazyRelay, with an honest note on how far LinkedIn lets a post be checked."
+    "description": "Schedule LinkedIn posts with images or a PDF to your personal profile with LazyRelay, plus an honest note on how far LinkedIn lets a post be checked."
   },
   {
     "slug": "threads",
