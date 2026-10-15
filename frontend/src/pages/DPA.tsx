@@ -54,7 +54,7 @@ export function DPA({ onBack }: DPAProps) {
           <p>
             LazyRelay processes personal data on your behalf for as long as you have an active LazyRelay
             account, solely to provide the scheduling, publishing, and related features described in our{" "}
-            <a href="/terms">Terms of Service</a>.
+            <a href="/terms/">Terms of Service</a>.
           </p>
 
           <h3>Nature and purpose of processing</h3>
@@ -144,7 +144,7 @@ export function DPA({ onBack }: DPAProps) {
             accessible only through LazyRelay's own backend — never as plain text in any table. Connections
             between your browser, LazyRelay, and our infrastructure providers use encrypted connections.
             Comments and direct messages are kept for up to 30 days, then deleted; after that only a short
-            classification tag remains. See our <a href="/privacy">Privacy Policy</a> for further detail.
+            classification tag remains. See our <a href="/privacy/">Privacy Policy</a> for further detail.
           </p>
 
           <h3>Data subject rights</h3>
@@ -168,7 +168,7 @@ export function DPA({ onBack }: DPAProps) {
           <h3>Data return and deletion</h3>
           <p>
             When you delete your LazyRelay account, we remove your stored content and connected-account access
-            tokens within a reasonable time, per our <a href="/data-deletion">Data Deletion</a> page. If you
+            tokens within a reasonable time, per our <a href="/data-deletion/">Data Deletion</a> page. If you
             need a copy of your data returned before deletion, email{" "}
             <a href="mailto:hello@lazyrelay.com">hello@lazyrelay.com</a>.
           </p>
@@ -176,7 +176,7 @@ export function DPA({ onBack }: DPAProps) {
           <h3>Liability</h3>
           <p>
             Liability under this DPA is subject to the limitations set out in our{" "}
-            <a href="/terms">Terms of Service</a>. If LazyRelay materially breaches this DPA and doesn't fix
+            <a href="/terms/">Terms of Service</a>. If LazyRelay materially breaches this DPA and doesn't fix
             it within a reasonable time after you notify us, you may terminate the affected Service at no
             further cost, regardless of your plan's usual cancellation terms.
           </p>

@@ -48,7 +48,7 @@ const reply = (text: string) => JSON.stringify({ decision: "reply", reply: text 
 const GOOD = reply("We open at 9am, Monday to Friday. Hope to see you!");
 
 function setup(generate: Generate, extra: Partial<Parameters<typeof draftRepliesForPost>[0]> = {}) {
-  return { db, generate, modelName: "test-model", env: ON, now: () => NOW, ...extra };
+  return { db, generate, modelName: "test-model", isPaidAccount: async () => true, env: ON, now: () => NOW, ...extra };
 }
 const fakeGenerate = (answer: string | null | ((u: string) => string | null)) =>
   vi.fn(async ({ user }: { user: string }) => (typeof answer === "function" ? answer(user) : answer));
@@ -257,6 +257,30 @@ describe("the drafting run: what is skipped and why", () => {
     }
     expect(gen).not.toHaveBeenCalled();
     expect(rows()).toHaveLength(0);
+  });
+
+  it("does nothing, and asks the model nothing, for a Free account or when the plan cannot be confirmed", async () => {
+    const gen = fakeGenerate(GOOD);
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    for (const isPaidAccount of [async () => false, async () => { throw new Error("db down"); }]) {
+      const r = await draftRepliesForPost(setup(gen, { isPaidAccount }), post, [comment("c1", "What time do you open?")], verdicts({ c1: "question" }));
+      expect(r.counts).toEqual({ skipped_plan: 1 });
+    }
+    expect(gen).not.toHaveBeenCalled();
+    expect(rows()).toHaveLength(0);
+    errSpy.mockRestore();
+  });
+
+  it("drafts for a paid account, and asks the plan check about the right account", async () => {
+    const gen = fakeGenerate(GOOD);
+    const isPaidAccount = vi.fn(async () => true);
+    const r = await draftRepliesForPost(setup(gen, { isPaidAccount }), post, [comment("c1", "What time do you open?")], verdicts({ c1: "question" }));
+    expect(r.counts).toEqual({ drafted: 1 });
+    expect(isPaidAccount).toHaveBeenCalledWith("acc1");
+  });
+
+  it("the daily cap is 50 per account", () => {
+    expect(MAX_DRAFTS_PER_ACCOUNT_PER_DAY).toBe(50);
   });
 
   it("does nothing on a platform that is not in the first wave", async () => {

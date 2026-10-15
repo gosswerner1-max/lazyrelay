@@ -47,7 +47,9 @@
   --font-body: "Work Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  font: 16px/150% var(--font-body);
+  /* Unitless leading: a percentage line-height is computed once on :root and inherited as a fixed 24px, which
+     made every wrapped heading overlap itself. */
+  font: 16px/1.5 var(--font-body);
   color-scheme: light dark;
   color: var(--wire);
   background: var(--paper);
@@ -115,11 +117,30 @@ h2 {
   font-weight: 700;
   margin: 0;
   letter-spacing: -0.01em;
+  line-height: 1.15;
 }
 
 button {
   font: inherit;
   cursor: pointer;
+}
+
+/* Press feedback on pointer-down (Apple Design, Response): the control answers the instant it is pressed, not on
+   release. :where() keeps the specificity of the control list at zero, so any control with its own :active or
+   transform (e.g. .landing-hero .cta:active) still wins. touch-action drops the double-tap-zoom tap delay. */
+:where(button, .cta, .landing-nav-links a, .mobile-nav-menu a, .tab-more-menu a) {
+  touch-action: manipulation;
+}
+
+:where(button, .cta, .landing-nav-links a, .mobile-nav-menu a, .tab-more-menu a):active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform 100ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(button, .cta, .landing-nav-links a, .mobile-nav-menu a, .tab-more-menu a):active:not(:disabled) {
+    transform: none;
+  }
 }
 
 .loading {

@@ -10,6 +10,7 @@ import { useEffect } from "react";
 // distinct content. Mirrors the document.title pattern these same page
 // components already use: set on mount, restore on unmount.
 export function useCanonical(path: string) {
+  useNoindex(path);
   useEffect(() => {
     const link = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
     if (!link) return;
@@ -18,5 +19,32 @@ export function useCanonical(path: string) {
     return () => {
       if (previous !== null) link.setAttribute("href", previous);
     };
+  }, [path]);
+}
+
+// Client-only routes that must never be indexed. The SPA fallback serves the
+// homepage HTML (canonical "/") for these, so without a robots meta Google
+// sees them as duplicates of the homepage. "/dashboard" covers its sub-routes.
+const NOINDEX_ROUTES = ["/login", "/signup", "/forgot-password", "/oauth/consent", "/dashboard"];
+
+export function isNoindexPath(path: string): boolean {
+  return NOINDEX_ROUTES.some((route) => path === route || path.startsWith(`${route}/`));
+}
+
+// Adds <meta name="robots" content="noindex, nofollow"> on a noindex route and
+// removes it again on unmount; on any other route clears a stale one.
+export function useNoindex(path: string) {
+  useEffect(() => {
+    const existing = document.head.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    if (!isNoindexPath(path)) {
+      existing?.remove();
+      return;
+    }
+    const meta = existing ?? document.createElement("meta");
+    meta.setAttribute("name", "robots");
+    meta.setAttribute("content", "noindex, nofollow");
+    if (existing) return; // another noindex hook (e.g. OAuth consent embedding Login) owns it
+    document.head.appendChild(meta);
+    return () => meta.remove();
   }, [path]);
 }

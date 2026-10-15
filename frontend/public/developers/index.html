@@ -17,8 +17,8 @@
   main { max-width: 860px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
   .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
   .wordmark .dot { color: #ff5630; }
-  a { color: #ff5630; }
-  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  a { color: #c82400; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #c82400; }
   h1 { font-family: Georgia, serif; color: #14171f; font-size: 36px; margin-bottom: 10px; line-height: 1.2; }
   h2 { font-family: Georgia, serif; color: #14171f; font-size: 22px; margin-top: 48px; }
   h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin: 0 0 4px; }
@@ -74,20 +74,20 @@
 
 <h2>Ways to connect</h2>
 <div class="client-grid">
-  <a class="client-card" href="/docs"><span class="name">REST API</span><span class="blurb">Full reference for every endpoint</span></a>
-  <a class="client-card" href="/mcp"><span class="name">MCP server</span><span class="blurb">27 tools for AI agents and editors</span></a>
+  <a class="client-card" href="/docs/"><span class="name">REST API</span><span class="blurb">Full reference for every endpoint</span></a>
+  <a class="client-card" href="/mcp/"><span class="name">MCP server</span><span class="blurb">27 tools for AI agents and editors</span></a>
   <a class="client-card" href="#sdk"><span class="name">Node SDK &amp; CLI</span><span class="blurb">@lazyrelay/sdk on npm</span></a>
-  <a class="client-card" href="/mcp/n8n"><span class="name">n8n node</span><span class="blurb">n8n-nodes-lazyrelay on npm</span></a>
-  <a class="client-card" href="/connect-make"><span class="name">Make</span><span class="blurb">Scenario guide with HTTP modules</span></a>
-  <a class="client-card" href="/connect-zapier"><span class="name">Zapier</span><span class="blurb">Invite-only app</span></a>
+  <a class="client-card" href="/mcp/n8n/"><span class="name">n8n node</span><span class="blurb">n8n-nodes-lazyrelay on npm</span></a>
+  <a class="client-card" href="/connect-make/"><span class="name">Make</span><span class="blurb">Scenario guide with HTTP modules</span></a>
+  <a class="client-card" href="/connect-zapier/"><span class="name">Zapier</span><span class="blurb">Invite-only app</span></a>
 </div>
 
 <h2>REST API</h2>
-<p>The same API LazyRelay's own dashboard runs on. Create an API key in your dashboard's <strong>API Keys</strong> tab (keys start with <code>lzr_live_</code>) and send it as a bearer token. The full reference is at <a href="/docs">lazyrelay.com/docs</a>.</p>
+<p>The same API LazyRelay's own dashboard runs on. Create an API key in your dashboard's <strong>API Keys</strong> tab (keys start with <code>lzr_live_</code>) and send it as a bearer token. The full reference is at <a href="/docs/">lazyrelay.com/docs</a>.</p>
 <p>The whole API is also described as OpenAPI 3.1 at <a href="https://lazyrelaylazyrelay-backend.onrender.com/api/openapi.json">https://lazyrelaylazyrelay-backend.onrender.com/api/openapi.json</a>. Postman, code generators and anything else that reads OpenAPI can use it.</p>
 
 <h2>MCP server</h2>
-<p>Connect Claude, ChatGPT, Cursor, VS Code, Gemini CLI, Codex CLI and other AI agents to your account with 27 tools. Use the hosted server at <code>https://lazyrelaylazyrelay-backend.onrender.com/mcp</code> and sign in with your LazyRelay account, or run the local package <code>@lazyrelay/mcp-server</code> with an API key. Setup guides for each tool are at <a href="/mcp">lazyrelay.com/mcp</a>.</p>
+<p>Connect Claude, ChatGPT, Cursor, VS Code, Gemini CLI, Codex CLI and other AI agents to your account with 27 tools. Use the hosted server at <code>https://lazyrelaylazyrelay-backend.onrender.com/mcp</code> and sign in with your LazyRelay account, or run the local package <code>@lazyrelay/mcp-server</code> with an API key. Setup guides for each tool are at <a href="/mcp/">lazyrelay.com/mcp</a>.</p>
 
 <h2 id="sdk">Node SDK and command line tool</h2>
 <p><code>@lazyrelay/sdk</code> is a typed client for the REST API plus a <code>lazyrelay</code> command line tool. It is MIT licensed, has no runtime dependencies and needs Node 18 or newer.</p>
@@ -119,22 +119,22 @@ console.log(post.id, post.status); // "pending"</code></pre>
 <p class="note">A post goes to one account, so call <code>posts.schedule</code> once per account to post to several. Publishing is queued, so check <code>post_results[0].verified_live</code> afterwards to see that it went live. The SDK also includes a helper to verify the signature on webhooks LazyRelay sends you.</p>
 
 <h2>n8n</h2>
-<p>The <code>n8n-nodes-lazyrelay</code> community node (MIT, on npm) adds a LazyRelay node and a LazyRelay Trigger node that starts a workflow when a post goes live or fails. Setup and status are on the <a href="/mcp/n8n">n8n guide</a>.</p>
+<p>The <code>n8n-nodes-lazyrelay</code> community node (MIT, on npm) adds a LazyRelay node and a LazyRelay Trigger node that starts a workflow when a post goes live or fails. Setup and status are on the <a href="/mcp/n8n/">n8n guide</a>.</p>
 
 <h2>Make and Zapier</h2>
-<p><a href="/connect-make">Make</a> works today through its built-in HTTP and Webhooks modules against the public API. <a href="/connect-zapier">Zapier</a> is an invite-only app, and its page has the link to connect.</p>
+<p><a href="/connect-make/">Make</a> works today through its built-in HTTP and Webhooks modules against the public API. <a href="/connect-zapier/">Zapier</a> is an invite-only app, and its page has the link to connect.</p>
 
 <h2>Platforms</h2>
 <p>LazyRelay posts to 17 platforms: Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress (self-hosted), dev.to, Hashnode, Lemmy and Slack. X is coming soon. Use the platform rules endpoint (or the <code>get_platform_rules</code> MCP tool, or <code>lazyrelay rules</code>) to see what each platform accepts before you post.</p>
 
 <div class="cta-box">
   <p style="margin-top:0;"><strong>Need an API key?</strong> API, MCP and SDK access is included on every plan, including Free.</p>
-  <a class="button" href="/pricing">See plans and get started free</a>
+  <a class="button" href="/pricing/">See plans and get started free</a>
 </div>
 
 </main>
 <footer>
-  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/docs">API &amp; MCP Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p><a href="/">Home</a> &middot; <a href="/guides/">Guides</a> &middot; <a href="/pricing/">Pricing</a> &middot; <a href="/docs/">API &amp; MCP Docs</a> &middot; <a href="/docs/mcp-api/">MCP tools and limits</a> &middot; <a href="/about/">About</a> &middot; <a href="/terms/">Terms of Service</a> &middot; <a href="/privacy/">Privacy Policy</a> &middot; <a href="/refunds/">Refund Policy</a></p>
   <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
 </footer>
 <script>

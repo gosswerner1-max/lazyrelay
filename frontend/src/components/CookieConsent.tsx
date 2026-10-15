@@ -110,7 +110,7 @@ export function CookieConsent() {
         default settings. You may close this banner to continue with only essential cookies.
       </p>
       <div className="cookie-consent-links">
-        <a href="/privacy">Privacy Policy</a>
+        <a href="/privacy/">Privacy Policy</a>
       </div>
       <label className="cookie-consent-toggle">
         <input
