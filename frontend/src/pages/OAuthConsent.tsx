@@ -6,6 +6,7 @@ import { Spinner } from "../components/Spinner";
 import { BrandMark } from "../components/BrandMark";
 import { MfaChallenge } from "../components/MfaChallenge";
 import { describeScopes } from "../lib/oauthScopes";
+import { useNoindex } from "../lib/useCanonical";
 
 type Details = {
   authorization_id: string;
@@ -26,6 +27,7 @@ type Details = {
  *  own getAuthorizationDetails call requires a live session and returns
  *  AuthSessionMissingError otherwise, so signing in first is not optional. */
 export function OAuthConsentPage({ authorizationId }: { authorizationId: string | null }) {
+  useNoindex("/oauth/consent");
   const { session, loading: authLoading } = useAuth();
   const [details, setDetails] = useState<Details | null>(null);
   const [error, setError] = useState<string | null>(null);

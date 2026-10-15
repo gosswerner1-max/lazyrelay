@@ -16,8 +16,8 @@
   main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
   .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
   .wordmark .dot { color: #ff5630; }
-  a { color: #ff5630; }
-  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #ff5630; }
+  a { color: #c82400; }
+  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #c82400; }
   h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
   h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
   h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
@@ -67,13 +67,13 @@
 <script src="/circuit-bg.js" defer></script>
 <header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
 <main>
-<a class="back" href="/guides">&larr; Back to guides</a>
+<a class="back" href="/guides/">&larr; Back to guides</a>
 <h1>What Happens When Your AI Agent's Scheduled Post Fails Silently?</h1>
 <p class="subtitle">If an AI agent is scheduling your social posts via API or MCP, nobody's watching the calendar when something goes wrong. Here's what silent failure actually looks like for an autonomous agent, and how to catch it.</p>
 
 <h2>The failure mode that only shows up for agents</h2>
 <p>A person scheduling a post has a rough safety net: they glance at their own feed later, notice a gap, ask "did that go out?" An AI agent posting on its own, through an API or MCP tool call, doesn't have that. It gets a response back from the scheduling call, treats "accepted" as "done," and moves on to the next task. If the platform silently drops or holds that post afterward, the agent has no way of finding out unless something is specifically built to check.</p>
-<p>This isn't hypothetical. It's the same gap covered in <a href="/verify-post-published">why "sent" isn't "published"</a> for scheduling in general, but it matters differently for an agent: there's no human in the loop to catch it by accident.</p>
+<p>This isn't hypothetical. It's the same gap covered in <a href="/verify-post-published/">why "sent" isn't "published"</a> for scheduling in general, but it matters differently for an agent: there's no human in the loop to catch it by accident.</p>
 
 <h2>Why "the API call succeeded" isn't the same as "it worked"</h2>
 <p>An agent that schedules a post via API or MCP typically gets one signal back: a success response and maybe a post ID. That's confirmation the request was accepted, not confirmation the content is actually live. Rate limits, moderation holds, expired tokens, and partial platform outages can all happen after that response, and none of them come back as an error the agent would see.</p>
@@ -81,11 +81,11 @@
 
 <h2>What this means if you're building on top of a scheduling API or MCP server</h2>
 <p>If you're wiring an agent up to post on your behalf, a call that returns success is not enough to close the loop on. Either your agent needs to separately re-check that the post is live, or the tool it's calling needs to do that for you and hand back a real verified status, not just an accepted one.</p>
-<p>LazyRelay's <a href="/docs">MCP server and API</a> return Proof-of-Publish status alongside every post: not just "we accepted this," but a separately verified "this is actually live" or "this failed verification," so an agent calling it gets a real answer instead of a hopeful one.</p>
+<p>LazyRelay's <a href="/docs/">MCP server and API</a> return Proof-of-Publish status alongside every post: not just "we accepted this," but a separately verified "this is actually live" or "this failed verification," so an agent calling it gets a real answer instead of a hopeful one.</p>
 
 <div class="cta-box">
   <p style="margin-top:0;"><strong>Give your agent a tool that tells the truth about whether a post actually went out.</strong></p>
-  <a class="button" href="/docs">See the API & MCP docs</a>
+  <a class="button" href="/docs/">See the API & MCP docs</a>
 </div>
 
 <h2>Frequently asked questions</h2>
@@ -104,7 +104,7 @@
 
 </main>
 <footer>
-  <p><a href="/">Home</a> &middot; <a href="/guides">Guides</a> &middot; <a href="/pricing">Pricing</a> &middot; <a href="/verify-post-published">Does Your Post Actually Publish?</a> &middot; <a href="/social-media-scheduler-comparison">Scheduler Comparison</a> &middot; <a href="/docs">API &amp; MCP Docs</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/privacy">Privacy Policy</a> &middot; <a href="/refunds">Refund Policy</a></p>
+  <p><a href="/">Home</a> &middot; <a href="/guides/">Guides</a> &middot; <a href="/pricing/">Pricing</a> &middot; <a href="/verify-post-published/">Does Your Post Actually Publish?</a> &middot; <a href="/social-media-scheduler-comparison/">Scheduler Comparison</a> &middot; <a href="/docs/">API &amp; MCP Docs</a> &middot; <a href="/terms/">Terms of Service</a> &middot; <a href="/privacy/">Privacy Policy</a> &middot; <a href="/refunds/">Refund Policy</a></p>
   <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
 </footer>
 </body>

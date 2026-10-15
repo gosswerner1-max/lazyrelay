@@ -660,6 +660,7 @@
 
 .chart-stat-value {
   font-size: 28px;
+  line-height: 1.15;
   font-weight: 700;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -702,9 +703,12 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.overview-panel .chart-stat-tile:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg, var(--shadow));
+/* Hover-capable devices only: on touch a tap leaves :hover stuck on, so the tile would stay lifted. */
+@media (hover: hover) {
+  .overview-panel .chart-stat-tile:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg, var(--shadow));
+  }
 }
 
 /* A tile that opens a tab (2026-10-07): a real <button> that looks exactly like the plain tile. */
