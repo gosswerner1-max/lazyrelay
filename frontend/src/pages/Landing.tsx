@@ -482,7 +482,7 @@ function FooterBadgeGroup({ ariaHidden }: { ariaHidden?: boolean }) {
     <div className="landing-footer-badges-group" aria-hidden={ariaHidden || undefined}>
       {FOOTER_BADGES.map((badge) => (
         <a key={badge.className} href={badge.href} target="_blank" rel={badge.rel} className={badge.className} tabIndex={ariaHidden ? -1 : undefined}>
-          <img src={badge.imgSrc} alt={badge.alt} width={badge.width} height={badge.height} />
+          <img src={badge.imgSrc} alt={badge.alt} width={badge.width} height={badge.height} loading="lazy" decoding="async" />
         </a>
       ))}
       <SourceForgeBadge />

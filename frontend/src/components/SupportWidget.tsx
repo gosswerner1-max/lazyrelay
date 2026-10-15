@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type SupportAction } from "../lib/api";
 import { LazySpringPanel } from "./LazySpringPanel";
-import botHead from "../assets/support-bot-head.png";
+import botHead from "../assets/support-bot-head.webp?no-inline";
 import thinking1 from "../assets/thinking-1.mp4";
 import thinking2 from "../assets/thinking-2.mp4";
 
