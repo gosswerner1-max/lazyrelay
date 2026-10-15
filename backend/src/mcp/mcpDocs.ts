@@ -212,7 +212,22 @@ export function renderHtml(tools: CapturedTool[] = captureTools()): string {
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}" />
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
 <link rel="canonical" href="${MCP_FACTS.toolsPage}" />
+<meta property="og:title" content="${esc(title)}" />
+<meta property="og:description" content="${esc(description)}" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="${MCP_FACTS.toolsPage}" />
+<meta property="og:site_name" content="LazyRelay" />
+<meta property="og:locale" content="en_US" />
+<meta property="og:image" content="https://lazyrelay.com/og-image-1200x630.jpg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="LazyRelay logo with the tagline Automate. Schedule. Publish. Repeat., and icons for smart scheduling, auto posting and flexible storage, linked to social platform icons." />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="${esc(title)}" />
+<meta name="twitter:description" content="${esc(description)}" />
+<meta name="twitter:image" content="https://lazyrelay.com/og-image-1200x630.jpg" />
 <link rel="icon" type="image/png" href="/favicon.png" />
 <script src="/consent.js" defer></script>
 <style>${PAGE_STYLE}</style>
