@@ -47,7 +47,8 @@ export type Platform =
   | "lemmy"
   | "slack"
   | "nostr"
-  | "whop";
+  | "whop"
+  | "whatsapp";
 
 // Platforms without a researched, bespoke rule yet fall back to the same
 // 20MB size cap + mime allowlist LazyRelay's own /media/upload endpoint
@@ -242,6 +243,8 @@ const RULES: Record<Platform, PlatformRules> = {
   // Whop: text (Markdown) forum posts only in v1. Whop file upload flow is not built, so images and videos are refused
   // up front instead of failing at Whop.
   whop: { image: { maxSizeBytes: 0, allowedMimeTypes: [] }, video: { maxSizeBytes: 0, allowedMimeTypes: [] } },
+  // WhatsApp sending is not built (platforms/whatsapp/adapter.ts), so no media is accepted either.
+  whatsapp: { image: { maxSizeBytes: 0, allowedMimeTypes: [] }, video: { maxSizeBytes: 0, allowedMimeTypes: [] } },
   // FIXED 2026-09-30: real Facebook and Instagram accounts are stored as platform "facebook" and
   // "instagram" (the "meta" rule above is only ever reached by a legacy row), so both used to fall
   // through to the generic 20MB floor. That refused every Instagram Reel and Facebook video over

@@ -12,6 +12,7 @@ import { isSafeMediaUrl } from "../../urlSafety.js";
 import { FIRST_COMMENT_DELAY_PLATFORMS } from "../../firstCommentDelay.js";
 import { normalizeDraftExtras, extrasToColumns, type PostExtras } from "../../postExtras.js";
 import { dbError } from "./shared.js";
+import { isWhatsappSendBlocked, whatsappSendBlockedBody } from "../../platforms/whatsapp/sendSupport.js";
 
 export function buildRecurringSchedulesRouter(): Router {
   const router = Router();
@@ -220,6 +221,11 @@ export function buildRecurringSchedulesRouter(): Router {
       res.status(403).json({ error: "One or more social accounts weren't found or aren't owned by this caller" });
       return;
     }
+    // WhatsApp sending is not built: a recurring schedule cannot target it (the generator would only skip it).
+    if ((owned ?? []).some((a) => isWhatsappSendBlocked(a.platform as string))) {
+      res.status(400).json(whatsappSendBlockedBody());
+      return;
+    }
 
     const extrasCheck = await normalizeDraftExtras(input);
     if (!extrasCheck.ok) {
@@ -385,7 +391,7 @@ export function buildRecurringSchedulesRouter(): Router {
       const socialAccountIds = input.socialAccountIds as string[];
       const { data: owned, error: ownedError } = await req.db!
         .from("social_accounts")
-        .select("id")
+        .select("id, platform")
         .eq("account_id", req.accountId)
         .in("id", socialAccountIds);
       if (ownedError) {
@@ -394,6 +400,10 @@ export function buildRecurringSchedulesRouter(): Router {
       }
       if ((owned ?? []).length !== socialAccountIds.length) {
         res.status(403).json({ error: "One or more social accounts weren't found or aren't owned by this caller" });
+        return;
+      }
+      if ((owned ?? []).some((a) => isWhatsappSendBlocked(a.platform as string))) {
+        res.status(400).json(whatsappSendBlockedBody());
         return;
       }
       await req.db!.from("recurring_schedule_targets").delete().eq("recurring_schedule_id", req.params.id);

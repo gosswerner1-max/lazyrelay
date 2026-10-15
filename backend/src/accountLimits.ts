@@ -1,5 +1,5 @@
 import { supabase } from "./supabase.js";
-import { resolveTier, type Tier } from "./tier.js";
+import { resolveTier, canUseWhatsappByok, WHATSAPP_BYOK_REQUIRED_PLAN_NAME, type Tier } from "./tier.js";
 
 /** Real per-tier connected-account caps, added 2026-07-23 alongside the
  *  Starter/Pro/Business restructure. Deliberately NOT unlimited even at
@@ -77,4 +77,43 @@ export async function checkNewDistinctAccountLimit(accountId: string): Promise<s
     return `You've connected ${limit} different accounts in the last ${DISTINCT_ACCOUNT_WINDOW_DAYS} days — your plan's real limit, even if you've since disconnected some. A slot frees up ${DISTINCT_ACCOUNT_WINDOW_DAYS} days after that account was first connected, or upgrade for more.`;
   }
   return null;
+}
+
+/** Customer-facing wording when a plan below Business tries to connect WhatsApp (see tier.ts, canUseWhatsappByok). */
+export const WHATSAPP_PLAN_MESSAGE = `Connecting WhatsApp with your own Meta credentials is available on the ${WHATSAPP_BYOK_REQUIRED_PLAN_NAME} plan and above.`;
+
+/** The WhatsApp plan gate, in the same shape as checkAccountLimit: a customer-facing reason when this account may NOT
+ *  connect or save a WhatsApp channel, otherwise null. Fails CLOSED: if the plan cannot be read, the answer is "not
+ *  allowed", never "allowed". Callers turn a non-null answer into HTTP 400 (routes/whatsappByok.routes.ts and the
+ *  generic connect route in routes/socialAccounts.routes.ts). */
+export async function checkWhatsappPlan(accountId: string): Promise<string | null> {
+  try {
+    return canUseWhatsappByok(await resolveTier(accountId)) ? null : WHATSAPP_PLAN_MESSAGE;
+  } catch {
+    return WHATSAPP_PLAN_MESSAGE;
+  }
+}
+
+/** The database-side WhatsApp plan gate (migration 0125, trigger social_accounts_whatsapp_plan_gate) rejects a write with
+ *  SQLSTATE 'LRWA1' and the message below. A route that saves a WhatsApp row turns that into the same fixed HTTP 400 plan
+ *  message as checkWhatsappPlan instead of a 500. Matches the code or the message, so it still works if a client layer
+ *  drops one of them. */
+export const WHATSAPP_DB_GATE_CODE = "LRWA1";
+export const WHATSAPP_DB_GATE_MESSAGE = "whatsapp requires the Business plan or above";
+export function isWhatsappPlanGateError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const { code, message } = err as { code?: unknown; message?: unknown };
+  return code === WHATSAPP_DB_GATE_CODE || (typeof message === "string" && message.includes(WHATSAPP_DB_GATE_MESSAGE));
+}
+
+/** The database-side X own-keys plan gate (migration 0126, trigger social_accounts_x_byok_plan_gate) rejects a write with
+ *  SQLSTATE 'LRXB1' and the message below. The X BYOK save route turns that into the same fixed plan answer as its own
+ *  application gate (HTTP 403, X_BYOK_PLAN_MESSAGE) instead of a 500. Matches the code or the message, so it still works
+ *  if a client layer drops one of them. */
+export const X_BYOK_DB_GATE_CODE = "LRXB1";
+export const X_BYOK_DB_GATE_MESSAGE = "x own keys requires the Pro plan or above";
+export function isXByokPlanGateError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const { code, message } = err as { code?: unknown; message?: unknown };
+  return code === X_BYOK_DB_GATE_CODE || (typeof message === "string" && message.includes(X_BYOK_DB_GATE_MESSAGE));
 }

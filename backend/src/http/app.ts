@@ -6,8 +6,10 @@ import multer from "multer";
 import { buildRouter } from "./routes.js";
 import { buildMfaRecoveryRouter } from "./mfaRecovery.js";
 import { xByokJsonParser } from "./routes/xByok.routes.js";
+import { whatsappByokJsonParser } from "./routes/whatsappByok.routes.js";
 import { buildWebhookHandler } from "./webhook.js";
 import { handleMetaWebhookVerification, handleMetaWebhookEvent } from "./metaWebhook.js";
+import { verifyWhatsAppWebhook, handleWhatsAppWebhookEvent, buildWhatsAppWebhookLimits, WHATSAPP_WEBHOOK_MAX_BYTES } from "./whatsappWebhooks.js";
 import { handleSignupWebhook } from "./signupWebhook.js";
 import { publicRateLimit } from "./rateLimit.js";
 import { mountMcp } from "./mcpRoutes.js";
@@ -113,6 +115,20 @@ export function buildApp(
     handleMetaWebhookEvent,
   );
 
+  // WhatsApp (bring your own key) real-time inbound messages. Public on purpose: Meta's servers call it, not a signed-in
+  // person, so it sits here, before the CORS policy and the authenticated /api router, like the webhooks above. GET is
+  // Meta's one-time handshake (shared verify token); POST is real deliveries, HMAC-signed with the app secret over the raw
+  // body (same reason as the MOR and Meta webhooks), answered 200 EVENT_RECEIVED at once and processed after. Dormant
+  // (404) unless WHATSAPP_BYOK_ENABLED=true. See whatsappWebhooks.ts for what is checked and what is stored.
+  app.get("/api/webhooks/whatsapp", publicRateLimit, verifyWhatsAppWebhook);
+  app.post(
+    "/api/webhooks/whatsapp",
+    // Not publicRateLimit (30 a minute): Meta bursts and retries. Oversize guard, global ceiling, generous per-IP ceiling.
+    ...buildWhatsAppWebhookLimits(),
+    express.raw({ type: "application/json", limit: WHATSAPP_WEBHOOK_MAX_BYTES }),
+    handleWhatsAppWebhookEvent,
+  );
+
   // Instant welcome email: a Supabase database trigger (migration 0088)
   // POSTs the new account's id here the moment a signup creates the row. Not
   // a browser route, so it sits before the CORS policy like the webhooks
@@ -169,6 +185,8 @@ export function buildApp(
   // The X "own keys" routes carry four secrets: they get a 4 KB parser of their own BEFORE the global one (which would
   // otherwise accept 100 KB and log a malformed body through the catch-all below). See routes/xByok.routes.ts.
   app.use("/api/social-accounts/x/byok", ...xByokJsonParser);
+  // Same for WhatsApp: the request carries a Meta system user token. See routes/whatsappByok.routes.ts.
+  app.use("/api/social-accounts/whatsapp/byok", ...whatsappByokJsonParser);
   app.use(express.json());
   app.use("/api", buildRouter(morAdapter, registry));
   // Own router, mounted separately -- see the doc comment at the top of

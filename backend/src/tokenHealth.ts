@@ -45,6 +45,7 @@ const PLATFORM_LABEL: Record<string, string> = {
   x: "X",
   // The classifier key for a customer-owned X connection (postErrors.ts); labelled like X.
   x_byok: "X",
+  whatsapp: "WhatsApp",
   wordpress: "WordPress",
   devto: "dev.to",
   hashnode: "Hashnode",

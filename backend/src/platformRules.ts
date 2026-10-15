@@ -585,6 +585,33 @@ function buildRules(): PlatformRuleSet[] {
       ],
     },
     {
+      platform: "whatsapp",
+      label: "WhatsApp",
+      text: {
+        maxLength: 4096,
+        note: "WhatsApp Cloud API text messages: 4096 characters. SENDING IS NOT BUILT YET: connecting and checking credentials work, but a post to WhatsApp is refused with a clear message. A WhatsApp message goes to a named, opted-in recipient and outside the 24 hour customer-service window must be an approved template, so what a post means there is still to be designed.",
+      },
+      media: {
+        textOnlyAllowed: true,
+        // mediaLimits.ts: no media is accepted while sending is not built.
+        image: { supported: false, formats: [], maxSizeMb: null },
+        video: { supported: false, formats: [], maxSizeMb: null, maxDurationSec: null },
+        multiItem: multiItem("whatsapp"),
+        notes: "Not available yet. Sending is not built.",
+      },
+      required: [...BASE_REQUIRED],
+      features: ["connect with the customer's own Meta WhatsApp Business credentials (Business plan and above)", "credentials are checked with Meta before anything is saved"],
+      options: [],
+      limits: noRepoCap("LazyRelay enforces no cap. The customer's own WhatsApp Business Account is billed by Meta directly, not by LazyRelay."),
+      lookups: ["list_connected_accounts", "get_next_free_slot"],
+      notes: [
+        "Bring your own key: the customer links their own WhatsApp Business Account ID, phone number ID and a long-lived Meta system user token. Meta bills them directly. LazyRelay stores the token encrypted and never shows it again.",
+        "Available on the Business plan and above. Free, Starter and Pro accounts are refused with HTTP 400.",
+        "Sending is not built yet. Scheduling a post to a WhatsApp connection fails at send time with a fixed message and nothing is sent to Meta.",
+      ],
+      sources: ["https://developers.facebook.com/docs/whatsapp/cloud-api"],
+    },
+    {
       platform: "telegram",
       label: "Telegram",
       text: {

@@ -1,6 +1,6 @@
 // The privacy sweep (decided by Werner 2026-10-07), run from the 6 hourly job in index.ts:
 //   1. wipe the stored logins of every disconnected connection (tokenWipe.ts), and
-//   2. delete cached comment text and DM snippets that fell outside the tracking window.
+//   2. delete cached comment text, DM snippets and stored WhatsApp messages that fell outside the tracking window.
 // The tracking window is 30 days, the same window the Mentions poller reads (posts scheduled in the last 30 days), so the
 // poller never writes back what this deletes.
 
@@ -16,6 +16,10 @@ export interface PrivacySweepResult {
   tokenFailures: number;
   commentsDeleted: number;
   dmsDeleted: number;
+  /** Inbound WhatsApp messages (whatsapp_messages, migration 0127), by received_at. */
+  messagesDeleted: number;
+  /** Cached triage verdicts (comment_triage), by classified_at. */
+  triageDeleted: number;
   purgeFailed: boolean;
 }
 
@@ -28,16 +32,21 @@ export async function runPrivacySweep(db: Db, now: Date = new Date()): Promise<P
 
   let commentsDeleted = 0;
   let dmsDeleted = 0;
+  let messagesDeleted = 0;
+  let triageDeleted = 0;
   let purgeFailed = false;
   const { data, error } = await db.rpc("purge_stored_messages", { p_cutoff: retentionCutoff(now) });
   if (error) {
     purgeFailed = true;
-    console.error("[privacySweep] could not delete old comments and DMs:", error.message);
+    console.error("[privacySweep] could not delete old comments, DMs and messages:", error.message);
   } else {
-    const row = (Array.isArray(data) ? data[0] : data) as { comments_deleted?: number | string; dms_deleted?: number | string } | null;
+    const row = (Array.isArray(data) ? data[0] : data) as { comments_deleted?: number | string; dms_deleted?: number | string; messages_deleted?: number | string; triage_deleted?: number | string } | null;
     commentsDeleted = Number(row?.comments_deleted ?? 0);
     dmsDeleted = Number(row?.dms_deleted ?? 0);
+    // Absent on a database that has not had migration 0127 yet: counts as none.
+    messagesDeleted = Number(row?.messages_deleted ?? 0);
+    triageDeleted = Number(row?.triage_deleted ?? 0);
   }
 
-  return { tokensWiped: tokens.wiped, tokenFailures: tokens.failed, commentsDeleted, dmsDeleted, purgeFailed };
+  return { tokensWiped: tokens.wiped, tokenFailures: tokens.failed, commentsDeleted, dmsDeleted, messagesDeleted, triageDeleted, purgeFailed };
 }

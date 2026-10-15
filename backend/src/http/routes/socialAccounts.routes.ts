@@ -21,7 +21,9 @@ import { normalizeMastodonInstance } from "../../platforms/mastodon.js";
 import { ConnectLimitError } from "../../platforms/mastodonInstanceLimit.js";
 import { registerWhopRoutes } from "./whopConnect.routes.js";
 import { registerXByokRoutes, X_BYOK_PLAN_MESSAGE } from "./xByok.routes.js";
-import { resolveTier, canUseXByok, X_BYOK_REQUIRED_PLAN_NAME } from "../../tier.js";
+import { registerWhatsAppByokRoutes } from "./whatsappByok.routes.js";
+import { checkWhatsappPlan } from "../../accountLimits.js";
+import { resolveTier, canUseXByok, X_BYOK_REQUIRED_PLAN_NAME, WHATSAPP_BYOK_REQUIRED_PLAN_NAME } from "../../tier.js";
 
 // Every platform LazyRelay supports, in the shape the frontend's platform
 // picker grid needs. "x" had a comingSoon gate until 2026-07-31 — its
@@ -50,7 +52,7 @@ import { resolveTier, canUseXByok, X_BYOK_REQUIRED_PLAN_NAME } from "../../tier.
 const ALL_PLATFORMS = [
   "tiktok", "pinterest", "youtube", "mastodon", "bluesky", "telegram",
   "linkedin", "threads", "facebook", "instagram", "discord", "tumblr", "x",
-  "wordpress", "devto", "hashnode", "lemmy", "slack", "nostr", "whop",
+  "wordpress", "devto", "hashnode", "lemmy", "slack", "nostr", "whop", "whatsapp",
 ] as const;
 // Nothing is "coming soon" any more: X is connectable with the customer's own developer keys (Pro and above), and is
 // hidden entirely until X_BYOK_ENABLED registers it and X_BYOK_PLATFORM_PUBLIC (or a test account list) opens it.
@@ -69,12 +71,14 @@ const COMING_SOON_PLATFORMS = new Set<string>();
 // Whop likewise has its own pair (WHOP_PLATFORM_PUBLIC, WHOP_TEST_ACCOUNT_IDS) and is only in the registry once both
 // WHOP_APP_API_KEY and WHOP_APP_ID are set. None of the other switches (Slack, Nostr, article platforms) opens it.
 // X likewise has its own pair (X_BYOK_PLATFORM_PUBLIC, X_BYOK_TEST_ACCOUNT_IDS) and is only in the registry once X_BYOK_ENABLED=true.
-const HIDDEN_UNTIL_CONFIGURED = new Set<string>(["wordpress", "devto", "hashnode", "lemmy", "slack", "nostr", "whop", "x"]);
+// WhatsApp likewise (WHATSAPP_BYOK_PLATFORM_PUBLIC, WHATSAPP_BYOK_TEST_ACCOUNT_IDS), registered once WHATSAPP_BYOK_ENABLED=true.
+const HIDDEN_UNTIL_CONFIGURED = new Set<string>(["wordpress", "devto", "hashnode", "lemmy", "slack", "nostr", "whop", "x", "whatsapp"]);
 const GATE_ENV: Record<string, { publicFlag: string; testers: string }> = {
   slack: { publicFlag: "SLACK_PLATFORM_PUBLIC", testers: "SLACK_TEST_ACCOUNT_IDS" },
   nostr: { publicFlag: "NOSTR_PLATFORM_PUBLIC", testers: "NOSTR_TEST_ACCOUNT_IDS" },
   whop: { publicFlag: "WHOP_PLATFORM_PUBLIC", testers: "WHOP_TEST_ACCOUNT_IDS" },
   x: { publicFlag: "X_BYOK_PLATFORM_PUBLIC", testers: "X_BYOK_TEST_ACCOUNT_IDS" },
+  whatsapp: { publicFlag: "WHATSAPP_BYOK_PLATFORM_PUBLIC", testers: "WHATSAPP_BYOK_TEST_ACCOUNT_IDS" },
 };
 const ARTICLE_GATE_ENV = { publicFlag: "ARTICLE_PLATFORMS_PUBLIC", testers: "ARTICLE_PLATFORMS_TEST_ACCOUNT_IDS" };
 function canSeePlatform(platform: string, accountId: string | undefined): boolean {
@@ -104,12 +108,15 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
         xAllowed = false;
       }
     }
+    // Same for the WhatsApp tile (Business and above). checkWhatsappPlan fails closed.
+    const whatsappAllowed = visible.includes("whatsapp") ? (await checkWhatsappPlan(_req.accountId!)) === null : false;
     res.json(
       visible.map((platform) => ({
         platform,
         configured: registry.has(platform),
         comingSoon: COMING_SOON_PLATFORMS.has(platform),
         ...(platform === "x" ? { requiresPlan: X_BYOK_REQUIRED_PLAN_NAME, allowed: xAllowed } : {}),
+        ...(platform === "whatsapp" ? { requiresPlan: WHATSAPP_BYOK_REQUIRED_PLAN_NAME, allowed: whatsappAllowed } : {}),
       })),
     );
   });
@@ -128,6 +135,7 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
 
   registerWhopRoutes(router, registry, canSeePlatform);
   registerXByokRoutes(router, registry, canSeePlatform);
+  registerWhatsAppByokRoutes(router, registry, canSeePlatform);
 
   // Starts the "connect your social account" flow — returns the URL the
   // frontend should redirect the user to. Real account identity comes from
@@ -161,6 +169,18 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
         return;
       }
       res.status(400).json({ error: "X is connected with your own developer keys from Social Platforms, not through a sign-in redirect." });
+      return;
+    }
+    // WhatsApp has no sign-in redirect either: the customer pastes their own Meta credentials
+    // (routes/whatsappByok.routes.ts). The plan gate (Business and above) is enforced here too and answers HTTP 400,
+    // so a Free, Starter or Pro account is refused before anything is started or saved.
+    if (platform === "whatsapp") {
+      const planError = await checkWhatsappPlan(req.accountId!);
+      res.status(400).json(
+        planError
+          ? { error: planError, requiresPlan: WHATSAPP_BYOK_REQUIRED_PLAN_NAME }
+          : { error: "WhatsApp is connected with your own Meta credentials from Social Platforms, not through a sign-in redirect." },
+      );
       return;
     }
     // Whop has no sign-in redirect: it is connected from its own dialog (routes/whopConnect.routes.ts), where the

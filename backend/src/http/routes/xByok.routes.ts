@@ -20,7 +20,7 @@ import { z } from "zod";
 import { requireAuth, requireHumanAuth, type AuthedRequest } from "../auth.js";
 import { tieredRateLimit } from "../rateLimit.js";
 import { supabase } from "../../supabase.js";
-import { checkAccountLimit, checkNewDistinctAccountLimit } from "../../accountLimits.js";
+import { checkAccountLimit, checkNewDistinctAccountLimit, isXByokPlanGateError } from "../../accountLimits.js";
 import { resolveTier, canUseXByok, X_BYOK_REQUIRED_PLAN_NAME } from "../../tier.js";
 import { wipeVaultSecrets } from "../../tokenWipe.js";
 import { validateBody } from "../validation.js";
@@ -178,6 +178,7 @@ export function registerXByokRoutes(
     const accountId = req.accountId!;
     const keyHint = xKeyHint(bundle.apiKey);
     let newVaultId: string | null = null;
+    let blockedByDatabase = false;
     try {
       // Rotating the keys of a connection we already have (same X account) updates its Vault secret in place; a new
       // account is checked against the plan's limits first, exactly like every other connect.
@@ -239,10 +240,19 @@ export function registerXByokRoutes(
         },
         { onConflict: "account_id,platform,platform_account_id" },
       );
-      if (upsertError) throw new Error("save");
+      if (upsertError) {
+        // The database plan gate (migration 0126) is the backstop behind canUseXByok: if it refuses the row, answer the
+        // same fixed plan message and status as the route's own gate (403), not a 500.
+        blockedByDatabase = isXByokPlanGateError(upsertError);
+        throw new Error("save");
+      }
     } catch {
       // A secret stored for a row that was never saved would sit in Vault for good: overwrite it.
       if (newVaultId) await wipeVaultSecrets(supabase, [newVaultId]);
+      if (blockedByDatabase) {
+        res.status(403).json({ error: X_BYOK_PLAN_MESSAGE, requiresPlan: X_BYOK_REQUIRED_PLAN_NAME });
+        return;
+      }
       console.error("[x-byok] saving a connection failed (details withheld: they can hold key material)");
       res.status(500).json({ error: SAVE_FAILED });
       return;
