@@ -81,7 +81,7 @@ const GATE_ENV: Record<string, { publicFlag: string; testers: string }> = {
   whatsapp: { publicFlag: "WHATSAPP_BYOK_PLATFORM_PUBLIC", testers: "WHATSAPP_BYOK_TEST_ACCOUNT_IDS" },
 };
 const ARTICLE_GATE_ENV = { publicFlag: "ARTICLE_PLATFORMS_PUBLIC", testers: "ARTICLE_PLATFORMS_TEST_ACCOUNT_IDS" };
-function canSeePlatform(platform: string, accountId: string | undefined): boolean {
+export function canSeePlatform(platform: string, accountId: string | undefined): boolean {
   if (!HIDDEN_UNTIL_CONFIGURED.has(platform)) return true;
   const gate = GATE_ENV[platform] ?? ARTICLE_GATE_ENV;
   if (process.env[gate.publicFlag] === "true") return true;

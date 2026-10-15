@@ -65,3 +65,31 @@ describe("findProductionConfigProblems", () => {
     expect(p).toHaveLength(3);
   });
 });
+
+describe("findProductionConfigProblems: WhatsApp broadcast contacts", () => {
+  const ENC = Buffer.alloc(32, 7).toString("base64");
+  const READY = { ...GOOD, WHATSAPP_BROADCASTS_ENABLED: "true", WHATSAPP_CONTACT_HASH_KEY: "h".repeat(32), WHATSAPP_CONTACT_ENC_KEY: ENC, WHATSAPP_CONTACT_ENC_KEY_ID: "k1" };
+
+  it("says nothing while the feature is off, whatever is missing", () => {
+    expect(findProductionConfigProblems({ ...GOOD })).toEqual([]);
+    expect(findProductionConfigProblems({ ...GOOD, WHATSAPP_BROADCASTS_ENABLED: "false" })).toEqual([]);
+  });
+
+  it("is quiet when the feature is on and both secrets are usable", () => {
+    expect(findProductionConfigProblems(READY)).toEqual([]);
+  });
+
+  it("flags a feature that is on without its secrets, naming them but never a value", () => {
+    const { WHATSAPP_CONTACT_ENC_KEY: _a, ...noEnc } = READY;
+    const p = findProductionConfigProblems(noEnc);
+    expect(p).toHaveLength(1);
+    expect(p[0]).toMatch(/WHATSAPP_BROADCASTS_ENABLED/);
+    expect(p[0]).toMatch(/WHATSAPP_CONTACT_ENC_KEY/);
+    const { WHATSAPP_CONTACT_ENC_KEY_ID: _b, ...noId } = READY;
+    expect(findProductionConfigProblems(noId)[0]).toMatch(/WHATSAPP_CONTACT_ENC_KEY_ID/);
+    const { WHATSAPP_CONTACT_HASH_KEY: _c, ...noHash } = READY;
+    expect(findProductionConfigProblems(noHash)[0]).toMatch(/WHATSAPP_CONTACT_HASH_KEY/);
+    expect(findProductionConfigProblems({ ...READY, WHATSAPP_CONTACT_ENC_KEY: "short" })[0]).toMatch(/32 bytes/);
+    for (const text of [p[0], findProductionConfigProblems({ ...READY, WHATSAPP_CONTACT_ENC_KEY: "short" })[0]]) expect(text).not.toMatch(new RegExp(`${ENC}|short|h{32}`));
+  });
+});

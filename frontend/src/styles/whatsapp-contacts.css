@@ -1,0 +1,174 @@
+/* WhatsApp contacts and consent screens. Extends the Custom Developer Keys panel look (byok-panels.css), so every selector is
+   scoped under .byok-panels. Written to the Apple layout rules in .claude/rules/apple-design:
+     - feedback on pointer-down (:active), instant, no waiting for the click to finish;
+     - only transform and opacity are ever animated, no layout shift;
+     - the fallbacks: reduced motion, reduced transparency, more contrast;
+     - size-specific tracking: tighter on the title, none on body text. */
+
+.byok-panels .wac {
+  display: grid;
+  gap: 0.875rem;
+}
+
+.byok-panels .wac-title {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--byok-ink);
+}
+
+.byok-panels .wac-card {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.byok-panels .wac-consent {
+  display: grid;
+  gap: 0.625rem;
+}
+
+/* Selects and text areas: the panel only styles <input>, so these match it. */
+.byok-panels .wac-field select,
+.byok-panels .wac-field textarea {
+  min-width: 0;
+  padding: 0.5rem 0.625rem;
+  background: rgba(11, 15, 25, 0.85);
+  color: var(--byok-ink);
+  border: 1px solid var(--byok-edge);
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 400;
+}
+
+.byok-panels .wac-field textarea {
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.byok-panels .wac-field select:hover,
+.byok-panels .wac-field textarea:hover {
+  border-color: rgba(255, 120, 90, 0.75);
+}
+
+.byok-panels .wac-field select:focus-visible,
+.byok-panels .wac-field textarea:focus-visible,
+.byok-panels .wac-attest input:focus-visible {
+  outline: 2px solid var(--byok-coral);
+  outline-offset: 2px;
+}
+
+.byok-panels .wac-field select[aria-invalid="true"],
+.byok-panels .wac-field textarea[aria-invalid="true"],
+.byok-panels .wac-field input[aria-invalid="true"] {
+  border-color: var(--byok-error);
+}
+
+.byok-panels .wac-attest {
+  line-height: 1.5;
+}
+
+.byok-panels .wac-attest input[aria-invalid="true"] {
+  outline: 2px solid var(--byok-error);
+  outline-offset: 2px;
+}
+
+.byok-panels .wac-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: end;
+}
+
+.byok-panels .wac-search {
+  display: flex;
+  gap: 0.5rem;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.byok-panels .wac-list li {
+  align-items: flex-start;
+}
+
+.byok-panels .wac-who,
+.byok-panels .wac-meta {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.byok-panels .wac-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.82rem;
+  color: var(--byok-ink);
+}
+
+.byok-panels .wac-problems,
+.byok-panels .wac-result {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.byok-panels .wac-preview {
+  display: grid;
+  gap: 0.5rem;
+}
+
+/* Press feedback: starts the instant the pointer goes down, only transform and opacity change. */
+.byok-panels .wac button,
+.byok-panels .wac select,
+.byok-panels .wac label,
+.byok-panels .wac input[type="file"] {
+  touch-action: manipulation;
+}
+
+.byok-panels .wac button {
+  transition: transform 100ms ease-out, opacity 100ms ease-out;
+}
+
+.byok-panels .wac button:active:not(:disabled) {
+  transform: scale(0.97);
+  opacity: 0.9;
+}
+
+/* Reduced motion: no scale, no transition; a plain opacity change still confirms the press. */
+@media (prefers-reduced-motion: reduce) {
+  .byok-panels .wac button {
+    transition: none;
+  }
+  .byok-panels .wac button:active:not(:disabled) {
+    transform: none;
+    opacity: 0.8;
+  }
+}
+
+/* Reduced transparency: solid surfaces instead of the translucent fills. */
+@media (prefers-reduced-transparency: reduce) {
+  .byok-panels .wac-field select,
+  .byok-panels .wac-field textarea,
+  .byok-panels .wac-field input,
+  .byok-panels .wac-card {
+    background: #0b0f19;
+  }
+}
+
+/* More contrast: a defined, lighter border on every control and a visible mark on the invalid ones. */
+@media (prefers-contrast: more) {
+  .byok-panels .wac-field select,
+  .byok-panels .wac-field textarea,
+  .byok-panels .wac-field input,
+  .byok-panels .wac-card {
+    border-color: #ffffff;
+    background: #000000;
+  }
+  .byok-panels .wac-field [aria-invalid="true"] {
+    border-width: 2px;
+  }
+}

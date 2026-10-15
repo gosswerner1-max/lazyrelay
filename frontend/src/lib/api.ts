@@ -116,6 +116,54 @@ export interface WhatsAppMessagesPage {
   nextBefore: string | null;
 }
 
+// WhatsApp broadcast contacts and consent (Phase 1: stored and managed here; nothing is sent). The backend never returns a
+// phone number: a contact is shown by a mask such as "+27 ** *** 4567".
+export interface WhatsAppContact {
+  id: string;
+  socialAccountId: string;
+  contactKey: string;
+  contactDisplay: string;
+  displayName: string | null;
+  countryCallingCode: string | null;
+  consentStatus: "opted_in" | "opted_out";
+  optedInAt: string | null;
+  optedOutAt: string | null;
+  createdAt: string;
+}
+
+export interface WhatsAppContactsPage {
+  contacts: WhatsAppContact[];
+  nextBefore: string | null;
+}
+
+export interface WhatsAppOptInInput {
+  source: string;
+  capturedAt: string;
+  consentText: string;
+  proofReference?: string;
+  attested: true;
+}
+
+export interface WhatsAppImportRowInput {
+  phone: string;
+  name?: string;
+  opted_in: string;
+  opt_in_date?: string;
+}
+
+export interface WhatsAppImportResult {
+  dryRun: boolean;
+  accepted: number;
+  duplicates: number;
+  suppressed: number;
+  rejected: Array<{ row: number; reason: string }>;
+}
+
+export interface WhatsAppOptOutsResult {
+  count: number;
+  optOuts: Array<{ id: string; contactDisplay: string; scope: string; source: string; keyword: string | null; occurredAt: string }>;
+}
+
 export interface Brand {
   id: string;
   name: string;
@@ -691,6 +739,29 @@ export const api = {
     if (params.before) q.set("before", params.before);
     return authedFetch(`/whatsapp/messages?${q.toString()}`);
   },
+
+  // WhatsApp broadcast contacts and consent. Capabilities answers { broadcasts } only; it is false (never an error) while the feature is
+  // off for this account. The other calls answer 404 while it is off and 400 with the plan message below Business.
+  getWhatsAppCapabilities: (): Promise<{ broadcasts: boolean }> => authedFetch("/whatsapp/capabilities"),
+  listWhatsAppContacts: (params: { socialAccountId?: string; status?: "opted_in" | "opted_out"; search?: string; before?: string; limit?: number }): Promise<WhatsAppContactsPage> => {
+    const q = new URLSearchParams();
+    if (params.socialAccountId) q.set("social_account_id", params.socialAccountId);
+    if (params.status) q.set("status", params.status);
+    if (params.search) q.set("search", params.search);
+    if (params.before) q.set("before", params.before);
+    if (params.limit) q.set("limit", String(params.limit));
+    return authedFetch(`/whatsapp/contacts?${q.toString()}`);
+  },
+  addWhatsAppContact: (body: { socialAccountId: string; phone: string; name?: string; optIn: WhatsAppOptInInput }): Promise<{ status: "created" | "duplicate" }> =>
+    authedFetch("/whatsapp/contacts", { method: "POST", body: JSON.stringify({ social_account_id: body.socialAccountId, phone: body.phone, name: body.name || undefined, optIn: body.optIn }) }),
+  importWhatsAppContacts: (body: { socialAccountId: string; source: string; consentText: string; proofReference?: string; capturedAt: string; dryRun: boolean; rows: WhatsAppImportRowInput[] }): Promise<WhatsAppImportResult> =>
+    authedFetch("/whatsapp/contacts/import", {
+      method: "POST",
+      body: JSON.stringify({ social_account_id: body.socialAccountId, source: body.source, consentText: body.consentText, proofReference: body.proofReference || undefined, capturedAt: body.capturedAt, attested: true, dryRun: body.dryRun, rows: body.rows }),
+    }),
+  optOutWhatsAppContact: (id: string): Promise<{ ok: true }> => authedFetch(`/whatsapp/contacts/${encodeURIComponent(id)}/opt-out`, { method: "POST", body: JSON.stringify({}) }),
+  eraseWhatsAppContact: (id: string): Promise<{ ok: true }> => authedFetch(`/whatsapp/contacts/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  listWhatsAppOptOuts: (): Promise<WhatsAppOptOutsResult> => authedFetch("/whatsapp/opt-outs"),
 
   listScheduledPosts: (): Promise<ScheduledPost[]> => authedFetch("/scheduled-posts"),
   // Real pagination for History — `before` is the oldest post's

@@ -7,6 +7,7 @@ import { buildRouter } from "./routes.js";
 import { buildMfaRecoveryRouter } from "./mfaRecovery.js";
 import { xByokJsonParser } from "./routes/xByok.routes.js";
 import { whatsappByokJsonParser } from "./routes/whatsappByok.routes.js";
+import { whatsappContactsImportJsonParser } from "./routes/whatsappContacts.routes.js";
 import { buildWebhookHandler } from "./webhook.js";
 import { handleMetaWebhookVerification, handleMetaWebhookEvent } from "./metaWebhook.js";
 import { verifyWhatsAppWebhook, handleWhatsAppWebhookEvent, buildWhatsAppWebhookLimits, WHATSAPP_WEBHOOK_MAX_BYTES } from "./whatsappWebhooks.js";
@@ -187,6 +188,9 @@ export function buildApp(
   app.use("/api/social-accounts/x/byok", ...xByokJsonParser);
   // Same for WhatsApp: the request carries a Meta system user token. See routes/whatsappByok.routes.ts.
   app.use("/api/social-accounts/whatsapp/byok", ...whatsappByokJsonParser);
+  // The WhatsApp contact import carries up to 5,000 phone numbers: a 2 MB parser of its own, BEFORE the global one, with a fixed
+  // error line (see routes/whatsappContacts.routes.ts).
+  app.use("/api/whatsapp/contacts/import", ...whatsappContactsImportJsonParser);
   app.use(express.json());
   app.use("/api", buildRouter(morAdapter, registry));
   // Own router, mounted separately -- see the doc comment at the top of
