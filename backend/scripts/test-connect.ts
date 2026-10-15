@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { supabase } from "../src/supabase.js";
 import { StubAdapter } from "../src/platforms/stub.js";
-import { startConnect, completeConnect } from "../src/platforms/connect.js";
+import { startConnect, completeConnect, getPendingSelection, finalizeConnectSelection } from "../src/platforms/connect.js";
 
 async function main() {
   const email = `connect-test-${Date.now()}@lazyrelay.invalid`;
@@ -22,12 +22,24 @@ async function main() {
   const state = new URL(authorizeUrl).searchParams.get("state");
   if (!state) throw new Error("no state param in authorize URL");
 
-  // Simulate the platform's callback with that real state + a fake code.
+  // Simulate the platform's callback with that real state + a fake code. The stub has no
+  // listConnectOptions, so the login is exchanged and HELD: nothing is saved yet, the customer
+  // must confirm which account it is (needs_selection with exactly one option).
   const connectResult = await completeConnect(state, "fake-oauth-code", registry);
-  if (connectResult.status !== "connected") {
-    throw new Error(`Expected an immediate connect, got needs_selection (${connectResult.options.length} options)`);
+  if (connectResult.status !== "needs_selection" || connectResult.options.length !== 1) {
+    throw new Error(`Expected one account to confirm, got ${JSON.stringify(connectResult)}`);
   }
-  const socialAccountId = connectResult.socialAccountId;
+  const heldNothingSaved = (await supabase.from("social_accounts").select("id").eq("account_id", accountId)).data?.length === 0;
+  console.log(`[login held until confirmed] -> ${heldNothingSaved ? "PASS" : "FAIL"}`);
+
+  // The dashboard reads the pending option back, then the customer confirms it.
+  const pending = await getPendingSelection(connectResult.selectionToken, accountId, registry);
+  const [socialAccountId] = await finalizeConnectSelection(
+    connectResult.selectionToken,
+    [pending.options[0].id],
+    accountId,
+    registry,
+  );
 
   const { data: socialAccount } = await supabase
     .from("social_accounts")
@@ -40,9 +52,9 @@ async function main() {
     socialAccount?.account_id === accountId &&
     socialAccount?.platform === "meta" &&
     socialAccount?.access_token_vault_id != null;
-  console.log(`[connect succeeds] -> ${pass1 ? "PASS" : "FAIL"}`);
+  console.log(`[connect succeeds after confirm] -> ${pass1 ? "PASS" : "FAIL"}`);
 
-  // Real security check: the state should be consumed (one-time use) —
+  // Real security check: the state is consumed by the confirmation (one-time use) —
   // trying to complete the same state again must fail, not silently
   // create a second social_account.
   let replayFailed = false;
@@ -57,8 +69,9 @@ async function main() {
   await supabase.from("social_accounts").delete().eq("id", socialAccountId);
   await supabase.auth.admin.deleteUser(accountId);
 
-  console.log(pass1 && replayFailed ? "ALL PASS" : "SOME FAILED");
-  process.exit(pass1 && replayFailed ? 0 : 1);
+  const allPass = heldNothingSaved && pass1 && replayFailed;
+  console.log(allPass ? "ALL PASS" : "SOME FAILED");
+  process.exit(allPass ? 0 : 1);
 }
 
 main().catch((err) => {

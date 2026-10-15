@@ -17,13 +17,13 @@ function onRateLimited(req: Request, res: Response) {
 // model. Paid tiers get more headroom since "unlimited posts" is the
 // actual product promise there; free tier is already capped on post count
 // separately, this is just the request-rate backstop underneath it.
-const TIER_LIMITS: Record<Tier, number> = {
+export const TIER_LIMITS: Record<Tier, number> = {
   free: 60,
-  pro: 300, // "Starter"
-  business: 450, // "Pro"
-  enterprise: 600, // "Business"
-  agency: 600, // mirrors enterprise — not part of the 2026-08-17 Agency pricing decision
-  agency_plus: 600, // mirrors enterprise, same reasoning
+  starter: 300,
+  pro: 450,
+  business: 600,
+  agency: 600, // mirrors business — not part of the 2026-08-17 Agency pricing decision
+  agency_plus: 600, // mirrors business, same reasoning
 };
 
 // Cached per account for a short window so every request doesn't cost a

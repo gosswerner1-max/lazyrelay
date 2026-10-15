@@ -38,10 +38,10 @@ async function main() {
   // Restored in the finally block below -- these are the real exported
   // constants other code in this same process (sync.ts) reads from, so the
   // patch must not outlive this script.
-  const originalEnterprise = ACCOUNT_LIMITS.enterprise;
   const originalBusiness = ACCOUNT_LIMITS.business;
-  (ACCOUNT_LIMITS as Record<string, number>).enterprise = 5;
-  (ACCOUNT_LIMITS as Record<string, number>).business = 2;
+  const originalPro = ACCOUNT_LIMITS.pro;
+  (ACCOUNT_LIMITS as Record<string, number>).business = 5;
+  (ACCOUNT_LIMITS as Record<string, number>).pro = 2;
 
   const email = `downgrade-webhook-test-${Date.now()}@lazyrelay.invalid`;
   const { data: user, error: userError } = await supabase.auth.admin.createUser({ email, email_confirm: true });
@@ -71,14 +71,14 @@ async function main() {
     console.log(`Connected 5 test social accounts, oldest-first: ${socialAccountIds.join(", ")}`);
 
     // First webhook: account's genuine first-ever tier event, already on the
-    // (patched) enterprise limit of 5 -- exactly at capacity, nothing to pause.
+    // (patched) business limit of 5 -- exactly at capacity, nothing to pause.
     const morSubscriptionId = `sub_downgrade_webhook_${Date.now()}`;
     const firstEvent: SubscriptionEvent = {
       kind: "tier",
       morSubscriptionId,
       accountEmail: email,
       accountId,
-      tier: "enterprise",
+      tier: "business",
       status: "active",
       currentPeriodEnd: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
       occurredAt: new Date(Date.now() - 60_000).toISOString(),
@@ -88,18 +88,18 @@ async function main() {
 
     const { data: afterFirst } = await supabase.from("social_accounts").select("id, paused_at").in("id", socialAccountIds);
     check(
-      "at capacity (5 accounts, patched enterprise limit 5) -- nothing paused yet",
+      "at capacity (5 accounts, patched business limit 5) -- nothing paused yet",
       (afterFirst ?? []).every((a) => a.paused_at === null),
       JSON.stringify(afterFirst),
     );
 
-    // Downgrade webhook: same subscription, tier moves to business (patched
+    // Downgrade webhook: same subscription, tier moves to pro (patched
     // limit 2) -- this is the exact webhook shape /subscription/change-tier
     // produces for a real downgrade. Expect the 3 NEWEST connections paused,
     // the 2 oldest left active.
     const downgradeEvent: SubscriptionEvent = {
       ...firstEvent,
-      tier: "business",
+      tier: "pro",
       occurredAt: new Date().toISOString(), // strictly newer than firstEvent
     };
     await syncSubscriptionFromWebhook(downgradeEvent);
@@ -112,33 +112,33 @@ async function main() {
     const pausedAfterDowngrade = new Set((afterDowngrade ?? []).filter((a) => a.paused_at !== null).map((a) => a.id));
     const expectedPaused = new Set(socialAccountIds.slice(2)); // newest 3
     check(
-      "downgrade webhook (enterprise->business, patched limits 5->2) pauses exactly the newest 3, keeps the oldest 2 active",
+      "downgrade webhook (business->pro, patched limits 5->2) pauses exactly the newest 3, keeps the oldest 2 active",
       pausedAfterDowngrade.size === 3 &&
         [...expectedPaused].every((id) => pausedAfterDowngrade.has(id)) &&
         socialAccountIds.slice(0, 2).every((id) => !pausedAfterDowngrade.has(id)),
       JSON.stringify(afterDowngrade),
     );
 
-    // Upgrade back: tier moves back to enterprise (patched limit 5) -- expect
+    // Upgrade back: tier moves back to business (patched limit 5) -- expect
     // all 3 previously-paused accounts unpaused again.
     const upgradeEvent: SubscriptionEvent = {
       ...firstEvent,
-      tier: "enterprise",
+      tier: "business",
       occurredAt: new Date(Date.now() + 1000).toISOString(), // strictly newer than downgradeEvent
     };
     await syncSubscriptionFromWebhook(upgradeEvent);
 
     const { data: afterUpgrade } = await supabase.from("social_accounts").select("id, paused_at").in("id", socialAccountIds);
     check(
-      "upgrade webhook back to enterprise (patched limit 5) unpauses all 5 again",
+      "upgrade webhook back to business (patched limit 5) unpauses all 5 again",
       (afterUpgrade ?? []).every((a) => a.paused_at === null),
       JSON.stringify(afterUpgrade),
     );
 
     await supabase.from("social_accounts").delete().in("id", socialAccountIds);
   } finally {
-    (ACCOUNT_LIMITS as Record<string, number>).enterprise = originalEnterprise;
     (ACCOUNT_LIMITS as Record<string, number>).business = originalBusiness;
+    (ACCOUNT_LIMITS as Record<string, number>).pro = originalPro;
     await supabase.from("subscriptions").delete().eq("account_id", accountId);
     await supabase.auth.admin.deleteUser(accountId);
   }

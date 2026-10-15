@@ -70,9 +70,9 @@ Never tell a customer "you'll be taken through," "a button will appear," "once y
 // PRICING array, which is itself the one place a human reviews these numbers.
 const TIER_PRICES: Record<Tier, string> = {
   free: "$0",
-  pro: "$29.99/mo", // "Starter"
-  business: "$59.99/mo", // "Pro"
-  enterprise: "$99.99/mo", // "Business"
+  starter: "$29.99/mo",
+  pro: "$59.99/mo",
+  business: "$99.99/mo",
   agency: "$149.99/mo",
   agency_plus: "$199.99/mo",
 };
@@ -215,7 +215,7 @@ SECURITY & ACCOUNT
 `.trim();
 
 export function buildSupportSystemPrompt(accountContext: SupportAccountContext | null = null): string {
-  const allTierLines = (["free", "pro", "business", "enterprise", "agency", "agency_plus"] as Tier[]).map((t) => `- ${tierLine(t)}`).join("\n");
+  const allTierLines = (["free", "starter", "pro", "business", "agency", "agency_plus"] as Tier[]).map((t) => `- ${tierLine(t)}`).join("\n");
   const pricingSection = BILLING_LIVE
     ? `PLANS (live, customers can subscribe today):\n${allTierLines}`
     : `PLANS (these are the real prices and limits -- use these exact numbers, never invent different ones):\n${allTierLines}\n\nOnly the Free plan is actually usable today. The three paid plans above are coming soon and NOT live yet -- there is no way for anyone to be on a paid plan or be charged right now, no exceptions, no "just launched," no "recently started." When asked about paid plans, give these exact prices/limits but state plainly nobody can subscribe yet.`;

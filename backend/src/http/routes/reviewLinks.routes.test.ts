@@ -37,7 +37,7 @@ const app = () => {
 };
 const DAY = 86_400_000;
 
-function seed(tier = "enterprise") {
+function seed(tier = "business") {
   tables.subscriptions = [{ account_id: "acc1", tier, status: "active" }];
   tables.accounts = [{ id: "acc1", email: "owner@agency.co", business_name: "Agency Co" }, { id: "acc2", email: "other@x.co", business_name: "Other" }];
   tables.social_accounts = [
@@ -78,7 +78,7 @@ describe("owner: links and plan caps", () => {
   });
 
   it("Free gets 0 links; paid plans get two per brand (Starter 4, Pro 8, Business 14)", async () => {
-    for (const [tier, n] of [["free", 0], ["pro", 4], ["business", 8], ["enterprise", 14], ["agency", 24], ["agency_plus", 40]] as const) {
+    for (const [tier, n] of [["free", 0], ["starter", 4], ["pro", 8], ["business", 14], ["agency", 24], ["agency_plus", 40]] as const) {
       seed(tier);
       expect((await request(app()).get("/review-links")).body.maxLinks).toBe(n);
     }
@@ -89,7 +89,7 @@ describe("owner: links and plan caps", () => {
   });
 
   it("only active links count toward the cap, so revoking frees a slot", async () => {
-    seed("pro"); // 4 links
+    seed("starter"); // 4 links
     const made = [];
     for (let i = 0; i < 4; i++) made.push((await request(app()).post("/review-links").send({})).body);
     const first = made[0];

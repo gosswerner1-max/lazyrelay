@@ -41,6 +41,16 @@ All four self-clean their test data (delete the test user at the end) and can be
 2. `.env` already has real credentials for the live LazyRelay Supabase project.
 3. `npm run dev` — connects, starts the HTTP API on :3000, and starts the scheduler polling loop (30s interval).
 
+## Testing on a Supabase branch or scratch project
+
+A database built from `supabase/migrations/` carries the signup trigger from `0088`, which posts every new account id to the **production** backend (`/api/webhooks/signup`) so it can send the welcome email. On a test database that would send test account ids to production. Migration `0122` adds an opt-out switch. Right after creating the branch, and **before creating any test account**, run this on the branch and reconnect:
+
+```sql
+alter database postgres set app.signup_webhook_disabled = 'on';
+```
+
+With the value `on` the trigger returns without posting. Unset (production) or any other value behaves as before. This is opt-out discipline, not automatic isolation: a database cannot reliably tell that it is a branch, so a branch where this step is skipped still posts to production.
+
 ## Not yet built (next steps)
 
 - Real Meta/TikTok/Pinterest adapters — blocked on Phase 0 (developer app registration, needs to happen directly in the Meta/TikTok/Pinterest developer dashboards). The connect flow, scheduler, and HTTP routes are all already written against the adapter interface, so swapping in the real Meta implementation shouldn't require touching them.

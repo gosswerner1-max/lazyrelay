@@ -48,7 +48,7 @@ const future = () => new Date(Date.now() + 3 * 86_400_000).toISOString();
 beforeEach(() => {
   for (const k of Object.keys(tables)) delete tables[k];
   auth.accountId = "acc1";
-  tables.subscriptions = [{ account_id: "acc1", tier: "enterprise", status: "active" }];
+  tables.subscriptions = [{ account_id: "acc1", tier: "business", status: "active" }];
   tables.social_accounts = [
     { id: "ig", account_id: "acc1", platform: "instagram", platform_account_id: "ig1", display_name: "ig" },
     { id: "tt", account_id: "acc1", platform: "tiktok", platform_account_id: "tt1", display_name: "tt" },

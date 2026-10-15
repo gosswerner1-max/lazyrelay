@@ -216,11 +216,9 @@ export interface DraftFields {
   options?: PostOptions;
 }
 
-// Internal tier codes are stable across the Starter/Pro/Business rename
-// (2026-07-23) — "pro" displays as "Starter", "business" displays as "Pro",
-// "enterprise" is the genuinely new top tier, displaying as "Business".
+// Internal tier codes match the public plan names (backend migration 0119).
 export interface Subscription {
-  tier: "free" | "pro" | "business" | "enterprise" | "agency" | "agency_plus";
+  tier: "free" | "starter" | "pro" | "business" | "agency" | "agency_plus";
   status: "trialing" | "active" | "past_due" | "cancelled" | null;
   currentPeriodEnd: string | null;
   // True while a cancellation is scheduled for the end of the current paid
@@ -230,7 +228,7 @@ export interface Subscription {
 }
 
 export interface StorageUsage {
-  tier: "free" | "pro" | "business" | "enterprise" | "agency" | "agency_plus";
+  tier: "free" | "starter" | "pro" | "business" | "agency" | "agency_plus";
   usedBytes: number;
   quotaBytes: number;
   addonBytes: number;
@@ -893,7 +891,7 @@ export const api = {
 
   getSubscription: (): Promise<Subscription> => authedFetch("/subscription"),
   startCheckout: (
-    tier: "pro" | "business" | "enterprise" | "agency" | "agency_plus",
+    tier: "starter" | "pro" | "business" | "agency" | "agency_plus",
     promoCode?: string | null,
     referralCode?: string | null
   ): Promise<{ transactionId: string; checkoutUrl: string | null }> =>
@@ -904,7 +902,7 @@ export const api = {
   // For a customer already on an active paid tier -- real proration on the
   // existing subscription, not a fresh checkout. startCheckout above is for
   // Free/lapsed -> paid only; this is for moving between paid tiers.
-  changeTier: (tier: "pro" | "business" | "enterprise" | "agency" | "agency_plus"): Promise<{ changed: boolean }> =>
+  changeTier: (tier: "starter" | "pro" | "business" | "agency" | "agency_plus"): Promise<{ changed: boolean }> =>
     authedFetch("/subscription/change-tier", { method: "POST", body: JSON.stringify({ tier }) }),
   cancelSubscription: (feedback: string | undefined, acknowledgedDataDeletion: boolean): Promise<{ cancelled: boolean }> =>
     authedFetch("/subscription/cancel", { method: "POST", body: JSON.stringify({ feedback, acknowledgedDataDeletion }) }),

@@ -4,8 +4,8 @@ import { loginAsDisposableAccount } from "./fixtures/auth";
 
 // A distinct form/code path from the one-time compose flow
 // (compose-and-schedule.spec.ts): recurring schedules are gated by plan
-// tier (free: 0 slots, "pro"/Starter: 3 -- backend/src/tier.ts). Every E2E
-// account already gets a "pro" subscription seeded by loginAsDisposableAccount
+// tier (free: 0 slots, "starter"/Starter: 3 -- backend/src/tier.ts). Every E2E
+// account already gets a "starter" subscription seeded by loginAsDisposableAccount
 // (fixtures/auth.ts) -- originally added just for the rate-limit ceiling,
 // it also happens to be exactly the tier this spec needs, so nothing
 // extra to seed here.

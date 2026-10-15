@@ -6,7 +6,10 @@
 const fs = require("fs");
 const { getSupabaseClient } = require("../shared/supabaseClient.js");
 
-const VALID_TIERS = ["free", "pro", "business", "enterprise"];
+// Mirrors the subscriptions_tier_check constraint (migration 0119): the stored
+// codes match the public plan names. Before 0119 this was free/pro/business/
+// enterprise (and was missing agency/agency_plus).
+const VALID_TIERS = ["free", "starter", "pro", "business", "agency", "agency_plus"];
 
 /** Pure function: given one subscription's real-world snapshot, decide if
  * it's flag-worthy. No I/O. */

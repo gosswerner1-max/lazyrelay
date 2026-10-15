@@ -13,7 +13,7 @@ import type {
 // X's OAuth 2.0 Authorization Code flow is PKCE-only — even a confidential
 // (client-secret-holding) app must send a code_challenge, unlike every other
 // adapter in this codebase. The verifier is generated here and stashed on
-// the oauth_states row (see 0023_x_platform.sql) since getAuthorizeUrl only
+// the oauth_states row (see 0121_x_platform_pkce_verifier.sql) since getAuthorizeUrl only
 // returns a URL, not a value connect.ts could hold onto itself.
 const AUTHORIZE_URL = "https://twitter.com/i/oauth2/authorize";
 const TOKEN_URL = "https://api.twitter.com/2/oauth2/token";

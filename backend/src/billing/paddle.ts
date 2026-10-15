@@ -1,5 +1,6 @@
 import { Paddle, Environment } from "@paddle/paddle-node-sdk";
 import { WebhookSignatureError } from "./types.js";
+import { resolveWebhookTier, LEGACY_TIER_EQUIVALENT, type PaidTier } from "./tierResolution.js";
 import type {
   MerchantOfRecordAdapter,
   BillingEvent,
@@ -64,12 +65,13 @@ const RELEVANT_EVENT_TYPES = new Set([
   "adjustment.created",
 ]);
 
-export const VALID_TIERS = ["free", "pro", "business", "enterprise", "agency", "agency_plus"] as const;
-
 interface SubscriptionLike {
   id: string;
   status: string;
   customData: Record<string, unknown> | null;
+  // The subscription's line items. Only the price id is read: it is the
+  // authority for which tier this is (see billing/tierResolution.ts).
+  items?: Array<{ price?: { id?: string } | null }> | null;
   currentBillingPeriod: { endsAt: string } | null;
   // Paddle sets this on the subscription itself the moment a deferred
   // cancellation (or pause/resume) is scheduled -- null once nothing is
@@ -105,7 +107,12 @@ export function deriveCancelAtPeriodEnd(sub: Pick<SubscriptionLike, "scheduledCh
 /** Branches on customData.kind to build either a tier SubscriptionEvent or
  *  a StorageAddonEvent — the two are otherwise-identical Paddle
  *  subscriptions distinguished only by what we embedded at checkout time. */
-function buildEventFromCustomData(sub: SubscriptionLike, status: SubscriptionEvent["status"], occurredAt: string): BillingEvent {
+export function buildEventFromCustomData(
+  sub: SubscriptionLike,
+  status: SubscriptionEvent["status"],
+  occurredAt: string,
+  env: Record<string, string | undefined> = process.env,
+): BillingEvent {
   const customData = sub.customData ?? {};
   const accountEmail = customData.accountEmail;
   if (typeof accountEmail !== "string" || !accountEmail) {
@@ -135,12 +142,35 @@ function buildEventFromCustomData(sub: SubscriptionLike, status: SubscriptionEve
     return { kind: "seat_addon", morSubscriptionId: sub.id, accountEmail, accountId, status, currentPeriodEnd, occurredAt, cancelAtPeriodEnd };
   }
 
-  const tier = customData.tier;
-  if (typeof tier !== "string" || !(VALID_TIERS as readonly string[]).includes(tier)) {
-    throw new Error(`Subscription ${sub.id} has invalid/missing customData.tier "${String(tier)}"`);
+  // Tier code renamed in migration 0119 (pro -> starter, business -> pro,
+  // enterprise -> business). customData.tier on any subscription created
+  // before that still holds the OLD code, and old "pro"/"business" collide
+  // with the new codes of the same name, so the tier comes from the Paddle
+  // price id (env-configured) and customData.tier is only trusted where it is
+  // unambiguous. See billing/tierResolution.ts for the full rules.
+  const priceIds = (sub.items ?? []).map((item) => item?.price?.id).filter((id): id is string => typeof id === "string" && id.length > 0);
+  let resolution;
+  try {
+    resolution = resolveWebhookTier(customData.tier, priceIds, env);
+  } catch (err) {
+    throw new Error(`Subscription ${sub.id}: ${err instanceof Error ? err.message : String(err)}`);
   }
+  if (resolution.tier === null) {
+    // Fail closed: tier stays undefined on the event, so syncSubscriptionFromWebhook
+    // keeps the account's stored tier and still syncs status/period/cancellation.
+    // The webhook is still acknowledged (200) like any other processed event;
+    // a retry could not resolve it either until the price env vars are fixed.
+    console.warn(`[paddle] WARNING: cannot resolve the tier for subscription ${sub.id} (${resolution.reason}). Leaving the account's tier unchanged; check the PADDLE_PRICE_ID_* env vars against this subscription's price ids (${priceIds.join(", ") || "none on the payload"}).`);
+  } else if (resolution.source === "price_id" && typeof customData.tier === "string" && customData.tier !== resolution.tier && LEGACY_TIER_EQUIVALENT[customData.tier] !== resolution.tier) {
+    // The price id wins. A customData.tier that is just the pre-rename spelling
+    // of the same tier (pro -> starter etc.) is expected on every old
+    // subscription and not worth a log line per webhook; anything else is a
+    // genuine disagreement and is logged so it is visible.
+    console.warn(`[paddle] subscription ${sub.id}: price id resolves to "${resolution.tier}" but customData.tier says "${customData.tier}", which is not its legacy spelling either. Using the price id.`);
+  }
+  const tier = resolution.tier ?? undefined;
   const partnerCode = typeof customData.partnerCode === "string" && customData.partnerCode ? customData.partnerCode : undefined;
-  return { kind: "tier", morSubscriptionId: sub.id, accountEmail, accountId, tier: tier as SubscriptionEvent["tier"], status, currentPeriodEnd, occurredAt, cancelAtPeriodEnd, partnerCode };
+  return { kind: "tier", morSubscriptionId: sub.id, accountEmail, accountId, tier, status, currentPeriodEnd, occurredAt, cancelAtPeriodEnd, partnerCode };
 }
 
 interface TransactionTotalsLike {
@@ -332,8 +362,10 @@ export class PaddleMorAdapter implements MerchantOfRecordAdapter {
    *  reflected on their card right away, matching what the dashboard's
    *  upgrade/downgrade copy will tell them to expect. customData carries
    *  the new tier so the resulting webhook (see MerchantOfRecordAdapter's
-   *  doc comment) syncs it correctly — the price change alone wouldn't
-   *  tell our own sync code what tier this now is. */
+   *  doc comment) syncs it correctly. The tier is the new-style code; the
+   *  webhook resolves the tier from the price id anyway (the authority, see
+   *  tierResolution.ts), customData.tier is kept for readability in the
+   *  Paddle dashboard and as a fallback. */
   async changeSubscriptionTier(morSubscriptionId: string, priceId: string, tier: string, accountEmail: string, accountId: string): Promise<CancelResult> {
     try {
       await this.paddle.subscriptions.update(morSubscriptionId, {
@@ -371,7 +403,7 @@ async function getOrCreateCustomerId(paddle: Paddle, email: string): Promise<str
 }
 
 type CheckoutParams = (
-  | { kind: "tier"; accountEmail: string; accountId: string; tier: "pro" | "business" | "enterprise" | "agency" | "agency_plus"; priceId: string }
+  | { kind: "tier"; accountEmail: string; accountId: string; tier: PaidTier; priceId: string }
   | { kind: "storage_addon"; accountEmail: string; accountId: string; gbAmount: number; priceId: string }
   | { kind: "brand_addon"; accountEmail: string; accountId: string; priceId: string }
   | { kind: "seat_addon"; accountEmail: string; accountId: string; priceId: string }

@@ -15,7 +15,7 @@ const REDIRECT_URL = "http://localhost:5173/";
  *  landed, and one of the new specs needs its OWN paid-tier subscription
  *  row, which must not leak into the other specs' free-tier assumptions.
  *
- *  Every account gets a "pro" subscription seeded BEFORE first login, not
+ *  Every account gets a "starter" subscription seeded BEFORE first login, not
  *  just the specs that need a paid tier for their own feature (recurring
  *  schedules). Found by running draft-promote.spec.ts and reading the real
  *  network log: a single fresh account's first Dashboard page load alone
@@ -23,7 +23,7 @@ const REDIRECT_URL = "http://localhost:5173/";
  *  effects in dev), which got a real 429 on the free tier's 60 req/min
  *  ceiling -- on the very first page load, before the spec did anything.
  *  Seeding the subscription first means even that first load already
- *  resolves to "pro"'s 300 req/min via resolveTier() (backend/src/tier.ts).
+ *  resolves to "starter"'s 300 req/min via resolveTier() (backend/src/tier.ts).
  */
 export async function loginAsDisposableAccount(page: Page): Promise<DisposableAccount> {
   const account = await createDisposableAccount();

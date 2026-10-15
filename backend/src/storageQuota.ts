@@ -14,11 +14,11 @@ const MB = 1024 * 1024;
 
 export const STORAGE_QUOTA_BYTES: Record<Tier, number> = {
   free: 250 * MB,
-  pro: 5 * GB, // "Starter"
-  business: 10 * GB, // "Pro"
-  enterprise: 20 * GB, // "Business"
-  agency: 20 * GB, // mirrors enterprise — not part of the 2026-08-17 Agency pricing decision
-  agency_plus: 20 * GB, // mirrors enterprise, same reasoning
+  starter: 5 * GB,
+  pro: 10 * GB,
+  business: 20 * GB,
+  agency: 20 * GB, // mirrors business — not part of the 2026-08-17 Agency pricing decision
+  agency_plus: 20 * GB, // mirrors business, same reasoning
 };
 
 export interface StorageUsage {
@@ -61,6 +61,6 @@ export async function checkQuotaForNewUpload(accountId: string, newFileBytes: nu
 
   const usedMB = (usage.usedBytes / MB).toFixed(1);
   const quotaMB = (usage.quotaBytes / MB).toFixed(0);
-  const upgradeHint = usage.tier === "enterprise" ? " Please" : " Upgrade, buy more storage, or";
+  const upgradeHint = usage.tier === "business" ? " Please" : " Upgrade, buy more storage, or";
   return `You're using ${usedMB}MB of your ${quotaMB}MB storage limit — this file won't fit.${upgradeHint} delete some existing media to free up space.`;
 }

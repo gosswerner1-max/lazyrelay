@@ -155,12 +155,12 @@ New section alongside the existing "Schedule a post" form (not replacing it — 
    ```ts
    export const RECURRING_SCHEDULE_SLOT_LIMITS: Record<Tier, number | null> = {
      free: 0,
-     pro: 3,        // displays as "Starter"
-     business: 5,   // displays as "Pro"
-     enterprise: null, // displays as "Business" — null = unlimited
+     starter: 3,
+     pro: 5,
+     business: null, // unlimited
    };
    ```
-   `POST /recurring-schedules` counts the caller's existing rows in `recurring_schedules` (any status — a paused slot still occupies a cadence slot, it hasn't been deleted) before inserting, same pattern as the existing free-tier post-count check at `routes.ts:453-481`: resolve tier via `resolveTier()`, look up the limit, `403` with an upgrade-prompt message if `count >= limit` (skip the check entirely when `limit === null`). Note the DB-code/display-name mismatch again here — `RECURRING_SCHEDULE_SLOT_LIMITS` is keyed by DB code (`pro`/`business`/`enterprise`), which is why the inline comments above matter; don't let the DB key values be misread as literally meaning "Pro tier" when writing this table.
+   `POST /recurring-schedules` counts the caller's existing rows in `recurring_schedules` (any status — a paused slot still occupies a cadence slot, it hasn't been deleted) before inserting, same pattern as the existing free-tier post-count check at `routes.ts:453-481`: resolve tier via `resolveTier()`, look up the limit, `403` with an upgrade-prompt message if `count >= limit` (skip the check entirely when `limit === null`). `RECURRING_SCHEDULE_SLOT_LIMITS` is keyed by DB code (`starter`/`pro`/`business`/`agency`/`agency_plus`), which matches the public plan names since migration 0119 (before that the keys were `pro`/`business`/`enterprise` and were offset by one from the display names).
 
 ## Implementation notes from the decisions above
 

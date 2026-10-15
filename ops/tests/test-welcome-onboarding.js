@@ -4,8 +4,11 @@
 // checks real results, cleans up after itself. Run directly:
 //   node ops/tests/test-welcome-onboarding.js
 //
-// Uses @example.com addresses deliberately, NOT @lazyrelay.invalid --
-// isInternalTestAccount() excludes that domain, which would make the
+// Uses @welcome-fixture.invalid addresses (the same pattern as
+// test-abandoned-accounts.js): a different second-level domain under the
+// RFC 2606-reserved .invalid TLD, so they can never receive mail. Deliberately
+// NOT @lazyrelay.invalid or @example.com -- isInternalTestAccount() excludes
+// both (example.com/.org/.net since 2026-08-31), which would make the
 // find-functions skip these accounts and defeat the point of testing them.
 // resend is passed as null throughout -- these tests verify the
 // find/mark logic, not actual email delivery (Resend itself is a plain SDK
@@ -26,7 +29,7 @@ function daysAgo(n) {
 }
 
 async function seedAccount(emailPrefix, createdDaysAgo) {
-  const email = `${emailPrefix}-${Date.now()}@example.com`;
+  const email = `${emailPrefix}-${Date.now()}@welcome-fixture.invalid`;
   const { data: user, error: userError } = await supabase.auth.admin.createUser({ email, email_confirm: true });
   if (userError || !user.user) throw userError ?? new Error("no user created");
   const accountId = user.user.id;

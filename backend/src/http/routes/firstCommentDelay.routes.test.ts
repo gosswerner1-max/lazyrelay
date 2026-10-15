@@ -45,7 +45,7 @@ const draft = (over: Record<string, unknown> = {}) => request(app()).post("/sche
 
 beforeEach(() => {
   for (const k of Object.keys(tables)) delete tables[k];
-  tables.subscriptions = [{ account_id: "acc1", tier: "enterprise", status: "active" }];
+  tables.subscriptions = [{ account_id: "acc1", tier: "business", status: "active" }];
   tables.social_accounts = [
     { id: "ig", account_id: "acc1", platform: "instagram", platform_account_id: "ig1", display_name: "ig" },
     { id: "fb", account_id: "acc1", platform: "facebook", platform_account_id: "fb1", display_name: "fb" },
