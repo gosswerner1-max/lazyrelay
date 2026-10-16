@@ -5,7 +5,7 @@
 //
 // Same care as the X "own keys" route (xByok.routes.ts), because the token gives full control of the customer's
 // WhatsApp Business number:
-//   - Signed-in HUMAN only (an API key is refused), on a plan that includes it (Business and above, checkWhatsappPlan,
+//   - Signed-in HUMAN only (an API key is refused), on a plan that includes it (any paid plan, checkWhatsappPlan,
 //     answered with HTTP 400), and only while the feature is switched on for this account. Flag first, so a switched-off
 //     feature looks exactly like it does everywhere else.
 //   - Its own 4 KB JSON parser and a parse-error handler that never logs or echoes the body.

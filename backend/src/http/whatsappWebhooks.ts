@@ -41,7 +41,7 @@ import { processWhatsAppChatEvent } from "../whatsappChat/inboundWebhook.js";
 // (purge_stored_messages) deletes these rows by received_at. This path writes nothing to dm_conversations_cache or
 // comment_triage.
 // Fail closed everywhere: a WABA id plus phone number id that matches no connected, active WhatsApp row, an
-// account whose own keys are out of credit, a paused row or a plan below Business stores nothing and costs nothing.
+// account whose own keys are out of credit, a paused row or a Free or lapsed plan stores nothing and costs nothing.
 //
 // Message text, names, phone numbers and secrets are never logged.
 
@@ -259,7 +259,7 @@ export interface WhatsAppEventSummary {
   stored: number;
   /** Messages for a WABA id + phone number id that matches no connected, active WhatsApp row. */
   unmatched: number;
-  /** Messages for a matched row that was refused: out of credit, paused, a plan below Business, no saved app secret, or no
+  /** Messages for a matched row that was refused: out of credit, paused, a Free or lapsed plan, no saved app secret, or no
    *  contact hash key configured. */
   blocked: number;
   /** Messages for a matched row whose signature did not verify against that connection's own app secret. */

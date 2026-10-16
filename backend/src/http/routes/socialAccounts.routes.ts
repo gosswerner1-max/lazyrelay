@@ -54,7 +54,7 @@ const ALL_PLATFORMS = [
   "linkedin", "threads", "facebook", "instagram", "discord", "tumblr", "x",
   "wordpress", "devto", "hashnode", "lemmy", "slack", "nostr", "whop", "whatsapp",
 ] as const;
-// Nothing is "coming soon" any more: X is connectable with the customer's own developer keys (Pro and above), and is
+// Nothing is "coming soon" any more: X is connectable with the customer's own developer keys (any paid plan), and is
 // hidden entirely until X_BYOK_ENABLED registers it and X_BYOK_PLATFORM_PUBLIC (or a test account list) opens it.
 const COMING_SOON_PLATFORMS = new Set<string>();
 // New platforms stay out of the picker entirely until they are switched on for this deploy, so customers never
@@ -108,7 +108,7 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
         xAllowed = false;
       }
     }
-    // Same for the WhatsApp tile (Business and above). checkWhatsappPlan fails closed.
+    // Same for the WhatsApp tile (any paid plan). checkWhatsappPlan fails closed.
     const whatsappAllowed = visible.includes("whatsapp") ? (await checkWhatsappPlan(_req.accountId!)) === null : false;
     res.json(
       visible.map((platform) => ({
@@ -172,7 +172,7 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
       return;
     }
     // WhatsApp has no sign-in redirect either: the customer pastes their own Meta credentials
-    // (routes/whatsappByok.routes.ts). The plan gate (Business and above) is enforced here too and answers HTTP 400,
+    // (routes/whatsappByok.routes.ts). The plan gate (any paid plan) is enforced here too and answers HTTP 400,
     // so a Free, Starter or Pro account is refused before anything is started or saved.
     if (platform === "whatsapp") {
       const planError = await checkWhatsappPlan(req.accountId!);

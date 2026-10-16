@@ -848,7 +848,7 @@ export const api = {
   removeWhatsAppAppSecret: (socialAccountId: string): Promise<{ ok: true; inboundReady: false }> =>
     authedFetch(`/social-accounts/whatsapp/${encodeURIComponent(socialAccountId)}/app-secret`, { method: "DELETE" }),
   // What the customer needs to point their own Meta app's webhook at LazyRelay, and per connection whether inbound is ready
-  // (a boolean; the App Secret itself is never sent to the browser). A plan below Business answers 400 with the fixed message.
+  // (a boolean; the App Secret itself is never sent to the browser). A Free or lapsed plan answers 400 with the fixed message.
   getWhatsAppWebhookInfo: (): Promise<WhatsAppWebhookInfo> => authedFetch("/whatsapp/webhook-info"),
   // Stored inbound WhatsApp messages of one connection, newest first. Pass nextBefore from the last page as before.
   getWhatsAppMessages: (params: { socialAccountId: string; contactKey?: string; limit?: number; before?: string }): Promise<WhatsAppMessagesPage> => {
@@ -860,7 +860,7 @@ export const api = {
   },
 
   // WhatsApp broadcast contacts and consent. Capabilities answers { broadcasts } only; it is false (never an error) while the feature is
-  // off for this account. The other calls answer 404 while it is off and 400 with the plan message below Business.
+  // off for this account. The other calls answer 404 while it is off and 400 with the plan message on a Free or lapsed plan.
   getWhatsAppCapabilities: (): Promise<{ broadcasts: boolean }> => authedFetch("/whatsapp/capabilities"),
   listWhatsAppContacts: (params: { socialAccountId?: string; status?: "opted_in" | "opted_out"; search?: string; before?: string; limit?: number }): Promise<WhatsAppContactsPage> => {
     const q = new URLSearchParams();

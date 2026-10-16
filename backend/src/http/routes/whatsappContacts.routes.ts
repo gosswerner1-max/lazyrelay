@@ -11,7 +11,7 @@
 //
 // Gate, in this order, on every route but capabilities (which answers false instead of 404): WHATSAPP_BYOK_ENABLED=true, else 404;
 // WHATSAPP_BROADCASTS_ENABLED=true, else 404; canSeePlatform("whatsapp") for the account, else 404; then, for writes, signed-in
-// HUMAN only (an API key is refused; the MCP and Zapier have no route here); then the plan (Business and above), else 400.
+// HUMAN only (an API key is refused; the MCP and Zapier have no route here); then the plan (any paid plan), else 400.
 //
 // Reads go through req.db (the caller's own database role, so row level security applies) plus an explicit account_id filter,
 // with an explicit column list that never names phone_ciphertext. Writes use the service-role client in whatsappContacts.ts.
