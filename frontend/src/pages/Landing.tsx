@@ -490,6 +490,30 @@ function FooterBadgeGroup({ ariaHidden }: { ariaHidden?: boolean }) {
   );
 }
 
+// The "Works with" strip: the 18 distribution platforms, then WhatsApp (client messaging). Each icon is an aria-hidden SVG,
+// so the wrapper carries the accessible name.
+const WORKS_WITH: { id: string; label: string }[] = [
+  { id: "facebook", label: "Facebook" },
+  { id: "instagram", label: "Instagram" },
+  { id: "tiktok", label: "TikTok" },
+  { id: "pinterest", label: "Pinterest" },
+  { id: "youtube", label: "YouTube" },
+  { id: "linkedin", label: "LinkedIn" },
+  { id: "threads", label: "Threads" },
+  { id: "mastodon", label: "Mastodon" },
+  { id: "bluesky", label: "Bluesky" },
+  { id: "telegram", label: "Telegram" },
+  { id: "discord", label: "Discord" },
+  { id: "tumblr", label: "Tumblr" },
+  { id: "x", label: "X" },
+  { id: "wordpress", label: "WordPress" },
+  { id: "devto", label: "dev.to" },
+  { id: "hashnode", label: "Hashnode" },
+  { id: "lemmy", label: "Lemmy" },
+  { id: "slack", label: "Slack" },
+  { id: "whatsapp", label: "WhatsApp" },
+];
+
 export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onContact, onPartners, onDocs, scrollToPricing }: LandingProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showAgencyPricing, setShowAgencyPricing] = useState(false);
@@ -727,26 +751,17 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
         <p className="section-note">
           <strong>Mastodon (any server), Bluesky, Telegram, Discord, and Tumblr, all first-class.</strong> Most
           schedulers cover the big four or five and stop. Here they sit right next to Facebook, Instagram, TikTok
-          and the rest, in the same dashboard.
+          and the rest, in the same dashboard. LazyRelay supports 18 distribution platforms plus WhatsApp. X
+          connects with your own X developer keys on any paid plan, and X bills your own developer account for each
+          post. WhatsApp is client messaging, not a distribution platform, connected with your own Meta WhatsApp
+          Business credentials.
         </p>
         <div className="platform-row">
-          <PlatformIcon platform="facebook" size={40} />
-          <PlatformIcon platform="instagram" size={40} />
-          <PlatformIcon platform="tiktok" size={40} />
-          <PlatformIcon platform="pinterest" size={40} />
-          <PlatformIcon platform="youtube" size={40} />
-          <PlatformIcon platform="linkedin" size={40} />
-          <PlatformIcon platform="threads" size={40} />
-          <PlatformIcon platform="mastodon" size={40} />
-          <PlatformIcon platform="bluesky" size={40} />
-          <PlatformIcon platform="telegram" size={40} />
-          <PlatformIcon platform="discord" size={40} />
-          <PlatformIcon platform="tumblr" size={40} />
-          <PlatformIcon platform="wordpress" size={40} />
-          <PlatformIcon platform="devto" size={40} />
-          <PlatformIcon platform="hashnode" size={40} />
-          <PlatformIcon platform="lemmy" size={40} />
-          <PlatformIcon platform="slack" size={40} />
+          {WORKS_WITH.map(({ id, label }) => (
+            <span className="platform-row-item" role="img" aria-label={label} title={label} key={id}>
+              <PlatformIcon platform={id} size={40} />
+            </span>
+          ))}
         </div>
         <div className="zapier-callout">
           <span>
