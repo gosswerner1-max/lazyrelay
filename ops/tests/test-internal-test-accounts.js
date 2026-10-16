@@ -36,7 +36,11 @@ const goodFile = path.join(dir, "local.json");
 fs.writeFileSync(goodFile, JSON.stringify({ emails: ["Family.Member@example.test", "other.person@gmail.com"] }));
 
 t("the source file does not contain a family member's mailbox", () => {
-  assert.ok(!fs.readFileSync(modulePath, "utf8").toLowerCase().includes("jacobsluzaan"));
+  const allowed = new Set(["goss.werner.1@gmail.com", "lazyrelay+reviewer@gmail.com", "lazyrelay@gmail.com"]);
+  // only quoted strings count: comments may show example addresses, the hardcoded list is made of strings
+  const strings = [...fs.readFileSync(modulePath, "utf8").matchAll(/(["'`])((?:\\.|(?!\1).)*)\1/g)].map((m) => m[2].toLowerCase());
+  const found = strings.flatMap((s) => s.match(/[a-z0-9._+-]+@(?:gmail|googlemail|outlook|hotmail|yahoo|icloud|proton)\.[a-z.]+/g) || []);
+  assert.deepEqual(found.filter((e) => !allowed.has(e)), []);
 });
 
 t("extra addresses from INTERNAL_TEST_EMAILS_EXTRA are internal (case-insensitive, gmail aliases)", () => {
