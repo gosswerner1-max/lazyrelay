@@ -25,8 +25,8 @@ const X_APPROVED =
 const WA_APPROVED =
   "I understand that custom WhatsApp messaging requires active payment credentials linked directly to my Meta Business portfolio. All conversational template billing is handled by Meta directly. I accept full responsibility for compliance with Meta's Business Policies.";
 
-const X_OK: PlatformInfo = { platform: "x", configured: true, comingSoon: false, requiresPlan: "Pro", allowed: true };
-const WA_OK: PlatformInfo = { platform: "whatsapp", configured: true, comingSoon: false, requiresPlan: "Business", allowed: true };
+const X_OK: PlatformInfo = { platform: "x", configured: true, comingSoon: false, requiresPlan: "Starter", allowed: true };
+const WA_OK: PlatformInfo = { platform: "whatsapp", configured: true, comingSoon: false, requiresPlan: "Starter", allowed: true };
 
 // Fake values that merely look the right shape. None is a real credential.
 const FAKE_X = { apiKey: "fakeApiKey12345", apiSecret: "fakeApiSecret12345", accessToken: "99-fakeAccessToken123", accessTokenSecret: "fakeTokenSecret12345" };
@@ -65,8 +65,7 @@ describe("what shows, decided by the platform list the backend sends", () => {
 
   it("a plan that is not allowed gets the upgrade note and NO form fields", () => {
     render(<CustomPlatformSettings platforms={[{ ...X_OK, allowed: false }, { ...WA_OK, allowed: false }]} />);
-    expect(screen.getByText("Available on the Pro plan and above.")).toBeInTheDocument();
-    expect(screen.getByText("Available on the Business plan and above.")).toBeInTheDocument();
+    expect(screen.getAllByText("Available on any paid plan.")).toHaveLength(2);
     expect(screen.queryAllByRole("textbox")).toHaveLength(0);
     expect(screen.queryByRole("button", { name: /Save and connect/ })).not.toBeInTheDocument();
   });
@@ -301,13 +300,13 @@ describe("WhatsApp: the form", () => {
   });
 
   it("clears the token and shows the error when the backend refuses (a plan below Business answers 400)", async () => {
-    api.connectWhatsAppCredentials.mockRejectedValue(new Error("Connecting WhatsApp with your own Meta credentials is available on the Business plan and above."));
+    api.connectWhatsAppCredentials.mockRejectedValue(new Error("Connecting WhatsApp with your own Meta credentials is available on any paid plan."));
     const user = userEvent.setup();
     render(<CustomPlatformSettings platforms={[WA_OK]} />);
     await fillWa(user);
     await user.click(screen.getByRole("checkbox"));
     await user.click(save());
-    expect(await screen.findByRole("alert")).toHaveTextContent(/Business plan and above/);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/any paid plan/);
     expect((screen.getByLabelText("System user token") as HTMLInputElement).value).toBe("");
   });
 

@@ -18,8 +18,8 @@ import { CustomPlatformSettings } from "./CustomPlatformSettings";
 import { X_GUIDE } from "../../lib/byokGuides";
 import type { PlatformInfo } from "../../lib/api";
 
-const X_OK: PlatformInfo = { platform: "x", configured: true, comingSoon: false, requiresPlan: "Pro", allowed: true };
-const X_LOCKED: PlatformInfo = { platform: "x", configured: true, comingSoon: false, requiresPlan: "Pro", allowed: false };
+const X_OK: PlatformInfo = { platform: "x", configured: true, comingSoon: false, requiresPlan: "Starter", allowed: true };
+const X_LOCKED: PlatformInfo = { platform: "x", configured: true, comingSoon: false, requiresPlan: "Starter", allowed: false };
 
 afterEach(cleanup);
 beforeEach(() => {

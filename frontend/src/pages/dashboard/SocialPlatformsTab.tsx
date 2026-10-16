@@ -233,7 +233,7 @@ export function SocialPlatformsTab() {
                   : !p.configured
                     ? "Not set up on this deploy yet"
                     : xLocked
-                      ? "Connecting X with your own developer keys is part of the Pro plan and above"
+                      ? "Connecting X with your own developer keys is available on any paid plan"
                       : connectedCount > 0
                         ? "Connected: click to connect another account"
                         : undefined

@@ -19,7 +19,7 @@ import { CustomPlatformSettings } from "./CustomPlatformSettings";
 import { whatsAppFieldErrors, whatsAppFieldsComplete } from "../../lib/whatsappByok";
 import type { PlatformInfo, WhatsAppWebhookInfo } from "../../lib/api";
 
-const WA_OK: PlatformInfo = { platform: "whatsapp", configured: true, comingSoon: false, requiresPlan: "Business", allowed: true };
+const WA_OK: PlatformInfo = { platform: "whatsapp", configured: true, comingSoon: false, requiresPlan: "Starter", allowed: true };
 const FAKE_WA = { wabaId: "123456789012345", phoneNumberId: "109876543210987", systemUserToken: "test_whatsapp_system_user_token_not_real_0123456789" };
 // Fake value that merely looks the right shape. Not a real Meta App Secret.
 const FAKE_SECRET = "AppSecretNotReal0123456789abcdefAB";
@@ -178,7 +178,7 @@ describe("inbound status chips", () => {
 
   it("a locked plan shows the same locked card as before and never asks the server for webhook details", () => {
     render(<CustomPlatformSettings platforms={[{ ...WA_OK, allowed: false }]} onSeePlans={vi.fn()} />);
-    expect(screen.getByText("Available on the Business plan and above.")).toBeInTheDocument();
+    expect(screen.getByText("Available on any paid plan.")).toBeInTheDocument();
     expect(screen.queryAllByRole("textbox")).toHaveLength(0);
     expect(screen.queryByText(/Inbound/)).not.toBeInTheDocument();
     expect(api.getWhatsAppWebhookInfo).not.toHaveBeenCalled();

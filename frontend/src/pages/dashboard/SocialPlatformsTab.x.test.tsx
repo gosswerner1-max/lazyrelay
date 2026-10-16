@@ -47,8 +47,8 @@ afterEach(cleanup);
 
 describe("the gate states, as the server reports them", () => {
   it("xTileState reflects allowed and requiresPlan and never decides itself", () => {
-    expect(xTileState({ allowed: false, requiresPlan: "Pro" })).toEqual({ kind: "upgrade", label: "Upgrade to Pro" });
-    expect(xTileState({ allowed: true, requiresPlan: "Pro" })).toEqual({ kind: "connect" });
+    expect(xTileState({ allowed: false, requiresPlan: "Starter" })).toEqual({ kind: "upgrade", label: "Upgrade to Starter" });
+    expect(xTileState({ allowed: true, requiresPlan: "Starter" })).toEqual({ kind: "connect" });
     expect(xTileState({})).toEqual({ kind: "connect" }); // an older server that sends no gate fields
   });
   it("byokBadge only speaks for the two problem states", () => {
@@ -61,17 +61,17 @@ describe("the gate states, as the server reports them", () => {
 });
 
 describe("the X tile", () => {
-  it("is locked with 'Upgrade to Pro' when the plan does not include it, and sends the customer to pricing", async () => {
-    ctx.platforms = [{ platform: "x", configured: true, comingSoon: false, requiresPlan: "Pro", allowed: false }];
+  it("is locked with 'Upgrade to Starter' when the plan does not include it, and sends the customer to pricing", async () => {
+    ctx.platforms = [{ platform: "x", configured: true, comingSoon: false, requiresPlan: "Starter", allowed: false }];
     render(<SocialPlatformsTab />);
-    expect(screen.getByText("Upgrade to Pro")).toBeTruthy();
+    expect(screen.getByText("Upgrade to Starter")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: /x/i }));
     expect(assign).toHaveBeenCalledWith("/pricing");
     expect(ctx.handleConnect).not.toHaveBeenCalled();
   });
 
   it("is open on an allowed plan and goes to the keys page, never through the OAuth redirect", async () => {
-    ctx.platforms = [{ platform: "x", configured: true, comingSoon: false, requiresPlan: "Pro", allowed: true }];
+    ctx.platforms = [{ platform: "x", configured: true, comingSoon: false, requiresPlan: "Starter", allowed: true }];
     render(<SocialPlatformsTab />);
     expect(screen.queryByText("Upgrade to Pro")).toBeNull();
     expect(screen.queryByText("Coming soon")).toBeNull();
@@ -81,7 +81,7 @@ describe("the X tile", () => {
   });
 
   it("shows a badge on a connected X account whose keys were refused or ran out of credit", async () => {
-    ctx.platforms = [{ platform: "x", configured: true, comingSoon: false, requiresPlan: "Pro", allowed: true }];
+    ctx.platforms = [{ platform: "x", configured: true, comingSoon: false, requiresPlan: "Starter", allowed: true }];
     ctx.accounts = [
       { id: "a1", platform: "x", display_name: "acme", platform_account_id: "1", brand_id: null, brand_label: null, connected_at: "2026-10-01", byokStatus: "out_of_credit", byokKeyHint: "****abcd" },
       { id: "a2", platform: "x", display_name: "other", platform_account_id: "2", brand_id: null, brand_label: null, connected_at: "2026-10-01", byokStatus: "invalid" },

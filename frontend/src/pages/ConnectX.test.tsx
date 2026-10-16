@@ -150,10 +150,10 @@ describe("the form", () => {
 
   it("a plan refusal from the server is shown as the server worded it", async () => {
     const user = userEvent.setup();
-    api.checkXKeys.mockRejectedValue(new Error("Connecting X with your own developer keys is available on the Pro plan and above."));
+    api.checkXKeys.mockRejectedValue(new Error("Connecting X with your own developer keys is available on any paid plan."));
     render(<ConnectX />);
     await fill(user);
     await user.click(screen.getByRole("button", { name: "Check my keys" }));
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/Pro plan and above/));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/any paid plan/));
   });
 });

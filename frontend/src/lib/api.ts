@@ -835,7 +835,7 @@ export const api = {
     authedFetch("/social-accounts/x/byok/check", { method: "POST", body: JSON.stringify(keys) }),
   connectXKeys: (keys: { apiKey: string; apiSecret: string; accessToken: string; accessTokenSecret: string }): Promise<{ ok: true; handle: string; keyHint: string }> =>
     authedFetch("/social-accounts/x/byok", { method: "POST", body: JSON.stringify({ ...keys, acceptedTerms: true }) }),
-  // WhatsApp with the customer's own Meta credentials (Business plan and above). check proves them and stores nothing;
+  // WhatsApp with the customer's own Meta credentials (any paid plan). check proves them and stores nothing;
   // connect proves, stores and connects. The backend answers { ok, displayName, keyHint } only, and never the token.
   // App Secret (optional): the customer's own Meta app secret, sent only when typed, never returned. clearAppSecret: true
   // (save only) removes the one already stored; the backend refuses it together with an appSecret.

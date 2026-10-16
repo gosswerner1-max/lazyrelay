@@ -19,7 +19,7 @@ export const EMPTY_X_KEYS: XKeyFields = { apiKey: "", apiSecret: "", accessToken
 
 /** What the X tile does. The backend decides (GET /platforms: allowed, requiresPlan); the UI only reflects it. */
 export function xTileState(info: { allowed?: boolean; requiresPlan?: string }): { kind: "connect" } | { kind: "upgrade"; label: string } {
-  if (info.allowed === false) return { kind: "upgrade", label: `Upgrade to ${info.requiresPlan ?? "Pro"}` };
+  if (info.allowed === false) return { kind: "upgrade", label: `Upgrade to ${info.requiresPlan ?? "Starter"}` };
   return { kind: "connect" };
 }
 
