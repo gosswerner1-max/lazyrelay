@@ -15,7 +15,7 @@ export interface FaqItem {
 export const HOME_FAQ: FaqItem[] = [
   {
     q: "What does LazyRelay do?",
-    a: "LazyRelay schedules social media posts and publishes them for you. It posts to 17 platforms, including Facebook, Instagram and TikTok. You write the post and pick when it goes out. LazyRelay then publishes it to your connected accounts automatically and independently checks that the post is live.",
+    a: "LazyRelay schedules social media posts and publishes them for you. It posts to 18 distribution platforms plus WhatsApp, including Facebook, Instagram and TikTok. You write the post and pick when it goes out. LazyRelay then publishes it to your connected accounts automatically and independently checks that the post is live.",
   },
   {
     q: "How does Proof-of-Publish work?",
@@ -23,7 +23,7 @@ export const HOME_FAQ: FaqItem[] = [
   },
   {
     q: "Which platforms does LazyRelay support?",
-    a: "LazyRelay supports 17 platforms, including Facebook, Instagram, TikTok, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr and Slack. It also posts to WordPress, dev.to, Hashnode and Lemmy, which are places for longer writing and communities. Mastodon works with any Mastodon server, so you type the address of yours when you connect.",
+    a: "LazyRelay supports 18 distribution platforms plus WhatsApp. These include Facebook, Instagram, TikTok, YouTube, LinkedIn, Mastodon, Bluesky, Telegram, Discord, Slack and X, plus WordPress, dev.to, Hashnode and Lemmy for longer writing. X connects with your own X developer keys on a paid plan, and X bills your developer account. WhatsApp is client messaging, connected with your own Meta credentials.",
   },
   {
     q: "Is LazyRelay free?",

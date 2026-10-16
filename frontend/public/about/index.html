@@ -4,12 +4,12 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>About LazyRelay: Who Runs It and How It Works | LazyRelay</title>
-<meta name="description" content="What LazyRelay is, who runs it, and plain answers on login storage, AI access and failed posts. Posts to 17 platforms and checks each." />
+<meta name="description" content="What LazyRelay is, who runs it, and plain answers on login storage, AI access and failed posts. 18 distribution platforms plus WhatsApp." />
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
 <link rel="canonical" href="https://lazyrelay.com/about/" />
 <link rel="icon" type="image/png" href="/favicon.png" />
 <meta property="og:title" content="About LazyRelay: Who Runs It and How It Works | LazyRelay" />
-<meta property="og:description" content="What LazyRelay is, who runs it, and plain answers on login storage, AI access and failed posts. Posts to 17 platforms and checks each." />
+<meta property="og:description" content="What LazyRelay is, who runs it, and plain answers on login storage, AI access and failed posts. 18 distribution platforms plus WhatsApp." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://lazyrelay.com/about/" />
 <meta property="og:site_name" content="LazyRelay" />
@@ -20,7 +20,7 @@
 <meta property="og:image:alt" content="LazyRelay logo with the tagline Automate. Schedule. Publish. Repeat., and icons for smart scheduling, auto posting and flexible storage, linked to social platform icons." />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="About LazyRelay: Who Runs It and How It Works | LazyRelay" />
-<meta name="twitter:description" content="What LazyRelay is, who runs it, and plain answers on login storage, AI access and failed posts. Posts to 17 platforms and checks each." />
+<meta name="twitter:description" content="What LazyRelay is, who runs it, and plain answers on login storage, AI access and failed posts. 18 distribution platforms plus WhatsApp." />
 <meta name="twitter:image" content="https://lazyrelay.com/og-image-1200x630.jpg" />
 <script src="/consent.js" defer></script>
 <style>
@@ -139,7 +139,7 @@
     .btn:hover { transform: none; }
   }
 </style>
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"AboutPage","@id":"https://lazyrelay.com/about/#webpage","url":"https://lazyrelay.com/about/","name":"About LazyRelay","description":"What LazyRelay is, who runs it, and plain answers on login storage, AI access and failed posts. Posts to 17 platforms and checks each.","inLanguage":"en","isPartOf":{"@id":"https://lazyrelay.com/#website"},"about":{"@id":"https://lazyrelay.com/#software"},"publisher":{"@id":"https://lazyrelay.com/#organization"}},{"@type":"FAQPage","@id":"https://lazyrelay.com/about/#faq","isPartOf":{"@id":"https://lazyrelay.com/about/#webpage"},"mainEntity":[{"@type":"Question","name":"How does LazyRelay store the login tokens of my connected social accounts?","acceptedAnswer":{"@type":"Answer","text":"Login tokens are stored in Supabase Vault, which encrypts them at rest. The database keeps only a reference ID for each secret, and the functions that read or write them can be run only by LazyRelay's server, not from a browser or a signed-in user session. When you disconnect an account, the stored login is overwritten."}},{"@type":"Question","name":"How does LazyRelay's hosted MCP server authenticate AI agents?","acceptedAnswer":{"@type":"Answer","text":"The /mcp endpoint accepts OAuth 2.1 bearer tokens and checks each one against the identity provider's published signing keys (JWKS, ES256). A token must be issued for the MCP server itself, so ordinary dashboard session tokens are rejected there. API keys are the other way in, for the REST API and the local npm package."}},{"@type":"Question","name":"Which AI tools can connect to LazyRelay?","acceptedAnswer":{"@type":"Answer","text":"LazyRelay has setup pages for 15 tools: Claude, ChatGPT, Perplexity, Notion, Manus, OpenClaw, Cursor, Windsurf, Antigravity, Codex CLI, Gemini CLI, VS Code, n8n, Make and Raycast. For n8n there is a community node package, n8n-nodes-lazyrelay. Zapier is a private, invite-only app."}},{"@type":"Question","name":"Which AI model does LazyRelay use, and what does it do with my comments?","acceptedAnswer":{"@type":"Answer","text":"Comment and direct message sorting, plus the optional caption, hashtag and idea helpers, call Anthropic's Claude Haiku 4.5 directly from LazyRelay's servers, using LazyRelay's own API key. Comment and reply text is kept out of LazyRelay's analytics. LazyRelay never replies to a comment on its own. On paid plans it can draft a suggested reply for Mastodon and Bluesky comments, and you decide whether to send it."}},{"@type":"Question","name":"What happens when a platform keeps failing?","acceptedAnswer":{"@type":"Answer","text":"Every post is checked after publishing. A failed post that could still succeed is retried up to 3 times, after waits of 2, 4 and 8 minutes. If a platform returns 5 failures in a row, LazyRelay pauses posting to that platform for 5 minutes, then resumes. This protects your queue from repeated errors; it does not replace each platform's own content rules."}}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"AboutPage","@id":"https://lazyrelay.com/about/#webpage","url":"https://lazyrelay.com/about/","name":"About LazyRelay","description":"What LazyRelay is, who runs it, and plain answers on login storage, AI access and failed posts. 18 distribution platforms plus WhatsApp.","inLanguage":"en","isPartOf":{"@id":"https://lazyrelay.com/#website"},"about":{"@id":"https://lazyrelay.com/#software"},"publisher":{"@id":"https://lazyrelay.com/#organization"}},{"@type":"FAQPage","@id":"https://lazyrelay.com/about/#faq","isPartOf":{"@id":"https://lazyrelay.com/about/#webpage"},"mainEntity":[{"@type":"Question","name":"How does LazyRelay store the login tokens of my connected social accounts?","acceptedAnswer":{"@type":"Answer","text":"Login tokens are stored in Supabase Vault, which encrypts them at rest. The database keeps only a reference ID for each secret, and the functions that read or write them can be run only by LazyRelay's server, not from a browser or a signed-in user session. When you disconnect an account, the stored login is overwritten."}},{"@type":"Question","name":"How does LazyRelay's hosted MCP server authenticate AI agents?","acceptedAnswer":{"@type":"Answer","text":"The /mcp endpoint accepts OAuth 2.1 bearer tokens and checks each one against the identity provider's published signing keys (JWKS, ES256). A token must be issued for the MCP server itself, so ordinary dashboard session tokens are rejected there. API keys are the other way in, for the REST API and the local npm package."}},{"@type":"Question","name":"Which AI tools can connect to LazyRelay?","acceptedAnswer":{"@type":"Answer","text":"LazyRelay has setup pages for 15 tools: Claude, ChatGPT, Perplexity, Notion, Manus, OpenClaw, Cursor, Windsurf, Antigravity, Codex CLI, Gemini CLI, VS Code, n8n, Make and Raycast. For n8n there is a community node package, n8n-nodes-lazyrelay. Zapier is a private, invite-only app."}},{"@type":"Question","name":"Which AI model does LazyRelay use, and what does it do with my comments?","acceptedAnswer":{"@type":"Answer","text":"Comment and direct message sorting, plus the optional caption, hashtag and idea helpers, call Anthropic's Claude Haiku 4.5 directly from LazyRelay's servers, using LazyRelay's own API key. Comment and reply text is kept out of LazyRelay's analytics. LazyRelay never replies to a comment on its own. On paid plans it can draft a suggested reply for Mastodon and Bluesky comments, and you decide whether to send it."}},{"@type":"Question","name":"What happens when a platform keeps failing?","acceptedAnswer":{"@type":"Answer","text":"Every post is checked after publishing. A failed post that could still succeed is retried up to 3 times, after waits of 2, 4 and 8 minutes. If a platform returns 5 failures in a row, LazyRelay pauses posting to that platform for 5 minutes, then resumes. This protects your queue from repeated errors; it does not replace each platform's own content rules."}}]}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -160,7 +160,7 @@
   <div class="wrap">
     <span class="eyebrow">About LazyRelay</span>
     <h1 id="about-h1">Schedule it. <em>Know it went live.</em></h1>
-    <p class="lead">LazyRelay schedules social media posts across 17 platforms and independently verifies each one actually went live, not just that it was sent.</p>
+    <p class="lead">LazyRelay schedules social media posts across 18 distribution platforms plus WhatsApp and independently verifies each post actually went live, not just that it was sent.</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="/pricing/">See plans and get started free</a>
       <a class="btn btn-ghost" href="#faq">Read the FAQ</a>
@@ -171,7 +171,7 @@
 <section class="stats" aria-label="LazyRelay at a glance">
   <div class="wrap">
     <div class="stat-grid">
-      <div class="stat stat-orange"><b>17</b><span>platforms to schedule to</span></div>
+      <div class="stat stat-orange"><b>18</b><span>distribution platforms, plus WhatsApp</span></div>
       <div class="stat stat-teal"><b>27</b><span>MCP tools for AI agents</span></div>
       <div class="stat stat-violet"><b>15</b><span>AI tool setup guides</span></div>
       <div class="stat stat-green"><b>$0</b><span>Free plan, no card required</span></div>
@@ -185,8 +185,8 @@
     <p class="section-lead">One place to schedule, publish and check your posts, built around a simple idea: a post is only done when it is really live.</p>
     <div class="cards">
       <div class="card card-orange">
-        <h3>Scheduled posting to 17 platforms</h3>
-        <p>Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress, dev.to, Hashnode, Lemmy and Slack. LazyRelay checks every 30 seconds and sends posts when they are due.</p>
+        <h3>Scheduled posting to 18 distribution platforms plus WhatsApp</h3>
+        <p>Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress, dev.to, Hashnode, Lemmy, Slack and X. LazyRelay checks every 30 seconds and sends posts when they are due. X connects with your own X developer keys on any paid plan, and X bills your own developer account for each post. WhatsApp is client messaging, not a distribution platform: two way chat, approval requests and scheduled broadcasts to opted-in contacts, connected with your own Meta WhatsApp Business credentials.</p>
       </div>
       <div class="card card-teal">
         <h3>Proof-of-Publish</h3>

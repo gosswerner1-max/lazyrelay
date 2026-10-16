@@ -39,7 +39,7 @@ export const ABOUT_FAQ = [
 
 const URL_ = "https://lazyrelay.com/about/";
 const TITLE = "About LazyRelay: Who Runs It and How It Works | LazyRelay";
-const DESCRIPTION = "What LazyRelay is, who runs it, and plain answers on login storage, AI access and failed posts. Posts to 17 platforms and checks each.";
+const DESCRIPTION = "What LazyRelay is, who runs it, and plain answers on login storage, AI access and failed posts. 18 distribution platforms plus WhatsApp.";
 const OG_ALT = "LazyRelay logo with the tagline Automate. Schedule. Publish. Repeat., and icons for smart scheduling, auto posting and flexible storage, linked to social platform icons.";
 
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -247,7 +247,7 @@ export function renderAboutPage() {
   <div class="wrap">
     <span class="eyebrow">About LazyRelay</span>
     <h1 id="about-h1">Schedule it. <em>Know it went live.</em></h1>
-    <p class="lead">LazyRelay schedules social media posts across 17 platforms and independently verifies each one actually went live, not just that it was sent.</p>
+    <p class="lead">LazyRelay schedules social media posts across 18 distribution platforms plus WhatsApp and independently verifies each post actually went live, not just that it was sent.</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="/pricing/">See plans and get started free</a>
       <a class="btn btn-ghost" href="#faq">Read the FAQ</a>
@@ -258,7 +258,7 @@ export function renderAboutPage() {
 <section class="stats" aria-label="LazyRelay at a glance">
   <div class="wrap">
     <div class="stat-grid">
-      <div class="stat stat-orange"><b>17</b><span>platforms to schedule to</span></div>
+      <div class="stat stat-orange"><b>18</b><span>distribution platforms, plus WhatsApp</span></div>
       <div class="stat stat-teal"><b>27</b><span>MCP tools for AI agents</span></div>
       <div class="stat stat-violet"><b>15</b><span>AI tool setup guides</span></div>
       <div class="stat stat-green"><b>$0</b><span>Free plan, no card required</span></div>
@@ -272,8 +272,8 @@ export function renderAboutPage() {
     <p class="section-lead">One place to schedule, publish and check your posts, built around a simple idea: a post is only done when it is really live.</p>
     <div class="cards">
       <div class="card card-orange">
-        <h3>Scheduled posting to 17 platforms</h3>
-        <p>Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress, dev.to, Hashnode, Lemmy and Slack. LazyRelay checks every 30 seconds and sends posts when they are due.</p>
+        <h3>Scheduled posting to 18 distribution platforms plus WhatsApp</h3>
+        <p>Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress, dev.to, Hashnode, Lemmy, Slack and X. LazyRelay checks every 30 seconds and sends posts when they are due. X connects with your own X developer keys on any paid plan, and X bills your own developer account for each post. WhatsApp is client messaging, not a distribution platform: two way chat, approval requests and scheduled broadcasts to opted-in contacts, connected with your own Meta WhatsApp Business credentials.</p>
       </div>
       <div class="card card-teal">
         <h3>Proof-of-Publish</h3>

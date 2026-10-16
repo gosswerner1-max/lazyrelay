@@ -160,7 +160,7 @@ const AGENCY_PRICING = [
 const COMPARISON = [
   { label: "How you use it", us: "Real dashboard — click, don't code", them: "API/CLI only, or a dashboard bolted onto an API-first tool" },
   { label: "Pricing", us: "Shown on the homepage, every tier", them: "Often hidden behind “Contact sales”" },
-  { label: "Platform coverage", us: "17 platforms, including Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress, dev.to, Hashnode, Lemmy, and Slack", them: "Usually stops at the big four or five" },
+  { label: "Platform coverage", us: "18 distribution platforms plus WhatsApp, including Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress, dev.to, Hashnode, Lemmy, Slack, and X", them: "Usually stops at the big four or five" },
   { label: "“Sent” vs. “live”", us: "Proof-of-Publish independently confirms a post is actually live", them: "“Sent” is treated as done" },
   { label: "Getting started", us: "Free tier, no card required", them: "A card is often required just to try it" },
 ];
