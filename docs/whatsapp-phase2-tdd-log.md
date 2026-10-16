@@ -97,3 +97,12 @@ Without the throwaway env the backend run shows 16 files failing to import (`SUP
 - GREEN: `WhatsAppThread.tsx`, `WhatsAppInbox.tsx`, `WhatsAppApprovals.tsx`, `WhatsAppAudiences.tsx` -> first run `Tests 1 failed | 26 passed (27)` (the "messaged you first" note was shown twice in a closed conversation with an unknown person; removed the duplicate) plus two type errors in my test helper; -> `Tests 27 passed (27)`. `WhatsAppTab.tsx` + `useWhatsAppSend.ts` -> one more failure (the billing sentence appeared in both the tab intro and the guide; the intro no longer repeats it) -> full frontend run `Test Files 74 passed, Tests 766 passed (766)`.
 - Proven: the five views (Inbox, Approvals, Broadcasts, Updates, Contacts) exist only when the server says sending is on; off = the Phase 1 contacts screen unchanged ("Nothing is sent from here yet"); the window state shows "Open, N hours left" or "Closed, template required"; free text only while open, a template (saved contacts only) while closed, an approval request as three buttons in the window or as a template outside it; approvals view says it is not legal consent; audience updates send free text where open and the template where closed; a failing capability check means off; no long digit run ever rendered.
 
+## Final verification (branch tip, nothing else running)
+
+| Check | Baseline (821b315) | Final |
+|---|---|---|
+| backend `npx tsc --noEmit` | exit 0 | exit 0 |
+| backend `npx vitest run` (throwaway env) | 136 files, 2378 passed, 1 failed | 159 files, 2940 passed, 1 failed |
+| the one backend failure | `app.test.ts > GET /health > returns 200` (5 s timeout) | the same test, the same timeout; zero new failures |
+| frontend `npx vitest run` | 67 files, 657 passed, 0 failed | 74 files, 766 passed, 0 failed |
+| frontend `npm run build` (`tsc -b && vite build && prerender`) | not run before the change | exit 0 with throwaway public `VITE_*` values (the worktree has no `.env`; without them the prerender step times out waiting for the landing page, which is environment, not code) |
