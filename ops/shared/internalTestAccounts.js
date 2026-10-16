@@ -39,15 +39,39 @@ const INTERNAL_TEST_EMAIL_PATTERNS = [
 //   could collide. It does not cover the RFC 2606 reserved domains added to
 //   the pattern list above, which no one can ever register or receive mail
 //   on -- those are safe as patterns and belong there, not here.
+// Family members' own mailboxes are NOT written in this file (it lives in a public repo). They come from the
+// INTERNAL_TEST_EMAILS_EXTRA setting (comma separated) and/or the gitignored local file
+// ops/shared/internal-test-accounts.local.json ({ "emails": [...] }). Without either one this module refuses to load
+// (outside CI and tests), so an automated send or deletion can never treat an internal account as a customer.
+function loadExtraInternalEmails() {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const found = (process.env.INTERNAL_TEST_EMAILS_EXTRA || "").split(",");
+  const file = process.env.INTERNAL_TEST_ACCOUNTS_FILE || path.join(__dirname, "internal-test-accounts.local.json");
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (Array.isArray(parsed.emails)) found.push(...parsed.emails);
+  } catch {
+    /* the local file is optional when the environment setting is present */
+  }
+  const emails = [...new Set(found.map((e) => String(e).trim().toLowerCase()).filter(Boolean))];
+  if (!emails.length && !process.env.CI && process.env.NODE_ENV !== "test") {
+    throw new Error(
+      "INTERNAL_TEST_EMAILS_EXTRA is not set and internal-test-accounts.local.json is missing: refusing to load internalTestAccounts.js so no automated send or deletion can treat an internal account as a customer"
+    );
+  }
+  return emails;
+}
+
 const INTERNAL_TEST_EMAILS_EXACT = new Set([
   "goss.werner.1@gmail.com",
-  "jacobsluzaan@gmail.com",
   "lazyrelay+reviewer@gmail.com", // Google OAuth reviewer test account, confirmed 2026-08-15
   // The dogfooding account's login (2026-08-30, was shop@lazydownloader.co.za
   // until the calendar-sync test needed it to match a real Google login).
   // Same account this whole file's header comment already describes -- just
   // a different email for it now, not a new test account.
   "lazyrelay@gmail.com",
+  ...loadExtraInternalEmails(),
 ]);
 
 // Gmail-only: a "+alias" (local-part+anything@gmail.com) is the same real
