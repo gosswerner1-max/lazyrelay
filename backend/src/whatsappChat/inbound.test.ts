@@ -44,6 +44,13 @@ afterEach(() => {
 });
 
 describe("extractChatMessages", () => {
+  it("reads every message of a full Meta batch (up to 1,000 updates) and skips none", () => {
+    const many = Array.from({ length: 1000 }, (_, i) => text(`wamid.B${String(i).padStart(5, "0")}`, `m${i}`));
+    const out = extractChatMessages(payload(many), NOW);
+    expect(out.messages).toHaveLength(1000);
+    expect(out.skipped).toBe(0);
+  });
+
   it("reads a text message, with the sender's profile name", () => {
     expect(read(payload([text("wamid.A1234", "Hello there")]))).toEqual([
       { wabaId: WABA, phoneNumberId: PHONE_ID, from: "27829990001", wamid: "wamid.A1234", name: "Pablo", at: new Date(T * 1000), kind: "text", text: "Hello there", contextWamid: null, interaction: null },

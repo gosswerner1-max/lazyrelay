@@ -607,10 +607,10 @@ describe("what is stored: one row per message", () => {
     expect(triage.calls[0].items[0].text.length).toBe(1000);
   });
 
-  it("caps the work one delivery can cause at 200 messages", async () => {
-    const messages = Array.from({ length: 250 }, (_, i) => ({ id: `wamid.M${i}`, from: String(27800000000 + i), text: `m${i}` }));
+  it("keeps EVERY message of a full Meta batch (Meta batches up to 1,000 updates); LazyRelay drops none", async () => {
+    const messages = Array.from({ length: 1000 }, (_, i) => ({ id: `wamid.M${i}`, from: String(27800000000 + i), text: `m${i}` }));
     await deliver(delivery({ messages, names: {} }));
-    expect(stored()).toHaveLength(200);
+    expect(stored()).toHaveLength(1000);
   });
 
   it("a number connected under two accounts is kept for each, under its own account id; a downgraded one is skipped", async () => {

@@ -40,7 +40,6 @@ export interface InboundChat {
 
 const MAX_TEXT = 4096;
 const MAX_NAME = 80;
-const MAX_PER_DELIVERY = 200;
 const WAMID = /^[A-Za-z0-9._=+/-]{5,300}$/;
 const WA_ID = /^[0-9]{5,20}$/;
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -82,10 +81,6 @@ export function extractChatMessages(payload: unknown, now: Date = new Date()): {
           continue;
         }
         if (type === "reaction") continue;
-        if (messages.length >= MAX_PER_DELIVERY) {
-          skipped += 1;
-          continue;
-        }
         const seconds = Number(str(m.timestamp));
         const at = Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000) : now;
         const context = isRecord(m.context) ? str(m.context.id) : null;

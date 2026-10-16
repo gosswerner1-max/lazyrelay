@@ -47,8 +47,6 @@ import { processWhatsAppChatEvent } from "../whatsappChat/inboundWebhook.js";
 
 const VERIFY_TOKEN_ENV = "WHATSAPP_WEBHOOK_VERIFY_TOKEN";
 const MAX_CHALLENGE_LENGTH = 256;
-/** A delivery can batch many messages; this bounds the work (and the AI batches) one delivery can cause. */
-const MAX_MESSAGES_PER_DELIVERY = 200;
 /** WhatsApp text is at most 4096 characters; the whole message is kept (so a thread reads properly). */
 const MAX_STORED_TEXT_CHARS = 4096;
 /** Only this much of a message is ever sent to the AI (same ceiling the reply drafting prompt uses for a comment), which
@@ -225,10 +223,6 @@ export function extractWhatsAppTextMessages(payload: unknown, now: Date = new Da
         const wamid = isRecord(m) ? asString(m.id) : null;
         const body = isRecord(m) && m.type === "text" && isRecord(m.text) ? asString(m.text.body) : null;
         if (!isRecord(m) || !from || !WA_ID_PATTERN.test(from) || !wamid || !WAMID_PATTERN.test(wamid) || body === null || body.trim() === "") {
-          skipped += 1;
-          continue;
-        }
-        if (out.length >= MAX_MESSAGES_PER_DELIVERY) {
           skipped += 1;
           continue;
         }
