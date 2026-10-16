@@ -38,7 +38,11 @@ describe("backend internalTestAccounts stays in sync with ops", () => {
   it("no personal mailbox of a family member is written in either source file", () => {
     const here = path.dirname(fileURLToPath(import.meta.url));
     for (const f of [path.join(here, "internalTestAccounts.ts"), opsPath]) {
-      expect(fs.readFileSync(f, "utf8").toLowerCase(), f).not.toContain("jacobsluzaan");
+      const allowed = new Set(["goss.werner.1@gmail.com", "lazyrelay+reviewer@gmail.com", "lazyrelay@gmail.com"]);
+      // only quoted strings count: comments may show example addresses, the hardcoded list is made of strings
+      const strings = [...fs.readFileSync(f, "utf8").matchAll(/(["'`])((?:\\.|(?!\1).)*)\1/g)].map((m) => m[2].toLowerCase());
+      const found = strings.flatMap((s) => s.match(/[a-z0-9._+-]+@(?:gmail|googlemail|outlook|hotmail|yahoo|icloud|proton)\.[a-z.]+/g) ?? []);
+      expect(found.filter((e) => !allowed.has(e)), f).toEqual([]);
     }
   });
 
