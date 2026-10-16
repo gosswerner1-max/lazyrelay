@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../lib/api";
+import { loadScriptAfterLoad } from "../lib/deferUntilLoad";
 import { capturePromoCode } from "../lib/promo";
 import { ReferralApplicationModal } from "../components/ReferralApplicationModal";
 import { BrandMark } from "../components/BrandMark";
@@ -397,10 +398,9 @@ let sourceForgeBadgeScriptLoaded = false;
 function loadSourceForgeBadgeScriptOnce() {
   if (sourceForgeBadgeScriptLoaded) return;
   sourceForgeBadgeScriptLoaded = true;
-  const sc = document.createElement("script");
-  sc.async = true;
-  sc.src = "https://b.sf-syn.com/badge_js?sf_id=4133019&variant_id=sf";
-  document.head.appendChild(sc);
+  // After the page load event and idle (2026-10-16). The badge link itself is already in the static HTML, so
+  // crawlers see it either way.
+  loadScriptAfterLoad("https://b.sf-syn.com/badge_js?sf_id=4133019&variant_id=sf");
 }
 
 // The placeholder link inside .sf-root used to be plain JSX children --

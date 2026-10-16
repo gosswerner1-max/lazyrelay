@@ -4,6 +4,11 @@ import './index.css'
 import App from './App.tsx'
 import { restoreStoredConsent } from './components/CookieConsent.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
+import { loadScriptAfterLoad } from './lib/deferUntilLoad.ts'
+
+// gtag.js loads after the page load event (it used to be an async tag in index.html that held the load event up).
+// The inline Consent Mode default in index.html still runs first and dataLayer buffers every call, so nothing is lost.
+loadScriptAfterLoad('https://www.googletagmanager.com/gtag/js?id=G-CNVBJ2076F')
 
 // No unconditional PostHog init here on purpose -- restoreStoredConsent()
 // below only initializes it (via setPostHogConsent) if a returning visitor

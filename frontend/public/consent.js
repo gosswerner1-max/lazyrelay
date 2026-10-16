@@ -51,10 +51,20 @@
   gtag("js", new Date());
   gtag("config", GA_ID);
 
-  var gtagScript = document.createElement("script");
-  gtagScript.async = true;
-  gtagScript.src = "https://www.googletagmanager.com/gtag/js?id=" + GA_ID;
-  document.head.appendChild(gtagScript);
+  // gtag.js is added after the window load event (and when idle) so it never delays page load. dataLayer
+  // buffers the calls above, so nothing is lost; the consent default above still runs first.
+  function addGtag() {
+    var gtagScript = document.createElement("script");
+    gtagScript.async = true;
+    gtagScript.src = "https://www.googletagmanager.com/gtag/js?id=" + GA_ID;
+    document.head.appendChild(gtagScript);
+  }
+  function afterIdle() {
+    if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(addGtag, { timeout: 2000 });
+    else setTimeout(addGtag, 200);
+  }
+  if (document.readyState === "complete") afterIdle();
+  else window.addEventListener("load", afterIdle, { once: true });
 
   if (stored) return;
 
