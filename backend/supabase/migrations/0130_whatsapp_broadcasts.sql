@@ -103,7 +103,7 @@ create table if not exists whatsapp_broadcasts (
   constraint whatsapp_broadcasts_template_category_check check (template_category in ('marketing', 'utility', 'authentication')),
   constraint whatsapp_broadcasts_pause_reason_check check (pause_reason is null or pause_reason in ('connection_unavailable', 'connection_paused', 'template_unusable', 'plan')),
   constraint whatsapp_broadcasts_name_length check (char_length(name) between 1 and 120),
-  constraint whatsapp_broadcasts_template_name_format check (template_name ~ '^[a-z0-9_]{1,512}$'),
+  constraint whatsapp_broadcasts_template_name_format check (char_length(template_name) between 1 and 512 and template_name ~ '^[a-z0-9_]+$'),
   constraint whatsapp_broadcasts_template_language_format check (template_language ~ '^[a-z]{2,3}(_[A-Z]{2})?$'),
   constraint whatsapp_broadcasts_params_array check (jsonb_typeof(template_params) = 'array' and jsonb_array_length(template_params) <= 20),
   constraint whatsapp_broadcasts_counts_nonneg check (

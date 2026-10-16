@@ -109,7 +109,7 @@ create table if not exists whatsapp_chat_messages (
   constraint whatsapp_chat_messages_message_key_hashed check (message_key is null or message_key ~ '^[0-9a-f]{64}$'),
   constraint whatsapp_chat_messages_reply_key_hashed check (reply_to_message_key is null or reply_to_message_key ~ '^[0-9a-f]{64}$'),
   constraint whatsapp_chat_messages_failure_reason_format check (failure_reason is null or failure_reason ~ '^[a-z0-9_]{1,60}$'),
-  constraint whatsapp_chat_messages_template_name_format check (template_name is null or template_name ~ '^[a-z0-9_]{1,512}$')
+  constraint whatsapp_chat_messages_template_name_format check (template_name is null or char_length(template_name) between 1 and 512 and template_name ~ '^[a-z0-9_]+$')
 );
 
 -- A repeated delivery of the same message is a no-op: one row per Meta message id per account.
