@@ -110,7 +110,7 @@ export function addContact(phone: string, over: Row = {}): Row {
   const digits = phone.replace(/\D/g, "");
   const accountId = (over.account_id as string) ?? ACC;
   const key = contactKeyFor(accountId, digits)!;
-  const id = (over.id as string) ?? `c${contactCounter}-${randomUUID()}`;
+  const id = (over.id as string) ?? randomUUID();
   const row: Row = {
     id,
     account_id: accountId,

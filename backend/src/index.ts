@@ -4,6 +4,9 @@ import { getAccessToken, runSchedulerCycle } from "./scheduler.js";
 import { generateDuePosts } from "./recurringScheduler.js";
 import { runTokenRefreshCycle } from "./tokenRefresher.js";
 import { runPrivacySweep } from "./privacySweep.js";
+import { runBroadcastCycle } from "./whatsappBroadcast/sender.js";
+import { fetchHttpClient } from "./whatsappBroadcast/cloudApi.js";
+import { purgeWhatsappHistory } from "./whatsappChat/retention.js";
 import { purgeExpiredConnects } from "./platforms/connect.js";
 import { runWebhookDeliveryCycle } from "./webhook.js";
 import { runReplySenderCycle } from "./replySender.js";
@@ -126,6 +129,7 @@ async function main() {
       `WHATSAPP_WEBHOOK_VERIFY_TOKEN=${process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN ? "set" : "MISSING"} ` +
       `WHATSAPP_CONTACT_HASH_KEY=${process.env.WHATSAPP_CONTACT_HASH_KEY ? "set" : "MISSING"}; ` +
       `WHATSAPP_BROADCASTS_ENABLED=${process.env.WHATSAPP_BROADCASTS_ENABLED === "true" ? "on" : "off"} ` +
+      `WHATSAPP_SEND_ENABLED=${process.env.WHATSAPP_SEND_ENABLED === "true" ? "on" : "off"} ` +
       `WHATSAPP_CONTACT_ENC_KEY=${process.env.WHATSAPP_CONTACT_ENC_KEY ? "set" : "MISSING"} ` +
       `WHATSAPP_CONTACT_ENC_KEY_ID=${process.env.WHATSAPP_CONTACT_ENC_KEY_ID ? "set" : "MISSING"} ` +
       `WHATSAPP_CONTACT_ENC_KEY_PREV=${process.env.WHATSAPP_CONTACT_ENC_KEY_PREV ? "set" : "unset"}; ` +
@@ -199,6 +203,14 @@ async function main() {
     );
   }, REPLY_SENDER_INTERVAL_MS);
 
+  // WhatsApp broadcast sender (whatsappBroadcast/sender.ts): every 30 seconds. The cycle does nothing unless WHATSAPP_SEND_ENABLED (and
+  // the feature flags) are exactly "true" (off by default), so this timer is inert until then. It uses only each customer's OWN stored
+  // login. Failures only log; this must never affect posting.
+  const WHATSAPP_SENDER_INTERVAL_MS = 30_000;
+  setInterval(() => {
+    runBroadcastCycle({ http: fetchHttpClient }).catch((err) => console.error("WhatsApp broadcast cycle error:", summarizeIfHtmlError(err)));
+  }, WHATSAPP_SENDER_INTERVAL_MS);
+
   // RSS feeds (rssPoller.ts): new items become drafts, never posts. Every 30
   // minutes; failures only log and can never affect posting.
   const runRssJob = () =>
@@ -229,6 +241,12 @@ async function main() {
         if (r.tokensWiped || r.tokenFailures || r.commentsDeleted || r.dmsDeleted || r.messagesDeleted || r.triageDeleted || r.purgeFailed) console.log("Privacy sweep:", JSON.stringify(r));
       })
       .catch((err) => console.error("Privacy sweep error:", summarizeIfHtmlError(err)))
+      // WhatsApp chat and broadcast history, 30 days (whatsappChat/retention.ts). Does nothing while the feature is off.
+      .then(() => purgeWhatsappHistory(supabase))
+      .then((r) => {
+        if (r.chatDeleted || r.broadcastRowsDeleted || r.failed) console.log("WhatsApp retention:", JSON.stringify(r));
+      })
+      .catch((err) => console.error("WhatsApp retention error:", summarizeIfHtmlError(err)))
       // Reply drafts nobody reviewed before their 7 day expiry become "expired" (replyDrafts.ts). Skipped while the
       // reply loop is off, like the sender above.
       .then(() => (replyDraftsEnabled() ? expireStaleDrafts(supabase) : 0))
