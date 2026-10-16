@@ -128,6 +128,28 @@ describe("gating", () => {
   });
 });
 
+describe("plan gate over every tier, on every route", () => {
+  const PAID = ["starter", "pro", "business", "agency", "agency_plus"];
+  const LAPSED = ["cancelled", "canceled", "past_due", "paused", "unpaid", "incomplete"];
+  it.each(paths)("%s %s: Free and lapsed plans are refused (400 with an upgrade message), every paid tier gets through the gate", async (_m, _p, call) => {
+    tables.subscriptions = [];
+    expect((await call()).status).toBe(400);
+    for (const tier of PAID) {
+      for (const status of LAPSED) {
+        tables.subscriptions = [{ account_id: ACC, tier, status }];
+        const r = await call();
+        expect(r.status, `${tier} ${status}`).toBe(400);
+        expect(r.body.requiresPlan, `${tier} ${status}`).toBe("Starter");
+      }
+      tables.subscriptions = [{ account_id: ACC, tier, status: "active" }];
+      const ok = await call();
+      expect(ok.body.requiresPlan, tier).toBeUndefined();
+      tables.subscriptions = [{ account_id: ACC, tier, status: "trialing" }];
+      expect((await call()).body.requiresPlan, `${tier} trialing`).toBeUndefined();
+    }
+  });
+});
+
 describe("GET /whatsapp/send-capabilities", () => {
   const get = () => request(app()).get("/whatsapp/send-capabilities");
   it("says sending is available when the flags, visibility, contact keys and plan all pass, and that is ALL it checks (no cap, no kill switch)", async () => {

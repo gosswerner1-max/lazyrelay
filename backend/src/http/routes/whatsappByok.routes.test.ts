@@ -143,11 +143,11 @@ afterEach(() => {
   for (const k of ["WHATSAPP_BYOK_PLATFORM_PUBLIC", "WHATSAPP_BYOK_TEST_ACCOUNT_IDS", "WHATSAPP_BYOK_ENABLED", "X_BYOK_PLATFORM_PUBLIC"]) delete process.env[k];
 });
 
-describe("plan gate: Business, Agency and Agency Plus only; everything below answers HTTP 400", () => {
+describe("plan gate: every PAID tier (Starter and up); Free and lapsed answer HTTP 400", () => {
   const cases: Array<[Tier, boolean]> = [
     ["free", false],
-    ["starter", false],
-    ["pro", false],
+    ["starter", true],
+    ["pro", true],
     ["business", true],
     ["agency", true],
     ["agency_plus", true],
@@ -159,7 +159,7 @@ describe("plan gate: Business, Agency and Agency Plus only; everything below ans
       const check = await request(appWith()).post("/social-accounts/whatsapp/byok/check").send(CREDS);
       const connect = await request(appWith()).get("/social-accounts/connect?platform=whatsapp");
       const tile = (await request(appWith()).get("/platforms")).body.find((p: { platform: string }) => p.platform === "whatsapp");
-      expect(tile).toMatchObject({ platform: "whatsapp", configured: true, comingSoon: false, requiresPlan: "Business", allowed });
+      expect(tile).toMatchObject({ platform: "whatsapp", configured: true, comingSoon: false, requiresPlan: "Starter", allowed });
       if (allowed) {
         expect(save.status).toBe(200);
         expect(check.status).toBe(200);
@@ -171,9 +171,9 @@ describe("plan gate: Business, Agency and Agency Plus only; everything below ans
         expect(save.status).toBe(400);
         expect(check.status).toBe(400);
         expect(connect.status).toBe(400);
-        expect(save.body).toMatchObject({ requiresPlan: "Business" });
-        expect(save.body.error).toMatch(/Business plan and above/);
-        expect(connect.body.error).toMatch(/Business plan and above/);
+        expect(save.body).toMatchObject({ requiresPlan: "Starter" });
+        expect(save.body.error).toMatch(/any paid plan/);
+        expect(connect.body.error).toMatch(/any paid plan/);
         expect(vault.size).toBe(0); // nothing stored, and the check route stored nothing either
         expect(tables.social_accounts).toHaveLength(0);
         expect(metaCalls).toHaveLength(0); // a refused plan never reaches Meta
@@ -182,28 +182,32 @@ describe("plan gate: Business, Agency and Agency Plus only; everything below ans
     });
   }
 
-  it("the allow-list is exactly business, agency and agency_plus", () => {
-    expect([...WHATSAPP_BYOK_ALLOWED_TIERS].sort()).toEqual(["agency", "agency_plus", "business"]);
-    for (const t of ["free", "starter", "pro"] as Tier[]) expect(canUseWhatsappByok(t), t).toBe(false);
+  it("the allow-list is exactly every paid tier", () => {
+    expect([...WHATSAPP_BYOK_ALLOWED_TIERS].sort()).toEqual(["agency", "agency_plus", "business", "pro", "starter"]);
+    expect(canUseWhatsappByok("free")).toBe(false);
+    for (const t of ["starter", "pro", "business", "agency", "agency_plus"] as Tier[]) expect(canUseWhatsappByok(t), t).toBe(true);
   });
 
   it("an account with no subscription row counts as Free", async () => {
     tables.subscriptions = [];
     expect((await request(appWith()).post("/social-accounts/whatsapp/byok").send(BODY)).status).toBe(400);
-    expect(await checkWhatsappPlan("acc1")).toMatch(/Business plan and above/);
+    expect(await checkWhatsappPlan("acc1")).toMatch(/any paid plan/);
   });
 
-  it("a cancelled or past-due paid plan counts as Free", async () => {
-    for (const status of ["cancelled", "past_due"]) {
-      tables.subscriptions = [{ account_id: "acc1", tier: "business", status }];
-      expect((await request(appWith()).post("/social-accounts/whatsapp/byok").send(BODY)).status, status).toBe(400);
+  it("a cancelled or past-due paid plan counts as Free, for every paid tier", async () => {
+    for (const tier of ["starter", "pro", "business", "agency", "agency_plus"]) {
+      for (const status of ["cancelled", "canceled", "past_due", "paused"]) {
+        tables.subscriptions = [{ account_id: "acc1", tier, status }];
+        expect((await request(appWith()).post("/social-accounts/whatsapp/byok").send(BODY)).status, `${tier} ${status}`).toBe(400);
+        expect((await request(appWith()).post("/social-accounts/whatsapp/byok/check").send(CREDS)).status, `check ${tier} ${status}`).toBe(400);
+      }
     }
     expect(vault.size).toBe(0);
   });
 
   it("fails closed: if the plan cannot be read, the answer is 'not allowed'", async () => {
     tables.subscriptions = undefined as never; // makes the fake query throw
-    expect(await checkWhatsappPlan("acc1")).toMatch(/Business plan and above/);
+    expect(await checkWhatsappPlan("acc1")).toMatch(/any paid plan/);
   });
 });
 
@@ -463,9 +467,10 @@ describe("migration 0125 (database plan gate) and the route's handling of it", (
   const code = sql.split(/\r?\n/).filter((l) => !l.trim().startsWith("--")).join("\n");
   const listOf = (re: RegExp) => (re.exec(code)?.[1] ?? "").split(",").map((s) => s.trim().replace(/'/g, "")).sort();
 
-  it("the tier list in the SQL equals WHATSAPP_BYOK_ALLOWED_TIERS in tier.ts", () => {
+  it("0125 holds the ORIGINAL list (Business and above); migration 0132 supersedes it with every paid tier, kept equal to WHATSAPP_BYOK_ALLOWED_TIERS in byokPlanGate.test.ts", () => {
     expect(code).toMatch(/v_tier in \(([^)]*)\)/);
-    expect(listOf(/v_tier in \(([^)]*)\)/)).toEqual([...WHATSAPP_BYOK_ALLOWED_TIERS].sort());
+    expect(listOf(/v_tier in \(([^)]*)\)/)).toEqual(["agency", "agency_plus", "business"]);
+    expect([...WHATSAPP_BYOK_ALLOWED_TIERS].sort()).toEqual(["agency", "agency_plus", "business", "pro", "starter"]);
   });
 
   it("only active and trialing count, as in resolveTier", () => {
@@ -486,12 +491,13 @@ describe("migration 0125 (database plan gate) and the route's handling of it", (
     expect(code).toContain("'whatsapp requires the Business plan or above'");
     expect(code).toContain("errcode = 'LRWA1'");
     expect(WHATSAPP_DB_GATE_CODE).toBe("LRWA1");
-    expect(WHATSAPP_DB_GATE_MESSAGE).toBe("whatsapp requires the Business plan or above");
+    expect(WHATSAPP_DB_GATE_MESSAGE).toBe("whatsapp requires a paid plan");
   });
 
   it("isWhatsappPlanGateError matches the code or the message, and nothing else", () => {
     expect(isWhatsappPlanGateError({ code: "LRWA1", message: "x" })).toBe(true);
     expect(isWhatsappPlanGateError({ message: "whatsapp requires the Business plan or above" })).toBe(true);
+    expect(isWhatsappPlanGateError({ message: "whatsapp requires a paid plan" })).toBe(true);
     expect(isWhatsappPlanGateError({ code: "23505", message: "duplicate key" })).toBe(false);
     expect(isWhatsappPlanGateError(null)).toBe(false);
   });
@@ -501,7 +507,7 @@ describe("migration 0125 (database plan gate) and the route's handling of it", (
     const r = await request(appWith()).post("/social-accounts/whatsapp/byok").send(BODY);
     expect(r.status).toBe(400);
     expect(r.body.error).toBe(WHATSAPP_PLAN_MESSAGE);
-    expect(r.body.requiresPlan).toBe("Business");
+    expect(r.body.requiresPlan).toBe("Starter");
     expect(tables.social_accounts).toHaveLength(0);
     expect([...vault.values()].some((v) => leaks(v))).toBe(false); // the just-stored login was overwritten
     expect(leaks([r.body, logged])).toBe(false);

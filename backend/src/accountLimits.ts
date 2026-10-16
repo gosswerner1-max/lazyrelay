@@ -1,5 +1,5 @@
 import { supabase } from "./supabase.js";
-import { resolveTier, canUseWhatsappByok, WHATSAPP_BYOK_REQUIRED_PLAN_NAME, type Tier } from "./tier.js";
+import { resolveTier, canUseWhatsappByok, type Tier } from "./tier.js";
 
 /** Real per-tier connected-account caps, added 2026-07-23 alongside the
  *  Starter/Pro/Business restructure. Deliberately NOT unlimited even at
@@ -79,8 +79,8 @@ export async function checkNewDistinctAccountLimit(accountId: string): Promise<s
   return null;
 }
 
-/** Customer-facing wording when a plan below Business tries to connect WhatsApp (see tier.ts, canUseWhatsappByok). */
-export const WHATSAPP_PLAN_MESSAGE = `Connecting WhatsApp with your own Meta credentials is available on the ${WHATSAPP_BYOK_REQUIRED_PLAN_NAME} plan and above.`;
+/** Customer-facing wording when a Free or lapsed account tries to connect WhatsApp (see tier.ts, canUseWhatsappByok). */
+export const WHATSAPP_PLAN_MESSAGE = "Connecting WhatsApp with your own Meta credentials is available on any paid plan.";
 
 /** The WhatsApp plan gate, in the same shape as checkAccountLimit: a customer-facing reason when this account may NOT
  *  connect or save a WhatsApp channel, otherwise null. Fails CLOSED: if the plan cannot be read, the answer is "not
@@ -99,11 +99,13 @@ export async function checkWhatsappPlan(accountId: string): Promise<string | nul
  *  message as checkWhatsappPlan instead of a 500. Matches the code or the message, so it still works if a client layer
  *  drops one of them. */
 export const WHATSAPP_DB_GATE_CODE = "LRWA1";
-export const WHATSAPP_DB_GATE_MESSAGE = "whatsapp requires the Business plan or above";
+export const WHATSAPP_DB_GATE_MESSAGE = "whatsapp requires a paid plan";
+/** What a database that has not yet had migration 0132 still says (migration 0125). Recognised too. */
+const WHATSAPP_DB_GATE_LEGACY_MESSAGE = "whatsapp requires the Business plan or above";
 export function isWhatsappPlanGateError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
   const { code, message } = err as { code?: unknown; message?: unknown };
-  return code === WHATSAPP_DB_GATE_CODE || (typeof message === "string" && message.includes(WHATSAPP_DB_GATE_MESSAGE));
+  return code === WHATSAPP_DB_GATE_CODE || (typeof message === "string" && (message.includes(WHATSAPP_DB_GATE_MESSAGE) || message.includes(WHATSAPP_DB_GATE_LEGACY_MESSAGE)));
 }
 
 /** The database-side X own-keys plan gate (migration 0126, trigger social_accounts_x_byok_plan_gate) rejects a write with
@@ -111,9 +113,11 @@ export function isWhatsappPlanGateError(err: unknown): boolean {
  *  application gate (HTTP 403, X_BYOK_PLAN_MESSAGE) instead of a 500. Matches the code or the message, so it still works
  *  if a client layer drops one of them. */
 export const X_BYOK_DB_GATE_CODE = "LRXB1";
-export const X_BYOK_DB_GATE_MESSAGE = "x own keys requires the Pro plan or above";
+export const X_BYOK_DB_GATE_MESSAGE = "x own keys requires a paid plan";
+/** What a database that has not yet had migration 0132 still says (migration 0126). Recognised too. */
+const X_BYOK_DB_GATE_LEGACY_MESSAGE = "x own keys requires the Pro plan or above";
 export function isXByokPlanGateError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
   const { code, message } = err as { code?: unknown; message?: unknown };
-  return code === X_BYOK_DB_GATE_CODE || (typeof message === "string" && message.includes(X_BYOK_DB_GATE_MESSAGE));
+  return code === X_BYOK_DB_GATE_CODE || (typeof message === "string" && (message.includes(X_BYOK_DB_GATE_MESSAGE) || message.includes(X_BYOK_DB_GATE_LEGACY_MESSAGE)));
 }

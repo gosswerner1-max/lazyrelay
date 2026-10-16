@@ -883,7 +883,7 @@ export const api = {
   listWhatsAppOptOuts: (): Promise<WhatsAppOptOutsResult> => authedFetch("/whatsapp/opt-outs"),
 
   // WhatsApp broadcasts and two-way chat. send-capabilities answers booleans only (never an error); everything else is 404 while sending is off.
-  getWhatsAppSendCapabilities: (): Promise<{ sending: boolean; stopped: boolean }> => authedFetch("/whatsapp/send-capabilities"),
+  getWhatsAppSendCapabilities: (): Promise<{ sending: boolean }> => authedFetch("/whatsapp/send-capabilities"),
   listWhatsAppTemplates: (socialAccountId: string): Promise<{ templates: WhatsAppTemplate[] }> => authedFetch(`/whatsapp/templates?social_account_id=${encodeURIComponent(socialAccountId)}`),
   syncWhatsAppTemplates: (socialAccountId: string): Promise<{ synced: number; approved: number; unsupported: number; disabled: number }> =>
     authedFetch("/whatsapp/templates/sync", { method: "POST", body: JSON.stringify({ social_account_id: socialAccountId }) }),

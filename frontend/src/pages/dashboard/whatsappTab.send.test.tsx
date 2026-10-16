@@ -37,7 +37,7 @@ afterEach(cleanup);
 beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset();
   state.accounts = [{ id: SA1, platform: "whatsapp", display_name: "Acme Cafe" }];
-  api.getWhatsAppSendCapabilities.mockResolvedValue({ sending: true, stopped: false });
+  api.getWhatsAppSendCapabilities.mockResolvedValue({ sending: true });
   api.listWhatsAppConversations.mockResolvedValue({ conversations: [], nextBefore: null });
   api.listWhatsAppContacts.mockResolvedValue({ contacts: [], nextBefore: null });
   api.listWhatsAppOptOuts.mockResolvedValue({ count: 0, optOuts: [] });
@@ -96,7 +96,7 @@ describe("WhatsApp tab, sending on", () => {
 
 describe("WhatsApp tab, sending off", () => {
   it("is the contacts and consent screen of Phase 1: no views, nothing is sent, and it says so", async () => {
-    api.getWhatsAppSendCapabilities.mockResolvedValue({ sending: false, stopped: false });
+    api.getWhatsAppSendCapabilities.mockResolvedValue({ sending: false });
     render(<WhatsAppTab />);
     expect(await screen.findByRole("button", { name: /add contact/i })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: /whatsapp views/i })).toBeNull();
@@ -104,11 +104,11 @@ describe("WhatsApp tab, sending off", () => {
     expect(api.listWhatsAppConversations).not.toHaveBeenCalled();
   });
 
-  it("says when sending is switched off for now, and keeps the contacts working", async () => {
-    api.getWhatsAppSendCapabilities.mockResolvedValue({ sending: false, stopped: true });
+  it("shows no limit or switched-off wording for sending, whatever extra fields an older server sends", async () => {
+    api.getWhatsAppSendCapabilities.mockResolvedValue({ sending: true, stopped: true });
     render(<WhatsAppTab />);
-    expect(await screen.findByText(/sending is switched off right now/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /add contact/i })).toBeInTheDocument();
+    await screen.findByText("Conversations");
+    expect(screen.queryByText(/switched off|at most|limit/i)).toBeNull();
   });
 
   it("treats a failing capability check as off", async () => {

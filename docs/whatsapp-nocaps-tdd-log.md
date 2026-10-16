@@ -23,3 +23,9 @@ switched on. Test runs need the same throwaway env as before (`SUPABASE_URL`, `S
 - Also fixed in passing so "any audience size" is true: audience members are read page by page (the API returns at most 1,000 rows per read), member counts use count queries, adding members works in chunks with no silent 500 slice.
 - GREEN: `noCaps.test.ts` + `noCapsBehavior.test.ts` pass (45 tests); the WhatsApp backend suites, migration tests and `startupConfigCheck.test.ts`: `Test Files 31 passed, Tests 724 passed (724)`; `tsc --noEmit` exit 0. Old tests that asserted caps or the kill switch were deleted; tests that used the kill switch only as a way to hold a broadcast now use a Meta-style pause row instead.
 
+### 3. Open to every paid tier (Starter and up): backend gate (RED then GREEN)
+- RED: new `backend/src/byokPlanGate.test.ts` (real `resolveTier` / `checkWhatsappPlan` / `canUse*` over free + five paid tiers, every good-standing and lapsed status, and migration 0132) -> `Tests 10 failed | 51 passed (61)`.
+- GREEN: `tier.ts` (both allow-lists now `starter, pro, business, agency, agency_plus`, required plan name = Starter), `accountLimits.ts` and `xByok.routes.ts` messages say "any paid plan", new unapplied migration `0132_byok_paid_plan_gate.sql` replaces the two database trigger functions (0125 WhatsApp, 0126 X) with the same list, the backend recognises both the old and the new DB messages. -> `Tests 61 passed (61)`.
+- Existing tests that encoded "Pro and above" / "Business and above" were updated to the new rule (the X route matrix, the WhatsApp byok matrix, webhook-info, inbound webhook plan tests, the broadcast `byok.test.ts`), and both new route suites (`whatsappBroadcasts`, `whatsappChat`) now loop over every route x every paid tier x every lapsed status.
+- Full backend run: `Test Files 1 failed | 161 passed (162), Tests 1 failed | 3021 passed (3022)` (the one failure is the known `/health` 5 s timeout).
+

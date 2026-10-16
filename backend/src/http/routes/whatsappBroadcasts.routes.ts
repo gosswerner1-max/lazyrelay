@@ -32,7 +32,7 @@ import { UUID, firstIssue, humanRoute, ownsConnection, statusForRefusal, userIdF
 
 const SYNC_STATUS: Record<string, number> = { plan: 400, connection_unavailable: 409, no_own_credentials: 409, credentials: 400, unreachable: 502, rejected: 502 };
 const SYNC_MESSAGE: Record<string, string> = {
-  plan: "WhatsApp is available on the Business plan and above.",
+  plan: "WhatsApp is available on any paid plan.",
   connection_unavailable: "That WhatsApp connection is not available. Check it in Social Platforms.",
   no_own_credentials: "This WhatsApp connection does not hold your own Meta credentials. Reconnect it with your own Meta credentials in Social Platforms.",
   credentials: "Meta did not accept your access token. Check it in Social Platforms and make sure it can read your message templates.",

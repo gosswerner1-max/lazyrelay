@@ -42,7 +42,7 @@ export type ChatSendOutcome = ChatSent | ChatRefusal;
 const refuse = (code: string, message: string): ChatRefusal => ({ ok: false, code, message });
 
 const MESSAGES: Record<string, string> = {
-  plan: "WhatsApp messaging is available on the Business plan and above.",
+  plan: "WhatsApp messaging is available on any paid plan.",
   no_own_credentials: "This WhatsApp connection does not hold your own Meta credentials. Reconnect it with your own Meta credentials in Social Platforms.",
   connection_unavailable: "That WhatsApp connection is not available. Check it in Social Platforms.",
   connection_paused: "Sending from this WhatsApp number is paused because of a problem Meta reported. Check your number in Meta Business Manager, then resume it.",

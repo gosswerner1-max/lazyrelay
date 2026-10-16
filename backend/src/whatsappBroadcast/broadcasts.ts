@@ -89,7 +89,7 @@ const MIN_LEAD_MS = 60_000;
 const MAX_LEAD_MS = 30 * 24 * 3_600_000;
 
 const ELIGIBILITY_MESSAGES: Record<string, string> = {
-  plan: "WhatsApp broadcasts are available on the Business plan and above.",
+  plan: "WhatsApp broadcasts are available on any paid plan.",
   no_own_credentials: "This WhatsApp connection does not hold your own Meta credentials. Reconnect it with your own Meta credentials in Social Platforms.",
   connection_unavailable: "That WhatsApp connection is not available. Check it in Social Platforms.",
   connection_paused: "Sending from this WhatsApp number is paused because of a problem Meta reported. Check your number in Meta Business Manager, then resume it here.",

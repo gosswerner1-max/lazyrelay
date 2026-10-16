@@ -103,7 +103,7 @@ describe("GET /whatsapp/webhook-info", () => {
     expect(JSON.stringify(off.body)).not.toContain(VERIFY);
   });
 
-  const tiers: Array<[Tier, boolean]> = [["free", false], ["starter", false], ["pro", false], ["business", true], ["agency", true], ["agency_plus", true]];
+  const tiers: Array<[Tier, boolean]> = [["free", false], ["starter", true], ["pro", true], ["business", true], ["agency", true], ["agency_plus", true]];
   it.each(tiers)("plan gate: %s allowed=%s", async (tier, allowed) => {
     setTier(tier);
     const r = await get();
@@ -112,7 +112,7 @@ describe("GET /whatsapp/webhook-info", () => {
     } else {
       expect(r.status).toBe(400);
       expect(r.body.error).toBe(WHATSAPP_PLAN_MESSAGE);
-      expect(r.body.requiresPlan).toBe("Business");
+      expect(r.body.requiresPlan).toBe("Starter");
       expect(JSON.stringify(r.body)).not.toContain(VERIFY); // a blocked plan never learns the token
     }
     expect(r.headers["cache-control"]).toBe("no-store");

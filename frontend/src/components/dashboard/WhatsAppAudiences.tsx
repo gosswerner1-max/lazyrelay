@@ -7,7 +7,7 @@ import "../../styles/whatsapp-chat.css";
 
 // Saved audiences (groups of saved contacts who opted in) and short update lines sent to one. Each person is sent the update their own
 // way: typed freely if their 24 hour window is open, the approved template you pick if it is closed, otherwise skipped. Sent one at a
-// time with the customer's own Meta login, through the same gates as a broadcast, to at most 25 people at once. People are shown by a
+// time with the customer's own Meta login, through the same gates as a broadcast, to any number of people. People are shown by a
 // name or a masked number, never the number.
 
 const errText = (err: unknown) => (err instanceof Error && err.message ? err.message : "Something went wrong. Please try again.");
@@ -22,7 +22,7 @@ const SKIP_TEXT: Record<string, string> = {
 
 function resultText(r: WhatsAppUpdateResult["results"][number]): string {
   if (r.status === "sent") return r.how === "template" ? "Sent as a template" : "Sent as a message";
-  if (r.status === "not_attempted") return "Not attempted, sending stopped";
+  if (r.status === "not_attempted") return "Not attempted, the number was paused";
   if (r.status === "skipped") return `Skipped: ${SKIP_TEXT[r.code ?? ""] ?? "not sent"}`;
   return "Not sent: WhatsApp did not accept it";
 }
@@ -167,7 +167,7 @@ export function WhatsAppAudiences({ socialAccountId }: { socialAccountId: string
       <h3 id={`${id}-title`} className="wac-title">
         Audiences and updates
       </h3>
-      <p className="byok-card__hint">Group saved contacts who opted in, then send them a short update. Up to 25 people at once. For more, use a broadcast.</p>
+      <p className="byok-card__hint">Group saved contacts who opted in, then send them a short update.</p>
       <form className="wac-search" onSubmit={create} noValidate>
         <label className="byok-field wac-field">
           New audience name

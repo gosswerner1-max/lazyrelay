@@ -47,13 +47,10 @@ const PAUSE_TEXT: Record<string, string> = {
   credentials: "Paused because WhatsApp did not accept your access token. Reconnect WhatsApp in Social Platforms.",
   template: "Paused because of a problem with the template. Check it in Meta Business Manager.",
   policy: "Paused because WhatsApp blocked this number for a policy reason. Check it in Meta Business Manager.",
-  kill_switch: "Paused because sending is switched off right now.",
   plan: "Paused because your plan no longer includes WhatsApp.",
-  cap_reached: "Paused because the list grew past the number of people one broadcast may reach right now.",
   connection_unavailable: "Paused because the WhatsApp connection is not available. Check it in Social Platforms.",
   connection_paused: "Paused because this number is paused. Resume it once the problem is fixed.",
   template_unusable: "Paused because the template is no longer approved. Check it in Meta Business Manager and sync your templates.",
-  send_disabled: "Paused because sending is switched off right now.",
 };
 export const pauseReasonText = (reason: string | null | undefined): string => PAUSE_TEXT[reason ?? ""] ?? "Paused. Check your WhatsApp connection.";
 

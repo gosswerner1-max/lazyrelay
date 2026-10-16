@@ -131,6 +131,27 @@ describe("gating", () => {
   });
 });
 
+describe("plan gate over every tier, on every route", () => {
+  const PAID = ["starter", "pro", "business", "agency", "agency_plus"];
+  const LAPSED = ["cancelled", "canceled", "past_due", "paused", "unpaid", "incomplete"];
+  it.each(gatePaths)("%s: Free and lapsed plans are refused, every paid tier gets through the gate", async (_n, call) => {
+    tables.subscriptions = [];
+    expect((await call()).status).toBe(400);
+    for (const tier of PAID) {
+      for (const status of LAPSED) {
+        tables.subscriptions = [{ account_id: ACC, tier, status }];
+        const r = await call();
+        expect(r.status, `${tier} ${status}`).toBe(400);
+        expect(r.body.requiresPlan, `${tier} ${status}`).toBe("Starter");
+      }
+      for (const status of ["active", "trialing"]) {
+        tables.subscriptions = [{ account_id: ACC, tier, status }];
+        expect((await call()).body.requiresPlan, `${tier} ${status}`).toBeUndefined();
+      }
+    }
+  });
+});
+
 describe("inbox and thread", () => {
   it("lists conversations with the window state and no number", async () => {
     await conversation();
