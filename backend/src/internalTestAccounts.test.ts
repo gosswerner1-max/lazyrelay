@@ -1,7 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import fs from "node:fs";
 import path from "node:path";
+
+// Extra internal addresses (family members' mailboxes) come from the INTERNAL_TEST_EMAILS_EXTRA setting, never from
+// source code, so they are not published in the repo. The tests use made-up ones.
+vi.hoisted(() => {
+  process.env.INTERNAL_TEST_EMAILS_EXTRA = "family.member@example.test, Other.Person@Gmail.com";
+});
 import { INTERNAL_TEST_EMAIL_PATTERNS, INTERNAL_TEST_EMAILS_EXACT, isInternalTestAccount } from "./internalTestAccounts.js";
 
 // The backend copy of the internal-test-account list must match the ops
@@ -18,6 +25,21 @@ const ops = require(opsPath) as {
 describe("backend internalTestAccounts stays in sync with ops", () => {
   it("has the same patterns", () => {
     expect(INTERNAL_TEST_EMAIL_PATTERNS.map(String)).toEqual(ops.INTERNAL_TEST_EMAIL_PATTERNS.map(String));
+  });
+
+  it("reads extra internal addresses from INTERNAL_TEST_EMAILS_EXTRA (case-insensitive, trimmed, gmail aliases handled)", () => {
+    expect(isInternalTestAccount("family.member@example.test")).toBe(true);
+    expect(isInternalTestAccount("OTHER.PERSON@gmail.com")).toBe(true);
+    expect(isInternalTestAccount("other.person+anything@gmail.com")).toBe(true);
+    expect(INTERNAL_TEST_EMAILS_EXACT.has("other.person@gmail.com")).toBe(true);
+    expect(isInternalTestAccount("someone.else@gmail.com")).toBe(false);
+  });
+
+  it("no personal mailbox of a family member is written in either source file", () => {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    for (const f of [path.join(here, "internalTestAccounts.ts"), opsPath]) {
+      expect(fs.readFileSync(f, "utf8").toLowerCase(), f).not.toContain("jacobsluzaan");
+    }
   });
 
   it("has the same exact-match addresses", () => {

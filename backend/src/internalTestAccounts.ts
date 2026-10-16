@@ -19,11 +19,25 @@ export const INTERNAL_TEST_EMAIL_PATTERNS: RegExp[] = [
   /@(?:[^@]+\.)?example$/i,
 ];
 
+// Family members' own mailboxes are NOT written in this file (it lives in a public repo). They come from the
+// INTERNAL_TEST_EMAILS_EXTRA setting (comma separated), set on Render and in backend/.env. If it is missing the
+// backend still starts, but warns, because those mailboxes would then be treated like customers.
+function extraInternalEmails(): string[] {
+  const emails = (process.env.INTERNAL_TEST_EMAILS_EXTRA ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (!emails.length && process.env.NODE_ENV !== "test" && !process.env.CI) {
+    console.warn("INTERNAL_TEST_EMAILS_EXTRA is not set: extra internal mailboxes are not excluded from automated customer email");
+  }
+  return emails;
+}
+
 export const INTERNAL_TEST_EMAILS_EXACT = new Set<string>([
   "goss.werner.1@gmail.com",
-  "jacobsluzaan@gmail.com",
   "lazyrelay+reviewer@gmail.com",
   "lazyrelay@gmail.com",
+  ...extraInternalEmails(),
 ]);
 
 function stripGmailAlias(email: string): string {
