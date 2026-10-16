@@ -35,7 +35,8 @@ describe("home page FAQ", () => {
   it("states the platform count and the plan prices that are on the site", () => {
     const all = HOME_FAQ.map((i) => i.a).join(" ");
     expect(all).toContain("17 platforms");
-    for (const price of ["$29.99", "$59.99", "$99.99", "$149.99", "$199.99"]) expect(all).toContain(price);
+    for (const price of ["$29.99", "$59.99", "$99.99", "$149.99", "$199.99", " / mo + tax", "Tax is added at checkout"]) expect(all).toContain(price);
+    expect(all.includes("tax may apply")).toBe(false);
   });
 });
 

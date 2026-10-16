@@ -799,7 +799,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
                 <h3>{plan.name}</h3>
                 <p className="pricing-price">
                   {plan.price}
-                  {plan.tier !== "free" && <span className="pricing-period">/mo</span>}
+                  {plan.tier !== "free" && <span className="pricing-period"> / mo + tax</span>}
                 </p>
                 <p className="pricing-note">{plan.note}</p>
                 <ul>
@@ -815,7 +815,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           ))}
         </div>
         <p className="section-note pricing-footnote">
-          Start on Free, upgrade to Starter, Pro, Business, Agency, or Agency Plus any time from your dashboard.
+          Start on Free, upgrade to Starter, Pro, Business, Agency, or Agency Plus any time from your dashboard. Tax is added at checkout.
         </p>
 
         {!showAgencyPricing && (
@@ -832,7 +832,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
                   <h3>{plan.name}</h3>
                   <p className="pricing-price">
                     {plan.price}
-                    <span className="pricing-period">/mo</span>
+                    <span className="pricing-period"> / mo + tax</span>
                   </p>
                   <p className="pricing-note">{plan.note}</p>
                   <ul>

@@ -580,7 +580,7 @@ export function SettingsTab() {
           <p className="section-note">
             At your plan's seat limit.{" "}
             <button type="button" className="btn-outline" disabled={seatAddonBusy !== null} onClick={handleBuySeatAddon}>
-              {seatAddonBusy === "checkout" ? "Starting checkout..." : "Buy another seat ($10/mo)"}
+              {seatAddonBusy === "checkout" ? "Starting checkout..." : "Buy another seat ($10 / mo + tax)"}
             </button>
           </p>
         )}
@@ -811,7 +811,7 @@ export function SettingsTab() {
                 <div className="pricing-card">
                   <h3>Starter: 5GB storage</h3>
                   <p className="pricing-price">
-                    $29.99<span className="pricing-period">/mo</span>
+                    $29.99<span className="pricing-period"> / mo + tax</span>
                   </p>
                   <p className="pricing-note">20 accounts, unlimited posts, AI-agent access</p>
                   {renderTierAction("starter", "Starter")}
@@ -819,7 +819,7 @@ export function SettingsTab() {
                 <div className="pricing-card">
                   <h3>Pro: 10GB storage</h3>
                   <p className="pricing-price">
-                    $59.99<span className="pricing-period">/mo</span>
+                    $59.99<span className="pricing-period"> / mo + tax</span>
                   </p>
                   <p className="pricing-note">30 accounts, unlimited posts, AI-agent access, priority support</p>
                   {renderTierAction("pro", "Pro")}
@@ -827,7 +827,7 @@ export function SettingsTab() {
                 <div className="pricing-card">
                   <h3>Business: 20GB storage</h3>
                   <p className="pricing-price">
-                    $99.99<span className="pricing-period">/mo</span>
+                    $99.99<span className="pricing-period"> / mo + tax</span>
                   </p>
                   <p className="pricing-note">50 accounts, unlimited posts, AI-agent access, priority support</p>
                   {renderTierAction("business", "Business")}
@@ -845,7 +845,7 @@ export function SettingsTab() {
                   <div className="pricing-card">
                     <h3>Agency: 20GB storage</h3>
                     <p className="pricing-price">
-                      $149.99<span className="pricing-period">/mo</span>
+                      $149.99<span className="pricing-period"> / mo + tax</span>
                     </p>
                     <p className="pricing-note">100 accounts, 12 brands, 3 team seats, AI-agent access, priority support</p>
                     {renderTierAction("agency", "Agency")}
@@ -853,7 +853,7 @@ export function SettingsTab() {
                   <div className="pricing-card">
                     <h3>Agency Plus: 20GB storage</h3>
                     <p className="pricing-price">
-                      $199.99<span className="pricing-period">/mo</span>
+                      $199.99<span className="pricing-period"> / mo + tax</span>
                     </p>
                     <p className="pricing-note">150 accounts, 20 brands, 6 team seats, AI-agent access, priority support</p>
                     {renderTierAction("agency_plus", "Agency Plus")}
