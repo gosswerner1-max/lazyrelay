@@ -148,7 +148,7 @@ describe("migration 0130_whatsapp_broadcasts", () => {
     const body = m.tableBody("whatsapp_send_controls");
     expect(body).toMatch(/scope in \('global', 'account'\)/);
     expect(body).toMatch(/kill_switch boolean not null default true/);
-    expect(m.code).toMatch(/insert into whatsapp_send_controls[\s\S]*values \('global', null, true, 500, 2, 250\)[\s\S]*on conflict[\s\S]*do nothing/);
+    expect(m.code).toMatch(/insert into whatsapp_send_controls[\s\S]*values \('global', null, true, 250, 2, 250\)[\s\S]*on conflict[\s\S]*do nothing/);
     // the cap numbers are Werner's call (decision D4) and are NOT set: they must be flagged as placeholders in the file
     expect(m.sql).toMatch(/PLACEHOLDER/);
   });

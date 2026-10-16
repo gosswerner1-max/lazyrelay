@@ -25,7 +25,7 @@
 --   * whatsapp_send_controls holds the kill switch and the caps. The global row is seeded STOPPED (kill_switch = true): nothing
 --     can send until a person flips it. If the row is missing the backend refuses to send.
 --
--- PLACEHOLDER NUMBERS. The caps seeded below (500 recipients per broadcast, 2 broadcasts per day, 250 messages per rolling 24
+-- PLACEHOLDER NUMBERS. The caps seeded below (250 recipients per broadcast, 2 broadcasts per day, 250 messages per rolling 24
 -- hours) are NOT decisions. They are conservative placeholders until Werner sets the plan caps (decision D4 in the plan note).
 -- 250 matches Meta's lowest messaging-limit tier. Change the row, not the code.
 --
@@ -82,7 +82,7 @@ create unique index if not exists whatsapp_send_controls_one_per_account on what
 
 -- PLACEHOLDER numbers (see the header). Seeded STOPPED.
 insert into whatsapp_send_controls (scope, account_id, kill_switch, max_recipients_per_broadcast, max_broadcasts_per_day, max_messages_per_day)
-values ('global', null, true, 500, 2, 250)
+values ('global', null, true, 250, 2, 250)
 on conflict do nothing;
 
 -- ---------------------------------------------------------------------------------------------------------------------
