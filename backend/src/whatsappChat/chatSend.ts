@@ -1,7 +1,8 @@
 // Sending in a two-way conversation. Three kinds, all behind the SAME gates a broadcast has, every one failing closed:
 //
-//   gates      a paid plan AND the customer's own stored login (byok.ts), an unpaused connection, the DB kill switch, the rolling daily
-//              cap (shared with broadcasts), the opt-out and suppression rules, and the contact storage keys.
+//   gates      a paid plan AND the customer's own stored login (byok.ts), a connection Meta has not paused, the opt-out and
+//              suppression rules, and the contact storage keys. There is NO volume cap and NO kill switch of ours (customers pay Meta
+//              directly with their own tokens): any number of messages may be sent.
 //   free-form  sendChatText / sendApprovalRequest (buttons) / sendChatList: ONLY inside Meta's 24 hour customer-service window
 //              (window.ts). Outside it the call is refused before anything is sent and the screen asks for an approved template.
 //   template   sendChatTemplate / sendApprovalRequest (outside the window): an APPROVED, supported template, to a STORED contact who
@@ -18,7 +19,7 @@ import { decryptPhone, PhoneVaultError } from "../platforms/whatsapp/phoneVault.
 import { messageKeyFor } from "../platforms/whatsapp/contactPrivacy.js";
 import { countryCallingCodeOf } from "../platforms/whatsapp/phone.js";
 import { checkSendEligibility } from "../whatsappBroadcast/byok.js";
-import { countMessagesAcceptedSince, loadControls, pauseConnection } from "../whatsappBroadcast/controls.js";
+import { pauseConnection } from "../whatsappBroadcast/connectionPause.js";
 import { sendInteractiveButtons, sendInteractiveList, sendTemplate, sendText, sanitizeTemplateParam, MAX_TEXT_CHARS, type HttpClient, type ListSection, type ReplyButton, type SendOutcome } from "../whatsappBroadcast/cloudApi.js";
 import { classifyMetaFailure } from "../whatsappBroadcast/metaErrors.js";
 import { isSuppressed, recordOptOutForContact, recordOptOutForKey } from "../whatsappBroadcast/optOuts.js";
@@ -39,16 +40,12 @@ export type ChatSent = { ok: true; messageId: string; status: "handed_off"; wind
 export type ChatSendOutcome = ChatSent | ChatRefusal;
 
 const refuse = (code: string, message: string): ChatRefusal => ({ ok: false, code, message });
-const DAY_MS = 24 * 3_600_000;
 
 const MESSAGES: Record<string, string> = {
   plan: "WhatsApp messaging is available on the Business plan and above.",
   no_own_credentials: "This WhatsApp connection does not hold your own Meta credentials. Reconnect it with your own Meta credentials in Social Platforms.",
   connection_unavailable: "That WhatsApp connection is not available. Check it in Social Platforms.",
   connection_paused: "Sending from this WhatsApp number is paused because of a problem Meta reported. Check your number in Meta Business Manager, then resume it.",
-  controls_unavailable: "Sending is not set up yet.",
-  sending_stopped: "Sending is switched off right now.",
-  cap_messages: "You have reached the number of messages this number may send in 24 hours right now. Try again later.",
   opted_out: "This person has opted out of WhatsApp messages from you, so nothing can be sent to them.",
   storage_not_ready: "Contact storage is not set up yet.",
   window_closed: "The 24 hour window is closed, so only an approved template can be sent. Pick a template instead.",
@@ -89,11 +86,6 @@ async function prepare(ctx: ChatSendContext, conversationId: string): Promise<{ 
 
   const eligible = await checkSendEligibility(ctx.accountId, conv.social_account_id);
   if (!eligible.ok) return refuse(eligible.reason, message(eligible.reason));
-
-  const controls = await loadControls(ctx.accountId);
-  if (!controls) return refuse("controls_unavailable", message("controls_unavailable"));
-  if (controls.killed) return refuse("sending_stopped", message("sending_stopped"));
-  if ((await countMessagesAcceptedSince(ctx.accountId, new Date(now.getTime() - DAY_MS))) >= controls.maxMessagesPerDay) return refuse("cap_messages", message("cap_messages"));
 
   // Opt-out, fail closed: a stored contact's live consent, and the hash-only suppression list (any scope).
   let contact: Prepared["contact"] = null;

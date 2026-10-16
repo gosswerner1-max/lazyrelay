@@ -1,5 +1,4 @@
--- 0130: WhatsApp broadcasts, their recipients, delivery status events, send controls (kill switch and caps), the per-connection
--- pause state, and the function that claims recipients (Phase 2 of the scheduled-broadcast feature; plan: vault note
+-- 0130: WhatsApp broadcasts, their recipients, delivery status events, the per-connection pause state, and the function that claims recipients (Phase 2 of the scheduled-broadcast feature; plan: vault note
 -- 03 - LazyRelay/plan-whatsapp-broadcasts-2026-10-15.md).
 --
 -- DRAFT for review on branch feature/whatsapp-broadcast-send. NOT applied anywhere. Apply by hand with Werner's yes, after 0128 and
@@ -22,17 +21,15 @@
 --     backend checks again right before each send (the second layer); this is the first.
 --   * whatsapp_broadcast_status_events is APPEND-ONLY (update, delete and truncate refused by trigger, no role holds the
 --     privilege), idempotent by event_key because Meta re-delivers receipts for up to 7 days.
---   * whatsapp_send_controls holds the kill switch and the caps. The global row is seeded STOPPED (kill_switch = true): nothing
---     can send until a person flips it. If the row is missing the backend refuses to send.
---
--- PLACEHOLDER NUMBERS. The caps seeded below (250 recipients per broadcast, 2 broadcasts per day, 250 messages per rolling 24
--- hours) are NOT decisions. They are conservative placeholders until Werner sets the plan caps (decision D4 in the plan note).
--- 250 matches Meta's lowest messaging-limit tier. Change the row, not the code.
+--   * There is NO volume cap and NO kill switch of LazyRelay's in this migration (none was ever applied). WhatsApp is bring-your-own-key:
+--     the customer pays Meta directly with their own token, so the only restrictions are the plan gate in the backend, the rollout env
+--     flags, and what Meta itself requires. The one pause that exists (whatsapp_connection_send_state) is set only when META reports a
+--     restriction, quality, credential or policy problem with the customer's own number, and the customer lifts it themselves.
 --
 -- Access: RLS on. Members read their account's rows. No insert, update or delete policies; the browser-facing roles hold no write
 -- privilege. Only the backend's service role writes. Idempotent (safe to apply twice), one transaction.
 --
--- ROLLBACK (by hand; it deletes every broadcast, recipient, status event, control row and pause state):
+-- ROLLBACK (by hand; it deletes every broadcast, recipient, status event and pause state):
 --   begin;
 --   drop function if exists claim_whatsapp_broadcast_recipients(uuid, integer, uuid);
 --   drop trigger if exists whatsapp_broadcast_status_events_append_only on whatsapp_broadcast_status_events;
@@ -42,51 +39,14 @@
 --   drop table if exists whatsapp_broadcast_recipients;
 --   drop table if exists whatsapp_broadcasts;
 --   drop table if exists whatsapp_connection_send_state;
---   drop table if exists whatsapp_send_controls;
 --   commit;
 -- (Dropping the events table needs the guard trigger gone first, as above; the table drop itself is not a row delete.)
 
 begin;
 
 -- ---------------------------------------------------------------------------------------------------------------------
--- Send controls: the DB-backed kill switch and caps. One global row, optional per-account override rows.
--- ---------------------------------------------------------------------------------------------------------------------
-create table if not exists whatsapp_send_controls (
-  id uuid primary key default gen_random_uuid(),
-  scope text not null,
-  -- null for the global row; the account an override applies to otherwise
-  account_id uuid references accounts(id) on delete cascade,
-  -- true = sending is stopped. A new row starts STOPPED: say kill_switch = false on purpose to allow sending.
-  kill_switch boolean not null default true,
-  -- null on an account row means "use the global number"
-  max_recipients_per_broadcast integer,
-  max_broadcasts_per_day integer,
-  max_messages_per_day integer,
-  note text,
-  updated_at timestamptz not null default now(),
-  constraint whatsapp_send_controls_scope_check check (scope in ('global', 'account')),
-  constraint whatsapp_send_controls_shape check (
-    (scope = 'global' and account_id is null and max_recipients_per_broadcast is not null and max_broadcasts_per_day is not null and max_messages_per_day is not null)
-    or (scope = 'account' and account_id is not null)
-  ),
-  constraint whatsapp_send_controls_caps_positive check (
-    (max_recipients_per_broadcast is null or max_recipients_per_broadcast between 1 and 100000)
-    and (max_broadcasts_per_day is null or max_broadcasts_per_day between 1 and 1000)
-    and (max_messages_per_day is null or max_messages_per_day between 1 and 1000000)
-  ),
-  constraint whatsapp_send_controls_note_length check (note is null or char_length(note) <= 500)
-);
-
-create unique index if not exists whatsapp_send_controls_one_global on whatsapp_send_controls (scope) where scope = 'global';
-create unique index if not exists whatsapp_send_controls_one_per_account on whatsapp_send_controls (account_id) where scope = 'account';
-
--- PLACEHOLDER numbers (see the header). Seeded STOPPED.
-insert into whatsapp_send_controls (scope, account_id, kill_switch, max_recipients_per_broadcast, max_broadcasts_per_day, max_messages_per_day)
-values ('global', null, true, 250, 2, 250)
-on conflict do nothing;
-
--- ---------------------------------------------------------------------------------------------------------------------
--- Per-connection pause: set when Meta reports a restriction, a quality problem or a credential problem. No retry into it.
+-- Per-connection pause: set ONLY when Meta reports a restriction, a quality problem, a rejected credential or a policy block on the
+-- customer's own number. No retry into it; the customer lifts it. Not a LazyRelay limit.
 -- ---------------------------------------------------------------------------------------------------------------------
 create table if not exists whatsapp_connection_send_state (
   social_account_id uuid primary key references social_accounts(id) on delete cascade,
@@ -141,7 +101,7 @@ create table if not exists whatsapp_broadcasts (
   updated_at timestamptz not null default now(),
   constraint whatsapp_broadcasts_status_check check (status in ('scheduled', 'sending', 'completed', 'cancelled', 'paused', 'failed')),
   constraint whatsapp_broadcasts_template_category_check check (template_category in ('marketing', 'utility', 'authentication')),
-  constraint whatsapp_broadcasts_pause_reason_check check (pause_reason is null or pause_reason in ('kill_switch', 'connection_unavailable', 'connection_paused', 'template_unusable', 'plan', 'cap_reached', 'send_disabled')),
+  constraint whatsapp_broadcasts_pause_reason_check check (pause_reason is null or pause_reason in ('connection_unavailable', 'connection_paused', 'template_unusable', 'plan')),
   constraint whatsapp_broadcasts_name_length check (char_length(name) between 1 and 120),
   constraint whatsapp_broadcasts_template_name_format check (template_name ~ '^[a-z0-9_]{1,512}$'),
   constraint whatsapp_broadcasts_template_language_format check (template_language ~ '^[a-z]{2,3}(_[A-Z]{2})?$'),
@@ -221,14 +181,11 @@ create index if not exists whatsapp_broadcast_status_events_recipient_idx on wha
 -- ---------------------------------------------------------------------------------------------------------------------
 -- Access: read-only for members of the owning account; only the backend's service role writes.
 -- ---------------------------------------------------------------------------------------------------------------------
-alter table whatsapp_send_controls enable row level security;
 alter table whatsapp_connection_send_state enable row level security;
 alter table whatsapp_broadcasts enable row level security;
 alter table whatsapp_broadcast_recipients enable row level security;
 alter table whatsapp_broadcast_status_events enable row level security;
 
-drop policy if exists whatsapp_send_controls_select_members on whatsapp_send_controls;
-create policy whatsapp_send_controls_select_members on whatsapp_send_controls for select to authenticated using (is_account_member(account_id));
 drop policy if exists whatsapp_connection_send_state_select_members on whatsapp_connection_send_state;
 create policy whatsapp_connection_send_state_select_members on whatsapp_connection_send_state for select to authenticated using (is_account_member(account_id));
 drop policy if exists whatsapp_broadcasts_select_members on whatsapp_broadcasts;
@@ -239,13 +196,11 @@ drop policy if exists whatsapp_broadcast_status_events_select_members on whatsap
 create policy whatsapp_broadcast_status_events_select_members on whatsapp_broadcast_status_events for select to authenticated using (is_account_member(account_id));
 
 -- Until 2026-10-30 Supabase still grants new tables to the browser-facing roles by default; this removes everything but SELECT.
-revoke all on whatsapp_send_controls from public, anon, authenticated;
 revoke all on whatsapp_connection_send_state from public, anon, authenticated;
 revoke all on whatsapp_broadcasts from public, anon, authenticated;
 revoke all on whatsapp_broadcast_recipients from public, anon, authenticated;
 revoke all on whatsapp_broadcast_status_events from public, anon, authenticated;
 
-grant select on whatsapp_send_controls to authenticated;
 grant select on whatsapp_connection_send_state to authenticated;
 grant select on whatsapp_broadcasts to authenticated;
 grant select on whatsapp_broadcast_recipients to authenticated;
@@ -253,7 +208,6 @@ grant select on whatsapp_broadcast_status_events to authenticated;
 
 -- Explicit grants for the backend (Supabase stops granting new tables to the API roles automatically on 2026-10-30).
 -- The status events are insert-only even for the backend: no UPDATE, DELETE or TRUNCATE.
-grant all on whatsapp_send_controls to service_role;
 grant all on whatsapp_connection_send_state to service_role;
 grant all on whatsapp_broadcasts to service_role;
 grant all on whatsapp_broadcast_recipients to service_role;

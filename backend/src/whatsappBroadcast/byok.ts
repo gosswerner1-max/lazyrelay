@@ -10,7 +10,7 @@
 import { supabase } from "../supabase.js";
 import { checkWhatsappPlan } from "../accountLimits.js";
 import { parseWhatsAppBundle, type WhatsAppBundle } from "../platforms/whatsapp/credentials.js";
-import { getConnectionPause } from "./controls.js";
+import { getConnectionPause } from "./connectionPause.js";
 
 export type EligibilityFailure = "plan" | "connection_unavailable" | "connection_paused" | "no_own_credentials";
 export type SendEligibility = { ok: true; bundle: WhatsAppBundle } | { ok: false; reason: EligibilityFailure };

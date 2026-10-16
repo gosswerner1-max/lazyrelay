@@ -23,7 +23,7 @@ import { connectionsFor, makeVerifier, type ConnectionRow } from "./webhookAuth.
 import { META_ID_PATTERN } from "../platforms/whatsapp/credentials.js";
 import { contactHashKey, messageKeyFor } from "../platforms/whatsapp/contactPrivacy.js";
 import { broadcastsEnabled } from "./flags.js";
-import { pauseConnection } from "./controls.js";
+import { pauseConnection } from "./connectionPause.js";
 import { classifyMetaFailure, type PauseReason } from "./metaErrors.js";
 import { recordOptOutForContact, recordOptOutForKey } from "./optOuts.js";
 import { refreshCounts } from "./broadcasts.js";

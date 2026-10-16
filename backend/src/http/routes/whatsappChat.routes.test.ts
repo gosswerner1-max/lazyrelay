@@ -230,13 +230,6 @@ describe("sending", () => {
     expect(bad.status).toBe(400);
   });
 
-  it("the kill switch is a 503 and nothing is sent", async () => {
-    const c = await conversation();
-    tables.whatsapp_send_controls[0].kill_switch = true;
-    const res = await request(app()).post(`/whatsapp/conversations/${c.id}/reply`).send({ text: "hi" });
-    expect(res.status).toBe(503);
-    expect(sent).toHaveLength(0);
-  });
 });
 
 describe("start a conversation with a saved contact", () => {

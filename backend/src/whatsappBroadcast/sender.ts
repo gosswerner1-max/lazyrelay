@@ -7,8 +7,8 @@
 //   2. hand-off   a due 'scheduled' broadcast becomes 'sending' (one loop wins the conditional update) and gets one recipient row
 //                 per opted-in contact. Resumable: a crash part-way leaves recipients_materialised_at empty and the next cycle
 //                 finishes the job (the insert ignores rows that already exist).
-//   3. send       per 'sending' broadcast: re-check the gates (DB kill switch, paid plan AND the customer's own login, connection
-//                 pause, template still approved, rolling daily cap), claim a small batch with
+//   3. send       per 'sending' broadcast: re-check the gates (paid plan AND the customer's own login, the connection not paused
+//                 by Meta, template still approved), then claim small batches, one after the other until none are left, with
 //                 claim_whatsapp_broadcast_recipients (consent and opt-outs decided in that same SQL step), then, for EACH
 //                 recipient, check consent and opt-outs again immediately before the call (the second layer), decrypt the number in
 //                 memory, and send the approved template with the customer's own token. Fail closed at every step.
@@ -16,6 +16,9 @@
 // "handed off" means Meta accepted the message and returned a message id. It is NOT delivered; only Meta's receipts say that
 // (statusWebhook.ts). Retries: only transient errors, at most 3 (metaErrors.ts). A restriction, quality or credential error pauses
 // the connection and the rest of the batch goes back untouched. Nothing here logs a number, a token, or Meta's error text.
+//
+// There is NO volume cap, no per-day limit and no kill switch of ours: the customer pays Meta directly with their own token. How much
+// is sent is bounded only by the audience, the plan gate, the rollout flags and Meta's own answers (a restriction pauses the number).
 
 import { randomUUID } from "node:crypto";
 import { supabase } from "../supabase.js";
@@ -25,19 +28,19 @@ import { messageKeyFor } from "../platforms/whatsapp/contactPrivacy.js";
 import { sendEnabled } from "./flags.js";
 import { sendTemplate, type HttpClient } from "./cloudApi.js";
 import { checkSendEligibility } from "./byok.js";
-import { countMessagesAcceptedSince, loadControls, pauseConnection, type EffectiveControls } from "./controls.js";
+import { pauseConnection } from "./connectionPause.js";
 import { classifyMetaFailure, MAX_TRANSIENT_RETRIES, retryDelayMs } from "./metaErrors.js";
 import { isSuppressed, recordOptOutForContact } from "./optOuts.js";
-import { countAudience, refreshCounts } from "./broadcasts.js";
+import { refreshCounts } from "./broadcasts.js";
 import type { TemplateCategory } from "./templates.js";
 
 export const STUCK_CLAIM_MS = 10 * 60_000;
 export const DEFAULT_BATCH_SIZE = 20;
-const MAX_BATCHES_PER_BROADCAST_PER_CYCLE = 10;
+// Page sizes of the queries (how many broadcasts or contacts one read returns), not limits on what can be sent: the next cycle or the
+// next page picks up the rest.
 const HAND_OFF_LIMIT = 10;
 const SENDING_LIMIT = 20;
 const MATERIALISE_PAGE = 500;
-const DAY_MS = 24 * 3_600_000;
 
 export interface SenderDeps {
   http: HttpClient;
@@ -152,8 +155,6 @@ async function handOffDueBroadcasts(now: Date): Promise<void> {
     .limit(HAND_OFF_LIMIT);
   if (error) fail("due broadcast lookup failed", error);
   for (const b of (data ?? []) as BroadcastRow[]) {
-    // No send controls row (or a damaged one) means no sending: leave it scheduled.
-    if (!(await loadControls(b.account_id))) continue;
     const at = now.toISOString();
     // Only one loop wins this conditional update.
     const won = await supabase.from("whatsapp_broadcasts").update({ status: "sending", started_at: at, updated_at: at }).eq("id", b.id).eq("status", "scheduled").select("id");
@@ -169,12 +170,7 @@ async function pauseBroadcast(id: string, reason: string, now: Date): Promise<vo
 }
 
 /** One recipient per opted-in contact. A marketing broadcast marks US (+1) contacts skipped. Idempotent. */
-async function materialise(b: BroadcastRow, controls: EffectiveControls, now: Date): Promise<boolean> {
-  const { audience } = await countAudience(b.account_id, b.social_account_id, b.template_category);
-  if (audience > controls.maxRecipientsPerBroadcast) {
-    await pauseBroadcast(b.id, "cap_reached", now);
-    return false;
-  }
+async function materialise(b: BroadcastRow, now: Date): Promise<void> {
   let cursor: string | null = null;
   for (;;) {
     let q = supabase
@@ -211,7 +207,6 @@ async function materialise(b: BroadcastRow, controls: EffectiveControls, now: Da
   const done = await supabase.from("whatsapp_broadcasts").update({ recipients_materialised_at: now.toISOString(), updated_at: now.toISOString() }).eq("id", b.id);
   if (done.error) fail("materialise mark failed", done.error);
   await refreshCounts(b.id);
-  return true;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -220,11 +215,7 @@ async function materialise(b: BroadcastRow, controls: EffectiveControls, now: Da
 
 async function processSending(b: BroadcastRow, deps: SenderDeps, summary: CycleSummary): Promise<void> {
   const now = deps.now ?? (() => new Date());
-  const controls = await loadControls(b.account_id);
-  if (!controls) return; // no usable send controls: no sending
-  if (!b.recipients_materialised_at && !(await materialise(b, controls, now()))) return;
-  // The kill switch stops sending but changes nothing else: recipients wait, and sending carries on when it is switched off.
-  if (controls.killed) return;
+  if (!b.recipients_materialised_at) await materialise(b, now());
 
   const eligible = await checkSendEligibility(b.account_id, b.social_account_id);
   if (!eligible.ok) {
@@ -242,12 +233,10 @@ async function processSending(b: BroadcastRow, deps: SenderDeps, summary: CycleS
   }
 
   const batchSize = deps.batchSize ?? DEFAULT_BATCH_SIZE;
-  for (let i = 0; i < MAX_BATCHES_PER_BROADCAST_PER_CYCLE; i++) {
-    const used = await countMessagesAcceptedSince(b.account_id, new Date(now().getTime() - DAY_MS));
-    const allowance = controls.maxMessagesPerDay - used;
-    if (allowance <= 0) return; // the rolling daily cap: wait for the window to free up
+  // One small batch after another until none is left: no ceiling per cycle. A Meta restriction (sendBatch answers "stop") ends it.
+  for (;;) {
     const token = randomUUID();
-    const claimed = await supabase.rpc("claim_whatsapp_broadcast_recipients", { p_broadcast_id: b.id, p_limit: Math.min(batchSize, allowance, 200), p_claim_token: token });
+    const claimed = await supabase.rpc("claim_whatsapp_broadcast_recipients", { p_broadcast_id: b.id, p_limit: Math.min(batchSize, 200), p_claim_token: token });
     if (claimed.error) fail("claim failed", claimed.error);
     const rows = (claimed.data ?? []) as ClaimedRow[];
     if (rows.length === 0) {

@@ -1,7 +1,7 @@
 // WhatsApp broadcasts (Phase 2): the customer's templates (copied from THEIR Meta account), their own rate card (for a cost ESTIMATE),
 // and broadcasts: preview, schedule, list, cancel, plus lifting a pause on a number.
 //
-//   GET  /whatsapp/send-capabilities          { sending, stopped } booleans only; false (never an error) while anything is off
+//   GET  /whatsapp/send-capabilities          { sending } a boolean only; false (never an error) while anything is off
 //   GET  /whatsapp/templates                  the connection's stored templates; only approved, supported ones are "usable"
 //   POST /whatsapp/templates/sync             read the templates from the customer's own Meta account (their stored token)
 //   GET  /whatsapp/rate-card, PUT             the customer's own per-message prices (an estimate only, never Meta's figure)
@@ -25,7 +25,7 @@ import { dbError } from "./shared.js";
 import { canSeePlatform } from "./socialAccounts.routes.js";
 import { sendEnabled } from "../../whatsappBroadcast/flags.js";
 import { fetchHttpClient, type HttpClient } from "../../whatsappBroadcast/cloudApi.js";
-import { loadControls, resumeConnection } from "../../whatsappBroadcast/controls.js";
+import { resumeConnection } from "../../whatsappBroadcast/connectionPause.js";
 import { cancelBroadcast, createBroadcast, getBroadcast, listBroadcasts } from "../../whatsappBroadcast/broadcasts.js";
 import { listStoredTemplates, syncTemplates } from "../../whatsappBroadcast/templates.js";
 import { UUID, firstIssue, humanRoute, ownsConnection, statusForRefusal, userIdFromToken } from "./whatsappRouteGate.js";
@@ -66,20 +66,16 @@ export function buildWhatsAppBroadcastsRouter(deps: { http?: HttpClient } = {}):
   const http = deps.http ?? fetchHttpClient;
   const router = express.Router();
 
-  // Booleans only. True when every gate passes AND the contact keys and the send controls exist.
+  // A boolean only. True when the rollout flags are on, the platform is visible for the account, the contact keys exist AND the plan
+  // gate passes. That is all: there is no cap or kill switch behind it.
   router.get("/whatsapp/send-capabilities", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     let sending = false;
-    let stopped = false;
     try {
-      if (sendEnabled() && canSeePlatform("whatsapp", req.accountId) && contactStorageReady() && (await checkWhatsappPlan(req.accountId!)) === null) {
-        const controls = await loadControls(req.accountId!);
-        stopped = controls?.killed ?? false;
-        sending = !!controls && !controls.killed;
-      }
+      sending = sendEnabled() && canSeePlatform("whatsapp", req.accountId) && contactStorageReady() && (await checkWhatsappPlan(req.accountId!)) === null;
     } catch {
       sending = false;
     }
-    res.json({ sending, stopped });
+    res.json({ sending });
   });
 
   router.get("/whatsapp/templates", ...humanRoute, async (req: AuthedRequest, res) => {
@@ -188,7 +184,7 @@ export function buildWhatsAppBroadcastsRouter(deps: { http?: HttpClient } = {}):
         { dryRun: b.data.dry_run === true },
       );
       if (!out.ok) {
-        res.status(statusForRefusal(out.code)).json({ error: out.message, code: out.code, ...(out.limit !== undefined ? { limit: out.limit } : {}) });
+        res.status(statusForRefusal(out.code)).json({ error: out.message, code: out.code });
         return;
       }
       res.status(out.dryRun ? 200 : 201).json({ dryRun: out.dryRun, preview: out.preview, ...(out.broadcast ? { broadcast: out.broadcast } : {}) });

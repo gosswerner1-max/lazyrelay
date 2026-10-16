@@ -1,5 +1,5 @@
 // Static checks on migrations 0129 (message templates, rate cards) and 0130 (broadcasts, recipients, delivery status events,
-// send controls, connection pause state, the atomic claim function). The repo has NO SQL execution harness: these read the files
+// connection pause state, the atomic claim function). The repo has NO SQL execution harness: these read the files
 // as text. They prove the files say the right things (RLS on, grants, guards, no raw numbers, append-only wording); they do NOT
 // prove the triggers, policies or the claim function behave correctly in Postgres. That needs a run against a throwaway Supabase
 // branch before applying (see docs/whatsapp-phase2-pr-notes.md).
@@ -89,7 +89,7 @@ describe("migration 0129_whatsapp_templates_rate_cards", () => {
 
 describe("migration 0130_whatsapp_broadcasts", () => {
   const m = load("0130_");
-  const TABLES = ["whatsapp_send_controls", "whatsapp_connection_send_state", "whatsapp_broadcasts", "whatsapp_broadcast_recipients", "whatsapp_broadcast_status_events"];
+  const TABLES = ["whatsapp_connection_send_state", "whatsapp_broadcasts", "whatsapp_broadcast_recipients", "whatsapp_broadcast_status_events"];
   commonChecks(m, "0130_whatsapp_broadcasts.sql", TABLES);
 
   it("broadcasts: a snapshot of the template, a status list, a schedule, counters, and cascades from the account and the connection", () => {
@@ -140,17 +140,6 @@ describe("migration 0130_whatsapp_broadcasts", () => {
     expect(m.code).toMatch(/errcode = 'LRWB1'/);
     // the one allowed delete is the cascade from the parent recipient
     expect(m.code).toMatch(/from whatsapp_broadcast_recipients \w+ where \w+\.id = old\.broadcast_recipient_id/);
-  });
-
-  it("send controls: DB-backed kill switch and caps, global row seeded STOPPED, placeholders labelled as such, global row complete", () => {
-    const cols = m.columns("whatsapp_send_controls");
-    for (const c of ["scope", "account_id", "kill_switch", "max_recipients_per_broadcast", "max_broadcasts_per_day", "max_messages_per_day"]) expect(cols).toContain(c);
-    const body = m.tableBody("whatsapp_send_controls");
-    expect(body).toMatch(/scope in \('global', 'account'\)/);
-    expect(body).toMatch(/kill_switch boolean not null default true/);
-    expect(m.code).toMatch(/insert into whatsapp_send_controls[\s\S]*values \('global', null, true, 250, 2, 250\)[\s\S]*on conflict[\s\S]*do nothing/);
-    // the cap numbers are Werner's call (decision D4) and are NOT set: they must be flagged as placeholders in the file
-    expect(m.sql).toMatch(/PLACEHOLDER/);
   });
 
   it("connection pause state: why a connection was paused, no retry into a restriction", () => {

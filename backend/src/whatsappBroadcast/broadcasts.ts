@@ -4,9 +4,11 @@
 // A broadcast is one approved template, sent to the opted-in contacts of ONE connection, at a scheduled time, with the customer's
 // own stored login. Creating one is refused unless every gate passes, and each refusal has a stable code:
 //   plan / no_own_credentials / connection_unavailable / connection_paused   (byok.ts: paid plan AND the customer's own login)
-//   controls_unavailable / sending_stopped                                    (controls.ts: DB kill switch, fail closed)
 //   template_not_found / template_unusable / params_mismatch / name_invalid / schedule_invalid
-//   empty_audience / cap_recipients / cap_broadcasts                          (caps from the database)
+//   empty_audience
+//
+// There is NO volume cap and NO kill switch: customers pay Meta directly with their own tokens. Any audience size and any number of
+// broadcasts per day is accepted; Meta's own limits and the plan gate are the only restrictions.
 //
 // "posted" means HANDED OFF to Meta, not delivered. Delivery is shown only from Meta's own receipts, as "N delivered of M". Cost is
 // an ESTIMATE: delivered messages times the price the customer typed into their own rate card. Meta never tells us the money.
@@ -15,7 +17,6 @@ import { randomUUID } from "node:crypto";
 import { supabase } from "../supabase.js";
 import { cleanDisplayName } from "../whatsappContacts.js";
 import { checkSendEligibility } from "./byok.js";
-import { countBroadcastsSince, loadControls } from "./controls.js";
 import { MAX_TEMPLATE_PARAM_CHARS, sanitizeTemplateParam } from "./cloudApi.js";
 import type { TemplateCategory } from "./templates.js";
 
@@ -79,14 +80,13 @@ export interface Preview {
   estimatedCost: CostEstimate | null;
 }
 
-export type CreateRefusal = { ok: false; code: string; message: string; limit?: number };
+export type CreateRefusal = { ok: false; code: string; message: string };
 export type CreateOutcome = { ok: true; dryRun: boolean; preview: Preview; broadcast?: BroadcastView } | CreateRefusal;
 
-const refuse = (code: string, message: string, limit?: number): CreateRefusal => ({ ok: false, code, message, ...(limit !== undefined ? { limit } : {}) });
+const refuse = (code: string, message: string): CreateRefusal => ({ ok: false, code, message });
 
 const MIN_LEAD_MS = 60_000;
 const MAX_LEAD_MS = 30 * 24 * 3_600_000;
-const DAY_MS = 24 * 3_600_000;
 
 const ELIGIBILITY_MESSAGES: Record<string, string> = {
   plan: "WhatsApp broadcasts are available on the Business plan and above.",
@@ -178,10 +178,6 @@ export async function createBroadcast(ctx: CreateContext, input: CreateInput, op
   const eligible = await checkSendEligibility(ctx.accountId, input.socialAccountId);
   if (!eligible.ok) return refuse(eligible.reason, ELIGIBILITY_MESSAGES[eligible.reason] ?? "Sending is not available for this connection.");
 
-  const controls = await loadControls(ctx.accountId);
-  if (!controls) return refuse("controls_unavailable", "Broadcast sending is not set up yet.");
-  if (controls.killed) return refuse("sending_stopped", "Broadcast sending is switched off right now.");
-
   const { data: tdata, error: terr } = await supabase
     .from("whatsapp_message_templates")
     .select("id, name, language, category, status, supported, variable_count")
@@ -201,9 +197,6 @@ export async function createBroadcast(ctx: CreateContext, input: CreateInput, op
 
   const { audience, excludedUs } = await countAudience(ctx.accountId, input.socialAccountId, template.category);
   if (audience === 0) return refuse("empty_audience", "There is nobody to send this to. Add opted-in contacts first.");
-  if (audience > controls.maxRecipientsPerBroadcast) return refuse("cap_recipients", `A broadcast can reach at most ${controls.maxRecipientsPerBroadcast} people right now.`, controls.maxRecipientsPerBroadcast);
-  const recent = await countBroadcastsSince(ctx.accountId, new Date(now.getTime() - DAY_MS));
-  if (recent >= controls.maxBroadcastsPerDay) return refuse("cap_broadcasts", `You can schedule at most ${controls.maxBroadcastsPerDay} broadcasts in 24 hours right now.`, controls.maxBroadcastsPerDay);
 
   const cards = await loadRateCards(ctx.accountId, [input.socialAccountId]);
   const preview: Preview = { audience, excludedUs, estimatedCost: estimateCost(template.category, audience, cards.get(input.socialAccountId) ?? null) };

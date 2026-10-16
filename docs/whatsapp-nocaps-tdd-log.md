@@ -1,0 +1,25 @@
+# WhatsApp and X are BYOK: no volume caps, no kill switches (TDD log)
+
+Branch `fix/whatsapp-byok-no-caps`, from `origin/main` at `bd7eac0` (PR 139 = 8812782, PR 141 = bd7eac0). Nothing is pushed, applied or
+switched on. Test runs need the same throwaway env as before (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`,
+`MCP_RESOURCE_URL` for the backend; throwaway `VITE_*` for the build).
+
+## Baseline (origin/main, before any change)
+
+| Check | Result |
+|---|---|
+| backend `npx tsc --noEmit` | exit 0 |
+| backend `npx vitest run` | 159 files, 2941 tests: 2940 passed, 1 failed (`app.test.ts > GET /health > returns 200`, the known 5 s timeout) |
+| frontend `npx vitest run` | 74 files, 766 tests: 766 passed, 0 failed |
+
+## Steps
+
+### 1. RED: tests that prove the opposite of a cap
+- New `backend/src/whatsappBroadcast/noCaps.test.ts` (source scan: no cap or kill-switch table, column, seed, function, setting or refusal code in the WhatsApp code or migrations 0128 to 0131) and `noCapsBehavior.test.ts` (1,000 recipients, 12 broadcasts in a day, 600 messages in one go, 300 chat messages in 24 h, an update line to 100 contacts).
+- RED: `vitest run src/whatsappBroadcast/noCaps.test.ts src/whatsappBroadcast/noCapsBehavior.test.ts` -> `Test Files 2 failed, Tests 17 failed | 28 passed (45)`. Failing: the scan flagged `broadcasts.ts`, `controls.ts`, `sender.ts`, `chatSend.ts`, `conversations.ts`, `whatsappBroadcasts.routes.ts`, `whatsappRouteGate.ts` and `0130_whatsapp_broadcasts.sql`; the behaviours were refused by `cap_recipients`, `cap_broadcasts`, `cap_messages` and the 25 person limit.
+
+### 2. GREEN: backend caps and kill switches removed
+- Removed `whatsappBroadcast/controls.ts` (loadControls, EffectiveControls, countMessagesAcceptedSince, countBroadcastsSince); the Meta-driven pause functions moved to `connectionPause.ts` (git rename of `controls.ts` and its test). Removed every reader: `broadcasts.ts` (kill switch, recipient cap, broadcasts per day, the `limit` field of a refusal), `sender.ts` (global/per-account kill switch, rolling 24 h message cap, cap_reached pause, the 10-batch per-cycle ceiling), `chatSend.ts` (kill switch, shared daily cap and their messages), `conversations.ts` (`MAX_UPDATE_RECIPIENTS`, `audience_too_large`, the cap codes in the stop list), `whatsappBroadcasts.routes.ts` (capabilities is `{ sending }` only), `whatsappRouteGate.ts` (503 and 429 cap codes), test kit seeding. Migration 0130 edited in place (unapplied).
+- Also fixed in passing so "any audience size" is true: audience members are read page by page (the API returns at most 1,000 rows per read), member counts use count queries, adding members works in chunks with no silent 500 slice.
+- GREEN: `noCaps.test.ts` + `noCapsBehavior.test.ts` pass (45 tests); the WhatsApp backend suites, migration tests and `startupConfigCheck.test.ts`: `Test Files 31 passed, Tests 724 passed (724)`; `tsc --noEmit` exit 0. Old tests that asserted caps or the kill switch were deleted; tests that used the kill switch only as a way to hold a broadcast now use a Meta-style pause row instead.
+
