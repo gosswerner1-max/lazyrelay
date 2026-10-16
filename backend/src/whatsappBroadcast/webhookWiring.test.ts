@@ -37,8 +37,7 @@ beforeEach(() => {
   setTestEnv();
   tables.subscriptions = [{ account_id: ACC, tier: "business", status: "active" }];
   tables.whatsapp_messages = [];
-  for (const m of ["log", "warn", "error"] as const) vi.spyOn(console, m).mockImplementation((...a: unknown[]) => void process.stdout.write(`[${m}] ${a.join(" ")}
-`));
+  for (const m of ["log", "warn", "error"] as const) vi.spyOn(console, m).mockImplementation(() => {});
 });
 afterEach(() => {
   process.env = { ...SAVED };

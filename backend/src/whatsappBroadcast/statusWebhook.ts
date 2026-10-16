@@ -18,10 +18,9 @@
 //
 // Nothing here logs a number, a message id, a name or Meta's error text.
 
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { supabase } from "../supabase.js";
-import { recordSecurityEvent } from "../http/securityAlerts.js";
-import { META_ID_PATTERN, parseWhatsAppBundle } from "../platforms/whatsapp/credentials.js";
+import { connectionsFor, makeVerifier, type ConnectionRow } from "./webhookAuth.js";
+import { META_ID_PATTERN } from "../platforms/whatsapp/credentials.js";
 import { contactHashKey, messageKeyFor } from "../platforms/whatsapp/contactPrivacy.js";
 import { broadcastsEnabled } from "./flags.js";
 import { pauseConnection } from "./controls.js";
@@ -104,36 +103,6 @@ export function extractReceipts(payload: unknown, now: Date): { receipts: Receip
   return { receipts, events };
 }
 
-function safeEqual(a: string, b: string): boolean {
-  return Buffer.byteLength(a) === Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a), Buffer.from(b));
-}
-function signatureMatches(rawBody: Buffer, header: string, appSecret: string): boolean {
-  return safeEqual(header, "sha256=" + createHmac("sha256", appSecret).update(rawBody).digest("hex"));
-}
-
-interface ConnectionRow {
-  id: string;
-  account_id: string;
-  access_token_vault_id: string | null;
-}
-
-async function loadAppSecret(vaultId: string | null): Promise<string | null> {
-  if (!vaultId) return null;
-  const { data, error } = await supabase.rpc("read_social_token", { p_vault_id: vaultId });
-  if (error) return null;
-  return parseWhatsAppBundle(typeof data === "string" ? data : null)?.appSecret ?? null;
-}
-
-const COLUMNS = "id, account_id, access_token_vault_id";
-
-async function connectionsFor(wabaId: string, phoneNumberId: string | null): Promise<ConnectionRow[]> {
-  let q = supabase.from("social_accounts").select(COLUMNS).eq("platform", "whatsapp").eq("whatsapp_business_account_id", wabaId).is("disconnected_at", null).is("tokens_wiped_at", null);
-  if (phoneNumberId) q = q.eq("whatsapp_phone_number_id", phoneNumberId);
-  const { data, error } = await q;
-  if (error) throw new Error("account lookup failed");
-  return (data ?? []) as ConnectionRow[];
-}
-
 export async function processWhatsAppStatusEvent(rawBody: Buffer, signatureHeader: string, now: Date = new Date()): Promise<StatusSummary> {
   const summary: StatusSummary = { statuses: 0, applied: 0, unmatched: 0, rejected: 0, blocked: 0, paused: 0 };
   if (!broadcastsEnabled() || !contactHashKey()) return summary;
@@ -148,16 +117,7 @@ export async function processWhatsAppStatusEvent(rawBody: Buffer, signatureHeade
   summary.statuses = receipts.length;
   if (receipts.length === 0 && events.length === 0) return summary;
 
-  const verified = new Map<string, boolean>();
-  const verify = async (c: ConnectionRow): Promise<boolean | "blocked"> => {
-    if (verified.has(c.id)) return verified.get(c.id)!;
-    const secret = await loadAppSecret(c.access_token_vault_id);
-    if (!secret) return "blocked";
-    const good = signatureMatches(rawBody, signatureHeader, secret);
-    if (!good) recordSecurityEvent("whatsapp_bad_signature", "WhatsApp webhook delivery failed signature verification");
-    verified.set(c.id, good);
-    return good;
-  };
+  const verify = makeVerifier(rawBody, signatureHeader);
 
   // Receipts, grouped by (WABA id, phone number id).
   const groups = new Map<string, Receipt[]>();
