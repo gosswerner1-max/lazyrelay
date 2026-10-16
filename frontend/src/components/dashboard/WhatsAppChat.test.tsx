@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   sendWhatsAppTemplate: vi.fn(),
   sendWhatsAppApprovalRequest: vi.fn(),
   startWhatsAppConversation: vi.fn(),
+  startWhatsAppDirectChat: vi.fn(),
   listWhatsAppTemplates: vi.fn(),
   listWhatsAppContacts: vi.fn(),
   listWhatsAppApprovals: vi.fn(),
@@ -139,8 +140,8 @@ describe("inbox", () => {
     mockThread(CLOSED, [], { id: "c9", displayName: "Thandi", unreadCount: 0 });
     render(<WhatsAppInbox socialAccountId={SA1} />);
     await screen.findByText("Pablo");
-    await user.selectOptions(screen.getByLabelText(/message a saved contact/i), "k1");
-    await user.click(screen.getByRole("button", { name: /start chat/i }));
+    await user.selectOptions(screen.getByLabelText(/pick a saved contact/i), "k1");
+    await user.click(screen.getByRole("button", { name: /open chat/i }));
     await waitFor(() => expect(api.startWhatsAppConversation).toHaveBeenCalledWith("k1"));
     await waitFor(() => expect(api.getWhatsAppThread).toHaveBeenCalledWith("c9"));
   });
@@ -406,6 +407,79 @@ describe("saved audiences and update lines", () => {
     expect(api.deleteWhatsAppAudience).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: /yes, delete it/i }));
     await waitFor(() => expect(api.deleteWhatsAppAudience).toHaveBeenCalledWith("au1"));
+  });
+});
+
+describe("Start a conversation (type a number, click Start chat)", () => {
+  const SENTENCE = "By initializing this chat, you confirm compliance with Meta's user opt-in messaging policies.";
+
+  it("shows one labelled input, a Start chat button and the single reminder sentence under it, and no consent form fields", async () => {
+    const { container } = render(<WhatsAppInbox socialAccountId={SA1} />);
+    await screen.findByText("Pablo");
+    const input = screen.getByLabelText("Start a conversation");
+    expect(input).toHaveAttribute("type", "tel");
+    expect(screen.getByRole("button", { name: "Start chat" })).toBeInTheDocument();
+    const reminder = screen.getByText(SENTENCE);
+    expect(input.compareDocumentPosition(reminder) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(container.textContent).not.toMatch(/date they gave consent|where did the consent come from|proof reference|what did they agree to/i);
+    expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  it("keeps Start chat off until a number is typed, and the number out of session replay", async () => {
+    render(<WhatsAppInbox socialAccountId={SA1} />);
+    await screen.findByText("Pablo");
+    expect(screen.getByRole("button", { name: "Start chat" })).toBeDisabled();
+    await userEvent.setup().type(screen.getByLabelText("Start a conversation"), "+27 82 123 4567");
+    expect(screen.getByRole("button", { name: "Start chat" })).toBeEnabled();
+    expect(screen.getByLabelText("Start a conversation").closest(".ph-no-capture")).not.toBeNull();
+  });
+
+  it("sends only the connection and the number, then opens the new chat and refreshes the list", async () => {
+    const user = userEvent.setup();
+    api.startWhatsAppDirectChat.mockResolvedValue({ conversationId: "c9", created: true, contactCreated: true, window: CLOSED });
+    mockThread(CLOSED, [], { id: "c9" });
+    render(<WhatsAppInbox socialAccountId={SA1} />);
+    await screen.findByText("Pablo");
+    const listCalls = api.listWhatsAppConversations.mock.calls.length;
+    await user.type(screen.getByLabelText("Start a conversation"), "+27 82 123 4567");
+    await user.click(screen.getByRole("button", { name: "Start chat" }));
+    await waitFor(() => expect(api.startWhatsAppDirectChat).toHaveBeenCalledTimes(1));
+    expect(api.startWhatsAppDirectChat).toHaveBeenCalledWith(SA1, "+27 82 123 4567");
+    await waitFor(() => expect(api.getWhatsAppThread).toHaveBeenCalledWith("c9"));
+    expect(api.listWhatsAppConversations.mock.calls.length).toBeGreaterThan(listCalls);
+    expect(screen.getByLabelText("Start a conversation")).toHaveValue("");
+  });
+
+  it("Enter in the box starts the chat too", async () => {
+    const user = userEvent.setup();
+    api.startWhatsAppDirectChat.mockResolvedValue({ conversationId: "c9", created: true, contactCreated: true, window: CLOSED });
+    mockThread(CLOSED, [], { id: "c9" });
+    render(<WhatsAppInbox socialAccountId={SA1} />);
+    await screen.findByText("Pablo");
+    await user.type(screen.getByLabelText("Start a conversation"), "+27821234567{Enter}");
+    await waitFor(() => expect(api.startWhatsAppDirectChat).toHaveBeenCalledWith(SA1, "+27821234567"));
+  });
+
+  it("shows the server's refusal in words and keeps the typed number so it can be fixed", async () => {
+    const user = userEvent.setup();
+    api.startWhatsAppDirectChat.mockRejectedValue(new Error("This number has opted out and cannot be messaged."));
+    render(<WhatsAppInbox socialAccountId={SA1} />);
+    await screen.findByText("Pablo");
+    await user.type(screen.getByLabelText("Start a conversation"), "+27 82 123 4567");
+    await user.click(screen.getByRole("button", { name: "Start chat" }));
+    expect(await screen.findByText(/has opted out and cannot be messaged/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Start a conversation")).toHaveValue("+27 82 123 4567");
+  });
+
+  it("the saved contacts picker still works, under its own button", async () => {
+    const user = userEvent.setup();
+    api.startWhatsAppConversation.mockResolvedValue({ conversationId: "c8", created: true, window: CLOSED });
+    mockThread(CLOSED, [], { id: "c8" });
+    render(<WhatsAppInbox socialAccountId={SA1} />);
+    await screen.findByText("Pablo");
+    await user.selectOptions(screen.getByLabelText("Or pick a saved contact"), "k1");
+    await user.click(screen.getByRole("button", { name: "Open chat" }));
+    await waitFor(() => expect(api.startWhatsAppConversation).toHaveBeenCalledWith("k1"));
   });
 });
 

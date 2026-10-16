@@ -75,11 +75,12 @@ describe("WhatsAppTab", () => {
     expect(screen.queryByRole("button", { name: /add contact/i })).toBeNull();
   });
 
-  it("says plainly that nothing is sent, and shows the add form, import, contacts and opt-outs for the connection", async () => {
+  it("says plainly that nothing is sent, and shows the CSV import, contacts and opt-outs for the connection, with no one-by-one consent form", async () => {
     state.accounts = [{ id: SA1, platform: "whatsapp", display_name: "Acme Cafe" }];
     render(<WhatsAppTab />);
     expect(screen.getByText(/nothing is sent/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /add contact/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /add contact/i })).toBeNull();
+    expect(screen.queryByLabelText(/date they gave consent|where did the consent come from|proof reference|what did they agree to/i)).toBeNull();
     expect(screen.getByLabelText(/csv file/i)).toBeInTheDocument();
     await waitFor(() => expect(api.listWhatsAppContacts).toHaveBeenCalledWith(expect.objectContaining({ socialAccountId: SA1 })));
     await waitFor(() => expect(api.listWhatsAppOptOuts).toHaveBeenCalled());

@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useDashboard } from "./DashboardContext";
 import { useWhatsAppSend } from "./useWhatsAppSend";
-import { WhatsAppOptInForm } from "../../components/dashboard/WhatsAppOptInForm";
 import { WhatsAppContactImport } from "../../components/dashboard/WhatsAppContactImport";
 import { WhatsAppContactList, WhatsAppOptOuts } from "../../components/dashboard/WhatsAppContactList";
 import { WhatsAppInbox } from "../../components/dashboard/WhatsAppInbox";
@@ -103,7 +102,6 @@ export function WhatsAppTab() {
       {active === "updates" && <WhatsAppAudiences key={`aud-${connId}`} socialAccountId={connId} />}
       {active === "contacts" && (
         <>
-          <WhatsAppOptInForm key={`add-${connId}`} socialAccountId={connId} onAdded={bump} />
           <WhatsAppContactImport key={`import-${connId}`} socialAccountId={connId} onImported={bump} />
           <WhatsAppContactList key={`list-${connId}`} socialAccountId={connId} refreshKey={refresh} onChanged={bump} />
           <WhatsAppOptOuts refreshKey={refresh} />

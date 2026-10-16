@@ -351,3 +351,15 @@
     color: #ffffff;
   }
 }
+
+/* ---- "Start a conversation": one prominent number box, the Start chat button and the single reminder sentence ---- */
+.byok-panels .wac-quick .byok-field input {
+  font-size: 1rem;
+  padding-block: 0.7rem;
+}
+
+.byok-panels .wac-quick__reminder {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.01em;
+}

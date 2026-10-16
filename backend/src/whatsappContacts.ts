@@ -15,7 +15,7 @@ import { contactHashKey, contactKeyFor, maskPhone } from "./platforms/whatsapp/c
 import { normalizePhone } from "./platforms/whatsapp/phone.js";
 import { encryptPhone, phoneVaultConfigured } from "./platforms/whatsapp/phoneVault.js";
 
-export const OPT_IN_SOURCES = ["customer_import", "website_form", "whatsapp_inbound", "click_to_whatsapp_ad", "in_person", "phone_call", "qr_code", "other"] as const;
+export const OPT_IN_SOURCES = ["customer_import", "website_form", "whatsapp_inbound", "click_to_whatsapp_ad", "in_person", "phone_call", "qr_code", "other", "direct_entry"] as const;
 export type OptInSource = (typeof OPT_IN_SOURCES)[number];
 
 /** Version of the attestation wording the customer ticks (frontend/src/lib/whatsappAttestation.ts). Bump both together. */

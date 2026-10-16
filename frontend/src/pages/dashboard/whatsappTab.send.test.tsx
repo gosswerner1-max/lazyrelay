@@ -73,7 +73,8 @@ describe("WhatsApp tab, sending on", () => {
     await user.click(screen.getByRole("button", { name: "Updates" }));
     expect(await screen.findByText("Audiences and updates")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Contacts" }));
-    expect(await screen.findByRole("button", { name: /add contact/i })).toBeInTheDocument();
+    expect(await screen.findByLabelText(/csv file/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /add contact/i })).toBeNull();
     expect(screen.getByText("Opted-out numbers")).toBeInTheDocument();
   });
 
@@ -98,7 +99,8 @@ describe("WhatsApp tab, sending off", () => {
   it("is the contacts and consent screen of Phase 1: no views, nothing is sent, and it says so", async () => {
     api.getWhatsAppSendCapabilities.mockResolvedValue({ sending: false });
     render(<WhatsAppTab />);
-    expect(await screen.findByRole("button", { name: /add contact/i })).toBeInTheDocument();
+    expect(await screen.findByLabelText(/csv file/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /add contact/i })).toBeNull();
     expect(screen.queryByRole("navigation", { name: /whatsapp views/i })).toBeNull();
     expect(screen.getByText(/nothing is sent from here yet/i)).toBeInTheDocument();
     expect(api.listWhatsAppConversations).not.toHaveBeenCalled();

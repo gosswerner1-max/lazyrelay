@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
 import { api, type WhatsAppContact, type WhatsAppConversation } from "../../lib/api";
+import { DIRECT_ENTRY_REMINDER } from "../../lib/whatsappDirectEntry";
 import { safeDisplay, safeName } from "../../lib/whatsappThreads";
 import { windowLabel } from "../../lib/whatsappSend";
 import { usePolling } from "../../lib/usePolling";
@@ -10,7 +11,8 @@ import "../../styles/whatsapp-chat.css";
 
 // The inbox: every conversation with one of the customer's WhatsApp numbers, newest first, with the unread count and whether Meta's 24
 // hour window is open. A person is shown by their WhatsApp name or a masked number, never the number. It refreshes itself every 20
-// seconds while the page is visible (the app has no websockets). "Message a saved contact" opens a chat with a saved contact who opted in.
+// seconds while the page is visible (the app has no websockets). "Start a conversation" takes a typed number (the server records the consent as
+// Direct Entry); "Or pick a saved contact" opens a chat with a saved contact who opted in.
 
 const errText = (err: unknown) => (err instanceof Error && err.message ? err.message : "Something went wrong. Please try again.");
 const when = (iso: string) => {
@@ -27,6 +29,8 @@ export function WhatsAppInbox({ socialAccountId }: { socialAccountId: string }) 
   const [contacts, setContacts] = useState<WhatsAppContact[]>([]);
   const [contactId, setContactId] = useState("");
   const [starting, setStarting] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [startingNumber, setStartingNumber] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -75,15 +79,52 @@ export function WhatsAppInbox({ socialAccountId }: { socialAccountId: string }) 
     }
   }
 
+  // Type a number, click Start chat. The server records the consent itself (Direct Entry); nothing about consent is asked here.
+  async function startFromNumber(e: FormEvent) {
+    e.preventDefault();
+    const number = phone.trim();
+    if (!number || startingNumber) return;
+    setStartingNumber(true);
+    setError("");
+    try {
+      const r = await api.startWhatsAppDirectChat(socialAccountId, number);
+      setPhone("");
+      await load();
+      setSelected(r.conversationId);
+      if (r.contactCreated) {
+        api
+          .listWhatsAppContacts({ socialAccountId, status: "opted_in", limit: 100 })
+          .then((list) => setContacts(list.contacts))
+          .catch(() => undefined);
+      }
+    } catch (err) {
+      setError(errText(err));
+    } finally {
+      setStartingNumber(false);
+    }
+  }
+
   return (
     <section className="byok-card wac-card wac-chat" aria-labelledby={`${id}-title`}>
       <div className="wac-card">
         <h3 id={`${id}-title`} className="wac-title">
           Conversations
         </h3>
+        <form className="wac-composer wac-quick" onSubmit={(e) => void startFromNumber(e)}>
+          <label className="byok-field wac-field ph-no-capture ph-mask">
+            Start a conversation
+            <input type="tel" inputMode="tel" autoComplete="off" placeholder="+27 82 123 4567" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </label>
+          <div className="byok-actions">
+            <button type="submit" className="byok-primary" disabled={!phone.trim() || startingNumber}>
+              Start chat
+            </button>
+          </div>
+          <p className="byok-card__hint wac-quick__reminder">{DIRECT_ENTRY_REMINDER}</p>
+        </form>
         <div className="wac-composer">
           <label className="byok-field wac-field">
-            Message a saved contact
+            Or pick a saved contact
             <select value={contactId} onChange={(e) => setContactId(e.target.value)}>
               <option value="">Choose a contact</option>
               {contacts.map((c) => (
@@ -95,7 +136,7 @@ export function WhatsAppInbox({ socialAccountId }: { socialAccountId: string }) 
           </label>
           <div className="byok-actions">
             <button type="button" className="byok-secondary" disabled={!contactId || starting} onClick={() => void start()}>
-              Start chat
+              Open chat
             </button>
           </div>
         </div>
