@@ -173,7 +173,18 @@ async function prerenderRoute(page, pristineShell, { path, outDir, waitFor }) {
     // (SourceForge) write that address into their own links while the page renders. Left alone,
     // it ships in the static HTML as a broken developer link. Swap it for the public origin.
     const PUBLIC_ORIGIN = "https://lazyrelay.com";
-    const rootHtml = (await page.$eval("#root", (el) => el.innerHTML)).split(`http://localhost:${PORT}`).join(PUBLIC_ORIGIN);
+    // The Google tag and the SourceForge badge script are added after the page load event (src/lib/deferUntilLoad.ts).
+    // If the bot's page ever ends up with one inside the baked markup, drop it so the deferral is not undone;
+    // the SourceForge placeholder link stays.
+    const DEFERRED_SCRIPT_HOSTS = ["googletagmanager.com", "b.sf-syn.com"];
+    const deferredScriptTag = new RegExp(
+      `<script\\b[^>]*\\bsrc="[^"]*(?:${DEFERRED_SCRIPT_HOSTS.map((h) => h.replace(/\./g, "\\.")).join("|")})[^"]*"[^>]*>\\s*</script>`,
+      "gi",
+    );
+    const rootHtml = (await page.$eval("#root", (el) => el.innerHTML))
+      .split(`http://localhost:${PORT}`)
+      .join(PUBLIC_ORIGIN)
+      .replace(deferredScriptTag, "");
     const title = await page.title();
     const canonical = await page.$eval('link[rel="canonical"]', (el) => el.href).catch(() => null);
 
