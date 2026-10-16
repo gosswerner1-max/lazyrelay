@@ -58,8 +58,22 @@ describe("WhatsApp guide: each confirmed step is present", () => {
     ["pasting into LazyRelay", /Custom developer keys/],
     ["the three fields LazyRelay asks for", /WABA ID[\s\S]*Phone number ID[\s\S]*System user token/],
     ["replies and delivery receipts via the existing webhook details", /Webhook details for your Meta app/],
+    ["the step that makes the Meta app Live", /Make your Meta app Live/],
+    ["why Live is needed (test messages only until then)", /Meta only sends test messages from its own dashboard/],
   ])("has %s", (_l, re) => {
     expect(body).toMatch(re);
+  });
+
+  it("puts the Live step before the webhook step, because replies cannot arrive until the app is Live", () => {
+    const titles = WHATSAPP_GUIDE.steps.map((s) => s.title);
+    const live = titles.findIndex((t) => /Make your Meta app Live/.test(t));
+    const webhook = titles.findIndex((t) => /Turn on replies and delivery receipts/.test(t));
+    expect(live).toBeGreaterThan(-1);
+    expect(live).toBeLessThan(webhook);
+  });
+
+  it("marks the Live step 'check Meta's current screen' because Meta's screen names can differ", () => {
+    expect(WHATSAPP_GUIDE.steps.find((s) => /Make your Meta app Live/.test(s.title))?.note).toMatch(/Check Meta's current screen/);
   });
 
   it("marks what could not be confirmed as 'check Meta's current screen' (the token expiry and the account name)", () => {
