@@ -29,3 +29,26 @@ switched on. Test runs need the same throwaway env as before (`SUPABASE_URL`, `S
 - Existing tests that encoded "Pro and above" / "Business and above" were updated to the new rule (the X route matrix, the WhatsApp byok matrix, webhook-info, inbound webhook plan tests, the broadcast `byok.test.ts`), and both new route suites (`whatsappBroadcasts`, `whatsappChat`) now loop over every route x every paid tier x every lapsed status.
 - Full backend run: `Test Files 1 failed | 161 passed (162), Tests 1 failed | 3021 passed (3022)` (the one failure is the known `/health` 5 s timeout).
 
+### 4. Frontend: caps wording gone, plan lock says "any paid plan"
+- RED/GREEN for the caps wording: `frontend/src/lib/noLimitWording.test.ts` (scans the WhatsApp components, tab, hooks and libs for limit, kill switch and `PLACEHOLDER` wording) failed on the old copy, passes after the removal. `WhatsAppChat.test.tsx` gained a 100 member update line test.
+- Plan lock: `lib/byokPlanLock.test.ts` (new) plus the Settings, Social Platforms, ConnectX and WhatsApp suites, updated from "Pro/Business plan and above" to "Available on any paid plan." and "Upgrade to Starter".
+
+### 5. Disclaimer notice (RED then GREEN)
+- Tests written for `ByokDisclaimer.test.tsx` (22 tests). RED proof: with the wiring in `CustomPlatformSettings.tsx` and `ConnectX.tsx` temporarily reverted to HEAD, `Tests 11 failed | 11 passed (22)` (every "opens before any request" and "Continue sends once" case failed). GREEN with the wiring: `Tests 22 passed (22)`.
+- Honest note on order: the component and CSS were written before the tests, so the RED run above is a revert-and-rerun proof, not a first-write failure.
+- Existing connect tests now click Continue after Save or Check (the notice is part of the flow).
+- Browser check on a local dev server of THIS worktree (throwaway env, fake values, no request reached any API): `/connect/x` at desktop and 375 px, dialog role and `aria-modal`, focus on the dialog, no horizontal overflow added, Escape closed it, focus returned to "Save and connect", zero requests of ours. (A first attempt used another worktree's server by mistake; it was stopped and discarded.)
+
+### 6. Final audit: a real leftover cap found
+- RED: `whatsappWebhooks.test.ts` (1,000 message batch), `whatsappChat/inbound.test.ts` (1,000 messages) and `whatsappBroadcast/statusWebhook.test.ts` (1,500 receipts) -> `Tests 3 failed`: 200 stored of 1,000, 200 read of 1,000, 1,000 applied of 1,500.
+- GREEN: removed `MAX_MESSAGES_PER_DELIVERY`, `MAX_PER_DELIVERY`, `MAX_RECEIPTS_PER_DELIVERY` -> the three tests pass; `Test Files 25 passed, Tests 519 passed` for the touched suites.
+- New `backend/src/noPlatformCaps.test.ts` (45 tests): no X or WhatsApp entry in the shared 24 hour post limits, every numeric limit constant in the X and WhatsApp code is on a fixed classified list, only `WHATSAPP_TRIAGE_DAILY_CAP` is a kept cost guard, no per-day, quota or throttle names.
+
+## Final numbers (this branch, HEAD)
+
+| Check | Baseline origin/main | Final |
+|---|---|---|
+| backend `npx tsc --noEmit` | exit 0 | exit 0 |
+| backend `npx vitest run` | 159 files, 2941 tests, 2940 passed, 1 failed (known `/health` timeout) | 163 files, 3093 tests, 3092 passed, 1 failed (the same `app.test.ts > GET /health > returns 200`, 5 s timeout) |
+| frontend `npx vitest run` | 74 files, 766 passed | 77 files, 814 passed, 0 failed |
+| frontend `npm run build` (tsc -b, vite build, prerender; throwaway `VITE_*`) | not run | exit 0 |
