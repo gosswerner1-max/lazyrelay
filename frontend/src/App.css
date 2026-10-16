@@ -2960,3 +2960,397 @@ button[type="submit"]:not(.btn-outline),
 .ai-tool-tile:hover .ai-tool-label {
   color: var(--ink);
 }
+
+/* LANDING-OVERHAUL:START */
+/* Landing visual overhaul (2026-10-14, Werner's design brief). Home page only: every rule below is scoped with
+   .landing:has(.landing-hero) because the legal pages, Partners and the docs share the .landing wrapper.
+   Styling only. The brand CTA fill (--hero-accent), spring panels, the 0.97 :active press and heading leading live
+   elsewhere and are untouched. Electric violet / cyan appear ONLY in :hover, :focus-visible, :focus-within and in
+   dormant (opacity: 0) glow rings that a hover or focus fades in: never as a static fill or text colour.
+   Guarded by src/lib/landingOverhaul.css.test.ts. */
+:root {
+  --lz-bg: #0b1020;
+  --lz-hero: #040b1d;
+  --lz-surface-top: #1a2342;
+  --lz-surface-bottom: #0f1630;
+  --lz-card-top: rgba(26, 35, 66, 0.82);
+  --lz-card-bottom: rgba(15, 22, 48, 0.9);
+  --lz-text: #f2f4fa;
+  --lz-text-muted: #b4bdd2;
+  --lz-brand-text: #ff7452;
+  --lz-border: rgba(148, 163, 210, 0.22);
+  --lz-highlight: rgba(255, 255, 255, 0.1);
+  --lz-field-bg: #080d1c;
+  --lz-field-border: #7c88ab;
+  --lz-metal-from: #ffffff;
+  --lz-metal-to: #b9c6ff;
+  --lz-electric: #8b5cf6;
+  --lz-electric-bright: #a78bfa;
+  --lz-electric-ring: rgba(167, 139, 250, 0.65);
+  --lz-electric-glow: rgba(139, 92, 246, 0.38);
+  --lz-shadow-card: inset 0 1px 0 var(--lz-highlight), 0 1px 2px rgba(2, 6, 18, 0.5),
+    0 8px 18px -6px rgba(2, 6, 18, 0.55), 0 22px 44px -14px rgba(2, 6, 18, 0.55);
+  --lz-shadow-heavy: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 2px 4px rgba(2, 6, 18, 0.5),
+    0 16px 32px -8px rgba(2, 6, 18, 0.6), 0 40px 80px -20px rgba(2, 6, 18, 0.7);
+}
+
+/* Dark-slate page, ONLY when the visitor's system is in dark mode (Werner, 2026-10-14): light mode keeps the original
+   look. The home page re-points the theme tokens it already reads. Everything below sits inside this one media query. */
+@media (prefers-color-scheme: dark) {
+
+.landing:has(.landing-hero) {
+  --paper: var(--lz-bg);
+  --surface: var(--lz-surface-bottom);
+  --ink: var(--lz-text);
+  --wire: var(--lz-text-muted);
+  --line: var(--lz-border);
+  --signal: var(--lz-brand-text);
+  --signal-bg: rgba(255, 116, 82, 0.14);
+  --signal-hover: #ff8d6e;
+  --confirm: #3ec98a;
+  --confirm-bg: rgba(62, 201, 138, 0.14);
+  --pulse-teal: #2dd4bf;
+  --pulse-violet: #a78bfa;
+  --error: #ff6b61;
+  --error-bg: rgba(255, 107, 97, 0.13);
+  --shadow: rgba(0, 0, 0, 0.4) 0 6px 20px -6px;
+  color-scheme: dark;
+  color: var(--lz-text-muted);
+  background: var(--lz-bg);
+}
+
+.landing:has(.landing-hero) .circuit-background::before {
+  background: radial-gradient(900px 600px at 12% 0%, rgba(34, 48, 96, 0.55), transparent 70%),
+    radial-gradient(800px 620px at 92% 100%, rgba(18, 52, 84, 0.4), transparent 70%), var(--lz-bg);
+}
+
+/* Density: roughly 20% tighter padding and gutters. */
+.landing:has(.landing-hero) .landing-hero {
+  padding: 32px 16px 44px;
+  gap: 22px;
+}
+
+.landing:has(.landing-hero) .landing-section {
+  padding: 44px 16px;
+}
+
+.landing:has(.landing-hero) .landing-section h2 {
+  margin-bottom: 26px;
+  letter-spacing: -0.015em;
+}
+
+.landing:has(.landing-hero) .section-note {
+  margin: -16px 0 22px;
+}
+
+.landing:has(.landing-hero) .section-note.pricing-footnote {
+  margin: 12px 0 0;
+}
+
+.landing:has(.landing-hero) .landing-proof-item {
+  padding: 14px 16px;
+  border-radius: 12px;
+}
+
+.landing:has(.landing-hero) .landing-steps,
+.landing:has(.landing-hero) .landing-features {
+  gap: 18px;
+}
+
+.landing:has(.landing-hero) .landing-step,
+.landing:has(.landing-hero) .landing-feature,
+.landing:has(.landing-hero) .landing-bento-tile {
+  padding: 20px;
+}
+
+.landing:has(.landing-hero) .landing-bento {
+  gap: 16px;
+}
+
+.landing:has(.landing-hero) .faq-list {
+  gap: 12px;
+}
+
+.landing:has(.landing-hero) .faq-item {
+  padding: 16px 20px;
+}
+
+.landing:has(.landing-hero) .pricing-grid {
+  gap: 18px;
+}
+
+.landing:has(.landing-hero) .pricing-card {
+  padding: 26px;
+}
+
+.landing:has(.landing-hero) .landing-newsletter {
+  margin: 44px auto;
+  padding: 32px 24px;
+}
+
+@media (min-width: 641px) {
+  .landing:has(.landing-hero) .comparison-table th,
+  .landing:has(.landing-hero) .comparison-table td {
+    padding: 11px 13px;
+  }
+}
+
+/* Elevation: translucent dark-slate glass with a 1px translucent border, layered blurred shadows, an inset top
+   highlight and a faint top sheen. Small cards blur 14px, the big surfaces 22px (heavier material). */
+.landing:has(.landing-hero) .landing-step,
+.landing:has(.landing-hero) .landing-feature,
+.landing:has(.landing-hero) .landing-bento-tile,
+.landing:has(.landing-hero) .faq-item,
+.landing:has(.landing-hero) .landing-proof-item {
+  position: relative;
+  border: 1px solid var(--lz-border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 38%),
+    linear-gradient(160deg, var(--lz-card-top), var(--lz-card-bottom));
+  box-shadow: var(--lz-shadow-card);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+  transition: transform 120ms ease-out;
+}
+
+.landing:has(.landing-hero) .landing-step,
+.landing:has(.landing-hero) .landing-feature {
+  border-top: 3px solid var(--signal-solid);
+}
+
+.landing:has(.landing-hero) .pricing-card,
+.landing:has(.landing-hero) .landing-newsletter,
+.landing:has(.landing-hero) .comparison-table {
+  position: relative;
+  border: 1px solid var(--lz-border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 38%),
+    linear-gradient(160deg, rgba(20, 28, 56, 0.9), rgba(4, 11, 29, 0.96));
+  box-shadow: var(--lz-shadow-heavy);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: blur(22px) saturate(150%);
+  transition: transform 120ms ease-out;
+}
+
+.landing:has(.landing-hero) .landing-newsletter {
+  border: 1px solid rgba(252, 55, 36, 0.45);
+}
+
+.landing:has(.landing-hero) .landing-bento-tile--wide {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 38%),
+    linear-gradient(120deg, rgba(252, 55, 36, 0.14), var(--lz-card-bottom) 60%);
+}
+
+.landing:has(.landing-hero) .newsletter-form input {
+  border: 1px solid var(--lz-field-border);
+  background: var(--lz-field-bg);
+  color: var(--lz-text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 2px 6px rgba(0, 0, 0, 0.35),
+    0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Dormant glow ring: invisible until a hover or focus fades it in (opacity only). */
+.landing:has(.landing-hero) .landing-step::after,
+.landing:has(.landing-hero) .landing-feature::after,
+.landing:has(.landing-hero) .landing-bento-tile::after,
+.landing:has(.landing-hero) .faq-item::after,
+.landing:has(.landing-hero) .pricing-card::after,
+.landing:has(.landing-hero) .landing-newsletter::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: 0 0 0 1px var(--lz-electric-ring), 0 0 26px 2px var(--lz-electric-glow);
+  transition: opacity 120ms ease-out;
+}
+
+/* Typography: bold geometric headings with size-specific tracking (tighter as the type grows, near zero for body). */
+.landing:has(.landing-hero) .landing-hero-headline {
+  color: var(--lz-metal-from);
+  letter-spacing: -0.025em;
+}
+
+.landing:has(.landing-hero) .landing-bento-tile h3 {
+  color: var(--lz-metal-from);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.landing:has(.landing-hero) .landing-bento-tile--wide h3 {
+  letter-spacing: -0.015em;
+}
+
+.landing:has(.landing-hero) .landing-step h3,
+.landing:has(.landing-hero) .landing-feature h3,
+.landing:has(.landing-hero) .faq-item h3 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.landing:has(.landing-hero) .pricing-card h3 {
+  letter-spacing: -0.015em;
+}
+
+.landing:has(.landing-hero) .pricing-price {
+  letter-spacing: -0.02em;
+}
+
+.landing:has(.landing-hero) .landing-bento-tile p {
+  letter-spacing: 0.005em;
+}
+
+/* Metallic gradient on the hero headline and the feature names only; solid colour above is the fallback. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .landing:has(.landing-hero) .landing-hero-headline,
+  .landing:has(.landing-hero) .landing-bento-tile h3 {
+    background-image: linear-gradient(180deg, var(--lz-metal-from) 0%, var(--lz-metal-to) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+}
+
+@media (max-width: 600px) {
+  .landing:has(.landing-hero) .landing-hero-headline {
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Focus: a 2px electric ring with offset on every interactive control. */
+.landing:has(.landing-hero) a:focus-visible,
+.landing:has(.landing-hero) button:focus-visible,
+.landing:has(.landing-hero) summary:focus-visible,
+.landing:has(.landing-hero) input:focus-visible,
+.landing:has(.landing-hero) [tabindex]:focus-visible {
+  outline: 2px solid var(--lz-electric-bright);
+  outline-offset: 3px;
+}
+
+.landing:has(.landing-hero) .newsletter-form input:focus-visible {
+  border-color: var(--lz-electric-bright);
+}
+
+.landing:has(.landing-hero) .faq-item:focus-within::after,
+.landing:has(.landing-hero) .landing-newsletter:focus-within::after {
+  opacity: 1;
+}
+
+/* Hover: instant lift, colour shift and glow, on hover-capable devices only. Complements the 0.97 :active press. */
+@media (hover: hover) {
+  .landing:has(.landing-hero) .landing-step:hover,
+  .landing:has(.landing-hero) .landing-feature:hover,
+  .landing:has(.landing-hero) .pricing-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--lz-electric-ring);
+  }
+
+  .landing:has(.landing-hero) .landing-bento-tile:hover {
+    transform: translateY(-4px);
+    border-color: var(--lz-electric-ring);
+    box-shadow: var(--lz-shadow-heavy);
+  }
+
+  .landing:has(.landing-hero) .faq-item:hover {
+    border-color: var(--lz-electric-ring);
+  }
+
+  .landing:has(.landing-hero) .landing-step:hover::after,
+  .landing:has(.landing-hero) .landing-feature:hover::after,
+  .landing:has(.landing-hero) .landing-bento-tile:hover::after,
+  .landing:has(.landing-hero) .faq-item:hover::after,
+  .landing:has(.landing-hero) .pricing-card:hover::after {
+    opacity: 1;
+  }
+}
+
+/* Fallbacks. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .landing:has(.landing-hero) .landing-step,
+  .landing:has(.landing-hero) .landing-feature,
+  .landing:has(.landing-hero) .landing-bento-tile,
+  .landing:has(.landing-hero) .faq-item,
+  .landing:has(.landing-hero) .landing-proof-item,
+  .landing:has(.landing-hero) .pricing-card,
+  .landing:has(.landing-hero) .landing-newsletter,
+  .landing:has(.landing-hero) .comparison-table {
+    background: var(--lz-surface-bottom);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .landing:has(.landing-hero) .landing-step,
+  .landing:has(.landing-hero) .landing-feature,
+  .landing:has(.landing-hero) .landing-bento-tile,
+  .landing:has(.landing-hero) .landing-bento-tile--wide,
+  .landing:has(.landing-hero) .faq-item,
+  .landing:has(.landing-hero) .landing-proof-item,
+  .landing:has(.landing-hero) .pricing-card,
+  .landing:has(.landing-hero) .landing-newsletter,
+  .landing:has(.landing-hero) .comparison-table {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--lz-surface-bottom);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .landing:has(.landing-hero) .landing-step,
+  .landing:has(.landing-hero) .landing-feature,
+  .landing:has(.landing-hero) .landing-bento-tile,
+  .landing:has(.landing-hero) .landing-bento-tile--wide,
+  .landing:has(.landing-hero) .faq-item,
+  .landing:has(.landing-hero) .landing-proof-item,
+  .landing:has(.landing-hero) .pricing-card,
+  .landing:has(.landing-hero) .landing-newsletter,
+  .landing:has(.landing-hero) .comparison-table {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--lz-surface-bottom);
+    border-color: var(--lz-text-muted);
+  }
+
+  .landing:has(.landing-hero) .landing-step::after,
+  .landing:has(.landing-hero) .landing-feature::after,
+  .landing:has(.landing-hero) .landing-bento-tile::after,
+  .landing:has(.landing-hero) .faq-item::after,
+  .landing:has(.landing-hero) .pricing-card::after,
+  .landing:has(.landing-hero) .landing-newsletter::after {
+    box-shadow: 0 0 0 2px var(--lz-electric-bright);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing:has(.landing-hero) .landing-step,
+  .landing:has(.landing-hero) .landing-step:hover,
+  .landing:has(.landing-hero) .landing-feature,
+  .landing:has(.landing-hero) .landing-feature:hover,
+  .landing:has(.landing-hero) .landing-bento-tile,
+  .landing:has(.landing-hero) .landing-bento-tile:hover,
+  .landing:has(.landing-hero) .pricing-card,
+  .landing:has(.landing-hero) .pricing-card:hover {
+    transform: none;
+    transition: none;
+  }
+
+  .landing:has(.landing-hero) .landing-step::after,
+  .landing:has(.landing-hero) .landing-feature::after,
+  .landing:has(.landing-hero) .landing-bento-tile::after,
+  .landing:has(.landing-hero) .faq-item::after,
+  .landing:has(.landing-hero) .pricing-card::after,
+  .landing:has(.landing-hero) .landing-newsletter::after {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .landing:has(.landing-hero) .landing-hero-headline,
+  .landing:has(.landing-hero) .landing-bento-tile h3 {
+    background: none;
+    -webkit-text-fill-color: currentcolor;
+    color: CanvasText;
+  }
+}
+}
+
+/* LANDING-OVERHAUL:END */
