@@ -907,6 +907,9 @@ export const api = {
     authedFetch(`/whatsapp/conversations/${encodeURIComponent(id)}/approval`, { method: "POST", body: JSON.stringify({ title: body.title, body: body.body, options: body.options, template_id: body.templateId, params: body.params }) }),
   startWhatsAppConversation: (contactId: string): Promise<{ conversationId: string; created: boolean; window: WhatsAppWindow }> =>
     authedFetch(`/whatsapp/contacts/${encodeURIComponent(contactId)}/conversation`, { method: "POST", body: JSON.stringify({}) }),
+  /** Start a chat from a typed number. The server writes the consent record itself; the browser sends only the connection and the number. */
+  startWhatsAppDirectChat: (socialAccountId: string, phone: string): Promise<{ conversationId: string; created: boolean; contactCreated: boolean; window: WhatsAppWindow }> =>
+    authedFetch("/whatsapp/chats/start", { method: "POST", body: JSON.stringify({ social_account_id: socialAccountId, phone }) }),
   listWhatsAppApprovals: (status?: WhatsAppApprovalStatus): Promise<{ approvals: WhatsAppApprovalListItem[]; counts: Record<WhatsAppApprovalStatus, number>; note: string }> =>
     authedFetch(`/whatsapp/approvals${status ? `?status=${status}` : ""}`),
   listWhatsAppAudiences: (socialAccountId?: string): Promise<{ audiences: WhatsAppAudience[] }> => authedFetch(`/whatsapp/audiences${socialAccountId ? `?social_account_id=${encodeURIComponent(socialAccountId)}` : ""}`),

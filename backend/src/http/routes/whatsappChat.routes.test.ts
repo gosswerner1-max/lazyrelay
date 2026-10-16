@@ -96,6 +96,7 @@ const gatePaths: Array<[string, () => request.Test]> = [
   ["POST /whatsapp/conversations/:id/approval", () => request(app()).post(`/whatsapp/conversations/${ID}/approval`).send({ title: "T", body: "B" })],
   ["POST /whatsapp/conversations/:id/list", () => request(app()).post(`/whatsapp/conversations/${ID}/list`).send({ body: "B", button_label: "Open", sections: [] })],
   ["POST /whatsapp/contacts/:id/conversation", () => request(app()).post(`/whatsapp/contacts/${ID}/conversation`).send({})],
+  ["POST /whatsapp/chats/start", () => request(app()).post("/whatsapp/chats/start").send({ social_account_id: SA, phone: "+27829990008" })],
   ["GET /whatsapp/approvals", () => request(app()).get("/whatsapp/approvals")],
   ["GET /whatsapp/audiences", () => request(app()).get("/whatsapp/audiences")],
   ["POST /whatsapp/audiences", () => request(app()).post("/whatsapp/audiences").send({ social_account_id: SA, name: "Clients" })],
@@ -266,6 +267,84 @@ describe("start a conversation with a saved contact", () => {
     expect(refused.status).toBe(409);
     const foreign = addContact("+27829990003", { account_id: ACC_OTHER });
     expect((await request(app()).post(`/whatsapp/contacts/${foreign.id}/conversation`).send({})).status).toBe(404);
+  });
+});
+
+describe("start a chat from a typed number (Direct Entry)", () => {
+  const SENTENCE = "By initializing this chat, you confirm compliance with Meta's user opt-in messaging policies.";
+  const start = (body: Record<string, unknown>) => request(app()).post("/whatsapp/chats/start").send(body);
+
+  it("saves the contact with an automatic Direct Entry consent record, then opens the chat", async () => {
+    const before = Date.now();
+    const r = await start({ social_account_id: SA, phone: "+27 82 999 0004" });
+    expect(r.status).toBe(201);
+    expect(r.body).toMatchObject({ created: true, contactCreated: true, window: { open: false } });
+    expect(typeof r.body.conversationId).toBe("string");
+    expect(tables.whatsapp_contacts).toHaveLength(1);
+    expect(tables.whatsapp_contacts[0]).toMatchObject({ consent_status: "opted_in", social_account_id: SA });
+    expect(tables.whatsapp_opt_ins).toHaveLength(1);
+    const ev = tables.whatsapp_opt_ins[0];
+    expect(ev).toMatchObject({ source: "direct_entry", attested: true, consent_text: SENTENCE, proof_reference: null, contact_id: tables.whatsapp_contacts[0].id });
+    expect(ev.attestation_version).toMatch(/^direct-entry/);
+    expect(Date.parse(ev.captured_at)).toBeGreaterThanOrEqual(before - 1000);
+    expect(Date.parse(ev.captured_at)).toBeLessThanOrEqual(Date.parse(ev.recorded_at));
+    expect(ev.recorded_by).toBe("33333333-3333-4333-8333-333333333333");
+    expect(tables.whatsapp_contacts[0].current_opt_in_id).toBe(ev.id);
+    noNumbers(r.body);
+    expect(logged.join("\n")).not.toMatch(/2782999000/);
+  });
+
+  it("writes a consent record whose hash chain verifies", async () => {
+    await start({ social_account_id: SA, phone: "+27829990004" });
+    const { verifyOptInChain } = await import("../../whatsappContacts.js");
+    const e = tables.whatsapp_opt_ins[0];
+    const ok = verifyOptInChain([{ prevHash: e.prev_hash, accountId: e.account_id, contactId: e.contact_id, source: e.source, capturedAt: e.captured_at, recordedAt: e.recorded_at, recordedBy: e.recorded_by, consentText: e.consent_text, proofReference: e.proof_reference, attested: e.attested, attestationVersion: e.attestation_version, importBatchId: e.import_batch_id, rowHash: e.row_hash }]);
+    expect(ok).toEqual({ ok: true });
+  });
+
+  it("a second start for the same number reuses the contact and the chat and adds no new consent record", async () => {
+    const first = await start({ social_account_id: SA, phone: "+27829990004" });
+    const second = await start({ social_account_id: SA, phone: "27 82 999 0004" });
+    expect(second.status).toBe(200);
+    expect(second.body).toMatchObject({ created: false, contactCreated: false, conversationId: first.body.conversationId });
+    expect(tables.whatsapp_contacts).toHaveLength(1);
+    expect(tables.whatsapp_opt_ins).toHaveLength(1);
+  });
+
+  it("keeps an existing contact's own consent evidence: no Direct Entry record is added on top", async () => {
+    addContact(`+${NUMBER}`);
+    const r = await start({ social_account_id: SA, phone: `+${NUMBER}` });
+    expect(r.status).toBe(201);
+    expect(r.body).toMatchObject({ created: true, contactCreated: false });
+    expect(tables.whatsapp_opt_ins.some((o: any) => o.source === "direct_entry")).toBe(false);
+  });
+
+  it("refuses a number that opted out (409) and creates nothing", async () => {
+    const { contactKeyFor } = await import("../../platforms/whatsapp/contactPrivacy.js");
+    tables.whatsapp_opt_outs.push({ id: "oo1", account_id: ACC, contact_key: contactKeyFor(ACC, "27829990005"), wa_contact_key: null, contact_display: "+27 ** *** 0005", scope: "all", source: "keyword", keyword: "STOP", occurred_at: new Date().toISOString() });
+    const r = await start({ social_account_id: SA, phone: "+27829990005" });
+    expect(r.status).toBe(409);
+    expect(tables.whatsapp_contacts).toHaveLength(0);
+    expect(tables.whatsapp_opt_ins).toHaveLength(0);
+    expect(tables.whatsapp_conversations ?? []).toHaveLength(0);
+  });
+
+  it("400 for a number that is not valid, 404 for a connection that is not the caller's, 400 for a missing field", async () => {
+    expect((await start({ social_account_id: SA, phone: "not a number" })).status).toBe(400);
+    expect((await start({ social_account_id: SA, phone: "123" })).status).toBe(400);
+    expect((await start({ social_account_id: "55555555-5555-4555-8555-555555555555", phone: "+27829990006" })).status).toBe(404);
+    expect((await start({ social_account_id: SA })).status).toBe(400);
+    expect((await start({ phone: "+27829990006" })).status).toBe(400);
+    expect(tables.whatsapp_contacts).toHaveLength(0);
+  });
+
+  it("ignores any consent fields the browser sends: source, date and wording are always the system's", async () => {
+    const r = await start({ social_account_id: SA, phone: "+27829990007", optIn: { source: "in_person", capturedAt: "2020-01-01", consentText: "made up", attested: true }, source: "website_form", consentText: "made up" });
+    expect(r.status).toBe(201);
+    const ev = tables.whatsapp_opt_ins[0];
+    expect(ev.source).toBe("direct_entry");
+    expect(ev.consent_text).toBe(SENTENCE);
+    expect(Date.parse(ev.captured_at)).toBeGreaterThan(Date.parse("2026-01-01"));
   });
 });
 

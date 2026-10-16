@@ -25,6 +25,8 @@ import { fetchHttpClient, type HttpClient } from "../../whatsappBroadcast/cloudA
 import { addAudienceMembers, createAudience, deleteAudience, getThread, listApprovals, listAudiences, listConversations, markRead, removeAudienceMember, sendUpdateToAudience, startConversation } from "../../whatsappChat/conversations.js";
 import { sendApprovalRequest, sendChatList, sendChatTemplate, sendChatText, type ChatSendOutcome } from "../../whatsappChat/chatSend.js";
 import { UUID, firstIssue, humanRoute, statusForRefusal, userIdFromToken } from "./whatsappRouteGate.js";
+import { startDirectChat } from "../../whatsappChat/directEntry.js";
+import { ContactStorageNotConfiguredError } from "../../whatsappContacts.js";
 
 /** Plain wording kept with the approvals list so no screen can present a button tap as more than it is. */
 export const APPROVAL_NOTE = "An approval is a convenience record of what your client tapped in WhatsApp. It is not legal consent, a signature or proof of a contract.";
@@ -47,6 +49,13 @@ const listMessageSchema = z.object({
   sections: z.array(z.object({ title: z.string().max(100), rows: z.array(z.object({ id: z.string().max(300), title: z.string().max(100), description: z.string().max(200).optional() })).max(20) })).max(20),
 });
 const approvalsQuery = z.object({ status: z.enum(["pending", "approved", "changes_requested", "question", "other_reply"]).optional(), social_account_id: UUID.optional(), limit: z.coerce.number().int().min(1).max(100).default(50) });
+const startChatSchema = z.object({ social_account_id: UUID, phone: z.string().max(40) });
+const DIRECT_CHAT_REFUSALS: Record<"invalid_phone" | "opted_out" | "not_found" | "no_number", { status: number; error: string }> = {
+  invalid_phone: { status: 400, error: "That phone number is not valid. Use the international form, for example +27 82 123 4567." },
+  opted_out: { status: 409, error: "This number has opted out and cannot be messaged." },
+  not_found: { status: 404, error: "That WhatsApp connection was not found." },
+  no_number: { status: 409, error: "That contact cannot be messaged." },
+};
 const audienceSchema = z.object({ social_account_id: UUID, name: z.string().max(200) });
 const membersSchema = z.object({ contact_ids: z.array(z.string().max(100)).max(500) });
 const updateSchema = z.object({ text: z.string().max(10000), template_id: UUID.optional(), params: z.array(z.string().max(2000)).max(20).optional() });
@@ -191,6 +200,31 @@ export function buildWhatsAppChatRouter(deps: { http?: HttpClient } = {}): Route
       res.status(out.created ? 201 : 200).json({ conversationId: out.conversationId, created: out.created, window: { open: false, expiresAt: null, hoursLeft: 0 } });
     } catch (e) {
       fail(res, e, "POST /whatsapp/contacts/:id/conversation");
+    }
+  });
+
+  // Start a conversation from a typed number. The consent record is written here by the system (directEntry.ts); the body carries only the
+  // connection and the number, and anything else a browser sends is ignored.
+  router.post("/whatsapp/chats/start", ...humanRoute, async (req: AuthedRequest, res) => {
+    const b = startChatSchema.safeParse(req.body ?? {});
+    if (!b.success) {
+      res.status(400).json({ error: firstIssue(b.error) });
+      return;
+    }
+    try {
+      const out = await startDirectChat({ accountId: req.accountId!, socialAccountId: b.data.social_account_id, recordedBy: userIdFromToken(req.rawToken) }, b.data.phone);
+      if (!out.ok) {
+        const refusal = DIRECT_CHAT_REFUSALS[out.code];
+        res.status(refusal.status).json({ error: refusal.error, code: out.code });
+        return;
+      }
+      res.status(out.created ? 201 : 200).json({ conversationId: out.conversationId, created: out.created, contactCreated: out.contactCreated, window: { open: false, expiresAt: null, hoursLeft: 0 } });
+    } catch (e) {
+      if (e instanceof ContactStorageNotConfiguredError) {
+        res.status(503).json({ error: "Contact storage is not set up yet." });
+        return;
+      }
+      fail(res, e, "POST /whatsapp/chats/start");
     }
   });
 

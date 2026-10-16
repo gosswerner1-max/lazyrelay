@@ -8,7 +8,6 @@ import { resolve } from "node:path";
 // in this file other than the made-up ones typed into the forms.
 
 const api = vi.hoisted(() => ({
-  addWhatsAppContact: vi.fn(),
   importWhatsAppContacts: vi.fn(),
   listWhatsAppContacts: vi.fn(),
   optOutWhatsAppContact: vi.fn(),
@@ -17,7 +16,6 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock("../../lib/api", () => ({ api }));
 
-import { WhatsAppOptInForm } from "./WhatsAppOptInForm";
 import { WhatsAppContactImport } from "./WhatsAppContactImport";
 import { WhatsAppContactList, WhatsAppOptOuts } from "./WhatsAppContactList";
 import { ATTESTATION_TEXT } from "../../lib/whatsappContacts";
@@ -43,82 +41,6 @@ const contact = (over: Partial<WhatsAppContact> = {}): WhatsAppContact => ({
   optedOutAt: null,
   createdAt: "2026-10-10T10:00:00.000Z",
   ...over,
-});
-
-describe("WhatsAppOptInForm", () => {
-  async function fillAllButAttestation(user: ReturnType<typeof userEvent.setup>) {
-    await user.type(screen.getByLabelText(/phone number/i), "+27 82 123 4567");
-    await user.type(screen.getByLabelText(/^name/i), "Thandi");
-    await user.selectOptions(screen.getByLabelText(/where did the consent come from/i), "website_form");
-    await user.type(screen.getByLabelText(/date they gave consent/i), "2026-10-01");
-    await user.type(screen.getByLabelText(/what did they agree to/i), "I agree to get offers on WhatsApp");
-  }
-
-  it("shows the attestation wording and every required field, with the source blank until chosen", () => {
-    render(<WhatsAppOptInForm socialAccountId={SA1} onAdded={() => {}} />);
-    expect(screen.getByLabelText(/where did the consent come from/i)).toHaveValue("");
-    expect(screen.getByLabelText(/proof reference/i)).toBeInTheDocument();
-    const box = screen.getByRole("checkbox", { name: /i confirm that/i });
-    expect(box).not.toBeChecked();
-    expect(screen.getByText(ATTESTATION_TEXT)).toBeInTheDocument();
-  });
-
-  it("refuses to submit without the attestation tick and says why", async () => {
-    const user = userEvent.setup();
-    render(<WhatsAppOptInForm socialAccountId={SA1} onAdded={() => {}} />);
-    await fillAllButAttestation(user);
-    await user.click(screen.getByRole("button", { name: /add contact/i }));
-    expect(api.addWhatsAppContact).not.toHaveBeenCalled();
-    expect(screen.getByText(/tick the box to confirm/i)).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: /i confirm that/i })).toHaveAttribute("aria-invalid", "true");
-  });
-
-  it("refuses an empty form, a missing source, a future date and a bad number, without calling the API", async () => {
-    const user = userEvent.setup();
-    render(<WhatsAppOptInForm socialAccountId={SA1} onAdded={() => {}} />);
-    await user.click(screen.getByRole("checkbox", { name: /i confirm that/i }));
-    await user.click(screen.getByRole("button", { name: /add contact/i }));
-    expect(api.addWhatsAppContact).not.toHaveBeenCalled();
-    expect(screen.getByText(/choose where the consent came from/i)).toBeInTheDocument();
-    expect(screen.getByText(/enter the date they gave consent/i)).toBeInTheDocument();
-    expect(screen.getByText(/enter the phone number with its country code/i)).toBeInTheDocument();
-  });
-
-  it("sends the contact with its consent record once everything is filled in and ticked", async () => {
-    const user = userEvent.setup();
-    const onAdded = vi.fn();
-    api.addWhatsAppContact.mockResolvedValue({ status: "created" });
-    render(<WhatsAppOptInForm socialAccountId={SA1} onAdded={onAdded} />);
-    await fillAllButAttestation(user);
-    await user.click(screen.getByRole("checkbox", { name: /i confirm that/i }));
-    await user.click(screen.getByRole("button", { name: /add contact/i }));
-    await waitFor(() => expect(api.addWhatsAppContact).toHaveBeenCalledTimes(1));
-    expect(api.addWhatsAppContact).toHaveBeenCalledWith({
-      socialAccountId: SA1,
-      phone: "+27 82 123 4567",
-      name: "Thandi",
-      optIn: { source: "website_form", capturedAt: "2026-10-01", consentText: "I agree to get offers on WhatsApp", proofReference: "", attested: true },
-    });
-    expect(await screen.findByText(/contact added/i)).toBeInTheDocument();
-    expect(onAdded).toHaveBeenCalled();
-    // the number is cleared from the form once it is saved
-    expect(screen.getByLabelText(/phone number/i)).toHaveValue("");
-  });
-
-  it("shows the server's refusal (for example an opted-out number) and keeps the form", async () => {
-    const user = userEvent.setup();
-    api.addWhatsAppContact.mockRejectedValue(new Error("This number has opted out and cannot be added."));
-    render(<WhatsAppOptInForm socialAccountId={SA1} onAdded={() => {}} />);
-    await fillAllButAttestation(user);
-    await user.click(screen.getByRole("checkbox", { name: /i confirm that/i }));
-    await user.click(screen.getByRole("button", { name: /add contact/i }));
-    expect(await screen.findByText(/has opted out and cannot be added/i)).toBeInTheDocument();
-  });
-
-  it("marks the number and name inputs so session replay never records them", () => {
-    render(<WhatsAppOptInForm socialAccountId={SA1} onAdded={() => {}} />);
-    for (const label of [/phone number/i, /^name/i]) expect(screen.getByLabelText(label).closest(".ph-no-capture")).not.toBeNull();
-  });
 });
 
 describe("WhatsAppContactList", () => {
