@@ -7,7 +7,7 @@ interface PrivacyPolicyProps {
   onBack: () => void;
 }
 
-const LAST_UPDATED = "6 September 2026";
+const LAST_UPDATED = "16 October 2026";
 
 export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
   useEffect(() => {
@@ -130,6 +130,25 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
             a post, we'll delete the account after 6 months of inactivity, with two email warnings first (14
             days and 3 days before deletion) — logging in and connecting a platform or scheduling a post at any
             point cancels the deletion. This never applies to a paid subscription, regardless of activity.
+          </p>
+
+          <h3>WhatsApp and X connected with your own keys</h3>
+          <p>
+            If you connect WhatsApp or X using your own keys, you paste credentials from your own Meta or X
+            account. We store them encrypted and use them only to send and receive the messages you ask us to.
+            They are removed when you disconnect the account.
+          </p>
+          <p>
+            For WhatsApp, if you add contacts, you tell us you have their permission to message them. We keep the
+            record of that permission and the contact's phone number, encrypted, until you erase the contact.
+            Replies to your WhatsApp number and the messages you send are kept encrypted and deleted 30 days after
+            the last message in a conversation. Delivery details for finished broadcasts are deleted after 30
+            days. When someone replies STOP, we keep a one way scrambled record of that so they are never messaged
+            again.
+          </p>
+          <p>
+            You are the sender of these messages. Meta's and X's own terms apply to your use of them, and you pay
+            them directly.
           </p>
 
           <h3>Your choices</h3>

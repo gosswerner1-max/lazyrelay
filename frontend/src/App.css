@@ -1795,6 +1795,18 @@ button[type="submit"]:not(.btn-outline),
   color: rgba(255, 255, 255, 0.7);
 }
 
+/* Tax label sits under the price as a separate, smaller line; the dollar figure stays clean. */
+.pricing-tax-note {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 2px;
+}
+
 .pricing-note {
   color: rgba(255, 255, 255, 0.7);
   font-weight: 500;
