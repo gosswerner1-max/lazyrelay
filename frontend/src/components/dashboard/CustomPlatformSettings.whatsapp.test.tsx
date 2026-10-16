@@ -91,6 +91,7 @@ describe("App Secret field", () => {
     render(<CustomPlatformSettings platforms={[WA_OK]} />);
     await fillWa(user);
     await user.click(screen.getByRole("button", { name: "Check my credentials" }));
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await screen.findByText("Credentials accepted for Acme Cafe.");
     expect(api.checkWhatsAppCredentials).toHaveBeenCalledWith({ ...FAKE_WA, appSecret: FAKE_SECRET });
     expect(api.connectWhatsAppCredentials).not.toHaveBeenCalled();
@@ -104,6 +105,7 @@ describe("App Secret field", () => {
     await fillWa(user);
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Save and connect" }));
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await waitFor(() => expect(api.connectWhatsAppCredentials).toHaveBeenCalledTimes(1));
     expect(api.connectWhatsAppCredentials).toHaveBeenCalledWith({ ...FAKE_WA, appSecret: FAKE_SECRET });
     await screen.findByText("Connected as Acme Cafe.");
@@ -121,6 +123,7 @@ describe("App Secret field", () => {
     await fillWa(user);
     await user.click(screen.getByRole("button", { name: "Show App Secret (optional)" }));
     await user.click(screen.getByRole("button", { name: "Check my credentials" }));
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await screen.findByRole("alert");
     expect(secretInput().value).toBe("");
     expect(secretInput().type).toBe("password");
@@ -129,6 +132,7 @@ describe("App Secret field", () => {
     await user.type(secretInput(), FAKE_SECRET);
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Save and connect" }));
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/Could not save/));
     expect(secretInput().value).toBe("");
   });
@@ -139,6 +143,7 @@ describe("App Secret field", () => {
     render(<CustomPlatformSettings platforms={[WA_OK]} />);
     await fillWa(user, false);
     await user.click(screen.getByRole("button", { name: "Check my credentials" }));
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await waitFor(() => expect(api.checkWhatsAppCredentials).toHaveBeenCalledTimes(1));
     expect(Object.keys(api.checkWhatsAppCredentials.mock.calls[0][0]).sort()).toEqual(["phoneNumberId", "systemUserToken", "wabaId"]);
   });

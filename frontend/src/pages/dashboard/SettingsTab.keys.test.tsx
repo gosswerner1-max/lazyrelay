@@ -205,6 +205,7 @@ describe("the Custom developer keys sub-tab", () => {
     await user.type(screen.getByLabelText("Access Token Secret"), "fakeTokenSecret12345");
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Save and connect" }));
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await waitFor(() => expect(connectXKeys).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(ctx.refresh).toHaveBeenCalledTimes(1));
   });

@@ -158,6 +158,7 @@ describe("X: the form", () => {
     await fillX(user);
     await user.click(screen.getByRole("checkbox"));
     await user.click(save());
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await waitFor(() => expect(api.connectXKeys).toHaveBeenCalledTimes(1));
     expect(api.connectXKeys).toHaveBeenCalledWith(FAKE_X);
     expect(await screen.findByText("Connected as @acme.")).toBeInTheDocument();
@@ -176,6 +177,7 @@ describe("X: the form", () => {
     await fillX(user);
     await user.click(screen.getByRole("checkbox"));
     await user.click(save());
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     expect(await screen.findByRole("alert")).toHaveTextContent("X did not accept these keys.");
     expect((screen.getByLabelText("API Secret (Consumer Secret)") as HTMLInputElement).value).toBe("");
     expect((screen.getByLabelText("Access Token Secret") as HTMLInputElement).value).toBe("");
@@ -189,6 +191,7 @@ describe("X: the form", () => {
     render(<CustomPlatformSettings platforms={[X_OK]} />);
     await fillX(user);
     await user.click(screen.getByRole("button", { name: "Check my keys" }));
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     expect(await screen.findByText(/They belong to @acme/)).toBeInTheDocument();
     expect(api.checkXKeys).toHaveBeenCalledWith(FAKE_X);
     expect(api.connectXKeys).not.toHaveBeenCalled();
@@ -201,6 +204,7 @@ describe("X: the form", () => {
     await fillX(user);
     await user.click(screen.getByRole("checkbox"));
     await user.click(save());
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await screen.findByText("Connected as @acme.");
     const stored = everyStoredValue();
     for (const v of Object.values(FAKE_X)) expect(stored).not.toContain(v);
@@ -291,6 +295,7 @@ describe("WhatsApp: the form", () => {
     await user.click(box);
     expect(save()).toBeEnabled();
     await user.click(save());
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await waitFor(() => expect(api.connectWhatsAppCredentials).toHaveBeenCalledTimes(1));
     expect(api.connectWhatsAppCredentials).toHaveBeenCalledWith(FAKE_WA);
     expect(await screen.findByText("Connected as Acme Cafe.")).toBeInTheDocument();
@@ -306,6 +311,7 @@ describe("WhatsApp: the form", () => {
     await fillWa(user);
     await user.click(screen.getByRole("checkbox"));
     await user.click(save());
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     expect(await screen.findByRole("alert")).toHaveTextContent(/any paid plan/);
     expect((screen.getByLabelText("System user token") as HTMLInputElement).value).toBe("");
   });
@@ -316,6 +322,7 @@ describe("WhatsApp: the form", () => {
     render(<CustomPlatformSettings platforms={[WA_OK]} />);
     await fillWa(user);
     await user.click(screen.getByRole("button", { name: "Check my credentials" }));
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     expect(await screen.findByText("Credentials accepted for Acme Cafe.")).toBeInTheDocument();
     expect(api.checkWhatsAppCredentials).toHaveBeenCalledWith(FAKE_WA);
     expect(api.connectWhatsAppCredentials).not.toHaveBeenCalled();
@@ -328,6 +335,7 @@ describe("WhatsApp: the form", () => {
     await fillWa(user);
     await user.click(screen.getByRole("checkbox"));
     await user.click(save());
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await screen.findByText("Connected.");
     const stored = everyStoredValue();
     for (const v of Object.values(FAKE_WA)) expect(stored).not.toContain(v);

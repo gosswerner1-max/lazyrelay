@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { api } from "../lib/api";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
+import { useByokDisclaimer } from "../components/ByokDisclaimerModal";
 import { EMPTY_X_KEYS, X_BYOK_CONSENT_TEXT, X_BYOK_GUIDE_URL, xKeysComplete, type XKeyFields } from "../lib/xByok";
 
 // Connect X with the customer's OWN developer keys (OAuth 1.0a). The four values live only in this component's state:
@@ -14,6 +15,7 @@ export function ConnectX() {
   const [busy, setBusy] = useState<"check" | "save" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [okHandle, setOkHandle] = useState<{ handle: string; saved: boolean } | null>(null);
+  const disclaimer = useByokDisclaimer();
 
   const set = (field: keyof XKeyFields) => (e: { target: { value: string } }) => {
     setKeys((k) => ({ ...k, [field]: e.target.value }));
@@ -41,9 +43,13 @@ export function ConnectX() {
     }
   }
 
-  async function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!accepted || !filled || busy) return;
+    disclaimer.ask(() => void doSave());
+  }
+
+  async function doSave() {
     setError(null);
     setBusy("save");
     const toSend = keys;
@@ -149,7 +155,7 @@ export function ConnectX() {
           </label>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button type="button" className="btn-outline" disabled={!filled || busy !== null} onClick={handleCheck}>
+            <button type="button" className="btn-outline" disabled={!filled || busy !== null} onClick={() => disclaimer.ask(() => void handleCheck())}>
               {busy === "check" ? "Checking..." : "Check my keys"}
             </button>
             <button type="submit" disabled={!accepted || !filled || busy !== null}>
@@ -167,6 +173,7 @@ export function ConnectX() {
             </p>
           )}
         </form>
+        {disclaimer.modal}
         <p className="field-hint">
           <a href="/">Back to dashboard</a>
         </p>

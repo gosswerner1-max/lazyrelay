@@ -1,0 +1,151 @@
+/* The "Before you connect" notice for X own keys and WhatsApp own token. Same midnight / slate / coral tokens as
+   byok-panels.css (the dialog is rendered into document.body, so it carries its own copy of them). Only transform and
+   opacity are animated, and the card is position-fixed content, so nothing around it moves. */
+
+.byok-disclaimer__overlay {
+  --byok-midnight: #0b0f19;
+  --byok-slate: #141b2d;
+  --byok-coral: #ff5630;
+  --byok-crimson: #c82400;
+  --byok-ink: #eef0f5;
+  --byok-muted: #aab3c2;
+  --byok-edge: #5d6c8c;
+
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overscroll-behavior: contain;
+  background: rgba(11, 15, 25, 0.72);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color-scheme: dark;
+  animation: byok-disclaimer-fade 160ms ease-out;
+}
+
+.byok-disclaimer__card {
+  width: 100%;
+  max-width: 440px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 1.25rem;
+  background: var(--byok-slate);
+  color: var(--byok-muted);
+  border: 1px solid var(--byok-edge);
+  border-radius: 16px;
+  box-shadow: 0 0 0 1px rgba(255, 86, 48, 0.06), 0 0 26px rgba(255, 86, 48, 0.1), 0 20px 60px rgba(0, 0, 0, 0.5);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  outline: none;
+  animation: byok-disclaimer-rise 200ms ease-out;
+}
+
+.byok-disclaimer__title {
+  margin: 0 0 0.6rem;
+  font-size: 1.2rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--byok-ink);
+}
+
+.byok-disclaimer__text {
+  margin: 0;
+  color: var(--byok-ink);
+}
+
+.byok-disclaimer__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+
+.byok-disclaimer__actions button {
+  min-height: 44px;
+  padding: 0.6rem 1rem;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.byok-disclaimer__continue {
+  background: var(--byok-crimson);
+  color: #ffffff;
+  border: 1px solid transparent;
+}
+
+.byok-disclaimer__cancel {
+  background: transparent;
+  color: var(--byok-ink);
+  border: 1px solid var(--byok-edge);
+}
+
+.byok-disclaimer__actions button:hover {
+  border-color: var(--byok-coral);
+}
+
+.byok-disclaimer__actions button:focus-visible {
+  outline: 2px solid var(--byok-coral);
+  outline-offset: 2px;
+}
+
+@media (min-width: 480px) {
+  .byok-disclaimer__actions {
+    flex-direction: row-reverse;
+  }
+  .byok-disclaimer__actions button {
+    flex: 1;
+  }
+}
+
+@keyframes byok-disclaimer-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes byok-disclaimer-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Reduced motion: appear at once, nothing slides or scales. */
+@media (prefers-reduced-motion: reduce) {
+  .byok-disclaimer__overlay,
+  .byok-disclaimer__card {
+    animation: none;
+  }
+}
+
+/* Reduced transparency: a solid backdrop, no blur. */
+@media (prefers-reduced-transparency: reduce) {
+  .byok-disclaimer__overlay {
+    background: var(--byok-midnight);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* More contrast: a firmer edge. */
+@media (prefers-contrast: more) {
+  .byok-disclaimer__card {
+    border-color: #ffffff;
+  }
+  .byok-disclaimer__overlay {
+    background: var(--byok-midnight);
+  }
+}

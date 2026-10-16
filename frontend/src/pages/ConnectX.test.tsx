@@ -101,6 +101,7 @@ describe("the form", () => {
     await fill(user);
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Save and connect" }));
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     expect(api.connectXKeys).toHaveBeenCalledWith(FAKE);
     // while the request is still in flight the secrets are already gone from the form
     const [apiSecret, tokenSecret] = secretInputs();
@@ -117,6 +118,7 @@ describe("the form", () => {
     await fill(user);
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Save and connect" }));
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/did not accept these keys/));
     const [apiSecret, tokenSecret] = secretInputs();
     expect(apiSecret.value).toBe("");
@@ -132,6 +134,7 @@ describe("the form", () => {
     render(<ConnectX />);
     await fill(user);
     await user.click(screen.getByRole("button", { name: "Check my keys" }));
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await waitFor(() => expect(screen.getByRole("status").textContent).toMatch(/Keys accepted. Connected as @acme/));
     expect(api.checkXKeys).toHaveBeenCalledWith(FAKE);
     expect(api.connectXKeys).not.toHaveBeenCalled();
@@ -144,6 +147,7 @@ describe("the form", () => {
     render(<ConnectX />);
     await fill(user);
     await user.click(screen.getByRole("button", { name: "Check my keys" }));
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
     expect(secretInputs().map((i) => i.value)).toEqual(["", ""]);
   });
@@ -154,6 +158,7 @@ describe("the form", () => {
     render(<ConnectX />);
     await fill(user);
     await user.click(screen.getByRole("button", { name: "Check my keys" }));
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/any paid plan/));
   });
 });
