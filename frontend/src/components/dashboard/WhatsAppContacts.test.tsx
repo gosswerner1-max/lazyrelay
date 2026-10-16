@@ -18,7 +18,7 @@ vi.mock("../../lib/api", () => ({ api }));
 
 import { WhatsAppContactImport } from "./WhatsAppContactImport";
 import { WhatsAppContactList, WhatsAppOptOuts } from "./WhatsAppContactList";
-import { ATTESTATION_TEXT } from "../../lib/whatsappContacts";
+
 import type { WhatsAppContact } from "../../lib/api";
 
 const SA1 = "11111111-1111-4111-8111-111111111111";
