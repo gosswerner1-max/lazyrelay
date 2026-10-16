@@ -10,6 +10,8 @@ import {
   whatsAppFieldsComplete,
   type WhatsAppFields,
 } from "../../lib/whatsappByok";
+import { ByokGuide } from "./ByokGuide";
+import { X_GUIDE } from "../../lib/byokGuides";
 import { WhatsAppInboundStatus } from "./WhatsAppInboundStatus";
 import { WhatsAppThreadViewer } from "./WhatsAppThreadViewer";
 import { WhatsAppWebhookDetails } from "./WhatsAppWebhookDetails";
@@ -201,6 +203,7 @@ function XCard({ info, onConnected, onSeePlans }: CardProps) {
         </a>{" "}
         (opens in a new tab)
       </p>
+      <ByokGuide guide={X_GUIDE} />
       <form onSubmit={handleSubmit} autoComplete="off">
         <div className="byok-fields">
           <Field label="API Key (Consumer Key)" name="x-api-key" value={keys.apiKey} onChange={set("apiKey")} />
