@@ -96,7 +96,7 @@ export function validateBroadcast(f: BroadcastForm, nowMs: number = Date.now()):
 
 /** User-facing wording kept in one place so it can be checked (no dashes, no unproven claims). */
 export const COPY = {
-  sendingIntro: "Message your contacts on WhatsApp with your own Meta account. Meta bills your own WhatsApp Business Account directly. LazyRelay never pays for it.",
+  sendingIntro: "Chat with your contacts, send approval requests and schedule broadcasts, all through your own Meta account.",
   approvalNote: "An approval is a convenience record of what your client tapped in WhatsApp. It is not legal consent, a signature or proof of a contract.",
   handedOffNote: "Handed to WhatsApp means Meta accepted the message. It is only counted as delivered when Meta says so.",
   windowNote: "WhatsApp lets you type freely for 24 hours after your contact last wrote to you. After that you can only send an approved template.",
