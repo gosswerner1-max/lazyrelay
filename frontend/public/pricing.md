@@ -2,6 +2,8 @@
 
 All plans include AI-agent/MCP access, the REST API, Zapier, and Proof-of-Publish verification (an independent re-check that every scheduled post actually went live, not just that it was accepted). No card required for Free. Prices are shown before tax; tax is added at checkout.
 
+WhatsApp and X can be connected with your own keys on every paid plan (Starter and above). You pay Meta or X directly for the messages you send; LazyRelay does not add a fee for them. Free plans cannot connect them.
+
 ## Free
 - Price: $0/month
 - Limits: 3 connected accounts, 1 brand, 10 posts per account (refillable), one-time scheduled posts only, 250MB storage

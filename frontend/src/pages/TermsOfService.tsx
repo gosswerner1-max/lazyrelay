@@ -7,7 +7,7 @@ interface TermsOfServiceProps {
   onBack: () => void;
 }
 
-const LAST_UPDATED = "3 September 2026";
+const LAST_UPDATED = "16 October 2026";
 
 export function TermsOfService({ onBack }: TermsOfServiceProps) {
   useEffect(() => {
@@ -118,6 +118,12 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
             by account type, settings, or your region), not by us, and we have no way to override it. When a
             platform blocks a post for this reason, we'll show you a clear explanation of why rather than
             attempt to post it another way without your say-so.
+          </p>
+          <p>
+            WhatsApp and X can be connected with your own keys. You are responsible for holding those keys
+            legitimately, for following Meta's and X's terms and policies, and for the fees they charge you. For
+            WhatsApp you may only message people who have given you permission, and you must stop messaging anyone
+            who replies STOP. LazyRelay may pause sending on a connection if Meta restricts your number.
           </p>
 
           <h3>Acceptable use</h3>
