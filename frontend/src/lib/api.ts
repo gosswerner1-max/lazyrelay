@@ -43,7 +43,10 @@ async function authedFetch(path: string, options: RequestInit = {}) {
     if (typeof window !== "undefined" && isPlatformLimitDetail(body)) {
       window.dispatchEvent(new CustomEvent(PLATFORM_LIMIT_EVENT, { detail: body }));
     }
-    throw new Error(body.error ?? `Request failed: ${res.status}`);
+    // The refusal code some routes add (for example the WhatsApp window), so a screen can react to it without reading words.
+    const failure = new Error(body.error ?? `Request failed: ${res.status}`) as Error & { code?: string };
+    if (typeof body.code === "string") failure.code = body.code;
+    throw failure;
   }
   return res.status === 204 ? null : res.json();
 }
@@ -162,6 +165,122 @@ export interface WhatsAppImportResult {
 export interface WhatsAppOptOutsResult {
   count: number;
   optOuts: Array<{ id: string; contactDisplay: string; scope: string; source: string; keyword: string | null; occurredAt: string }>;
+}
+
+// WhatsApp broadcasts and two-way chat (Phase 2). Every call below needs the account to have sending on (GET /whatsapp/send-capabilities);
+// otherwise the server answers 404. The backend never returns a phone number: people are shown by a mask and the name they gave WhatsApp.
+export interface WhatsAppWindow {
+  open: boolean;
+  expiresAt: string | null;
+  hoursLeft: number;
+}
+export interface WhatsAppTemplate {
+  id: string;
+  name: string;
+  language: string;
+  category: "marketing" | "utility" | "authentication";
+  status: string;
+  bodyText: string;
+  variableCount: number;
+  supported: boolean;
+  unsupportedReason: string | null;
+  /** Approved AND supported: the only templates a broadcast or an out-of-window message may use. */
+  usable: boolean;
+  syncedAt: string | null;
+}
+export interface WhatsAppRateCard {
+  currency: string;
+  marketing: number;
+  utility: number;
+  authentication: number;
+}
+export interface WhatsAppCostEstimate {
+  amount: number;
+  currency: string;
+  isEstimate: true;
+}
+export interface WhatsAppBroadcast {
+  id: string;
+  socialAccountId: string;
+  name: string;
+  status: "scheduled" | "sending" | "completed" | "cancelled" | "paused" | "failed";
+  pauseReason: string | null;
+  templateName: string;
+  templateLanguage: string;
+  templateCategory: "marketing" | "utility" | "authentication";
+  scheduledFor: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  createdAt: string;
+  audienceEstimate: number;
+  counts: { total: number; queued: number; accepted: number; sent: number; delivered: number; read: number; failed: number; skipped: number };
+  delivery: { delivered: number; ofAccepted: number };
+  costEstimate: WhatsAppCostEstimate | null;
+}
+export interface WhatsAppBroadcastPreview {
+  audience: number;
+  excludedUs: number;
+  estimatedCost: WhatsAppCostEstimate | null;
+}
+export interface WhatsAppConversation {
+  id: string;
+  socialAccountId: string;
+  contactDisplay: string;
+  displayName: string | null;
+  isContact: boolean;
+  unreadCount: number;
+  lastMessageAt: string;
+  window: WhatsAppWindow;
+}
+export type WhatsAppApprovalStatus = "pending" | "approved" | "changes_requested" | "question" | "other_reply";
+export interface WhatsAppApproval {
+  id: string;
+  title: string;
+  options: Array<{ id: string; title: string }>;
+  status: WhatsAppApprovalStatus;
+  responseOptionId: string | null;
+  responseTitle: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+}
+export interface WhatsAppChatMessage {
+  id: string;
+  direction: "inbound" | "outbound";
+  kind: string;
+  text: string;
+  status: string;
+  failureReason: string | null;
+  occurredAt: string;
+  handedOffAt: string | null;
+  sentAt: string | null;
+  deliveredAt: string | null;
+  readAt: string | null;
+  templateName: string | null;
+  approval: WhatsAppApproval | null;
+}
+export interface WhatsAppApprovalListItem extends WhatsAppApproval {
+  conversationId: string;
+  messageId: string;
+  contactDisplay: string;
+  displayName: string | null;
+}
+export interface WhatsAppChatSendResult {
+  messageId: string;
+  status: "handed_off";
+  mode: "text" | "buttons" | "list" | "template";
+  window: WhatsAppWindow;
+  approvalId?: string;
+}
+export interface WhatsAppAudience {
+  id: string;
+  socialAccountId: string;
+  name: string;
+  memberCount: number;
+}
+export interface WhatsAppUpdateResult {
+  summary: { total: number; sent: number; skipped: number; failed: number; notAttempted: number };
+  results: Array<{ contactDisplay: string; status: "sent" | "skipped" | "failed" | "not_attempted"; how?: "text" | "template"; code?: string }>;
 }
 
 export interface Brand {
@@ -762,6 +881,41 @@ export const api = {
   optOutWhatsAppContact: (id: string): Promise<{ ok: true }> => authedFetch(`/whatsapp/contacts/${encodeURIComponent(id)}/opt-out`, { method: "POST", body: JSON.stringify({}) }),
   eraseWhatsAppContact: (id: string): Promise<{ ok: true }> => authedFetch(`/whatsapp/contacts/${encodeURIComponent(id)}`, { method: "DELETE" }),
   listWhatsAppOptOuts: (): Promise<WhatsAppOptOutsResult> => authedFetch("/whatsapp/opt-outs"),
+
+  // WhatsApp broadcasts and two-way chat. send-capabilities answers booleans only (never an error); everything else is 404 while sending is off.
+  getWhatsAppSendCapabilities: (): Promise<{ sending: boolean; stopped: boolean }> => authedFetch("/whatsapp/send-capabilities"),
+  listWhatsAppTemplates: (socialAccountId: string): Promise<{ templates: WhatsAppTemplate[] }> => authedFetch(`/whatsapp/templates?social_account_id=${encodeURIComponent(socialAccountId)}`),
+  syncWhatsAppTemplates: (socialAccountId: string): Promise<{ synced: number; approved: number; unsupported: number; disabled: number }> =>
+    authedFetch("/whatsapp/templates/sync", { method: "POST", body: JSON.stringify({ social_account_id: socialAccountId }) }),
+  getWhatsAppRateCard: (socialAccountId: string): Promise<{ rateCard: WhatsAppRateCard | null }> => authedFetch(`/whatsapp/rate-card?social_account_id=${encodeURIComponent(socialAccountId)}`),
+  saveWhatsAppRateCard: (socialAccountId: string, card: WhatsAppRateCard): Promise<{ rateCard: WhatsAppRateCard }> =>
+    authedFetch("/whatsapp/rate-card", { method: "PUT", body: JSON.stringify({ social_account_id: socialAccountId, ...card }) }),
+  listWhatsAppBroadcasts: (socialAccountId?: string): Promise<{ broadcasts: WhatsAppBroadcast[]; nextBefore: string | null }> =>
+    authedFetch(`/whatsapp/broadcasts${socialAccountId ? `?social_account_id=${encodeURIComponent(socialAccountId)}` : ""}`),
+  createWhatsAppBroadcast: (body: { socialAccountId: string; templateId: string; name: string; params: string[]; scheduledFor: string; dryRun?: boolean }): Promise<{ dryRun: boolean; preview: WhatsAppBroadcastPreview; broadcast?: WhatsAppBroadcast }> =>
+    authedFetch("/whatsapp/broadcasts", { method: "POST", body: JSON.stringify({ social_account_id: body.socialAccountId, template_id: body.templateId, name: body.name, params: body.params, scheduled_for: body.scheduledFor, dry_run: body.dryRun === true ? true : undefined }) }),
+  cancelWhatsAppBroadcast: (id: string): Promise<{ status: "cancelled" }> => authedFetch(`/whatsapp/broadcasts/${encodeURIComponent(id)}/cancel`, { method: "POST", body: JSON.stringify({}) }),
+  resumeWhatsAppSending: (socialAccountId: string): Promise<{ ok: true }> => authedFetch(`/whatsapp/connections/${encodeURIComponent(socialAccountId)}/resume-sending`, { method: "POST", body: JSON.stringify({}) }),
+  listWhatsAppConversations: (socialAccountId?: string): Promise<{ conversations: WhatsAppConversation[]; nextBefore: string | null }> =>
+    authedFetch(`/whatsapp/conversations${socialAccountId ? `?social_account_id=${encodeURIComponent(socialAccountId)}` : ""}`),
+  getWhatsAppThread: (id: string): Promise<{ conversation: WhatsAppConversation; messages: WhatsAppChatMessage[] }> => authedFetch(`/whatsapp/conversations/${encodeURIComponent(id)}`),
+  markWhatsAppConversationRead: (id: string): Promise<{ ok: true }> => authedFetch(`/whatsapp/conversations/${encodeURIComponent(id)}/read`, { method: "POST", body: JSON.stringify({}) }),
+  replyWhatsApp: (id: string, text: string): Promise<WhatsAppChatSendResult> => authedFetch(`/whatsapp/conversations/${encodeURIComponent(id)}/reply`, { method: "POST", body: JSON.stringify({ text }) }),
+  sendWhatsAppTemplate: (id: string, templateId: string, params: string[]): Promise<WhatsAppChatSendResult> =>
+    authedFetch(`/whatsapp/conversations/${encodeURIComponent(id)}/template`, { method: "POST", body: JSON.stringify({ template_id: templateId, params }) }),
+  sendWhatsAppApprovalRequest: (id: string, body: { title: string; body: string; options?: Array<{ id: string; title: string }>; templateId?: string; params?: string[] }): Promise<WhatsAppChatSendResult> =>
+    authedFetch(`/whatsapp/conversations/${encodeURIComponent(id)}/approval`, { method: "POST", body: JSON.stringify({ title: body.title, body: body.body, options: body.options, template_id: body.templateId, params: body.params }) }),
+  startWhatsAppConversation: (contactId: string): Promise<{ conversationId: string; created: boolean; window: WhatsAppWindow }> =>
+    authedFetch(`/whatsapp/contacts/${encodeURIComponent(contactId)}/conversation`, { method: "POST", body: JSON.stringify({}) }),
+  listWhatsAppApprovals: (status?: WhatsAppApprovalStatus): Promise<{ approvals: WhatsAppApprovalListItem[]; counts: Record<WhatsAppApprovalStatus, number>; note: string }> =>
+    authedFetch(`/whatsapp/approvals${status ? `?status=${status}` : ""}`),
+  listWhatsAppAudiences: (socialAccountId?: string): Promise<{ audiences: WhatsAppAudience[] }> => authedFetch(`/whatsapp/audiences${socialAccountId ? `?social_account_id=${encodeURIComponent(socialAccountId)}` : ""}`),
+  createWhatsAppAudience: (socialAccountId: string, name: string): Promise<{ id: string }> => authedFetch("/whatsapp/audiences", { method: "POST", body: JSON.stringify({ social_account_id: socialAccountId, name }) }),
+  deleteWhatsAppAudience: (id: string): Promise<{ ok: true }> => authedFetch(`/whatsapp/audiences/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  addWhatsAppAudienceMembers: (id: string, contactIds: string[]): Promise<{ added: number; skipped: number }> =>
+    authedFetch(`/whatsapp/audiences/${encodeURIComponent(id)}/members`, { method: "POST", body: JSON.stringify({ contact_ids: contactIds }) }),
+  sendWhatsAppAudienceUpdate: (id: string, body: { text: string; templateId?: string; params?: string[] }): Promise<WhatsAppUpdateResult> =>
+    authedFetch(`/whatsapp/audiences/${encodeURIComponent(id)}/send-update`, { method: "POST", body: JSON.stringify({ text: body.text, template_id: body.templateId, params: body.params }) }),
 
   listScheduledPosts: (): Promise<ScheduledPost[]> => authedFetch("/scheduled-posts"),
   // Real pagination for History — `before` is the oldest post's
