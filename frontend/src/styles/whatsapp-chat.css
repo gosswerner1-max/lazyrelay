@@ -1,0 +1,353 @@
+/* WhatsApp broadcasts, two-way chat and the setup guides. Extends the Custom Developer Keys panel look (byok-panels.css) and the contacts
+   screens (whatsapp-contacts.css) with the SAME tokens (midnight canvas, slate cards, coral for focus and hover), so every selector is
+   scoped under .byok-panels and nothing here repaints the rest of the dashboard. Written to the Apple layout rules in
+   .claude/rules/apple-design:
+     - feedback on pointer-down (:active), instant, no waiting for the click to finish;
+     - only transform and opacity are ever animated, no layout shift (the guide is a native <details>: no animation at all);
+     - the fallbacks: reduced motion, reduced transparency, more contrast;
+     - size-specific tracking: tighter on titles, none on body text. */
+
+/* ---- sub-navigation inside the WhatsApp tab ---- */
+.byok-panels .wac-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.byok-panels .wac-nav button {
+  padding: 0.4rem 0.8rem;
+  background: rgba(11, 15, 25, 0.85);
+  color: var(--byok-muted);
+  border: 1px solid var(--byok-edge);
+  border-radius: 999px;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.byok-panels .wac-nav button:hover {
+  border-color: rgba(255, 120, 90, 0.75);
+  color: var(--byok-ink);
+}
+
+.byok-panels .wac-nav button[aria-current="page"] {
+  color: var(--byok-ink);
+  border-color: var(--byok-coral);
+  background: rgba(255, 86, 48, 0.14);
+}
+
+.byok-panels .wac-nav button:focus-visible,
+.byok-panels .wac-chat button:focus-visible,
+.byok-panels .byok-guide summary:focus-visible {
+  outline: 2px solid var(--byok-coral);
+  outline-offset: 2px;
+}
+
+.byok-panels .wac-count {
+  display: inline-block;
+  min-width: 1.2rem;
+  margin-left: 0.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--byok-coral);
+  color: #0b0f19;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ---- the setup guide (native <details>) ---- */
+.byok-panels .byok-guide {
+  border: 1px solid var(--byok-edge);
+  border-radius: 12px;
+  background: rgba(11, 15, 25, 0.6);
+}
+
+.byok-panels .byok-guide summary {
+  cursor: pointer;
+  padding: 0.7rem 0.9rem;
+  color: var(--byok-ink);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  list-style-position: inside;
+}
+
+.byok-panels .byok-guide__body {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0 0.9rem 0.9rem;
+}
+
+.byok-panels .byok-guide__intro,
+.byok-panels .byok-guide__footer {
+  margin: 0;
+  max-width: 68ch;
+}
+
+.byok-panels .byok-guide__steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.byok-panels .byok-guide__steps li {
+  display: grid;
+  gap: 0.2rem;
+  max-width: 68ch;
+  line-height: 1.5;
+}
+
+.byok-panels .byok-guide__steps li::marker {
+  color: var(--byok-coral);
+  font-weight: 600;
+}
+
+.byok-panels .byok-guide__step-title {
+  color: var(--byok-ink);
+  letter-spacing: -0.005em;
+}
+
+.byok-panels .byok-guide__note {
+  color: var(--byok-muted);
+  font-size: 0.85rem;
+}
+
+.byok-panels .byok-guide__link,
+.byok-panels .byok-guide__footer a {
+  color: var(--byok-coral);
+  width: fit-content;
+}
+
+/* ---- broadcast composer and list ---- */
+.byok-panels .wac-form-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 720px) {
+  .byok-panels .wac-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.byok-panels .wac-template-body {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  border-left: 2px solid var(--byok-coral);
+  background: rgba(11, 15, 25, 0.6);
+  border-radius: 0 8px 8px 0;
+  color: var(--byok-ink);
+  white-space: pre-wrap;
+}
+
+.byok-panels .wac-broadcast {
+  display: grid;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.byok-panels .wac-broadcast-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.byok-panels .wac-big {
+  color: var(--byok-ink);
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+
+.byok-panels .wac-small {
+  font-size: 0.82rem;
+  color: var(--byok-muted);
+}
+
+.byok-panels .wac-warn {
+  color: var(--byok-error);
+}
+
+/* ---- inbox and thread ---- */
+.byok-panels .wac-chat {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+  min-width: 0;
+}
+
+@media (min-width: 960px) {
+  .byok-panels .wac-chat {
+    grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.byok-panels .wac-convs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.byok-panels .wac-convs button {
+  width: 100%;
+  display: grid;
+  gap: 0.15rem;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  background: rgba(11, 15, 25, 0.7);
+  color: var(--byok-muted);
+  border: 1px solid var(--byok-edge);
+  border-radius: 10px;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.byok-panels .wac-convs button:hover {
+  border-color: rgba(255, 120, 90, 0.75);
+}
+
+.byok-panels .wac-convs button[aria-current="true"] {
+  border-color: var(--byok-coral);
+  background: rgba(255, 86, 48, 0.1);
+}
+
+.byok-panels .wac-conv-top {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+  align-items: baseline;
+  color: var(--byok-ink);
+}
+
+.byok-panels .wac-thread {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.byok-panels .wac-thread-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.byok-panels .wac-messages {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0;
+  display: grid;
+  gap: 0.5rem;
+  max-height: 28rem;
+  overflow-y: auto;
+}
+
+.byok-panels .wac-msg {
+  display: grid;
+  gap: 0.2rem;
+  max-width: min(34rem, 88%);
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--byok-edge);
+  border-radius: 12px;
+  background: rgba(20, 27, 45, 0.9);
+  color: var(--byok-ink);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.byok-panels .wac-msg--out {
+  justify-self: end;
+  border-color: rgba(255, 86, 48, 0.55);
+  background: rgba(255, 86, 48, 0.12);
+}
+
+.byok-panels .wac-msg--failed {
+  border-color: var(--byok-error);
+}
+
+.byok-panels .wac-msg-meta {
+  font-size: 0.75rem;
+  color: var(--byok-muted);
+}
+
+.byok-panels .wac-approval {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px dashed var(--byok-edge);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  white-space: normal;
+}
+
+.byok-panels .wac-composer {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.byok-panels .wac-chat button,
+.byok-panels .wac-nav button,
+.byok-panels .wac-broadcast button {
+  transition: transform 100ms ease-out, opacity 100ms ease-out;
+}
+
+.byok-panels .wac-chat button:active:not(:disabled),
+.byok-panels .wac-nav button:active:not(:disabled),
+.byok-panels .wac-broadcast button:active:not(:disabled) {
+  transform: scale(0.97);
+  opacity: 0.9;
+}
+
+/* ---- approvals ---- */
+.byok-panels .wac-approval-row {
+  align-items: flex-start;
+}
+
+/* Reduced motion: no scale, no transition; a plain opacity change still confirms the press. */
+@media (prefers-reduced-motion: reduce) {
+  .byok-panels .wac-chat button,
+  .byok-panels .wac-nav button,
+  .byok-panels .wac-broadcast button {
+    transition: none;
+  }
+  .byok-panels .wac-chat button:active:not(:disabled),
+  .byok-panels .wac-nav button:active:not(:disabled),
+  .byok-panels .wac-broadcast button:active:not(:disabled) {
+    transform: none;
+    opacity: 0.8;
+  }
+}
+
+/* Reduced transparency: solid surfaces instead of the translucent fills. */
+@media (prefers-reduced-transparency: reduce) {
+  .byok-panels .byok-guide,
+  .byok-panels .wac-msg,
+  .byok-panels .wac-convs button,
+  .byok-panels .wac-template-body {
+    background: #0b0f19;
+  }
+}
+
+/* More contrast: a defined, lighter border on every surface. */
+@media (prefers-contrast: more) {
+  .byok-panels .byok-guide,
+  .byok-panels .wac-msg,
+  .byok-panels .wac-convs button,
+  .byok-panels .wac-nav button {
+    border-color: #ffffff;
+    background: #000000;
+  }
+  .byok-panels .byok-guide__note,
+  .byok-panels .wac-small,
+  .byok-panels .wac-msg-meta {
+    color: #ffffff;
+  }
+}

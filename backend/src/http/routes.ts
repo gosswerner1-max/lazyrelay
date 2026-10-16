@@ -13,6 +13,8 @@ import { buildPostsRouter } from "./routes/posts.routes.js";
 import { buildInboxRouter } from "./routes/inbox.routes.js";
 import { buildWhatsAppMessagesRouter } from "./routes/whatsappMessages.routes.js";
 import { buildWhatsAppContactsRouter } from "./routes/whatsappContacts.routes.js";
+import { buildWhatsAppBroadcastsRouter } from "./routes/whatsappBroadcasts.routes.js";
+import { buildWhatsAppChatRouter } from "./routes/whatsappChat.routes.js";
 import { buildWhatsAppWebhookInfoRouter } from "./routes/whatsappWebhookInfo.routes.js";
 import { buildReplyDraftsRouter } from "./routes/replyDrafts.routes.js";
 import { buildAnalyticsRouter } from "./routes/analytics.routes.js";
@@ -52,6 +54,9 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.use(buildWhatsAppMessagesRouter());
   router.use(buildWhatsAppWebhookInfoRouter());
   router.use(buildWhatsAppContactsRouter());
+  // Broadcasts and two-way chat: behind WHATSAPP_SEND_ENABLED, human sign-in only (no API key, MCP or Zapier path).
+  router.use(buildWhatsAppBroadcastsRouter());
+  router.use(buildWhatsAppChatRouter());
   router.use(buildReplyDraftsRouter());
   router.use(buildAnalyticsRouter());
   router.use(buildRecurringSchedulesRouter());

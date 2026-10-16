@@ -10,3 +10,4 @@ d9aa5d7b7ae751d9f1957c1b86a3d5f4b3414d89:backend/src/platforms/oauth1.test.ts:ge
 d9aa5d7b7ae751d9f1957c1b86a3d5f4b3414d89:backend/src/platforms/oauth1.test.ts:generic-api-key:74
 d9aa5d7b7ae751d9f1957c1b86a3d5f4b3414d89:backend/src/platforms/xTestKit.ts:generic-api-key:6
 d9aa5d7b7ae751d9f1957c1b86a3d5f4b3414d89:backend/src/platforms/xTestKit.ts:generic-api-key:7
+c6e7aa00fddd788645de3f860784cde769e17415:backend/src/whatsappBroadcast/testKit.ts:generic-api-key:20

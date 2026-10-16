@@ -49,6 +49,17 @@ export function findProductionConfigProblems(env: Record<string, string | undefi
     }
   }
 
+  // Broadcast and chat sending needs the feature switches on and the webhook verify token (receipts and replies arrive on that
+  // webhook). Names only, never a value.
+  if (env.WHATSAPP_SEND_ENABLED === "true") {
+    const off = ["WHATSAPP_BYOK_ENABLED", "WHATSAPP_BROADCASTS_ENABLED"].filter((k) => env[k] !== "true");
+    if (off.length > 0) {
+      problems.push(`WHATSAPP_SEND_ENABLED is on but these settings are not "true": ${off.join(", ")}. Nothing can be sent until they are.`);
+    } else if (!env.WHATSAPP_WEBHOOK_VERIFY_TOKEN?.trim()) {
+      problems.push("WHATSAPP_SEND_ENABLED is on but WHATSAPP_WEBHOOK_VERIFY_TOKEN is not set. Delivery receipts and replies cannot arrive until it is.");
+    }
+  }
+
   // Any URL-valued setting that points at this machine is a local value that
   // leaked into production (a customer would be sent to localhost). Only the
   // names are reported, never the values.

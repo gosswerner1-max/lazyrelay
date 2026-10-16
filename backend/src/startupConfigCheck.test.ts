@@ -93,3 +93,31 @@ describe("findProductionConfigProblems: WhatsApp broadcast contacts", () => {
     for (const text of [p[0], findProductionConfigProblems({ ...READY, WHATSAPP_CONTACT_ENC_KEY: "short" })[0]]) expect(text).not.toMatch(new RegExp(`${ENC}|short|h{32}`));
   });
 });
+
+describe("WHATSAPP_SEND_ENABLED (broadcast and chat sending)", () => {
+  const base = { FRONTEND_URL: "https://lazyrelay.com" };
+  const keys = { WHATSAPP_CONTACT_HASH_KEY: "h".repeat(40), WHATSAPP_CONTACT_ENC_KEY: Buffer.alloc(32, 1).toString("base64"), WHATSAPP_CONTACT_ENC_KEY_ID: "k1" };
+
+  it("says nothing while it is off", () => {
+    expect(findProductionConfigProblems({ ...base })).toEqual([]);
+    expect(findProductionConfigProblems({ ...base, WHATSAPP_SEND_ENABLED: "false" })).toEqual([]);
+  });
+
+  it("flags sending switched on without the feature switches, naming only the settings", () => {
+    const problems = findProductionConfigProblems({ ...base, WHATSAPP_SEND_ENABLED: "true" });
+    expect(problems.join(" ")).toMatch(/WHATSAPP_SEND_ENABLED/);
+    expect(problems.join(" ")).toMatch(/WHATSAPP_BYOK_ENABLED/);
+    expect(problems.join(" ")).toMatch(/WHATSAPP_BROADCASTS_ENABLED/);
+  });
+
+  it("flags sending without the webhook verify token (receipts and replies could never arrive)", () => {
+    const problems = findProductionConfigProblems({ ...base, ...keys, WHATSAPP_BYOK_ENABLED: "true", WHATSAPP_BROADCASTS_ENABLED: "true", WHATSAPP_SEND_ENABLED: "true" });
+    expect(problems.join(" ")).toMatch(/WHATSAPP_WEBHOOK_VERIFY_TOKEN/);
+  });
+
+  it("is quiet when everything it needs is set, and never prints a value", () => {
+    const env = { ...base, ...keys, WHATSAPP_BYOK_ENABLED: "true", WHATSAPP_BROADCASTS_ENABLED: "true", WHATSAPP_SEND_ENABLED: "true", WHATSAPP_WEBHOOK_VERIFY_TOKEN: "some-verify-token-value" };
+    expect(findProductionConfigProblems(env)).toEqual([]);
+    expect(findProductionConfigProblems({ ...env, WHATSAPP_WEBHOOK_VERIFY_TOKEN: undefined }).join(" ")).not.toMatch(/some-verify-token-value|hhhhhh/);
+  });
+});

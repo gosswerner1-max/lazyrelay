@@ -7,6 +7,10 @@ import { checkWhatsappPlan } from "../accountLimits.js";
 import { META_ID_PATTERN, parseWhatsAppBundle } from "../platforms/whatsapp/credentials.js";
 import { contactHashKey, contactKeyFor, maskPhone, messageKeyFor } from "../platforms/whatsapp/contactPrivacy.js";
 import { recordSecurityEvent } from "./securityAlerts.js";
+import { broadcastsEnabled } from "../whatsappBroadcast/flags.js";
+import { processWhatsAppStatusEvent } from "../whatsappBroadcast/statusWebhook.js";
+import { recordInboundOptOuts } from "../whatsappBroadcast/optOuts.js";
+import { processWhatsAppChatEvent } from "../whatsappChat/inboundWebhook.js";
 
 // WhatsApp (bring your own key), real-time inbound messages. Mounted in app.ts at /api/webhooks/whatsapp, OUTSIDE the
 // dashboard's authorization: Meta's servers call it, not a signed-in person. What protects it instead:
@@ -140,6 +144,26 @@ export function handleWhatsAppWebhookEvent(req: Request, res: Response): void {
     .catch((err) => console.error("[whatsapp-webhook] processing failed:", err instanceof Error ? err.message : "unknown error"))
     .finally(() => inflight.delete(work));
   inflight.add(work);
+
+  // Delivery receipts for broadcast messages, and account events that pause a number (whatsappBroadcast/statusWebhook.ts). It
+  // verifies the same signature itself and does nothing unless the broadcast feature is on.
+  const receipts = processWhatsAppStatusEvent(rawBody, signatureHeader)
+    .then((s) => {
+      if (s.statuses > 0 || s.paused > 0) console.log(`[whatsapp-webhook] receipts: statuses=${s.statuses} applied=${s.applied} unmatched=${s.unmatched} blocked=${s.blocked} rejected=${s.rejected} paused=${s.paused}`);
+    })
+    .catch((err) => console.error("[whatsapp-webhook] receipt processing failed:", err instanceof Error ? err.message : "unknown error"))
+    .finally(() => inflight.delete(receipts));
+  inflight.add(receipts);
+
+  // Two-way chat: every inbound message (text, button or list tap, media placeholder) into the encrypted conversation store
+  // (whatsappChat/inboundWebhook.ts). Verifies the same signature itself; does nothing unless WHATSAPP_SEND_ENABLED is on.
+  const chat = processWhatsAppChatEvent(rawBody, signatureHeader)
+    .then((s) => {
+      if (s.messages > 0) console.log(`[whatsapp-webhook] chat: messages=${s.messages} stored=${s.stored} duplicates=${s.duplicates} unmatched=${s.unmatched} blocked=${s.blocked} rejected=${s.rejected}`);
+    })
+    .catch((err) => console.error("[whatsapp-webhook] chat processing failed:", err instanceof Error ? err.message : "unknown error"))
+    .finally(() => inflight.delete(chat));
+  inflight.add(chat);
 }
 
 /** HMAC-SHA256 over the raw body, compared in constant time against the X-Hub-Signature-256 header. */
@@ -338,6 +362,15 @@ export async function processWhatsAppEvent(rawBody: Buffer, signatureHeader: str
         recordSecurityEvent("whatsapp_bad_signature", "WhatsApp webhook delivery failed signature verification");
         summary.rejected += group.length;
         continue;
+      }
+      // A STOP-style reply opts that number out of broadcasts. Done as soon as the delivery is verified, before the plan check: an
+      // opt-out is protective and must not depend on the plan. A failure here is shown, never swallowed, and never blocks the message.
+      if (broadcastsEnabled()) {
+        try {
+          await recordInboundOptOuts({ id: account.id, account_id: account.account_id }, group.map((m) => ({ from: m.from, text: m.text })));
+        } catch (err) {
+          console.error("[whatsapp-webhook] opt-out processing failed:", err instanceof Error ? err.message : "unknown error");
+        }
       }
       if (!planOk.has(account.account_id)) planOk.set(account.account_id, (await checkWhatsappPlan(account.account_id)) === null);
       if (!planOk.get(account.account_id)) {
