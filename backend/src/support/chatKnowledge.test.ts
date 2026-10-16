@@ -18,6 +18,8 @@ describe("support bot knowledge: platforms", () => {
     for (const label of labels) expect(line, label).toContain(label.split(" ")[0]);
     expect(line.replace("PLATFORMS LazyRelay posts to today:", "").split(",").length).toBe(labels.length);
     expect(labels.length).toBe(17);
+    // 17 listed here plus X (described separately) = the public "18 distribution platforms plus WhatsApp".
+    expect(prompt).toContain("18 distribution platforms plus WhatsApp");
   });
 
   it("no longer says Slack is unreleased, and states its real limits", () => {
@@ -37,8 +39,10 @@ describe("support bot knowledge: platforms", () => {
     expect(prompt).toMatch(/Nostr is NOT released yet/);
   });
 
-  it("does not list WhatsApp yet, and says it is not released", () => {
+  it("treats WhatsApp as live client messaging, not a distribution platform and not in the posting list", () => {
     expect(line).not.toContain("WhatsApp");
-    expect(prompt).toMatch(/WhatsApp is NOT released yet/);
+    expect(prompt).not.toMatch(/WhatsApp is NOT released yet/);
+    expect(prompt).toMatch(/WhatsApp is client messaging/);
+    expect(prompt).not.toMatch(/still being rolled out to their account/);
   });
 });

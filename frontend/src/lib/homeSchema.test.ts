@@ -57,9 +57,10 @@ describe("home page SoftwareApplication node (index.html)", () => {
 });
 
 describe("the facts the structured data is built from", () => {
-  it("lists exactly the 17 publishing platforms, each once", () => {
-    expect(PUBLISHING_PLATFORMS).toHaveLength(17);
-    expect(new Set(PUBLISHING_PLATFORMS).size).toBe(17);
+  it("lists exactly the 18 distribution platforms, each once", () => {
+    expect(PUBLISHING_PLATFORMS).toHaveLength(18);
+    expect(new Set(PUBLISHING_PLATFORMS).size).toBe(18);
+    expect(PUBLISHING_PLATFORMS).toContain("X");
   });
 
   it("every publishing platform is named on the public platform-features page", () => {

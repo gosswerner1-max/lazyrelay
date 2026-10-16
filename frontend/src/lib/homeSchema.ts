@@ -3,7 +3,7 @@
 // SoftwareApplication node); this module is the typed single source of the facts, and homeSchema.test.ts parses
 // index.html and fails if the node ever says something different. That keeps the page honest as the product changes:
 //   - the nine platforms whose comments the Mentions tab shows come from MENTIONS_LIVE_PLATFORMS;
-//   - the 17 publishing platforms are the list the site already states everywhere (README, llms.txt, platform-features);
+//   - the 18 distribution platforms (the original 17 plus X) are the list the site states everywhere (README, llms.txt, platform-features);
 //     the test checks every name against the public platform-features page;
 //   - the MCP tool count is checked against the generated docs/mcp-integration.md.
 // Only claims that are true and checkable: no rating, no review count, no customer numbers (there are none yet).
@@ -29,6 +29,7 @@ export const PUBLISHING_PLATFORMS = [
   "Hashnode",
   "Lemmy",
   "Slack",
+  "X",
 ] as const;
 
 const COMMENT_FEED_LABELS: Record<string, string> = {
@@ -58,7 +59,8 @@ export const MCP_TOOL_COUNT = 27;
 export function homeSoftwareFeatures(): string[] {
   const feed = commentFeedPlatforms();
   return [
-    `Scheduled posting to ${PUBLISHING_PLATFORMS.length} platforms: ${PUBLISHING_PLATFORMS.join(", ")}`,
+    `Scheduled posting to ${PUBLISHING_PLATFORMS.length} distribution platforms plus WhatsApp: ${PUBLISHING_PLATFORMS.join(", ")}, WhatsApp`,
+    "WhatsApp client messaging with your own Meta WhatsApp Business credentials: two way chat, approval requests and scheduled broadcasts to opted-in contacts",
     `MCP server with ${MCP_TOOL_COUNT} tools for AI agents, included on every plan, including Free`,
     "REST API described in OpenAPI 3.1",
     `Comment listening stream: reads comments on posts you publish through LazyRelay from ${feed.length} platforms in one place: ${feed.join(", ")}`,

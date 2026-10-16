@@ -38,9 +38,10 @@ describe("Buffer page matches buffer.com/pricing", () => {
     expect(buffer).not.toContain("First-comment scheduling, hashtag suggestions, browser extension");
     expect(buffer).toMatch(/Browser extension<\/td><td>[^<]*<\/td><td>Included on every plan/);
   });
-  it("does not say LazyRelay has no plans to add X", () => {
+  it("says LazyRelay offers X (own developer keys) and not Google Business Profile", () => {
     expect(buffer).not.toMatch(/isn't planning to|no plans to add either/);
-    expect(buffer).toContain("does not offer X or Google Business Profile today");
+    expect(buffer).toContain("does not offer Google Business Profile today");
+    expect(buffer).not.toContain("does not offer X");
   });
 });
 
