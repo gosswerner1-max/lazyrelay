@@ -89,3 +89,28 @@ describe("handleWhatsAppWebhookEvent: broadcast additions", () => {
     expect(c.consent_status).toBe("opted_in");
   });
 });
+
+describe("handleWhatsAppWebhookEvent: two-way chat", () => {
+  it("a text message also lands in the encrypted conversation store, and the older plain store is untouched", async () => {
+    await deliver(inbound("27829990001", "Is my proof ready?"));
+    expect(tables.whatsapp_conversations).toHaveLength(1);
+    expect(tables.whatsapp_chat_messages).toHaveLength(1);
+    expect(JSON.stringify(tables.whatsapp_chat_messages)).not.toContain("proof ready");
+    expect(tables.whatsapp_messages).toHaveLength(1);
+  });
+
+  it("a button tap (no text, which the older handler ignores) is stored and answers its approval request", async () => {
+    await deliver(inbound("27829990001", "hello first", "wamid.IN0"));
+    const conv = tables.whatsapp_conversations[0];
+    tables.whatsapp_chat_messages.push({ id: "m-out", account_id: ACC, conversation_id: conv.id, direction: "outbound", kind: "interactive_buttons", message_key: messageKeyFor(ACC, "wamid.OUT1"), status: "delivered" });
+    tables.whatsapp_approval_requests.push({ id: "ap1", account_id: ACC, conversation_id: conv.id, message_id: "m-out", options: [{ id: "approve", title: "Approve" }], status: "pending" });
+    await deliver({ contacts: [{ wa_id: "27829990001", profile: { name: "Thandi" } }], messages: [{ from: "27829990001", id: "wamid.TAP1", timestamp: "1760616000", type: "interactive", context: { id: "wamid.OUT1" }, interactive: { type: "button_reply", button_reply: { id: "approve", title: "Approve" } } }] });
+    expect(tables.whatsapp_approval_requests[0]).toMatchObject({ status: "approved", response_title: "Approve" });
+  });
+
+  it("with the send flag OFF nothing is stored in the conversation tables", async () => {
+    process.env.WHATSAPP_SEND_ENABLED = "false";
+    await deliver(inbound("27829990001", "hello"));
+    expect(tables.whatsapp_conversations).toHaveLength(0);
+  });
+});

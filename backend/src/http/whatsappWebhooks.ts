@@ -10,6 +10,7 @@ import { recordSecurityEvent } from "./securityAlerts.js";
 import { broadcastsEnabled } from "../whatsappBroadcast/flags.js";
 import { processWhatsAppStatusEvent } from "../whatsappBroadcast/statusWebhook.js";
 import { recordInboundOptOuts } from "../whatsappBroadcast/optOuts.js";
+import { processWhatsAppChatEvent } from "../whatsappChat/inboundWebhook.js";
 
 // WhatsApp (bring your own key), real-time inbound messages. Mounted in app.ts at /api/webhooks/whatsapp, OUTSIDE the
 // dashboard's authorization: Meta's servers call it, not a signed-in person. What protects it instead:
@@ -153,6 +154,16 @@ export function handleWhatsAppWebhookEvent(req: Request, res: Response): void {
     .catch((err) => console.error("[whatsapp-webhook] receipt processing failed:", err instanceof Error ? err.message : "unknown error"))
     .finally(() => inflight.delete(receipts));
   inflight.add(receipts);
+
+  // Two-way chat: every inbound message (text, button or list tap, media placeholder) into the encrypted conversation store
+  // (whatsappChat/inboundWebhook.ts). Verifies the same signature itself; does nothing unless WHATSAPP_SEND_ENABLED is on.
+  const chat = processWhatsAppChatEvent(rawBody, signatureHeader)
+    .then((s) => {
+      if (s.messages > 0) console.log(`[whatsapp-webhook] chat: messages=${s.messages} stored=${s.stored} duplicates=${s.duplicates} unmatched=${s.unmatched} blocked=${s.blocked} rejected=${s.rejected}`);
+    })
+    .catch((err) => console.error("[whatsapp-webhook] chat processing failed:", err instanceof Error ? err.message : "unknown error"))
+    .finally(() => inflight.delete(chat));
+  inflight.add(chat);
 }
 
 /** HMAC-SHA256 over the raw body, compared in constant time against the X-Hub-Signature-256 header. */

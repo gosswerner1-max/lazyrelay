@@ -94,6 +94,11 @@ export function seedWorld(opts: WorldOptions = {}): { vaultId: string } {
   tables.whatsapp_broadcast_status_events = [];
   tables.whatsapp_connection_send_state = [];
   tables.whatsapp_rate_cards = [];
+  tables.whatsapp_conversations = [];
+  tables.whatsapp_chat_messages = [];
+  tables.whatsapp_approval_requests = [];
+  tables.whatsapp_audiences = [];
+  tables.whatsapp_audience_members = [];
   tables.plans = [];
   return { vaultId };
 }

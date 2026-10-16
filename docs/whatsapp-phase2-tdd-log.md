@@ -62,3 +62,8 @@ Without the throwaway env the backend run shows 16 files failing to import (`SUP
 - RED: `whatsappChatMigration.test.ts` -> `Tests 17 failed (17)` (file did not exist). GREEN: wrote `0131_whatsapp_chat.sql` (conversations, encrypted chat messages, approval requests, saved audiences, 30 day purge functions) -> `Test Files 2 passed, Tests 19 passed (19)` with `migrationNumbers.test.ts`. Column-level grants exclude every ciphertext column; not executed in Postgres.
 - Refactor under test: shared signature / connection lookup moved to `whatsappBroadcast/webhookAuth.ts`; the 24 receipt tests and 5 wiring tests stayed green.
 
+### 11. Two-way chat, inbound: vault, 24h window, extraction and storage, webhook path
+- RED: `chatVault.test.ts` (window + vault), `inbound.test.ts`, `inboundWebhook.test.ts` -> `no tests`, `Cannot find module` each; wiring: `webhookWiring.test.ts` with the new chat cases -> `Tests 2 failed | 6 passed (8)` before wiring the handler.
+- GREEN: `chatVault.ts` + `window.ts` -> `10 passed`; `approvalOptions.ts` + `inbound.ts` -> `26 passed`; `inboundWebhook.ts` -> `10 passed`; after wiring `handleWhatsAppWebhookEvent` -> `Test Files 2 passed, Tests 63 passed (63)` with the old `whatsappWebhooks.test.ts`.
+- Proven: bodies and numbers only as envelopes bound to account and conversation; Meta message id only as a keyed hash; repeated delivery is a no-op; an unknown number gets a conversation but is never added to contacts or given consent; STOP-style text still opts out; a button/list/quick-reply tap answers exactly its own approval request (same account only), unknown ids become `other_reply`; the 24h window helper fails closed; signature, plan, flags and keys all gate the path.
+

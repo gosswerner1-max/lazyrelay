@@ -42,14 +42,14 @@ export async function connectionsFor(wabaId: string, phoneNumberId: string | nul
 
 /** One verifier per delivery: checks each connection once. "blocked" = no saved app secret, false = bad signature (counted as a
  *  security event, one event never alerts), true = genuine. */
-export function makeVerifier(rawBody: Buffer, signatureHeader: string): (c: ConnectionRow) => Promise<boolean | "blocked"> {
+export function makeVerifier(rawBody: Buffer, signatureHeader: string, opts: { recordBad?: boolean } = {}): (c: ConnectionRow) => Promise<boolean | "blocked"> {
   const verified = new Map<string, boolean>();
   return async (c) => {
     if (verified.has(c.id)) return verified.get(c.id)!;
     const secret = await loadAppSecret(c.access_token_vault_id);
     if (!secret) return "blocked";
     const good = signatureMatches(rawBody, signatureHeader, secret);
-    if (!good) recordSecurityEvent("whatsapp_bad_signature", "WhatsApp webhook delivery failed signature verification");
+    if (!good && opts.recordBad !== false) recordSecurityEvent("whatsapp_bad_signature", "WhatsApp webhook delivery failed signature verification");
     verified.set(c.id, good);
     return good;
   };
