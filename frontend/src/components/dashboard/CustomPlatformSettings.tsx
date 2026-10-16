@@ -360,7 +360,7 @@ function WhatsAppCard({ info, onConnected, onSeePlans, webhookInfo, onSaved }: W
       <p className="byok-card__note">
         <strong>Meta bills your own WhatsApp Business Account directly.</strong> LazyRelay never pays for it.
       </p>
-      <p className="byok-card__hint">You can link your number now. Publishing to WhatsApp is not available yet, so nothing will be sent through it.</p>
+      <p className="byok-card__hint">Connect your own WhatsApp number here, then send and read messages in the WhatsApp tab.</p>
       <form onSubmit={handleSubmit} autoComplete="off">
         <div className="byok-fields">
           <Field label="WABA ID" placeholder="WhatsApp Business Account ID" name="whatsapp-waba-id" value={fields.wabaId} onChange={set("wabaId")} error={problems.wabaId} />
@@ -399,7 +399,7 @@ function WhatsAppCard({ info, onConnected, onSeePlans, webhookInfo, onSaved }: W
           <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
           <span>{WHATSAPP_BYOK_CONSENT_TEXT}</span>
         </label>
-        <p className="byok-card__hint">WhatsApp sending is not available yet. Saving only stores your connection.</p>
+        <p className="byok-card__hint">Saving connects your number. You send and read messages in the WhatsApp tab.</p>
         <div className="byok-actions">
           <button type="button" className="byok-secondary" disabled={!complete || busy !== null} onClick={() => disclaimer.ask(() => void handleCheck())}>
             {busy === "check" ? "Checking..." : "Check my credentials"}

@@ -241,14 +241,15 @@ describe("WhatsApp: the form", () => {
     expect(save()).toBeEnabled();
   });
 
-  it("says plainly that publishing to WhatsApp is not available yet", () => {
-    render(<CustomPlatformSettings platforms={[WA_OK]} />);
-    expect(screen.getByText(/Publishing to WhatsApp is not available yet/)).toBeInTheDocument();
+  it("tells customers where to send and read messages, and no longer says sending is unavailable", () => {
+    const { container } = render(<CustomPlatformSettings platforms={[WA_OK]} />);
+    expect(screen.getByText(/Connect your own WhatsApp number here, then send and read messages in the WhatsApp tab/)).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/not available yet/);
   });
 
-  it("says in one plain sentence, between the consent box and the buttons, that sending is not available yet", () => {
+  it("says in one plain sentence, between the consent box and the buttons, where messages are sent from", () => {
     render(<CustomPlatformSettings platforms={[WA_OK]} />);
-    const sentence = screen.getByText("WhatsApp sending is not available yet. Saving only stores your connection.");
+    const sentence = screen.getByText("Saving connects your number. You send and read messages in the WhatsApp tab.");
     expect(sentence.textContent).not.toMatch(/[\u2018\u2019\u2013\u2014-]/);
     const consent = screen.getByRole("checkbox").closest("label") as HTMLElement;
     const save = screen.getByRole("button", { name: "Save and connect" });
