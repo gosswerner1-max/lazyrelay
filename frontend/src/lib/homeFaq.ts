@@ -31,7 +31,7 @@ export const HOME_FAQ: FaqItem[] = [
   },
   {
     q: "How much does LazyRelay cost?",
-    a: "LazyRelay charges one flat price per plan, with no fee for each connected platform. Starter is $29.99 / mo + tax. Pro is $59.99, Business is $99.99, Agency is $149.99 and Agency Plus is $199.99. Tax is added at checkout. Each higher plan allows more connected accounts and brands. The Free plan costs $0.",
+    a: "LazyRelay charges one flat price per plan, with no fee for each connected platform. Starter is $29.99 / mo (plus applicable tax). Pro is $59.99, Business is $99.99, Agency is $149.99 and Agency Plus is $199.99. Tax is added at checkout. Each higher plan allows more connected accounts and brands. The Free plan costs $0.",
   },
   {
     q: "Can I schedule a recurring post?",

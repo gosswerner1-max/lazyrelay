@@ -9,23 +9,23 @@ WhatsApp and X can be connected with your own keys on every paid plan (Starter a
 - Limits: 3 connected accounts, 1 brand, 10 posts per account (refillable), one-time scheduled posts only, 250MB storage
 
 ## Starter
-- Price: $29.99 / mo + tax
+- Price: $29.99 / mo (plus applicable tax)
 - Limits: 20 connected accounts, 2 brands, unlimited scheduled posts, 3 recurring schedules, 5GB storage
 
 ## Pro
-- Price: $59.99 / mo + tax
+- Price: $59.99 / mo (plus applicable tax)
 - Limits: 30 connected accounts, 4 brands, unlimited scheduled posts, 5 recurring schedules, 10GB storage, priority support
 
 ## Business
-- Price: $99.99 / mo + tax
+- Price: $99.99 / mo (plus applicable tax)
 - Limits: 50 connected accounts, 7 brands, 2 team seats included, unlimited scheduled posts, unlimited recurring schedules, 20GB storage, priority support
 
 ## Agency
-- Price: $149.99 / mo + tax
+- Price: $149.99 / mo (plus applicable tax)
 - Limits: 100 connected accounts, 12 brands, 3 team seats included (+2 more available), unlimited scheduled posts, unlimited recurring schedules, 20GB storage, priority support
 
 ## Agency Plus
-- Price: $199.99 / mo + tax
+- Price: $199.99 / mo (plus applicable tax)
 - Limits: 150 connected accounts, 20 brands, 6 team seats included (+2 more available), unlimited scheduled posts, unlimited recurring schedules, 20GB storage, priority support
 
 Full pricing page: https://lazyrelay.com/pricing/

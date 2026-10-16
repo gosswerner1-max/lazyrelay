@@ -171,7 +171,7 @@ export function SocialPlatformsTab() {
                 <p className="section-note">
                   At your plan's brand limit.{" "}
                   <button type="button" className="btn-outline" disabled={brandAddonBusy !== null} onClick={handleBuyBrandAddon}>
-                    {brandAddonBusy === "checkout" ? "Starting checkout..." : "Buy another brand slot — $10 / mo + tax"}
+                    {brandAddonBusy === "checkout" ? "Starting checkout..." : "Buy another brand slot — $10 / mo, plus applicable tax"}
                   </button>
                 </p>
               )}

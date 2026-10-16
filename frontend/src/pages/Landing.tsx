@@ -799,7 +799,12 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
                 <h3>{plan.name}</h3>
                 <p className="pricing-price">
                   {plan.price}
-                  {plan.tier !== "free" && <span className="pricing-period"> / mo + tax</span>}
+                  {plan.tier !== "free" && (
+                    <>
+                      <span className="pricing-period"> / mo</span>
+                      <span className="pricing-tax-note">(plus applicable tax)</span>
+                    </>
+                  )}
                 </p>
                 <p className="pricing-note">{plan.note}</p>
                 <ul>
@@ -832,7 +837,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
                   <h3>{plan.name}</h3>
                   <p className="pricing-price">
                     {plan.price}
-                    <span className="pricing-period"> / mo + tax</span>
+                    <span className="pricing-period"> / mo</span><span className="pricing-tax-note">(plus applicable tax)</span>
                   </p>
                   <p className="pricing-note">{plan.note}</p>
                   <ul>
