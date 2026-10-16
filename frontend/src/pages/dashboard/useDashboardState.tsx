@@ -118,6 +118,8 @@ export function useDashboardState() {
   const [sharingProofId, setSharingProofId] = useState<string | null>(null);
   const [shareProofResult, setShareProofResult] = useState<{ postId: string; url: string; copied: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
+  // True until the slower, non-essential first-load calls (see refresh()) have all settled.
+  const [deferredLoading, setDeferredLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   // Server heads-up after scheduling (a Pinterest link host Pinterest recently
@@ -510,27 +512,36 @@ export function useDashboardState() {
 
   async function refresh() {
     setError(null);
+    // Two groups, both started at the same moment (no waterfall). The essential group is what the first screen
+    // needs; the page opens as soon as it lands. The deferred group (storage, media, add-ons, API keys, recurring
+    // schedules, team, seats) only feeds Settings and a few lists, so it fills in behind the page with its own
+    // loading flag. refresh() itself still resolves only once BOTH are done, so callers that await it after an
+    // action see the same fully-loaded state as before.
+    const essentialCalls = Promise.all([
+      api.listSocialAccounts(),
+      api.listScheduledPosts(),
+      api.getSubscription(),
+      api.getPlatforms(),
+      api.getAccount(),
+      api.getBrands(),
+    ]);
+    const deferredCalls = Promise.all([
+      api.getStorageUsage(),
+      api.listMedia(),
+      api.listStorageAddons(),
+      api.listApiKeys(),
+      api.listRecurringSchedules(),
+      api.getBrandAddons(),
+      api.listTeam(),
+      api.getSeatAddons(),
+    ]);
+    // Each group is awaited below; this only stops the one not being awaited yet from becoming an unhandled rejection.
+    essentialCalls.catch(() => {});
+    deferredCalls.catch(() => {});
     try {
-      const [accs, pts, sub, usage, media, addons, plats, acct, keys, recurring, brandList, brandCap, teamList, seatCap] = await Promise.all([
-        api.listSocialAccounts(),
-        api.listScheduledPosts(),
-        api.getSubscription(),
-        api.getStorageUsage(),
-        api.listMedia(),
-        api.listStorageAddons(),
-        api.getPlatforms(),
-        api.getAccount(),
-        api.listApiKeys(),
-        api.listRecurringSchedules(),
-        api.getBrands(),
-        api.getBrandAddons(),
-        api.listTeam(),
-        api.getSeatAddons(),
-      ]);
+      const [accs, pts, sub, plats, acct, brandList] = await essentialCalls;
       setAccounts(accs);
       setBrands(brandList);
-      setBrandCapacity(brandCap);
-      setSeatCapacity(seatCap);
       setPosts(pts);
       // A fresh refresh() replaces `posts` with just the first History
       // page again (see GET /scheduled-posts), discarding any additional
@@ -543,12 +554,8 @@ export function useDashboardState() {
       const historyCount = pts.filter((p) => p.status === "posted" || p.status === "failed").length;
       setHistoryHasMore(historyCount >= HISTORY_PAGE_SIZE);
       setSubscription(sub);
-      setStorageUsage(usage);
-      setMediaFiles(media);
-      setStorageAddons(addons);
       setPlatforms(plats);
       setAccount(acct);
-      setRecurringSchedules(recurring);
       if (!businessNameSeeded.current) {
         setBusinessNameInput(acct.businessName ?? "");
         businessNameSeeded.current = true;
@@ -557,8 +564,6 @@ export function useDashboardState() {
         setVoiceProfileInput(acct.voiceProfile ?? "");
         voiceProfileSeeded.current = true;
       }
-      setApiKeys(keys);
-      setTeam(teamList);
       // Drop any selected account that disappeared (e.g. disconnected)
       // since the last refresh, rather than silently submitting for it.
       setSelectedAccountIds((prev) => prev.filter((id) => accs.some((a) => a.id === id)));
@@ -566,6 +571,21 @@ export function useDashboardState() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
+    }
+    try {
+      const [usage, media, addons, keys, recurring, brandCap, teamList, seatCap] = await deferredCalls;
+      setBrandCapacity(brandCap);
+      setSeatCapacity(seatCap);
+      setStorageUsage(usage);
+      setMediaFiles(media);
+      setStorageAddons(addons);
+      setRecurringSchedules(recurring);
+      setApiKeys(keys);
+      setTeam(teamList);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDeferredLoading(false);
     }
   }
 
@@ -2696,6 +2716,7 @@ export function useDashboardState() {
     platforms,
     // Reloads everything the dashboard shows. The Custom Developer Keys sub-tab calls it after a connection is saved.
     refresh,
+    deferredLoading,
     posts,
     setPosts,
     subscription,

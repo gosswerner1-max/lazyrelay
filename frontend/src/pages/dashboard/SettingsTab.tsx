@@ -30,6 +30,7 @@ const SETTINGS_SUBS: { id: SettingsSub; label: string }[] = [
 export function SettingsTab() {
   const {
     session,
+    deferredLoading,
     subscription,
     storageUsage,
     mediaFiles,
@@ -183,6 +184,17 @@ export function SettingsTab() {
       {view === "billing" && (
       <section>
         <h2>Storage</h2>
+        {deferredLoading && !storageUsage && (
+          // Same box as the real gauge, invisible, so the list below doesn't jump when the numbers arrive.
+          <div className="storage-gauge" aria-hidden="true" style={{ visibility: "hidden" }}>
+            <div className="storage-gauge-track">
+              <div className="storage-gauge-fill" style={{ width: "0%" }} />
+            </div>
+            <div className="storage-gauge-label">
+              <span>&nbsp;</span>
+            </div>
+          </div>
+        )}
         {storageUsage && (() => {
           const pct = Math.min(100, (storageUsage.usedBytes / storageUsage.quotaBytes) * 100);
           const fillClass = pct >= 100 ? "storage-gauge-full" : pct >= 85 ? "storage-gauge-warn" : "";
@@ -207,7 +219,7 @@ export function SettingsTab() {
           );
         })()}
         {mediaFiles.length === 0 ? (
-          <p className="empty">No uploaded media yet.</p>
+          <p className="empty" aria-busy={deferredLoading || undefined}>{deferredLoading ? "Loading media..." : "No uploaded media yet."}</p>
         ) : (
           <MediaStorageList
             mediaFiles={mediaFiles}
@@ -539,6 +551,9 @@ export function SettingsTab() {
       )}
 
       {view === "team" && (() => {
+        // The owner-only controls below are decided from the team list, so don't draw any of them (an empty list
+        // reads as "you are the owner") until it has actually loaded.
+        if (deferredLoading) return <p className="empty" aria-busy="true">Loading team...</p>;
         const myMembership = team.find((m) => m.user_id === session?.user.id);
         const isOwner = !myMembership || myMembership.role === "owner";
         // Mirrors checkSeatLimit's own counting rule (seatLimits.ts): every

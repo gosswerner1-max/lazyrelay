@@ -79,6 +79,7 @@ export function PostsTab() {
     scheduleTimezone,
     selectedAccountIds,
     submitting,
+    deferredLoading,
     recurringSchedules,
     rsEditingId,
     rsContent,
@@ -836,7 +837,7 @@ export function PostsTab() {
       )}
 
       {recurringSchedules.length === 0 ? (
-        <p className="empty">No recurring schedules yet.</p>
+        <p className="empty" aria-busy={deferredLoading || undefined}>{deferredLoading ? "Loading recurring schedules..." : "No recurring schedules yet."}</p>
       ) : (
         <ul className="post-list">
           {recurringSchedules.map((s) => {

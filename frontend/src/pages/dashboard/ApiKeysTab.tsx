@@ -11,6 +11,7 @@ import { useDashboard } from "./DashboardContext";
 
 export function ApiKeysTab() {
   const {
+    deferredLoading,
     apiKeys,
     apiKeyName,
     setApiKeyName,
@@ -81,7 +82,7 @@ export function ApiKeysTab() {
           </div>
         </form>
         {apiKeys.length === 0 ? (
-          <p className="empty">No API keys yet.</p>
+          <p className="empty" aria-busy={deferredLoading || undefined}>{deferredLoading ? "Loading API keys..." : "No API keys yet."}</p>
         ) : (
           <>
             {(() => {
