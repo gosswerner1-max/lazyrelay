@@ -44,7 +44,7 @@ export function ApiDocs({ onBack }: ApiDocsProps) {
         <div className="legal-body">
           <h3>Authentication</h3>
           <p>
-            Generate a key from your dashboard: <strong>More → API Keys → Create key</strong>. The raw
+            Generate a key from your dashboard: <strong>API Keys tab → Create key</strong>. The raw
             key is shown once, copy it immediately. Send it as a bearer token on every request:
           </p>
           <CodeBlock code="Authorization: Bearer lzr_live_your_key_here" />
@@ -136,7 +136,7 @@ export function ApiDocs({ onBack }: ApiDocsProps) {
           <p>
             Prefer not to install anything, or connecting from claude.ai rather than a desktop app? LazyRelay also
             runs a hosted MCP server. Instead of an API key, you sign in with your LazyRelay account the first
-            time you connect. Same 6 tools, same account, nothing to run locally.
+            time you connect. Same 27 tools, same account, nothing to run locally.
           </p>
           <CodeBlock code={HOSTED_MCP_URL} />
           <p>

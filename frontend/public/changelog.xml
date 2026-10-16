@@ -61,7 +61,7 @@
     <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/#d-2026-08-07"/>
     <id>https://lazyrelay.com/changelog/#d-2026-08-07</id>
     <updated>2026-08-07T00:00:00Z</updated>
-    <summary type="text">Real engagement analytics (likes, comments, shares, views), not just post counts. | Comments inbox extended to Facebook and Instagram, with reply capability added across Facebook, Instagram, Mastodon, and Bluesky. | DM inbox for Facebook and Instagram. | DM automation: automatically send a DM to anyone who comments a specific keyword. | A public API and MCP server, plus a documentation page, for anyone who wants to schedule and manage posts programmatically or through an AI agent.</summary>
+    <summary type="text">Real engagement analytics (likes, comments, shares, views), not just post counts. | Comments inbox with reply capability for Mastodon and Bluesky. Facebook and Instagram comments and replies are built but switched off until Meta approves the... | DM inbox for Facebook and Instagram, built but switched off until Meta approves the permissions it needs. | DM automation: automatically send a DM to anyone who comments a specific keyword. Built, but switched off together with the DMs tab until Meta approves the... | A public API and MCP server, plus a documentation page, for anyone who wants to schedule and manage posts programmatically or through an AI agent.</summary>
   </entry>
   <entry>
     <title>LazyRelay update, August 6, 2026</title>

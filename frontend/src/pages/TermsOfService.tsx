@@ -50,7 +50,7 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
 
           <h3>Subscriptions and billing</h3>
           <p>
-            Paid plans (Starter, Pro, Business) and storage add-ons are billed as recurring monthly
+            Paid plans (Starter, Pro, Business, Agency, Agency Plus) and storage add-ons are billed as recurring monthly
             subscriptions, processed by our payment provider, Paddle.com, who acts as merchant of record and
             handles payment, tax, and invoicing. Subscriptions renew automatically each month until cancelled.
           </p>

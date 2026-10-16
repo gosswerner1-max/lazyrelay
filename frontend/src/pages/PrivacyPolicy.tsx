@@ -58,8 +58,9 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
             <strong>Connected account information.</strong> When you connect a social media account (any
             platform you connect to LazyRelay), we receive an access token and basic profile information
             (account name, platform, account ID) from that platform via its official OAuth process. We use
-            this token only to publish the posts you schedule and to verify they went live. We never read your
-            private messages, contacts, or unrelated account activity.
+            this token only to publish the posts you schedule and to verify they went live. We do not read your
+            contacts or unrelated account activity. For Facebook and Instagram, LazyRelay also reads the direct
+            messages sent to your account, so the DM inbox and DM automation features can work.
           </p>
           <p>
             <strong>Content you submit.</strong> The post text, images, and scheduling details you enter into
