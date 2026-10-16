@@ -46,7 +46,7 @@ create table if not exists whatsapp_message_templates (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint whatsapp_message_templates_meta_id_format check (meta_template_id ~ '^[0-9]{1,30}$'),
-  constraint whatsapp_message_templates_name_format check (name ~ '^[a-z0-9_]{1,512}$'),
+  constraint whatsapp_message_templates_name_format check (char_length(name) between 1 and 512 and name ~ '^[a-z0-9_]+$'),
   constraint whatsapp_message_templates_language_format check (language ~ '^[a-z]{2,3}(_[A-Z]{2})?$'),
   constraint whatsapp_message_templates_category_check check (category in ('marketing', 'utility', 'authentication')),
   constraint whatsapp_message_templates_status_check check (status in ('approved', 'pending', 'rejected', 'paused', 'disabled', 'in_appeal', 'other')),
