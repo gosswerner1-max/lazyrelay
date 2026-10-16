@@ -8,6 +8,8 @@
 //         three permissions, "choose a token expiration preference")
 //   X     https://docs.x.com/resources/fundamentals/developer-apps  (Developer Console, Create App, Read and write, API Key and Secret,
 //         Access Token and Secret, shown only once, set permissions before generating the access token)
+//   Meta  The App Dashboard's own WhatsApp Configuration screen (seen 2026-10-16): "Apps will only be able to receive test webhooks sent
+//         from the app dashboard while the app is unpublished", with a Publish item in the dashboard's left menu (the "Make your Meta app Live" step)
 // What those pages do NOT say is marked "Check Meta's current screen" or "Check X's current screen" and is never stated as fact:
 // the token expiry choices, the account name Meta now uses, X's developer sign-up and whether a project comes first.
 // Wording rules: plain words, one action per step, no dashes, nothing promised that the platform did not confirm.
@@ -76,6 +78,13 @@ export const WHATSAPP_GUIDE: Guide = {
     {
       title: "Paste everything into LazyRelay",
       action: "Open Settings, then Custom developer keys. In the WhatsApp card paste the WABA ID, the Phone number ID and the System user token, then connect.",
+    },
+    {
+      title: "Make your Meta app Live",
+      action:
+        "In your Meta App Dashboard open Publish in the left menu and publish your app so it is Live. Until it is Live, Meta only sends test messages from its own dashboard, so real replies and delivery receipts will not reach LazyRelay.",
+      note: "Meta may ask you to complete a few requirements before it lets you publish. Check Meta's current screen.",
+      link: { label: "Open the App Dashboard", url: "https://developers.facebook.com/apps" },
     },
     {
       title: "Turn on replies and delivery receipts",
