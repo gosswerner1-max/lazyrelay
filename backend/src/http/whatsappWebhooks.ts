@@ -41,14 +41,12 @@ import { processWhatsAppChatEvent } from "../whatsappChat/inboundWebhook.js";
 // (purge_stored_messages) deletes these rows by received_at. This path writes nothing to dm_conversations_cache or
 // comment_triage.
 // Fail closed everywhere: a WABA id plus phone number id that matches no connected, active WhatsApp row, an
-// account whose own keys are out of credit, a paused row or a plan below Business stores nothing and costs nothing.
+// account whose own keys are out of credit, a paused row or a Free or lapsed plan stores nothing and costs nothing.
 //
 // Message text, names, phone numbers and secrets are never logged.
 
 const VERIFY_TOKEN_ENV = "WHATSAPP_WEBHOOK_VERIFY_TOKEN";
 const MAX_CHALLENGE_LENGTH = 256;
-/** A delivery can batch many messages; this bounds the work (and the AI batches) one delivery can cause. */
-const MAX_MESSAGES_PER_DELIVERY = 200;
 /** WhatsApp text is at most 4096 characters; the whole message is kept (so a thread reads properly). */
 const MAX_STORED_TEXT_CHARS = 4096;
 /** Only this much of a message is ever sent to the AI (same ceiling the reply drafting prompt uses for a comment), which
@@ -228,10 +226,6 @@ export function extractWhatsAppTextMessages(payload: unknown, now: Date = new Da
           skipped += 1;
           continue;
         }
-        if (out.length >= MAX_MESSAGES_PER_DELIVERY) {
-          skipped += 1;
-          continue;
-        }
         const seconds = Number(asString(m.timestamp));
         const at = Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000) : now;
         const rawName = names.get(from) ?? null;
@@ -259,7 +253,7 @@ export interface WhatsAppEventSummary {
   stored: number;
   /** Messages for a WABA id + phone number id that matches no connected, active WhatsApp row. */
   unmatched: number;
-  /** Messages for a matched row that was refused: out of credit, paused, a plan below Business, no saved app secret, or no
+  /** Messages for a matched row that was refused: out of credit, paused, a Free or lapsed plan, no saved app secret, or no
    *  contact hash key configured. */
   blocked: number;
   /** Messages for a matched row whose signature did not verify against that connection's own app secret. */

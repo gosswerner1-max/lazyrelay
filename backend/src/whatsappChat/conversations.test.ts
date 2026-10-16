@@ -270,16 +270,16 @@ describe("sendUpdateToAudience: short update lines to a saved audience", () => {
     expect(h.calls).toHaveLength(1);
   });
 
-  it("stops at a gate that applies to everyone (kill switch, paused connection, cap), leaving the rest not attempted", async () => {
+  it("a number Meta has already paused stops the whole update line before anything is sent, leaving everyone not attempted", async () => {
     const cs = [addContact("+27829990001"), addContact("+27829990002"), addContact("+27829990003")];
     for (const [i, c] of cs.entries()) await inbound(`2782999000${i + 1}`, "hi", HOUR, `wamid.X${i}000`);
     const id = await audience(cs);
-    tables.whatsapp_send_controls[0].max_messages_per_day = 2;
+    tables.whatsapp_connection_send_state = [{ social_account_id: SA, account_id: ACC, paused_at: NOW.toISOString(), pause_reason: "quality" }];
     const h = makeHttp();
     const out = await svc.sendUpdateToAudience(ctx(h.http), id, { text: "Update" });
     if (!out.ok) throw new Error("unexpected");
-    expect(out.summary).toEqual({ total: 3, sent: 2, skipped: 0, failed: 0, notAttempted: 1 });
-    expect(h.calls).toHaveLength(2);
+    expect(out.summary).toEqual({ total: 3, sent: 0, skipped: 0, failed: 0, notAttempted: 3 });
+    expect(h.calls).toHaveLength(0);
   });
 
   it("a connection pause from Meta stops the rest at once", async () => {
@@ -293,16 +293,13 @@ describe("sendUpdateToAudience: short update lines to a saved audience", () => {
     expect(out.summary).toMatchObject({ failed: 1, notAttempted: 1 });
   });
 
-  it("refuses an audience over the placeholder size cap, an empty audience, a missing text, and another account's audience", async () => {
+  it("refuses an empty audience, a missing text, and another account's audience", async () => {
     const empty = (await svc.createAudience(ACC, null, { socialAccountId: SA, name: "Empty" })) as { id: string };
     expect(await svc.sendUpdateToAudience(ctx(makeHttp().http), empty.id, { text: "x" })).toMatchObject({ ok: false, code: "empty_audience" });
     const c = addContact("+27829990001");
     const id = await audience([c]);
     expect(await svc.sendUpdateToAudience(ctx(makeHttp().http), id, { text: " " })).toMatchObject({ ok: false, code: "text_invalid" });
     expect(await svc.sendUpdateToAudience({ ...ctx(makeHttp().http), accountId: ACC_OTHER }, id, { text: "x" })).toMatchObject({ ok: false, code: "not_found" });
-    expect(svc.MAX_UPDATE_RECIPIENTS).toBe(25);
-    for (let i = 0; i < 26; i++) tables.whatsapp_audience_members.push({ audience_id: id, contact_id: `fake${i}`, account_id: ACC });
-    expect(await svc.sendUpdateToAudience(ctx(makeHttp().http), id, { text: "x" })).toMatchObject({ ok: false, code: "audience_too_large" });
   });
 
   it("never logs a number or the update text", async () => {

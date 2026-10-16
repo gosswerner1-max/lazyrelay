@@ -519,12 +519,13 @@ describe("fail closed: an unknown number, a refused account", () => {
     expect(logged.join("\n")).toMatch(/blocked=1/);
   });
 
-  it("a plan below Business (a downgrade after connecting) stores nothing and costs no AI call; so does no subscription, and an unreadable plan", async () => {
-    for (const tier of ["free", "starter", "pro"]) {
-      setTier(tier);
-      await deliver();
-      nothingHappened();
-    }
+  it("Free (a downgrade after connecting) stores nothing and costs no AI call; so does no subscription, a lapsed plan, and an unreadable plan", async () => {
+    setTier("free");
+    await deliver();
+    nothingHappened();
+    tables.subscriptions = [{ account_id: "acc1", tier: "starter", status: "canceled" }];
+    await deliver();
+    nothingHappened();
     tables.subscriptions = [];
     await deliver();
     nothingHappened();
@@ -533,8 +534,8 @@ describe("fail closed: an unknown number, a refused account", () => {
     nothingHappened();
   });
 
-  it("Business, Agency and Agency Plus are stored", async () => {
-    for (const tier of ["business", "agency", "agency_plus"]) {
+  it("every paid tier (Starter, Pro, Business, Agency, Agency Plus) is stored", async () => {
+    for (const tier of ["starter", "pro", "business", "agency", "agency_plus"]) {
       delete tables.whatsapp_messages;
       triage.calls = [];
       resetWhatsAppTriageCap();
@@ -606,10 +607,10 @@ describe("what is stored: one row per message", () => {
     expect(triage.calls[0].items[0].text.length).toBe(1000);
   });
 
-  it("caps the work one delivery can cause at 200 messages", async () => {
-    const messages = Array.from({ length: 250 }, (_, i) => ({ id: `wamid.M${i}`, from: String(27800000000 + i), text: `m${i}` }));
+  it("keeps EVERY message of a full Meta batch (Meta batches up to 1,000 updates); LazyRelay drops none", async () => {
+    const messages = Array.from({ length: 1000 }, (_, i) => ({ id: `wamid.M${i}`, from: String(27800000000 + i), text: `m${i}` }));
     await deliver(delivery({ messages, names: {} }));
-    expect(stored()).toHaveLength(200);
+    expect(stored()).toHaveLength(1000);
   });
 
   it("a number connected under two accounts is kept for each, under its own account id; a downgraded one is skipped", async () => {
@@ -621,7 +622,7 @@ describe("what is stored: one row per message", () => {
     expect(new Set(stored().map((r) => r.contact_key)).size).toBe(2);
     expect(new Set(stored().map((r) => r.wamid)).size).toBe(2);
     delete tables.whatsapp_messages;
-    setTier("pro", "acc2");
+    setTier("free", "acc2");
     await deliver(delivery({ messages: [{ id: "wamid.LATER", timestamp: AT + 500 }] }));
     expect(stored().map((r) => r.account_id)).toEqual(["acc1"]);
   });

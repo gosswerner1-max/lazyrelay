@@ -19,7 +19,7 @@ vi.mock("../../lib/api", () => ({ api }));
 import { CustomPlatformSettings } from "./CustomPlatformSettings";
 import type { PlatformInfo, WhatsAppWebhookInfo } from "../../lib/api";
 
-const WA_OK: PlatformInfo = { platform: "whatsapp", configured: true, comingSoon: false, requiresPlan: "Business", allowed: true };
+const WA_OK: PlatformInfo = { platform: "whatsapp", configured: true, comingSoon: false, requiresPlan: "Starter", allowed: true };
 const SA1 = "11111111-1111-4111-8111-111111111111";
 const SA2 = "22222222-2222-4222-8222-222222222222";
 // Fake values that merely look the right shape. Not real credentials.
@@ -81,7 +81,7 @@ describe("Remove App Secret button", () => {
     expect(screen.queryByRole("button", { name: /Remove App Secret/ })).not.toBeInTheDocument();
     third.unmount();
     render(<CustomPlatformSettings platforms={[{ ...WA_OK, allowed: false }]} onSeePlans={vi.fn()} />);
-    expect(screen.getByText("Available on the Business plan and above.")).toBeInTheDocument();
+    expect(screen.getByText("Available on any paid plan.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Remove App Secret/ })).not.toBeInTheDocument();
     expect(api.getWhatsAppWebhookInfo).toHaveBeenCalledTimes(3); // the three renders above, none for the locked card
     expect(api.removeWhatsAppAppSecret).not.toHaveBeenCalled();

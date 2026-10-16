@@ -67,28 +67,29 @@ export async function resolveTier(accountId: string): Promise<Tier> {
   return isPaidInGoodStanding ? (data!.tier as Tier) : "free";
 }
 
-/** X "bring your own key" (BYOK) plan gate (Werner, 2026-10-10). The ONE place that decides who may connect X with
- *  their own developer keys: Pro, Business, Agency and Agency Plus. Free and Starter are blocked entirely. Every
- *  caller (GET /platforms, the keys route, the generic connect route) goes through canUseXByok; the frontend never
- *  decides. Keyed by DB tier code, which matches the public plan name. */
-export const X_BYOK_ALLOWED_TIERS: ReadonlySet<Tier> = new Set<Tier>(["pro", "business", "agency", "agency_plus"]);
+/** X "bring your own key" (BYOK) plan gate (Werner, 2026-10-10; opened to every paid tier 2026-10-16). The ONE place that decides who
+ *  may connect X with their own developer keys: every PAID tier, Starter, Pro, Business, Agency and Agency Plus. Free and lapsed
+ *  accounts are blocked (resolveTier counts a lapsed plan as free). The customer pays X directly, so there is no metering. Every
+ *  caller (GET /platforms, the keys route, the generic connect route) goes through canUseXByok; the frontend never decides. Keyed by
+ *  DB tier code, which matches the public plan name. */
+export const X_BYOK_ALLOWED_TIERS: ReadonlySet<Tier> = new Set<Tier>(["starter", "pro", "business", "agency", "agency_plus"]);
 
 /** The cheapest plan that unlocks X BYOK, in public wording, for "Upgrade to ..." copy. */
-export const X_BYOK_REQUIRED_PLAN_NAME = TIER_DISPLAY_NAMES.pro;
+export const X_BYOK_REQUIRED_PLAN_NAME = TIER_DISPLAY_NAMES.starter;
 
 export function canUseXByok(tier: Tier): boolean {
   return X_BYOK_ALLOWED_TIERS.has(tier);
 }
 
-/** WhatsApp "bring your own key" (BYOK) plan gate (Werner, 2026-10-10). The customer links their OWN Meta WhatsApp
- *  Business credentials and Meta bills them directly, so LazyRelay carries no per-message cost; it is still a premium
- *  feature: Business ($99.99) and above, which is Business, Agency and Agency Plus. Free, Starter and Pro are blocked.
- *  The ONE place that decides it: every caller (GET /platforms, the keys route, the generic connect route) goes through
- *  canUseWhatsappByok / checkWhatsappPlan; the frontend never decides. Keyed by DB tier code (the plan name). */
-export const WHATSAPP_BYOK_ALLOWED_TIERS: ReadonlySet<Tier> = new Set<Tier>(["business", "agency", "agency_plus"]);
+/** WhatsApp "bring your own key" (BYOK) plan gate (Werner, 2026-10-10; opened to every paid tier 2026-10-16). The customer links their
+ *  OWN Meta WhatsApp Business credentials and Meta bills them directly, so LazyRelay carries no per-message cost and meters nothing.
+ *  Every PAID tier may use it: Starter, Pro, Business, Agency and Agency Plus. Free and lapsed accounts are blocked. The ONE place
+ *  that decides it: every caller (GET /platforms, the keys route, the generic connect route, the broadcast and chat routes) goes
+ *  through canUseWhatsappByok / checkWhatsappPlan; the frontend never decides. Keyed by DB tier code (the plan name). */
+export const WHATSAPP_BYOK_ALLOWED_TIERS: ReadonlySet<Tier> = new Set<Tier>(["starter", "pro", "business", "agency", "agency_plus"]);
 
 /** The cheapest plan that unlocks WhatsApp BYOK, in public wording, for "Upgrade to ..." copy. */
-export const WHATSAPP_BYOK_REQUIRED_PLAN_NAME = TIER_DISPLAY_NAMES.business;
+export const WHATSAPP_BYOK_REQUIRED_PLAN_NAME = TIER_DISPLAY_NAMES.starter;
 
 export function canUseWhatsappByok(tier: Tier): boolean {
   return WHATSAPP_BYOK_ALLOWED_TIERS.has(tier);

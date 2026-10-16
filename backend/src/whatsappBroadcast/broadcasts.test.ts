@@ -93,8 +93,6 @@ describe("createBroadcast", () => {
     ["a free plan", () => void (tables.subscriptions = []), {}, "plan"],
     ["no stored login", () => void (tables.social_accounts[0].access_token_vault_id = null), {}, "no_own_credentials"],
     ["a paused connection", () => void (tables.whatsapp_connection_send_state = [{ social_account_id: SA, account_id: ACC, paused_at: NOW.toISOString(), pause_reason: "quality" }]), {}, "connection_paused"],
-    ["the kill switch", () => void (tables.whatsapp_send_controls[0].kill_switch = true), {}, "sending_stopped"],
-    ["missing send controls", () => void (tables.whatsapp_send_controls = []), {}, "controls_unavailable"],
     ["a template that does not exist", () => {}, { templateId: "99999999-9999-4999-8999-999999999999" }, "template_not_found"],
     ["a pending template", () => void (tables.whatsapp_message_templates[0].status = "pending"), {}, "template_unusable"],
     ["an unsupported template", () => void (tables.whatsapp_message_templates[0].supported = false), {}, "template_unusable"],
@@ -123,19 +121,6 @@ describe("createBroadcast", () => {
   it("refuses an empty audience", async () => {
     tables.whatsapp_contacts = [];
     expect(await create()).toMatchObject({ ok: false, code: "empty_audience" });
-  });
-
-  it("refuses an audience over the per-broadcast cap", async () => {
-    tables.whatsapp_send_controls[0].max_recipients_per_broadcast = 1;
-    expect(await create()).toMatchObject({ ok: false, code: "cap_recipients", limit: 1 });
-  });
-
-  it("refuses a third broadcast inside 24 hours (cap 2), cancelled ones not counted", async () => {
-    expect((await create()).ok).toBe(true);
-    expect((await create({ name: "Second" })).ok).toBe(true);
-    expect(await create({ name: "Third" })).toMatchObject({ ok: false, code: "cap_broadcasts", limit: 2 });
-    await cancelBroadcast(ACC, tables.whatsapp_broadcasts[0].id as string, NOW);
-    expect((await create({ name: "Third" })).ok).toBe(true);
   });
 
   it("stores no phone number anywhere in the broadcast row", async () => {

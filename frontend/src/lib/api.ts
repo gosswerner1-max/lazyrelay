@@ -835,7 +835,7 @@ export const api = {
     authedFetch("/social-accounts/x/byok/check", { method: "POST", body: JSON.stringify(keys) }),
   connectXKeys: (keys: { apiKey: string; apiSecret: string; accessToken: string; accessTokenSecret: string }): Promise<{ ok: true; handle: string; keyHint: string }> =>
     authedFetch("/social-accounts/x/byok", { method: "POST", body: JSON.stringify({ ...keys, acceptedTerms: true }) }),
-  // WhatsApp with the customer's own Meta credentials (Business plan and above). check proves them and stores nothing;
+  // WhatsApp with the customer's own Meta credentials (any paid plan). check proves them and stores nothing;
   // connect proves, stores and connects. The backend answers { ok, displayName, keyHint } only, and never the token.
   // App Secret (optional): the customer's own Meta app secret, sent only when typed, never returned. clearAppSecret: true
   // (save only) removes the one already stored; the backend refuses it together with an appSecret.
@@ -848,7 +848,7 @@ export const api = {
   removeWhatsAppAppSecret: (socialAccountId: string): Promise<{ ok: true; inboundReady: false }> =>
     authedFetch(`/social-accounts/whatsapp/${encodeURIComponent(socialAccountId)}/app-secret`, { method: "DELETE" }),
   // What the customer needs to point their own Meta app's webhook at LazyRelay, and per connection whether inbound is ready
-  // (a boolean; the App Secret itself is never sent to the browser). A plan below Business answers 400 with the fixed message.
+  // (a boolean; the App Secret itself is never sent to the browser). A Free or lapsed plan answers 400 with the fixed message.
   getWhatsAppWebhookInfo: (): Promise<WhatsAppWebhookInfo> => authedFetch("/whatsapp/webhook-info"),
   // Stored inbound WhatsApp messages of one connection, newest first. Pass nextBefore from the last page as before.
   getWhatsAppMessages: (params: { socialAccountId: string; contactKey?: string; limit?: number; before?: string }): Promise<WhatsAppMessagesPage> => {
@@ -860,7 +860,7 @@ export const api = {
   },
 
   // WhatsApp broadcast contacts and consent. Capabilities answers { broadcasts } only; it is false (never an error) while the feature is
-  // off for this account. The other calls answer 404 while it is off and 400 with the plan message below Business.
+  // off for this account. The other calls answer 404 while it is off and 400 with the plan message on a Free or lapsed plan.
   getWhatsAppCapabilities: (): Promise<{ broadcasts: boolean }> => authedFetch("/whatsapp/capabilities"),
   listWhatsAppContacts: (params: { socialAccountId?: string; status?: "opted_in" | "opted_out"; search?: string; before?: string; limit?: number }): Promise<WhatsAppContactsPage> => {
     const q = new URLSearchParams();
@@ -883,7 +883,7 @@ export const api = {
   listWhatsAppOptOuts: (): Promise<WhatsAppOptOutsResult> => authedFetch("/whatsapp/opt-outs"),
 
   // WhatsApp broadcasts and two-way chat. send-capabilities answers booleans only (never an error); everything else is 404 while sending is off.
-  getWhatsAppSendCapabilities: (): Promise<{ sending: boolean; stopped: boolean }> => authedFetch("/whatsapp/send-capabilities"),
+  getWhatsAppSendCapabilities: (): Promise<{ sending: boolean }> => authedFetch("/whatsapp/send-capabilities"),
   listWhatsAppTemplates: (socialAccountId: string): Promise<{ templates: WhatsAppTemplate[] }> => authedFetch(`/whatsapp/templates?social_account_id=${encodeURIComponent(socialAccountId)}`),
   syncWhatsAppTemplates: (socialAccountId: string): Promise<{ synced: number; approved: number; unsupported: number; disabled: number }> =>
     authedFetch("/whatsapp/templates/sync", { method: "POST", body: JSON.stringify({ social_account_id: socialAccountId }) }),

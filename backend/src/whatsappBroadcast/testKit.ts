@@ -37,13 +37,11 @@ export function resetTables(): void {
 }
 
 export interface WorldOptions {
-  killSwitch?: boolean;
   template?: Partial<Row>;
-  withControls?: boolean;
 }
 
-/** One account, one WhatsApp connection with a stored login (token + app secret), one approved marketing template and the
- *  global send controls. Returns the ids. */
+/** One account, one WhatsApp connection with a stored login (token + app secret), one approved marketing template. There are no send
+ *  controls, caps or kill switches to seed: none exist. Returns the ids. */
 export function seedWorld(opts: WorldOptions = {}): { vaultId: string } {
   const vaultId = "vault-wa-1";
   vault.set(vaultId, serializeWhatsAppBundle({ systemUserToken: TOKEN, wabaId: WABA, phoneNumberId: PHONE_ID, appSecret: APP_SECRET }));
@@ -82,10 +80,6 @@ export function seedWorld(opts: WorldOptions = {}): { vaultId: string } {
       ...opts.template,
     },
   ];
-  tables.whatsapp_send_controls =
-    opts.withControls === false
-      ? []
-      : [{ id: "ctl-global", scope: "global", account_id: null, kill_switch: opts.killSwitch ?? false, max_recipients_per_broadcast: 250, max_broadcasts_per_day: 2, max_messages_per_day: 250 }];
   tables.whatsapp_contacts = [];
   tables.whatsapp_opt_ins = [];
   tables.whatsapp_opt_outs = [];

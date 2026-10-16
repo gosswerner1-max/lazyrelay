@@ -28,7 +28,7 @@ import type { PlatformAdapterRegistry } from "../../platforms/connect.js";
 import { XAdapter } from "../../platforms/x.js";
 import { serializeXBundle, xKeyHint, X_KEY_MAX_LENGTH, X_KEY_MIN_LENGTH, X_KEY_PATTERN, type XByokBundle } from "../../platforms/xByok.js";
 
-export const X_BYOK_PLAN_MESSAGE = `Connecting X with your own developer keys is available on the ${X_BYOK_REQUIRED_PLAN_NAME} plan and above.`;
+export const X_BYOK_PLAN_MESSAGE = "Connecting X with your own developer keys is available on any paid plan.";
 const NOT_AVAILABLE = "x isn't available to connect yet.";
 const SAVE_FAILED = "Could not save your keys. Please try again.";
 

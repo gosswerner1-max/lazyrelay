@@ -111,8 +111,6 @@ describe("sendChatText: a free-form reply, only inside the 24 hour window", () =
     ["a free plan", () => void (tables.subscriptions = []), "plan"],
     ["no stored login", () => void (tables.social_accounts[0].access_token_vault_id = null), "no_own_credentials"],
     ["a paused connection", () => void (tables.whatsapp_connection_send_state = [{ social_account_id: SA, account_id: ACC, paused_at: NOW.toISOString(), pause_reason: "quality" }]), "connection_paused"],
-    ["the kill switch", () => void (tables.whatsapp_send_controls[0].kill_switch = true), "sending_stopped"],
-    ["missing send controls", () => void (tables.whatsapp_send_controls = []), "controls_unavailable"],
   ];
   it.each(gates)("is refused by %s, with no request to Meta", async (_l, arrange, code) => {
     const conv = await conversation();
@@ -120,16 +118,6 @@ describe("sendChatText: a free-form reply, only inside the 24 hour window", () =
     const h = makeHttp();
     expect(await sendChatText(ctx(h.http), conv.id as string, "hi")).toMatchObject({ ok: false, code });
     expect(h.calls).toHaveLength(0);
-  });
-
-  it("the daily message cap counts broadcast messages AND chat messages together", async () => {
-    const conv = await conversation();
-    tables.whatsapp_send_controls[0].max_messages_per_day = 2;
-    tables.whatsapp_broadcast_recipients = [{ id: "r1", account_id: ACC, handed_off_at: new Date(NOW.getTime() - HOUR).toISOString() }];
-    const h = makeHttp();
-    expect((await sendChatText(ctx(h.http), conv.id as string, "one")).ok).toBe(true);
-    expect(await sendChatText(ctx(h.http), conv.id as string, "two")).toMatchObject({ ok: false, code: "cap_messages" });
-    expect(h.calls).toHaveLength(1);
   });
 
   it("a stored contact who opted out is never messaged, even inside the window", async () => {
@@ -252,11 +240,11 @@ describe("sendChatTemplate: an approved template, any time, only to a stored con
     expect(await sendChatTemplate(ctx(makeHttp().http), conv.id as string, TEMPLATE_ID, ["a", "b"])).toMatchObject({ ok: false, code: "template_not_found" });
   });
 
-  it("goes through the same plan, kill switch and opt-out gates", async () => {
+  it("goes through the same plan and opt-out gates", async () => {
     const conv = await conversation({ stored: true, ageMs: 48 * HOUR });
-    tables.whatsapp_send_controls[0].kill_switch = true;
-    expect(await sendChatTemplate(ctx(makeHttp().http), conv.id as string, TEMPLATE_ID, ["a", "b"])).toMatchObject({ ok: false, code: "sending_stopped" });
-    tables.whatsapp_send_controls[0].kill_switch = false;
+    tables.subscriptions = [];
+    expect(await sendChatTemplate(ctx(makeHttp().http), conv.id as string, TEMPLATE_ID, ["a", "b"])).toMatchObject({ ok: false, code: "plan" });
+    tables.subscriptions = [{ account_id: ACC, tier: "business", status: "active" }];
     tables.whatsapp_contacts[0].consent_status = "opted_out";
     expect(await sendChatTemplate(ctx(makeHttp().http), conv.id as string, TEMPLATE_ID, ["a", "b"])).toMatchObject({ ok: false, code: "opted_out" });
   });
@@ -316,10 +304,10 @@ describe("sendApprovalRequest: reply buttons inside the window, a template outsi
     expect(tables.whatsapp_approval_requests[0]).toMatchObject({ status: "pending", message_id: outbound()[0].id });
   });
 
-  it("is refused by the same gates (plan, kill switch, opt-out)", async () => {
+  it("is refused by the same gates (plan, a pause Meta caused, opt-out)", async () => {
     const conv = await conversation();
-    tables.whatsapp_send_controls[0].kill_switch = true;
-    expect(await sendApprovalRequest(ctx(makeHttp().http), conv.id as string, { title: "T", body: "B" })).toMatchObject({ ok: false, code: "sending_stopped" });
+    tables.whatsapp_connection_send_state = [{ social_account_id: SA, account_id: ACC, paused_at: NOW.toISOString(), pause_reason: "quality" }];
+    expect(await sendApprovalRequest(ctx(makeHttp().http), conv.id as string, { title: "T", body: "B" })).toMatchObject({ ok: false, code: "connection_paused" });
     expect(tables.whatsapp_approval_requests).toHaveLength(0);
   });
 

@@ -23,7 +23,7 @@ import { connectionsFor, makeVerifier, type ConnectionRow } from "./webhookAuth.
 import { META_ID_PATTERN } from "../platforms/whatsapp/credentials.js";
 import { contactHashKey, messageKeyFor } from "../platforms/whatsapp/contactPrivacy.js";
 import { broadcastsEnabled } from "./flags.js";
-import { pauseConnection } from "./controls.js";
+import { pauseConnection } from "./connectionPause.js";
 import { classifyMetaFailure, type PauseReason } from "./metaErrors.js";
 import { recordOptOutForContact, recordOptOutForKey } from "./optOuts.js";
 import { refreshCounts } from "./broadcasts.js";
@@ -56,7 +56,6 @@ interface AccountEvent {
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const WAMID_PATTERN = /^[A-Za-z0-9._=+/-]{5,300}$/;
-const MAX_RECEIPTS_PER_DELIVERY = 1000;
 const RANK: Record<string, number> = { queued: 0, claimed: 0, handed_off: 1, sent: 2, delivered: 3, read: 4 };
 
 // Account events. Known-bad events pause the number; an unrecognised event under these fields is ignored (a restricted number
@@ -81,7 +80,7 @@ export function extractReceipts(payload: unknown, now: Date): { receipts: Receip
         const phoneNumberId = typeof phone === "string" ? phone : typeof phone === "number" ? String(phone) : null;
         if (!phoneNumberId || !META_ID_PATTERN.test(phoneNumberId)) continue;
         for (const s of asArray(value.statuses)) {
-          if (!isRecord(s) || receipts.length >= MAX_RECEIPTS_PER_DELIVERY) continue;
+          if (!isRecord(s)) continue;
           const id = typeof s.id === "string" ? s.id : null;
           const st = typeof s.status === "string" ? s.status : null;
           if (!id || !WAMID_PATTERN.test(id) || (st !== "sent" && st !== "delivered" && st !== "read" && st !== "failed")) continue;

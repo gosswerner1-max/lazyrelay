@@ -25,8 +25,8 @@ const X_APPROVED =
 const WA_APPROVED =
   "I understand that custom WhatsApp messaging requires active payment credentials linked directly to my Meta Business portfolio. All conversational template billing is handled by Meta directly. I accept full responsibility for compliance with Meta's Business Policies.";
 
-const X_OK: PlatformInfo = { platform: "x", configured: true, comingSoon: false, requiresPlan: "Pro", allowed: true };
-const WA_OK: PlatformInfo = { platform: "whatsapp", configured: true, comingSoon: false, requiresPlan: "Business", allowed: true };
+const X_OK: PlatformInfo = { platform: "x", configured: true, comingSoon: false, requiresPlan: "Starter", allowed: true };
+const WA_OK: PlatformInfo = { platform: "whatsapp", configured: true, comingSoon: false, requiresPlan: "Starter", allowed: true };
 
 // Fake values that merely look the right shape. None is a real credential.
 const FAKE_X = { apiKey: "fakeApiKey12345", apiSecret: "fakeApiSecret12345", accessToken: "99-fakeAccessToken123", accessTokenSecret: "fakeTokenSecret12345" };
@@ -65,8 +65,7 @@ describe("what shows, decided by the platform list the backend sends", () => {
 
   it("a plan that is not allowed gets the upgrade note and NO form fields", () => {
     render(<CustomPlatformSettings platforms={[{ ...X_OK, allowed: false }, { ...WA_OK, allowed: false }]} />);
-    expect(screen.getByText("Available on the Pro plan and above.")).toBeInTheDocument();
-    expect(screen.getByText("Available on the Business plan and above.")).toBeInTheDocument();
+    expect(screen.getAllByText("Available on any paid plan.")).toHaveLength(2);
     expect(screen.queryAllByRole("textbox")).toHaveLength(0);
     expect(screen.queryByRole("button", { name: /Save and connect/ })).not.toBeInTheDocument();
   });
@@ -159,6 +158,7 @@ describe("X: the form", () => {
     await fillX(user);
     await user.click(screen.getByRole("checkbox"));
     await user.click(save());
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await waitFor(() => expect(api.connectXKeys).toHaveBeenCalledTimes(1));
     expect(api.connectXKeys).toHaveBeenCalledWith(FAKE_X);
     expect(await screen.findByText("Connected as @acme.")).toBeInTheDocument();
@@ -177,6 +177,7 @@ describe("X: the form", () => {
     await fillX(user);
     await user.click(screen.getByRole("checkbox"));
     await user.click(save());
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     expect(await screen.findByRole("alert")).toHaveTextContent("X did not accept these keys.");
     expect((screen.getByLabelText("API Secret (Consumer Secret)") as HTMLInputElement).value).toBe("");
     expect((screen.getByLabelText("Access Token Secret") as HTMLInputElement).value).toBe("");
@@ -190,6 +191,7 @@ describe("X: the form", () => {
     render(<CustomPlatformSettings platforms={[X_OK]} />);
     await fillX(user);
     await user.click(screen.getByRole("button", { name: "Check my keys" }));
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     expect(await screen.findByText(/They belong to @acme/)).toBeInTheDocument();
     expect(api.checkXKeys).toHaveBeenCalledWith(FAKE_X);
     expect(api.connectXKeys).not.toHaveBeenCalled();
@@ -202,6 +204,7 @@ describe("X: the form", () => {
     await fillX(user);
     await user.click(screen.getByRole("checkbox"));
     await user.click(save());
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await screen.findByText("Connected as @acme.");
     const stored = everyStoredValue();
     for (const v of Object.values(FAKE_X)) expect(stored).not.toContain(v);
@@ -292,6 +295,7 @@ describe("WhatsApp: the form", () => {
     await user.click(box);
     expect(save()).toBeEnabled();
     await user.click(save());
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await waitFor(() => expect(api.connectWhatsAppCredentials).toHaveBeenCalledTimes(1));
     expect(api.connectWhatsAppCredentials).toHaveBeenCalledWith(FAKE_WA);
     expect(await screen.findByText("Connected as Acme Cafe.")).toBeInTheDocument();
@@ -301,13 +305,14 @@ describe("WhatsApp: the form", () => {
   });
 
   it("clears the token and shows the error when the backend refuses (a plan below Business answers 400)", async () => {
-    api.connectWhatsAppCredentials.mockRejectedValue(new Error("Connecting WhatsApp with your own Meta credentials is available on the Business plan and above."));
+    api.connectWhatsAppCredentials.mockRejectedValue(new Error("Connecting WhatsApp with your own Meta credentials is available on any paid plan."));
     const user = userEvent.setup();
     render(<CustomPlatformSettings platforms={[WA_OK]} />);
     await fillWa(user);
     await user.click(screen.getByRole("checkbox"));
     await user.click(save());
-    expect(await screen.findByRole("alert")).toHaveTextContent(/Business plan and above/);
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
+    expect(await screen.findByRole("alert")).toHaveTextContent(/any paid plan/);
     expect((screen.getByLabelText("System user token") as HTMLInputElement).value).toBe("");
   });
 
@@ -317,6 +322,7 @@ describe("WhatsApp: the form", () => {
     render(<CustomPlatformSettings platforms={[WA_OK]} />);
     await fillWa(user);
     await user.click(screen.getByRole("button", { name: "Check my credentials" }));
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     expect(await screen.findByText("Credentials accepted for Acme Cafe.")).toBeInTheDocument();
     expect(api.checkWhatsAppCredentials).toHaveBeenCalledWith(FAKE_WA);
     expect(api.connectWhatsAppCredentials).not.toHaveBeenCalled();
@@ -329,6 +335,7 @@ describe("WhatsApp: the form", () => {
     await fillWa(user);
     await user.click(screen.getByRole("checkbox"));
     await user.click(save());
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await screen.findByText("Connected.");
     const stored = everyStoredValue();
     for (const v of Object.values(FAKE_WA)) expect(stored).not.toContain(v);

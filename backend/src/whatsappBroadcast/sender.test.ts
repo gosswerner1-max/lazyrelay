@@ -171,15 +171,6 @@ describe("hand-off", () => {
     expect(h2.calls.map((c) => c.to)).toEqual(["14155550100"]);
   });
 
-  it("stops (paused: cap_reached) if the audience has grown past the cap since it was scheduled", async () => {
-    standardWorld();
-    tables.whatsapp_send_controls[0].max_recipients_per_broadcast = 2;
-    const h = makeHttp();
-    await cycle(h.http);
-    expect(bcast()).toMatchObject({ status: "paused", pause_reason: "cap_reached" });
-    expect(h.calls).toHaveLength(0);
-  });
-
   it("is resumable: a broadcast already 'sending' whose recipients were not all made yet finishes making them, without duplicates", async () => {
     const [c1] = standardWorld();
     bcast().status = "sending";
@@ -248,12 +239,12 @@ describe("consent and opt-out are checked at send time and fail closed", () => {
   it("a contact who opts out after the broadcast was scheduled is never messaged", async () => {
     const [c1, c2] = standardWorld();
     bcast().status = "sending";
-    // materialise by running a cycle that cannot send (kill switch), then the contact opts out, then sending resumes
-    tables.whatsapp_send_controls[0].kill_switch = true;
+    // materialise by running a cycle that cannot send (Meta has paused the number), then the contact opts out, then sending resumes
+    tables.whatsapp_connection_send_state = [{ social_account_id: SA, account_id: ACC, paused_at: T0.toISOString(), pause_reason: "quality" }];
     await cycle(makeHttp().http);
     expect(recips()).toHaveLength(3);
     c2.consent_status = "opted_out";
-    tables.whatsapp_send_controls[0].kill_switch = false;
+    tables.whatsapp_connection_send_state = [];
     const h = makeHttp();
     await cycle(h.http);
     expect(h.calls.map((c) => c.to).sort()).toEqual(["27821110001", "27821110003"]);
@@ -286,10 +277,10 @@ describe("consent and opt-out are checked at send time and fail closed", () => {
   it("a contact erased after scheduling is skipped", async () => {
     const [c1] = standardWorld();
     bcast().status = "sending";
-    tables.whatsapp_send_controls[0].kill_switch = true;
+    tables.whatsapp_connection_send_state = [{ social_account_id: SA, account_id: ACC, paused_at: T0.toISOString(), pause_reason: "quality" }];
     await cycle(makeHttp().http);
     tables.whatsapp_contacts.splice(tables.whatsapp_contacts.indexOf(c1), 1);
-    tables.whatsapp_send_controls[0].kill_switch = false;
+    tables.whatsapp_connection_send_state = [];
     const h = makeHttp();
     await cycle(h.http);
     expect(h.calls).toHaveLength(2);
@@ -308,27 +299,6 @@ describe("consent and opt-out are checked at send time and fail closed", () => {
 });
 
 describe("gates checked every cycle", () => {
-  it("the DB kill switch stops sending and the recipients simply wait (the broadcast keeps 'sending')", async () => {
-    standardWorld();
-    tables.whatsapp_send_controls[0].kill_switch = true;
-    const h = makeHttp();
-    await cycle(h.http);
-    expect(h.calls).toHaveLength(0);
-    expect(bcast().status).toBe("sending");
-    expect(byStatus()).toEqual({ queued: 3 });
-    tables.whatsapp_send_controls[0].kill_switch = false;
-    await cycle(h.http);
-    expect(h.calls).toHaveLength(3);
-  });
-
-  it("no controls row at all means no sending", async () => {
-    standardWorld();
-    tables.whatsapp_send_controls = [];
-    const h = makeHttp();
-    await cycle(h.http);
-    expect(h.calls).toHaveLength(0);
-  });
-
   it("a plan that is no longer paid pauses the broadcast (plan) and sends nothing", async () => {
     standardWorld();
     tables.subscriptions = [];
@@ -363,20 +333,6 @@ describe("gates checked every cycle", () => {
     await cycle(h.http);
     expect(h.calls).toHaveLength(0);
     expect(bcast()).toMatchObject({ status: "paused", pause_reason: "template_unusable" });
-  });
-
-  it("the daily message cap is a rolling window: only what is left of it is sent, the rest waits until it frees up", async () => {
-    standardWorld();
-    tables.whatsapp_send_controls[0].max_messages_per_day = 2;
-    const h = makeHttp();
-    await cycle(h.http);
-    expect(h.calls).toHaveLength(2);
-    expect(bcast().status).toBe("sending");
-    await cycle(h.http, new Date(T0.getTime() + 3_600_000));
-    expect(h.calls).toHaveLength(2);
-    await cycle(h.http, new Date(T0.getTime() + 25 * 3_600_000));
-    expect(h.calls).toHaveLength(3);
-    expect(bcast().status).toBe("completed");
   });
 
   it("a cancelled broadcast is never sent, and cancelling mid-flight stops the rest", async () => {

@@ -128,23 +128,40 @@ describe("gating", () => {
   });
 });
 
+describe("plan gate over every tier, on every route", () => {
+  const PAID = ["starter", "pro", "business", "agency", "agency_plus"];
+  const LAPSED = ["cancelled", "canceled", "past_due", "paused", "unpaid", "incomplete"];
+  it.each(paths)("%s %s: Free and lapsed plans are refused (400 with an upgrade message), every paid tier gets through the gate", async (_m, _p, call) => {
+    tables.subscriptions = [];
+    expect((await call()).status).toBe(400);
+    for (const tier of PAID) {
+      for (const status of LAPSED) {
+        tables.subscriptions = [{ account_id: ACC, tier, status }];
+        const r = await call();
+        expect(r.status, `${tier} ${status}`).toBe(400);
+        expect(r.body.requiresPlan, `${tier} ${status}`).toBe("Starter");
+      }
+      tables.subscriptions = [{ account_id: ACC, tier, status: "active" }];
+      const ok = await call();
+      expect(ok.body.requiresPlan, tier).toBeUndefined();
+      tables.subscriptions = [{ account_id: ACC, tier, status: "trialing" }];
+      expect((await call()).body.requiresPlan, `${tier} trialing`).toBeUndefined();
+    }
+  });
+});
+
 describe("GET /whatsapp/send-capabilities", () => {
   const get = () => request(app()).get("/whatsapp/send-capabilities");
-  it("says sending is available only when every gate passes, and says if the kill switch is on", async () => {
-    expect((await get()).body).toEqual({ sending: true, stopped: false });
-    tables.whatsapp_send_controls[0].kill_switch = true;
-    expect((await get()).body).toEqual({ sending: false, stopped: true });
+  it("says sending is available when the flags, visibility, contact keys and plan all pass, and that is ALL it checks (no cap, no kill switch)", async () => {
+    expect((await get()).body).toEqual({ sending: true });
   });
-  it("is false (never an error) with the send flag off, on a free plan, with no controls row, or without the contact keys", async () => {
+  it("is false (never an error) with the send flag off, on a free plan, or without the contact keys", async () => {
     process.env.WHATSAPP_SEND_ENABLED = "false";
-    expect((await get()).body.sending).toBe(false);
+    expect((await get()).body).toEqual({ sending: false });
     process.env.WHATSAPP_SEND_ENABLED = "true";
     tables.subscriptions = [];
     expect((await get()).body.sending).toBe(false);
     tables.subscriptions = [{ account_id: ACC, tier: "business", status: "active" }];
-    tables.whatsapp_send_controls = [];
-    expect((await get()).body.sending).toBe(false);
-    seedWorld();
     delete process.env.WHATSAPP_CONTACT_ENC_KEY;
     expect((await get()).body.sending).toBe(false);
   });
@@ -214,8 +231,6 @@ describe("broadcasts", () => {
   });
 
   it.each([
-    ["the kill switch", () => void (tables.whatsapp_send_controls[0].kill_switch = true), {}, 503, "sending_stopped"],
-    ["the recipient cap", () => void (tables.whatsapp_send_controls[0].max_recipients_per_broadcast = 1), {}, 429, "cap_recipients"],
     ["a pending template", () => void (tables.whatsapp_message_templates[0].status = "pending"), {}, 400, "template_unusable"],
     ["a missing own login", () => void (tables.social_accounts[0].access_token_vault_id = null), {}, 409, "no_own_credentials"],
     ["a paused number", () => void (tables.whatsapp_connection_send_state = [{ social_account_id: SA, account_id: ACC, paused_at: new Date().toISOString(), pause_reason: "quality" }]), {}, 409, "connection_paused"],

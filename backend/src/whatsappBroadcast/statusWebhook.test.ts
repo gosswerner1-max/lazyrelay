@@ -117,6 +117,12 @@ describe("receipts move a recipient forward, and only Meta's receipts say 'deliv
     expect(JSON.stringify(ev)).not.toMatch(/27821110001|wamid/);
   });
 
+  it("applies every receipt of a batch, however many (Meta batches up to 1,000 updates, none is dropped)", async () => {
+    const many = Array.from({ length: 1500 }, (_, i) => status(`wamid.R${String(i).padStart(5, "0")}`, "delivered"));
+    const out = await run(delivery(many));
+    expect(out.statuses).toBe(1500);
+  });
+
   it("a receipt for a message that is not a broadcast message (an ordinary conversation) is ignored", async () => {
     const out = await run(delivery([status("wamid.UNKNOWN", "delivered")]));
     expect(out).toMatchObject({ statuses: 1, applied: 0, unmatched: 1 });

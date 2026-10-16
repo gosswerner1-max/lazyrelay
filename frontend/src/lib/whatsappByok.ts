@@ -54,6 +54,6 @@ export function whatsAppFieldsComplete(f: WhatsAppFields): boolean {
 
 /** What a platform card says when THIS account's plan does not include the feature. The backend decides
  *  (GET /platforms: allowed, requiresPlan); the UI only reflects it. */
-export function upgradeNote(info: { requiresPlan?: string }): string {
-  return `Available on the ${info.requiresPlan ?? "higher"} plan and above.`;
+export function upgradeNote(_info: { requiresPlan?: string }): string {
+  return "Available on any paid plan.";
 }

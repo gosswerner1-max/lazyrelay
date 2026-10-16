@@ -422,3 +422,21 @@ describe("wording rules", () => {
     expect(within(container).queryByText(LONG_DIGIT_RUN)).toBeNull();
   });
 });
+
+describe("no limit on audience size", () => {
+  it("shows the result of an update line to 100 people in full", async () => {
+    const user = userEvent.setup();
+    api.listWhatsAppAudiences.mockResolvedValue({ audiences: [{ id: "au1", socialAccountId: SA1, name: "Everyone", memberCount: 100 }] });
+    api.sendWhatsAppAudienceUpdate.mockResolvedValue({
+      summary: { total: 100, sent: 100, skipped: 0, failed: 0, notAttempted: 0 },
+      results: Array.from({ length: 100 }, (_, i) => ({ contactDisplay: `+27 ** *** ${String(1000 + i).slice(-4)}`, status: "sent" as const, how: "text" as const })),
+    });
+    render(<WhatsAppAudiences socialAccountId={SA1} />);
+    expect(await screen.findByText("100 people")).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: /send an update to everyone/i }));
+    await user.type(screen.getByLabelText(/^update$/i), "Site goes live Friday.");
+    await user.click(screen.getByRole("button", { name: /^send update/i }));
+    expect(await screen.findByText(/sent to 100 of 100/i)).toBeInTheDocument();
+    expect(screen.queryByText(/at most|up to 25|too large/i)).toBeNull();
+  });
+});

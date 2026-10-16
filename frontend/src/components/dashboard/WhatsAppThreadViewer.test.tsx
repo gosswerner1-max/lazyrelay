@@ -254,7 +254,7 @@ describe("notes", () => {
 });
 
 describe("inside the Custom Developer Keys panel", () => {
-  const WA_OK: PlatformInfo = { platform: "whatsapp", configured: true, comingSoon: false, requiresPlan: "Business", allowed: true };
+  const WA_OK: PlatformInfo = { platform: "whatsapp", configured: true, comingSoon: false, requiresPlan: "Starter", allowed: true };
   const INFO: WhatsAppWebhookInfo = {
     webhookUrl: "https://api.example.test/api/webhooks/whatsapp",
     verifyToken: "handshake-token-not-real",

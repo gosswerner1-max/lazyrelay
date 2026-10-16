@@ -287,11 +287,34 @@ export async function listAudiences(accountId: string, socialAccountId?: string)
   if (error) fail("audience list failed", error);
   const rows = (data ?? []) as Array<{ id: string; social_account_id: string; name: string }>;
   if (rows.length === 0) return [];
-  const m = await supabase.from("whatsapp_audience_members").select("audience_id").eq("account_id", accountId).in("audience_id", rows.map((r) => r.id));
-  if (m.error) fail("member lookup failed", m.error);
-  const counts = new Map<string, number>();
-  for (const r of (m.data ?? []) as Array<{ audience_id: string }>) counts.set(r.audience_id, (counts.get(r.audience_id) ?? 0) + 1);
-  return rows.map((r) => ({ id: r.id, socialAccountId: r.social_account_id, name: r.name, memberCount: counts.get(r.id) ?? 0 }));
+  const out: AudienceView[] = [];
+  for (const r of rows) {
+    // A count query per audience, so a big audience is counted in full (a plain select would stop at the API's page size).
+    const { count, error: cerr } = await supabase.from("whatsapp_audience_members").select("contact_id", { count: "exact", head: true }).eq("account_id", accountId).eq("audience_id", r.id);
+    if (cerr) fail("member count failed", cerr);
+    out.push({ id: r.id, socialAccountId: r.social_account_id, name: r.name, memberCount: count ?? 0 });
+  }
+  return out;
+}
+
+const PAGE = 1000;
+const ID_CHUNK = 200;
+
+/** Every member of an audience, read page by page: an audience of any size is read in full. */
+async function allMemberIds(accountId: string, audienceId: string): Promise<string[]> {
+  const ids: string[] = [];
+  let cursor: string | null = null;
+  for (;;) {
+    let q = supabase.from("whatsapp_audience_members").select("contact_id").eq("audience_id", audienceId).eq("account_id", accountId);
+    if (cursor) q = q.gt("contact_id", cursor);
+    const { data, error } = await q.order("contact_id", { ascending: true }).limit(PAGE);
+    if (error) fail("member lookup failed", error);
+    const page = ((data ?? []) as Array<{ contact_id: string }>).map((r) => r.contact_id);
+    ids.push(...page);
+    if (page.length < PAGE) break;
+    cursor = page[page.length - 1];
+  }
+  return ids;
 }
 
 export async function deleteAudience(accountId: string, audienceId: string): Promise<boolean> {
@@ -310,20 +333,21 @@ async function ownedAudience(accountId: string, audienceId: string): Promise<{ i
 export async function addAudienceMembers(accountId: string, audienceId: string, contactIds: string[]): Promise<{ ok: true; added: number; skipped: number } | { ok: false; code: "not_found" }> {
   const audience = await ownedAudience(accountId, audienceId);
   if (!audience) return { ok: false, code: "not_found" };
-  const ids = [...new Set(contactIds)].slice(0, 500);
-  let eligible: string[] = [];
-  if (ids.length > 0) {
-    const c = await supabase.from("whatsapp_contacts").select("id, consent_status, social_account_id").eq("account_id", accountId).in("id", ids);
+  const ids = [...new Set(contactIds)];
+  const eligible: string[] = [];
+  // Looked up in chunks (a URL cannot carry thousands of ids), so any number of contacts can be added in one call.
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    const c = await supabase.from("whatsapp_contacts").select("id, consent_status, social_account_id").eq("account_id", accountId).in("id", ids.slice(i, i + ID_CHUNK));
     if (c.error) fail("contact lookup failed", c.error);
-    eligible = ((c.data ?? []) as Array<{ id: string; consent_status: string; social_account_id: string }>).filter((r) => r.consent_status === "opted_in" && r.social_account_id === audience.social_account_id).map((r) => r.id);
+    for (const r of (c.data ?? []) as Array<{ id: string; consent_status: string; social_account_id: string }>) {
+      if (r.consent_status === "opted_in" && r.social_account_id === audience.social_account_id) eligible.push(r.id);
+    }
   }
-  const have = await supabase.from("whatsapp_audience_members").select("contact_id").eq("audience_id", audienceId).eq("account_id", accountId);
-  if (have.error) fail("member lookup failed", have.error);
-  const existing = new Set(((have.data ?? []) as Array<{ contact_id: string }>).map((r) => r.contact_id));
+  const existing = new Set(await allMemberIds(accountId, audienceId));
   const toAdd = eligible.filter((id) => !existing.has(id));
-  if (toAdd.length > 0) {
-    const at = new Date().toISOString();
-    const ins = await supabase.from("whatsapp_audience_members").insert(toAdd.map((contact_id) => ({ audience_id: audienceId, contact_id, account_id: accountId, created_at: at })));
+  const at = new Date().toISOString();
+  for (let i = 0; i < toAdd.length; i += PAGE) {
+    const ins = await supabase.from("whatsapp_audience_members").insert(toAdd.slice(i, i + PAGE).map((contact_id) => ({ audience_id: audienceId, contact_id, account_id: accountId, created_at: at })));
     if (ins.error) fail("member save failed", ins.error);
   }
   return { ok: true, added: toAdd.length, skipped: contactIds.length - toAdd.length };
@@ -338,10 +362,6 @@ export async function removeAudienceMember(accountId: string, audienceId: string
 // ---------------------------------------------------------------------------------------------------------------------
 // Update lines to an audience
 // ---------------------------------------------------------------------------------------------------------------------
-
-/** PLACEHOLDER (Werner has not set plan caps): the most people one update line can reach, because it is sent one at a time inside the
- *  request. A bigger list is a broadcast. */
-export const MAX_UPDATE_RECIPIENTS = 25;
 
 export interface UpdateInput {
   /** The short update, sent as free-form text to everyone whose 24 hour window is open. */
@@ -360,21 +380,19 @@ export interface UpdateResult {
 
 export type UpdateOutcome =
   | { ok: true; summary: { total: number; sent: number; skipped: number; failed: number; notAttempted: number }; results: UpdateResult[] }
-  | { ok: false; code: "not_found" | "empty_audience" | "audience_too_large" | "text_invalid"; message: string };
+  | { ok: false; code: "not_found" | "empty_audience" | "text_invalid"; message: string };
 
-/** Refusals that apply to everyone, not just this person: the rest of the audience is not attempted. */
-const STOP_CODES = new Set(["plan", "no_own_credentials", "connection_unavailable", "connection_paused", "controls_unavailable", "sending_stopped", "cap_messages", "storage_not_ready"]);
+/** Refusals that apply to everyone, not just this person (the plan, the customer's own login, a pause Meta caused): the rest of the
+ *  audience is not attempted. There is no limit on how many people an update line can reach. */
+const STOP_CODES = new Set(["plan", "no_own_credentials", "connection_unavailable", "connection_paused", "storage_not_ready"]);
 
 export async function sendUpdateToAudience(ctx: ChatSendContext, audienceId: string, input: UpdateInput): Promise<UpdateOutcome> {
   const audience = await ownedAudience(ctx.accountId, audienceId);
   if (!audience) return { ok: false, code: "not_found", message: "That audience was not found." };
   const text = typeof input.text === "string" ? input.text.trim() : "";
   if (text === "" || text.length > MAX_TEXT_CHARS) return { ok: false, code: "text_invalid", message: "Write an update of up to 4,096 characters." };
-  const m = await supabase.from("whatsapp_audience_members").select("contact_id").eq("audience_id", audienceId).eq("account_id", ctx.accountId);
-  if (m.error) fail("member lookup failed", m.error);
-  const members = ((m.data ?? []) as Array<{ contact_id: string }>).map((r) => r.contact_id);
+  const members = await allMemberIds(ctx.accountId, audienceId);
   if (members.length === 0) return { ok: false, code: "empty_audience", message: "This audience has nobody in it yet." };
-  if (members.length > MAX_UPDATE_RECIPIENTS) return { ok: false, code: "audience_too_large", message: `An update line can reach up to ${MAX_UPDATE_RECIPIENTS} people. Use a broadcast for more.` };
 
   // Count the real requests, to tell a refusal before any request (nothing was sent) from a failure after one.
   let requests = 0;

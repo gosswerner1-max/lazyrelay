@@ -138,8 +138,8 @@ afterEach(() => {
   for (const k of ["X_BYOK_PLATFORM_PUBLIC", "X_BYOK_TEST_ACCOUNT_IDS", "X_BYOK_ENABLED"]) delete process.env[k];
 });
 
-describe("plan gate: Pro, Business, Agency and Agency Plus only", () => {
-  const cases: Array<[Tier, boolean]> = [["free", false], ["starter", false], ["pro", true], ["business", true], ["agency", true], ["agency_plus", true]];
+describe("plan gate: every PAID tier (Starter and up); Free and lapsed are refused", () => {
+  const cases: Array<[Tier, boolean]> = [["free", false], ["starter", true], ["pro", true], ["business", true], ["agency", true], ["agency_plus", true]];
   for (const [tier, allowed] of cases) {
     it(`${TIER_DISPLAY_NAMES[tier]} is ${allowed ? "allowed" : "refused"} on the keys route, the check route, the connect route and the tile`, async () => {
       setTier(tier);
@@ -147,7 +147,7 @@ describe("plan gate: Pro, Business, Agency and Agency Plus only", () => {
       const check = await request(appWith()).post("/social-accounts/x/byok/check").send(KEYS);
       const connect = await request(appWith()).get("/social-accounts/connect?platform=x");
       const tile = (await request(appWith()).get("/platforms")).body.find((p: { platform: string }) => p.platform === "x");
-      expect(tile).toMatchObject({ platform: "x", configured: true, comingSoon: false, requiresPlan: "Pro", allowed });
+      expect(tile).toMatchObject({ platform: "x", configured: true, comingSoon: false, requiresPlan: "Starter", allowed });
       if (allowed) {
         expect(save.status).toBe(200);
         expect(check.status).toBe(200);
@@ -157,8 +157,8 @@ describe("plan gate: Pro, Business, Agency and Agency Plus only", () => {
         expect(save.status).toBe(403);
         expect(check.status).toBe(403);
         expect(connect.status).toBe(403);
-        expect(save.body).toMatchObject({ requiresPlan: "Pro" });
-        expect(save.body.error).toMatch(/Pro plan and above/);
+        expect(save.body).toMatchObject({ requiresPlan: "Starter" });
+        expect(save.body.error).toMatch(/any paid plan/);
         expect(vault.size).toBe(0); // nothing stored, and the check route stored nothing either
         expect(tables.social_accounts).toHaveLength(0);
       }
@@ -167,7 +167,7 @@ describe("plan gate: Pro, Business, Agency and Agency Plus only", () => {
   }
 
   it("a refused plan never reaches X", async () => {
-    setTier("starter");
+    setTier("free");
     await request(appWith()).post("/social-accounts/x/byok").send(BODY);
     expect(xCalls).toBe(0);
   });
@@ -177,9 +177,15 @@ describe("plan gate: Pro, Business, Agency and Agency Plus only", () => {
     expect((await request(appWith()).post("/social-accounts/x/byok").send(BODY)).status).toBe(403);
   });
 
-  it("a cancelled paid plan counts as Free", async () => {
-    tables.subscriptions = [{ account_id: "acc1", tier: "pro", status: "cancelled" }];
-    expect((await request(appWith()).post("/social-accounts/x/byok").send(BODY)).status).toBe(403);
+  it("a lapsed paid plan counts as Free, for every paid tier and every lapsed state", async () => {
+    for (const tier of ["starter", "pro", "business", "agency", "agency_plus"]) {
+      for (const status of ["cancelled", "canceled", "past_due", "paused"]) {
+        tables.subscriptions = [{ account_id: "acc1", tier, status }];
+        expect((await request(appWith()).post("/social-accounts/x/byok").send(BODY)).status, `${tier} ${status}`).toBe(403);
+        expect((await request(appWith()).post("/social-accounts/x/byok/check").send(KEYS)).status, `check ${tier} ${status}`).toBe(403);
+      }
+    }
+    expect(vault.size).toBe(0);
   });
 });
 
@@ -497,9 +503,10 @@ describe("migration 0126 (database plan gate for X own keys) and the route's han
   const code = sql.split(/\r?\n/).filter((l) => !l.trim().startsWith("--")).join("\n");
   const listOf = (re: RegExp) => (re.exec(code)?.[1] ?? "").split(",").map((s) => s.trim().replace(/'/g, "")).sort();
 
-  it("the tier list in the SQL equals X_BYOK_ALLOWED_TIERS in tier.ts", () => {
+  it("0126 holds the ORIGINAL list (Pro and above); migration 0132 supersedes it with every paid tier, kept equal to X_BYOK_ALLOWED_TIERS in byokPlanGate.test.ts", () => {
     expect(code).toMatch(/v_tier in \(([^)]*)\)/);
-    expect(listOf(/v_tier in \(([^)]*)\)/)).toEqual([...X_BYOK_ALLOWED_TIERS].sort());
+    expect(listOf(/v_tier in \(([^)]*)\)/)).toEqual(["agency", "agency_plus", "business", "pro"]);
+    expect([...X_BYOK_ALLOWED_TIERS].sort()).toEqual(["agency", "agency_plus", "business", "pro", "starter"]);
   });
 
   it("only active and trialing count, as in resolveTier", () => {
@@ -517,16 +524,17 @@ describe("migration 0126 (database plan gate for X own keys) and the route's han
     expect(code).not.toMatch(/enforce_whatsapp_plan_gate|social_accounts_whatsapp_plan_gate/); // the WhatsApp trigger is untouched
   });
 
-  it("raises the distinctive code and message the backend maps", () => {
+  it("raises the distinctive code the backend maps (0126 says the old message, the backend knows both)", () => {
     expect(code).toContain("'x own keys requires the Pro plan or above'");
     expect(code).toContain("errcode = 'LRXB1'");
     expect(X_BYOK_DB_GATE_CODE).toBe("LRXB1");
-    expect(X_BYOK_DB_GATE_MESSAGE).toBe("x own keys requires the Pro plan or above");
+    expect(X_BYOK_DB_GATE_MESSAGE).toBe("x own keys requires a paid plan");
   });
 
   it("isXByokPlanGateError matches the code or the message, and nothing else", () => {
     expect(isXByokPlanGateError({ code: "LRXB1", message: "x" })).toBe(true);
     expect(isXByokPlanGateError({ message: "x own keys requires the Pro plan or above" })).toBe(true);
+    expect(isXByokPlanGateError({ message: "x own keys requires a paid plan" })).toBe(true);
     expect(isXByokPlanGateError({ code: "LRWA1", message: "whatsapp requires the Business plan or above" })).toBe(false);
     expect(isXByokPlanGateError({ code: "23505", message: "duplicate key" })).toBe(false);
     expect(isXByokPlanGateError(null)).toBe(false);

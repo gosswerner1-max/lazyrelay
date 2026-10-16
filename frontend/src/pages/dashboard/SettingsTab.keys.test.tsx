@@ -58,8 +58,8 @@ vi.mock("../../lib/api", async (importOriginal) => {
 
 import { SettingsTab } from "./SettingsTab";
 
-const X_OK = { platform: "x", configured: true, comingSoon: false, requiresPlan: "Pro", allowed: true };
-const WA_LOCKED = { platform: "whatsapp", configured: true, comingSoon: false, requiresPlan: "Business", allowed: false };
+const X_OK = { platform: "x", configured: true, comingSoon: false, requiresPlan: "Starter", allowed: true };
+const WA_LOCKED = { platform: "whatsapp", configured: true, comingSoon: false, requiresPlan: "Starter", allowed: false };
 const KEYS_TAB = { name: "Custom developer keys" };
 const tabNames = () => within(screen.getByRole("tablist", { name: "Settings sections" })).getAllByRole("tab").map((b) => b.textContent);
 
@@ -178,7 +178,7 @@ describe("the Custom developer keys sub-tab", () => {
     const user = userEvent.setup();
     render(<SettingsTab />);
     await user.click(screen.getByRole("tab", KEYS_TAB));
-    expect(screen.getByText("Available on the Business plan and above.")).toBeInTheDocument();
+    expect(screen.getByText("Available on any paid plan.")).toBeInTheDocument();
     expect(screen.queryByLabelText("System user token")).not.toBeInTheDocument();
   });
 
@@ -189,7 +189,7 @@ describe("the Custom developer keys sub-tab", () => {
     await user.click(screen.getByRole("tab", KEYS_TAB));
     await user.click(screen.getByRole("button", { name: "See plans" }));
     expect(screen.getByRole("tab", { name: "Plan & billing" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.queryByText("Available on the Business plan and above.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Available on any paid plan.")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Storage" })).toBeInTheDocument();
   });
 
@@ -205,6 +205,7 @@ describe("the Custom developer keys sub-tab", () => {
     await user.type(screen.getByLabelText("Access Token Secret"), "fakeTokenSecret12345");
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: "Save and connect" }));
+    await user.click(screen.getByRole("button", { name: "Continue" })); // the notice that opens before anything is sent
     await waitFor(() => expect(connectXKeys).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(ctx.refresh).toHaveBeenCalledTimes(1));
   });

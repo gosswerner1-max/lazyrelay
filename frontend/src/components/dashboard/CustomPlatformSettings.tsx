@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent } from "react";
 import { api, type PlatformInfo, type SocialAccount, type WhatsAppCredentialFields } from "../../lib/api";
 import { PlatformIcon } from "../PlatformIcon";
+import { useByokDisclaimer } from "../ByokDisclaimerModal";
 import { EMPTY_X_KEYS, X_BYOK_CONSENT_TEXT, X_BYOK_GUIDE_URL, xKeysComplete, type XKeyFields } from "../../lib/xByok";
 import {
   EMPTY_WHATSAPP_FIELDS,
@@ -119,6 +120,7 @@ function XCard({ info, onConnected, onSeePlans }: CardProps) {
   const [busy, setBusy] = useState<"check" | "save" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ handle: string; saved: boolean } | null>(null);
+  const disclaimer = useByokDisclaimer();
 
   const set = (field: keyof XKeyFields) => (value: string) => {
     setKeys((k) => ({ ...k, [field]: value }));
@@ -163,9 +165,13 @@ function XCard({ info, onConnected, onSeePlans }: CardProps) {
     }
   }
 
-  async function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!accepted || !filled || busy) return;
+    disclaimer.ask(() => void doSave());
+  }
+
+  async function doSave() {
     setError(null);
     setBusy("save");
     const toSend = {
@@ -233,7 +239,7 @@ function XCard({ info, onConnected, onSeePlans }: CardProps) {
           <span>{X_BYOK_CONSENT_TEXT}</span>
         </label>
         <div className="byok-actions">
-          <button type="button" className="byok-secondary" disabled={!filled || busy !== null} onClick={handleCheck}>
+          <button type="button" className="byok-secondary" disabled={!filled || busy !== null} onClick={() => disclaimer.ask(() => void handleCheck())}>
             {busy === "check" ? "Checking..." : "Check my keys"}
           </button>
           <button type="submit" className="byok-primary" disabled={!accepted || !filled || busy !== null}>
@@ -256,6 +262,7 @@ function XCard({ info, onConnected, onSeePlans }: CardProps) {
           </p>
         )}
       </form>
+      {disclaimer.modal}
     </section>
   );
 }
@@ -268,6 +275,7 @@ function WhatsAppCard({ info, onConnected, onSeePlans, webhookInfo, onSaved }: W
   const [busy, setBusy] = useState<"check" | "save" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ name: string | null; saved: boolean } | null>(null);
+  const disclaimer = useByokDisclaimer();
 
   const set = (field: keyof WhatsAppFields) => (value: string) => {
     setFields((f) => ({ ...f, [field]: value }));
@@ -318,9 +326,13 @@ function WhatsAppCard({ info, onConnected, onSeePlans, webhookInfo, onSaved }: W
     }
   }
 
-  async function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!accepted || !complete || busy) return;
+    disclaimer.ask(() => void doSave());
+  }
+
+  async function doSave() {
     setError(null);
     setBusy("save");
     const toSend = trimmed();
@@ -389,7 +401,7 @@ function WhatsAppCard({ info, onConnected, onSeePlans, webhookInfo, onSaved }: W
         </label>
         <p className="byok-card__hint">WhatsApp sending is not available yet. Saving only stores your connection.</p>
         <div className="byok-actions">
-          <button type="button" className="byok-secondary" disabled={!complete || busy !== null} onClick={handleCheck}>
+          <button type="button" className="byok-secondary" disabled={!complete || busy !== null} onClick={() => disclaimer.ask(() => void handleCheck())}>
             {busy === "check" ? "Checking..." : "Check my credentials"}
           </button>
           <button type="submit" className="byok-primary" disabled={!accepted || !complete || busy !== null}>
@@ -412,6 +424,7 @@ function WhatsAppCard({ info, onConnected, onSeePlans, webhookInfo, onSaved }: W
           </p>
         )}
       </form>
+      {disclaimer.modal}
     </section>
   );
 }

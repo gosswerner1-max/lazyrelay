@@ -67,7 +67,6 @@ export function WhatsAppTab() {
             their consent. Anyone who opts out is blocked automatically.
           </p>
         )}
-        {send.stopped && <p className="wac-warn">Sending is switched off right now. Your contacts stay saved.</p>}
       </div>
       <ByokGuide guide={WHATSAPP_GUIDE} />
       {connections.length > 1 && (

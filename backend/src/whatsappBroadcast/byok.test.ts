@@ -50,10 +50,12 @@ describe("checkSendEligibility", () => {
     expect(await checkSendEligibility(ACC, SA)).toEqual({ ok: false, reason: "plan" });
   });
 
-  it("a paid plan below the WhatsApp tier (starter, pro) is refused", async () => {
-    for (const tier of ["free", "starter", "pro"]) {
+  it("EVERY paid tier is accepted (Starter, Pro, Business, Agency, Agency Plus), and only Free is refused", async () => {
+    subscription("free");
+    expect(await checkSendEligibility(ACC, SA)).toEqual({ ok: false, reason: "plan" });
+    for (const tier of ["starter", "pro", "business", "agency", "agency_plus"]) {
       subscription(tier);
-      expect(await checkSendEligibility(ACC, SA)).toEqual({ ok: false, reason: "plan" });
+      expect((await checkSendEligibility(ACC, SA)).ok, tier).toBe(true);
     }
   });
 
