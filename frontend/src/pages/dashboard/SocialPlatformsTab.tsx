@@ -251,7 +251,7 @@ export function SocialPlatformsTab() {
               }
             >
               <PlatformIcon platform={p.platform} size={20} comingSoon={disabled} />
-              <span className="platform-tile-name" style={p.platform === "devto" ? { textTransform: "none" } : undefined}>{p.platform === "devto" ? "dev.to" : p.platform}</span>
+              <span className="platform-tile-name" style={p.platform === "devto" || p.platform === "whatsapp" ? { textTransform: "none" } : undefined}>{p.platform === "devto" ? "dev.to" : p.platform === "whatsapp" ? "WhatsApp" : p.platform}</span>
               {p.comingSoon && <span className="platform-tile-badge">Coming soon</span>}
               {xLocked && xTile?.kind === "upgrade" && <span className="platform-tile-badge">{xTile.label}</span>}
               {!disabled && !xLocked && connectedCount > 0 && (
