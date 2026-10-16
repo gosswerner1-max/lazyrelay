@@ -20,7 +20,9 @@ import { MastodonServerModal } from "../components/MastodonServerModal";
 import { WhopConnectModal } from "../components/WhopConnectModal";
 import { describePlatformLimit } from "../lib/platformLimit";
 import { useNoindex } from "../lib/useCanonical";
-import { type Tab } from "./dashboard/dashboardHelpers";
+import { type Tab, moreTabsFor } from "./dashboard/dashboardHelpers";
+import { useWhatsAppBroadcasts } from "./dashboard/useWhatsAppBroadcasts";
+import { WhatsAppTab } from "./dashboard/WhatsAppTab";
 import { useDashboardState } from "./dashboard/useDashboardState";
 import { DashboardContext } from "./dashboard/DashboardContext";
 import { AnalyticsTab } from "./dashboard/AnalyticsTab";
@@ -38,7 +40,6 @@ import "./Dashboard.css";
 
 const ProductTour = lazy(() => import("../components/ProductTour").then((m) => ({ default: m.ProductTour })));
 const MAIN_TABS: Tab[] = ["Overview", "Posts", "Failed", "Calendar", "Social Platforms", "API Keys", "Settings"];
-const MORE_TABS: Tab[] = ["Analytics", "Mentions", "DMs", "Bio Page"];
 
 // Reply-to-comment and DM read/reply/automation for Facebook and Instagram
 // depend on pages_manage_engagement / instagram_manage_comments / pages_messaging
@@ -117,6 +118,9 @@ export function Dashboard() {
     periodEndDate,
   } = state;
   const failedCount = posts.filter((p) => p.status === "failed").length;
+  // The WhatsApp (contacts and consent) tab exists only when the server says so; it asks only if a WhatsApp number is connected.
+  const whatsappBroadcasts = useWhatsAppBroadcasts(accounts.some((a) => a.platform === "whatsapp"));
+  const moreTabs = moreTabsFor(whatsappBroadcasts);
 
   if (loading) {
     return (
@@ -189,14 +193,14 @@ export function Dashboard() {
         ))}
         <div className="tab-more" ref={moreMenuRef}>
           <button
-            className={MORE_TABS.includes(tab) ? "tab-active" : ""}
+            className={moreTabs.includes(tab) ? "tab-active" : ""}
             onClick={() => setMoreMenuOpen((v) => !v)}
           >
-            {MORE_TABS.includes(tab) ? tab : "More"} ▾
+            {moreTabs.includes(tab) ? tab : "More"} ▾
           </button>
           {moreMenuOpen && (
             <div className="tab-more-menu">
-              {MORE_TABS.map((t) => {
+              {moreTabs.map((t) => {
                 const disabled = DISABLED_TABS.includes(t);
                 return (
                   <button
@@ -274,6 +278,8 @@ export function Dashboard() {
       {tab === "Settings" && <SettingsTab />}
 
       {tab === "API Keys" && <ApiKeysTab />}
+
+      {tab === "WhatsApp" && whatsappBroadcasts && <WhatsAppTab />}
       </div>
 
       {pendingSelection && pendingSelection.options.length === 1 && (

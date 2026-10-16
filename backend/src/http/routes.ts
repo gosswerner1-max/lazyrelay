@@ -12,6 +12,7 @@ import { buildMediaRouter } from "./routes/media.routes.js";
 import { buildPostsRouter } from "./routes/posts.routes.js";
 import { buildInboxRouter } from "./routes/inbox.routes.js";
 import { buildWhatsAppMessagesRouter } from "./routes/whatsappMessages.routes.js";
+import { buildWhatsAppContactsRouter } from "./routes/whatsappContacts.routes.js";
 import { buildWhatsAppWebhookInfoRouter } from "./routes/whatsappWebhookInfo.routes.js";
 import { buildReplyDraftsRouter } from "./routes/replyDrafts.routes.js";
 import { buildAnalyticsRouter } from "./routes/analytics.routes.js";
@@ -50,6 +51,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.use(buildInboxRouter(registry));
   router.use(buildWhatsAppMessagesRouter());
   router.use(buildWhatsAppWebhookInfoRouter());
+  router.use(buildWhatsAppContactsRouter());
   router.use(buildReplyDraftsRouter());
   router.use(buildAnalyticsRouter());
   router.use(buildRecurringSchedulesRouter());

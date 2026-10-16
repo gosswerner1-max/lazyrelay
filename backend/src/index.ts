@@ -125,6 +125,10 @@ async function main() {
       `WHATSAPP_BYOK_ENABLED=${process.env.WHATSAPP_BYOK_ENABLED === "true" ? "on" : "off"} ` +
       `WHATSAPP_WEBHOOK_VERIFY_TOKEN=${process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN ? "set" : "MISSING"} ` +
       `WHATSAPP_CONTACT_HASH_KEY=${process.env.WHATSAPP_CONTACT_HASH_KEY ? "set" : "MISSING"}; ` +
+      `WHATSAPP_BROADCASTS_ENABLED=${process.env.WHATSAPP_BROADCASTS_ENABLED === "true" ? "on" : "off"} ` +
+      `WHATSAPP_CONTACT_ENC_KEY=${process.env.WHATSAPP_CONTACT_ENC_KEY ? "set" : "MISSING"} ` +
+      `WHATSAPP_CONTACT_ENC_KEY_ID=${process.env.WHATSAPP_CONTACT_ENC_KEY_ID ? "set" : "MISSING"} ` +
+      `WHATSAPP_CONTACT_ENC_KEY_PREV=${process.env.WHATSAPP_CONTACT_ENC_KEY_PREV ? "set" : "unset"}; ` +
       `WORDPRESS_CONNECT_PAGE_URL=${process.env.WORDPRESS_CONNECT_PAGE_URL ? "set" : "MISSING"} ` +
       `DEVTO_CONNECT_PAGE_URL=${process.env.DEVTO_CONNECT_PAGE_URL ? "set" : "MISSING"} ` +
       `HASHNODE_CONNECT_PAGE_URL=${process.env.HASHNODE_CONNECT_PAGE_URL ? "set" : "MISSING"} ` +

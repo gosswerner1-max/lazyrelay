@@ -38,6 +38,17 @@ export function findProductionConfigProblems(env: Record<string, string | undefi
     );
   }
 
+  // WhatsApp broadcast contacts store customer phone numbers encrypted. With the feature switched on but a secret missing or
+  // unusable, every add would be refused (fail closed): say so at boot. Names only, never a value.
+  if (env.WHATSAPP_BROADCASTS_ENABLED === "true") {
+    const missing = ["WHATSAPP_CONTACT_HASH_KEY", "WHATSAPP_CONTACT_ENC_KEY", "WHATSAPP_CONTACT_ENC_KEY_ID"].filter((k) => !env[k]?.trim());
+    if (missing.length > 0) {
+      problems.push(`WHATSAPP_BROADCASTS_ENABLED is on but these settings are missing: ${missing.join(", ")}. Contacts cannot be stored until they are set (the contact tab stays hidden).`);
+    } else if (Buffer.from(env.WHATSAPP_CONTACT_ENC_KEY!.trim(), "base64").length !== 32) {
+      problems.push("WHATSAPP_BROADCASTS_ENABLED is on but WHATSAPP_CONTACT_ENC_KEY is not a base64 encoded key of exactly 32 bytes. Contacts cannot be stored until it is fixed (the contact tab stays hidden).");
+    }
+  }
+
   // Any URL-valued setting that points at this machine is a local value that
   // leaked into production (a customer would be sent to localhost). Only the
   // names are reported, never the values.
