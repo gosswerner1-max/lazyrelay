@@ -180,6 +180,10 @@ export function buildApp(
       // the frontend makes here — without this, Set-Cookie on the
       // connect-initiate response is silently dropped by the browser.
       credentials: true,
+      // Lets the browser remember the preflight (OPTIONS) answer for 2 hours instead of Chrome's 5-second default,
+      // so the dashboard's ~14 API calls on every reload don't each pay an extra round trip first. Only the answer
+      // is remembered; every real request is still origin- and token-checked.
+      maxAge: 7200,
     }),
   );
   app.use(cookieParser());

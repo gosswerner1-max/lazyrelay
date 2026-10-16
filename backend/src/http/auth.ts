@@ -235,6 +235,58 @@ async function hasVerifiedMfaFactor(userId: string): Promise<boolean> {
   return (data?.factors ?? []).some((f) => f.status === "verified");
 }
 
+/** Short-lived memory of "Supabase confirmed this token belongs to this user", so a page that fires ~14 API calls at
+ *  once asks Supabase Auth once instead of 14 times (each ask is a ~165 ms hop from Render to Supabase).
+ *
+ *  What it holds: only the user id and audience, keyed by the SHA-256 of the token (the raw token is never stored).
+ *  What it does NOT hold: MFA state (hasVerifiedMfaFactor stays uncached, see its comment) and account membership
+ *  (looked up fresh every request), so enrolling MFA or being removed from a team still bites immediately.
+ *  Limits: a token that is signed out or revoked at Supabase can still be accepted here for at most
+ *  VERIFIED_USER_CACHE_TTL_MS, and never past the token's own `exp`. Failures are never stored, a token with no
+ *  usable `exp` is never stored, and the map is bounded (oldest entry dropped first). */
+export const VERIFIED_USER_CACHE_TTL_MS = 30_000;
+export const VERIFIED_USER_CACHE_MAX = 500;
+const verifiedUserCache = new Map<string, { userId: string; aud: string | undefined; expiresAtMs: number }>();
+
+export function __resetVerifiedUserCacheForTests(): void {
+  verifiedUserCache.clear();
+}
+export function __verifiedUserCacheKeysForTests(): string[] {
+  return [...verifiedUserCache.keys()];
+}
+
+function tokenExpiryMs(token: string): number | null {
+  try {
+    const exp = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8"))?.exp;
+    return typeof exp === "number" && Number.isFinite(exp) ? exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+async function verifyJwtUser(token: string): Promise<{ userId: string; aud: string | undefined } | null> {
+  const cacheKey = hashApiKey(token);
+  const hit = verifiedUserCache.get(cacheKey);
+  if (hit) {
+    if (hit.expiresAtMs > Date.now()) return { userId: hit.userId, aud: hit.aud };
+    verifiedUserCache.delete(cacheKey);
+  }
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user) return null;
+  const tokenExp = tokenExpiryMs(token);
+  if (tokenExp !== null) {
+    const expiresAtMs = Math.min(Date.now() + VERIFIED_USER_CACHE_TTL_MS, tokenExp);
+    if (expiresAtMs > Date.now()) {
+      if (verifiedUserCache.size >= VERIFIED_USER_CACHE_MAX) {
+        const oldest = verifiedUserCache.keys().next().value;
+        if (oldest !== undefined) verifiedUserCache.delete(oldest);
+      }
+      verifiedUserCache.set(cacheKey, { userId: data.user.id, aud: data.user.aud, expiresAtMs });
+    }
+  }
+  return { userId: data.user.id, aud: data.user.aud };
+}
+
 /** Verifies the caller's Supabase JWT (browser dashboard), a LazyRelay API
  *  key (bring-your-own-agent, headless), OR an admin key (Claude/internal
  *  ops, acts across every account) and attaches the account id to the
@@ -304,8 +356,8 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
     return;
   }
 
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data.user) {
+  const verifiedUser = await verifyJwtUser(token);
+  if (!verifiedUser) {
     recordSecurityEvent("auth_denied", `invalid/expired token on ${req.method} ${req.path}`);
     res.status(401).json({ error: "Invalid or expired token" });
     return;
@@ -322,7 +374,7 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
   // not a JWT of the wrong kind. mcpAuth.ts already enforces the mirror
   // image of this check (rejecting aud="authenticated" on the MCP side);
   // this is what makes it symmetric.
-  if (data.user.aud !== "authenticated") {
+  if (verifiedUser.aud !== "authenticated") {
     res.status(401).json({ error: "This token isn't a valid dashboard session." });
     return;
   }
@@ -352,7 +404,13 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
   } catch {
     tokenAal = undefined;
   }
-  if (await hasVerifiedMfaFactor(data.user.id)) {
+  // The MFA lookup and the membership lookup don't depend on each other, so they run side by side (one network
+  // round trip of waiting instead of two). Denial order is unchanged: MFA is judged first, then membership, and an
+  // MFA lookup error still throws (fail closed) exactly as before.
+  const mfaCheck = hasVerifiedMfaFactor(verifiedUser.userId);
+  const membershipLookup = resolveAccountForUser(verifiedUser.userId);
+  membershipLookup.catch(() => {}); // if the MFA check throws first, don't leave this one as an unhandled rejection
+  if (await mfaCheck) {
     if (tokenAal !== "aal2") {
       recordSecurityEvent("auth_denied", `aal1 token on MFA-enrolled account for ${req.method} ${req.path}`);
       res.status(401).json({ error: "This session hasn't completed multi-factor authentication yet." });
@@ -360,7 +418,7 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
     }
   }
 
-  const membership = await resolveAccountForUser(data.user.id);
+  const membership = await membershipLookup;
   if (!membership) {
     res.status(403).json({ error: "This account has no active membership. Contact support." });
     return;
