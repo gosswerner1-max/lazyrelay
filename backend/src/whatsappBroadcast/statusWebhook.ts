@@ -25,7 +25,7 @@ import { contactHashKey, messageKeyFor } from "../platforms/whatsapp/contactPriv
 import { broadcastsEnabled } from "./flags.js";
 import { pauseConnection } from "./controls.js";
 import { classifyMetaFailure, type PauseReason } from "./metaErrors.js";
-import { recordOptOutForContact } from "./optOuts.js";
+import { recordOptOutForContact, recordOptOutForKey } from "./optOuts.js";
 import { refreshCounts } from "./broadcasts.js";
 
 export interface StatusSummary {
@@ -144,7 +144,7 @@ export async function processWhatsAppStatusEvent(rawBody: Buffer, signatureHeade
         if (result === "unmatched") summary.unmatched += 1;
         else if (result.applied) {
           summary.applied += 1;
-          touched.add(result.broadcastId);
+          if (result.broadcastId) touched.add(result.broadcastId);
         }
       }
       for (const id of touched) await refreshCounts(id);
@@ -169,7 +169,7 @@ interface RecipientRow {
   status: string;
 }
 
-async function applyReceipt(account: ConnectionRow, r: Receipt, now: Date): Promise<"unmatched" | { applied: boolean; broadcastId: string }> {
+async function applyReceipt(account: ConnectionRow, r: Receipt, now: Date): Promise<"unmatched" | { applied: boolean; broadcastId: string | null }> {
   const messageKey = messageKeyFor(account.account_id, r.wamid);
   const eventKey = messageKeyFor(account.account_id, `${r.wamid}|${r.status}|${r.at.getTime()}`);
   if (!messageKey || !eventKey) return "unmatched";
@@ -177,7 +177,8 @@ async function applyReceipt(account: ConnectionRow, r: Receipt, now: Date): Prom
   const { data, error } = await supabase.from("whatsapp_broadcast_recipients").select("id, broadcast_id, contact_id, status").eq("account_id", account.account_id).eq("message_key", messageKey).maybeSingle();
   if (error) throw new Error("recipient lookup failed");
   const recipient = data as RecipientRow | null;
-  if (!recipient) return "unmatched";
+  // Not a broadcast message: it may be a message sent from a chat conversation (whatsappChat/chatSend.ts).
+  if (!recipient) return applyChatReceipt(account, r, messageKey, now);
 
   // The append-only record. A repeat of the same receipt has the same key and is not stored twice.
   const ev = await supabase.from("whatsapp_broadcast_status_events").upsert(
@@ -234,4 +235,54 @@ async function applyReceipt(account: ConnectionRow, r: Receipt, now: Date): Prom
     .eq("status", recipient.status);
   if (upd.error) throw new Error("recipient update failed");
   return { applied: true, broadcastId: recipient.broadcast_id };
+}
+
+interface ChatMessageRow {
+  id: string;
+  conversation_id: string;
+  status: string;
+}
+
+/** The same rules for a message sent from a chat conversation: forward only, a failure never overwrites a delivery, 131050 opts the
+ *  person out, a restriction code pauses the connection. No event row (the table is keyed to broadcast recipients); applying a
+ *  receipt is idempotent on its own. */
+async function applyChatReceipt(account: ConnectionRow, r: Receipt, messageKey: string, now: Date): Promise<"unmatched" | { applied: boolean; broadcastId: null }> {
+  const { data, error } = await supabase.from("whatsapp_chat_messages").select("id, conversation_id, status").eq("account_id", account.account_id).eq("message_key", messageKey).eq("direction", "outbound").maybeSingle();
+  if (error) throw new Error("chat message lookup failed");
+  const message = data as ChatMessageRow | null;
+  if (!message) return "unmatched";
+  const none = { applied: false, broadcastId: null } as const;
+  const current = RANK[message.status];
+  const at = r.at.toISOString();
+
+  if (r.status !== "failed") {
+    if (current === undefined || current === 0 || RANK[r.status] <= current) return none;
+    const patch: Record<string, unknown> = { status: r.status };
+    patch[`${r.status}_at`] = at;
+    const upd = await supabase.from("whatsapp_chat_messages").update(patch).eq("id", message.id).eq("status", message.status);
+    if (upd.error) throw new Error("chat message update failed");
+    return { applied: true, broadcastId: null };
+  }
+
+  if (current === undefined || current >= RANK.delivered) return none;
+  const action = r.errorCode === null ? null : classifyMetaFailure({ code: r.errorCode });
+  let reason = "delivery_failed";
+  if (action?.kind === "opt_out") {
+    const conv = await supabase.from("whatsapp_conversations").select("id, contact_id, contact_key, contact_display").eq("id", message.conversation_id).eq("account_id", account.account_id).maybeSingle();
+    if (conv.error) throw new Error("conversation lookup failed");
+    const c = conv.data as { contact_id: string | null; contact_key: string; contact_display: string } | null;
+    if (c?.contact_id) await recordOptOutForContact(account.account_id, c.contact_id, { scope: "marketing", source: "meta_131050" }, now);
+    else if (c) await recordOptOutForKey(account.account_id, c.contact_key, c.contact_display, { scope: "marketing", source: "meta_131050" }, now);
+    reason = action.reason;
+  } else if (action?.kind === "pause_connection") {
+    await pauseConnection(account.account_id, account.id, action.pause, r.errorCode, now);
+    reason = action.reason;
+  } else if (action?.kind === "pause_broadcast") {
+    reason = action.reason;
+  } else if (action?.kind === "retry" || action?.kind === "recipient_failed") {
+    reason = action.kind === "retry" ? "delivery_failed_transient" : action.reason;
+  }
+  const upd = await supabase.from("whatsapp_chat_messages").update({ status: "failed", failure_reason: reason, error_code: r.errorCode, failed_at: at }).eq("id", message.id).eq("status", message.status);
+  if (upd.error) throw new Error("chat message update failed");
+  return { applied: true, broadcastId: null };
 }

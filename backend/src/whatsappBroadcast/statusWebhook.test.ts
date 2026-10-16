@@ -256,3 +256,64 @@ describe("account events that pause a number", () => {
     expect(tables.whatsapp_connection_send_state).toHaveLength(0);
   });
 });
+
+describe("receipts for chat messages (two-way WhatsApp)", () => {
+  let conv: Record<string, unknown>;
+  const chat = () => tables.whatsapp_chat_messages[0];
+  beforeEach(() => {
+    tables.whatsapp_broadcast_recipients = [];
+    conv = { id: "conv1", account_id: ACC, social_account_id: SA, contact_key: contact.contact_key, contact_display: contact.contact_display, contact_id: contact.id };
+    tables.whatsapp_conversations.push(conv);
+    tables.whatsapp_chat_messages.push({ id: "cm1", account_id: ACC, conversation_id: "conv1", direction: "outbound", kind: "text", status: "handed_off", message_key: messageKeyFor(ACC, "wamid.CHAT1"), handed_off_at: NOW.toISOString() });
+  });
+
+  it("sent, delivered, read move the chat message forward with Meta's own times", async () => {
+    await run(delivery([status("wamid.CHAT1", "sent", { timestamp: String(T) })]));
+    expect(chat()).toMatchObject({ status: "sent", sent_at: new Date(T * 1000).toISOString() });
+    await run(delivery([status("wamid.CHAT1", "delivered", { timestamp: String(T + 2) })]));
+    await run(delivery([status("wamid.CHAT1", "read", { timestamp: String(T + 9) })]));
+    expect(chat()).toMatchObject({ status: "read", read_at: new Date((T + 9) * 1000).toISOString() });
+  });
+
+  it("is idempotent and never goes backwards", async () => {
+    const body = delivery([status("wamid.CHAT1", "read")]);
+    await run(body);
+    await run(body);
+    await run(delivery([status("wamid.CHAT1", "delivered")]));
+    expect(chat().status).toBe("read");
+  });
+
+  it("a failed receipt with 131050 opts the person out (a stored contact, or by key alone for someone who is not)", async () => {
+    await run(delivery([status("wamid.CHAT1", "failed", { errors: [{ code: 131050 }] })]));
+    expect(chat()).toMatchObject({ status: "failed", failure_reason: "recipient_opted_out", error_code: 131050 });
+    expect(contact.consent_status).toBe("opted_out");
+
+    tables.whatsapp_opt_outs = [];
+    conv.contact_id = null;
+    contact.consent_status = "opted_in";
+    chat().status = "handed_off";
+    await run(delivery([status("wamid.CHAT1", "failed", { errors: [{ code: 131050 }], timestamp: String(T + 77) })]));
+    expect(tables.whatsapp_opt_outs).toHaveLength(1);
+    expect(tables.whatsapp_opt_outs[0]).toMatchObject({ contact_key: contact.contact_key, source: "meta_131050" });
+    expect(JSON.stringify(tables.whatsapp_opt_outs)).not.toMatch(/27821110001/);
+  });
+
+  it("a restriction code pauses the connection; a failure after delivery is ignored; another account's message is untouched", async () => {
+    await run(delivery([status("wamid.CHAT1", "failed", { errors: [{ code: 131048 }] })]));
+    expect(tables.whatsapp_connection_send_state[0]).toMatchObject({ pause_reason: "quality" });
+
+    chat().status = "delivered";
+    await run(delivery([status("wamid.CHAT1", "failed", { errors: [{ code: 131026 }], timestamp: String(T + 50) })]));
+    expect(chat().status).toBe("delivered");
+
+    chat().status = "handed_off";
+    chat().account_id = ACC_OTHER;
+    await run(delivery([status("wamid.CHAT1", "delivered", { timestamp: String(T + 60) })]));
+    expect(chat().status).toBe("handed_off");
+  });
+
+  it("a chat receipt does not touch any broadcast's totals", async () => {
+    await run(delivery([status("wamid.CHAT1", "delivered")]));
+    expect(bc().count_delivered ?? 0).toBe(0);
+  });
+});
