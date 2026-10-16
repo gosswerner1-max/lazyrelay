@@ -133,7 +133,10 @@ export function addOptOut(contact: Row, over: Row = {}): Row {
 }
 
 /** A TypeScript model of claim_whatsapp_broadcast_recipients (migration 0130). See the header. */
-export function claimModel(args: Record<string, unknown>, now: Date = new Date()): Row[] {
+/** The database clock, which a test can set so retries and the daily window can be tested without waiting. */
+export const clock: { now?: Date } = {};
+
+export function claimModel(args: Record<string, unknown>, now: Date = clock.now ?? new Date()): Row[] {
   const broadcastId = args.p_broadcast_id as string;
   const limit = args.p_limit as number;
   const token = args.p_claim_token as string;
@@ -166,10 +169,16 @@ export function claimModel(args: Record<string, unknown>, now: Date = new Date()
 }
 
 export const rpcLog: Array<{ fn: string; args: Record<string, unknown> }> = [];
+/** Lets a test change the world at the exact moment after a claim, to model a race (an opt-out landing mid-batch). */
+export const hooks: { afterClaim?: () => void } = {};
 
 /** The fake `supabase.rpc`: the in-memory Vault functions plus the claim model. */
 export async function fakeRpcAll(fn: string, args: Record<string, unknown>): Promise<{ data: unknown; error: null | { message: string } }> {
   rpcLog.push({ fn, args });
-  if (fn === "claim_whatsapp_broadcast_recipients") return { data: claimModel(args), error: null };
+  if (fn === "claim_whatsapp_broadcast_recipients") {
+    const data = claimModel(args);
+    hooks.afterClaim?.();
+    return { data, error: null };
+  }
   return fakeRpc(fn, args);
 }
