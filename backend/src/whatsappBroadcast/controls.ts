@@ -88,16 +88,15 @@ export async function resumeConnection(accountId: string, socialAccountId: strin
 // Usage against the caps
 // ---------------------------------------------------------------------------------------------------------------------
 
-/** Messages Meta accepted for this account since `since`. */
+/** Messages Meta accepted for this account since `since`: broadcast messages AND chat messages, so one daily cap covers everything the
+ *  customer's number sends through LazyRelay. */
 export async function countMessagesAcceptedSince(accountId: string, since: Date): Promise<number> {
-  const { count, error } = await supabase
-    .from("whatsapp_broadcast_recipients")
-    .select("id", { count: "exact", head: true })
-    .eq("account_id", accountId)
-    .not("handed_off_at", "is", null)
-    .gte("handed_off_at", since.toISOString());
-  if (error) throw new Error(`usage lookup failed: ${error.message}`);
-  return count ?? 0;
+  const at = since.toISOString();
+  const broadcast = await supabase.from("whatsapp_broadcast_recipients").select("id", { count: "exact", head: true }).eq("account_id", accountId).not("handed_off_at", "is", null).gte("handed_off_at", at);
+  if (broadcast.error) throw new Error(`usage lookup failed: ${broadcast.error.message}`);
+  const chat = await supabase.from("whatsapp_chat_messages").select("id", { count: "exact", head: true }).eq("account_id", accountId).eq("direction", "outbound").not("handed_off_at", "is", null).gte("handed_off_at", at);
+  if (chat.error) throw new Error(`usage lookup failed: ${chat.error.message}`);
+  return (broadcast.count ?? 0) + (chat.count ?? 0);
 }
 
 /** Broadcasts this account created since `since`, not counting cancelled ones. */

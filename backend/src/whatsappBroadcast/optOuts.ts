@@ -97,3 +97,13 @@ export async function recordInboundOptOuts(account: { id: string; account_id: st
   }
   return handled;
 }
+
+/** Opts a number out by its keyed hash alone (a person who is not a stored contact, e.g. someone who started a chat). Hash-only row,
+ *  once; a later import of the number is blocked. */
+export async function recordOptOutForKey(accountId: string, contactKey: string, contactDisplay: string, cause: OptOutCause, now: Date = new Date()): Promise<void> {
+  const ins = await supabase.from("whatsapp_opt_outs").upsert(
+    { account_id: accountId, contact_key: contactKey, contact_display: contactDisplay, wa_contact_key: null, scope: cause.scope, source: cause.source, keyword: cause.keyword ?? null, occurred_at: now.toISOString() },
+    { onConflict: "account_id,contact_key,scope", ignoreDuplicates: true },
+  );
+  if (ins.error) fail("opt-out insert failed", ins.error);
+}

@@ -103,6 +103,17 @@ describe("usage counters", () => {
     expect(await countMessagesAcceptedSince(ACC, new Date(NOW.getTime() - 24 * HOUR))).toBe(2);
   });
 
+  it("countMessagesAcceptedSince also counts chat messages Meta accepted (one daily cap for everything this number sends)", async () => {
+    tables.whatsapp_broadcast_recipients = [{ id: "r1", account_id: ACC, handed_off_at: ago(1 * HOUR) }];
+    tables.whatsapp_chat_messages = [
+      { id: "m1", account_id: ACC, direction: "outbound", handed_off_at: ago(2 * HOUR) },
+      { id: "m2", account_id: ACC, direction: "outbound", handed_off_at: ago(30 * HOUR) },
+      { id: "m3", account_id: ACC, direction: "inbound", handed_off_at: null },
+      { id: "m4", account_id: ACC_OTHER, direction: "outbound", handed_off_at: ago(1 * HOUR) },
+    ];
+    expect(await countMessagesAcceptedSince(ACC, new Date(NOW.getTime() - 24 * HOUR))).toBe(2);
+  });
+
   it("countBroadcastsSince ignores cancelled broadcasts and other accounts", async () => {
     tables.whatsapp_broadcasts = [
       { id: "b1", account_id: ACC, status: "completed", created_at: ago(2 * HOUR) },

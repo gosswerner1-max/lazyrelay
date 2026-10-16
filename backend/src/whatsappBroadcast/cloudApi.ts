@@ -83,14 +83,17 @@ export async function sendTemplate(http: HttpClient, bundle: WhatsAppBundle, req
   if (req.params.length > 0) {
     template.components = [{ type: "body", parameters: req.params.map((p) => ({ type: "text", text: sanitizeTemplateParam(p) })) }];
   }
-  const body = JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: req.toDigits, type: "template", template });
+  return postMessage(http, bundle, { messaging_product: "whatsapp", recipient_type: "individual", to: req.toDigits, type: "template", template });
+}
 
+/** POSTs one message to the customer's own phone number id and turns the answer into a value (see the header). */
+async function postMessage(http: HttpClient, bundle: WhatsAppBundle, payload: Record<string, unknown>): Promise<SendOutcome> {
   let res: HttpResult;
   try {
     res = await http(`${WHATSAPP_GRAPH_BASE}/${bundle.phoneNumberId}/messages`, {
       method: "POST",
       headers: { Authorization: `Bearer ${bundle.systemUserToken}`, "Content-Type": "application/json" },
-      body,
+      body: JSON.stringify(payload),
     });
   } catch {
     return { ok: false, noResponse: true };
@@ -101,6 +104,95 @@ export async function sendTemplate(http: HttpClient, bundle: WhatsAppBundle, req
     return id && WAMID.test(id) ? { ok: true, wamid: id } : { ok: false, noResponse: true };
   }
   return { ok: false, httpStatus: res.status, code: errorCodeOf(res.json) };
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Free-form (service) messages: only valid inside Meta's 24 hour customer-service window; the caller checks that (chatSend.ts).
+// ---------------------------------------------------------------------------------------------------------------------
+
+export const MAX_TEXT_CHARS = 4096;
+export const MAX_BUTTON_BODY_CHARS = 1024;
+
+function checkRecipient(toDigits: string): void {
+  if (!DIGITS.test(toDigits)) throw new Error("Refusing to send: the recipient is not a plain number with its country code.");
+}
+
+export async function sendText(http: HttpClient, bundle: WhatsAppBundle, req: { toDigits: string; text: string }): Promise<SendOutcome> {
+  checkRecipient(req.toDigits);
+  const text = req.text.trim();
+  if (text === "" || text.length > MAX_TEXT_CHARS) throw new Error("Refusing to send: the text is empty or over 4096 characters.");
+  return postMessage(http, bundle, { messaging_product: "whatsapp", recipient_type: "individual", to: req.toDigits, type: "text", text: { preview_url: false, body: text } });
+}
+
+export interface ReplyButton {
+  id: string;
+  title: string;
+}
+
+/** Up to 3 reply buttons (id up to 256 characters, title up to 20 and unique, body up to 1024), per Meta's reference. */
+export async function sendInteractiveButtons(http: HttpClient, bundle: WhatsAppBundle, req: { toDigits: string; body: string; options: ReplyButton[] }): Promise<SendOutcome> {
+  checkRecipient(req.toDigits);
+  const body = req.body.trim();
+  if (body === "" || body.length > MAX_BUTTON_BODY_CHARS) throw new Error("Refusing to send: the message body is empty or over 1024 characters.");
+  if (req.options.length < 1 || req.options.length > 3) throw new Error("Refusing to send: a message needs 1 to 3 buttons.");
+  const titles = new Set<string>();
+  const ids = new Set<string>();
+  for (const o of req.options) {
+    const title = o.title.trim();
+    if (title === "" || title.length > 20 || o.id === "" || o.id.length > 256) throw new Error("Refusing to send: a button needs an id up to 256 characters and a title of 1 to 20 characters.");
+    if (titles.has(title.toLowerCase()) || ids.has(o.id)) throw new Error("Refusing to send: button titles and ids must be unique.");
+    titles.add(title.toLowerCase());
+    ids.add(o.id);
+  }
+  return postMessage(http, bundle, {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: req.toDigits,
+    type: "interactive",
+    interactive: { type: "button", body: { text: body }, action: { buttons: req.options.map((o) => ({ type: "reply", reply: { id: o.id, title: o.title.trim() } })) } },
+  });
+}
+
+export interface ListRow {
+  id: string;
+  title: string;
+  description?: string;
+}
+export interface ListSection {
+  title: string;
+  rows: ListRow[];
+}
+
+/** A list message: up to 10 sections and 10 rows in all, button label up to 20, body up to 4096, row and section titles up to 24, row
+ *  id up to 200, row description up to 72 (Meta's reference). */
+export async function sendInteractiveList(http: HttpClient, bundle: WhatsAppBundle, req: { toDigits: string; body: string; buttonLabel: string; sections: ListSection[] }): Promise<SendOutcome> {
+  checkRecipient(req.toDigits);
+  const body = req.body.trim();
+  const label = req.buttonLabel.trim();
+  if (body === "" || body.length > MAX_TEXT_CHARS) throw new Error("Refusing to send: the list body is empty or over 4096 characters.");
+  if (label === "" || label.length > 20) throw new Error("Refusing to send: the list button label needs 1 to 20 characters.");
+  if (req.sections.length < 1 || req.sections.length > 10) throw new Error("Refusing to send: a list needs 1 to 10 sections.");
+  const rowCount = req.sections.reduce((n, s) => n + s.rows.length, 0);
+  if (rowCount < 1 || rowCount > 10) throw new Error("Refusing to send: a list needs 1 to 10 rows in all.");
+  for (const s of req.sections) {
+    if (s.title.trim() === "" || s.title.length > 24) throw new Error("Refusing to send: a list section title needs 1 to 24 characters.");
+    for (const r of s.rows) {
+      if (r.id === "" || r.id.length > 200 || r.title.trim() === "" || r.title.length > 24 || (r.description !== undefined && r.description.length > 72)) {
+        throw new Error("Refusing to send: a list row needs an id up to 200, a title of 1 to 24 and a description up to 72 characters.");
+      }
+    }
+  }
+  return postMessage(http, bundle, {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: req.toDigits,
+    type: "interactive",
+    interactive: {
+      type: "list",
+      body: { text: body },
+      action: { button: label, sections: req.sections.map((s) => ({ title: s.title, rows: s.rows.map((r) => ({ id: r.id, title: r.title, ...(r.description !== undefined ? { description: r.description } : {}) })) })) },
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
