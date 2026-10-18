@@ -6,6 +6,7 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { injectDiscovery } from "./discovery-links.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "alternatives");
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -91,5 +92,5 @@ ${items.map((x) => `    <li><a href="/alternatives/${x.slug}/">${esc(x.title)}</
 </body>
 </html>
 `;
-writeFileSync(join(root, "index.html"), page);
+writeFileSync(join(root, "index.html"), injectDiscovery(page));
 console.log(`alternatives hub written: ${items.length} comparison pages`);
