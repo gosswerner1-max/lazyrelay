@@ -7,6 +7,9 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = "https://lazyrelay.com";
+// Pages the backend generates (backend/src/mcp/mcpDocs.ts, mcpApiPage.ts). Its tests require
+// the committed file to equal the generator output byte for byte, so they are left alone here.
+export const BACKEND_GENERATED = new Set(["mcp/tools/index.html", "docs/mcp-api/index.html"]);
 const MARKER = 'class="footer-discovery"';
 
 const ALT_NAMES = {

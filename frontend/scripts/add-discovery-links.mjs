@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { injectDiscovery, loadDiscoveryBlock } from "./discovery-links.mjs";
+import { BACKEND_GENERATED, injectDiscovery, loadDiscoveryBlock } from "./discovery-links.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const publicDir = path.join(root, "public");
@@ -20,6 +20,7 @@ function walk(dir) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) walk(full);
     else if (entry.name === "index.html") {
+      if (BACKEND_GENERATED.has(path.relative(publicDir, full).replaceAll("\\", "/"))) { skipped++; continue; }
       const html = fs.readFileSync(full, "utf8");
       if (/<meta[^>]+name="robots"[^>]+noindex/i.test(html)) { skipped++; continue; }
       const next = injectDiscovery(html, block);

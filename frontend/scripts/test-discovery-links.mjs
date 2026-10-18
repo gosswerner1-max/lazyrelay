@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadSitemapUrls, expectedLinkPaths } from "./discovery-links.mjs";
+import { BACKEND_GENERATED, loadSitemapUrls, expectedLinkPaths } from "./discovery-links.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const publicDir = path.join(root, "public");
@@ -27,6 +27,7 @@ function walk(dir) {
 function checkPage(file) {
   const html = fs.readFileSync(file, "utf8");
   if (!html.includes("<footer")) return;
+  if (BACKEND_GENERATED.has(path.relative(publicDir, file).replaceAll("\\", "/"))) return;
   if (/<meta[^>]+name="robots"[^>]+noindex/i.test(html)) return;
   pagesChecked++;
   const rel = path.relative(publicDir, file).replace(/\\/g, "/");
