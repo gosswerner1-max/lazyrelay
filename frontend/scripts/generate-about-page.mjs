@@ -11,6 +11,7 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { injectDiscovery } from "./discovery-links.mjs";
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "about", "index.html");
 
@@ -359,6 +360,6 @@ ${faqHtml()}
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   mkdirSync(dirname(OUT), { recursive: true });
-  writeFileSync(OUT, renderAboutPage(), "utf8");
+  writeFileSync(OUT, injectDiscovery(renderAboutPage()), "utf8");
   console.log(`Wrote ${OUT}`);
 }

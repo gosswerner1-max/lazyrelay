@@ -180,6 +180,46 @@ const COMPARISON = [
 // re-confirming a platform's status in its own dashboard, not from memory.
 const REVIEWED_PLATFORMS = ["pinterest", "tiktok", "youtube", "facebook", "instagram"] as const;
 
+// Footer links so Google can reach every comparison and schedule-to page from
+// the home page. Kept in step with public/sitemap.xml by
+// scripts/test-discovery-links.mjs.
+const FOOTER_COMPARE_LINKS: ReadonlyArray<readonly [string, string]> = [
+  ["/alternatives/", "All comparisons"],
+  ["/alternatives/postdodo/", "PostDodo"],
+  ["/alternatives/buffer/", "Buffer"],
+  ["/alternatives/hootsuite/", "Hootsuite"],
+  ["/alternatives/metricool/", "Metricool"],
+  ["/alternatives/later/", "Later"],
+  ["/alternatives/sprout-social/", "Sprout Social"],
+  ["/alternatives/socialbee/", "SocialBee"],
+  ["/alternatives/publer/", "Publer"],
+  ["/alternatives/postiz/", "Postiz"],
+  ["/alternatives/publora/", "Publora"],
+  ["/alternatives/ayrshare/", "Ayrshare"],
+  ["/alternatives/planable/", "Planable"],
+  ["/alternatives/agorapulse/", "Agorapulse"],
+  ["/alternatives/loomly/", "Loomly"],
+];
+const FOOTER_SCHEDULE_LINKS: ReadonlyArray<readonly [string, string]> = [
+  ["/schedule-to-facebook/", "Facebook"],
+  ["/schedule-to-instagram/", "Instagram"],
+  ["/schedule-to-tiktok/", "TikTok"],
+  ["/schedule-to-pinterest/", "Pinterest"],
+  ["/schedule-to-youtube/", "YouTube"],
+  ["/schedule-to-linkedin/", "LinkedIn"],
+  ["/schedule-to-threads/", "Threads"],
+  ["/schedule-to-mastodon/", "Mastodon"],
+  ["/schedule-to-bluesky/", "Bluesky"],
+  ["/schedule-to-telegram/", "Telegram"],
+  ["/schedule-to-discord/", "Discord"],
+  ["/schedule-to-tumblr/", "Tumblr"],
+  ["/schedule-to-wordpress/", "WordPress"],
+  ["/schedule-to-devto/", "DEV"],
+  ["/schedule-to-hashnode/", "Hashnode"],
+  ["/schedule-to-lemmy/", "Lemmy"],
+  ["/schedule-to-slack/", "Slack"],
+];
+
 // Directory-badge campaign (2026-08-27 onward) -- one entry per free-tier
 // directory that gates its dofollow backlink on this badge staying live on
 // the site. Kept data-driven (2026-09-01, was a hand-copied JSX block per
@@ -1022,6 +1062,22 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           <a href="mailto:hello@lazyrelay.com" suppressHydrationWarning>
             hello@lazyrelay.com
           </a>
+        </p>
+        <p className="landing-footer-links">
+          <span>Compare:</span>
+          {FOOTER_COMPARE_LINKS.map(([href, label]) => (
+            <a className="link" href={href} key={href}>
+              {label}
+            </a>
+          ))}
+        </p>
+        <p className="landing-footer-links">
+          <span>Schedule to:</span>
+          {FOOTER_SCHEDULE_LINKS.map(([href, label]) => (
+            <a className="link" href={href} key={href}>
+              {label}
+            </a>
+          ))}
         </p>
         {/* One template-string expression, not "text {expr} text" as three
             separate JSX children -- same class of issue as the zapier-callout

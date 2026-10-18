@@ -27,6 +27,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { injectDiscovery } from "./discovery-links.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FRONTEND = resolve(HERE, "..");
@@ -826,7 +827,7 @@ if (problems.length) {
 
 for (const m of manifest) {
   mkdirSync(m._dir, { recursive: true });
-  writeFileSync(join(m._dir, "index.html"), m._html);
+  writeFileSync(join(m._dir, "index.html"), injectDiscovery(m._html));
 }
 const clean = manifest.map(({ _dir, _html, ...rest }) => rest);
 const manifestJson = JSON.stringify(clean, null, 2) + "\n";
