@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // The mock keeps one stable handle: load() points it at the fake database of the freshly imported modules.
-const ctl = vi.hoisted(() => ({ shadowInsert: "ok" as "ok" | "error" | "throw", make: null as null | ((table: string) => unknown) }));
+const ctl = vi.hoisted(() => ({ shadowInsert: "ok" as "ok" | "error" | "throw", make: null as null | ((table: string) => unknown), rpcLog: [] as Array<{ fn: string; args: Record<string, unknown> }> }));
 
 vi.mock("./supabase.js", () => {
   return {
@@ -15,7 +15,10 @@ vi.mock("./supabase.js", () => {
         }
         return ctl.make!(t);
       },
-      rpc: async () => ({ data: "token", error: null }),
+      rpc: async (fn: string, args: Record<string, unknown>) => {
+        ctl.rpcLog.push({ fn, args });
+        return { data: "token", error: null };
+      },
     },
   };
 });
@@ -85,6 +88,7 @@ beforeEach(() => {
   vi.setSystemTime(NOW);
   for (const m of [notifyOps, sendFailureAlert, sendReconnectNeededEmail, dispatchWebhookEvent]) m.mockClear();
   ctl.shadowInsert = "ok";
+  ctl.rpcLog.length = 0;
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "log").mockImplementation(() => {});
@@ -478,5 +482,127 @@ describe("circuit breaker half-open probe", () => {
     const denied = (w.tables.self_healing_shadow_events ?? []).filter((r) => r.source === "breaker" && r.new_action === "deny_probe");
     expect(denied.length).toBeGreaterThan(0);
     expect(denied[0]).toMatchObject({ legacy_action: "admit", platform: "plat_b", diverged: true });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// Audit transitions
+// ---------------------------------------------------------------------------------------------------------------------------
+
+const auditCalls = () => ctl.rpcLog.filter((c) => c.fn === "record_system_credential_audit").map((c) => c.args);
+
+describe("audit: only transitions, only for auth-class refusals", () => {
+  it.each(["shadow", "on"])("a connection going from working to refused writes one rejected row in %s mode, ids and a fixed code only", async (mode) => {
+    setMode(mode);
+    const { tables, run } = await load();
+    seed(tables, [{ platform: "bluesky", postId: "pb" }]);
+    await run(registryOf(adapterOf("bluesky", () => fail("Token has expired, secret-abc"))));
+    await flush();
+    expect(auditCalls()).toEqual([{ p_account_id: "acc1", p_social_account_id: "sa_bluesky", p_platform: "bluesky", p_action: "rejected", p_reason_code: "expired" }]);
+    expect(JSON.stringify(auditCalls())).not.toMatch(/secret-abc|hello/);
+  });
+
+  it("off writes nothing", async () => {
+    setMode(undefined);
+    const { tables, run } = await load();
+    seed(tables, [{ platform: "bluesky", postId: "pb" }]);
+    await run(registryOf(adapterOf("bluesky", () => fail("Token has expired"))));
+    expect(auditCalls()).toEqual([]);
+  });
+
+  it("a connection that is already marked refused gets no second rejected row", async () => {
+    setMode("shadow");
+    const { tables, run } = await load();
+    seed(tables, [{ platform: "bluesky", postId: "pb", account: { needs_reconnect_at: new Date(NOW - MIN).toISOString(), reconnect_notified_at: new Date(NOW - MIN).toISOString() } }]);
+    await run(registryOf(adapterOf("bluesky", () => fail("Token has expired"))));
+    expect(auditCalls()).toEqual([]);
+  });
+
+  it.each(["shadow", "on"])("network, DNS, timeout and 5xx failures write NO audit row in %s mode, however many times they repeat", async (mode) => {
+    setMode(mode);
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const { tables, run } = await load();
+    seed(tables, ["Service unavailable", "ETIMEDOUT while calling", "getaddrinfo EAI_AGAIN host", "fetch failed", "HTTP 503", "socket hang up"].map((_, i) => ({ platform: `plat_n${i}`, postId: `pn${i}` })));
+    const messages = ["Service unavailable", "ETIMEDOUT while calling", "getaddrinfo EAI_AGAIN host", "fetch failed", "HTTP 503", "socket hang up"];
+    const adapters = messages.map((m, i) => adapterOf(`plat_n${i}`, () => fail(m)));
+    for (let i = 0; i < 6; i++) {
+      await run(registryOf(...adapters));
+      await flush();
+      vi.setSystemTime(Date.now() + 40 * MIN);
+    }
+    expect(adapters.every((a) => a.post.mock.calls.length > 0)).toBe(true);
+    expect(auditCalls()).toEqual([]);
+    expect(ctl.rpcLog.filter((c) => c.fn === "record_system_credential_audit")).toHaveLength(0);
+  });
+
+  it("a rejected customer key (valid to invalid) writes a key_rejected row", async () => {
+    setMode("shadow");
+    const { tables, run } = await load();
+    seed(tables, [{ platform: "x", postId: "px", account: { credential_mode: "byok", byok_status: "valid" } }]);
+    await run(registryOf(adapterOf("x", () => fail("x_api_error status=401 title=Unauthorized"))));
+    await flush();
+    expect(tables.social_accounts[0].byok_status).toBe("invalid");
+    expect(auditCalls().some((a) => a.p_action === "rejected" && a.p_reason_code === "key_rejected")).toBe(true);
+    expect(auditCalls().every((a) => a.p_action === "rejected")).toBe(true);
+  });
+
+  it("a key that was already invalid is not a new transition for the key status", async () => {
+    setMode("shadow");
+    const { tables, run } = await load();
+    seed(tables, [{ platform: "x", postId: "px", account: { credential_mode: "byok", byok_status: "invalid", needs_reconnect_at: new Date(NOW - MIN).toISOString(), reconnect_notified_at: new Date(NOW - MIN).toISOString() } }]);
+    await run(registryOf(adapterOf("x", () => fail("x_api_error status=401 title=Unauthorized"))));
+    expect(auditCalls()).toEqual([]);
+  });
+
+  it("a customer key going from invalid back to valid after a good post writes one recovered row; valid to valid writes none", async () => {
+    setMode("on");
+    const { tables, run } = await load();
+    seed(tables, [{ platform: "x", postId: "px", account: { credential_mode: "byok", byok_status: "invalid" } }]);
+    const adapter = adapterOf("x", () => ({ success: true, platformPostId: "plat-x", errorMessage: null }));
+    await run(registryOf(adapter));
+    await flush();
+    expect(tables.social_accounts[0].byok_status).toBe("valid");
+    expect(auditCalls()).toEqual([{ p_account_id: "acc1", p_social_account_id: "sa_x", p_platform: "x", p_action: "recovered", p_reason_code: null }]);
+
+    ctl.rpcLog.length = 0;
+    tables.scheduled_posts.push({ id: "px2", account_id: "acc1", social_account_id: "sa_x", content: "hello", media_url: null, retry_count: 0, status: "pending", paused_at: null, scheduled_for: new Date(Date.now() - MIN).toISOString(), updated_at: new Date().toISOString() });
+    await run(registryOf(adapter));
+    expect(auditCalls()).toEqual([]);
+  });
+
+  it("a token refresh that clears a refused connection writes one recovered row", async () => {
+    setMode("shadow");
+    const { tables, run } = await load();
+    seed(tables, [
+      {
+        platform: "tiktok",
+        postId: "pk",
+        account: { refresh_token_vault_id: "rv1", token_expires_at: new Date(NOW - MIN).toISOString(), needs_reconnect_at: new Date(NOW - 5 * MIN).toISOString(), reconnect_notified_at: new Date(NOW - 5 * MIN).toISOString() },
+      },
+    ]);
+    const refresh = vi.fn(async () => ({ accessToken: "fresh", refreshToken: null, expiresAt: new Date(NOW + 24 * 60 * MIN).toISOString() }));
+    await run(registryOf(adapterOf("tiktok", () => ({ success: true, platformPostId: "plat-k", errorMessage: null }), undefined, { refresh })));
+    await flush();
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(tables.social_accounts[0].needs_reconnect_at).toBeNull();
+    expect(auditCalls()).toEqual([{ p_account_id: "acc1", p_social_account_id: "sa_tiktok", p_platform: "tiktok", p_action: "recovered", p_reason_code: null }]);
+  });
+
+  it("a refresh of a connection that was only warned (not refused) writes nothing", async () => {
+    setMode("shadow");
+    const { tables, run } = await load();
+    seed(tables, [{ platform: "tiktok", postId: "pk", account: { refresh_token_vault_id: "rv1", token_expires_at: new Date(NOW - MIN).toISOString(), reconnect_notified_at: new Date(NOW - 5 * MIN).toISOString() } }]);
+    const refresh = vi.fn(async () => ({ accessToken: "fresh", refreshToken: null, expiresAt: new Date(NOW + 24 * 60 * MIN).toISOString() }));
+    await run(registryOf(adapterOf("tiktok", () => ({ success: true, platformPostId: "plat-k", errorMessage: null }), undefined, { refresh })));
+    expect(auditCalls()).toEqual([]);
+  });
+
+  it("with audit on, a dead login still fails the post and flags the connection", async () => {
+    setMode("on");
+    const { tables, run } = await load();
+    seed(tables, [{ platform: "bluesky", postId: "pb" }]);
+    await run(registryOf(adapterOf("bluesky", () => fail("Token has expired"))));
+    expect(tables.scheduled_posts[0].status).toBe("failed");
+    expect(tables.social_accounts[0].needs_reconnect_at).toBeTruthy();
   });
 });

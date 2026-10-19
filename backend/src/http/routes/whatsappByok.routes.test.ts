@@ -807,6 +807,40 @@ describe("credential audit: every save and app-secret removal writes one entry, 
   const CONN = "aaaaaaaa-1111-4111-8111-111111111111";
   const audit = () => tables.credential_audit_events ?? [];
 
+  describe("system audit: a save that brings a refused connection back writes one recovered row (only while the self-healing mode is on or shadow)", () => {
+    const recovered = () => ctx.rpcArgs.filter((c) => c.fn === "record_system_credential_audit");
+    afterEach(() => {
+      delete process.env.SELF_HEALING_MODE;
+    });
+
+    it("writes recovered when the connection was marked needs-reconnect, and nothing when it was healthy", async () => {
+      process.env.SELF_HEALING_MODE = "on";
+      await request(appWith()).post("/social-accounts/whatsapp/byok").send(BODY);
+      expect(recovered()).toHaveLength(0);
+      tables.social_accounts[0].needs_reconnect_at = new Date().toISOString();
+      const r = await request(appWith()).post("/social-accounts/whatsapp/byok").send(BODY);
+      expect(r.status).toBe(200);
+      expect(recovered()).toHaveLength(1);
+      expect(recovered()[0].args).toMatchObject({ p_account_id: "acc1", p_social_account_id: tables.social_accounts[0].id, p_action: "recovered", p_reason_code: null });
+    });
+
+    it("writes recovered when only the key status was invalid", async () => {
+      process.env.SELF_HEALING_MODE = "shadow";
+      await request(appWith()).post("/social-accounts/whatsapp/byok").send(BODY);
+      tables.social_accounts[0].byok_status = "invalid";
+      await request(appWith()).post("/social-accounts/whatsapp/byok").send(BODY);
+      expect(recovered()).toHaveLength(1);
+    });
+
+    it("writes nothing while the mode is off, and the save still answers 200", async () => {
+      await request(appWith()).post("/social-accounts/whatsapp/byok").send(BODY);
+      tables.social_accounts[0].needs_reconnect_at = new Date().toISOString();
+      const r = await request(appWith()).post("/social-accounts/whatsapp/byok").send(BODY);
+      expect(r.status).toBe(200);
+      expect(recovered()).toHaveLength(0);
+    });
+  });
+
   it("a member saving still gets 200, and one 'saved' entry names the actor and role", async () => {
     ctx.role = "member";
     const r = await request(appWith()).post("/social-accounts/whatsapp/byok").send(BODY);

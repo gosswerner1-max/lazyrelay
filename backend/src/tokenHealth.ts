@@ -3,6 +3,7 @@ import { notifyOps } from "./notify.js";
 import { sendReconnectNeededEmail } from "./email.js";
 import { isInternalTestAccount } from "./internalTestAccounts.js";
 import { dispatchWebhookEvent } from "./webhook.js";
+import { authReasonFromText, recordSystemCredentialTransition, type AuditReasonCode } from "./selfHealing/audit.js";
 
 // Shared by the scheduler (a refresh that fails while posting) and the daily
 // token job. Kept out of scheduler.ts so neither imports the other.
@@ -63,7 +64,7 @@ export const platformLabel = (p: string): string => PLATFORM_LABEL[p] ?? p;
 export async function flagReconnect(
   row: ReconnectSubject,
   reason: string,
-  opts: { expired: boolean; expiresAt?: string | null; /** The fault is the customer’s (their own X keys): never tell ops. */ skipOps?: boolean },
+  opts: { expired: boolean; expiresAt?: string | null; /** The fault is the customer’s (their own X keys): never tell ops. */ skipOps?: boolean; /** Why the platform refused it, for the system audit row (derived from the reason when absent). */ auditReason?: AuditReasonCode },
 ): Promise<void> {
   const now = new Date().toISOString();
   const firstFlag = opts.expired && !row.needs_reconnect_at;
@@ -81,6 +82,8 @@ export async function flagReconnect(
       socialAccountId: row.id,
       data: { socialAccountId: row.id, platform: row.platform, displayName: row.display_name, reason },
     });
+    // Working to refused: the one transition worth an audit row (written only while the self-healing mode is shadow or on).
+    await recordSystemCredentialTransition({ accountId: row.account_id, socialAccountId: row.id, platform: row.platform, action: "rejected", reasonCode: opts.auditReason ?? authReasonFromText(reason) });
   }
   if (row.reconnect_notified_at) return;
 
@@ -101,9 +104,11 @@ export async function flagReconnect(
 
 /** A successful refresh or reconnect clears the flag and the notified marker
  *  so a future problem is reported afresh. */
-export async function clearReconnect(socialAccountId: string): Promise<void> {
+export async function clearReconnect(socialAccountId: string, audit?: { accountId: string; platform: string; wasRejected: boolean }): Promise<void> {
   await supabase
     .from("social_accounts")
     .update({ needs_reconnect_at: null, needs_reconnect_reason: null, reconnect_notified_at: null })
     .eq("id", socialAccountId);
+  // Refused to working again: the other transition worth an audit row.
+  if (audit?.wasRejected) await recordSystemCredentialTransition({ accountId: audit.accountId, socialAccountId, platform: audit.platform, action: "recovered" });
 }

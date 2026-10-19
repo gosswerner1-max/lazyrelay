@@ -40,6 +40,7 @@ import { checkAccountLimit, checkNewDistinctAccountLimit, checkWhatsappPlan, isW
 import { WHATSAPP_BYOK_REQUIRED_PLAN_NAME } from "../../tier.js";
 import { wipeVaultSecrets } from "../../tokenWipe.js";
 import { recordCredentialAudit } from "../../credentialAudit.js";
+import { recordSystemCredentialTransition } from "../../selfHealing/audit.js";
 import { validateBody } from "../validation.js";
 import type { PlatformAdapterRegistry } from "../../platforms/connect.js";
 import { WhatsAppAdapter } from "../../platforms/whatsapp/adapter.js";
@@ -230,13 +231,14 @@ export function registerWhatsAppByokRoutes(
     let blockedByDatabase = false;
     let savedRowId: string | null = null;
     let replacedLogin = false;
+    let wasRefused = false;
     let replacedVaultId: string | null = null;
     try {
       // Rotating the token of a connection we already have (same phone number) updates its Vault secret in place; a new
       // number is checked against the plan's limits first, exactly like every other connect.
       const { data: existing, error: lookupError } = await supabase
         .from("social_accounts")
-        .select("id, access_token_vault_id, disconnected_at")
+        .select("id, access_token_vault_id, disconnected_at, needs_reconnect_at, byok_status")
         .eq("account_id", accountId)
         .eq("platform", "whatsapp")
         .eq("platform_account_id", bundle.phoneNumberId)
@@ -291,6 +293,7 @@ export function registerWhatsAppByokRoutes(
       }
 
       replacedLogin = Boolean(existing?.access_token_vault_id);
+      wasRefused = Boolean(existing?.needs_reconnect_at) || existing?.byok_status === "invalid";
       const { data: savedRow, error: upsertError } = await supabase.from("social_accounts").upsert(
         {
           account_id: accountId,
@@ -334,6 +337,8 @@ export function registerWhatsAppByokRoutes(
     }
     if (replacedVaultId && replacedVaultId !== newVaultId) await wipeVaultSecrets(supabase, [replacedVaultId]);
     await recordCredentialAudit({ supabase, accountId, socialAccountId: savedRowId, platform: "whatsapp", action: replacedLogin ? "replaced" : "saved", actorUserId: req.userId ?? null, actorRole: req.role ?? null });
+    // New credentials for a connection that was refused: one system audit row (only while the self-healing mode is shadow or on).
+    if (wasRefused) await recordSystemCredentialTransition({ accountId, socialAccountId: savedRowId, platform: "whatsapp", action: "recovered" });
     res.json({ ok: true, displayName, keyHint });
   });
 

@@ -39,6 +39,7 @@ import {
 } from "./selfHealing/policy.js";
 import { buildShadowEvent, errorClassOf } from "./selfHealing/evaluate.js";
 import { recordShadowEvent } from "./selfHealing/shadow.js";
+import { authReasonFromText, recordSystemCredentialTransition, type AuditReasonCode } from "./selfHealing/audit.js";
 
 // How many due posts one scheduler cycle claims and processes. Combined
 // with index.ts's POLL_INTERVAL_MS, this is the real throughput ceiling —
@@ -451,7 +452,7 @@ export async function refreshAndStoreToken(account: TokenAccountRow, adapter: Pl
   await supabase.from("social_accounts").update({ token_expires_at: refreshed.expiresAt }).eq("id", account.id);
   // A working refresh means any earlier "needs reconnect" flag was wrong or is
   // now resolved.
-  if (account.needs_reconnect_at || account.reconnect_notified_at) await clearReconnect(account.id);
+  if (account.needs_reconnect_at || account.reconnect_notified_at) await clearReconnect(account.id, { accountId: account.account_id, platform: account.platform, wasRejected: !!account.needs_reconnect_at });
   return refreshed.accessToken;
 }
 
@@ -735,9 +736,30 @@ function customerOwnsCredentials(post: Pick<DuePost, "platform" | "credential_mo
  *  own connection (matched on its id), never any other. Best effort, never blocks the post. */
 async function setByokStatus(post: DuePost, status: "valid" | "invalid" | "out_of_credit"): Promise<void> {
   if (post.credential_mode !== "byok") return;
+  // Only while the self-healing mode is shadow or on: note what the status was, so a real transition can be audited.
+  const audited = selfHealingMode() !== "off" && (status === "valid" || status === "invalid");
+  const previous = audited ? await readByokStatus(post.social_account_id) : undefined;
   const { error } = await supabase.from("social_accounts").update({ byok_status: status }).eq("id", post.social_account_id);
-  if (error) console.warn(`[scheduler] could not record the ${post.platform} credential status for account ${post.social_account_id}: ${error.message}`);
+  if (error) {
+    console.warn(`[scheduler] could not record the ${post.platform} credential status for account ${post.social_account_id}: ${error.message}`);
+    return;
+  }
+  if (previous === undefined) return;
+  if (status === "invalid" && previous !== "invalid") {
+    await recordSystemCredentialTransition({ accountId: post.account_id, socialAccountId: post.social_account_id, platform: post.platform, action: "rejected", reasonCode: "key_rejected" });
+  } else if (status === "valid" && previous === "invalid") {
+    await recordSystemCredentialTransition({ accountId: post.account_id, socialAccountId: post.social_account_id, platform: post.platform, action: "recovered" });
+  }
 }
+
+/** The connection current customer-key status, or undefined when it cannot be read (then no transition is claimed). */
+async function readByokStatus(socialAccountId: string): Promise<string | null | undefined> {
+  const { data, error } = await supabase.from("social_accounts").select("byok_status").eq("id", socialAccountId).maybeSingle();
+  return error || !data ? undefined : ((data as { byok_status: string | null }).byok_status ?? null);
+}
+
+/** Why a platform refused a login, as a fixed code for the system audit row (the text itself is never stored). */
+const auditReasonFor = (post: Pick<DuePost, "credential_mode">, text: string): AuditReasonCode => (post.credential_mode === "byok" ? "key_rejected" : authReasonFromText(text));
 
 interface FailureContext {
   /** The adapter, so an auth failure can try one token refresh. */
@@ -772,7 +794,7 @@ async function handleFailure(
     // each retried three times for the same "blocked this link" rejection.
     await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id);
     console.warn(`Post ${post.id} failed without retrying (${kind}): ${raw ?? message}`);
-    if (kind === "reconnect") await flagAccountForReconnect(post, message, customerOwnsCredentials(post));
+    if (kind === "reconnect") await flagAccountForReconnect(post, message, customerOwnsCredentials(post), auditReasonFor(post, raw ?? message));
     await maybeSendFailureAlert(post, post.content, message, false);
     await emitPostProblem(post, "post.failed", message, { reasonKind: kind });
     return;
@@ -917,7 +939,7 @@ async function holdConnection(post: DuePost, message: string, raw: string | unde
   refreshTriedPosts.delete(post.id);
   await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id);
   console.warn(`Post ${post.id} failed without retrying (reconnect): ${raw ?? message}`);
-  await flagAccountForReconnect(post, message, customerOwnsCredentials(post));
+  await flagAccountForReconnect(post, message, customerOwnsCredentials(post), auditReasonFor(post, raw ?? message));
   await maybeSendFailureAlert(post, post.content, message, false);
   await emitPostProblem(post, "post.failed", message, { reasonKind: "reconnect" });
 }
@@ -972,14 +994,14 @@ async function handleLateAtClaim(post: DuePost, mode: "shadow" | "on", now: numb
 /** Flags the post's connected account as needing a reconnect (once per
  *  problem, see tokenHealth.ts). Best effort: never let this block the
  *  failure handling itself. */
-async function flagAccountForReconnect(post: DuePost, reason: string, skipOps = false): Promise<void> {
+async function flagAccountForReconnect(post: DuePost, reason: string, skipOps = false, auditReason?: AuditReasonCode): Promise<void> {
   try {
     const { data: row } = await supabase
       .from("social_accounts")
       .select("id, account_id, platform, display_name, needs_reconnect_at, reconnect_notified_at")
       .eq("id", post.social_account_id)
       .maybeSingle();
-    if (row) await flagReconnect(row, reason, { expired: true, skipOps });
+    if (row) await flagReconnect(row, reason, { expired: true, skipOps, auditReason });
   } catch (err) {
     console.error("[scheduler] could not flag account for reconnect:", err instanceof Error ? err.message : err);
   }

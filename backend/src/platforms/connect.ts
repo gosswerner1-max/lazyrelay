@@ -4,6 +4,7 @@ import { wipeVaultSecrets } from "../tokenWipe.js";
 import { subscribePageToMessaging } from "../http/metaWebhook.js";
 import type { PlatformAdapter, OAuthExchangeResult, ConnectOption } from "./types.js";
 import { checkMastodonInstanceLimit } from "./mastodonInstanceLimit.js";
+import { recordSystemCredentialTransition } from "../selfHealing/audit.js";
 
 export type PlatformAdapterRegistry = Map<string, PlatformAdapter>;
 
@@ -53,7 +54,7 @@ async function storeConnectedAccount(
   // not distinct accounts cycled through over time).
   const { data: existingAccount } = await supabase
     .from("social_accounts")
-    .select("id, access_token_vault_id, refresh_token_vault_id")
+    .select("id, access_token_vault_id, refresh_token_vault_id, needs_reconnect_at")
     .eq("account_id", accountId)
     .eq("platform", platform)
     .eq("platform_account_id", result.platformAccountId)
@@ -61,6 +62,7 @@ async function storeConnectedAccount(
   // Remember the login this row holds now, before the save below re-points it at the new one.
   const replacedAccessVaultId: string | null = existingAccount?.access_token_vault_id ?? null;
   const replacedRefreshVaultId: string | null = existingAccount?.refresh_token_vault_id ?? null;
+  const wasMarkedForReconnect = Boolean(existingAccount?.needs_reconnect_at);
   if (!existingAccount) {
     const limitError = await checkNewDistinctAccountLimit(accountId);
     if (limitError) throw new Error(limitError);
@@ -109,6 +111,8 @@ async function storeConnectedAccount(
     .select("id")
     .single();
   if (insertError || !socialAccount) throw insertError;
+  // A reconnect that brings back a connection marked needs-reconnect: one system audit row (only while the self-healing mode is shadow or on).
+  if (wasMarkedForReconnect) await recordSystemCredentialTransition({ accountId, socialAccountId: socialAccount.id, platform, action: "recovered" });
 
   // The row now points at the new login, so the login it replaced would sit in Vault for good. Overwrite it (2026-10-07).
   if (existingAccount) {
