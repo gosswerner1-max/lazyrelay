@@ -148,7 +148,7 @@ Five paid tiers have their own Paddle prices and customers: Starter 29.99, Pro 5
 * The Enterprise bundle of **10 USD a month is 5,000 dispatches: about 277 posts to all 18 platforms a month**, or 200 sitemap crawls. An agency running many brands could use that in days. Past it, every dispatch is paid from the wallet. Unlimited brands and seats at 99 USD therefore does not mean unlimited volume.
 * Charging per dispatch on top of 99 USD a month is a change from what the product includes today. It needs counsel's view (section 5) before it is shown to customers.
 
-## 10. How the wallet rules are wired (draft; everything is OFF by default)
+## 10. How the wallet rules are wired (draft; everything is OFF by default; amended by section 11: grandfathered accounts are exempt)
 
 **Switch.** `WALLET_ENABLED` must be exactly `true`. Then `WALLET_MODE` exactly `on` means real; anything else is **shadow** (log only). Off is the default, and a typo can only land on the safer side. (`backend/src/wallet/mode.ts`)
 
@@ -175,3 +175,32 @@ Five paid tiers have their own Paddle prices and customers: Starter 29.99, Pro 5
 
 ### Evidence
 38 of 38 SQL behaviour checks on a real Postgres engine (the new ones cover grants, the monthly bundle, the paused list, and access control); 99 wallet unit tests; the **whole backend suite: 190 files, 3,573 tests pass with the wallet off**, the one failure being the existing `GET /health` test that needs a live database (it failed the same way before). Typecheck clean. Still not run on Supabase itself: apply on a throwaway Supabase branch first.
+
+## 11. Grandfathering (owner decision, 2026-10-19)
+
+**The rule.** Every account that exists when the two tier model launches keeps its exact price, limits and setup with no interruption, on any of the five retired paid tiers. The wallet **never meters or pauses** these accounts. The new model (Free Core with 3 brands, Enterprise, universal wallet metering) applies only to accounts created **on or after the cutoff**.
+
+| Parameter | Value | Where |
+|---|---|---|
+| Who is grandfathered | every account created before the cutoff, on any tier | `wallet_grandfather_accounts(cutoff)` snapshot, table `wallet_legacy_accounts` |
+| Price and limits | unchanged | the tier tables are not touched |
+| Wallet charge | none: the database answers `exempt` with a charge of exactly zero, **no wallet row and no ledger row** is written | `wallet_charge` |
+| Queue pause | never, whatever the balance | `wallet_paused_account_ids` |
+| Closed to new buyers | starter, pro, business, agency, agency_plus | `GRANDFATHERING` in `plans.proposal.ts` |
+| Paddle prices | stay active so renewals continue untouched | owner step |
+| The cutoff | set by you on launch day; it cannot be in the future | the snapshot function refuses a future date |
+
+**The snapshot** is one call by hand (service role): `select wallet_grandfather_accounts('<launch moment>')`. It marks every account created before that moment, adds nobody on a second run, and returns how many it added. Run it at the same moment the new signup flow goes live, so no account falls in the gap.
+
+**Assumption to confirm.** Existing accounts on the OLD Free tier are grandfathered too (the snapshot covers every existing account). They keep 3 connected accounts and 1 brand and are not metered. If you want them moved to Free Core (3 brands) that is a separate, optional upgrade, and they would then be metered.
+
+**What "removing the five tiers from the catalog" must mean in the code.** It means hiding them from the pricing page and from new checkouts. It must **not** mean deleting them from the tier tables (`tier.ts`, `brandLimits.ts`, `seatLimits.ts`, the Paddle tier resolution): grandfathered customers are on those tiers and their limits come from those tables. The new model needs new tier codes (for example `free_core` and `enterprise`) so that limits are chosen by tier, not by account age, and the old `free` code stays for grandfathered free accounts.
+
+### Verification run (local branch, nothing applied anywhere)
+* **47 of 47 SQL checks** pass on a real Postgres engine. The nine new ones cover the grandfather rules: the snapshot takes exactly the accounts older than the cutoff and not a newer one, a second run adds nobody, a future or missing cutoff is refused, a grandfathered account is charged nothing with no wallet row and no ledger row, a grandfathered account with a near empty balance is **not** in the paused list while an identical new account **is**, a new account is still charged normally, and only the backend can take the snapshot or write the list.
+* **Four deliberate weakenings are each caught**: removing the exemption from the charge, removing it from the paused list, allowing a future cutoff, and snapshotting every account regardless of age.
+* **105 wallet unit tests** (the exempt answer is understood, an exempt answer that claims a charge is refused as bad, metering reports `exempt` and charges nothing, the date rule treats an account created exactly at the cutoff as new). Typecheck clean.
+* **The whole backend suite: 190 files, 3,579 tests pass**; the one failure is the existing `GET /health` test that needs a live database.
+* Ledger architecture untouched: still append only, balances never below zero, every change idempotent. A grandfathered account simply never enters it.
+
+Not run on Supabase itself. Apply on a throwaway Supabase branch first, check the snapshot count against the real number of accounts, and only then production.

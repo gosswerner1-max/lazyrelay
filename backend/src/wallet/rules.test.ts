@@ -172,3 +172,47 @@ describe("charging a verified dispatch", () => {
     void WalletError;
   });
 });
+
+import { GRANDFATHERING, isGrandfathered } from "./plans.proposal.js";
+
+describe("grandfathered accounts (owner decision 2026-10-19)", () => {
+  it("every account that exists at the cutoff keeps its price and limits and is never metered or paused", () => {
+    expect(GRANDFATHERING).toMatchObject({
+      keepsPriceAndLimits: true,
+      walletMetering: false,
+      walletPause: false,
+      paddlePricesStayActive: true,
+      closedToNewBuyers: ["starter", "pro", "business", "agency", "agency_plus"],
+    });
+    expect(GRANDFATHERING.newModelAppliesTo).toMatch(/created on or after the cutoff/);
+  });
+
+  it("an account created BEFORE the cutoff is grandfathered; one created on or after it is not", () => {
+    const cutoff = "2026-10-20T00:00:00Z";
+    expect(isGrandfathered("2026-10-19T23:59:59Z", cutoff)).toBe(true);
+    expect(isGrandfathered("2026-01-01T00:00:00Z", cutoff)).toBe(true);
+    expect(isGrandfathered("2026-10-20T00:00:00Z", cutoff)).toBe(false);
+    expect(isGrandfathered("2026-11-01T00:00:00Z", cutoff)).toBe(false);
+    expect(isGrandfathered(new Date("2026-10-19T00:00:00Z"), new Date(cutoff))).toBe(true);
+  });
+
+  it("refuses dates it cannot read, so a bad value can never exempt (or meter) someone by accident", () => {
+    expect(() => isGrandfathered("not a date", "2026-10-20T00:00:00Z")).toThrow(WalletValueError);
+    expect(() => isGrandfathered("2026-10-19T00:00:00Z", "")).toThrow(WalletValueError);
+  });
+
+  it("the ledger client understands the exempt answer: a charge of zero, no balance change", async () => {
+    const { ledger } = ledgerWith(() => ({ ok: true, replay: false, exempt: true, charged_micro: 0, balance_micro: 0 }));
+    expect(await ledger.charge({ accountId: ACCOUNT, action: "api_dispatch", idempotencyKey: "k" })).toEqual({ ok: true, replay: false, exempt: true, chargedMicro: 0, balanceMicro: 0 });
+  });
+
+  it("an exempt answer that claims a charge is refused as a bad answer", async () => {
+    const { ledger } = ledgerWith(() => ({ ok: true, replay: false, exempt: true, charged_micro: 2000, balance_micro: 0 }));
+    await expect(ledger.charge({ accountId: ACCOUNT, action: "api_dispatch", idempotencyKey: "k" })).rejects.toThrow(WalletError);
+  });
+
+  it("metering reports a grandfathered account as exempt and charges nothing", async () => {
+    const { ledger } = ledgerWith(() => ({ ok: true, replay: false, exempt: true, charged_micro: 0, balance_micro: 0 }));
+    expect(await meterVerifiedDispatch({ ledger, mode: "on", post: POST, log: () => undefined })).toEqual({ outcome: "exempt" });
+  });
+});

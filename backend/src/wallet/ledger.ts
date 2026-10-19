@@ -23,6 +23,7 @@ export class WalletError extends Error {
 
 export type ChargeResult =
   | { ok: true; replay: boolean; chargedMicro: number; balanceMicro: number }
+  | { ok: true; replay: false; exempt: true; chargedMicro: 0; balanceMicro: number }
   | { ok: false; reason: "insufficient_funds"; balanceMicro: number; requiredMicro: number };
 
 export interface CreditResult {
@@ -62,6 +63,11 @@ export function createWalletLedger(client: WalletRpc) {
       const { data, error } = await client.rpc("wallet_charge", { p_account_id: id, p_action: input.action, p_units: units, p_key: idempotencyKey });
       if (error) return fail(error);
       const d = data as Record<string, unknown> | null;
+      // A grandfathered account: the database answers exempt with a charge of exactly zero. Anything else claiming exempt is refused.
+      if (d && d.ok === true && d.exempt === true) {
+        if (d.replay === false && d.charged_micro === 0 && nonNegativeSafe(d.balance_micro)) return { ok: true, replay: false, exempt: true, chargedMicro: 0, balanceMicro: d.balance_micro };
+        throw new WalletError("bad_answer");
+      }
       if (d && d.ok === false && d.reason === "insufficient_funds" && nonNegativeSafe(d.balance_micro) && nonNegativeSafe(d.required_micro)) {
         return { ok: false, reason: "insufficient_funds", balanceMicro: d.balance_micro, requiredMicro: d.required_micro };
       }

@@ -24,10 +24,12 @@
 -- Idempotent (safe to apply twice) and wrapped in one transaction.
 --
 -- ROLLBACK (by hand; it deletes all wallet history):
+--   drop function if exists public.wallet_grandfather_accounts(timestamptz);
 --   drop function if exists public.wallet_paused_account_ids(bigint);
 --   drop function if exists public.wallet_charge(uuid, text, integer, text);
 --   drop function if exists public.wallet_credit(uuid, bigint, text, text, text);
 --   drop table if exists public.wallet_ledger;
+--   drop table if exists public.wallet_legacy_accounts;
 --   drop table if exists public.wallet_accounts;
 --   drop table if exists public.wallet_prices;
 --   drop function if exists public.wallet_ledger_append_only();
@@ -54,6 +56,17 @@ create table if not exists public.wallet_accounts (
   account_id uuid primary key references public.accounts (id) on delete cascade,
   balance_micro bigint not null default 0 check (balance_micro >= 0),
   updated_at timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------------------------------------------------------------
+-- Grandfathered accounts (owner decision 2026-10-19). Every account that exists when the two tier model launches keeps its price and
+-- limits and is NEVER metered or paused by the wallet. The wallet applies to accounts created on or after the cutoff. The list is a
+-- snapshot taken by wallet_grandfather_accounts(cutoff), run once by hand on launch day.
+-- ---------------------------------------------------------------------------------------------------------------------------
+create table if not exists public.wallet_legacy_accounts (
+  account_id uuid primary key references public.accounts (id) on delete cascade,
+  grandfathered_at timestamptz not null default now(),
+  cutoff timestamptz not null
 );
 
 -- ---------------------------------------------------------------------------------------------------------------------------
@@ -118,6 +131,12 @@ begin
   select price_micro into v_price from public.wallet_prices where action_type = p_action;
   if v_price is null then raise exception 'wallet_charge: unknown action' using errcode = 'invalid_parameter_value'; end if;
   v_cost := v_price * p_units;
+
+  -- A grandfathered account is never charged: no wallet row is created and no ledger row is written.
+  if exists (select 1 from public.wallet_legacy_accounts where account_id = p_account_id) then
+    return jsonb_build_object('ok', true, 'replay', false, 'exempt', true, 'charged_micro', 0,
+      'balance_micro', coalesce((select balance_micro from public.wallet_accounts where account_id = p_account_id), 0));
+  end if;
 
   insert into public.wallet_accounts (account_id) values (p_account_id) on conflict (account_id) do nothing;
   -- One lock per account: every change to this balance takes turns here, so the checks below cannot race.
@@ -187,6 +206,7 @@ $$;
 alter table public.wallet_prices enable row level security;
 alter table public.wallet_accounts enable row level security;
 alter table public.wallet_ledger enable row level security;
+alter table public.wallet_legacy_accounts enable row level security;
 
 drop policy if exists wallet_prices_select_all on public.wallet_prices;
 create policy wallet_prices_select_all on public.wallet_prices for select to authenticated using (true);
@@ -195,7 +215,8 @@ create policy wallet_accounts_select_members on public.wallet_accounts for selec
 drop policy if exists wallet_ledger_select_members on public.wallet_ledger;
 create policy wallet_ledger_select_members on public.wallet_ledger for select to authenticated using (is_account_member(account_id));
 
-revoke all on public.wallet_prices, public.wallet_accounts, public.wallet_ledger from public, anon, authenticated, service_role;
+revoke all on public.wallet_prices, public.wallet_accounts, public.wallet_ledger, public.wallet_legacy_accounts from public, anon, authenticated, service_role;
+grant select on public.wallet_legacy_accounts to service_role;
 grant select on public.wallet_prices, public.wallet_accounts, public.wallet_ledger to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------------------------------------------------------
@@ -210,9 +231,37 @@ set search_path = public, pg_temp
 as $$
 begin
   if p_min is null or p_min < 1 then raise exception 'wallet_paused_account_ids: p_min must be above zero' using errcode = 'invalid_parameter_value'; end if;
-  return query select account_id from public.wallet_accounts where balance_micro < p_min;
+  -- Grandfathered accounts are never paused, whatever their balance.
+  return query
+    select w.account_id from public.wallet_accounts w
+    where w.balance_micro < p_min and not exists (select 1 from public.wallet_legacy_accounts l where l.account_id = w.account_id);
 end;
 $$;
+
+-- ---------------------------------------------------------------------------------------------------------------------------
+-- The one time snapshot. Marks every account created BEFORE the cutoff as grandfathered. Safe to run twice (it adds nobody new).
+-- The cutoff cannot be in the future: that would exempt accounts that have not signed up yet. Returns how many were added.
+-- ---------------------------------------------------------------------------------------------------------------------------
+create or replace function public.wallet_grandfather_accounts(p_cutoff timestamptz) returns integer
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_added integer;
+begin
+  if p_cutoff is null then raise exception 'wallet_grandfather_accounts: a cutoff is required' using errcode = 'invalid_parameter_value'; end if;
+  if p_cutoff > now() then raise exception 'wallet_grandfather_accounts: the cutoff cannot be in the future' using errcode = 'invalid_parameter_value'; end if;
+  insert into public.wallet_legacy_accounts (account_id, cutoff)
+  select a.id, p_cutoff from public.accounts a where a.created_at < p_cutoff
+  on conflict (account_id) do nothing;
+  get diagnostics v_added = row_count;
+  return v_added;
+end;
+$$;
+
+revoke all on function public.wallet_grandfather_accounts(timestamptz) from public, anon, authenticated;
+grant execute on function public.wallet_grandfather_accounts(timestamptz) to service_role;
 
 revoke all on function public.wallet_paused_account_ids(bigint) from public, anon, authenticated;
 grant execute on function public.wallet_paused_account_ids(bigint) to service_role;

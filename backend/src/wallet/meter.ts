@@ -10,6 +10,7 @@ export type MeterOutcome =
   | { outcome: "would_charge"; chargedMicro: number }
   | { outcome: "charged"; chargedMicro: number; balanceMicro: number }
   | { outcome: "replay"; chargedMicro: number; balanceMicro: number }
+  | { outcome: "exempt" }
   | { outcome: "insufficient_funds"; balanceMicro: number }
   | { outcome: "error" };
 
@@ -45,6 +46,7 @@ export async function meterVerifiedDispatch(input: {
       log("[wallet] a verified dispatch could not be charged: the balance is too low");
       return { outcome: "insufficient_funds", balanceMicro: r.balanceMicro };
     }
+    if ("exempt" in r) return { outcome: "exempt" };
     return { outcome: r.replay ? "replay" : "charged", chargedMicro: r.chargedMicro, balanceMicro: r.balanceMicro };
   } catch (error) {
     log(`[wallet] a verified dispatch could not be charged (${error instanceof Error ? error.name : "error"})`);

@@ -21,7 +21,7 @@ await db.exec(`
   grant usage on schema auth to anon, authenticated, service_role;
   grant execute on function auth.uid() to anon, authenticated, service_role;
   grant usage on schema public to anon, authenticated, service_role;
-  create table public.accounts (id uuid primary key);
+  create table public.accounts (id uuid primary key, created_at timestamptz not null default now());
   create table public.account_members (user_id uuid not null, account_id uuid not null);
   create function public.is_account_member(p uuid) returns boolean language sql stable security definer as $$ select exists (select 1 from public.account_members m where m.account_id = p and m.user_id = auth.uid()) $$;
   grant execute on function public.is_account_member(uuid) to anon, authenticated, service_role;
@@ -195,6 +195,44 @@ await expect("an account with NO wallet row is never listed as paused", async ()
 await expect("wallet_paused_account_ids refuses a minimum of zero or less", async () => (await fails(`select * from public.wallet_paused_account_ids(0)`, "22023")) === true);
 await expect("only the backend can ask who is paused: anon and signed in customers are refused", async () => {
   return (await deniedAs("anon", null, `select * from public.wallet_paused_account_ids(2000)`)) === true && (await deniedAs("authenticated", USER_A, `select * from public.wallet_paused_account_ids(2000)`)) === true;
+});
+const L1 = "a1a1a1a1-a1a1-41a1-81a1-a1a1a1a1a1a1";
+const L2 = "a2a2a2a2-a2a2-42a2-82a2-a2a2a2a2a2a2";
+const N1 = "a3a3a3a3-a3a3-43a3-83a3-a3a3a3a3a3a3";
+await db.query(`insert into public.accounts (id, created_at) values ($1, '2026-01-01T00:00:00Z'), ($2, '2026-06-01T00:00:00Z'), ($3, now())`, [L1, L2, N1]);
+await expect("the snapshot grandfathers exactly the accounts created before the cutoff, and not a newer one", async () => {
+  const added = (await one(`select public.wallet_grandfather_accounts('2026-10-01T00:00:00Z') as n`)).n;
+  const ids = (await db.query(`select account_id from public.wallet_legacy_accounts`)).rows.map((r) => r.account_id);
+  return added === 2 && ids.includes(L1) && ids.includes(L2) && !ids.includes(N1) && !ids.includes(A);
+});
+await expect("running the snapshot again adds nobody", async () => (await one(`select public.wallet_grandfather_accounts('2026-10-01T00:00:00Z') as n`)).n === 0);
+await expect("a cutoff in the future is refused (it would exempt people who have not signed up)", async () => (await fails(`select public.wallet_grandfather_accounts(now() + interval '2 days')`, "22023")) === true);
+await expect("a missing cutoff is refused", async () => (await fails(`select public.wallet_grandfather_accounts(null)`, "22023")) === true);
+await expect("a grandfathered account is never charged: exempt answer, no wallet row, no ledger row", async () => {
+  const r = await charge(L1, "api_dispatch", 5, "legacy-1");
+  const wallets = (await db.query(`select 1 from public.wallet_accounts where account_id = $1`, [L1])).rows.length;
+  return r.ok === true && r.exempt === true && r.charged_micro === 0 && wallets === 0 && (await ledgerCount(L1)) === 0;
+});
+await expect("a grandfathered account is never paused, even with a balance below the cheapest action", async () => {
+  await credit(L2, 1000, "l2-top");
+  return !(await db.query(`select * from public.wallet_paused_account_ids(2000) as id`)).rows.map((r) => r.id).includes(L2);
+});
+await expect("control: a NEW account with the same balance IS paused", async () => {
+  await credit(N1, 1000, "n1-top");
+  return (await db.query(`select * from public.wallet_paused_account_ids(2000) as id`)).rows.map((r) => r.id).includes(N1);
+});
+await expect("a new account is charged normally", async () => {
+  await credit(N1, 5000, "n1-top2");
+  const r = await charge(N1, "api_dispatch", 1, "n1-c1");
+  return r.ok === true && !r.exempt && r.charged_micro === 2000;
+});
+await expect("only the backend can take the snapshot or write the legacy list", async () => {
+  return (
+    (await deniedAs("anon", null, `select public.wallet_grandfather_accounts('2026-10-01T00:00:00Z')`)) === true &&
+    (await deniedAs("authenticated", USER_A, `select public.wallet_grandfather_accounts('2026-10-01T00:00:00Z')`)) === true &&
+    (await deniedAs("service_role", null, `insert into public.wallet_legacy_accounts (account_id, cutoff) values ('${N1}', now())`)) === true &&
+    (await deniedAs("authenticated", USER_A, `select * from public.wallet_legacy_accounts`)) === true
+  );
 });
 await expect("2,000 random charges and credits: the balance never goes below zero, equals the sum of the ledger, and the running balances chain", async () => {
   let seed = 12345;
