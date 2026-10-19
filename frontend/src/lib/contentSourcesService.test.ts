@@ -504,7 +504,7 @@ describe("validateApiKey (the same shape check the service makes)", () => {
   });
 });
 
-describe("plain words for what the engine and the proof check report", () => {
+describe("plain words for what the website check and a source's last run report", () => {
   it("describeVerifyReasons maps every known reason to a plain sentence and never shows raw text it cannot map", () => {
     const known = describeVerifyReasons({ well_known: "http status 404", meta_tag: "no matching meta tag in the head", dns_txt: "no matching TXT record" });
     expect(known.map((r) => r.method)).toEqual(["well_known", "meta_tag", "dns_txt"]);
@@ -535,7 +535,7 @@ describe("plain words for what the engine and the proof check report", () => {
     for (const t of texts) expect(t).not.toMatch(DASH);
   });
 
-  it("describeLastProblem maps the engine's codes and falls back to a generic line", () => {
+  it("describeLastProblem maps the service's codes and falls back to a generic line", () => {
     const codes = ["no_credential", "not_verified", "fetch:timeout", "fetch:blocked", "parse:empty", "lazyrelay:bad_key", "lazyrelay:plan_or_not_allowed", "lazyrelay:rate_limited", "lazyrelay:bad_request", "lazyrelay:upstream", "internal"];
     const seen = new Set<string>();
     for (const c of codes) {
