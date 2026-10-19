@@ -7,7 +7,7 @@ import { WALLET_PRICES_MICRO, priceMicro } from "./prices.js";
 import { walletEnabled } from "./flags.js";
 import { WalletError, createWalletLedger, type WalletRpc } from "./ledger.js";
 import { walletCreditFromSale } from "./topup.js";
-import { ENTERPRISE_CAP_PROPOSAL, FREE_BRAND_CAP_LOCKED, LIVE_TIERS, WALLET_PLAN_PROPOSAL, enterpriseProposalKeepsTheLadder, dailyPostCapReached, maxFreeConnections, maxFreeDailyPublications, paidTiersOutgivenByFree, paidTiersUndercutByEnterprise } from "./plans.proposal.js";
+import { FREE_BRAND_CAP_LOCKED, LEGACY_TIERS_TO_RETIRE, WALLET_PLAN_PROPOSAL, dailyPostCapReached, enterpriseMayConnectAnother, legacyPaidTiersToRetire, maxFreeConnections, maxFreeDailyPublications } from "./plans.proposal.js";
 
 const ACCOUNT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
@@ -197,26 +197,47 @@ describe("a top up from a Paddle sale credits what was paid BEFORE tax", () => {
   });
 });
 
-describe("the plan proposal is data only (nothing reads it yet)", () => {
-  it("Free Core: 3 brands, all 18 platforms in each, 3 publications a day per brand, no WhatsApp, no signed links", () => {
-    expect(WALLET_PLAN_PROPOSAL.free).toEqual({ monthlyUsd: "0", brands: 3, platformsPerBrand: 18, dailyPostCapPerBrand: 3, whatsappWorkflows: false, signedProofLinks: false, whiteLabelReporting: false });
+describe("the pure two tier model (owner decision 2026-10-19; data only, nothing reads it)", () => {
+  it("Free Core: 3 brands, all 18 platforms in each, 3 publications a day per brand, a 0.50 USD allowance, no WhatsApp, no signed links", () => {
+    expect(WALLET_PLAN_PROPOSAL.free).toEqual({
+      monthlyUsd: "0", brands: 3, platformsPerBrand: 18, dailyPostCapPerBrand: 3, signupAllowanceMicro: 500_000,
+      whatsappWorkflows: false, signedProofLinks: false, whiteLabelReporting: false,
+    });
+    expect(FREE_BRAND_CAP_LOCKED).toBe(3);
   });
 
-  it("Enterprise at 99 USD: no brand limit, no seat limit, WhatsApp workflows and signed links", () => {
-    expect(WALLET_PLAN_PROPOSAL.enterprise).toEqual({ monthlyUsd: "99", brands: null, teamSeats: null, whatsappWorkflows: true, signedProofLinks: true, customClientReporting: true });
-    expect(WALLET_PLAN_PROPOSAL.status).toMatch(/proposal/i);
+  it("Enterprise at 99 USD flat: UNLIMITED brands, UNLIMITED seats with no per seat charge, 10 USD a month of credit, WhatsApp and signed links", () => {
+    const e = WALLET_PLAN_PROPOSAL.enterprise;
+    expect(e.monthlyUsd).toBe("99");
+    expect(e.brands).toBeNull();
+    expect(e.teamSeats).toBeNull();
+    expect(e.extraSeatMonthlyUsd).toBeNull();
+    expect(e.monthlyBundleMicro).toBe(10_000_000);
+    expect(e.whatsappWorkflows).toBe(true);
+    expect(e.signedProofLinks).toBe(true);
+  });
+
+  it("the connection ceiling is raised well above anything the old tiers allowed, and is marked as my proposal awaiting the owner", () => {
+    const e = WALLET_PLAN_PROPOSAL.enterprise;
+    expect(e.totalConnectionsCeiling).toBe(1000);
+    expect(e.totalConnectionsCeiling).toBeGreaterThan(LEGACY_TIERS_TO_RETIRE.agency_plus.connectedAccounts);
+    expect(e.totalConnectionsCeilingStatus).toMatch(/awaiting owner confirmation/);
+    expect(enterpriseMayConnectAnother(999)).toBe(true);
+    expect(enterpriseMayConnectAnother(1000)).toBe(false);
+    expect(() => enterpriseMayConnectAnother(-1)).toThrow(WalletValueError);
   });
 
   it("is clear about what is NOT built", () => {
     expect(WALLET_PLAN_PROPOSAL.notBuilt).toEqual(expect.arrayContaining(["customClientReporting", "whiteLabelReporting", "signedProofLinks"]));
+    expect(WALLET_PLAN_PROPOSAL.status).toMatch(/not wired/);
   });
 
-  it("what the structure allows in total: 54 connections and 9 publications a day on Free", () => {
+  it("what Free allows in total: 54 connections and 9 publications a day", () => {
     expect(maxFreeConnections()).toBe(54);
     expect(maxFreeDailyPublications()).toBe(9);
   });
 
-  it("the cap is per brand and is reached at the cap, not before", () => {
+  it("the daily cap is per brand and is reached at the cap, not before", () => {
     expect(dailyPostCapReached(2, 3)).toBe(false);
     expect(dailyPostCapReached(3, 3)).toBe(true);
     expect(dailyPostCapReached(4, 3)).toBe(true);
@@ -224,34 +245,7 @@ describe("the plan proposal is data only (nothing reads it yet)", () => {
     expect(() => dailyPostCapReached(0, 0)).toThrow(WalletValueError);
   });
 
-  it("records the conflict with the live plans so it cannot be forgotten: Free would hold more connections than Starter, Pro and Business", () => {
-    expect(paidTiersOutgivenByFree()).toEqual(["starter", "pro", "business"]);
-  });
-
-  it("records that Enterprise with no brand limit at 99 USD sits at or below the price of Business and below Agency and Agency Plus", () => {
-    expect(paidTiersUndercutByEnterprise()).toEqual(["business", "agency", "agency_plus"]);
-    expect(LIVE_TIERS.agency_plus.brands).toBe(20);
-  });
-});
-
-describe("the brand cap structure", () => {
-  it("Free is locked at 3 brands, and the structure's Free brands value agrees", () => {
-    expect(FREE_BRAND_CAP_LOCKED).toBe(3);
-    expect(WALLET_PLAN_PROPOSAL.free.brands).toBe(FREE_BRAND_CAP_LOCKED);
-  });
-
-  it("the Enterprise caps are marked as proposed, not approved", () => {
-    expect(ENTERPRISE_CAP_PROPOSAL.status).toMatch(/proposed.*awaiting owner approval/);
-  });
-
-  it("the proposed Enterprise caps stay inside the live ladder (above Business, no more than Agency, priced below Agency)", () => {
-    expect(enterpriseProposalKeepsTheLadder()).toBe(true);
-    expect(ENTERPRISE_CAP_PROPOSAL.brandsIncluded * WALLET_PLAN_PROPOSAL.free.platformsPerBrand).toBe(180); // why a connection cap is needed
-    expect(ENTERPRISE_CAP_PROPOSAL.totalConnectionsIncluded).toBeLessThan(LIVE_TIERS.agency_plus.connectedAccounts);
-  });
-
-  it("the seat and brand add on prices equal the live ones (10 USD a month each)", () => {
-    expect(ENTERPRISE_CAP_PROPOSAL.extraSeatMonthlyUsd).toBe("10");
-    expect(ENTERPRISE_CAP_PROPOSAL.extraBrandMonthlyUsd).toBe("10");
+  it("records the size of retiring the old catalog: five paid tiers with their own prices", () => {
+    expect(legacyPaidTiersToRetire()).toEqual(["starter", "pro", "business", "agency", "agency_plus"]);
   });
 });

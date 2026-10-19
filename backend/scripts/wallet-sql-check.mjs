@@ -155,6 +155,47 @@ await expect("a member sees their own account's balance and ledger, and not anot
 });
 await expect("a stranger sees nothing", async () => (await asRole("authenticated", "99999999-9999-4999-8999-999999999999", `select * from public.wallet_ledger`)).rows.length === 0);
 
+await expect("a signup allowance of 500,000 micro (0.50 USD) is a grant, lands once, and a replay does nothing", async () => {
+  const C = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+  await db.query(`insert into public.accounts values ($1)`, [C]);
+  const first = await credit(C, 500_000, `signup-grant:${C}`, "signup allowance", "grant");
+  const again = await credit(C, 500_000, `signup-grant:${C}`, "signup allowance", "grant");
+  const kinds = (await db.query(`select kind from public.wallet_ledger where account_id = $1`, [C])).rows.map((r) => r.kind);
+  return first.balance_micro === 500_000 && again.replay === true && JSON.stringify(kinds) === JSON.stringify(["grant"]);
+});
+await expect("an Enterprise monthly bundle of 10,000,000 micro (10 USD) deposits once per period and again next period", async () => {
+  const D = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+  await db.query(`insert into public.accounts values ($1)`, [D]);
+  await credit(D, 10_000_000, "bundle:sub_01abc:2026-11-19", "sub_01abc", "grant");
+  await credit(D, 10_000_000, "bundle:sub_01abc:2026-11-19", "sub_01abc", "grant");
+  const mid = await balance(D);
+  await credit(D, 10_000_000, "bundle:sub_01abc:2026-12-19", "sub_01abc", "grant");
+  return mid === 10_000_000 && (await balance(D)) === 20_000_000;
+});
+await expect("paused accounts: only a wallet below the cheapest action (balance under 2,000) is listed", async () => {
+  const E = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+  const F = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+  const G = "99999999-9999-4999-8999-999999999999";
+  await db.query(`insert into public.accounts values ($1), ($2), ($3)`, [E, F, G]);
+  await credit(E, 4000, "e-top"); // 4,000: affords two dispatches
+  await charge(E, "api_dispatch", 1, "e1");
+  await charge(E, "api_dispatch", 1, "e2"); // now exactly 0
+  await credit(F, 2000, "f-top"); // exactly the cheapest price: not paused
+  await credit(F, 1, "f-extra"); // 2001
+  await charge(F, "api_dispatch", 1, "f1"); // now 1: below the cheapest price, paused
+  await credit(G, 5000, "g-top"); // 5,000: fine
+  const paused = (await db.query(`select * from public.wallet_paused_account_ids(2000) as id`)).rows.map((r) => r.id);
+  return paused.includes(E) && paused.includes(F) && !paused.includes(G) && !paused.includes(A);
+});
+await expect("an account with NO wallet row is never listed as paused", async () => {
+  const H = "12121212-1212-4212-8212-121212121212";
+  await db.query(`insert into public.accounts values ($1)`, [H]);
+  return !(await db.query(`select * from public.wallet_paused_account_ids(2000) as id`)).rows.map((r) => r.id).includes(H);
+});
+await expect("wallet_paused_account_ids refuses a minimum of zero or less", async () => (await fails(`select * from public.wallet_paused_account_ids(0)`, "22023")) === true);
+await expect("only the backend can ask who is paused: anon and signed in customers are refused", async () => {
+  return (await deniedAs("anon", null, `select * from public.wallet_paused_account_ids(2000)`)) === true && (await deniedAs("authenticated", USER_A, `select * from public.wallet_paused_account_ids(2000)`)) === true;
+});
 await expect("2,000 random charges and credits: the balance never goes below zero, equals the sum of the ledger, and the running balances chain", async () => {
   let seed = 12345;
   const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);

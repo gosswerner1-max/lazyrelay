@@ -99,7 +99,7 @@ Recorded exactly as given, as data in `backend/src/wallet/plans.proposal.ts` (72
 
 None of these is applied anywhere. This document and the local branch are the only places the structure exists.
 
-## 8. Brand cap structure: what is locked and what is proposed (2026-10-19)
+## 8. Brand cap structure (SUPERSEDED by section 9: the old tiers are being removed, so the ladder comparison no longer applies)
 
 **Locked by the owner:** Free Core is capped at **3 brands**. Inside each brand any or all of the 18 platforms can be connected, 3 publications a day per brand. One free registration can therefore never run an unlimited number of businesses, and an agency with more than 3 clients has to upgrade. (`FREE_BRAND_CAP_LOCKED` in `plans.proposal.ts`.)
 
@@ -121,3 +121,57 @@ A test confirms these numbers keep Enterprise inside the live ladder (above Busi
 2. **Free (54 possible connections) already exceeds Starter (20), Pro (30) and Business (50) on connections.** The paid plans would be sold on volume (unlimited posts and recurring schedules against 3 a day per brand), storage (5 to 20 GB against 250 MB), seats and brands, not on connections.
 3. **Seats exist only on Business and above today.** Free, Starter and Pro have none. Under your structure Free has no seat statement; I have left it as none.
 4. **Code that would change when this is approved:** the per tier limit tables (`tier.ts`, `brandLimits.ts`, `seatLimits.ts`, the Paddle tier resolution), a per brand daily publication counter in the publisher, the connect flow (platform allowance per brand), the pricing page, and a migration plan for existing customers. None of it is changed in this draft.
+
+## 9. The pure two tier model (owner decision, 2026-10-19)
+
+All other tiers are removed from the catalog by the owner. Recorded as data in `backend/src/wallet/plans.proposal.ts` (nothing reads it):
+
+| | Free Core | Enterprise |
+|---|---|---|
+| Price | 0 USD a month | **99 USD a month flat** |
+| Brands | 3 (locked) | **unlimited** |
+| Platforms inside a brand | all 18 | all 18 |
+| Output | 3 publications a day per brand | no cap |
+| Team seats | none stated | **unlimited, no per seat charge** |
+| Total connected accounts | up to 54 | ceiling **1,000** (my proposal, see below) |
+| Wallet | 0.50 USD allowance on signup, then top ups | 10 USD of credit every billing period, then top ups |
+| WhatsApp broadcast workflows, signed proof links | no | yes (signed links not built) |
+
+**The one open number.** You asked for the connection ceiling to be "scaled up" without a number. Unlimited brands times 18 platforms has no natural end, and platform quotas and our own storage are finite, so I kept a technical ceiling and set it to 1,000 connected accounts. It is marked "proposed by James, awaiting owner confirmation" in the config. Say a different number, or say unlimited, and it changes in one line.
+
+### What removing the old catalog means (yours to run, not code)
+Five paid tiers have their own Paddle prices and customers: Starter 29.99, Pro 59.99, Business 99.99, Agency 149.99 and Agency Plus 199.99. Deleting them from the catalog does not end those subscriptions. Options for those customers: leave them on their current price (grandfather) while closing the plans to new buyers, move them to Enterprise at the next renewal, or refund and cancel. Each has billing, tax and Terms of Service consequences (notice period, the Refund Policy). Do not archive a Paddle price while a subscription still uses it. None of this is touched by this draft.
+
+### The economics of the wallet, in plain numbers
+* One verified dispatch costs 0.002 USD, so **one post sent to all 18 platforms costs 0.036 USD**.
+* The Free allowance of **0.50 USD is 250 dispatches: about 13 posts to all 18 platforms**, or 10 sitemap crawls. After that the queue pauses until the customer buys a top up. "Free" in practice means a small trial, not an ongoing free service, so the public pricing wording would need to say that.
+* The Enterprise bundle of **10 USD a month is 5,000 dispatches: about 277 posts to all 18 platforms a month**, or 200 sitemap crawls. An agency running many brands could use that in days. Past it, every dispatch is paid from the wallet. Unlimited brands and seats at 99 USD therefore does not mean unlimited volume.
+* Charging per dispatch on top of 99 USD a month is a change from what the product includes today. It needs counsel's view (section 5) before it is shown to customers.
+
+## 10. How the wallet rules are wired (draft; everything is OFF by default)
+
+**Switch.** `WALLET_ENABLED` must be exactly `true`. Then `WALLET_MODE` exactly `on` means real; anything else is **shadow** (log only). Off is the default, and a typo can only land on the safer side. (`backend/src/wallet/mode.ts`)
+
+| Rule you asked for | What is built | Where |
+|---|---|---|
+| Charge 0.002 per verified API call, universally | After Proof of Publish confirms a post live, `meterVerifiedDispatch` charges one `api_dispatch`. Key = post id + platform, so a retry is a replay, never a second charge. It never throws and never changes the post's result. Off: no-op. Shadow: logs "would charge". | `wallet/meter.ts`, wired in `scheduler.ts` after the webhook on the verified path |
+| Pause the queue at zero | The claim query leaves out accounts whose wallet cannot pay for the cheapest action (balance below 0.002). Their posts stay **pending, not failed**, and come back as soon as a top up lands. Shadow logs how many accounts would have been paused. If the wallet cannot be read, nobody is paused. | `wallet/pause.ts`, `wallet_paused_account_ids()`, wired in `claimDuePosts` |
+| 0.05 per deep sitemap crawl | The price and the charge mechanism exist (`sitemap_sync`). **Not wired**: the crawler is a separate service with its own database, so it cannot call the wallet. It needs either a LazyRelay endpoint the engine reports to, or LazyRelay charging when it receives drafts. | decision needed |
+| Enterprise gets 10 USD a month | `enterpriseBundle` builds the deposit: a `grant` of 10,000,000 micro, keyed by subscription and billing period (a replayed webhook deposits once, the next period deposits again). **Not connected** to the Paddle webhook. | `wallet/rules.ts` |
+| Free starts with 0.50 USD | `signupGrant` builds a one time grant of 500,000 micro keyed by account. **Not connected** to account creation. | `wallet/rules.ts` |
+| Free buys top ups to continue | `walletCreditFromSale` credits the pre tax amount of a Paddle sale. **No top up checkout exists yet.** | `wallet/topup.ts` |
+
+**A trap I designed around.** Pausing "any account whose balance is zero" would, on the day the wallet is switched on, pause **every existing customer**, because none of them has a wallet row yet. So an account with no wallet is never paused. The order is: apply the migration, **give every existing account its allowance or bundle (backfill)**, run shadow mode, read the logs, then switch on.
+
+### Not built, and needed before this can go live
+1. The backfill of existing accounts (a grant for each: 10 USD for the Enterprise equivalent, 0.50 USD otherwise), with the idempotent keys above.
+2. The Paddle webhook connection for the monthly bundle, and a top up checkout (a new customData kind, a credit pack price).
+3. The signup hook for the 0.50 USD allowance.
+4. The sitemap crawl charge (decision above).
+5. **What a customer sees when their queue is paused:** posts simply stay pending today. They need a status message, an email at low balance and at zero, and a balance in the dashboard.
+6. The per brand daily publication counter (3 a day per brand) and the new limits in the plan tables (`tier.ts`, `brandLimits.ts`, `seatLimits.ts`, the Paddle tier resolution), plus the connect flow.
+7. Signed proof links and client reporting (named in Enterprise, not built).
+8. Reversal entries for refunded top ups (the ledger only debits through charges).
+
+### Evidence
+38 of 38 SQL behaviour checks on a real Postgres engine (the new ones cover grants, the monthly bundle, the paused list, and access control); 99 wallet unit tests; the **whole backend suite: 190 files, 3,573 tests pass with the wallet off**, the one failure being the existing `GET /health` test that needs a live database (it failed the same way before). Typecheck clean. Still not run on Supabase itself: apply on a throwaway Supabase branch first.

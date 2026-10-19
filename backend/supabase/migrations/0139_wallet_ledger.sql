@@ -24,6 +24,7 @@
 -- Idempotent (safe to apply twice) and wrapped in one transaction.
 --
 -- ROLLBACK (by hand; it deletes all wallet history):
+--   drop function if exists public.wallet_paused_account_ids(bigint);
 --   drop function if exists public.wallet_charge(uuid, text, integer, text);
 --   drop function if exists public.wallet_credit(uuid, bigint, text, text, text);
 --   drop table if exists public.wallet_ledger;
@@ -61,7 +62,7 @@ create table if not exists public.wallet_accounts (
 create table if not exists public.wallet_ledger (
   id bigint generated always as identity primary key,
   account_id uuid not null,
-  kind text not null check (kind in ('top_up', 'charge', 'refund')),
+  kind text not null check (kind in ('top_up', 'charge', 'refund', 'grant')),
   action_type text check (action_type in ('api_dispatch', 'sitemap_sync')),
   units integer check (units > 0),
   delta_micro bigint not null check (delta_micro <> 0),
@@ -71,7 +72,7 @@ create table if not exists public.wallet_ledger (
   created_at timestamptz not null default now(),
   constraint wallet_ledger_sign check (
     (kind = 'charge' and delta_micro < 0 and action_type is not null and units is not null)
-    or (kind in ('top_up', 'refund') and delta_micro > 0 and action_type is null and units is null)
+    or (kind in ('top_up', 'refund', 'grant') and delta_micro > 0 and action_type is null and units is null)
   ),
   constraint wallet_ledger_key unique (account_id, idempotency_key)
 );
@@ -157,7 +158,7 @@ begin
   if p_account_id is null then raise exception 'wallet_credit: account is required' using errcode = 'invalid_parameter_value'; end if;
   if p_amount_micro is null or p_amount_micro <= 0 then raise exception 'wallet_credit: the amount must be strictly positive' using errcode = 'invalid_parameter_value'; end if;
   if p_amount_micro > 1000000000000 then raise exception 'wallet_credit: the amount is above the limit' using errcode = 'invalid_parameter_value'; end if;
-  if p_kind is null or p_kind not in ('top_up', 'refund') then raise exception 'wallet_credit: kind must be top_up or refund' using errcode = 'invalid_parameter_value'; end if;
+  if p_kind is null or p_kind not in ('top_up', 'refund', 'grant') then raise exception 'wallet_credit: kind must be top_up, refund or grant' using errcode = 'invalid_parameter_value'; end if;
   if p_key is null or char_length(p_key) < 1 or char_length(p_key) > 128 then raise exception 'wallet_credit: a key of 1 to 128 characters is required' using errcode = 'invalid_parameter_value'; end if;
 
   insert into public.wallet_accounts (account_id) values (p_account_id) on conflict (account_id) do nothing;
@@ -196,6 +197,25 @@ create policy wallet_ledger_select_members on public.wallet_ledger for select to
 
 revoke all on public.wallet_prices, public.wallet_accounts, public.wallet_ledger from public, anon, authenticated, service_role;
 grant select on public.wallet_prices, public.wallet_accounts, public.wallet_ledger to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------------------------------------------------------
+-- Paused accounts: those WITH a wallet whose balance cannot pay for the cheapest action (p_min micro dollars). An account with no
+-- wallet row is not listed: it was never given a balance, and listing it would stop its queue the moment the wallet is switched on.
+-- ---------------------------------------------------------------------------------------------------------------------------
+create or replace function public.wallet_paused_account_ids(p_min bigint default 2000) returns setof uuid
+language plpgsql
+security definer
+stable
+set search_path = public, pg_temp
+as $$
+begin
+  if p_min is null or p_min < 1 then raise exception 'wallet_paused_account_ids: p_min must be above zero' using errcode = 'invalid_parameter_value'; end if;
+  return query select account_id from public.wallet_accounts where balance_micro < p_min;
+end;
+$$;
+
+revoke all on function public.wallet_paused_account_ids(bigint) from public, anon, authenticated;
+grant execute on function public.wallet_paused_account_ids(bigint) to service_role;
 
 revoke all on function public.wallet_charge(uuid, text, integer, text) from public, anon, authenticated;
 revoke all on function public.wallet_credit(uuid, bigint, text, text, text) from public, anon, authenticated;

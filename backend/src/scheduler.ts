@@ -22,6 +22,18 @@ import { MAX_FIRST_COMMENT_LENGTH } from "./postCreation.js";
 import { decideFirstComment, firstCommentDueAt } from "./firstCommentDelay.js";
 import { emitBeforePublish, emitAfterVerify } from "./publishHooks.js";
 import { selfHealingMode } from "./selfHealing/mode.js";
+import { createWalletLedger, type WalletRpc } from "./wallet/ledger.js";
+import { meterVerifiedDispatch } from "./wallet/meter.js";
+import { walletMode } from "./wallet/mode.js";
+import { fetchPausedAccountIds } from "./wallet/pause.js";
+
+/** The wallet's view of the database client: only the rpc call, with its answer reduced to data and error. */
+const walletClient: WalletRpc = {
+  async rpc(fn, args) {
+    const { data, error } = await supabase.rpc(fn as never, args as never);
+    return { data, error: error ? { message: error.message, code: error.code } : null };
+  },
+};
 import {
   breakerAdmit,
   breakerFailure,
@@ -336,11 +348,15 @@ async function claimDuePosts(): Promise<DuePost[]> {
   // Self-healing on: posts of a connection that needs reconnecting stay pending (they would only be rejected again). Filtered in the
   // query itself so a blocked connection can never fill the batch and starve everyone else.
   const skipBlocked = selfHealingMode() === "on";
-  const dueQuery = supabase
+  // Wallet on: accounts whose wallet cannot pay for the next action keep their posts pending (not failed); they resume on a top up.
+  // Off (the default) this returns an empty list without asking the database, so nothing here changes until the wallet is switched on.
+  const walletPaused = await fetchPausedAccountIds(walletClient, walletMode(), (line) => console.log(line));
+  const baseQuery = supabase
     .from("scheduled_posts")
     .select((skipBlocked ? "id, social_accounts!inner(needs_reconnect_at)" : "id") as "id")
     .eq("status", "pending")
     .is("paused_at", null);
+  const dueQuery = walletPaused.length > 0 ? baseQuery.not("account_id", "in", `(${walletPaused.join(",")})`) : baseQuery;
   const { data: due, error: selectError } = await (skipBlocked ? dueQuery.is("social_accounts.needs_reconnect_at", null) : dueQuery)
     .lte("scheduled_for", new Date().toISOString())
     .limit(CLAIM_BATCH_SIZE);
@@ -1550,6 +1566,8 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     await setByokStatus(post, "valid");
     await supabase.from("scheduled_posts").update({ status: "posted" }).eq("id", post.id);
     await maybeSendWebhook(post, verification.platformPostUrl, verifiedAt);
+    // Wallet: one verified dispatch costs 0.002 USD. Never throws and never changes the post's result; off by default (see wallet/mode.ts).
+    await meterVerifiedDispatch({ ledger: createWalletLedger(walletClient), mode: walletMode(), post: { postId: post.id, platform: adapter.platform, accountId: post.account_id }, log: (line) => console.log(line) });
 
     // Best-effort, non-fatal: a comment failure must never flip the parent
     // post's own status or trigger handleFailure's retry path — the post

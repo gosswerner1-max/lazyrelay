@@ -71,12 +71,12 @@ export function createWalletLedger(client: WalletRpc) {
       throw new WalletError("bad_answer");
     },
 
-    async credit(input: { accountId: string; amountMicro: number; idempotencyKey: string; reference?: string; kind?: "top_up" | "refund" }): Promise<CreditResult> {
+    async credit(input: { accountId: string; amountMicro: number; idempotencyKey: string; reference?: string; kind?: "top_up" | "refund" | "grant" }): Promise<CreditResult> {
       const id = accountId(input.accountId);
       const amount = assertPositiveMicro(input.amountMicro);
       const idempotencyKey = key(input.idempotencyKey);
       const kind = input.kind ?? "top_up";
-      if (kind !== "top_up" && kind !== "refund") throw new WalletValueError("kind must be top_up or refund");
+      if (kind !== "top_up" && kind !== "refund" && kind !== "grant") throw new WalletValueError("kind must be top_up, refund or grant");
       if (input.reference !== undefined && (typeof input.reference !== "string" || input.reference.length > 200)) throw new WalletValueError("the reference is too long");
 
       const { data, error } = await client.rpc("wallet_credit", { p_account_id: id, p_amount_micro: amount, p_key: idempotencyKey, p_reference: input.reference ?? null, p_kind: kind });
