@@ -10,7 +10,7 @@ import { hasAnalyticsConsent } from "../components/CookieConsent";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-async function authedFetch(path: string, options: RequestInit = {}) {
+export async function authedFetch(path: string, options: RequestInit = {}) {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) throw new Error("Not signed in");
@@ -44,7 +44,8 @@ async function authedFetch(path: string, options: RequestInit = {}) {
       window.dispatchEvent(new CustomEvent(PLATFORM_LIMIT_EVENT, { detail: body }));
     }
     // The refusal code some routes add (for example the WhatsApp window), so a screen can react to it without reading words.
-    const failure = new Error(body.error ?? `Request failed: ${res.status}`) as Error & { code?: string };
+    const failure = new Error(body.error ?? `Request failed: ${res.status}`) as Error & { code?: string; status?: number };
+    failure.status = res.status; // lets a caller tell "switched off" (404) from "sign in again" (401) without reading words
     if (typeof body.code === "string") failure.code = body.code;
     throw failure;
   }

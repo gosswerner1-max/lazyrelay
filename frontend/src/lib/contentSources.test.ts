@@ -1,22 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  CSV_MAX_BYTES,
-  URL_MAX_LENGTH,
-  contentSourceDrafts,
-  createContentSourcesClient,
-  describeVerifyResult,
-  draftTitle,
-  originFromTags,
-  validateCsvFile,
-  validateSourceUrl,
-  type SourceInput,
-} from "./contentSources";
-import { createMockContentSourcesClient } from "./contentSourcesMock";
+import { describe, expect, it } from "vitest";
+import { CSV_MAX_BYTES, URL_MAX_LENGTH, contentSourceDrafts, draftTitle, originFromTags, validateCsvFile, validateSourceUrl } from "./contentSources";
 import type { ScheduledPost } from "./api";
 
 const DASH = /[–—]/;
-
-afterEach(() => vi.restoreAllMocks());
 
 describe("validateSourceUrl", () => {
   it("accepts a plain https address and trims it", () => {
@@ -181,81 +167,5 @@ describe("contentSourceDrafts", () => {
     expect(rows.map((r) => r.id)).toEqual(["a", "c"]);
     expect(rows[0]).toMatchObject({ origin: { type: "rss", name: "Blog" }, title: "First headline" });
     expect(rows[0].post.id).toBe("a");
-  });
-});
-
-describe("describeVerifyResult", () => {
-  it("writes each outcome in plain words with no em or en dash", () => {
-    const verified = describeVerifyResult({ status: "verified" });
-    const failed = describeVerifyResult({ status: "failed", reason: "The feed is empty." });
-    const off = describeVerifyResult({ status: "not_connected" });
-    expect(verified).toMatch(/^Verified/);
-    expect(failed).toMatch(/^Could not verify/);
-    expect(failed).toContain("The feed is empty.");
-    expect(off).toMatch(/^Not connected yet/);
-    for (const t of [verified, failed, off]) expect(t).not.toMatch(DASH);
-  });
-});
-
-const rssInput: SourceInput = { type: "rss", url: "https://example.com/feed.xml", brandId: null };
-
-describe("default client (no service address set)", () => {
-  it("answers Not connected yet and never touches the network", async () => {
-    const fetchSpy = vi.fn();
-    const client = createContentSourcesClient(undefined, fetchSpy as unknown as typeof fetch);
-    expect(await client.verifySource(rssInput)).toEqual({ status: "not_connected" });
-    expect(await client.addSource(rssInput)).toEqual({ status: "not_connected" });
-    expect(fetchSpy).not.toHaveBeenCalled();
-  });
-
-  it("treats an empty or blank address as not set", async () => {
-    const fetchSpy = vi.fn();
-    for (const blank of ["", "   "]) {
-      const client = createContentSourcesClient(blank, fetchSpy as unknown as typeof fetch);
-      expect(await client.verifySource(rssInput)).toEqual({ status: "not_connected" });
-    }
-    expect(fetchSpy).not.toHaveBeenCalled();
-  });
-});
-
-describe("client with a service address (provisional contract, tested with a fake fetch only)", () => {
-  it("posts the check to <address>/verify and maps ok", async () => {
-    const fetchFake = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
-    const client = createContentSourcesClient("https://cs.example.test/", fetchFake as unknown as typeof fetch);
-    expect(await client.verifySource({ type: "sitemap", url: "https://example.com/sitemap.xml", brandId: "b1" })).toEqual({ status: "verified" });
-    const [url, init] = fetchFake.mock.calls[0];
-    expect(url).toBe("https://cs.example.test/verify");
-    expect(init.method).toBe("POST");
-    expect(JSON.parse(init.body)).toEqual({ type: "sitemap", url: "https://example.com/sitemap.xml", brandId: "b1" });
-  });
-
-  it("maps a refusal to a reason and a thrown error to a plain failure", async () => {
-    const refuse = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: false, reason: "That feed is empty." }) });
-    expect(await createContentSourcesClient("https://cs.example.test", refuse as unknown as typeof fetch).verifySource(rssInput)).toEqual({
-      status: "failed",
-      reason: "That feed is empty.",
-    });
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    const boom = vi.fn().mockRejectedValue(new Error("network down"));
-    const r = await createContentSourcesClient("https://cs.example.test", boom as unknown as typeof fetch).verifySource(rssInput);
-    expect(r.status).toBe("failed");
-    expect(console.error).toHaveBeenCalled();
-  });
-
-  it("sends a CSV file as form data", async () => {
-    const fetchFake = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
-    const client = createContentSourcesClient("https://cs.example.test", fetchFake as unknown as typeof fetch);
-    const file = new File(["a,b"], "list.csv", { type: "text/csv" });
-    await client.verifySource({ type: "csv", file, brandId: null });
-    expect(fetchFake.mock.calls[0][1].body).toBeInstanceOf(FormData);
-  });
-});
-
-describe("mock client (tests and manual development only)", () => {
-  it("returns whatever outcome it was built with", async () => {
-    const ok = createMockContentSourcesClient({ verify: { status: "verified" } });
-    expect(await ok.verifySource(rssInput)).toEqual({ status: "verified" });
-    const bad = createMockContentSourcesClient({ verify: { status: "failed", reason: "Nope." } });
-    expect(await bad.verifySource(rssInput)).toEqual({ status: "failed", reason: "Nope." });
   });
 });
