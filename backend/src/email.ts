@@ -479,6 +479,31 @@ export function sendReconnectNeededEmail(
     .catch((err) => console.error("[email] sendReconnectNeededEmail threw:", err instanceof Error ? err.message : err));
 }
 
+/** One plain digest to the account owner when a WhatsApp connection is having trouble (selfHealing/whatsappAlert.ts: at most one per
+ *  6 hours per connection). Counts, one sentence on what to do, and a note that nothing went over another channel. Not gated on the
+ *  failure-alert toggle: it is about the connection itself. Fire-and-forget like the other senders. */
+export function sendWhatsappFaultDigest(to: string, counts: { sends: number; failed: number; recipientLevel: number; accountLevel: number }): void {
+  const client = getClient();
+  if (!client) return;
+  client.emails
+    .send({
+      from: `LazyRelay <${FROM_ADDRESS}>`,
+      to,
+      subject: "Some of your WhatsApp messages did not go out",
+      html: wrapEmailHtml(
+        "Some WhatsApp messages did not go out",
+        `In your last ${counts.sends} WhatsApp sends, ${counts.failed} failed. ${counts.recipientLevel} failed because of a problem with one recipient (for example a number that is not on WhatsApp, or a person who opted out) and ${counts.accountLevel} because of a problem with your WhatsApp connection or message template.<br><br>` +
+          `What to do: open the WhatsApp section of your dashboard and check your connection, your message template and your Meta Business account, then resume sending if it was paused.<br><br>` +
+          `Nothing was sent to anyone over another channel, and nobody on your list was told about this.`,
+        "You're getting this because a WhatsApp connection of yours had sending problems. This message is about the connection itself, so it isn't affected by your alert settings.",
+      ),
+    })
+    .then((result) => {
+      if (result.error) console.error("[email] sendWhatsappFaultDigest failed:", result.error.message);
+    })
+    .catch((err) => console.error("[email] sendWhatsappFaultDigest threw:", err instanceof Error ? err.message : err));
+}
+
 /** Tells the account owner a client acted on a post through a review link. Best effort. */
 export function sendReviewActivityEmail(
   to: string,

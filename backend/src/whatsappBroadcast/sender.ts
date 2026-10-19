@@ -30,6 +30,10 @@ import { sendTemplate, type HttpClient } from "./cloudApi.js";
 import { checkSendEligibility } from "./byok.js";
 import { pauseConnection } from "./connectionPause.js";
 import { classifyMetaFailure, MAX_TRANSIENT_RETRIES, retryDelayMs } from "./metaErrors.js";
+import { selfHealingMode } from "../selfHealing/mode.js";
+import { recordShadowEvent } from "../selfHealing/shadow.js";
+import { noteWhatsappOutcome } from "../selfHealing/whatsappAlert.js";
+import { isUnknownMetaFailure, planUnknownFailure } from "../selfHealing/whatsappFaults.js";
 import { isSuppressed, recordOptOutForContact } from "./optOuts.js";
 import { refreshCounts } from "./broadcasts.js";
 import type { TemplateCategory } from "./templates.js";
@@ -346,34 +350,71 @@ async function sendOne(b: BroadcastRow, bundle: Parameters<typeof sendTemplate>[
     return "go";
   }
 
+  // Self-healing (selfHealing/): every finished send is noted for the owner digest. Does nothing while the mode is off.
+  const note = (o: "ok" | "recipient_failed" | "account_fault") => noteWhatsappOutcome({ accountId: b.account_id, socialAccountId: b.social_account_id, outcome: o, now });
+
   if (outcome.ok) {
     const messageKey = messageKeyFor(b.account_id, outcome.wamid);
     await settle(row, token, { status: "handed_off", handed_off_at: at, message_key: messageKey, claim_token: null, error_code: null, failure_reason: null, next_attempt_at: null, updated_at: at });
     summary.handedOff += 1;
+    await note("ok");
     return "go";
   }
 
   const action = classifyMetaFailure("noResponse" in outcome ? { noResponse: true } : { httpStatus: outcome.httpStatus, code: outcome.code });
   const code = "noResponse" in outcome ? null : outcome.code;
 
+  // An error code the repo does not classify: tried up to 3 times in all, then terminal unknown_error (on). Shadow only records it.
+  const healing = selfHealingMode();
+  if (healing !== "off" && action.kind === "recipient_failed" && action.reason !== "unconfirmed_no_response" && isUnknownMetaFailure(code)) {
+    const plan = planUnknownFailure({ attemptCount: row.attempt_count, code, backoffMs: retryDelayMs(row.attempt_count) });
+    if (healing === "shadow") {
+      recordShadowEvent({
+        source: "whatsapp",
+        socialAccountId: b.social_account_id,
+        platform: "whatsapp",
+        errorClass: "unknown",
+        legacyAction: "fail",
+        newAction: plan.terminal ? "fail" : "retry",
+        newDelayMs: plan.delayMs,
+        newReasonCode: plan.reason,
+        diverged: !plan.terminal,
+      });
+    } else {
+      if (plan.terminal) {
+        await settle(row, token, { status: "failed", failure_reason: plan.reason, error_code: code, failed_at: at, updated_at: at });
+        summary.failed += 1;
+        await note("recipient_failed");
+      } else {
+        await settle(row, token, { status: "queued", claim_token: null, claimed_at: null, error_code: code, next_attempt_at: new Date(now.getTime() + (plan.delayMs ?? 0)).toISOString(), updated_at: at });
+        summary.retried += 1;
+      }
+      return "go";
+    }
+  }
+
   switch (action.kind) {
     case "opt_out":
       await recordOptOutForContact(b.account_id, row.contact_id, { scope: "marketing", source: "meta_131050" }, now);
       await settle(row, token, { status: "failed", failure_reason: action.reason, error_code: code, failed_at: at, updated_at: at });
       summary.failed += 1;
+      await note("recipient_failed");
       return "go";
     case "pause_connection":
       await pauseConnection(b.account_id, b.social_account_id, action.pause, code, now);
       await releaseClaimed([row], token, now);
+      await note("account_fault");
       return "stop";
     case "pause_broadcast":
       await pauseBroadcast(b.id, action.reason, now);
       await releaseClaimed([row], token, now);
+      await note("account_fault");
       return "stop";
     case "retry":
       if (row.attempt_count - 1 >= MAX_TRANSIENT_RETRIES) {
         await settle(row, token, { status: "failed", failure_reason: "retries_exhausted", error_code: code, failed_at: at, updated_at: at });
         summary.failed += 1;
+        await note("recipient_failed");
       } else {
         await settle(row, token, { status: "queued", claim_token: null, claimed_at: null, error_code: code, next_attempt_at: new Date(now.getTime() + retryDelayMs(row.attempt_count)).toISOString(), updated_at: at });
         summary.retried += 1;
@@ -382,6 +423,7 @@ async function sendOne(b: BroadcastRow, bundle: Parameters<typeof sendTemplate>[
     case "recipient_failed":
       await settle(row, token, { status: "failed", failure_reason: action.reason, error_code: code, failed_at: at, updated_at: at });
       summary.failed += 1;
+      await note("recipient_failed");
       return "go";
   }
 }
