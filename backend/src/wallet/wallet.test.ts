@@ -7,7 +7,7 @@ import { WALLET_PRICES_MICRO, priceMicro } from "./prices.js";
 import { walletEnabled } from "./flags.js";
 import { WalletError, createWalletLedger, type WalletRpc } from "./ledger.js";
 import { walletCreditFromSale } from "./topup.js";
-import { WALLET_PLAN_PROPOSAL, dailyPostCapReached } from "./plans.proposal.js";
+import { LIVE_TIERS, WALLET_PLAN_PROPOSAL, dailyPostCapReached, maxFreeConnections, maxFreeDailyPublications, paidTiersOutgivenByFree, paidTiersUndercutByEnterprise } from "./plans.proposal.js";
 
 const ACCOUNT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
@@ -198,9 +198,12 @@ describe("a top up from a Paddle sale credits what was paid BEFORE tax", () => {
 });
 
 describe("the plan proposal is data only (nothing reads it yet)", () => {
-  it("records the numbers that were asked for", () => {
-    expect(WALLET_PLAN_PROPOSAL.free).toMatchObject({ monthlyUsd: "0", dailyPostCap: 3, whatsappWorkflows: false, whiteLabelReporting: false });
-    expect(WALLET_PLAN_PROPOSAL.enterprise).toMatchObject({ monthlyUsd: "99", whatsappWorkflows: true });
+  it("Free Core: 3 brands, all 18 platforms in each, 3 publications a day per brand, no WhatsApp, no signed links", () => {
+    expect(WALLET_PLAN_PROPOSAL.free).toEqual({ monthlyUsd: "0", brands: 3, platformsPerBrand: 18, dailyPostCapPerBrand: 3, whatsappWorkflows: false, signedProofLinks: false, whiteLabelReporting: false });
+  });
+
+  it("Enterprise at 99 USD: no brand limit, no seat limit, WhatsApp workflows and signed links", () => {
+    expect(WALLET_PLAN_PROPOSAL.enterprise).toEqual({ monthlyUsd: "99", brands: null, teamSeats: null, whatsappWorkflows: true, signedProofLinks: true, customClientReporting: true });
     expect(WALLET_PLAN_PROPOSAL.status).toMatch(/proposal/i);
   });
 
@@ -208,11 +211,25 @@ describe("the plan proposal is data only (nothing reads it yet)", () => {
     expect(WALLET_PLAN_PROPOSAL.notBuilt).toEqual(expect.arrayContaining(["customClientReporting", "whiteLabelReporting", "signedProofLinks"]));
   });
 
-  it("the daily cap is reached at the cap, not before", () => {
+  it("what the structure allows in total: 54 connections and 9 publications a day on Free", () => {
+    expect(maxFreeConnections()).toBe(54);
+    expect(maxFreeDailyPublications()).toBe(9);
+  });
+
+  it("the cap is per brand and is reached at the cap, not before", () => {
     expect(dailyPostCapReached(2, 3)).toBe(false);
     expect(dailyPostCapReached(3, 3)).toBe(true);
     expect(dailyPostCapReached(4, 3)).toBe(true);
     for (const bad of [-1, 1.5, Number.NaN]) expect(() => dailyPostCapReached(bad, 3)).toThrow(WalletValueError);
     expect(() => dailyPostCapReached(0, 0)).toThrow(WalletValueError);
+  });
+
+  it("records the conflict with the live plans so it cannot be forgotten: Free would hold more connections than Starter, Pro and Business", () => {
+    expect(paidTiersOutgivenByFree()).toEqual(["starter", "pro", "business"]);
+  });
+
+  it("records that Enterprise with no brand limit at 99 USD sits at or below the price of Business and below Agency and Agency Plus", () => {
+    expect(paidTiersUndercutByEnterprise()).toEqual(["business", "agency", "agency_plus"]);
+    expect(LIVE_TIERS.agency_plus.brands).toBe(20);
   });
 });

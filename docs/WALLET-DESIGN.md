@@ -31,8 +31,8 @@ Evidence: 32 of 32 SQL checks pass; three deliberate weakenings (allow a zero cr
 
 | Your item | Decision | Reason |
 |---|---|---|
-| "Free tier: up to three posts per day across eighteen networks, free of WhatsApp and white label reporting" | Recorded as a proposal, not enforced | Today Free is **3 connected accounts, 10 scheduled posts per account (refillable), 250 MB**, with Proof of Publish and MCP. A daily cap of 3 is a new and stricter limit for existing Free users. White label agency reporting does not exist in the product. |
-| "Enterprise Tier at 99 USD flat with custom client reporting and cryptographically signed proof links" | Recorded as a proposal, not wired | There is no Enterprise plan. The live tiers are Free, Starter ($29.99), Pro ($59.99), Business ($99.99), Agency ($149.99) and Agency Plus ($199.99) with paying customers on Paddle prices. **Custom client reporting is not built.** Proof links exist (`get_proof_link`) but nothing in the code signs them cryptographically. Business is already about 99 USD, with 7 brands and 2 seats included. |
+| Free tier: 3 brands, any of 18 platforms in each, 3 publications a day per brand | Recorded as the owner's structure (section 7), not enforced | Needs changes in the plan limits, the connect flow and the publisher. It is stricter on output but much looser on connections than any plan today. |
+| Enterprise at 99 USD: no brand limit, no seat limit, WhatsApp workflows, signed proof links | Recorded as the owner's structure (section 7), not enforced | No Enterprise plan exists. Signed proof links and custom client reporting are not built. Unlimited brands at 99 USD passes what Agency and Agency Plus sell for more. |
 | "Strip all extra cloud storage rules; pull media from local user directory configurations; zero leak memory profile" | **Not done** | LazyRelay is a hosted service: platforms fetch media from a URL, so media has to be stored somewhere public to the platform. A customer's local folder is not reachable from the server. Storage add-ons are also a paid product today (Paddle `storage_addon`). Removing the rules would break media posts and a revenue line. The memory point is already handled where it matters: the Content Sources engine keeps no page text (tested, `docs/SECURITY-STRESS-REPORT.md`). |
 | "Keep the multi seat enterprise logic intact; unlimited seat extensions" | Seat logic left exactly as it is | Seats today are per plan with a paid seat add on ($10 a month) and plan limits (`backend/src/seatLimits.ts`). "Absolute freedom" would mean removing the limit: your call, not changed here. |
 | "Charge exactly 0.002 USD per verified platform API dispatch" | Built as the mechanism; **not hooked into publishing** | Hooking it changes the live publisher. See section 4. |
@@ -56,3 +56,45 @@ Evidence: 32 of 32 SQL checks pass; three deliberate weakenings (allow a zero cr
 2. Apply `0139` on a throwaway Supabase branch, run `node backend/scripts/wallet-sql-check.mjs` logic against it (or the same checks through SQL), then production by hand.
 3. Wire the two charge points behind `WALLET_ENABLED`, in shadow first (record what would have been charged, charge nothing), as was done for the self healing policy.
 4. Only then a pricing page change, with counsel's wording.
+
+## 7. Tier structure (owner decision, 2026-10-19) and what it does to the live plans
+
+Recorded exactly as given, as data in `backend/src/wallet/plans.proposal.ts` (72 tests; nothing reads it):
+
+| | Free Core | Enterprise |
+|---|---|---|
+| Price | 0 USD a month | 99 USD a month |
+| Brands | 3 | no limit |
+| Platforms inside a brand | all 18 | all 18 |
+| Output | 3 publications a day per brand | no cap recorded |
+| Team seats | not stated | no limit |
+| WhatsApp broadcast workflows | no | yes |
+| Signed publication links | no | yes (not built) |
+| Custom client or white label reporting | no | yes (not built) |
+
+### Against the six live plans (from the landing page pricing data)
+
+| Plan | Price | Connected accounts | Brands | Seats included |
+|---|---|---|---|---|
+| Free today | 0 | 3 | 1 | n/a |
+| **Free Core as proposed** | **0** | **up to 54 (3 brands x 18)** | **3** | not stated |
+| Starter | 29.99 | 20 | 2 | n/a |
+| Pro | 59.99 | 30 | 4 | n/a |
+| Business | 99.99 | 50 | 7 | 2 |
+| Agency | 149.99 | 100 | 12 | 3 (+2 available) |
+| Agency Plus | 199.99 | 150 | 20 | 6 (+2 available) |
+| **Enterprise as proposed** | **99** | **18 per brand, unlimited brands** | **unlimited** | **unlimited** |
+
+### What this means (my reading, for your decision)
+1. **Free would out give the paid plans on connections.** Up to 54 connected platform accounts for free is more than Starter (20), Pro (30) and Business (50). Free also gets 3 brands, more than Starter (2). A buyer comparing the pricing page would have no reason to pay 29.99 for Starter. The output cap (3 a day per brand, 9 a day in all) is what stands in the way, and it is only a limit on volume.
+2. **Enterprise at 99 USD with no brand or seat limit sits on top of three live plans.** Business is already 99.99 (7 brands, 2 seats). Agency (149.99, 12 brands) and Agency Plus (199.99, 20 brands) would sell the same or less for 50 to 100 USD more. Customers on those plans would have a reason to move down, and unlimited seats also removes the paid seat add on (10 USD a month each).
+3. **"Three accounts means three brands" is a code change, not a relabel.** Today the limits are two separate numbers (connected accounts and brands, `backend/src/tier.ts` and the Paddle tier resolution). The new rule needs a per brand platform allowance, a per brand daily counter in the publisher, and a migration plan for existing Free users (who have 3 accounts in 1 brand).
+4. **Existing customers.** There are paying subscriptions on the six live Paddle prices. Replacing them with two tiers means either keeping them (grandfathering) or moving them, which is a billing and legal step that is yours to decide.
+5. **Cost.** More free connections and brands means more stored media, more platform calls and more support for people who pay nothing. The wallet charge per dispatch (0.002 USD) would not apply to Free under this structure unless you say so.
+
+### Options I would put to you (not built, no recommendation implied beyond this order)
+* **A. Keep the six live plans and add the wallet on top.** Free stays small; the wallet meters extra volume. No customer sees a loss.
+* **B. Your two tiers, with a brand cap on Enterprise** (for example the 20 brands of Agency Plus) so it does not undercut the top plans, and a cap or price on seats.
+* **C. Your two tiers exactly as written**, accepting that Agency and Agency Plus would be retired and their customers moved.
+
+None of these is applied anywhere. This document and the local branch are the only places the structure exists.
