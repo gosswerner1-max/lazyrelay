@@ -21,11 +21,13 @@ describe("the connectError the callback redirects with", () => {
     expect(window.location.search).toBe(""); // read once and cleared, as before
   });
 
-  it("falls back to the friendly sentence when the message is empty or blank", () => {
+  it("shows no banner when the message is empty or blank, and still clears the param", () => {
     openWith("?connectError=");
-    expect(readAndClearConnectParams().connectError).toBe(FRIENDLY);
+    expect(readAndClearConnectParams().connectError).toBeNull();
+    expect(window.location.search).toBe("");
     openWith("?connectError=%20%20");
-    expect(readAndClearConnectParams().connectError).toBe(FRIENDLY);
+    expect(readAndClearConnectParams().connectError).toBeNull();
+    expect(window.location.search).toBe("");
   });
 
   it("falls back to the friendly sentence when the message is a long blob, not a sentence", () => {

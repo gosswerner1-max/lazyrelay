@@ -158,7 +158,7 @@ export function readAndClearConnectParams(): {
 } {
   const params = new URLSearchParams(window.location.search);
   const rawConnectError = params.get("connectError")?.trim();
-  const connectError = rawConnectError === undefined ? null : rawConnectError && rawConnectError.length <= CONNECT_ERROR_MAX_LENGTH ? rawConnectError : CONNECT_ERROR_FALLBACK;
+  const connectError = !rawConnectError ? null : rawConnectError.length <= CONNECT_ERROR_MAX_LENGTH ? rawConnectError : CONNECT_ERROR_FALLBACK;
   const connected = params.get("connected") !== null;
   // Google Calendar's connect flow (backend routes.ts's
   // GET /google-calendar/callback) redirects here the same way the platform
@@ -182,7 +182,7 @@ export function readAndClearConnectParams(): {
   const prefillContent = params.get("prefillContent");
   const prefillMediaUrl = params.get("prefillMediaUrl");
   if (
-    connectError ||
+    params.has("connectError") ||
     connected ||
     selectAccount ||
     prefillContent ||
