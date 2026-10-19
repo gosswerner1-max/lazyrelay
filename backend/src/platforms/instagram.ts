@@ -13,6 +13,7 @@ import type {
   ConnectOption,
   PendingConnectSelection,
 } from "./types.js";
+import { metaConnectError } from "./metaConnectError.js";
 
 // Instagram Business posting via "Instagram API with Facebook Login" — same
 // OAuth app/flow as the Facebook adapter (Facebook Login for Business), but
@@ -131,7 +132,7 @@ export class InstagramAdapter implements PlatformAdapter {
     const res = await fetch(url.toString());
     const json = (await res.json()) as FacebookTokenResponse;
     if (!res.ok || !json.access_token) {
-      throw new Error(json.error?.message ?? "Could not exchange for a long-lived Facebook token");
+      throw metaConnectError("instagram-connect", res.status, json.error?.message, [this.clientSecret, shortLivedToken]);
     }
     return json.access_token;
   }
@@ -152,7 +153,7 @@ export class InstagramAdapter implements PlatformAdapter {
     const res = await fetch(url.toString());
     const json = (await res.json()) as FacebookPagesResponse;
     if (!res.ok || !json.data) {
-      throw new Error(json.error?.message ?? "Could not list this account's Facebook Pages");
+      throw metaConnectError("instagram-connect", res.status, json.error?.message, [longLivedUserToken]);
     }
     const pages = json.data.filter(
       (p): p is FacebookPage & { instagram_business_account: { id: string } } => !!p.instagram_business_account?.id,
@@ -173,7 +174,7 @@ export class InstagramAdapter implements PlatformAdapter {
     const res = await fetch(codeUrl.toString());
     const json = (await res.json()) as FacebookTokenResponse;
     if (!res.ok || !json.access_token) {
-      throw new Error(json.error?.message ?? "Facebook token exchange failed");
+      throw metaConnectError("instagram-connect", res.status, json.error?.message, [this.clientSecret, code]);
     }
     return await this.exchangeForLongLivedUserToken(json.access_token);
   }

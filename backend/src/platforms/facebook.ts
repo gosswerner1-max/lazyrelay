@@ -13,6 +13,7 @@ import type {
   ConnectOption,
   PendingConnectSelection,
 } from "./types.js";
+import { metaConnectError } from "./metaConnectError.js";
 
 // A Facebook user can manage multiple Pages. exchangeCode() below still
 // connects the FIRST Page returned by /me/accounts, kept for interface
@@ -126,7 +127,7 @@ export class FacebookAdapter implements PlatformAdapter {
     const res = await fetch(url.toString());
     const json = (await res.json()) as FacebookTokenResponse;
     if (!res.ok || !json.access_token) {
-      throw new Error(json.error?.message ?? "Could not exchange for a long-lived Facebook token");
+      throw metaConnectError("facebook-connect", res.status, json.error?.message, [this.clientSecret, shortLivedToken]);
     }
     return json.access_token;
   }
@@ -139,7 +140,7 @@ export class FacebookAdapter implements PlatformAdapter {
     const res = await fetch(url.toString());
     const json = (await res.json()) as FacebookPagesResponse;
     if (!res.ok || !json.data) {
-      throw new Error(json.error?.message ?? "Could not list this account's Facebook Pages");
+      throw metaConnectError("facebook-connect", res.status, json.error?.message, [longLivedUserToken]);
     }
     if (json.data.length === 0) {
       throw new Error("No Facebook Page found — this account must manage at least one Page to connect");
@@ -157,7 +158,7 @@ export class FacebookAdapter implements PlatformAdapter {
     const res = await fetch(codeUrl.toString());
     const json = (await res.json()) as FacebookTokenResponse;
     if (!res.ok || !json.access_token) {
-      throw new Error(json.error?.message ?? "Facebook token exchange failed");
+      throw metaConnectError("facebook-connect", res.status, json.error?.message, [this.clientSecret, code]);
     }
     return await this.exchangeForLongLivedUserToken(json.access_token);
   }

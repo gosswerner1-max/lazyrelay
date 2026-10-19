@@ -51,6 +51,16 @@ async function releaseMediaIfOrphaned(mediaUrl: string, accountId: string): Prom
   await supabase.from("media_uploads").delete().eq("id", media.id);
 }
 
+/** post_results.raw_error_message holds the platform's own error text for operations. It can echo a token, so no customer
+ *  response carries it: the friendly error_message stays. */
+function withoutRawErrors<T>(posts: T[]): T[] {
+  return posts.map((post) => {
+    const results = (post as { post_results?: unknown }).post_results;
+    if (!Array.isArray(results)) return post;
+    return { ...post, post_results: results.map(({ raw_error_message: _raw, ...rest }) => rest) };
+  });
+}
+
 export function buildPostsRouter(): Router {
   const router = Router();
 
@@ -632,7 +642,7 @@ export function buildPostsRouter(): Router {
       dbError(res, historyError, "GET /scheduled-posts history");
       return;
     }
-    res.json([...upcoming, ...(history ?? [])]);
+    res.json(withoutRawErrors([...upcoming, ...(history ?? [])]));
   });
 
   // Additional pages of history, older than `before` (an ISO scheduled_for
@@ -663,7 +673,7 @@ export function buildPostsRouter(): Router {
       dbError(res, error, "GET /scheduled-posts/history");
       return;
     }
-    res.json(data ?? []);
+    res.json(withoutRawErrors(data ?? []));
   });
 
   // Flips a needs_approval post to pending, making it eligible for the
