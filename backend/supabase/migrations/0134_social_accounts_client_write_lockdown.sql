@@ -1,5 +1,7 @@
 -- 0134: a signed-in browser can write only brand_id, brand_label and disconnected_at on public.social_accounts, nothing else.
 --
+-- Status: NOT applied anywhere yet. Apply by hand, in a deliberate step, after the pull request that carries it is merged.
+--
 -- Why. The browser-facing role `authenticated` currently holds INSERT and UPDATE on every column of public.social_accounts. Row level
 -- security limits each caller to their own account's rows, but the connection state and the pointers to stored credentials are columns
 -- that only the backend should change. This migration narrows the browser role to the columns the dashboard actually writes.
