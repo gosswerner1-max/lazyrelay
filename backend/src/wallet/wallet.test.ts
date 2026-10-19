@@ -7,7 +7,7 @@ import { WALLET_PRICES_MICRO, priceMicro } from "./prices.js";
 import { walletEnabled } from "./flags.js";
 import { WalletError, createWalletLedger, type WalletRpc } from "./ledger.js";
 import { walletCreditFromSale } from "./topup.js";
-import { LIVE_TIERS, WALLET_PLAN_PROPOSAL, dailyPostCapReached, maxFreeConnections, maxFreeDailyPublications, paidTiersOutgivenByFree, paidTiersUndercutByEnterprise } from "./plans.proposal.js";
+import { ENTERPRISE_CAP_PROPOSAL, FREE_BRAND_CAP_LOCKED, LIVE_TIERS, WALLET_PLAN_PROPOSAL, enterpriseProposalKeepsTheLadder, dailyPostCapReached, maxFreeConnections, maxFreeDailyPublications, paidTiersOutgivenByFree, paidTiersUndercutByEnterprise } from "./plans.proposal.js";
 
 const ACCOUNT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
@@ -231,5 +231,27 @@ describe("the plan proposal is data only (nothing reads it yet)", () => {
   it("records that Enterprise with no brand limit at 99 USD sits at or below the price of Business and below Agency and Agency Plus", () => {
     expect(paidTiersUndercutByEnterprise()).toEqual(["business", "agency", "agency_plus"]);
     expect(LIVE_TIERS.agency_plus.brands).toBe(20);
+  });
+});
+
+describe("the brand cap structure", () => {
+  it("Free is locked at 3 brands, and the structure's Free brands value agrees", () => {
+    expect(FREE_BRAND_CAP_LOCKED).toBe(3);
+    expect(WALLET_PLAN_PROPOSAL.free.brands).toBe(FREE_BRAND_CAP_LOCKED);
+  });
+
+  it("the Enterprise caps are marked as proposed, not approved", () => {
+    expect(ENTERPRISE_CAP_PROPOSAL.status).toMatch(/proposed.*awaiting owner approval/);
+  });
+
+  it("the proposed Enterprise caps stay inside the live ladder (above Business, no more than Agency, priced below Agency)", () => {
+    expect(enterpriseProposalKeepsTheLadder()).toBe(true);
+    expect(ENTERPRISE_CAP_PROPOSAL.brandsIncluded * WALLET_PLAN_PROPOSAL.free.platformsPerBrand).toBe(180); // why a connection cap is needed
+    expect(ENTERPRISE_CAP_PROPOSAL.totalConnectionsIncluded).toBeLessThan(LIVE_TIERS.agency_plus.connectedAccounts);
+  });
+
+  it("the seat and brand add on prices equal the live ones (10 USD a month each)", () => {
+    expect(ENTERPRISE_CAP_PROPOSAL.extraSeatMonthlyUsd).toBe("10");
+    expect(ENTERPRISE_CAP_PROPOSAL.extraBrandMonthlyUsd).toBe("10");
   });
 });

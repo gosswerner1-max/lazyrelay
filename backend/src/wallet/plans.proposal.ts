@@ -77,3 +77,42 @@ export function paidTiersUndercutByEnterprise(): string[] {
     .filter(([name, t]) => name !== "free" && t.monthlyUsd >= price - 1)
     .map(([name]) => name);
 }
+
+/**
+ * LOCKED by the owner (2026-10-19): Free Core is capped at 3 brands, so one free registration cannot run an unlimited number of
+ * businesses. Inside each brand any or all of the 18 platforms can be connected. An agency with more than 3 clients has to upgrade.
+ */
+export const FREE_BRAND_CAP_LOCKED = 3;
+
+/**
+ * PROPOSED, NOT APPROVED: the Enterprise caps and the seat price, put to the owner for a yes. The numbers come from the live product:
+ *   - a brand add on is about 10 USD a month (backend/src/brandLimits.ts), capped at 10 add ons per account
+ *   - a seat add on is 10 USD a month (Settings tab), capped at 2 per account today (backend/src/seatLimits.ts)
+ *   - the live ladder: Business 7 brands and 50 connections, Agency 12 and 100, Agency Plus 20 and 150
+ * They are chosen so Enterprise at 99 USD does not pass Agency and Agency Plus: it sits above Business and at Agency on connections.
+ * Without a total connection cap, 10 brands x 18 platforms would be 180 connections, more than Agency Plus sells for 199.99.
+ */
+export const ENTERPRISE_CAP_PROPOSAL = {
+  status: "proposed, awaiting owner approval",
+  brandsIncluded: 10,
+  totalConnectionsIncluded: 100,
+  seatsIncluded: 5,
+  extraSeatMonthlyUsd: "10",
+  extraBrandMonthlyUsd: "10",
+  /** Today's seat add on cap is 2 per account; unlimited seat expansion would need this raised for Enterprise. */
+  extraSeatsAllowed: "no fixed limit (needs the add on cap raised from 2)",
+} as const;
+
+/** True when Enterprise as proposed stays inside the live ladder: more than Business, no more than Agency, below Agency Plus. */
+export function enterpriseProposalKeepsTheLadder(): boolean {
+  const p = ENTERPRISE_CAP_PROPOSAL;
+  const price = Number(WALLET_PLAN_PROPOSAL.enterprise.monthlyUsd);
+  return (
+    p.brandsIncluded > LIVE_TIERS.business.brands &&
+    p.brandsIncluded <= LIVE_TIERS.agency.brands &&
+    p.totalConnectionsIncluded > LIVE_TIERS.business.connectedAccounts &&
+    p.totalConnectionsIncluded <= LIVE_TIERS.agency.connectedAccounts &&
+    p.seatsIncluded > LIVE_TIERS.business.seatsIncluded &&
+    price < LIVE_TIERS.agency.monthlyUsd
+  );
+}

@@ -98,3 +98,26 @@ Recorded exactly as given, as data in `backend/src/wallet/plans.proposal.ts` (72
 * **C. Your two tiers exactly as written**, accepting that Agency and Agency Plus would be retired and their customers moved.
 
 None of these is applied anywhere. This document and the local branch are the only places the structure exists.
+
+## 8. Brand cap structure: what is locked and what is proposed (2026-10-19)
+
+**Locked by the owner:** Free Core is capped at **3 brands**. Inside each brand any or all of the 18 platforms can be connected, 3 publications a day per brand. One free registration can therefore never run an unlimited number of businesses, and an agency with more than 3 clients has to upgrade. (`FREE_BRAND_CAP_LOCKED` in `plans.proposal.ts`.)
+
+**Proposed, awaiting your approval** (`ENTERPRISE_CAP_PROPOSAL`), built from numbers in the live product:
+
+| Enterprise, 99 USD a month | Proposed | Why this number |
+|---|---|---|
+| Brands included | 10 | Above Business (7), within Agency (12). More brands are bought as add ons at the live price of about 10 USD a month each (the existing add on cap is 10). |
+| Total connected accounts | 100 | Same as Agency. Without a total, 10 brands x 18 platforms is 180 connections, more than Agency Plus sells for 199.99. |
+| Team seats included | 5 | Above Business (2) and Agency (3), below Agency Plus (6). |
+| Extra seats | 10 USD a month each (the live seat add on price) | The seat add on cap is 2 per account today (`MAX_SEAT_ADDONS_PER_ACCOUNT`); it needs raising for Enterprise so seats can be extended freely. |
+| WhatsApp broadcast workflows | yes | as asked |
+| Signed publication links, custom client reporting | listed, **not built** | nothing signs a proof link today; no client reporting exists |
+
+A test confirms these numbers keep Enterprise inside the live ladder (above Business, no more than Agency, priced below Agency).
+
+### Consequences you should see before approving
+1. **Business (99.99) becomes a worse deal than Enterprise (99)** on every line: 7 brands, 50 connections and 2 seats against 10, 100 and 5. Business should be retired or repriced, and its customers moved or grandfathered.
+2. **Free (54 possible connections) already exceeds Starter (20), Pro (30) and Business (50) on connections.** The paid plans would be sold on volume (unlimited posts and recurring schedules against 3 a day per brand), storage (5 to 20 GB against 250 MB), seats and brands, not on connections.
+3. **Seats exist only on Business and above today.** Free, Starter and Pro have none. Under your structure Free has no seat statement; I have left it as none.
+4. **Code that would change when this is approved:** the per tier limit tables (`tier.ts`, `brandLimits.ts`, `seatLimits.ts`, the Paddle tier resolution), a per brand daily publication counter in the publisher, the connect flow (platform allowance per brand), the pricing page, and a migration plan for existing customers. None of it is changed in this draft.
