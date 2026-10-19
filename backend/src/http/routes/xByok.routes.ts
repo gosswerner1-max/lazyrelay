@@ -24,6 +24,7 @@ import { checkAccountLimit, checkNewDistinctAccountLimit, isXByokPlanGateError }
 import { resolveTier, canUseXByok, X_BYOK_REQUIRED_PLAN_NAME } from "../../tier.js";
 import { wipeVaultSecrets } from "../../tokenWipe.js";
 import { recordCredentialAudit } from "../../credentialAudit.js";
+import { recordSystemCredentialTransition } from "../../selfHealing/audit.js";
 import { validateBody } from "../validation.js";
 import type { PlatformAdapterRegistry } from "../../platforms/connect.js";
 import { XAdapter } from "../../platforms/x.js";
@@ -182,13 +183,14 @@ export function registerXByokRoutes(
     let blockedByDatabase = false;
     let savedRowId: string | null = null;
     let replacedLogin = false;
+    let wasRefused = false;
     let replacedVaultId: string | null = null;
     try {
       // Rotating the keys of a connection we already have (same X account) updates its Vault secret in place; a new
       // account is checked against the plan's limits first, exactly like every other connect.
       const { data: existing, error: lookupError } = await supabase
         .from("social_accounts")
-        .select("id, access_token_vault_id, disconnected_at")
+        .select("id, access_token_vault_id, disconnected_at, needs_reconnect_at, byok_status")
         .eq("account_id", accountId)
         .eq("platform", "x")
         .eq("platform_account_id", check.id)
@@ -234,6 +236,7 @@ export function registerXByokRoutes(
       }
 
       replacedLogin = Boolean(existing?.access_token_vault_id);
+      wasRefused = Boolean(existing?.needs_reconnect_at) || existing?.byok_status === "invalid";
       const { data: savedRow, error: upsertError } = await supabase.from("social_accounts").upsert(
         {
           account_id: accountId,
@@ -275,6 +278,8 @@ export function registerXByokRoutes(
     }
     if (replacedVaultId && replacedVaultId !== newVaultId) await wipeVaultSecrets(supabase, [replacedVaultId]);
     await recordCredentialAudit({ supabase, accountId, socialAccountId: savedRowId, platform: "x", action: replacedLogin ? "replaced" : "saved", actorUserId: req.userId ?? null, actorRole: req.role ?? null });
+    // New keys for a connection that was refused: one system audit row (only while the self-healing mode is shadow or on).
+    if (wasRefused) await recordSystemCredentialTransition({ accountId, socialAccountId: savedRowId, platform: "x", action: "recovered" });
     res.json({ ok: true, handle: check.username, keyHint });
   });
 }

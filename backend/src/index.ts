@@ -7,6 +7,7 @@ import { runPrivacySweep } from "./privacySweep.js";
 import { runBroadcastCycle } from "./whatsappBroadcast/sender.js";
 import { fetchHttpClient } from "./whatsappBroadcast/cloudApi.js";
 import { purgeWhatsappHistory } from "./whatsappChat/retention.js";
+import { purgeSelfHealingHistory } from "./selfHealing/purge.js";
 import { purgeExpiredConnects } from "./platforms/connect.js";
 import { runWebhookDeliveryCycle } from "./webhook.js";
 import { runReplySenderCycle } from "./replySender.js";
@@ -247,6 +248,12 @@ async function main() {
         if (r.chatDeleted || r.broadcastRowsDeleted || r.failed) console.log("WhatsApp retention:", JSON.stringify(r));
       })
       .catch((err) => console.error("WhatsApp retention error:", summarizeIfHtmlError(err)))
+      // Self-healing history (selfHealing/purge.ts): audit rows 13 months, shadow rows 30 days. Does nothing while the mode is off.
+      .then(() => purgeSelfHealingHistory(supabase))
+      .then((r) => {
+        if (r.auditDeleted || r.shadowDeleted || r.failed) console.log("Self-healing purge:", JSON.stringify(r));
+      })
+      .catch((err) => console.error("Self-healing purge error:", summarizeIfHtmlError(err)))
       // Reply drafts nobody reviewed before their 7 day expiry become "expired" (replyDrafts.ts). Skipped while the
       // reply loop is off, like the sender above.
       .then(() => (replyDraftsEnabled() ? expireStaleDrafts(supabase) : 0))
