@@ -114,7 +114,6 @@ export function ContentSourcesList({ sources, busy, message, children, proofOpen
                         {confirmId === s.id && (
                           <div className="cs-confirm" role="group" aria-label="Confirm remove" onKeyDown={(e) => onConfirmKeyDown(e, s.id)}>
                             <p className="cs-confirm__text">Remove this source? It will stop making new drafts.</p>
-                            {sources.length === 1 && <p className="cs-hint">This is your last source, so your saved key is removed too.</p>}
                             <div className="cs-row-actions">
                               <button type="button" className="cs-btn cs-btn--secondary" autoFocus onClick={() => closeConfirm(s.id)}>
                                 Keep source
