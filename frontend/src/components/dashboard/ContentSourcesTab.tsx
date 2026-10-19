@@ -1,26 +1,17 @@
-// The Content Sources tab: a form to add and check a source (RSS feed, sitemap or CSV file) and a table of the drafts those
-// sources made, waiting for a person. A thin client. It reads nothing itself: the checking and the drafting happen in a
-// separate service, reached only through the ContentSourcesClient (see lib/contentSources.ts). The three row actions are
-// handed in as props, so each one runs through the dashboard's own existing post flows.
+// The Content Sources tab: the customer connects their own LazyRelay key, adds an RSS feed or a sitemap from their own website,
+// proves the website is theirs, and then sees the drafts those sources made, waiting for a person. A thin client. It reads
+// nothing itself: the checking and the drafting happen in the companion service, reached only through the ContentSourcesClient
+// (see lib/contentSources.ts). The three draft actions are handed in as props, so each one runs through the dashboard's own
+// existing post flows.
 
-import { useId, useMemo, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
+import { useId, useMemo, useState, type KeyboardEvent } from "react";
 import type { Brand, ScheduledPost } from "../../lib/api";
-import {
-  CSV_MAX_BYTES,
-  SOURCE_TYPES,
-  SOURCE_TYPE_LABELS,
-  URL_MAX_LENGTH,
-  contentSourceDrafts,
-  defaultContentSourcesClient,
-  describeVerifyResult,
-  validateCsvFile,
-  validateSourceUrl,
-  type ContentSourcesClient,
-  type DraftRow,
-  type SourceInput,
-  type SourceType,
-  type VerifyResult,
-} from "../../lib/contentSources";
+import { SOURCE_TYPE_LABELS, contentSourceDrafts, type ContentSourcesClient, type DraftRow } from "../../lib/contentSources";
+import { ContentSourcesAddForm } from "./ContentSourcesAddForm";
+import { ContentSourcesKey } from "./ContentSourcesKey";
+import { ContentSourcesList } from "./ContentSourcesList";
+import { CheckResult, ContentSourcesProof } from "./ContentSourcesProof";
+import { useContentSources } from "./useContentSources";
 import "../../styles/byok-panels.css";
 import "../../styles/content-sources.css";
 
@@ -34,71 +25,33 @@ export interface ContentSourcesTabProps {
   onReviewAndEdit: RowHandler;
   onApproveToCalendar: RowHandler;
   onPurge: RowHandler;
-  client?: ContentSourcesClient;
+  /** The companion service. The dashboard hands in the real one; tests hand in a mock. */
+  client: ContentSourcesClient;
+  /** Takes the customer to the API Keys tab, where they make the key. */
+  onOpenApiKeys?: () => void;
+  /** Takes the customer to the plan page the app already has. */
+  onOpenPlan?: () => void;
 }
 
 const STATUS_BADGE = "Generated draft, pending review";
-const EMPTY_TEXT = "Add an RSS feed, your own sitemap or a CSV file, then drafts appear here for your review.";
-const CSV_MAX_MB = CSV_MAX_BYTES / (1024 * 1024);
+const EMPTY_TEXT = "Add an RSS feed or your own sitemap, then drafts appear here for your review.";
 
-export function ContentSourcesTab({ posts, brands, onReviewAndEdit, onApproveToCalendar, onPurge, client = defaultContentSourcesClient }: ContentSourcesTabProps) {
+const BLOCKED_TITLES: Partial<Record<string, string>> = {
+  not_connected: "Not connected yet",
+  sign_in: "Please sign in again",
+  unauthorized: "Please sign in again",
+};
+const NO_RETRY = new Set(["not_connected", "sign_in", "unauthorized"]);
+
+export function ContentSourcesTab({ posts, brands, onReviewAndEdit, onApproveToCalendar, onPurge, client, onOpenApiKeys, onOpenPlan }: ContentSourcesTabProps) {
   const uid = useId();
   const id = (part: string) => `${uid}-${part}`;
+  const cs = useContentSources(client);
 
-  const [type, setType] = useState<SourceType>("rss");
-  const [urlText, setUrlText] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [brandId, setBrandId] = useState("");
-  const [verifying, setVerifying] = useState(false);
-  const [result, setResult] = useState<VerifyResult | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const isCsv = type === "csv";
-  const urlCheck = isCsv ? null : validateSourceUrl(urlText);
-  const urlError = urlCheck && !urlCheck.ok && urlText.trim() !== "" ? urlCheck.error : null;
-  const fileCheck = file ? validateCsvFile(file) : null;
-  const fileError = fileCheck && !fileCheck.ok ? fileCheck.error : null;
-  const inputValid = isCsv ? fileCheck?.ok === true : urlCheck?.ok === true;
-
   const rows = useMemo(() => contentSourceDrafts(posts), [posts]);
-
-  function changeType(next: SourceType) {
-    setType(next);
-    setResult(null);
-    if (next !== "csv") setFile(null); // the file picker is gone, so its file goes too
-  }
-
-  function onUrlChange(e: ChangeEvent<HTMLInputElement>) {
-    setUrlText(e.target.value);
-    setResult(null);
-  }
-
-  function onFileChange(e: ChangeEvent<HTMLInputElement>) {
-    setFile(e.target.files?.[0] ?? null);
-    setResult(null);
-  }
-
-  function buildInput(): SourceInput | null {
-    const brand = brandId || null;
-    if (isCsv) return file && fileCheck?.ok ? { type: "csv", file, brandId: brand } : null;
-    return urlCheck?.ok ? { type, url: urlCheck.url, brandId: brand } : null;
-  }
-
-  async function verify() {
-    const input = buildInput();
-    if (!input) return;
-    setVerifying(true);
-    setResult(null);
-    try {
-      setResult(await client.verifySource(input));
-    } catch (err) {
-      console.error(err);
-      setResult({ status: "failed", reason: "Something went wrong while checking. Try again in a moment." });
-    } finally {
-      setVerifying(false);
-    }
-  }
 
   async function runRow(row: DraftRow, handler: RowHandler) {
     setBusyId(row.id);
@@ -121,112 +74,80 @@ export function ContentSourcesTab({ posts, brands, onReviewAndEdit, onApproveToC
     }
   }
 
-  const urlLabel = type === "sitemap" ? "Sitemap address" : "Feed address";
-  const urlHint = type === "sitemap" ? "The public https address of your sitemap file." : "The public https address of your feed.";
-  const statusText = verifying ? "Checking this source..." : result ? describeVerifyResult(result) : "";
-  const statusTone = result?.status === "verified" ? "ok" : result?.status === "failed" ? "bad" : "info";
+  const checkingId = cs.busy?.startsWith("check:") ? cs.busy.slice("check:".length) : null;
+  const activeCheckId = cs.check?.sourceId ?? checkingId;
+  const proofSource = cs.proof ? cs.sources.find((s) => s.id === cs.proof!.sourceId) : undefined;
+  // The answer to a check shows inside the proof panel when that panel is open for the source, and under the list title otherwise.
+  const checkInPanel = proofSource !== undefined && activeCheckId === proofSource.id;
+  const checkInList = activeCheckId !== null && !checkInPanel;
 
   return (
     <section className="byok-panels content-sources" aria-labelledby={id("title")}>
       <header className="cs-head">
         <h2 id={id("title")}>Content Sources</h2>
-        <p>Add an RSS feed, a sitemap or a CSV file. Drafts made from it wait below for your review. Nothing is posted until you approve it.</p>
+        <p>Add an RSS feed or a sitemap. Drafts made from it wait below for your review. Nothing is posted until you approve it.</p>
       </header>
 
-      <form className="cs-card" onSubmit={(e: FormEvent) => e.preventDefault()} noValidate>
-        <h3 className="cs-card__title">Add a source</h3>
-        <div className="cs-fields">
-          <div className="cs-field cs-field--wide">
-            <span className="cs-label" id={id("type-label")}>
-              Source type
-            </span>
-            <div className="cs-segments" role="radiogroup" aria-labelledby={id("type-label")}>
-              {SOURCE_TYPES.map((t) => (
-                <label key={t} className="cs-segment">
-                  <input type="radio" name={id("type")} value={t} checked={type === t} onChange={() => changeType(t)} />
-                  <span className="cs-segment__label">{SOURCE_TYPE_LABELS[t]}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+      {cs.phase.kind === "loading" && (
+        <p className="cs-empty" role="status">
+          Loading your sources...
+        </p>
+      )}
 
-          {isCsv ? (
-            <div className="cs-field">
-              <label className="cs-label" htmlFor={id("file")}>
-                CSV file
-              </label>
-              <input
-                id={id("file")}
-                className="cs-input"
-                type="file"
-                accept=".csv,text/csv"
-                onChange={onFileChange}
-                aria-invalid={fileError ? true : undefined}
-                aria-describedby={[id("file-hint"), fileError ? id("file-error") : null].filter(Boolean).join(" ")}
-              />
-              <p className="cs-hint" id={id("file-hint")}>
-                Choose a .csv file, up to {CSV_MAX_MB} MB.
-              </p>
-              {fileError && (
-                <p className="cs-error" id={id("file-error")}>
-                  {fileError}
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="cs-field">
-              <label className="cs-label" htmlFor={id("url")}>
-                {urlLabel}
-              </label>
-              <input
-                id={id("url")}
-                className="cs-input"
-                type="url"
-                inputMode="url"
-                autoComplete="off"
-                spellCheck={false}
-                maxLength={URL_MAX_LENGTH}
-                placeholder="https://"
-                value={urlText}
-                onChange={onUrlChange}
-                aria-invalid={urlError ? true : undefined}
-                aria-describedby={[id("url-hint"), urlError ? id("url-error") : null].filter(Boolean).join(" ")}
-              />
-              <p className="cs-hint" id={id("url-hint")}>
-                {urlHint}
-              </p>
-              {urlError && (
-                <p className="cs-error" id={id("url-error")}>
-                  {urlError}
-                </p>
-              )}
+      {cs.phase.kind === "blocked" && (
+        <section className="cs-card" aria-labelledby={id("blocked-title")}>
+          <h3 className="cs-card__title" id={id("blocked-title")}>
+            {BLOCKED_TITLES[cs.phase.error.code] ?? "Could not load Content Sources"}
+          </h3>
+          <p className="cs-result cs-result--info" role="status">
+            {cs.phase.error.message}
+          </p>
+          {!NO_RETRY.has(cs.phase.error.code) && (
+            <div className="cs-actions">
+              <button type="button" className="cs-btn cs-btn--secondary" onClick={() => void cs.retry()}>
+                Try again
+              </button>
             </div>
           )}
+        </section>
+      )}
 
-          <div className="cs-field">
-            <label className="cs-label" htmlFor={id("brand")}>
-              Target brand
-            </label>
-            <select id={id("brand")} className="cs-input" value={brandId} onChange={(e) => setBrandId(e.target.value)}>
-              <option value="">No brand</option>
-              {brands.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="cs-actions">
-          <button type="button" className="cs-btn cs-btn--primary" disabled={!inputValid || verifying} onClick={verify}>
-            Verify Source Integrity
-          </button>
-          <p className={`cs-result cs-result--${statusTone}`} role="status">
-            {statusText}
-          </p>
-        </div>
-      </form>
+      {cs.phase.kind === "ready" && (
+        <>
+          <ContentSourcesKey
+            credential={cs.credential}
+            busy={cs.busy === "key"}
+            message={cs.keyMsg}
+            onSave={cs.saveKey}
+            onRemove={cs.removeKey}
+            onOpenApiKeys={onOpenApiKeys}
+          />
+          <ContentSourcesAddForm brands={brands} busy={cs.busy === "add"} message={cs.formMsg} onAdd={cs.addSource} onOpenPlan={onOpenPlan} />
+          {cs.proof && proofSource && (
+            <ContentSourcesProof
+              key={cs.proof.sourceId}
+              source={proofSource}
+              verification={cs.proof.verification}
+              busy={cs.busy !== null}
+              check={checkInPanel ? cs.check : null}
+              checking={checkingId === proofSource.id}
+              onCheck={() => void cs.checkSource(proofSource.id)}
+              onClose={cs.closeProof}
+            />
+          )}
+          <ContentSourcesList
+            sources={cs.sources}
+            busy={cs.busy}
+            message={cs.listMsg}
+            proofOpenFor={cs.proof?.sourceId ?? null}
+            onCheck={(sourceId) => void cs.checkSource(sourceId)}
+            onRun={(sourceId) => void cs.runSource(sourceId)}
+            onRemove={cs.removeSource}
+          >
+            {checkInList && <CheckResult check={cs.check} checking={checkingId !== null} />}
+          </ContentSourcesList>
+        </>
+      )}
 
       <section className="cs-card" aria-labelledby={id("drafts-title")}>
         <h3 className="cs-card__title" id={id("drafts-title")}>
@@ -236,7 +157,7 @@ export function ContentSourcesTab({ posts, brands, onReviewAndEdit, onApproveToC
           <p className="cs-empty">{EMPTY_TEXT}</p>
         ) : (
           <div className="cs-table-wrap" role="region" aria-label="Drafts from your content sources" tabIndex={0}>
-            <table className="cs-table">
+            <table className="cs-table" aria-label="Drafts from your content sources">
               <thead>
                 <tr>
                   <th scope="col">Source</th>

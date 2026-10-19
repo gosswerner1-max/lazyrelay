@@ -341,6 +341,143 @@
   color: var(--byok-muted);
 }
 
+/* Plain sentences, the CSV choice that is not ready, and elements that take focus from a script (a heading, a saved line). */
+.content-sources .cs-note {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--byok-ink);
+}
+
+.content-sources .cs-segment--disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.content-sources .cs-segment--disabled input {
+  cursor: not-allowed;
+}
+
+.content-sources [tabindex="-1"]:focus-visible {
+  outline: 2px solid var(--byok-coral);
+  outline-offset: 2px;
+}
+
+/* A button that reads as a link (See plans, Go to the API Keys tab). It is still a button, so it keeps the press feedback above. */
+.content-sources .cs-btn--link {
+  padding: 0.125rem 0;
+  background: transparent;
+  color: var(--byok-coral);
+  border: 0;
+  border-radius: 4px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.content-sources .cs-btn--link:hover:not(:disabled) {
+  color: var(--byok-ink);
+}
+
+/* Connect your LazyRelay key: the saved state. */
+.content-sources .cs-key-saved {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.content-sources .cs-key-saved__line {
+  margin: 0;
+  color: var(--byok-ink);
+  font-weight: 600;
+}
+
+/* Prove you own this website: three methods, each with the exact text to publish. */
+.content-sources .cs-proof {
+  border-color: var(--byok-coral);
+}
+
+.content-sources .cs-method {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 10px;
+}
+
+.content-sources .cs-method__title {
+  margin: 0;
+  color: var(--byok-ink);
+  font-size: 0.9rem;
+  line-height: 1.25;
+}
+
+.content-sources .cs-code {
+  display: block;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 0.5rem 0.625rem;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--byok-ink);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  user-select: all;
+}
+
+.content-sources .cs-copy {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.content-sources .cs-copy__note {
+  color: var(--byok-ok);
+  font-size: 0.8rem;
+}
+
+.content-sources .cs-check {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.content-sources .cs-reasons {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--byok-ink);
+}
+
+/* The sources list: the three status badges. Waiting keeps the warm badge colour above. */
+.content-sources .cs-badge--wait {
+  border-color: var(--byok-coral);
+  color: var(--byok-coral);
+}
+
+.content-sources .cs-badge--ok {
+  border-color: var(--byok-ok);
+  color: var(--byok-ok);
+}
+
+.content-sources .cs-badge--attention {
+  border-color: var(--byok-error);
+  color: var(--byok-error);
+}
+
+.content-sources .cs-table td .cs-hint {
+  margin-top: 0.375rem;
+  max-width: 26ch;
+}
+
 /* Reduced motion: no scale, no transition. A press still shows, as a change in opacity. */
 @media (prefers-reduced-motion: reduce) {
   .content-sources .cs-btn,
@@ -361,7 +498,8 @@
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
-  .content-sources .cs-input {
+  .content-sources .cs-input,
+  .content-sources .cs-code {
     background: var(--byok-midnight);
   }
 }
@@ -374,7 +512,9 @@
   .content-sources .cs-btn--secondary,
   .content-sources .cs-btn--quiet,
   .content-sources .cs-table-wrap,
-  .content-sources .cs-chip {
+  .content-sources .cs-chip,
+  .content-sources .cs-method,
+  .content-sources .cs-code {
     border-color: var(--byok-ink);
     border-width: 2px;
   }
@@ -382,6 +522,8 @@
   .content-sources .cs-result--info,
   .content-sources .cs-empty,
   .content-sources .cs-chip,
+  .content-sources .cs-copy__note,
+  .content-sources .cs-btn--link,
   .content-sources .cs-table thead th {
     color: var(--byok-ink);
   }

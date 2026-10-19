@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-// The connector hands the tab's three row actions to the dashboard's own existing handlers. These tests pin which handler
-// each action reaches, so a row action can never grow a path of its own.
+// The connector hands the tab's three row actions to the dashboard's own existing handlers, and its two links (API Keys, plans)
+// to the dashboard's own tab and billing calls. These tests pin which handler each one reaches, so nothing can grow a path of
+// its own. The companion service is a fake here.
 
 const ctx = vi.hoisted(() => ({
   posts: [] as unknown[],
@@ -13,10 +14,25 @@ const ctx = vi.hoisted(() => ({
   handlePromotePlanItem: vi.fn(),
   handleDelete: vi.fn(),
   setTab: vi.fn(),
+  setScrollToBillingPending: vi.fn(),
 }));
 vi.mock("./DashboardContext", () => ({ useDashboard: () => ctx }));
 
+const service = vi.hoisted(() => ({
+  getCredentials: vi.fn(),
+  saveKey: vi.fn(),
+  removeKey: vi.fn(),
+  listSources: vi.fn(),
+  createSource: vi.fn(),
+  verifySource: vi.fn(),
+  updateSource: vi.fn(),
+  deleteSource: vi.fn(),
+  runSource: vi.fn(),
+}));
+vi.mock("../../lib/contentSourcesDefault", () => ({ defaultContentSourcesClient: service }));
+
 import ContentSourcesTabConnected from "./ContentSourcesTabConnected";
+import { ContentSourcesError } from "../../lib/contentSources";
 
 const draft = { id: "d1", content: "A draft headline", status: "draft", tags: ["cs:rss:blog"], social_account_id: null, scheduled_for: null };
 const dated = { id: "n1", content: "Ready headline", status: "needs_approval", tags: ["cs:sitemap:shop"], social_account_id: "a1", scheduled_for: "2026-11-01T08:00:00Z" };
@@ -25,15 +41,20 @@ const ordinary = { id: "x1", content: "Not ours", status: "draft", tags: [], soc
 
 beforeEach(() => {
   ctx.posts = [draft, dated, undated, ordinary];
-  for (const fn of [ctx.handleEditDraft, ctx.handleApprove, ctx.handlePromotePlanItem, ctx.handleDelete, ctx.setTab]) fn.mockReset();
+  for (const fn of [ctx.handleEditDraft, ctx.handleApprove, ctx.handlePromotePlanItem, ctx.handleDelete, ctx.setTab, ctx.setScrollToBillingPending]) fn.mockReset();
+  for (const fn of Object.values(service)) fn.mockReset();
+  service.getCredentials.mockResolvedValue({ registered: false, keyHint: null });
+  service.listSources.mockResolvedValue([]);
 });
 afterEach(cleanup);
 
 const row = (title: string) => screen.getByText(title).closest("tr") as HTMLElement;
+const ready = () => screen.findByRole("heading", { name: "Add a source" });
 
 describe("ContentSourcesTabConnected", () => {
-  it("shows the dashboard's own posts (only the cs: drafts) and brands", () => {
+  it("shows the dashboard's own posts (only the cs: drafts) and brands", async () => {
     render(<ContentSourcesTabConnected />);
+    await ready();
     expect(screen.getByText("A draft headline")).toBeInTheDocument();
     expect(screen.queryByText("Not ours")).toBeNull();
     expect([...(screen.getByLabelText("Target brand") as HTMLSelectElement).options].map((o) => o.textContent)).toEqual(["No brand", "Acme"]);
@@ -74,5 +95,30 @@ describe("ContentSourcesTabConnected", () => {
     expect(ctx.handleDelete).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Delete draft" }));
     await waitFor(() => expect(ctx.handleDelete).toHaveBeenCalledWith("d1", false));
+  });
+
+  it("talks to the companion service through the default client", async () => {
+    render(<ContentSourcesTabConnected />);
+    await ready();
+    expect(service.getCredentials).toHaveBeenCalledTimes(1);
+    expect(service.listSources).toHaveBeenCalledTimes(1);
+  });
+
+  it("the key section's link opens the existing API Keys tab", async () => {
+    render(<ContentSourcesTabConnected />);
+    await ready();
+    await userEvent.click(screen.getByRole("button", { name: "Go to the API Keys tab" }));
+    expect(ctx.setTab).toHaveBeenCalledWith("API Keys");
+  });
+
+  it("the plan limit link opens the plan page the dashboard's Upgrade button uses (Settings, scrolled to billing)", async () => {
+    service.createSource.mockRejectedValue(new ContentSourcesError("plan_limit"));
+    render(<ContentSourcesTabConnected />);
+    await ready();
+    await userEvent.type(screen.getByLabelText("Feed address"), "https://example.com/feed.xml");
+    await userEvent.click(screen.getByRole("button", { name: "Add source" }));
+    await userEvent.click(await screen.findByRole("button", { name: "See plans" }));
+    expect(ctx.setTab).toHaveBeenCalledWith("Settings");
+    expect(ctx.setScrollToBillingPending).toHaveBeenCalledWith(true);
   });
 });
