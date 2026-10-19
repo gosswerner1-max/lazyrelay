@@ -196,3 +196,61 @@ describe("content-sources.css", () => {
     expect(all.some((r) => /:focus-visible/.test(r.selector) && /outline\s*:/.test(r.body))).toBe(true);
   });
 });
+
+// The key section, the proof panel and the sources list use classes of their own. Each one must be styled here (so none falls
+// back on the browser's plain look), and the new surfaces must keep the same fallbacks as the old ones.
+describe("content-sources.css covers every class the tab's components use", () => {
+  const files = [
+    "../components/dashboard/ContentSourcesTab.tsx",
+    "../components/dashboard/ContentSourcesKey.tsx",
+    "../components/dashboard/ContentSourcesAddForm.tsx",
+    "../components/dashboard/ContentSourcesProof.tsx",
+    "../components/dashboard/ContentSourcesList.tsx",
+    "../components/dashboard/ContentSourcesParts.tsx",
+  ];
+  const used = new Set<string>();
+  for (const f of files) {
+    for (const m of read(f).matchAll(/["'`]((?:[^"'`]*\s)?cs-[\w\s${}?:.()-]*)["'`]/g)) {
+      for (const cls of m[1]!.matchAll(/cs-[a-z0-9_-]*[a-z0-9]/g)) used.add(cls[0]); // a class built from a variable ends in -- and is covered by the badge test below
+    }
+  }
+  const styled = new Set([...text.matchAll(/\.(cs-[a-z0-9_-]+)/g)].map((m) => m[1]!));
+
+  it("finds the classes the components use", () => {
+    expect(used.size).toBeGreaterThan(25);
+    for (const must of ["cs-method", "cs-code", "cs-btn--link", "cs-segment--disabled", "cs-copy", "cs-key-saved", "cs-reasons", "cs-note", "cs-check", "cs-proof"]) {
+      expect(used.has(must), `${must} is not used by a component`).toBe(true);
+    }
+  });
+
+  it("styles every one of them", () => {
+    for (const cls of used) expect(styled.has(cls), `.${cls} has no rule in content-sources.css`).toBe(true);
+  });
+
+  it("keeps long proof text from breaking the layout: code wraps and the page never scrolls sideways", () => {
+    const code = all.filter((r) => /\.cs-code\b/.test(r.selector) && !r.media).map((r) => r.body).join(";");
+    expect(code).toMatch(/overflow-wrap\s*:\s*anywhere/);
+    expect(code).toMatch(/font-family\s*:\s*(ui-monospace|monospace|var\(--byok-mono)/);
+  });
+
+  it("gives the link style button press feedback like the other buttons, and a disabled look for CSV", () => {
+    const sel = (re: RegExp) => all.filter((r) => re.test(r.selector));
+    expect(sel(/\.cs-btn--link/).length).toBeGreaterThan(0);
+    expect(sel(/\.cs-segment--disabled/).some((r) => /cursor\s*:\s*not-allowed/.test(r.body) && /opacity\s*:/.test(r.body))).toBe(true);
+  });
+
+  it("includes the new surfaces in the reduced transparency and more contrast fallbacks", () => {
+    const inMedia = (re: RegExp) => all.filter((r) => re.test(r.media ?? "")).map((r) => r.selector).join(",");
+    expect(inMedia(/prefers-contrast:\s*more/)).toMatch(/\.cs-code/);
+    expect(inMedia(/prefers-contrast:\s*more/)).toMatch(/\.cs-btn--link/);
+    expect(inMedia(/prefers-reduced-motion/)).toMatch(/\.cs-btn/);
+    expect(inMedia(/prefers-reduced-transparency/)).toMatch(/\.cs-card/);
+  });
+
+  it("colours the three status badges from existing tokens only (warm for waiting, green for verified, red for attention)", () => {
+    const body = (cls: string) => all.filter((r) => r.selector.includes(cls)).map((r) => r.body).join(";");
+    expect(body(".cs-badge--ok")).toMatch(/var\(--byok-ok\)/);
+    expect(body(".cs-badge--attention")).toMatch(/var\(--byok-error\)/);
+    expect(body(".cs-badge--wait")).toMatch(/var\(--byok-coral\)|var\(--byok-muted\)/);
+  });
+});

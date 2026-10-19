@@ -1,12 +1,14 @@
-// Joins the Content Sources tab to the dashboard's own state and handlers. Each of the three row actions goes through a flow
-// the Posts and Calendar tabs already use; nothing here talks to the Content Sources service.
+// Joins the Content Sources tab to the dashboard's own state and handlers. Each of the three draft actions goes through a flow
+// the Posts and Calendar tabs already use. The tab's two links go to the API Keys tab and to the plan page (the same place the
+// dashboard's Upgrade button opens). Everything about sources, keys and proofs goes through the default companion service client.
 
 import { ContentSourcesTab } from "../../components/dashboard/ContentSourcesTab";
 import type { ScheduledPost } from "../../lib/api";
+import { defaultContentSourcesClient } from "../../lib/contentSourcesDefault";
 import { useDashboard } from "./DashboardContext";
 
 export default function ContentSourcesTabConnected() {
-  const { posts, brands, handleEditDraft, handleApprove, handlePromotePlanItem, handleDelete, setTab } = useDashboard();
+  const { posts, brands, handleEditDraft, handleApprove, handlePromotePlanItem, handleDelete, setTab, setScrollToBillingPending } = useDashboard();
 
   // The Posts tab's draft editor, the same one its Edit button opens.
   function reviewAndEdit(post: ScheduledPost) {
@@ -31,13 +33,22 @@ export default function ContentSourcesTabConnected() {
     return handleDelete(post.id, false);
   }
 
+  // The dashboard's Upgrade button: the Settings tab, scrolled to billing.
+  function openPlan() {
+    setTab("Settings");
+    setScrollToBillingPending(true);
+  }
+
   return (
     <ContentSourcesTab
       posts={posts}
       brands={brands}
+      client={defaultContentSourcesClient}
       onReviewAndEdit={reviewAndEdit}
       onApproveToCalendar={approveToCalendar}
       onPurge={purge}
+      onOpenApiKeys={() => setTab("API Keys")}
+      onOpenPlan={openPlan}
     />
   );
 }

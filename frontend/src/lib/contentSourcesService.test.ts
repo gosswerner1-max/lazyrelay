@@ -14,7 +14,7 @@ import { createMockContentSourcesClient } from "./contentSourcesMock";
 
 const TOKEN = "tok_SECRET_session_value_123";
 const BASE = "https://service.example";
-const DASH = /[–—]/;
+const DASH = /[\u2013\u2014]/;
 const ID = "11111111-2222-4333-8444-555555555555";
 
 afterEach(() => vi.restoreAllMocks());
@@ -23,7 +23,7 @@ function reply(status: number, body?: unknown, headers: Record<string, string> =
   return new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
 }
 
-function setup(responses: Array<Response | Error> | Response, opts: { onUnauthorized?: () => void; baseUrl?: string } = {}) {
+function setup(responses: Array<Response | Error> | Response | Error, opts: { onUnauthorized?: () => void; baseUrl?: string } = {}) {
   const queue = Array.isArray(responses) ? [...responses] : [responses];
   const fetchImpl = vi.fn(async (_url: string, _init?: RequestInit) => {
     const next = queue.length > 1 ? queue.shift()! : queue[0]!;
@@ -261,7 +261,7 @@ describe("every error code becomes a safe error with a plain message", () => {
   ];
 
   it.each(cases)("%i %s", async (status, code) => {
-    const { client } = setup(reply(status, { code, message: `server words with ${TOKEN} and a dash — here` }));
+    const { client } = setup(reply(status, { code, message: `server words with ${TOKEN} and a dash \u2014 here` }));
     const e = await errorOf(client.runSource(ID));
     expect(e.code).toBe(code);
     expect(e.message.length).toBeGreaterThan(10);
