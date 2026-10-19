@@ -17,7 +17,7 @@ export const GCAL_PROMPT_SEEN_KEY = "lazyrelay_gcal_prompt_seen";
 // instead of three separate dropdown entries. Settings and API Keys both
 // promoted to the always-visible top bar, leaving only the four
 // content/engagement tabs behind "More".
-export const TABS = ["Overview", "Posts", "Failed", "Calendar", "Analytics", "Mentions", "DMs", "Bio Page", "WhatsApp", "Social Platforms", "Settings", "API Keys"] as const;
+export const TABS = ["Overview", "Posts", "Failed", "Calendar", "Content Sources", "Analytics", "Mentions", "DMs", "Bio Page", "WhatsApp", "Social Platforms", "Settings", "API Keys"] as const;
 export type Tab = (typeof TABS)[number];
 
 // The tabs behind "More". WhatsApp (contacts and consent) is added only when the server says broadcasts are on for this account

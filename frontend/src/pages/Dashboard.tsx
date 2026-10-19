@@ -39,7 +39,20 @@ import { ApiKeysTab } from "./dashboard/ApiKeysTab";
 import "./Dashboard.css";
 
 const ProductTour = lazy(() => import("../components/ProductTour").then((m) => ({ default: m.ProductTour })));
-const MAIN_TABS: Tab[] = ["Overview", "Posts", "Failed", "Calendar", "Social Platforms", "API Keys", "Settings"];
+// Content Sources (a thin client for a separate service) is behind a build-time flag, default off: a build without the flag has
+// no tab and no panel code. When on, the tab sits directly after Calendar and loads lazily.
+const CONTENT_SOURCES_ENABLED = import.meta.env.VITE_CONTENT_SOURCES_ENABLED === "true";
+const ContentSourcesTab = CONTENT_SOURCES_ENABLED ? lazy(() => import("./dashboard/ContentSourcesTabConnected")) : null;
+const MAIN_TABS: Tab[] = [
+  "Overview",
+  "Posts",
+  "Failed",
+  "Calendar",
+  ...(CONTENT_SOURCES_ENABLED ? (["Content Sources"] as Tab[]) : []),
+  "Social Platforms",
+  "API Keys",
+  "Settings",
+];
 
 // Reply-to-comment and DM read/reply/automation for Facebook and Instagram
 // depend on pages_manage_engagement / instagram_manage_comments / pages_messaging
@@ -274,6 +287,12 @@ export function Dashboard() {
       {tab === "Failed" && <FailedTab />}
 
       {tab === "Calendar" && <CalendarTab />}
+
+      {ContentSourcesTab && tab === "Content Sources" && (
+        <Suspense fallback={null}>
+          <ContentSourcesTab />
+        </Suspense>
+      )}
 
       {tab === "Settings" && <SettingsTab />}
 
