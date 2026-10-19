@@ -14,6 +14,7 @@ import type {
   PendingConnectSelection,
 } from "./types.js";
 import { metaConnectError } from "./metaConnectError.js";
+import { graphFetch, readGraphJson } from "./metaGraphHttp.js";
 
 // Instagram Business posting via "Instagram API with Facebook Login" — same
 // OAuth app/flow as the Facebook adapter (Facebook Login for Business), but
@@ -123,14 +124,18 @@ export class InstagramAdapter implements PlatformAdapter {
   }
 
   private async exchangeForLongLivedUserToken(shortLivedToken: string): Promise<string> {
-    const url = new URL(TOKEN_URL);
-    url.searchParams.set("grant_type", "fb_exchange_token");
-    url.searchParams.set("client_id", this.clientId);
-    url.searchParams.set("client_secret", this.clientSecret);
-    url.searchParams.set("fb_exchange_token", shortLivedToken);
-
-    const res = await fetch(url.toString());
-    const json = (await res.json()) as FacebookTokenResponse;
+    // POST with a form body (Meta documents it), so the app secret and the token stay out of the URL and every request log.
+    const res = await graphFetch(TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "fb_exchange_token",
+        client_id: this.clientId,
+        client_secret: this.clientSecret,
+        fb_exchange_token: shortLivedToken,
+      }).toString(),
+    });
+    const json = await readGraphJson<FacebookTokenResponse>(res);
     if (!res.ok || !json.access_token) {
       throw metaConnectError("instagram-connect", res.status, json.error?.message, [this.clientSecret, shortLivedToken]);
     }
@@ -150,8 +155,8 @@ export class InstagramAdapter implements PlatformAdapter {
     url.searchParams.set("fields", "id,name,access_token,instagram_business_account");
     url.searchParams.set("access_token", longLivedUserToken);
 
-    const res = await fetch(url.toString());
-    const json = (await res.json()) as FacebookPagesResponse;
+    const res = await graphFetch(url.toString());
+    const json = await readGraphJson<FacebookPagesResponse>(res);
     if (!res.ok || !json.data) {
       throw metaConnectError("instagram-connect", res.status, json.error?.message, [longLivedUserToken]);
     }
@@ -171,8 +176,8 @@ export class InstagramAdapter implements PlatformAdapter {
     codeUrl.searchParams.set("redirect_uri", this.redirectUri);
     codeUrl.searchParams.set("code", code);
 
-    const res = await fetch(codeUrl.toString());
-    const json = (await res.json()) as FacebookTokenResponse;
+    const res = await graphFetch(codeUrl.toString());
+    const json = await readGraphJson<FacebookTokenResponse>(res);
     if (!res.ok || !json.access_token) {
       throw metaConnectError("instagram-connect", res.status, json.error?.message, [this.clientSecret, code]);
     }
@@ -183,7 +188,7 @@ export class InstagramAdapter implements PlatformAdapter {
     const userInfoUrl = new URL(`${GRAPH_BASE}/${igId}`);
     userInfoUrl.searchParams.set("fields", "username");
     userInfoUrl.searchParams.set("access_token", pageAccessToken);
-    const userRes = await fetch(userInfoUrl.toString());
+    const userRes = await graphFetch(userInfoUrl.toString());
     const userJson = (await userRes.json().catch(() => ({}))) as InstagramUserInfo;
     return userJson.username ?? null;
   }
@@ -254,8 +259,8 @@ export class InstagramAdapter implements PlatformAdapter {
     const url = new URL(`${GRAPH_BASE}/me`);
     url.searchParams.set("fields", "instagram_business_account");
     url.searchParams.set("access_token", accessToken);
-    const res = await fetch(url.toString());
-    const json = (await res.json()) as { instagram_business_account?: { id: string }; error?: { message?: string } };
+    const res = await graphFetch(url.toString());
+    const json = await readGraphJson<{ instagram_business_account?: { id: string }; error?: { message?: string } }>(res);
     if (!res.ok || !json.instagram_business_account?.id) {
       throw new Error(json.error?.message ?? "Could not resolve the connected Instagram Business Account id");
     }
@@ -277,8 +282,8 @@ export class InstagramAdapter implements PlatformAdapter {
       const url = new URL(`${GRAPH_BASE}/${containerId}`);
       url.searchParams.set("fields", "status_code");
       url.searchParams.set("access_token", accessToken);
-      const res = await fetch(url.toString());
-      const json = (await res.json()) as InstagramContainerStatusResponse;
+      const res = await graphFetch(url.toString());
+      const json = await readGraphJson<InstagramContainerStatusResponse>(res);
       if (!res.ok) {
         return json.error?.message ?? `Could not check Instagram container status (HTTP ${res.status})`;
       }
@@ -315,12 +320,12 @@ export class InstagramAdapter implements PlatformAdapter {
         is_carousel_item: "true",
         access_token: request.accessToken,
       });
-      const res = await fetch(`${GRAPH_BASE}/${igId}/media`, {
+      const res = await graphFetch(`${GRAPH_BASE}/${igId}/media`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: childParams.toString(),
       });
-      const json = (await res.json()) as InstagramContainerResponse;
+      const json = await readGraphJson<InstagramContainerResponse>(res);
       if (!res.ok || !json.id) {
         return { success: false, platformPostId: null, errorMessage: json.error?.message ?? `Instagram carousel item ${childIds.length + 1} failed (HTTP ${res.status})` };
       }
@@ -328,23 +333,23 @@ export class InstagramAdapter implements PlatformAdapter {
       if (childError) return { success: false, platformPostId: null, errorMessage: childError };
       childIds.push(json.id);
     }
-    const parentRes = await fetch(`${GRAPH_BASE}/${igId}/media`, {
+    const parentRes = await graphFetch(`${GRAPH_BASE}/${igId}/media`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ media_type: "CAROUSEL", children: childIds.join(","), caption: request.content, access_token: request.accessToken }).toString(),
     });
-    const parentJson = (await parentRes.json()) as InstagramContainerResponse;
+    const parentJson = await readGraphJson<InstagramContainerResponse>(parentRes);
     if (!parentRes.ok || !parentJson.id) {
       return { success: false, platformPostId: null, errorMessage: parentJson.error?.message ?? `Instagram carousel container failed (HTTP ${parentRes.status})` };
     }
     const parentError = await this.waitForContainerReady(parentJson.id, request.accessToken, false);
     if (parentError) return { success: false, platformPostId: null, errorMessage: parentError };
-    const publishRes = await fetch(`${GRAPH_BASE}/${igId}/media_publish`, {
+    const publishRes = await graphFetch(`${GRAPH_BASE}/${igId}/media_publish`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ creation_id: parentJson.id, access_token: request.accessToken }).toString(),
     });
-    const publishJson = (await publishRes.json()) as InstagramMediaResponse;
+    const publishJson = await readGraphJson<InstagramMediaResponse>(publishRes);
     if (!publishRes.ok || !publishJson.id) {
       return { success: false, platformPostId: null, errorMessage: publishJson.error?.message ?? `Instagram publish failed (HTTP ${publishRes.status})` };
     }
@@ -390,12 +395,12 @@ export class InstagramAdapter implements PlatformAdapter {
         JSON.stringify({ graduation_strategy: igOptions.trialGraduation === "auto" ? "SS_PERFORMANCE" : "MANUAL" }),
       );
     }
-    const containerRes = await fetch(`${GRAPH_BASE}/${igId}/media`, {
+    const containerRes = await graphFetch(`${GRAPH_BASE}/${igId}/media`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: containerParams.toString(),
     });
-    const containerJson = (await containerRes.json()) as InstagramContainerResponse;
+    const containerJson = await readGraphJson<InstagramContainerResponse>(containerRes);
     if (!containerRes.ok || !containerJson.id) {
       return {
         success: false,
@@ -413,12 +418,12 @@ export class InstagramAdapter implements PlatformAdapter {
       creation_id: containerJson.id,
       access_token: request.accessToken,
     });
-    const publishRes = await fetch(`${GRAPH_BASE}/${igId}/media_publish`, {
+    const publishRes = await graphFetch(`${GRAPH_BASE}/${igId}/media_publish`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: publishParams.toString(),
     });
-    const publishJson = (await publishRes.json()) as InstagramMediaResponse;
+    const publishJson = await readGraphJson<InstagramMediaResponse>(publishRes);
     if (!publishRes.ok || !publishJson.id) {
       return {
         success: false,
@@ -435,8 +440,8 @@ export class InstagramAdapter implements PlatformAdapter {
     url.searchParams.set("fields", "id,permalink");
     url.searchParams.set("access_token", accessToken);
 
-    const res = await fetch(url.toString());
-    const json = (await res.json()) as InstagramMediaResponse;
+    const res = await graphFetch(url.toString());
+    const json = await readGraphJson<InstagramMediaResponse>(res);
 
     if (!res.ok || !json.id) {
       return {
@@ -458,7 +463,7 @@ export class InstagramAdapter implements PlatformAdapter {
     url.searchParams.set("fields", "like_count,comments_count");
     url.searchParams.set("access_token", accessToken);
 
-    const res = await fetch(url.toString());
+    const res = await graphFetch(url.toString());
     const json = (await res.json().catch(() => ({}))) as InstagramMediaMetricsResponse;
 
     if (!res.ok || !json.id) {
@@ -482,7 +487,7 @@ export class InstagramAdapter implements PlatformAdapter {
 
   async postComment(platformPostId: string, text: string, accessToken: string): Promise<CommentPostResult> {
     const params = new URLSearchParams({ message: text, access_token: accessToken });
-    const res = await fetch(`${GRAPH_BASE}/${platformPostId}/comments`, {
+    const res = await graphFetch(`${GRAPH_BASE}/${platformPostId}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: params.toString(),
@@ -507,7 +512,7 @@ export class InstagramAdapter implements PlatformAdapter {
     url.searchParams.set("fields", "id,text,username,timestamp");
     url.searchParams.set("access_token", accessToken);
 
-    const res = await fetch(url.toString());
+    const res = await graphFetch(url.toString());
     const json = (await res.json().catch(() => ({}))) as InstagramCommentsResponse;
     if (!res.ok) {
       return { comments: [], errorMessage: json.error?.message ?? `Could not load comments (HTTP ${res.status})` };
@@ -540,7 +545,7 @@ export class InstagramAdapter implements PlatformAdapter {
     url.searchParams.set("fields", "participants,updated_time,snippet");
     url.searchParams.set("access_token", accessToken);
 
-    const res = await fetch(url.toString());
+    const res = await graphFetch(url.toString());
     const json = (await res.json().catch(() => ({}))) as InstagramConversationsResponse;
     if (!res.ok) {
       return { conversations: [], errorMessage: json.error?.message ?? `Could not load conversations (HTTP ${res.status})` };
@@ -567,7 +572,7 @@ export class InstagramAdapter implements PlatformAdapter {
     url.searchParams.set("fields", "id,message,from,created_time");
     url.searchParams.set("access_token", accessToken);
 
-    const res = await fetch(url.toString());
+    const res = await graphFetch(url.toString());
     const json = (await res.json().catch(() => ({}))) as InstagramMessagesResponse;
     if (!res.ok) {
       return { messages: [], errorMessage: json.error?.message ?? `Could not load messages (HTTP ${res.status})` };
@@ -593,7 +598,7 @@ export class InstagramAdapter implements PlatformAdapter {
   // Graph API error, surfaced honestly rather than hidden.
   async sendDirectMessage(recipientId: string, text: string, accessToken: string): Promise<SendDMResult> {
     const igAccountId = await this.getInstagramAccountId(accessToken);
-    const res = await fetch(`${GRAPH_BASE}/${igAccountId}/messages?access_token=${encodeURIComponent(accessToken)}`, {
+    const res = await graphFetch(`${GRAPH_BASE}/${igAccountId}/messages?access_token=${encodeURIComponent(accessToken)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -611,7 +616,7 @@ export class InstagramAdapter implements PlatformAdapter {
   // Same Private Reply mechanism as Facebook — DMs whoever left the
   // comment without needing them to have messaged the account first.
   async sendPrivateReply(commentId: string, text: string, accessToken: string): Promise<SendDMResult> {
-    const res = await fetch(`${GRAPH_BASE}/${commentId}/private_replies?access_token=${encodeURIComponent(accessToken)}`, {
+    const res = await graphFetch(`${GRAPH_BASE}/${commentId}/private_replies?access_token=${encodeURIComponent(accessToken)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text }),
