@@ -104,3 +104,18 @@ describe("DELETE /social-accounts/:id", () => {
     expect(again.status).toBe(404);
   });
 });
+
+describe("credential audit on disconnect", () => {
+  it("disconnecting a BYOK connection writes one 'cleared' entry and still answers 204; a plain OAuth one writes none", async () => {
+    tables.social_accounts = [
+      { id: "byok1", account_id: "acc1", platform: "x", credential_mode: "byok", access_token_vault_id: "mine-a", refresh_token_vault_id: null, disconnected_at: null },
+      { id: "oauth1", account_id: "acc1", platform: "pinterest", credential_mode: "oauth", access_token_vault_id: "mine-r", refresh_token_vault_id: null, disconnected_at: null },
+    ];
+    tables.credential_audit_events = [];
+    expect((await request(app()).delete("/social-accounts/oauth1")).status).toBe(204);
+    expect(tables.credential_audit_events).toHaveLength(0);
+    expect((await request(app()).delete("/social-accounts/byok1")).status).toBe(204);
+    expect(tables.credential_audit_events).toHaveLength(1);
+    expect(tables.credential_audit_events[0]).toMatchObject({ account_id: "acc1", social_account_id: "byok1", platform: "x", action: "cleared" });
+  });
+});

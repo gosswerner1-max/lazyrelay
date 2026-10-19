@@ -13,6 +13,8 @@ import type {
   ConnectOption,
   PendingConnectSelection,
 } from "./types.js";
+import { metaConnectError } from "./metaConnectError.js";
+import { graphFetch, graphPublishFetch, readGraphJson } from "./metaGraphHttp.js";
 
 // A Facebook user can manage multiple Pages. exchangeCode() below still
 // connects the FIRST Page returned by /me/accounts, kept for interface
@@ -117,16 +119,20 @@ export class FacebookAdapter implements PlatformAdapter {
   }
 
   private async exchangeForLongLivedUserToken(shortLivedToken: string): Promise<string> {
-    const url = new URL(TOKEN_URL);
-    url.searchParams.set("grant_type", "fb_exchange_token");
-    url.searchParams.set("client_id", this.clientId);
-    url.searchParams.set("client_secret", this.clientSecret);
-    url.searchParams.set("fb_exchange_token", shortLivedToken);
-
-    const res = await fetch(url.toString());
-    const json = (await res.json()) as FacebookTokenResponse;
+    // POST with a form body (Meta documents it), so the app secret and the token stay out of the URL and every request log.
+    const res = await graphFetch(TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "fb_exchange_token",
+        client_id: this.clientId,
+        client_secret: this.clientSecret,
+        fb_exchange_token: shortLivedToken,
+      }).toString(),
+    });
+    const json = await readGraphJson<FacebookTokenResponse>(res);
     if (!res.ok || !json.access_token) {
-      throw new Error(json.error?.message ?? "Could not exchange for a long-lived Facebook token");
+      throw metaConnectError("facebook-connect", res.status, json.error?.message, [this.clientSecret, shortLivedToken]);
     }
     return json.access_token;
   }
@@ -136,10 +142,10 @@ export class FacebookAdapter implements PlatformAdapter {
     url.searchParams.set("fields", "id,name,access_token,instagram_business_account");
     url.searchParams.set("access_token", longLivedUserToken);
 
-    const res = await fetch(url.toString());
-    const json = (await res.json()) as FacebookPagesResponse;
+    const res = await graphFetch(url.toString());
+    const json = await readGraphJson<FacebookPagesResponse>(res);
     if (!res.ok || !json.data) {
-      throw new Error(json.error?.message ?? "Could not list this account's Facebook Pages");
+      throw metaConnectError("facebook-connect", res.status, json.error?.message, [longLivedUserToken]);
     }
     if (json.data.length === 0) {
       throw new Error("No Facebook Page found — this account must manage at least one Page to connect");
@@ -154,10 +160,10 @@ export class FacebookAdapter implements PlatformAdapter {
     codeUrl.searchParams.set("redirect_uri", this.redirectUri);
     codeUrl.searchParams.set("code", code);
 
-    const res = await fetch(codeUrl.toString());
-    const json = (await res.json()) as FacebookTokenResponse;
+    const res = await graphFetch(codeUrl.toString());
+    const json = await readGraphJson<FacebookTokenResponse>(res);
     if (!res.ok || !json.access_token) {
-      throw new Error(json.error?.message ?? "Facebook token exchange failed");
+      throw metaConnectError("facebook-connect", res.status, json.error?.message, [this.clientSecret, code]);
     }
     return await this.exchangeForLongLivedUserToken(json.access_token);
   }
@@ -210,8 +216,8 @@ export class FacebookAdapter implements PlatformAdapter {
     const url = new URL(`${GRAPH_BASE}/me`);
     url.searchParams.set("fields", "id");
     url.searchParams.set("access_token", pageAccessToken);
-    const res = await fetch(url.toString());
-    const json = (await res.json()) as { id?: string; error?: { message?: string } };
+    const res = await graphFetch(url.toString());
+    const json = await readGraphJson<{ id?: string; error?: { message?: string } }>(res);
     if (!res.ok || !json.id) {
       throw new Error(json.error?.message ?? "Could not resolve the connected Facebook Page's id");
     }
@@ -226,12 +232,12 @@ export class FacebookAdapter implements PlatformAdapter {
     const urls = [request.mediaUrl as string, ...(request.mediaUrls ?? [])];
     const photoIds: string[] = [];
     for (const photoUrl of urls) {
-      const res = await fetch(`${GRAPH_BASE}/${pageId}/photos`, {
+      const res = await graphPublishFetch(`${GRAPH_BASE}/${pageId}/photos`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ url: photoUrl, published: "false", access_token: request.accessToken }).toString(),
       });
-      const json = (await res.json()) as FacebookPostResponse;
+      const json = await readGraphJson<FacebookPostResponse>(res);
       if (!res.ok || !json.id) {
         return { success: false, platformPostId: null, errorMessage: json.error?.message ?? `Facebook photo ${photoIds.length + 1} upload failed (HTTP ${res.status})` };
       }
@@ -239,12 +245,12 @@ export class FacebookAdapter implements PlatformAdapter {
     }
     const feedParams = new URLSearchParams({ message: request.content, access_token: request.accessToken });
     photoIds.forEach((id, i) => feedParams.set(`attached_media[${i}]`, JSON.stringify({ media_fbid: id })));
-    const feedRes = await fetch(`${GRAPH_BASE}/${pageId}/feed`, {
+    const feedRes = await graphPublishFetch(`${GRAPH_BASE}/${pageId}/feed`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: feedParams.toString(),
     });
-    const feedJson = (await feedRes.json()) as FacebookPostResponse;
+    const feedJson = await readGraphJson<FacebookPostResponse>(feedRes);
     if (!feedRes.ok || !feedJson.id) {
       return { success: false, platformPostId: null, errorMessage: feedJson.error?.message ?? `Facebook multi-photo post failed (HTTP ${feedRes.status})` };
     }
@@ -264,33 +270,33 @@ export class FacebookAdapter implements PlatformAdapter {
     const mediaUrl = request.mediaUrl as string;
 
     if (!isVideo) {
-      const upRes = await fetch(`${GRAPH_BASE}/${pageId}/photos`, {
+      const upRes = await graphPublishFetch(`${GRAPH_BASE}/${pageId}/photos`, {
         method: "POST",
         headers: form,
         body: new URLSearchParams({ url: mediaUrl, published: "false", access_token: request.accessToken }).toString(),
       });
-      const upJson = (await upRes.json()) as FacebookPostResponse;
+      const upJson = await readGraphJson<FacebookPostResponse>(upRes);
       if (!upRes.ok || !upJson.id) return fail(upJson.error?.message ?? `Facebook story photo upload failed (HTTP ${upRes.status})`);
-      const res = await fetch(`${GRAPH_BASE}/${pageId}/photo_stories`, {
+      const res = await graphPublishFetch(`${GRAPH_BASE}/${pageId}/photo_stories`, {
         method: "POST",
         headers: form,
         body: new URLSearchParams({ photo_id: upJson.id, access_token: request.accessToken }).toString(),
       });
-      const json = (await res.json()) as FacebookPostResponse;
+      const json = await readGraphJson<FacebookPostResponse>(res);
       if (!res.ok || !json.post_id) return fail(json.error?.message ?? `Facebook photo story failed (HTTP ${res.status})`);
       return { success: true, platformPostId: String(json.post_id), errorMessage: null };
     }
 
-    const startRes = await fetch(`${GRAPH_BASE}/${pageId}/video_stories`, {
+    const startRes = await graphPublishFetch(`${GRAPH_BASE}/${pageId}/video_stories`, {
       method: "POST",
       headers: form,
       body: new URLSearchParams({ upload_phase: "start", access_token: request.accessToken }).toString(),
     });
-    const startJson = (await startRes.json()) as { video_id?: string; upload_url?: string; error?: { message?: string } };
+    const startJson = await readGraphJson<{ video_id?: string; upload_url?: string; error?: { message?: string } }>(startRes);
     if (!startRes.ok || !startJson.video_id || !startJson.upload_url) {
       return fail(startJson.error?.message ?? `Facebook video story could not start (HTTP ${startRes.status})`);
     }
-    const uploadRes = await fetch(startJson.upload_url, {
+    const uploadRes = await graphPublishFetch(startJson.upload_url, {
       method: "POST",
       headers: { Authorization: `OAuth ${request.accessToken}`, file_url: mediaUrl },
     });
@@ -298,12 +304,12 @@ export class FacebookAdapter implements PlatformAdapter {
     if (!uploadRes.ok || uploadJson.success !== true) {
       return fail(uploadJson.error?.message ?? `Facebook video story upload failed (HTTP ${uploadRes.status})`);
     }
-    const finishRes = await fetch(`${GRAPH_BASE}/${pageId}/video_stories`, {
+    const finishRes = await graphPublishFetch(`${GRAPH_BASE}/${pageId}/video_stories`, {
       method: "POST",
       headers: form,
       body: new URLSearchParams({ video_id: startJson.video_id, upload_phase: "finish", access_token: request.accessToken }).toString(),
     });
-    const finishJson = (await finishRes.json()) as FacebookPostResponse;
+    const finishJson = await readGraphJson<FacebookPostResponse>(finishRes);
     if (!finishRes.ok || !finishJson.post_id) return fail(finishJson.error?.message ?? `Facebook video story failed (HTTP ${finishRes.status})`);
     return { success: true, platformPostId: String(finishJson.post_id), errorMessage: null };
   }
@@ -329,12 +335,12 @@ export class FacebookAdapter implements PlatformAdapter {
       params.set("message", request.content);
     }
 
-    const res = await fetch(endpoint, {
+    const res = await graphPublishFetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: params.toString(),
     });
-    const json = (await res.json()) as FacebookPostResponse;
+    const json = await readGraphJson<FacebookPostResponse>(res);
 
     // Photo posts return { id, post_id } where post_id is the Page post id.
     // Video posts return { id } only — the video id IS the Page post id.
@@ -394,15 +400,15 @@ export class FacebookAdapter implements PlatformAdapter {
       url.searchParams.set("fields", "id,permalink_url,status");
       url.searchParams.set("access_token", accessToken);
 
-      let res = await fetch(url.toString());
-      let json = (await res.json()) as FacebookPostDetail;
+      let res = await graphFetch(url.toString());
+      let json = await readGraphJson<FacebookPostDetail>(res);
 
       if (!res.ok && json.error?.message?.includes("nonexisting field (status)")) {
         const fallbackUrl = new URL(`${GRAPH_BASE}/${platformPostId}`);
         fallbackUrl.searchParams.set("fields", "id,permalink_url");
         fallbackUrl.searchParams.set("access_token", accessToken);
-        res = await fetch(fallbackUrl.toString());
-        json = (await res.json()) as FacebookPostDetail;
+        res = await graphFetch(fallbackUrl.toString());
+        json = await readGraphJson<FacebookPostDetail>(res);
       }
 
       if (!res.ok || !json.id) {
@@ -436,7 +442,7 @@ export class FacebookAdapter implements PlatformAdapter {
     if (!platformPostId.includes("_") && !lastPermalink) {
       const storiesUrl = new URL(`${GRAPH_BASE}/me/stories`);
       storiesUrl.searchParams.set("access_token", accessToken);
-      const sres = await fetch(storiesUrl.toString());
+      const sres = await graphFetch(storiesUrl.toString());
       const sjson = (await sres.json().catch(() => ({}))) as { data?: { post_id?: string | number; status?: string; url?: string }[] };
       const story = sres.ok ? (sjson.data ?? []).find((s) => String(s.post_id) === platformPostId) : undefined;
       const storyStatus = String(story?.status ?? "").toUpperCase();
@@ -457,7 +463,7 @@ export class FacebookAdapter implements PlatformAdapter {
     url.searchParams.set("fields", "likes.summary(true),comments.summary(true),shares");
     url.searchParams.set("access_token", accessToken);
 
-    const res = await fetch(url.toString());
+    const res = await graphFetch(url.toString());
     const json = (await res.json().catch(() => ({}))) as FacebookPostMetricsResponse;
 
     if (!res.ok || !json.id) {
@@ -481,7 +487,7 @@ export class FacebookAdapter implements PlatformAdapter {
 
   async postComment(platformPostId: string, text: string, accessToken: string): Promise<CommentPostResult> {
     const params = new URLSearchParams({ message: text, access_token: accessToken });
-    const res = await fetch(`${GRAPH_BASE}/${platformPostId}/comments`, {
+    const res = await graphFetch(`${GRAPH_BASE}/${platformPostId}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: params.toString(),
@@ -505,7 +511,7 @@ export class FacebookAdapter implements PlatformAdapter {
     url.searchParams.set("fields", "id,message,from,created_time,permalink_url");
     url.searchParams.set("access_token", accessToken);
 
-    const res = await fetch(url.toString());
+    const res = await graphFetch(url.toString());
     const json = (await res.json().catch(() => ({}))) as FacebookCommentsResponse;
     if (!res.ok) {
       return { comments: [], errorMessage: json.error?.message ?? `Could not load comments (HTTP ${res.status})` };
@@ -539,7 +545,7 @@ export class FacebookAdapter implements PlatformAdapter {
     url.searchParams.set("fields", "participants,updated_time,snippet");
     url.searchParams.set("access_token", accessToken);
 
-    const res = await fetch(url.toString());
+    const res = await graphFetch(url.toString());
     const json = (await res.json().catch(() => ({}))) as FacebookConversationsResponse;
     if (!res.ok) {
       return { conversations: [], errorMessage: json.error?.message ?? `Could not load conversations (HTTP ${res.status})` };
@@ -566,7 +572,7 @@ export class FacebookAdapter implements PlatformAdapter {
     url.searchParams.set("fields", "id,message,from,created_time");
     url.searchParams.set("access_token", accessToken);
 
-    const res = await fetch(url.toString());
+    const res = await graphFetch(url.toString());
     const json = (await res.json().catch(() => ({}))) as FacebookMessagesResponse;
     if (!res.ok) {
       return { messages: [], errorMessage: json.error?.message ?? `Could not load messages (HTTP ${res.status})` };
@@ -594,7 +600,7 @@ export class FacebookAdapter implements PlatformAdapter {
   // via errorMessage exactly as returned, not hidden or retried.
   async sendDirectMessage(recipientId: string, text: string, accessToken: string): Promise<SendDMResult> {
     const pageId = await this.getPageId(accessToken);
-    const res = await fetch(`${GRAPH_BASE}/${pageId}/messages?access_token=${encodeURIComponent(accessToken)}`, {
+    const res = await graphFetch(`${GRAPH_BASE}/${pageId}/messages?access_token=${encodeURIComponent(accessToken)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -617,7 +623,7 @@ export class FacebookAdapter implements PlatformAdapter {
   // privately replied to) — a request outside it returns a real API
   // error, surfaced honestly rather than retried forever.
   async sendPrivateReply(commentId: string, text: string, accessToken: string): Promise<SendDMResult> {
-    const res = await fetch(`${GRAPH_BASE}/${commentId}/private_replies?access_token=${encodeURIComponent(accessToken)}`, {
+    const res = await graphFetch(`${GRAPH_BASE}/${commentId}/private_replies?access_token=${encodeURIComponent(accessToken)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: text }),

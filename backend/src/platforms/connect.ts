@@ -313,7 +313,7 @@ export async function getPendingSelection(
  *  MORE of the options getPendingSelection returned — a customer managing
  *  several Pages can connect all of them in one pass instead of repeating
  *  the whole OAuth round-trip per Page. One-time use like the main
- *  callback: the state row (and the held user token with it) is deleted
+ *  callback (except a flow owned by ANOTHER account, which is refused and left alone): the state row (and the held user token with it) is deleted
  *  regardless of outcome, so a partial failure partway through the list
  *  can't be silently retried against a stale token — the customer just
  *  reconnects. Returns one social_accounts id per successfully connected
@@ -335,65 +335,67 @@ export async function finalizeConnectSelection(
     .eq("id", selectionToken)
     .single();
 
-  // Delete immediately, before doing anything else — one-time use no
-  // matter what happens next, success or failure.
-  await supabase.from("oauth_states").delete().eq("id", selectionToken);
-
   if (error || !stateRow || !stateRow.pending_token_vault_id) {
+    await supabase.from("oauth_states").delete().eq("id", selectionToken);
     throw new Error("Invalid or already-used selection link");
   }
+  // Another account's flow: refuse and leave both its row and its held token alone (not ours to delete or wipe).
   if (stateRow.account_id !== accountId) {
     throw new Error("Not authorized for this selection");
   }
-  if (new Date(stateRow.expires_at) < new Date()) {
-    throw new Error("Selection expired — please reconnect");
-  }
-  const options = (stateRow.pending_options ?? []) as ConnectOption[];
-  const validIds = new Set(options.map((o) => o.id));
-  const unknownId = selectedIds.find((id) => !validIds.has(id));
-  if (unknownId) {
-    throw new Error("That option wasn't part of the original list — please reconnect");
-  }
+  const heldVaultId = stateRow.pending_token_vault_id;
 
-  const adapter = resolveAdapter(registry, stateRow.platform);
-  if (adapter.singleSelection && selectedIds.length > 1) {
-    throw new Error("Pick just one. To connect another, connect this platform again.");
-  }
+  // Ours from here on. Delete the row now: one-time use no matter what happens next, success or failure.
+  await supabase.from("oauth_states").delete().eq("id", selectionToken);
 
-  const { data: userToken, error: tokenError } = await supabase.rpc("read_social_token", {
-    p_vault_id: stateRow.pending_token_vault_id,
-  });
-  if (tokenError || !userToken) throw tokenError ?? new Error("Could not retrieve the pending token");
-
-  // A confirmation (not a Page/channel pick): the customer approved the one
-  // account whose login we were holding. Store it exactly as a direct connect
-  // would have, then scrub the held copy.
-  const confirmed = parseConfirmPayload(userToken as string);
-  if (confirmed) {
-    const socialAccountId = await storeConnectedAccount(stateRow.account_id, adapter.platform, confirmed);
-    await scrubHeldToken(stateRow.pending_token_vault_id);
-    await recordWarmupConfirmation(adapter.platform, [socialAccountId], finalizeOptions.warmedUp === true);
-    return [socialAccountId];
-  }
-
-  if (!adapter.finalizeConnectOption) {
-    throw new Error("This platform doesn't support selection");
-  }
-
-  const socialAccountIds: string[] = [];
   try {
+    if (new Date(stateRow.expires_at) < new Date()) {
+      throw new Error("Selection expired — please reconnect");
+    }
+    const options = (stateRow.pending_options ?? []) as ConnectOption[];
+    const validIds = new Set(options.map((o) => o.id));
+    const unknownId = selectedIds.find((id) => !validIds.has(id));
+    if (unknownId) {
+      throw new Error("That option wasn't part of the original list — please reconnect");
+    }
+
+    const adapter = resolveAdapter(registry, stateRow.platform);
+    if (adapter.singleSelection && selectedIds.length > 1) {
+      throw new Error("Pick just one. To connect another, connect this platform again.");
+    }
+
+    const { data: userToken, error: tokenError } = await supabase.rpc("read_social_token", {
+      p_vault_id: heldVaultId,
+    });
+    if (tokenError || !userToken) throw tokenError ?? new Error("Could not retrieve the pending token");
+
+    // A confirmation (not a Page/channel pick): the customer approved the one
+    // account whose login we were holding. Store it exactly as a direct connect
+    // would have; the held copy is scrubbed in the finally below.
+    const confirmed = parseConfirmPayload(userToken as string);
+    if (confirmed) {
+      const socialAccountId = await storeConnectedAccount(stateRow.account_id, adapter.platform, confirmed);
+      await recordWarmupConfirmation(adapter.platform, [socialAccountId], finalizeOptions.warmedUp === true);
+      return [socialAccountId];
+    }
+
+    if (!adapter.finalizeConnectOption) {
+      throw new Error("This platform doesn't support selection");
+    }
+
+    const socialAccountIds: string[] = [];
     for (const selectedId of selectedIds) {
       const result = await adapter.finalizeConnectOption(userToken, selectedId);
       const socialAccountId = await storeConnectedAccount(stateRow.account_id, adapter.platform, result);
       socialAccountIds.push(socialAccountId);
     }
+    await recordWarmupConfirmation(adapter.platform, socialAccountIds, finalizeOptions.warmedUp === true);
+    return socialAccountIds;
   } finally {
-    // The state row is already gone, so nothing would ever clean up the held login: overwrite it now (the real
-    // token has been copied into its own Vault entry by storeConnectedAccount).
-    await scrubHeldToken(stateRow.pending_token_vault_id);
+    // The state row is already gone, so nothing would ever clean up the held login: overwrite it on EVERY way out, success or
+    // any failure above (the real token has been copied into its own Vault entry by storeConnectedAccount).
+    await scrubHeldToken(heldVaultId);
   }
-  await recordWarmupConfirmation(adapter.platform, socialAccountIds, finalizeOptions.warmedUp === true);
-  return socialAccountIds;
 }
 
 /** Overwrites a held (not yet confirmed) login in Vault so an unused platform

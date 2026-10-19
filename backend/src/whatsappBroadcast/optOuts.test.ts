@@ -92,6 +92,20 @@ describe("recordInboundOptOuts", () => {
     expect(JSON.stringify(tables.whatsapp_opt_outs)).not.toMatch(/27829990000/);
   });
 
+  it("a replayed signed STOP much later changes nothing: one suppression row, and the contact keeps its first opt-out time", async () => {
+    const c = addContact("+27821110001");
+    await recordInboundOptOuts(account, [{ from: "27821110001", text: "STOP" }], NOW);
+    const firstRow = { ...tables.whatsapp_opt_outs[0] };
+    const firstUpdate = c.updated_at;
+    const later = new Date(NOW.getTime() + 30 * 86_400_000);
+    await recordInboundOptOuts(account, [{ from: "27821110001", text: "STOP" }], later);
+    expect(tables.whatsapp_opt_outs).toHaveLength(1);
+    expect(tables.whatsapp_opt_outs[0]).toEqual(firstRow); // occurred_at is the first time
+    expect(c.consent_status).toBe("opted_out");
+    expect(c.opted_out_at).toBe(NOW.toISOString());
+    expect(c.updated_at).toBe(firstUpdate);
+  });
+
   it("the same person texting STOP twice is one row", async () => {
     addContact("+27821110001");
     await recordInboundOptOuts(account, [{ from: "27821110001", text: "STOP" }, { from: "27821110001", text: "stop" }], NOW);

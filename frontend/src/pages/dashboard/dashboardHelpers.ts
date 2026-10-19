@@ -135,6 +135,11 @@ export function parseCsv(text: string): string[][] {
   return rows;
 }
 
+// Shown when a connect fails and the redirect carries no usable message. The server sends this same sentence for every failure
+// of a Facebook or Instagram connect (it never forwards Meta's own text).
+export const CONNECT_ERROR_FALLBACK = "We could not finish connecting that account. Please try again, and contact support if it keeps happening.";
+const CONNECT_ERROR_MAX_LENGTH = 200;
+
 // Read once at module scope (not inside the component) — React 18
 // StrictMode double-mounts components in dev, and a component-scoped
 // effect that reads-then-strips the URL loses the value on the second
@@ -152,7 +157,8 @@ export function readAndClearConnectParams(): {
   gsheetConnectError: string | null;
 } {
   const params = new URLSearchParams(window.location.search);
-  const connectError = params.get("connectError");
+  const rawConnectError = params.get("connectError")?.trim();
+  const connectError = !rawConnectError ? null : rawConnectError.length <= CONNECT_ERROR_MAX_LENGTH ? rawConnectError : CONNECT_ERROR_FALLBACK;
   const connected = params.get("connected") !== null;
   // Google Calendar's connect flow (backend routes.ts's
   // GET /google-calendar/callback) redirects here the same way the platform
@@ -176,7 +182,7 @@ export function readAndClearConnectParams(): {
   const prefillContent = params.get("prefillContent");
   const prefillMediaUrl = params.get("prefillMediaUrl");
   if (
-    connectError ||
+    params.has("connectError") ||
     connected ||
     selectAccount ||
     prefillContent ||

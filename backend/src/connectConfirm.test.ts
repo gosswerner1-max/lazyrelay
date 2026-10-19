@@ -272,3 +272,64 @@ describe("single-choice pickers (Tumblr)", () => {
     expect(tables.social_accounts[0]).toMatchObject({ platform: "tumblr", platform_account_id: "side", display_name: "side" });
   });
 });
+
+describe("the held login is wiped on every early failure of finalize (and another account's is never touched)", () => {
+  const picker = () => ({
+    platform: "facebook",
+    listConnectOptions: vi.fn(async () => ({ userToken: "user-token", options: [{ id: "p1", name: "A" }, { id: "p2", name: "B" }] })),
+    finalizeConnectOption: vi.fn(async (_t: string, id: string) => ({ accessToken: `page-token-${id}`, refreshToken: null, expiresAt: null, platformAccountId: id, displayName: `Page ${id}` })),
+  });
+  async function held() {
+    seedState({ platform: "facebook" });
+    const adapter = picker();
+    await completeConnect("st1", "code", registryOf(adapter));
+    const heldId = [...vault.keys()][0];
+    expect(vault.get(heldId)).toBe("user-token"); // the long-lived user token is parked in Vault
+    return { adapter, heldId };
+  }
+
+  it("an id that was not offered gives the same error, deletes the flow and wipes the token", async () => {
+    const { adapter, heldId } = await held();
+    await expect(finalizeConnectSelection("st1", ["bogus"], "acc1", registryOf(adapter))).rejects.toThrow("That option wasn't part of the original list — please reconnect");
+    expect(vault.get(heldId)).toBe("discarded");
+    expect(tables.oauth_states).toHaveLength(0);
+    expect(tables.social_accounts).toHaveLength(0);
+  });
+
+  it("an expired flow gives the same error, deletes the flow and wipes the token", async () => {
+    const { adapter, heldId } = await held();
+    tables.oauth_states[0].expires_at = new Date(Date.now() - 1000).toISOString();
+    await expect(finalizeConnectSelection("st1", ["p1"], "acc1", registryOf(adapter))).rejects.toThrow("Selection expired — please reconnect");
+    expect(vault.get(heldId)).toBe("discarded");
+    expect(tables.oauth_states).toHaveLength(0);
+  });
+
+  it("a state owned by another account is refused and leaves that account's row and token untouched", async () => {
+    const { adapter, heldId } = await held();
+    await expect(finalizeConnectSelection("st1", ["p1"], "someone-else", registryOf(adapter))).rejects.toThrow("Not authorized for this selection");
+    expect(vault.get(heldId)).toBe("user-token");
+    expect(tables.oauth_states).toHaveLength(1);
+    // the real owner can still finish
+    const ids = await finalizeConnectSelection("st1", ["p1"], "acc1", registryOf(adapter));
+    expect(ids).toHaveLength(1);
+  });
+
+  it("a single-choice platform asked for two options wipes the token too", async () => {
+    seedState({ platform: "tumblr" });
+    const adapter = { ...picker(), platform: "tumblr", singleSelection: true };
+    await completeConnect("st1", "code", registryOf(adapter));
+    const heldId = [...vault.keys()][0];
+    await expect(finalizeConnectSelection("st1", ["p1", "p2"], "acc1", registryOf(adapter))).rejects.toThrow(/Pick just one/);
+    expect(vault.get(heldId)).toBe("discarded");
+  });
+
+  it("the happy path is unchanged: connected, flow gone, held token wiped, real token stored", async () => {
+    const { adapter, heldId } = await held();
+    const ids = await finalizeConnectSelection("st1", ["p2"], "acc1", registryOf(adapter));
+    expect(ids).toHaveLength(1);
+    expect(tables.social_accounts[0]).toMatchObject({ platform: "facebook", platform_account_id: "p2" });
+    expect(tables.oauth_states).toHaveLength(0);
+    expect(vault.get(heldId)).toBe("discarded");
+    expect([...vault.values()]).toContain("page-token-p2");
+  });
+});

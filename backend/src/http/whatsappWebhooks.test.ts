@@ -223,6 +223,38 @@ describe("POST /api/webhooks/whatsapp: the connection's own app secret is the ga
     expect(JSON.stringify(security.events)).not.toMatch(/\d{5,}|Thandi|premium/);
   });
 
+  it("a missing or malformed signature header is dropped before any database or Vault call, with the same 200 and the same security event", async () => {
+    const body = delivery();
+    const goodShape = sign(body);
+    const malformed = [null, "", "sha256=deadbeef", "sha256=" + "g".repeat(64), "sha256=" + "A".repeat(64), "sha256=" + "a".repeat(63), goodShape + "0", "sha1=" + "a".repeat(64), goodShape.replace("sha256=", "")];
+    const from = vi.spyOn(supabase, "from");
+    const rpc = vi.spyOn(supabase, "rpc");
+    for (const sig of malformed) {
+      const r = await send(body, sig);
+      expect(r.status, String(sig)).toBe(200);
+      expect(r.text).toBe("EVENT_RECEIVED");
+    }
+    await whatsAppWebhookIdle();
+    expect(from).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+    nothing();
+    expect(security.events).toHaveLength(malformed.length);
+    expect(security.events.every((e) => e.type === "whatsapp_bad_signature")).toBe(true);
+  });
+
+  it("a well-formed header that is simply wrong still reaches the lookup and the signature check, as before", async () => {
+    const body = delivery();
+    const from = vi.spyOn(supabase, "from");
+    const rpc = vi.spyOn(supabase, "rpc");
+    const r = await send(body, sign(body, "some-other-secret"));
+    expect(r.status).toBe(200);
+    await whatsAppWebhookIdle();
+    expect(from).toHaveBeenCalledWith("social_accounts");
+    expect(rpc).toHaveBeenCalledWith("read_social_token", expect.anything());
+    nothing();
+    expect(security.events).toHaveLength(1);
+  });
+
   it("a correctly signed delivery is stored: the signature is checked against the connection's app secret from Vault", async () => {
     await send(delivery());
     await whatsAppWebhookIdle();
