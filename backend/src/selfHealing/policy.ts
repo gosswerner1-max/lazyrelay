@@ -88,3 +88,63 @@ export function decideRetry(input: RetryInput): Decision {
   const late = checkFreshness({ platform: input.platform, scheduledFor: input.scheduledFor, now: runAt });
   return late ?? { action: "retry", delayMs, runAt, baseDelayMs };
 }
+
+// ---- Circuit breaker with a half-open probe -------------------------------------------------------------------------------
+// closed -> (threshold failures in a row) -> open for the cooldown -> half-open: exactly ONE attempt is let through. A success
+// closes the breaker and resets the cooldown; a failure re-opens it with the cooldown doubled, capped at 60 minutes.
+
+export interface BreakerConfig {
+  threshold: number;
+  baseCooldownMs: number;
+}
+export const SHARED_BREAKER: BreakerConfig = { threshold: 5, baseCooldownMs: 5 * MIN };
+export const CUSTOMER_KEY_BREAKER: BreakerConfig = { threshold: 3, baseCooldownMs: 15 * MIN };
+export const MAX_BREAKER_COOLDOWN_MS = 60 * MIN;
+/** A probe that has not reported back after this long is given up on, so a lost attempt cannot hold a platform shut for ever. */
+export const PROBE_TIMEOUT_MS = 10 * MIN;
+
+export interface HealingBreaker {
+  consecutiveFailures: number;
+  /** Null while closed. While set, the breaker is open until then and half-open after. */
+  trippedUntil: number | null;
+  cooldownMs: number;
+  /** When the one half-open attempt was let through; null when none is in flight. */
+  probeStartedAt: number | null;
+}
+
+export const newBreaker = (cfg: BreakerConfig): HealingBreaker => ({ consecutiveFailures: 0, trippedUntil: null, cooldownMs: cfg.baseCooldownMs, probeStartedAt: null });
+
+export type BreakerVerdict = "go" | "probe" | "stop";
+
+export function breakerAdmit(state: HealingBreaker, now: number): { verdict: BreakerVerdict; state: HealingBreaker } {
+  if (state.trippedUntil === null) return { verdict: "go", state };
+  if (now < state.trippedUntil) return { verdict: "stop", state };
+  if (state.probeStartedAt !== null && now - state.probeStartedAt < PROBE_TIMEOUT_MS) return { verdict: "stop", state };
+  return { verdict: "probe", state: { ...state, probeStartedAt: now } };
+}
+
+export function breakerSuccess(_state: HealingBreaker, cfg: BreakerConfig): HealingBreaker {
+  return newBreaker(cfg);
+}
+
+export function breakerFailure(state: HealingBreaker, cfg: BreakerConfig, now: number): { state: HealingBreaker; event: "none" | "tripped" | "reopened" } {
+  if (state.trippedUntil !== null) {
+    // Still open: nothing to add. Cooldown over (half-open): the probe failed, so open again for twice as long.
+    if (now < state.trippedUntil) return { state, event: "none" };
+    const cooldownMs = Math.min(state.cooldownMs * 2, MAX_BREAKER_COOLDOWN_MS);
+    return { state: { consecutiveFailures: state.consecutiveFailures, trippedUntil: now + cooldownMs, cooldownMs, probeStartedAt: null }, event: "reopened" };
+  }
+  const consecutiveFailures = state.consecutiveFailures + 1;
+  if (consecutiveFailures >= cfg.threshold) {
+    return { state: { consecutiveFailures, trippedUntil: now + state.cooldownMs, cooldownMs: state.cooldownMs, probeStartedAt: null }, event: "tripped" };
+  }
+  return { state: { ...state, consecutiveFailures }, event: "none" };
+}
+
+/** The probe finished without saying anything about the platform's health (a customer's own error): free the slot, change nothing else. */
+export function breakerReleaseProbe(state: HealingBreaker): HealingBreaker {
+  return state.probeStartedAt === null ? state : { ...state, probeStartedAt: null };
+}
+
+/** True while open or half-open: for callers that must not take the probe slot themselves. */
+export const breakerIsOpen = (state: HealingBreaker): boolean => state.trippedUntil !== null;
