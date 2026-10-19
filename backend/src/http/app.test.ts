@@ -19,3 +19,19 @@ describe("GET /health", () => {
     expect(res.status).toBe(200);
   });
 });
+
+describe("content sources token routes are registered", () => {
+  it("answer 404 while the flag is off and 401 without a login once it is on", async () => {
+    const before = process.env.CONTENT_SOURCES_TOKENS_ENABLED;
+    try {
+      const app = buildApp(new StubMorAdapter(), new Map());
+      process.env.CONTENT_SOURCES_TOKENS_ENABLED = "false";
+      expect((await request(app).post("/api/content-sources/session")).status).toBe(404);
+      process.env.CONTENT_SOURCES_TOKENS_ENABLED = "true";
+      expect((await request(app).post("/api/content-sources/session")).status).toBe(401);
+    } finally {
+      if (before === undefined) delete process.env.CONTENT_SOURCES_TOKENS_ENABLED;
+      else process.env.CONTENT_SOURCES_TOKENS_ENABLED = before;
+    }
+  });
+});
