@@ -30,7 +30,16 @@ export function makeBuilder(table: string) {
   };
   b.eq = (c: string, v: unknown) => (filters.push((r) => r[c] === v), b);
   b.neq = (c: string, v: unknown) => (filters.push((r) => r[c] !== v), b);
-  b.is = (c: string, v: unknown) => (filters.push((r) => (r[c] ?? null) === v), b);
+  // "social_accounts.col" filters on the joined connection of a post (an inner join: a post without one never matches).
+  b.is = (c: string, v: unknown) => {
+    if (!c.startsWith("social_accounts.")) return (filters.push((r) => (r[c] ?? null) === v), b);
+    const col = c.slice("social_accounts.".length);
+    filters.push((r) => {
+      const sa = (tables.social_accounts ?? []).find((x) => x.id === r.social_account_id);
+      return !!sa && (sa[col] ?? null) === v;
+    });
+    return b;
+  };
   b.in = (c: string, v: unknown[]) => (filters.push((r) => v.includes(r[c])), b);
   b.lt = (c: string, v: string) => (filters.push((r) => String(r[c]) < v), b);
   b.lte = (c: string, v: string) => (filters.push((r) => String(r[c]) <= v), b);

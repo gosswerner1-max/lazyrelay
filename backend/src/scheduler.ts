@@ -21,6 +21,24 @@ import { resolveTier, type Tier } from "./tier.js";
 import { MAX_FIRST_COMMENT_LENGTH } from "./postCreation.js";
 import { decideFirstComment, firstCommentDueAt } from "./firstCommentDelay.js";
 import { emitBeforePublish, emitAfterVerify } from "./publishHooks.js";
+import { selfHealingMode } from "./selfHealing/mode.js";
+import {
+  breakerAdmit,
+  breakerFailure,
+  breakerReleaseProbe,
+  breakerSuccess,
+  checkFreshness,
+  CUSTOMER_KEY_BREAKER,
+  decideRetry,
+  MAX_RETRIES as HEALING_MAX_RETRIES,
+  newBreaker,
+  SHARED_BREAKER,
+  TOO_LATE_MESSAGE,
+  type BreakerConfig,
+  type HealingBreaker,
+} from "./selfHealing/policy.js";
+import { buildShadowEvent, errorClassOf } from "./selfHealing/evaluate.js";
+import { recordShadowEvent } from "./selfHealing/shadow.js";
 
 // How many due posts one scheduler cycle claims and processes. Combined
 // with index.ts's POLL_INTERVAL_MS, this is the real throughput ceiling —
@@ -90,6 +108,56 @@ function getBreaker(platform: string): BreakerState {
   return state;
 }
 
+// Self-healing (selfHealing/policy.ts): with SELF_HEALING_MODE=on the breakers below run as a half-open state machine (one probe attempt
+// after the cooldown, a failed probe doubles the cooldown up to 60 minutes). In shadow mode the old breaker above still decides and the
+// new machine is fed the same events on the side, only to record where it would have behaved differently.
+const healingBreakers = new Map<string, HealingBreaker>();
+const shadowBreakers = new Map<string, HealingBreaker>();
+const breakerConfigFor = (key: string): BreakerConfig => (isPerAccountKey(key) ? CUSTOMER_KEY_BREAKER : SHARED_BREAKER);
+const breakerMap = (mode: string): Map<string, HealingBreaker> => (mode === "on" ? healingBreakers : shadowBreakers);
+const breakerStateOf = (map: Map<string, HealingBreaker>, key: string): HealingBreaker => map.get(key) ?? newBreaker(breakerConfigFor(key));
+
+interface BreakerAdmission {
+  /** True when the post must not go out now. */
+  stop: boolean;
+  /** True when this post holds the one half-open probe slot and must hand it back once it is done. */
+  probe: boolean;
+}
+
+/** Asks the breaker whether a post may go out. Off: exactly the old check. */
+function admitThroughBreaker(key: string): BreakerAdmission {
+  const mode = selfHealingMode();
+  if (mode === "on") {
+    const r = breakerAdmit(breakerStateOf(healingBreakers, key), Date.now());
+    healingBreakers.set(key, r.state);
+    return { stop: r.verdict === "stop", probe: r.verdict === "probe" };
+  }
+  const stop = isBreakerTripped(key);
+  if (mode !== "shadow") return { stop, probe: false };
+  const r = breakerAdmit(breakerStateOf(shadowBreakers, key), Date.now());
+  shadowBreakers.set(key, r.state);
+  if (!stop && r.verdict === "stop") recordBreakerShadow(key, "deny_probe", "admit", null);
+  return { stop, probe: r.verdict === "probe" };
+}
+
+/** The attempt that held the probe slot ended without telling the breaker anything (a customer's own error, a deferral): free the slot. */
+function releaseBreakerProbe(key: string, admission: BreakerAdmission): void {
+  if (!admission.probe) return;
+  const map = breakerMap(selfHealingMode());
+  map.set(key, breakerReleaseProbe(breakerStateOf(map, key)));
+}
+
+/** A delayed first comment is not a probe: it only waits while the breaker is open or a probe is in flight. */
+function isBreakerBlockingComment(key: string): boolean {
+  if (selfHealingMode() !== "on") return isBreakerTripped(key);
+  return breakerAdmit(breakerStateOf(healingBreakers, key), Date.now()).verdict === "stop";
+}
+
+function recordBreakerShadow(key: string, newAction: "deny_probe" | "reopen", legacyAction: "admit" | "none", newDelayMs: number | null): void {
+  const [platform, socialAccountId] = key.split(":");
+  recordShadowEvent({ source: "breaker", platform, socialAccountId: socialAccountId ?? null, legacyAction, newAction, newDelayMs, diverged: true });
+}
+
 /** True if the breaker is currently open for this platform. A breaker
  *  whose cooldown has elapsed resets itself here and gives the platform
  *  another chance, rather than staying tripped forever. */
@@ -103,12 +171,30 @@ function isBreakerTripped(platform: string): boolean {
 }
 
 function recordSuccess(platform: string): void {
+  const mode = selfHealingMode();
+  if (mode === "on") {
+    healingBreakers.set(platform, breakerSuccess(breakerStateOf(healingBreakers, platform), breakerConfigFor(platform)));
+    return;
+  }
+  if (mode === "shadow") shadowBreakers.set(platform, breakerSuccess(breakerStateOf(shadowBreakers, platform), breakerConfigFor(platform)));
   const state = getBreaker(platform);
   state.consecutiveFailures = 0;
   state.trippedUntil = null;
 }
 
 function recordFailure(platform: string): void {
+  const mode = selfHealingMode();
+  if (mode !== "off") {
+    const map = breakerMap(mode);
+    const result = breakerFailure(breakerStateOf(map, platform), breakerConfigFor(platform), Date.now());
+    map.set(platform, result.state);
+    if (mode === "shadow") {
+      if (result.event === "reopened") recordBreakerShadow(platform, "reopen", "none", result.state.cooldownMs);
+    } else {
+      announceBreaker(platform, result.event, result.state);
+      return;
+    }
+  }
   const state = getBreaker(platform);
   state.consecutiveFailures += 1;
   if (isPerAccountKey(platform)) {
@@ -126,6 +212,24 @@ function recordFailure(platform: string): void {
         `pausing all posting to this platform for ${BREAKER_COOLDOWN_MS / 60_000} minutes.`
     );
   }
+}
+
+/** The log line (and, for a shared platform, the ops alert) when the half-open breaker trips or re-opens. Same wording as the old breaker. */
+function announceBreaker(key: string, event: "none" | "tripped" | "reopened", state: HealingBreaker): void {
+  if (event === "none") return;
+  const minutes = state.cooldownMs / 60_000;
+  if (event === "reopened") {
+    console.warn(`Circuit breaker for "${key}" re-opened after a failed probe -- pausing it for ${minutes} minutes.`);
+    return;
+  }
+  if (isPerAccountKey(key)) {
+    console.warn(`Circuit breaker tripped for customer-owned connection "${key}" after ${state.consecutiveFailures} consecutive failures -- pausing it for ${minutes} minutes.`);
+    return;
+  }
+  void notifyOps(
+    `Circuit breaker tripped for platform "${key}" after ${state.consecutiveFailures} consecutive failures, ` +
+      `pausing all posting to this platform for ${minutes} minutes.`
+  );
 }
 
 // Proactive rate limiting -- added 2026-08-21, a real gap found during a
@@ -228,11 +332,15 @@ async function attachCredentialModes(posts: DuePost[]): Promise<DuePost[]> {
  *  Joins social_accounts for platform so a single cycle can dispatch each
  *  post to the right adapter instead of assuming one platform for everything. */
 async function claimDuePosts(): Promise<DuePost[]> {
-  const { data: due, error: selectError } = await supabase
+  // Self-healing on: posts of a connection that needs reconnecting stay pending (they would only be rejected again). Filtered in the
+  // query itself so a blocked connection can never fill the batch and starve everyone else.
+  const skipBlocked = selfHealingMode() === "on";
+  const dueQuery = supabase
     .from("scheduled_posts")
-    .select("id")
+    .select((skipBlocked ? "id, social_accounts!inner(needs_reconnect_at)" : "id") as "id")
     .eq("status", "pending")
-    .is("paused_at", null)
+    .is("paused_at", null);
+  const { data: due, error: selectError } = await (skipBlocked ? dueQuery.is("social_accounts.needs_reconnect_at", null) : dueQuery)
     .lte("scheduled_for", new Date().toISOString())
     .limit(CLAIM_BATCH_SIZE);
 
@@ -631,6 +739,16 @@ async function setByokStatus(post: DuePost, status: "valid" | "invalid" | "out_o
   if (error) console.warn(`[scheduler] could not record the ${post.platform} credential status for account ${post.social_account_id}: ${error.message}`);
 }
 
+interface FailureContext {
+  /** The adapter, so an auth failure can try one token refresh. */
+  adapter?: PlatformAdapter;
+  /** The platform may already hold this post (its publish call succeeded, only verification failed): re-verify, never publish again. */
+  ambiguous?: boolean;
+}
+
+/** Posts that had their one token refresh this run (self-healing on). Lost on a restart, which at worst allows one more refresh. */
+const refreshTriedPosts = new Set<string>();
+
 async function handleFailure(
   post: DuePost,
   message: string,
@@ -638,7 +756,14 @@ async function handleFailure(
   raw?: string,
   /** The platform said when it will accept another try (X's rate-limit reset), ms since epoch. */
   retryNotBefore?: number,
+  ctx: FailureContext = {},
 ): Promise<void> {
+  const mode = selfHealingMode();
+  if (mode === "on") {
+    await handleFailureSelfHealing(post, message, kind, raw, retryNotBefore, ctx);
+    return;
+  }
+  if (mode === "shadow") void shadowRecordFailure(post, message, kind, retryNotBefore, ctx, Date.now());
   if (kind === "fatal" || kind === "reconnect") {
     // Retrying cannot help (a blocked link, a duplicate, a bad file, a daily
     // cap, or a dead login), and every retry is another rejected request
@@ -682,6 +807,168 @@ async function handleFailure(
   }
 }
 
+/** Shadow mode: what the new policy would have done with this failure, written next to what the old logic is about to do. Fire and
+ *  forget: it only reads, and any problem is swallowed, so it can never change what the scheduler does. */
+async function shadowRecordFailure(post: DuePost, message: string, kind: PostErrorKind, retryNotBefore: number | undefined, ctx: FailureContext, now: number): Promise<void> {
+  try {
+    let canRefresh = false;
+    if (kind === "reconnect" && ctx.adapter) {
+      const row = await readTokenAccount(post.social_account_id);
+      canRefresh = !!row && canRefreshToken(ctx.adapter, row);
+    }
+    recordShadowEvent(
+      buildShadowEvent({ post, kind, message, retryNotBefore, ambiguous: ctx.ambiguous, now, random: Math.random, canRefresh, refreshTried: refreshTriedPosts.has(post.id) }),
+    );
+  } catch {
+    // Shadow mode must never affect the scheduler.
+  }
+}
+
+async function readTokenAccount(socialAccountId: string): Promise<TokenAccountRow | null> {
+  const { data, error } = await supabase.from("social_accounts").select(TOKEN_ACCOUNT_COLUMNS).eq("id", socialAccountId).maybeSingle();
+  return error || !data ? null : (data as TokenAccountRow);
+}
+
+/** One token refresh for a post whose platform said the login is dead. False when it could not be done. */
+async function tryTokenRefresh(post: DuePost, adapter: PlatformAdapter): Promise<boolean> {
+  try {
+    const row = await readTokenAccount(post.social_account_id);
+    if (!row) return false;
+    await refreshAndStoreToken(row, adapter);
+    return true;
+  } catch {
+    console.warn(`Post ${post.id}: the token refresh did not work, holding the connection.`);
+    return false;
+  }
+}
+
+/** Self-healing on: the approved policy (selfHealing/policy.ts) decides what happens to a failed attempt. */
+async function handleFailureSelfHealing(
+  post: DuePost,
+  message: string,
+  kind: PostErrorKind,
+  raw: string | undefined,
+  retryNotBefore: number | undefined,
+  ctx: FailureContext,
+): Promise<void> {
+  const now = Date.now();
+  const errorClass = errorClassOf(kind, { retryNotBefore, ambiguous: ctx.ambiguous });
+  let auth: { canRefresh: boolean; refreshTried: boolean } | undefined;
+  if (errorClass === "auth" && ctx.adapter) {
+    const row = await readTokenAccount(post.social_account_id);
+    auth = { canRefresh: !!row && canRefreshToken(ctx.adapter, row), refreshTried: refreshTriedPosts.has(post.id) };
+  }
+  const scheduledFor = post.scheduled_for ? new Date(post.scheduled_for).getTime() : null;
+  const decision = decideRetry({
+    errorClass,
+    platform: post.platform,
+    retryCount: post.retry_count,
+    now,
+    random: Math.random,
+    scheduledFor: scheduledFor !== null && Number.isFinite(scheduledFor) ? scheduledFor : null,
+    platformWaitUntil: retryNotBefore,
+    message,
+    auth,
+  });
+
+  if (decision.action === "retry" || decision.action === "reverify") {
+    if (decision.action === "retry" && decision.refreshFirst && ctx.adapter) {
+      refreshTriedPosts.add(post.id);
+      if (!(await tryTokenRefresh(post, ctx.adapter))) {
+        await holdConnection(post, message, raw);
+        return;
+      }
+    }
+    const nextAttempt = new Date(decision.runAt).toISOString();
+    await supabase.from("scheduled_posts").update({ status: "pending", retry_count: post.retry_count + 1, scheduled_for: nextAttempt }).eq("id", post.id);
+    console.warn(`Post ${post.id} failed (attempt ${post.retry_count + 1}/${HEALING_MAX_RETRIES + 1}): ${raw ?? message}. Retrying at ${nextAttempt}.`);
+    return;
+  }
+  if (decision.action === "hold_connection") {
+    await holdConnection(post, message, raw);
+    return;
+  }
+  refreshTriedPosts.delete(post.id);
+  if (decision.reason === "too_late") {
+    await failTooLate(post);
+    return;
+  }
+  await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id);
+  if (decision.reason === "fatal") {
+    console.warn(`Post ${post.id} failed without retrying (${kind}): ${raw ?? message}`);
+    await maybeSendFailureAlert(post, post.content, message, false);
+    await emitPostProblem(post, "post.failed", message, { reasonKind: kind });
+    return;
+  }
+  console.error(`Post ${post.id} permanently failed after ${HEALING_MAX_RETRIES + 1} attempts: ${raw ?? message}`);
+  if (!customerOwnsCredentials(post)) await notifyOps(`Post ${post.id} permanently failed after ${HEALING_MAX_RETRIES + 1} attempts: ${raw ?? message}`);
+  await maybeSendFailureAlert(post, post.content, message, false);
+  const accepted = await findAcceptedPublish(post.id);
+  if (accepted) {
+    await emitPostProblem(post, "post.unconfirmed", message, { platformPostId: accepted.platform_post_id, reasonKind: "retries_exhausted" });
+  } else {
+    await emitPostProblem(post, "post.failed", message, { reasonKind: "retries_exhausted" });
+  }
+}
+
+/** The login is dead and cannot be renewed: the post fails with its plain reason and the connection is flagged for reconnect (the
+ *  customer is told once, and from now on the claim query leaves this connection's other posts alone). */
+async function holdConnection(post: DuePost, message: string, raw: string | undefined): Promise<void> {
+  refreshTriedPosts.delete(post.id);
+  await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id);
+  console.warn(`Post ${post.id} failed without retrying (reconnect): ${raw ?? message}`);
+  await flagAccountForReconnect(post, message, customerOwnsCredentials(post));
+  await maybeSendFailureAlert(post, post.content, message, false);
+  await emitPostProblem(post, "post.failed", message, { reasonKind: "reconnect" });
+}
+
+/** A post more than 2 hours past its time is never sent: it fails with the plain sentence and stays visible in the customer's failed
+ *  list, where the existing copy-and-reschedule action works as for any failed post. The status change is conditional on the claim, so
+ *  a post that already moved on is not touched and no second event is raised. */
+async function failTooLate(post: DuePost): Promise<void> {
+  const { data: failed, error } = await supabase.from("scheduled_posts").update({ status: "failed" }).eq("id", post.id).eq("status", "posting").select("id");
+  if (error) {
+    console.error(`[scheduler] could not fail the too-late post ${post.id}: ${error.message}`);
+    return;
+  }
+  if (!failed || failed.length === 0) return;
+  await supabase.from("post_results").insert({
+    scheduled_post_id: post.id,
+    account_id: post.account_id,
+    platform_post_id: null,
+    platform_post_url: null,
+    verified_live: false,
+    verification_checked_at: new Date().toISOString(),
+    error_message: TOO_LATE_MESSAGE,
+    raw_error_message: "too_late",
+  });
+  console.warn(`Post ${post.id} failed without sending: more than 2 hours past its scheduled time.`);
+  await maybeSendFailureAlert(post, post.content, TOO_LATE_MESSAGE, false);
+  await emitPostProblem(post, "post.failed", TOO_LATE_MESSAGE, { reasonKind: "too_late" });
+}
+
+/** Claim-time freshness. True when the post was failed here and must not be processed. Shadow only records what would have happened.
+ *  A post the platform already holds is never failed as too late: it goes on to be re-verified, not published again. */
+async function handleLateAtClaim(post: DuePost, mode: "shadow" | "on", now: number): Promise<boolean> {
+  if (await findAcceptedPublish(post.id)) return false;
+  if (mode === "shadow") {
+    recordShadowEvent({
+      source: "post",
+      postId: post.id,
+      socialAccountId: post.social_account_id,
+      platform: post.platform,
+      legacyAction: "attempt",
+      newAction: "fail",
+      newReasonCode: "too_late",
+      latenessMs: now - new Date(post.scheduled_for as string).getTime(),
+      diverged: true,
+    });
+    return false;
+  }
+  await failTooLate(post);
+  return true;
+}
+
 /** Flags the post's connected account as needing a reconnect (once per
  *  problem, see tokenHealth.ts). Best effort: never let this block the
  *  failure handling itself. */
@@ -704,7 +991,7 @@ async function flagAccountForReconnect(post: DuePost, reason: string, skipOps = 
  *  History tab displays), count it toward the platform circuit breaker ONLY
  *  when it says something about the platform's health (a customer's blocked
  *  link or a duplicate does not), then hand off to handleFailure. */
-async function failAttempt(post: DuePost, platform: string, raw: string): Promise<void> {
+async function failAttempt(post: DuePost, platform: string, raw: string, adapter?: PlatformAdapter): Promise<void> {
   const classified = classifyPostError(classifierPlatform(platform, post.credential_mode), raw);
   // Per account for a customer's own keys (see breakerKey), per platform for everyone else.
   if (classified.kind === "retry" || classified.kind === "ours") recordFailure(breakerKey(platform, post.social_account_id, post.credential_mode));
@@ -721,7 +1008,7 @@ async function failAttempt(post: DuePost, platform: string, raw: string): Promis
     // know the reason is already plain language (older rows are translated there).
     raw_error_message: classified.message === raw ? null : raw,
   });
-  await handleFailure(post, classified.message, classified.kind, raw, classified.retryNotBefore);
+  await handleFailure(post, classified.message, classified.kind, raw, classified.retryNotBefore, { adapter });
   // After handleFailure, so this post already counts as a failed outcome. Not
   // recordFailure: a customer's blocked link says nothing about Pinterest's health.
   if (platform === "pinterest" && classified.kind === "fatal" && classified.message === PINTEREST_BLOCKED_LINK_MESSAGE) {
@@ -1013,7 +1300,7 @@ async function processFirstComment(row: FirstCommentRow, registry: PlatformAdapt
     await releaseFirstComment(row.id);
     return false;
   }
-  if (isBreakerTripped(platform) || (await isAccountPaused(p.social_account_id))) {
+  if (isBreakerBlockingComment(platform) || (await isAccountPaused(p.social_account_id))) {
     await releaseFirstComment(row.id);
     return false;
   }
@@ -1094,13 +1381,13 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     // flagged needs-reconnect through the usual path, is never sent to X, never counts toward any breaker and never
     // tells ops (failAttempt counts only retry and ours; the reconnect flag is quiet for customer-owned credentials).
     if (post.platform === "x" && post.credential_mode !== "byok") {
-      await failAttempt(post, adapter.platform, X_BUNDLE_INVALID_CODE);
+      await failAttempt(post, adapter.platform, X_BUNDLE_INVALID_CODE, adapter);
       return;
     }
     // WhatsApp is the same: only ever the customer's own Meta credentials. A connection that is not one is dropped with
     // the fixed reconnect reason (customer-owned, so it never tells ops and never counts toward a breaker).
     if (post.platform === "whatsapp" && post.credential_mode !== "byok") {
-      await failAttempt(post, adapter.platform, WHATSAPP_BUNDLE_INVALID_CODE);
+      await failAttempt(post, adapter.platform, WHATSAPP_BUNDLE_INVALID_CODE, adapter);
       return;
     }
 
@@ -1169,7 +1456,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
       // Persisted (with a plain-language reason) so a pre-verification failure
       // (bad media, missing scope, no board, etc.) shows a real reason in the
       // customer's History tab instead of a bare "failed" badge.
-      await failAttempt(post, adapter.platform, attempt.errorMessage ?? "post attempt failed, no reason given");
+      await failAttempt(post, adapter.platform, attempt.errorMessage ?? "post attempt failed, no reason given", adapter);
       return;
     }
 
@@ -1233,7 +1520,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     if (verifyFailure) {
       if (verifyFailure.kind === "retry" || verifyFailure.kind === "ours") recordFailure(breakerKey(adapter.platform, post.social_account_id, post.credential_mode));
       if (verifyFailure.byokStatus) await setByokStatus(post, verifyFailure.byokStatus);
-      await handleFailure(post, verifyFailure.message, verifyFailure.kind, rawVerifyError, verifyFailure.retryNotBefore);
+      await handleFailure(post, verifyFailure.message, verifyFailure.kind, rawVerifyError, verifyFailure.retryNotBefore, { adapter, ambiguous: true });
       return;
     }
 
@@ -1302,7 +1589,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     // throw (network error, malformed adapter response, etc.) previously
     // vanished into console/Slack with nothing in the customer-visible
     // History tab.
-    await failAttempt(post, adapter.platform, err instanceof Error ? err.message : String(err));
+    await failAttempt(post, adapter.platform, err instanceof Error ? err.message : String(err), adapter);
   }
 }
 
@@ -1349,18 +1636,28 @@ export async function runSchedulerCycle(registry: PlatformAdapterRegistry): Prom
         await unclaimPost(post);
         return;
       }
+      // Self-healing: a post more than 2 hours past its time is never sent. The check is synchronous (no wait unless the post really
+      // is late), so the breaker and rate-limit admission below still runs in claim order.
+      const healingMode = selfHealingMode();
+      if (healingMode !== "off" && post.scheduled_for) {
+        const now = Date.now();
+        if (checkFreshness({ platform: post.platform, scheduledFor: new Date(post.scheduled_for).getTime(), now }) && (await handleLateAtClaim(post, healingMode, now))) return;
+      }
       const key = breakerKey(post.platform, post.social_account_id, post.credential_mode);
-      if (isBreakerTripped(key)) {
+      const admission = admitThroughBreaker(key);
+      if (admission.stop) {
         console.warn(`Un-claiming post ${post.id} — circuit breaker open for "${key}".`);
         await unclaimPost(post);
         return;
       }
       if (isRateLimited(key)) {
         console.warn(`Un-claiming post ${post.id} — proactive rate limit reached for "${key}" this window.`);
+        releaseBreakerProbe(key, admission);
         await unclaimPost(post);
         return;
       }
       await processPost(post, registry);
+      releaseBreakerProbe(key, admission);
     })
   );
   await runFirstCommentPassSafely(registry);
