@@ -15,6 +15,7 @@ import { tieredRateLimit, publicRateLimit } from "../rateLimit.js";
 import { checkAccountLimit } from "../../accountLimits.js";
 import { getAccessToken } from "../../scheduler.js";
 import { wipeConnectionTokens } from "../../tokenWipe.js";
+import { recordCredentialAudit } from "../../credentialAudit.js";
 import { getFrontendUrl, dbError } from "./shared.js";
 import { validateBody, optionalNullableString } from "../validation.js";
 import { normalizeMastodonInstance } from "../../platforms/mastodon.js";
@@ -504,6 +505,9 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
       return;
     }
     await wipeConnectionTokens(supabase, "social_accounts", "id", req.params.id as string);
+    if (data.credential_mode === "byok") {
+      await recordCredentialAudit({ supabase, accountId: req.accountId!, socialAccountId: req.params.id as string, platform: String(data.platform), action: "cleared", actorUserId: req.userId ?? null, actorRole: req.role ?? null });
+    }
     res.status(204).end();
   });
 

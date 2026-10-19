@@ -39,6 +39,7 @@ import { supabase } from "../../supabase.js";
 import { checkAccountLimit, checkNewDistinctAccountLimit, checkWhatsappPlan, isWhatsappPlanGateError, WHATSAPP_PLAN_MESSAGE } from "../../accountLimits.js";
 import { WHATSAPP_BYOK_REQUIRED_PLAN_NAME } from "../../tier.js";
 import { wipeVaultSecrets } from "../../tokenWipe.js";
+import { recordCredentialAudit } from "../../credentialAudit.js";
 import { validateBody } from "../validation.js";
 import type { PlatformAdapterRegistry } from "../../platforms/connect.js";
 import { WhatsAppAdapter } from "../../platforms/whatsapp/adapter.js";
@@ -227,6 +228,8 @@ export function registerWhatsAppByokRoutes(
     const displayName = check.verifiedName ?? check.displayPhoneNumber ?? `WhatsApp ${keyHint}`;
     let newVaultId: string | null = null;
     let blockedByDatabase = false;
+    let savedRowId: string | null = null;
+    let replacedLogin = false;
     try {
       // Rotating the token of a connection we already have (same phone number) updates its Vault secret in place; a new
       // number is checked against the plan's limits first, exactly like every other connect.
@@ -276,7 +279,8 @@ export function registerWhatsAppByokRoutes(
         newVaultId = vaultId;
       }
 
-      const { error: upsertError } = await supabase.from("social_accounts").upsert(
+      replacedLogin = Boolean(existing?.access_token_vault_id);
+      const { data: savedRow, error: upsertError } = await supabase.from("social_accounts").upsert(
         {
           account_id: accountId,
           platform: "whatsapp",
@@ -298,13 +302,14 @@ export function registerWhatsAppByokRoutes(
           whatsapp_phone_number_id: bundle.phoneNumberId,
         },
         { onConflict: "account_id,platform,platform_account_id" },
-      );
+      ).select("id").single();
       if (upsertError) {
         // The database plan gate (migration 0125) is the backstop behind checkWhatsappPlan: if it refuses the row,
         // answer the same fixed plan message as the route's own gate (HTTP 400), not a 500.
         blockedByDatabase = isWhatsappPlanGateError(upsertError);
         throw new Error("save");
       }
+      savedRowId = (savedRow?.id as string | undefined) ?? null;
     } catch {
       // A secret stored for a row that was never saved would sit in Vault for good: overwrite it.
       if (newVaultId) await wipeVaultSecrets(supabase, [newVaultId]);
@@ -316,6 +321,7 @@ export function registerWhatsAppByokRoutes(
       res.status(500).json({ error: SAVE_FAILED });
       return;
     }
+    await recordCredentialAudit({ supabase, accountId, socialAccountId: savedRowId, platform: "whatsapp", action: replacedLogin ? "replaced" : "saved", actorUserId: req.userId ?? null, actorRole: req.role ?? null });
     res.json({ ok: true, displayName, keyHint });
   });
 
@@ -331,6 +337,7 @@ export function registerWhatsAppByokRoutes(
       res.status(404).json({ error: CONNECTION_NOT_FOUND });
       return;
     }
+    let cleared = false;
     try {
       // Scoped to the caller's account: someone else's id is simply not found.
       const { data: row, error: lookupError } = await supabase
@@ -363,6 +370,7 @@ export function registerWhatsAppByokRoutes(
         if (next !== null) {
           const { error: writeError } = await supabase.rpc("update_social_token", { p_vault_id: vaultId, p_new_token: next });
           if (writeError) throw new Error("vault");
+          cleared = true;
         }
       }
     } catch {
@@ -370,6 +378,7 @@ export function registerWhatsAppByokRoutes(
       res.status(500).json({ error: REMOVE_FAILED });
       return;
     }
+    if (cleared) await recordCredentialAudit({ supabase, accountId: req.accountId!, socialAccountId: id, platform: "whatsapp", action: "app_secret_cleared", actorUserId: req.userId ?? null, actorRole: req.role ?? null });
     res.json({ ok: true, inboundReady: false });
   });
 }

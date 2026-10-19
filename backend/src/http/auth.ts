@@ -6,6 +6,8 @@ import { recordSecurityEvent } from "./securityAlerts.js";
 
 export interface AuthedRequest extends Request {
   accountId?: string;
+  /** The signed-in user's id, set on the JWT (browser dashboard) path only. Used to name the actor in the credential audit trail. */
+  userId?: string;
   authMethod?: "jwt" | "apiKey";
   isAdmin?: boolean;
   adminKeyId?: string;
@@ -425,6 +427,7 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
   }
 
   req.accountId = membership.accountId;
+  req.userId = verifiedUser.userId;
   req.role = membership.role;
   req.authMethod = "jwt";
   req.rawToken = token;
