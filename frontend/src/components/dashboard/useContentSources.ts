@@ -145,14 +145,6 @@ export function useContentSources(client: ContentSourcesClient, options: Content
     setListMsg(m);
   };
 
-  async function refreshCredentials() {
-    try {
-      setCredential(await client.getCredentials());
-    } catch (err) {
-      console.error(err); // the list is right; only the key line may be out of date until the tab is opened again
-    }
-  }
-
   return {
     phase,
     credential,
@@ -230,7 +222,6 @@ export function useContentSources(client: ContentSourcesClient, options: Content
       if (!done) return false;
       forgetSource(id);
       setListMsg(ok("Source removed."));
-      await refreshCredentials(); // removing the last source also removes the saved key
       return true;
     },
   };

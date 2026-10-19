@@ -688,32 +688,23 @@ describe("Your sources", () => {
       expect(await screen.findByText("Source removed.")).toBeInTheDocument();
       expect(screen.queryByRole("rowheader", { name: /shop\.example\/sitemap\.xml/ })).toBeNull();
       expect(screen.getByRole("heading", { name: "Your sources" })).toHaveFocus();
-      expect(getCredentials).toHaveBeenCalledTimes(2);
+      expect(getCredentials).toHaveBeenCalledTimes(1);
     });
 
-    it("warns that removing the last source removes the saved key too", async () => {
+    it("never says the saved key goes with a source, not even for the last one", async () => {
       const { user } = await setup({ client: withRows([verified]) });
       await user.click(within(rowFor("shop.example/sitemap.xml")).getByRole("button", { name: "Remove" }));
-      expect(screen.getByText(/last source, so your saved key is removed too/)).toBeInTheDocument();
-    });
-
-    it("does not warn about the key when other sources remain", async () => {
-      const { user } = await setup({ client: withRows([verified, attention]) });
-      await user.click(within(rowFor("shop.example/sitemap.xml")).getByRole("button", { name: "Remove" }));
       expect(screen.queryByText(/saved key is removed too/)).toBeNull();
+      expect(screen.queryByText(/last source/)).toBeNull();
     });
 
-    it("shows the key as gone once the service has removed it with the last source", async () => {
-      let registered = true;
-      const getCredentials = vi.fn(async () => ({ registered, keyHint: registered ? "abcd" : null }));
-      const deleteSource = vi.fn(async () => {
-        registered = false;
-      });
-      const { user } = await setup({ client: withRows([verified], { getCredentials, deleteSource }) });
+    it("keeps showing the saved key after the last source is removed", async () => {
+      const getCredentials = vi.fn(async () => ({ registered: true, keyHint: "abcd" }));
+      const { user } = await setup({ client: withRows([verified], { getCredentials }) });
       await user.click(within(rowFor("shop.example/sitemap.xml")).getByRole("button", { name: "Remove" }));
       await user.click(screen.getByRole("button", { name: "Remove source" }));
-      await screen.findByLabelText("LazyRelay key");
-      expect(screen.queryByText(/Key ending in/)).toBeNull();
+      expect(await screen.findByText("Source removed.")).toBeInTheDocument();
+      expect(screen.getByText(/Key ending in abcd/)).toBeInTheDocument();
     });
 
     it("keeps the row and says why when removing fails", async () => {
