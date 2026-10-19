@@ -123,6 +123,8 @@ export async function whatsAppWebhookIdle(): Promise<void> {
   while (inflight.size > 0) await Promise.allSettled([...inflight]);
 }
 
+const WELL_FORMED_SIGNATURE = /^sha256=[0-9a-f]{64}$/;
+
 export function handleWhatsAppWebhookEvent(req: Request, res: Response): void {
   if (!featureOn()) {
     res.status(404).end();
@@ -135,6 +137,13 @@ export function handleWhatsAppWebhookEvent(req: Request, res: Response): void {
 
   // Answer first: the verifying secret is the connection's own and is only known after the lookup below.
   res.status(200).type("text/plain").send("EVENT_RECEIVED");
+
+  // A header that is missing or not "sha256=" plus 64 lowercase hex characters cannot match any secret: stop before the three
+  // processors do a database lookup and a Vault read per connection for a delivery that is certainly forged.
+  if (!WELL_FORMED_SIGNATURE.test(signatureHeader)) {
+    recordSecurityEvent("whatsapp_bad_signature", "WhatsApp webhook delivery failed signature verification");
+    return;
+  }
 
   const work = processWhatsAppEvent(rawBody, signatureHeader)
     .then((s) => console.log(`[whatsapp-webhook] processed: messages=${s.messages} stored=${s.stored} unmatched=${s.unmatched} blocked=${s.blocked} rejected=${s.rejected}`))
