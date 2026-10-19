@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api } from "../lib/api";
 import { BrandMark } from "../components/BrandMark";
 import { PlatformIcon } from "../components/PlatformIcon";
@@ -43,6 +43,15 @@ export function ConnectX() {
     }
   }
 
+  // The redirect after a successful save must not fire if the page has already gone away.
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (redirectTimer.current !== null) clearTimeout(redirectTimer.current);
+    },
+    [],
+  );
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!accepted || !filled || busy) return;
@@ -58,7 +67,7 @@ export function ConnectX() {
       const r = await api.connectXKeys(toSend);
       setKeys(EMPTY_X_KEYS);
       setOkHandle({ handle: r.handle, saved: true });
-      setTimeout(() => {
+      redirectTimer.current = setTimeout(() => {
         window.location.href = "/";
       }, 1500);
     } catch (err) {

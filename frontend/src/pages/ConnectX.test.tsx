@@ -111,6 +111,29 @@ describe("the form", () => {
     await waitFor(() => expect(screen.getByText(/Connected as @acme/)).toBeTruthy());
   });
 
+  it("the redirect timer set after a successful save is cancelled when the page goes away", async () => {
+    const user = userEvent.setup();
+    api.connectXKeys.mockResolvedValue({ ok: true, handle: "acme", keyHint: "****2345" });
+    const setSpy = vi.spyOn(globalThis, "setTimeout");
+    const clearSpy = vi.spyOn(globalThis, "clearTimeout");
+    try {
+      render(<ConnectX />);
+      await fill(user);
+      await user.click(screen.getByRole("checkbox"));
+      await user.click(screen.getByRole("button", { name: "Save and connect" }));
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      await waitFor(() => expect(screen.getByText(/Connected as @acme/)).toBeTruthy());
+      const at = setSpy.mock.calls.findIndex((c) => c[1] === 1500);
+      expect(at).toBeGreaterThanOrEqual(0);
+      const timerId = setSpy.mock.results[at].value;
+      cleanup(); // the page unmounts before the 1.5 s redirect fires
+      expect(clearSpy).toHaveBeenCalledWith(timerId);
+    } finally {
+      setSpy.mockRestore();
+      clearSpy.mockRestore();
+    }
+  });
+
   it("an error clears both secrets, shows the message, and leaves nothing in storage or the address", async () => {
     const user = userEvent.setup();
     api.connectXKeys.mockRejectedValue(new Error("X did not accept these keys. Check you copied the API Key/Secret and the Access Token/Secret."));
