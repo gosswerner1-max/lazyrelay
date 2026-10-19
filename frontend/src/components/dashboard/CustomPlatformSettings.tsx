@@ -2,9 +2,12 @@ import { useId, useState, type FormEvent } from "react";
 import { api, type PlatformInfo, type SocialAccount, type WhatsAppCredentialFields } from "../../lib/api";
 import { PlatformIcon } from "../PlatformIcon";
 import { useByokDisclaimer } from "../ByokDisclaimerModal";
-import { EMPTY_X_KEYS, X_BYOK_CONSENT_TEXT, X_BYOK_GUIDE_URL, xKeysComplete, type XKeyFields } from "../../lib/xByok";
+import { EMPTY_X_KEYS, X_BYOK_CONSENT_TEXT, X_BYOK_GUIDE_URL, X_KEY_MAX_LENGTH, xKeysComplete, type XKeyFields } from "../../lib/xByok";
 import {
   EMPTY_WHATSAPP_FIELDS,
+  META_ID_MAX_LENGTH,
+  WHATSAPP_APP_SECRET_MAX_LENGTH,
+  WHATSAPP_TOKEN_MAX_LENGTH,
   WHATSAPP_BYOK_CONSENT_TEXT,
   upgradeNote,
   whatsAppFieldErrors,
@@ -12,7 +15,7 @@ import {
   type WhatsAppFields,
 } from "../../lib/whatsappByok";
 import { ByokGuide } from "./ByokGuide";
-import { X_GUIDE } from "../../lib/byokGuides";
+import { WHATSAPP_GUIDE, X_GUIDE } from "../../lib/byokGuides";
 import { WhatsAppInboundStatus } from "./WhatsAppInboundStatus";
 import { WhatsAppThreadViewer } from "./WhatsAppThreadViewer";
 import { WhatsAppWebhookDetails } from "./WhatsAppWebhookDetails";
@@ -56,6 +59,9 @@ function LockedNote({ info, onSeePlans }: { info: PlatformInfo; onSeePlans?: () 
   );
 }
 
+const APP_SECRET_HINT =
+  "The App Secret is on your Meta app under App settings, Basic. Without it you can still link your number, but inbound messages stay off until it is saved. Saving again without one keeps the one already saved.";
+
 const messageOf = (err: unknown): string => (err instanceof Error && err.message ? err.message : GENERIC_ERROR);
 
 interface FieldProps {
@@ -69,13 +75,20 @@ interface FieldProps {
   shown?: boolean;
   onToggleShown?: () => void;
   placeholder?: string;
+  /** Longest value the field accepts, and the keyboard to show for it. */
+  maxLength?: number;
+  inputMode?: "numeric";
+  /** Help text under the input, linked to it for screen readers. */
+  hint?: string;
   /** Spans the whole row of a two-column card: for long values such as a token. */
   wide?: boolean;
 }
 
-function Field({ label, name, value, onChange, error, secret, shown, onToggleShown, placeholder, wide }: FieldProps) {
+function Field({ label, name, value, onChange, error, secret, shown, onToggleShown, placeholder, maxLength, inputMode, hint, wide }: FieldProps) {
   const id = useId();
   const errorId = `${id}-error`;
+  const hintId = `${id}-hint`;
+  const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(" ") || undefined;
   return (
     <div className={wide ? "byok-field byok-field--wide" : "byok-field"}>
       <label htmlFor={id}>{label}</label>
@@ -86,11 +99,13 @@ function Field({ label, name, value, onChange, error, secret, shown, onToggleSho
           type={secret && !shown ? "password" : "text"}
           value={value}
           placeholder={placeholder}
+          maxLength={maxLength}
+          inputMode={inputMode}
           autoComplete="off"
           autoCapitalize="none"
           spellCheck={false}
           aria-invalid={error ? true : undefined}
-          aria-describedby={error ? errorId : undefined}
+          aria-describedby={describedBy}
           onChange={(e) => onChange(e.target.value)}
         />
         {secret && onToggleShown && (
@@ -99,6 +114,11 @@ function Field({ label, name, value, onChange, error, secret, shown, onToggleSho
           </button>
         )}
       </span>
+      {hint && (
+        <p id={hintId} className="byok-card__hint">
+          {hint}
+        </p>
+      )}
       {error && (
         <span id={errorId} className="byok-field__error">
           {error}
@@ -212,13 +232,14 @@ function XCard({ info, onConnected, onSeePlans }: CardProps) {
       <ByokGuide guide={X_GUIDE} />
       <form onSubmit={handleSubmit} autoComplete="off">
         <div className="byok-fields">
-          <Field label="API Key (Consumer Key)" name="x-api-key" value={keys.apiKey} onChange={set("apiKey")} />
-          <Field label="API Secret (Consumer Secret)" name="x-api-secret" value={keys.apiSecret} onChange={set("apiSecret")} secret shown={showApiSecret} onToggleShown={() => setShowApiSecret((v) => !v)} />
+          <Field label="API Key (Consumer Key)" name="x-api-key" value={keys.apiKey} onChange={set("apiKey")} maxLength={X_KEY_MAX_LENGTH} />
+          <Field label="API Secret (Consumer Secret)" name="x-api-secret" value={keys.apiSecret} onChange={set("apiSecret")} secret shown={showApiSecret} onToggleShown={() => setShowApiSecret((v) => !v)} maxLength={X_KEY_MAX_LENGTH} />
           <Field
             label="Access Token"
             name="x-access-token"
             value={keys.accessToken}
             onChange={set("accessToken")}
+            maxLength={X_KEY_MAX_LENGTH}
             secret
             shown={showAccessToken}
             onToggleShown={() => setShowAccessToken((v) => !v)}
@@ -228,6 +249,7 @@ function XCard({ info, onConnected, onSeePlans }: CardProps) {
             name="x-access-token-secret"
             value={keys.accessTokenSecret}
             onChange={set("accessTokenSecret")}
+            maxLength={X_KEY_MAX_LENGTH}
             secret
             shown={showTokenSecret}
             onToggleShown={() => setShowTokenSecret((v) => !v)}
@@ -361,16 +383,18 @@ function WhatsAppCard({ info, onConnected, onSeePlans, webhookInfo, onSaved }: W
         <strong>Meta bills your own WhatsApp Business Account directly.</strong> LazyRelay never pays for it.
       </p>
       <p className="byok-card__hint">Connect your own WhatsApp number here, then send and read messages in the WhatsApp tab.</p>
+      <ByokGuide guide={WHATSAPP_GUIDE} />
       <form onSubmit={handleSubmit} autoComplete="off">
         <div className="byok-fields">
-          <Field label="WABA ID" placeholder="WhatsApp Business Account ID" name="whatsapp-waba-id" value={fields.wabaId} onChange={set("wabaId")} error={problems.wabaId} />
-          <Field label="Phone number ID" name="whatsapp-phone-number-id" value={fields.phoneNumberId} onChange={set("phoneNumberId")} error={problems.phoneNumberId} />
+          <Field label="WABA ID" placeholder="WhatsApp Business Account ID" name="whatsapp-waba-id" value={fields.wabaId} onChange={set("wabaId")} error={problems.wabaId} inputMode="numeric" maxLength={META_ID_MAX_LENGTH} />
+          <Field label="Phone number ID" name="whatsapp-phone-number-id" value={fields.phoneNumberId} onChange={set("phoneNumberId")} error={problems.phoneNumberId} inputMode="numeric" maxLength={META_ID_MAX_LENGTH} />
           <Field
             label="System user token"
             name="whatsapp-system-user-token"
             value={fields.systemUserToken}
             onChange={set("systemUserToken")}
             error={problems.systemUserToken}
+            maxLength={WHATSAPP_TOKEN_MAX_LENGTH}
             wide
             secret
             shown={showToken}
@@ -382,16 +406,14 @@ function WhatsAppCard({ info, onConnected, onSeePlans, webhookInfo, onSaved }: W
             value={fields.appSecret ?? ""}
             onChange={set("appSecret")}
             error={problems.appSecret}
+            maxLength={WHATSAPP_APP_SECRET_MAX_LENGTH}
+            hint={APP_SECRET_HINT}
             wide
             secret
             shown={showAppSecret}
             onToggleShown={() => setShowAppSecret((v) => !v)}
           />
         </div>
-        <p className="byok-card__hint">
-          The App Secret is on your Meta app under App settings, Basic. Without it you can still link your number, but inbound messages stay off until it is saved. Saving again
-          without one keeps the one already saved.
-        </p>
         <p className="byok-card__hint">The token and App Secret are stored encrypted and are never shown again. You can remove them any time.</p>
         <WhatsAppInboundStatus state={webhookInfo} onSecretRemoved={onSaved} />
         <WhatsAppWebhookDetails state={webhookInfo} />

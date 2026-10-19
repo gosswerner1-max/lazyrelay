@@ -7,6 +7,8 @@ export const X_BYOK_CONSENT_TEXT =
 
 export const X_BYOK_GUIDE_URL = "/guides/x-developer-keys/";
 export const X_CONNECT_PATH = "/connect/x";
+/** Same cap as the backend (X_KEY_MAX_LENGTH): none of the four X keys is longer than this. */
+export const X_KEY_MAX_LENGTH = 200;
 
 export interface XKeyFields {
   apiKey: string;

@@ -10,12 +10,14 @@ export const WHATSAPP_BYOK_CONSENT_TEXT =
 /** Meta ids (WhatsApp Business Account id, phone number id) are numeric strings. Same rule as the backend and its
  *  database CHECK (migration 0124). */
 export const META_ID_PATTERN = /^[0-9]{5,25}$/;
+export const META_ID_MAX_LENGTH = 25;
 /** Same shape rule as the backend: letters, digits, dot, dash, underscore; loose length. */
 export const WHATSAPP_TOKEN_PATTERN = /^[A-Za-z0-9._-]+$/;
 export const WHATSAPP_TOKEN_MIN_LENGTH = 20;
 export const WHATSAPP_TOKEN_MAX_LENGTH = 512;
 /** Same rule as the backend (WHATSAPP_APP_SECRET_PATTERN): letters and digits only, 16 to 64 characters. */
 export const WHATSAPP_APP_SECRET_PATTERN = /^[A-Za-z0-9]{16,64}$/;
+export const WHATSAPP_APP_SECRET_MAX_LENGTH = 64;
 
 export interface WhatsAppFields {
   wabaId: string;
