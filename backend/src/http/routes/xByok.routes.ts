@@ -182,6 +182,7 @@ export function registerXByokRoutes(
     let blockedByDatabase = false;
     let savedRowId: string | null = null;
     let replacedLogin = false;
+    let replacedVaultId: string | null = null;
     try {
       // Rotating the keys of a connection we already have (same X account) updates its Vault secret in place; a new
       // account is checked against the plan's limits first, exactly like every other connect.
@@ -220,6 +221,16 @@ export function registerXByokRoutes(
         if (error || !data) throw new Error("vault");
         vaultId = data as string;
         newVaultId = vaultId;
+        // Two first saves can race: both found no row, so both stored a new secret. If the other one's row is already there,
+        // the upsert below re-points it at this secret and the other secret would sit in Vault for good: remember it to wipe it.
+        const { data: current } = await supabase
+          .from("social_accounts")
+          .select("access_token_vault_id")
+          .eq("account_id", accountId)
+          .eq("platform", "x")
+          .eq("platform_account_id", check.id)
+          .maybeSingle();
+        replacedVaultId = (current?.access_token_vault_id as string | undefined) ?? null;
       }
 
       replacedLogin = Boolean(existing?.access_token_vault_id);
@@ -262,6 +273,7 @@ export function registerXByokRoutes(
       res.status(500).json({ error: SAVE_FAILED });
       return;
     }
+    if (replacedVaultId && replacedVaultId !== newVaultId) await wipeVaultSecrets(supabase, [replacedVaultId]);
     await recordCredentialAudit({ supabase, accountId, socialAccountId: savedRowId, platform: "x", action: replacedLogin ? "replaced" : "saved", actorUserId: req.userId ?? null, actorRole: req.role ?? null });
     res.json({ ok: true, handle: check.username, keyHint });
   });

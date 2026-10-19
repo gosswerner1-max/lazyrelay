@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import { tables, vault } from "../../testFakeSupabase.js";
 import { X_TEST_BUNDLE } from "../../platforms/xTestKit.js";
 
-const ctx = vi.hoisted(() => ({ account: "acc1", method: "jwt", role: "owner", user: "user1", auditFails: false, selects: [] as string[], rpcCalls: [] as string[], dbGateError: null as null | { code?: string; message: string } }));
+const ctx = vi.hoisted(() => ({ account: "acc1", method: "jwt", role: "owner", user: "user1", auditFails: false, staleLookups: 0, rpcArgs: [] as Array<{ fn: string; args: Record<string, unknown> }>, selects: [] as string[], rpcCalls: [] as string[], dbGateError: null as null | { code?: string; message: string } }));
 vi.mock("../auth.js", async () => {
   const f = await import("../../testFakeSupabase.js");
   return {
@@ -56,6 +56,17 @@ vi.mock("../../supabase.js", async () => {
           failing.single = () => failing;
           b.upsert = () => failing;
         }
+        // Tests only: the first N reads of a social_accounts row find nothing, as when two first saves race.
+        if (t === "social_accounts" && ctx.staleLookups > 0) {
+          const real = b.maybeSingle;
+          b.maybeSingle = () => {
+            if (ctx.staleLookups > 0) {
+              ctx.staleLookups -= 1;
+              return { then: (resolve: (v: unknown) => unknown) => Promise.resolve({ data: null, error: null }).then(resolve) };
+            }
+            return real();
+          };
+        }
         // Tests only: make the audit insert fail.
         if (t === "credential_audit_events" && ctx.auditFails) {
           b.insert = () => Promise.resolve({ data: null, error: { code: "42501", message: "permission denied for table credential_audit_events" } });
@@ -64,6 +75,7 @@ vi.mock("../../supabase.js", async () => {
       },
       rpc: (fn: string, args: Record<string, unknown>) => {
         ctx.rpcCalls.push(fn);
+        ctx.rpcArgs.push({ fn, args });
         return f.fakeRpc(fn, args);
       },
     },
@@ -127,6 +139,8 @@ beforeEach(() => {
   ctx.dbGateError = null;
   ctx.role = "owner";
   ctx.auditFails = false;
+  ctx.staleLookups = 0;
+  ctx.rpcArgs = [];
   xCalls = 0;
   xReply = meOk();
   process.env.X_BYOK_PLATFORM_PUBLIC = "true";
@@ -636,5 +650,41 @@ describe("credential audit: every save writes one entry, and never breaks the sa
     setTier("free");
     await request(appWith()).post("/social-accounts/x/byok").send(BODY);
     expect(audit()).toHaveLength(0);
+  });
+});
+
+describe("a save that replaces a Vault secret wipes the replaced one", () => {
+  const marker = (v: string) => v === "revoked";
+  const wipes = () => ctx.rpcArgs.filter((c) => c.fn === "update_social_token" && marker(String(c.args.p_new_token)));
+  const savedVault = () => tables.social_accounts[0].access_token_vault_id as string;
+
+  it("two saves where the second does not see the first: the first secret is wiped exactly once, the current one never", async () => {
+    expect((await request(appWith()).post("/social-accounts/x/byok").send(BODY)).status).toBe(200);
+    const first = savedVault();
+    ctx.staleLookups = 1; // the second save's own lookup misses the row, so it stores a brand new secret
+    expect((await request(appWith()).post("/social-accounts/x/byok").send(BODY)).status).toBe(200);
+    const second = savedVault();
+    expect(second).not.toBe(first);
+    expect(wipes().map((c) => c.args.p_vault_id)).toEqual([first]);
+    expect(vault.get(first)).toBe("revoked");
+    expect(vault.get(second)).not.toBe("revoked");
+    expect(tables.social_accounts).toHaveLength(1);
+  });
+
+  it("a first save, and a plain rotation of the same connection, wipe nothing", async () => {
+    await request(appWith()).post("/social-accounts/x/byok").send(BODY);
+    expect(wipes()).toHaveLength(0);
+    await request(appWith()).post("/social-accounts/x/byok").send(BODY);
+    expect(wipes()).toHaveLength(0);
+    expect(tables.social_accounts).toHaveLength(1);
+  });
+
+  it("a refused save wipes nothing it did not store itself", async () => {
+    await request(appWith()).post("/social-accounts/x/byok").send(BODY);
+    const first = savedVault();
+    ctx.staleLookups = 1;
+    ctx.dbGateError = { code: "23505", message: "boom" };
+    expect((await request(appWith()).post("/social-accounts/x/byok").send(BODY)).status).toBe(500);
+    expect(vault.get(first)).not.toBe("revoked"); // the row still points at it
   });
 });
