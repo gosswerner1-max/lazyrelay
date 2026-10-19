@@ -14,7 +14,7 @@ import type {
   PendingConnectSelection,
 } from "./types.js";
 import { metaConnectError } from "./metaConnectError.js";
-import { graphFetch, readGraphJson } from "./metaGraphHttp.js";
+import { graphFetch, graphPublishFetch, readGraphJson } from "./metaGraphHttp.js";
 
 // Instagram Business posting via "Instagram API with Facebook Login" — same
 // OAuth app/flow as the Facebook adapter (Facebook Login for Business), but
@@ -320,7 +320,7 @@ export class InstagramAdapter implements PlatformAdapter {
         is_carousel_item: "true",
         access_token: request.accessToken,
       });
-      const res = await graphFetch(`${GRAPH_BASE}/${igId}/media`, {
+      const res = await graphPublishFetch(`${GRAPH_BASE}/${igId}/media`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: childParams.toString(),
@@ -333,7 +333,7 @@ export class InstagramAdapter implements PlatformAdapter {
       if (childError) return { success: false, platformPostId: null, errorMessage: childError };
       childIds.push(json.id);
     }
-    const parentRes = await graphFetch(`${GRAPH_BASE}/${igId}/media`, {
+    const parentRes = await graphPublishFetch(`${GRAPH_BASE}/${igId}/media`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ media_type: "CAROUSEL", children: childIds.join(","), caption: request.content, access_token: request.accessToken }).toString(),
@@ -344,7 +344,7 @@ export class InstagramAdapter implements PlatformAdapter {
     }
     const parentError = await this.waitForContainerReady(parentJson.id, request.accessToken, false);
     if (parentError) return { success: false, platformPostId: null, errorMessage: parentError };
-    const publishRes = await graphFetch(`${GRAPH_BASE}/${igId}/media_publish`, {
+    const publishRes = await graphPublishFetch(`${GRAPH_BASE}/${igId}/media_publish`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ creation_id: parentJson.id, access_token: request.accessToken }).toString(),
@@ -395,7 +395,7 @@ export class InstagramAdapter implements PlatformAdapter {
         JSON.stringify({ graduation_strategy: igOptions.trialGraduation === "auto" ? "SS_PERFORMANCE" : "MANUAL" }),
       );
     }
-    const containerRes = await graphFetch(`${GRAPH_BASE}/${igId}/media`, {
+    const containerRes = await graphPublishFetch(`${GRAPH_BASE}/${igId}/media`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: containerParams.toString(),
@@ -418,7 +418,7 @@ export class InstagramAdapter implements PlatformAdapter {
       creation_id: containerJson.id,
       access_token: request.accessToken,
     });
-    const publishRes = await graphFetch(`${GRAPH_BASE}/${igId}/media_publish`, {
+    const publishRes = await graphPublishFetch(`${GRAPH_BASE}/${igId}/media_publish`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: publishParams.toString(),

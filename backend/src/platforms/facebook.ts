@@ -14,7 +14,7 @@ import type {
   PendingConnectSelection,
 } from "./types.js";
 import { metaConnectError } from "./metaConnectError.js";
-import { graphFetch, readGraphJson } from "./metaGraphHttp.js";
+import { graphFetch, graphPublishFetch, readGraphJson } from "./metaGraphHttp.js";
 
 // A Facebook user can manage multiple Pages. exchangeCode() below still
 // connects the FIRST Page returned by /me/accounts, kept for interface
@@ -232,7 +232,7 @@ export class FacebookAdapter implements PlatformAdapter {
     const urls = [request.mediaUrl as string, ...(request.mediaUrls ?? [])];
     const photoIds: string[] = [];
     for (const photoUrl of urls) {
-      const res = await graphFetch(`${GRAPH_BASE}/${pageId}/photos`, {
+      const res = await graphPublishFetch(`${GRAPH_BASE}/${pageId}/photos`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ url: photoUrl, published: "false", access_token: request.accessToken }).toString(),
@@ -245,7 +245,7 @@ export class FacebookAdapter implements PlatformAdapter {
     }
     const feedParams = new URLSearchParams({ message: request.content, access_token: request.accessToken });
     photoIds.forEach((id, i) => feedParams.set(`attached_media[${i}]`, JSON.stringify({ media_fbid: id })));
-    const feedRes = await graphFetch(`${GRAPH_BASE}/${pageId}/feed`, {
+    const feedRes = await graphPublishFetch(`${GRAPH_BASE}/${pageId}/feed`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: feedParams.toString(),
@@ -270,14 +270,14 @@ export class FacebookAdapter implements PlatformAdapter {
     const mediaUrl = request.mediaUrl as string;
 
     if (!isVideo) {
-      const upRes = await graphFetch(`${GRAPH_BASE}/${pageId}/photos`, {
+      const upRes = await graphPublishFetch(`${GRAPH_BASE}/${pageId}/photos`, {
         method: "POST",
         headers: form,
         body: new URLSearchParams({ url: mediaUrl, published: "false", access_token: request.accessToken }).toString(),
       });
       const upJson = await readGraphJson<FacebookPostResponse>(upRes);
       if (!upRes.ok || !upJson.id) return fail(upJson.error?.message ?? `Facebook story photo upload failed (HTTP ${upRes.status})`);
-      const res = await graphFetch(`${GRAPH_BASE}/${pageId}/photo_stories`, {
+      const res = await graphPublishFetch(`${GRAPH_BASE}/${pageId}/photo_stories`, {
         method: "POST",
         headers: form,
         body: new URLSearchParams({ photo_id: upJson.id, access_token: request.accessToken }).toString(),
@@ -287,7 +287,7 @@ export class FacebookAdapter implements PlatformAdapter {
       return { success: true, platformPostId: String(json.post_id), errorMessage: null };
     }
 
-    const startRes = await graphFetch(`${GRAPH_BASE}/${pageId}/video_stories`, {
+    const startRes = await graphPublishFetch(`${GRAPH_BASE}/${pageId}/video_stories`, {
       method: "POST",
       headers: form,
       body: new URLSearchParams({ upload_phase: "start", access_token: request.accessToken }).toString(),
@@ -296,7 +296,7 @@ export class FacebookAdapter implements PlatformAdapter {
     if (!startRes.ok || !startJson.video_id || !startJson.upload_url) {
       return fail(startJson.error?.message ?? `Facebook video story could not start (HTTP ${startRes.status})`);
     }
-    const uploadRes = await graphFetch(startJson.upload_url, {
+    const uploadRes = await graphPublishFetch(startJson.upload_url, {
       method: "POST",
       headers: { Authorization: `OAuth ${request.accessToken}`, file_url: mediaUrl },
     });
@@ -304,7 +304,7 @@ export class FacebookAdapter implements PlatformAdapter {
     if (!uploadRes.ok || uploadJson.success !== true) {
       return fail(uploadJson.error?.message ?? `Facebook video story upload failed (HTTP ${uploadRes.status})`);
     }
-    const finishRes = await graphFetch(`${GRAPH_BASE}/${pageId}/video_stories`, {
+    const finishRes = await graphPublishFetch(`${GRAPH_BASE}/${pageId}/video_stories`, {
       method: "POST",
       headers: form,
       body: new URLSearchParams({ video_id: startJson.video_id, upload_phase: "finish", access_token: request.accessToken }).toString(),
@@ -335,7 +335,7 @@ export class FacebookAdapter implements PlatformAdapter {
       params.set("message", request.content);
     }
 
-    const res = await graphFetch(endpoint, {
+    const res = await graphPublishFetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: params.toString(),

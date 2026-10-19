@@ -1,4 +1,5 @@
-// Meta call hygiene for Facebook and Instagram: every Graph call has a timeout, a body that is not JSON becomes a clear error,
+// Meta call hygiene for Facebook and Instagram: connect and read Graph calls have a timeout (publish and upload calls deliberately
+// have none, see metaPublishNoTimeout.test.ts), a body that is not JSON becomes a clear error,
 // and the long-lived token exchange sends the app secret in a POST body instead of the URL. The ordinary Graph calls still carry
 // access_token in the query string (unchanged on purpose). fetch is stubbed: nothing real is called.
 
@@ -87,12 +88,15 @@ for (const [name, make] of [
   });
 }
 
-describe("posting calls carry a timeout too", () => {
-  it("facebook post() passes a signal", async () => {
+describe("posting: the page lookup is a read and keeps the timeout, the publish call does not", () => {
+  it("facebook post()", async () => {
     const calls = stub((c) => (c.url.includes("/me") ? ok({ id: "p1" }) : ok({ id: "1_2", post_id: "1_2" })));
     await new FacebookAdapter("cid", SECRET, "u").post({ content: "hi", accessToken: "t", socialAccountId: "sa", mediaUrl: null } as never);
     expect(calls.length).toBeGreaterThanOrEqual(1);
-    for (const c of calls) expect(c.init?.signal, c.url).toBeInstanceOf(AbortSignal);
+    for (const c of calls) {
+      if (c.init?.method === "POST") expect(c.init?.signal, c.url).toBeUndefined();
+      else expect(c.init?.signal, c.url).toBeInstanceOf(AbortSignal);
+    }
   });
 
   it("no Graph call in either adapter bypasses the timeout wrapper", () => {
