@@ -20,6 +20,7 @@ import {
 import { resolveTier, type Tier } from "./tier.js";
 import { MAX_FIRST_COMMENT_LENGTH } from "./postCreation.js";
 import { decideFirstComment, firstCommentDueAt } from "./firstCommentDelay.js";
+import { emitBeforePublish, emitAfterVerify } from "./publishHooks.js";
 
 // How many due posts one scheduler cycle claims and processes. Combined
 // with index.ts's POLL_INTERVAL_MS, this is the real throughput ceiling —
@@ -192,6 +193,7 @@ interface DuePost {
   tiktok_brand_organic: boolean;
   tiktok_brand_content: boolean;
   retry_count: number;
+  scheduled_for?: string | null;
   platform: string;
   platform_account_id?: string | null;
   /** 'platform' or 'byok'. Looked up only for X and WhatsApp posts (attachCredentialModes); undefined for every other
@@ -254,7 +256,7 @@ async function claimDuePosts(): Promise<DuePost[]> {
     .eq("status", "pending")
     .is("paused_at", null)
     .select(
-      "id, account_id, social_account_id, content, media_url, media_urls, options, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, tiktok_brand_organic, tiktok_brand_content, retry_count, social_accounts(platform, platform_account_id)",
+      "id, account_id, social_account_id, content, media_url, media_urls, options, cover_image_url, board_id, destination_link, first_comment, media_alt_text, tiktok_privacy_level, tiktok_disable_comment, tiktok_disable_duet, tiktok_disable_stitch, tiktok_brand_organic, tiktok_brand_content, retry_count, scheduled_for, social_accounts(platform, platform_account_id)",
     );
 
   if (claimError) throw claimError;
@@ -1134,6 +1136,9 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     // duplicate Facebook/Reel/Telegram posts logged in the platform
     // capability matrix. Re-check the existing post instead.
     const alreadyPublished = await findAcceptedPublish(post.id);
+    // Observe-only hooks (publishHooks.ts): none are registered by default. Only for a real publish, not a re-check of one already accepted.
+    const hookContext = { postId: post.id, accountId: post.account_id, socialAccountId: post.social_account_id, platform: adapter.platform, scheduledFor: post.scheduled_for ?? null, attempt: post.retry_count + 1 };
+    if (!alreadyPublished) await emitBeforePublish(hookContext);
     const attempt: PostAttemptResult = alreadyPublished
       ? { success: true, platformPostId: alreadyPublished.platform_post_id, errorMessage: null }
       : await adapter.post({
@@ -1172,6 +1177,7 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     // live — this read-back check is the actual Proof-of-Publish
     // differentiator, not an optional extra step.
     const verification = await adapter.verifyPublished(attempt.platformPostId, accessToken);
+    await emitAfterVerify({ ...hookContext, verifiedLive: verification.verifiedLive, platformPostId: attempt.platformPostId });
 
     // The customer chose to save this as a DRAFT on the platform (WordPress, dev.to, Hashnode). It exists there
     // and is not public, so it can never be verified live: that is a finished job, not a failure. Record it as
