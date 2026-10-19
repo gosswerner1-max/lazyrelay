@@ -27,9 +27,9 @@ const fail = (what: string, error: { message: string }): never => {
 
 /** Opts a stored contact out. False when the contact is not this account's. */
 export async function recordOptOutForContact(accountId: string, contactId: string, cause: OptOutCause, now: Date = new Date()): Promise<boolean> {
-  const found = await supabase.from("whatsapp_contacts").select("id, contact_key, wa_contact_key, contact_display").eq("id", contactId).eq("account_id", accountId).maybeSingle();
+  const found = await supabase.from("whatsapp_contacts").select("id, contact_key, wa_contact_key, contact_display, consent_status").eq("id", contactId).eq("account_id", accountId).maybeSingle();
   if (found.error) fail("contact lookup failed", found.error);
-  const contact = found.data as { id: string; contact_key: string; wa_contact_key: string | null; contact_display: string } | null;
+  const contact = found.data as { id: string; contact_key: string; wa_contact_key: string | null; contact_display: string; consent_status: string } | null;
   if (!contact) return false;
   const at = now.toISOString();
   const ins = await supabase.from("whatsapp_opt_outs").upsert(
@@ -37,6 +37,8 @@ export async function recordOptOutForContact(accountId: string, contactId: strin
     { onConflict: "account_id,contact_key,scope", ignoreDuplicates: true },
   );
   if (ins.error) fail("opt-out insert failed", ins.error);
+  // Already opted out (a replayed STOP, or Meta saying 131050 again): the first opt-out time stays as the evidence.
+  if (contact.consent_status === "opted_out") return true;
   const upd = await supabase.from("whatsapp_contacts").update({ consent_status: "opted_out", opted_out_at: at, updated_at: at }).eq("id", contactId).eq("account_id", accountId);
   if (upd.error) fail("contact update failed", upd.error);
   return true;
