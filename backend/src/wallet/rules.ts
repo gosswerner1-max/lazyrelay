@@ -43,7 +43,7 @@ export function minActionPriceMicro(): number {
 /**
  * True when an account's queue must stop: it HAS a wallet and the balance cannot pay for the cheapest action (zero, or less than that).
  * An account with no wallet row at all (null) is never paused: it was never given a balance, and pausing it would stop customers the
- * moment the wallet is switched on. Give every account its allowance or bundle first (docs/WALLET-DESIGN.md, backfill).
+ * moment the wallet is switched on. Give every account its allowance or bundle first (the wallet design notes (kept outside this repository), backfill).
  */
 export function shouldPauseQueue(balanceMicro: number | null): boolean {
   if (balanceMicro === null) return false;

@@ -4,7 +4,7 @@ import { WalletValueError } from "./money.js";
 /**
  * The pure two tier model decided by the owner on 2026-10-19, written down as data. NOTHING READS THIS. It does not change a live plan,
  * a Paddle price, a limit or a page. All other tiers are to be removed from the catalog by the owner; that is a billing and customer step
- * done outside this code (see docs/WALLET-DESIGN.md section 9).
+ * done outside this code (see the wallet design notes (kept outside this repository) section 9).
  *
  * Free Core: 0 USD. Up to 3 brands; inside each brand any or all of the 18 distribution platforms; 3 publications a day per brand.
  *   Starts with a 0.50 USD wallet allowance, then buys top ups. No WhatsApp workflows, no signed proof links, no client reporting.
