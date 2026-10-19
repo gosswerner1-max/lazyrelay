@@ -1,7 +1,7 @@
 -- 0139: wallet ledger (service credits) for metered actions.
 --
--- DRAFT on the local branch feat/wallet-draft. NOT applied anywhere, NOT pushed. Apply by hand with the owner's yes, on a throwaway
--- Supabase branch first. Behaviour was checked on PGlite (see the wallet design notes (kept outside this repository)), not on Supabase.
+-- Applied to production by hand on 2026-10-19 with the owner's go. The wallet stays OFF (WALLET_ENABLED unset): nothing charges or pauses anyone.
+-- Behaviour was checked on PGlite (47 checks, backend/scripts/wallet-sql-check.mjs), then on the production database by the checks listed in the PR.
 --
 -- What this is. A prepaid balance per account, and an append only ledger of every change to it. Two metered actions have a price in the
 -- wallet_prices table: api_dispatch (a verified platform API dispatch) and sitemap_sync (a sitemap crawl and sync of a Content Sources
