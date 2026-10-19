@@ -83,6 +83,8 @@ const MORE_FEATURES = [
   "Link-in-bio page: a simple, hosted link page you can share as one URL",
   "Browser extension (Developer Manual Install Only): right-click any page, link, or image to send it to LazyRelay; load it unpacked from the repository, it is not in any browser store",
   "Two-factor authentication: optional TOTP-based 2FA plus one-time recovery codes, for extra account security",
+  "AI agent access: 27 MCP tools, included on every plan, that work with any AI agent that supports MCP, including Claude, ChatGPT, Gemini and Cursor",
+  "Content Sources: connect an RSS feed or a sitemap from a website you have proven you own, and LazyRelay turns new pages into draft posts for you to review. Nothing is posted until you approve it",
 ];
 
 const STEPS = [
