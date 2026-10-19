@@ -85,7 +85,7 @@ t("an empty week gives zeros, not NaN", () => {
 t("the rendered report is plain text with every section and no dashes used as punctuation", () => {
   const text = renderReport(buildReport([row(), row({ legacy_action: "attempt", new_action: "fail", new_reason_code: "too_late", lateness_ms: 3 * H })]), { days: 7 });
   for (const heading of ["Shadow report", "By platform", "By error class", "Old action", "New action", "Diverged", "too_late", "Owner alerts"]) assert.ok(text.includes(heading), heading);
-  assert.ok(!/[–—]/.test(text));
+  assert.ok(!new RegExp("[\\u2013\\u2014]").test(text));
 });
 
 t("fetchRows only reads: it pages through the table with select and range, and never writes", async () => {
