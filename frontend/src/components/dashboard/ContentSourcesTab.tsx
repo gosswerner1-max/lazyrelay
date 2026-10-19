@@ -31,6 +31,8 @@ export interface ContentSourcesTabProps {
   onOpenApiKeys?: () => void;
   /** Takes the customer to the plan page the app already has. */
   onOpenPlan?: () => void;
+  /** Fetches the account's posts again, so the drafts a run just made appear without a page reload. */
+  onRefreshPosts?: () => void | Promise<void>;
 }
 
 const STATUS_BADGE = "Generated draft, pending review";
@@ -43,10 +45,10 @@ const BLOCKED_TITLES: Partial<Record<string, string>> = {
 };
 const NO_RETRY = new Set(["not_connected", "sign_in", "unauthorized"]);
 
-export function ContentSourcesTab({ posts, brands, onReviewAndEdit, onApproveToCalendar, onPurge, client, onOpenApiKeys, onOpenPlan }: ContentSourcesTabProps) {
+export function ContentSourcesTab({ posts, brands, onReviewAndEdit, onApproveToCalendar, onPurge, client, onOpenApiKeys, onOpenPlan, onRefreshPosts }: ContentSourcesTabProps) {
   const uid = useId();
   const id = (part: string) => `${uid}-${part}`;
-  const cs = useContentSources(client);
+  const cs = useContentSources(client, { onRunFinished: onRefreshPosts });
 
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
