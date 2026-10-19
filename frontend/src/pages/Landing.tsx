@@ -636,6 +636,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           <a href="#pricing">Pricing</a>
           <a href="#faq">FAQ</a>
           <a href="#about">About</a>
+          <a href="/capabilities/">Capabilities</a>
           <a href="/guides/">Guides</a>
           <a href="/mcp/">Integrations</a>
           <button className="link" onClick={onDocs}>
@@ -660,6 +661,9 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
             </a>
             <a href="#about" onClick={() => setMobileMenuOpen(false)}>
               About
+            </a>
+            <a href="/capabilities/" onClick={() => setMobileMenuOpen(false)}>
+              Capabilities
             </a>
             <a href="/guides/" onClick={() => setMobileMenuOpen(false)}>
               Guides
@@ -1033,6 +1037,9 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           <button className="link" onClick={onDocs}>
             API &amp; MCP docs
           </button>
+          <a className="link" href="/capabilities/">
+            Capabilities
+          </a>
           <a className="link" href="/guides/">
             Guides
           </a>

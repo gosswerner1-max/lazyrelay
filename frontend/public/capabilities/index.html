@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Core Capabilities and Architectural Features of LazyRelay</title>
+<meta name="description" content="What LazyRelay does: scheduling to 18 distribution platforms plus WhatsApp, Proof of Publish checks, MCP access for AI agents and Content Sources." />
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+<link rel="canonical" href="https://lazyrelay.com/capabilities/" />
+<meta property="og:title" content="Core Capabilities and Architectural Features of LazyRelay" />
+<meta property="og:description" content="What LazyRelay does: scheduling to 18 distribution platforms plus WhatsApp, Proof of Publish checks, MCP access for AI agents and Content Sources." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://lazyrelay.com/capabilities/" />
+<meta property="og:site_name" content="LazyRelay" />
+<meta property="og:locale" content="en_US" />
+<meta property="og:image" content="https://lazyrelay.com/og-image-1200x630.jpg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="LazyRelay logo with the tagline Automate. Schedule. Publish. Repeat., and icons for smart scheduling, auto posting and flexible storage, linked to social platform icons." />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Core Capabilities and Architectural Features of LazyRelay" />
+<meta name="twitter:description" content="What LazyRelay does: scheduling to 18 distribution platforms plus WhatsApp, Proof of Publish checks, MCP access for AI agents and Content Sources." />
+<meta name="twitter:image" content="https://lazyrelay.com/og-image-1200x630.jpg" />
+<link rel="icon" type="image/png" href="/favicon.png" />
+<script src="/consent.js" defer></script>
+<style>
+  :root { color-scheme: dark; --canvas: #14171f; --row: #1d2230; --row-edge: #2a3142; --text: #f5f6f8; --muted: #b4bcc8; --accent: #ff5630; --accent-soft: #ff8a6b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--canvas); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.65; }
+  a { color: var(--accent-soft); }
+  a:hover { color: var(--text); }
+  a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  .skip { position: absolute; left: -999px; top: 8px; background: var(--accent); color: #fff; padding: 8px 14px; border-radius: 6px; z-index: 10; }
+  .skip:focus { left: 8px; }
+  header.top { max-width: 960px; margin: 0 auto; padding: 20px 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+  .wordmark { font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: var(--text); text-decoration: none; }
+  .wordmark .dot { color: var(--accent); }
+  nav.primary { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 15px; }
+  nav.primary a { text-decoration: none; color: var(--muted); padding: 4px 0; }
+  nav.primary a[aria-current="page"] { color: var(--text); border-bottom: 2px solid var(--accent); }
+  nav.primary a:hover { color: var(--text); }
+  main { max-width: 960px; margin: 0 auto; padding: 8px 16px 56px; }
+  h1 { font-family: Georgia, serif; font-size: clamp(30px, 5vw, 44px); line-height: 1.15; margin: 24px 0 12px; letter-spacing: -0.02em; }
+  h2 { font-family: Georgia, serif; font-size: 22px; margin: 0 0 6px; line-height: 1.25; }
+  h3 { font-family: Georgia, serif; font-size: 17px; margin: 28px 0 6px; }
+  .lede { color: var(--muted); font-size: 18px; max-width: 720px; margin: 0 0 28px; }
+  .rows { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
+  .row { background: var(--row); border: 1px solid var(--row-edge); border-left: 6px solid var(--accent); border-radius: 10px; padding: 18px 20px; }
+  .row p { margin: 6px 0 0; color: var(--muted); }
+  .row strong { color: var(--text); }
+  .row .tag { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #14171f; background: var(--accent); border-radius: 999px; padding: 2px 10px; margin-bottom: 8px; }
+  .platforms { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+  .platforms li { background: #232a3b; border: 1px solid var(--row-edge); border-radius: 999px; padding: 4px 12px; font-size: 14px; color: var(--text); }
+  .cta { background: var(--row); border: 2px solid var(--accent); border-radius: 12px; padding: 22px 24px; margin: 36px 0; }
+  .cta a.button { display: inline-block; background: var(--accent); color: #14171f; font-weight: 700; padding: 12px 22px; border-radius: 8px; text-decoration: none; margin-top: 10px; }
+  .cta a.button:hover { background: #ff7a58; color: #14171f; }
+  .faq details { background: var(--row); border: 1px solid var(--row-edge); border-radius: 10px; padding: 14px 18px; margin: 10px 0; }
+  .faq summary { cursor: pointer; font-weight: 600; }
+  .faq p { color: var(--muted); margin: 10px 0 0; }
+  .note { color: var(--muted); font-size: 14px; }
+  footer { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; border-top: 1px solid var(--row-edge); color: var(--muted); font-size: 14px; }
+  footer a { color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "@id": "https://lazyrelay.com/capabilities/#software",
+  "name": "LazyRelay",
+  "url": "https://lazyrelay.com",
+  "description": "LazyRelay schedules and publishes posts to 18 distribution platforms plus WhatsApp, checks that each post is really live, and gives AI agents access through 27 MCP tools.",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web",
+  "featureList": [
+    "18 distribution platforms plus WhatsApp",
+    "Scheduling that runs by itself",
+    "Proof of Publish",
+    "27 MCP tools for AI agents",
+    "Content Sources: draft posts from your own website",
+    "Drafts for review",
+    "Page text is not kept",
+    "Your data stays yours",
+    "WhatsApp broadcasts",
+    "Approvals and client review links",
+    "Brands and team seats",
+    "AI captions, hashtags and ideas",
+    "Bulk CSV import",
+    "REST API and signed webhooks",
+    "Analytics dashboard",
+    "Two factor authentication"
+  ],
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD",
+    "description": "Free tier with 3 accounts, 250MB storage and Proof of Publish included, no card required"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Which platforms can LazyRelay publish to?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LazyRelay publishes to 18 distribution platforms plus WhatsApp: Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress, DEV, Hashnode, Lemmy, Slack and X."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does LazyRelay work with my AI agent?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LazyRelay works with any AI agent that supports MCP, including Claude, ChatGPT, Gemini and Cursor. It offers 27 MCP tools, included on every plan, through a hosted endpoint with sign in or a local package with an API key."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is Proof of Publish?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Proof of Publish is a second check. After LazyRelay posts, it looks at the platform again to confirm the post is really live, instead of trusting that the platform accepted the request. It is included on every plan, including Free."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does Content Sources do?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Content Sources reads an RSS feed or a sitemap from a website you have proven you own and turns new pages into draft posts for you to review. Nothing is posted until you approve it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is there a free plan?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. The free tier has 3 accounts and 250MB of storage, includes Proof of Publish and MCP access, and needs no card."
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#content">Skip to the capabilities</a>
+<header class="top">
+  <a class="wordmark" href="/">Lazy<span class="dot">Relay</span></a>
+  <nav class="primary" aria-label="Primary">
+    <a href="/">Home</a>
+    <a href="/capabilities/" aria-current="page">Capabilities</a>
+    <a href="/pricing/">Pricing</a>
+    <a href="/mcp/">Integrations</a>
+    <a href="/guides/">Guides</a>
+    <a href="/docs/">Docs</a>
+  </nav>
+</header>
+<main id="content">
+  <h1>What LazyRelay can do</h1>
+  <p class="lede">One place to schedule, publish and check your posts, with access for AI agents built in. Every line below describes something LazyRelay does today.</p>
+
+  <ul class="rows">
+    <li class="row">
+      <span class="tag">Publish</span>
+      <h2>18 distribution platforms plus WhatsApp</h2>
+      <p>Connect your accounts once and post to all of them from one screen, or from an AI agent.</p>
+      <ul class="platforms" aria-label="Distribution platforms">
+        <li>Facebook</li><li>Instagram</li><li>TikTok</li><li>Pinterest</li><li>YouTube</li><li>LinkedIn</li><li>Threads</li><li>Mastodon</li><li>Bluesky</li><li>Telegram</li><li>Discord</li><li>Tumblr</li><li>WordPress</li><li>DEV</li><li>Hashnode</li><li>Lemmy</li><li>Slack</li><li>X</li>
+      </ul>
+      <p class="note">X is available on paid plans, using your own X developer keys. WhatsApp is used for client messaging.</p>
+    </li>
+    <li class="row">
+      <span class="tag">Schedule</span>
+      <h2>Scheduling that runs by itself</h2>
+      <p>Queue a one time post for the exact moment you want, or set a recurring weekly schedule once on a paid plan. Plan by day on the content calendar. LazyRelay checks for due posts every 30 seconds and sends them out when they are due.</p>
+    </li>
+    <li class="row">
+      <span class="tag">Verify</span>
+      <h2>Proof of Publish</h2>
+      <p>After posting, LazyRelay looks at the platform again to confirm the post is really live, not just accepted. It is included on every plan, including Free.</p>
+    </li>
+    <li class="row">
+      <span class="tag">AI agents</span>
+      <h2>27 MCP tools for AI agents</h2>
+      <p>LazyRelay works with any AI agent that supports MCP, including Claude, ChatGPT, Gemini and Cursor. Agents can check platform rules, create drafts, schedule, approve and read analytics. Use the hosted endpoint with sign in, or the local package with an API key. Included on every plan, including Free. <a href="/mcp/">See the integration guides</a>.</p>
+    </li>
+    <li class="row">
+      <span class="tag">Content Sources</span>
+      <h2>Content Sources: draft posts from your own website</h2>
+      <p>Connect an RSS feed or a sitemap from a website you have proven you own, and LazyRelay turns new pages into draft posts for you to review. Nothing is posted until you approve it.</p>
+    </li>
+    <li class="row">
+      <span class="tag">Drafts</span>
+      <h2>Drafts for review</h2>
+      <p>See everything a source produced in one table, then review and edit, approve and move to the calendar, or dismiss each draft before anything is scheduled.</p>
+    </li>
+    <li class="row">
+      <span class="tag">Privacy</span>
+      <h2>Page text is not kept</h2>
+      <p>When Content Sources builds a draft it keeps only the title and the link. The text of the page is used to write a short excerpt and is not stored by the service, and the database clears any stored page body once a draft has been handed to LazyRelay.</p>
+    </li>
+    <li class="row">
+      <span class="tag">Security</span>
+      <h2>Your data stays yours</h2>
+      <p>Each customer can only reach their own sources and drafts, and the database enforces it with row level security. Your LazyRelay key is stored encrypted and is never shown again, only its last four characters. In our own testing with thousands of simulated cross customer attempts, none got through.</p>
+    </li>
+    <li class="row">
+      <span class="tag">WhatsApp</span>
+      <h2>WhatsApp broadcasts</h2>
+      <p>Send a message to a list of contacts on WhatsApp. When a contact opts out, LazyRelay honours it and records it.</p>
+    </li>
+    <li class="row">
+      <span class="tag">Review</span>
+      <h2>Approvals and client review links</h2>
+      <p>Mark a post as needing sign off before it goes out. On paid plans, send clients a review link so they can approve or ask for changes.</p>
+    </li>
+    <li class="row">
+      <span class="tag">Teams</span>
+      <h2>Brands and team seats</h2>
+      <p>Keep several brands or clients in one account, with the number of brands and team seats depending on your plan.</p>
+    </li>
+    <li class="row">
+      <span class="tag">Writing help</span>
+      <h2>AI captions, hashtags and ideas</h2>
+      <p>Generate wording or tags from your draft in one click and get fresh content ideas on demand. On paid plans, LazyRelay can also draft a suggested reply for Mastodon and Bluesky comments, and nothing posts until you approve it.</p>
+    </li>
+    <li class="row">
+      <span class="tag">Bulk</span>
+      <h2>Bulk CSV import</h2>
+      <p>Schedule up to 200 posts at once, with a preview of every row before anything is saved.</p>
+    </li>
+    <li class="row">
+      <span class="tag">Developers</span>
+      <h2>REST API and signed webhooks</h2>
+      <p>Create, schedule and manage posts through a REST API described by an OpenAPI document. Webhooks are signed with HMAC SHA256 and retried. <a href="/docs/">Read the docs</a>.</p>
+    </li>
+    <li class="row">
+      <span class="tag">Insight</span>
+      <h2>Analytics dashboard</h2>
+      <p>See total posts, success rates for each platform and a daily volume trend.</p>
+    </li>
+    <li class="row">
+      <span class="tag">Security</span>
+      <h2>Two factor authentication</h2>
+      <p>Turn on optional two factor sign in with an authenticator app, with one time recovery codes for safety.</p>
+    </li>
+  </ul>
+
+  <div class="cta">
+    <strong>Start free.</strong> The free tier has 3 accounts and 250MB of storage, includes Proof of Publish and MCP access, and needs no card.
+    <br /><a class="button" href="/pricing/">See plans and get started</a>
+  </div>
+
+  <section class="faq" aria-labelledby="faq-title">
+    <h3 id="faq-title">Frequently asked questions</h3>
+    <details>
+      <summary>Which platforms can LazyRelay publish to?</summary>
+      <p>LazyRelay publishes to 18 distribution platforms plus WhatsApp: Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress, DEV, Hashnode, Lemmy, Slack and X.</p>
+    </details>
+    <details>
+      <summary>Does LazyRelay work with my AI agent?</summary>
+      <p>LazyRelay works with any AI agent that supports MCP, including Claude, ChatGPT, Gemini and Cursor. It offers 27 MCP tools, included on every plan, through a hosted endpoint with sign in or a local package with an API key.</p>
+    </details>
+    <details>
+      <summary>What is Proof of Publish?</summary>
+      <p>Proof of Publish is a second check. After LazyRelay posts, it looks at the platform again to confirm the post is really live, instead of trusting that the platform accepted the request. It is included on every plan, including Free.</p>
+    </details>
+    <details>
+      <summary>What does Content Sources do?</summary>
+      <p>Content Sources reads an RSS feed or a sitemap from a website you have proven you own and turns new pages into draft posts for you to review. Nothing is posted until you approve it.</p>
+    </details>
+    <details>
+      <summary>Is there a free plan?</summary>
+      <p>Yes. The free tier has 3 accounts and 250MB of storage, includes Proof of Publish and MCP access, and needs no card.</p>
+    </details>
+  </section>
+</main>
+<footer>
+  <p><a href="/">Home</a> &middot; <a href="/capabilities/">Capabilities</a> &middot; <a href="/pricing/">Pricing</a> &middot; <a href="/mcp/">Integrations</a> &middot; <a href="/guides/">Guides</a> &middot; <a href="/alternatives/">Comparisons</a> &middot; <a href="/terms/">Terms of Service</a> &middot; <a href="/privacy/">Privacy Policy</a> &middot; <a href="/refunds/">Refund Policy</a></p>
+  <p>&copy; 2026 LazyRelay. All rights reserved.</p>
+</footer>
+</body>
+</html>
