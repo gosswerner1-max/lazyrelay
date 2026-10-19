@@ -42,7 +42,20 @@ function toError(err: unknown): ContentSourcesError {
 const bad = (err: ContentSourcesError): Msg => ({ tone: "bad", text: err.message, code: err.code });
 const ok = (text: string): Msg => ({ tone: "ok", text });
 
-export function useContentSources(client: ContentSourcesClient) {
+// After Run now the service works in the background, so the screen asks again until the run has left a mark (a new sync time
+// or a new problem), then gives up after two minutes. The customer never has to reload the page.
+const POLL_EVERY_MS = 4000;
+const POLL_FOR_MS = 120_000;
+
+export interface ContentSourcesHookOptions {
+  /** Called once when a run has finished (or the wait is over), so the screen can fetch the new drafts. */
+  onRunFinished?: () => void | Promise<void>;
+}
+
+export function useContentSources(client: ContentSourcesClient, options: ContentSourcesHookOptions = {}) {
+  const onRunFinished = useRef(options.onRunFinished);
+  onRunFinished.current = options.onRunFinished;
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const [credential, setCredential] = useState<CredentialStatus>({ registered: false, keyHint: null });
   const [sources, setSources] = useState<ServiceSource[]>([]);
@@ -72,8 +85,38 @@ export function useContentSources(client: ContentSourcesClient) {
     void load();
     return () => {
       alive.current = false;
+      if (pollTimer.current) clearTimeout(pollTimer.current);
     };
   }, [load]);
+
+  function finishRun() {
+    void Promise.resolve(onRunFinished.current?.()).catch((err) => console.error(err)); // the drafts may be a little late, never a broken tab
+  }
+
+  function watchRun(id: string, before: ServiceSource | undefined) {
+    if (pollTimer.current) clearTimeout(pollTimer.current);
+    const started = Date.now();
+    const tick = async () => {
+      pollTimer.current = null;
+      if (!alive.current) return;
+      let finished = false;
+      try {
+        const list = await client.listSources();
+        if (!alive.current) return;
+        setSources(list);
+        const now = list.find((s) => s.id === id);
+        finished = !now || now.lastSyncedAt !== (before?.lastSyncedAt ?? null) || now.lastError !== (before?.lastError ?? null) || now.consecutiveFailures !== (before?.consecutiveFailures ?? 0);
+      } catch (err) {
+        console.error(err); // one missed look is fine, the next one tries again
+      }
+      if (finished || Date.now() - started >= POLL_FOR_MS) {
+        finishRun();
+        return;
+      }
+      pollTimer.current = setTimeout(() => void tick(), POLL_EVERY_MS);
+    };
+    pollTimer.current = setTimeout(() => void tick(), POLL_EVERY_MS);
+  }
 
   /** Runs one action with a busy marker. A failure goes to `onError`; the service being switched off mid session blocks the tab. */
   async function run<T>(marker: string, action: () => Promise<T>, onError: (m: Msg) => void): Promise<T | undefined> {
@@ -173,8 +216,11 @@ export function useContentSources(client: ContentSourcesClient) {
     async runSource(id: string): Promise<void> {
       setListMsg(null);
       setCheck(null);
+      const before = sources.find((s) => s.id === id);
       const done = await run(`run:${id}`, async () => (await client.runSource(id), true), onSourceError(id));
-      if (done) setListMsg(ok("Run started. New drafts will show up under Drafts for review when it is done."));
+      if (!done) return;
+      setListMsg(ok("Run started. New drafts will show up under Drafts for review when it is done."));
+      watchRun(id, before);
     },
 
     async removeSource(id: string): Promise<boolean> {

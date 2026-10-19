@@ -3,12 +3,12 @@
 // dashboard's Upgrade button opens). Everything about sources, keys and proofs goes through the default companion service client.
 
 import { ContentSourcesTab } from "../../components/dashboard/ContentSourcesTab";
-import type { ScheduledPost } from "../../lib/api";
+import { api, type ScheduledPost } from "../../lib/api";
 import { defaultContentSourcesClient } from "../../lib/contentSourcesDefault";
 import { useDashboard } from "./DashboardContext";
 
 export default function ContentSourcesTabConnected() {
-  const { posts, brands, handleEditDraft, handleApprove, handlePromotePlanItem, handleDelete, setTab, setScrollToBillingPending } = useDashboard();
+  const { posts, setPosts, brands, handleEditDraft, handleApprove, handlePromotePlanItem, handleDelete, setTab, setScrollToBillingPending } = useDashboard();
 
   // The Posts tab's draft editor, the same one its Edit button opens.
   function reviewAndEdit(post: ScheduledPost) {
@@ -49,6 +49,7 @@ export default function ContentSourcesTabConnected() {
       onPurge={purge}
       onOpenApiKeys={() => setTab("API Keys")}
       onOpenPlan={openPlan}
+      onRefreshPosts={async () => setPosts(await api.listScheduledPosts())}
     />
   );
 }

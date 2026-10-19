@@ -15,8 +15,12 @@ const ctx = vi.hoisted(() => ({
   handleDelete: vi.fn(),
   setTab: vi.fn(),
   setScrollToBillingPending: vi.fn(),
+  setPosts: vi.fn(),
 }));
 vi.mock("./DashboardContext", () => ({ useDashboard: () => ctx }));
+
+const posts = vi.hoisted(() => ({ listScheduledPosts: vi.fn() }));
+vi.mock("../../lib/api", () => ({ api: posts }));
 
 const service = vi.hoisted(() => ({
   getCredentials: vi.fn(),
@@ -41,7 +45,7 @@ const ordinary = { id: "x1", content: "Not ours", status: "draft", tags: [], soc
 
 beforeEach(() => {
   ctx.posts = [draft, dated, undated, ordinary];
-  for (const fn of [ctx.handleEditDraft, ctx.handleApprove, ctx.handlePromotePlanItem, ctx.handleDelete, ctx.setTab, ctx.setScrollToBillingPending]) fn.mockReset();
+  for (const fn of [ctx.handleEditDraft, ctx.handleApprove, ctx.handlePromotePlanItem, ctx.handleDelete, ctx.setTab, ctx.setScrollToBillingPending, ctx.setPosts, posts.listScheduledPosts]) fn.mockReset();
   for (const fn of Object.values(service)) fn.mockReset();
   service.getCredentials.mockResolvedValue({ registered: false, keyHint: null });
   service.listSources.mockResolvedValue([]);
@@ -103,6 +107,17 @@ describe("ContentSourcesTabConnected", () => {
     expect(service.getCredentials).toHaveBeenCalledTimes(1);
     expect(service.listSources).toHaveBeenCalledTimes(1);
   });
+
+  it("after Run now the dashboard's posts are fetched again by themselves, so the new drafts show without a page reload", async () => {
+    const source = { id: "s1", sourceType: "sitemap", sourceUrl: "https://example.com/sitemap.xml", syncInterval: "daily", brandId: null, lastSyncedAt: null, domainVerified: true, verificationMethod: "meta_tag", lastError: null, consecutiveFailures: 0, verificationToken: null };
+    service.listSources.mockResolvedValueOnce([source]).mockResolvedValue([{ ...source, lastSyncedAt: "2026-10-19T14:00:00Z" }]);
+    service.runSource.mockResolvedValue(undefined);
+    const fresh = [{ id: "new1", content: "Fresh draft", status: "draft", tags: ["cs:sitemap:shop"] }];
+    posts.listScheduledPosts.mockResolvedValue(fresh);
+    render(<ContentSourcesTabConnected />);
+    await userEvent.click(await screen.findByRole("button", { name: "Run now" }));
+    await waitFor(() => expect(ctx.setPosts).toHaveBeenCalledWith(fresh), { timeout: 8000 });
+  }, 15000);
 
   it("the key section's link opens the existing API Keys tab", async () => {
     render(<ContentSourcesTabConnected />);
