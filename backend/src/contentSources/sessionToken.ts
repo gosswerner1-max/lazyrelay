@@ -100,17 +100,23 @@ function loadConfig(): SigningConfig {
 
 const b64url = (value: object) => Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
 
-export function issueSessionToken(input: { userId: string; accountId: string; tier: Tier; now: Date }): {
+/**
+ * `server: true` adds the boolean claim srv: true: a token LazyRelay's own backend minted for a server to server call (the competitor
+ * teardown). It is never sent to a browser. `ttlSeconds` shortens the lifetime (whole seconds, 1 up to the normal limit).
+ */
+export function issueSessionToken(input: { userId: string; accountId: string; tier: Tier; now: Date; server?: boolean; ttlSeconds?: number }): {
   token: string;
   expiresAt: Date;
   tokenId: string;
 } {
   const { privateKey, publicJwk } = loadConfig();
   const iat = Math.floor(input.now.getTime() / 1000);
-  const exp = iat + SESSION_TOKEN_LIFETIME_SECONDS;
+  const ttl = input.ttlSeconds ?? SESSION_TOKEN_LIFETIME_SECONDS;
+  if (!Number.isInteger(ttl) || ttl < 1 || ttl > SESSION_TOKEN_LIFETIME_SECONDS) throw new SessionTokenConfigError("ttl_invalid");
+  const exp = iat + ttl;
   const tokenId = randomUUID();
   const header = { alg: "ES256", typ: "JWT", kid: publicJwk.kid };
-  const claims = { iss: ISSUER, aud: AUDIENCE, sub: input.userId, acc: input.accountId, tier: input.tier, iat, exp, jti: tokenId };
+  const claims = { iss: ISSUER, aud: AUDIENCE, sub: input.userId, acc: input.accountId, tier: input.tier, ...(input.server === true ? { srv: true } : {}), iat, exp, jti: tokenId };
   const signingInput = `${b64url(header)}.${b64url(claims)}`;
   let signature: Buffer;
   try {

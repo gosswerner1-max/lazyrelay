@@ -33,8 +33,12 @@ export type ChargeResult =
   | { ok: true; replay: boolean; chargedMicro: number; balanceMicro: number }
   | { ok: true; replay: false; exempt: true; chargedMicro: 0; balanceMicro: number }
   | Short;
+/** The state of a hold. A replay of an old key reports the state the original hold has now. */
+export type HoldStatus = "held" | "committed" | "released" | "expired";
+const HOLD_STATUSES: readonly string[] = ["held", "committed", "released", "expired"];
 export type HoldResult =
-  | { ok: true; replay: boolean; holdId: string; heldMicro: number }
+  | { ok: true; replay: false; holdId: string; heldMicro: number }
+  | { ok: true; replay: true; holdId: string; heldMicro: number; status: HoldStatus }
   | { ok: true; replay: false; exempt: true; heldMicro: 0 }
   | Short;
 export type CommitResult = { ok: true; replay: boolean; committedMicro: number; balanceMicro: number } | { ok: false; reason: "hold_not_held"; status: string };
@@ -142,7 +146,8 @@ export function createWalletLedger(client: WalletRpc) {
       const s = short(d);
       if (s) return s;
       if (d.ok === true && typeof d.replay === "boolean" && typeof d.hold_id === "string" && UUID.test(d.hold_id) && nonNegativeSafe(d.held_micro) && d.held_micro > 0) {
-        return { ok: true, replay: d.replay, holdId: d.hold_id, heldMicro: d.held_micro };
+        if (d.replay === false) return { ok: true, replay: false, holdId: d.hold_id, heldMicro: d.held_micro };
+        if (typeof d.status === "string" && HOLD_STATUSES.includes(d.status)) return { ok: true, replay: true, holdId: d.hold_id, heldMicro: d.held_micro, status: d.status as HoldStatus };
       }
       return bad();
     },
