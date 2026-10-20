@@ -17,9 +17,9 @@ Use when a customer reports a specific connect/posting failure that matches a ro
 ```
 Hi [name],
 
-Thanks for flagging this — [one-sentence restatement of what they're seeing, in plain terms].
+Thanks for flagging this. [One sentence restating what they're seeing, in plain terms.]
 
-[Cause, in plain language — no jargon like "OAuth scope" unless the customer used it first]. Here's the fix:
+[Cause, in plain language, no jargon like "OAuth scope" unless the customer used it first]. Here's the fix:
 
 [Numbered fix steps, pulled from the matching SUPPORT_KNOWLEDGE.md row]
 
@@ -43,35 +43,37 @@ Kept here rather than deleted for one reason only: if a *new* platform integrati
 ```
 Hi [name],
 
-Thanks for the report. Before I troubleshoot — can you confirm which account you connected this to and roughly when? [Platform] posting should be fully live, so if something's actually broken there I want to find the real cause rather than assume.
+Thanks for the report. Before I troubleshoot, can you confirm which account you connected this to and roughly when? [Platform] posting should be fully live, so if something's actually broken there I want to find the real cause rather than assume.
 
 Once I hear back I'll dig into your account specifically.
 ```
 
-## 3. Billing/subscription question (billing live as of 2026-08-11)
+## 3. Pricing / plan question (credit wallet, pricing replaced 2026-10-20)
 
-Use for general pricing/plan questions. **Billing went live 2026-08-11** — the previous version of this template told customers "nothing you're using today will result in a charge," which is now false and must never be sent. Always re-check `SUPPORT_KNOWLEDGE.md`'s Current product state line before sending, and quote the **display** tier names below, not the DB values.
+Use for general pricing and plan questions. Billing has been live since 2026-08-11, so never tell a customer nothing they use will result in a charge. **The old Free / Starter / Pro / Business / Agency plans and the storage, brand and seat add-ons are not sold any more. Never quote them.** The only pricing truth is the facts below (Werner, 2026-10-20); every price is in US dollars and carries "plus tax" beside it, tax is added at checkout, and payment goes through Paddle. Do not state per-plan storage, team seats, AI-suggestion limits, recurring-slot or RSS limits: those are not decided. Before sending, glance at the live pricing page, and if the wallet screens are not on the live Settings tab yet, do not describe them.
 
-Prices verified live 2026-08-11: Free $0 / Starter $29.99 / Pro $59.99 / Business $99.99 per month.
+How it works: one credit publishes one post to one channel. A post to 5 channels costs 5 credits. A channel that fails is not charged, because a credit is only taken once the platform confirms the post is live. A competitor page teardown costs 10 credits and is only charged when you get the result. Credits that expire first are spent first. If the balance hits zero, posts that are due wait and go out once credits are added.
 
 ```
 Hi [name],
 
-Here's how the plans break down:
+Here's how pricing works. You pay for credits, and one credit publishes one post to one channel (so a post to 5 channels costs 5). All prices are in US dollars.
 
-- Free — $0, no card required (3 connected accounts, 10 posts per account)
-- Starter — $29.99/mo (20 connected accounts, unlimited scheduled posts)
-- Pro — $59.99/mo (30 connected accounts, 5 recurring schedules)
-- Business — $99.99/mo (50 connected accounts, unlimited recurring schedules)
+- Free: $0 plus tax. You get 30 credits once when you sign up, with up to 3 connected accounts and 1 brand.
+- Pay-as-you-go: $15 plus tax, one time, for 300 credits that never expire. Up to 20 connected accounts and 2 brands.
+- Growth: $29 plus tax a month for 1,000 credits each billing cycle. Up to 30 connected accounts and 4 brands.
+- Pro: $99 plus tax a month for 6,000 credits each billing cycle. Up to 1,000 connected accounts and unlimited brands.
 
-[If they asked about a specific tier or limit, answer that directly here instead of listing all four.]
+Credits on Growth and Pro run out at the end of each billing cycle and don't roll over. If you need more, packs never expire: $15 plus tax for 300 credits, or $50 plus tax for 1,500. Pro customers can also add 1,500 credits for $30 plus tax.
 
-You can start on Free and upgrade any time from your dashboard — you'll only ever be charged for a plan you pick yourself.
+[If they asked about one plan or one number, answer just that instead of listing everything.]
 
-Let me know if you want me to walk you through anything.
+If your balance runs out, posts that are due wait and go out once you add credits.
+
+Tell me what you plan to post and where, and I'll work out which option fits.
 ```
 
-**Do not use this template for a customer disputing an actual charge** (double-charged, unrecognised charge, refund request). That's a real billing dispute now that payments are live — no reply, escalate per the hard-case rules.
+**Do not use this template for a customer disputing an actual charge** (double-charged, unrecognised charge, refund request). Refunds are handled manually by the owner. That is a real billing dispute: no reply, escalate per the hard-case rules.
 
 ## 4. Onboarding — "I connected it but don't see it"
 
@@ -90,7 +92,7 @@ Hi [name],
 
 The calendar view shows times in your browser's local timezone for reference, but posts actually publish according to the connected account's own timezone setting on [platform]. If those two differ, the calendar and the real post time won't match.
 
-Proof-of-Publish shows the actual live timestamp — that's the source of truth if you want to confirm exactly when something went out. Let me know if the real post time still looks wrong once you check that.
+Proof-of-Publish shows the actual live timestamp, and that's the source of truth if you want to confirm exactly when something went out. Let me know if the real post time still looks wrong once you check that.
 ```
 
 ## 6. Security — unauthorized post / suspected compromise
@@ -100,7 +102,7 @@ Always send this one even if angry/urgent-toned — this is exactly the kind of 
 ```
 Hi [name],
 
-Thanks for flagging this right away — a few quick questions so I can pin down what happened:
+Thanks for flagging this right away. A few quick questions so I can pin down what happened:
 
 1. Did you recently change your [platform] password, or notice any other unusual account activity there?
 2. Is this happening on one connected account or more than one?
@@ -118,7 +120,7 @@ Hi [name],
 Two steps to fully disconnect [platform]:
 
 1. In LazyRelay: the Social Platforms tab → Disconnect
-2. On [platform]'s own side: revoke LazyRelay's access at [platform-specific link] — step 1 alone doesn't always fully revoke platform-side permissions.
+2. On [platform]'s own side: revoke LazyRelay's access at [platform-specific link]. Step 1 alone doesn't always fully revoke platform-side permissions.
 
 Any scheduled posts on that account will stop publishing once disconnected. Let me know if you run into any issues with either step.
 ```
@@ -128,7 +130,7 @@ Any scheduled posts on that account will stop publishing once disconnected. Let 
 ```
 Hi [name],
 
-Got it — I'll action this request. [Product doesn't yet have self-serve deletion, so:] I'll confirm back here once your data has been fully removed, within 30 days at the latest (in most cases much sooner).
+Got it, I'll action this request. [Product doesn't yet have self-serve deletion, so:] I'll confirm back here once your data has been fully removed, within 30 days at the latest (in most cases much sooner).
 
 If there's anything specific you'd like confirmed as deleted (e.g. a particular connected account's data vs. everything), let me know and I'll make sure that's covered.
 ```
@@ -138,9 +140,9 @@ If there's anything specific you'd like confirmed as deleted (e.g. a particular 
 ```
 Hi [name],
 
-Thanks for reaching out. [One or two sentences directly answering what they asked — partnership terms, press info, general product question. If it needs someone's actual judgment/decision rather than a factual answer, don't improvise a commitment here — see the hard-case flag list in SKILL.md instead.]
+Thanks for reaching out. [One or two sentences directly answering what they asked, such as partnership terms, press info or a general product question. If it needs someone's actual judgment/decision rather than a factual answer, don't improvise a commitment here, see the hard-case flag list in SKILL.md instead.]
 
-Happy to talk further if useful — just reply here.
+Happy to talk further if useful, just reply here.
 ```
 
 ## 10. Vendor/platform correspondence (developer-app registration, integration approvals)
@@ -150,7 +152,7 @@ Not customer support — this is LazyRelay corresponding with a platform (Meta, 
 ```
 Hi [contact name from the thread, or "Hi," if unclear],
 
-[Direct, factual answer to exactly what they asked — app name, OAuth client ID, business entity/registration details, integration status. Never include a client secret or password in this kind of email.]
+[Direct, factual answer to exactly what they asked: app name, OAuth client ID, business entity/registration details, integration status. Never include a client secret or password in this kind of email.]
 
 [If something is still outstanding on our side or needs their action: say so plainly and ask for the specific next step, don't just restate the same info as before.]
 
@@ -166,7 +168,7 @@ Sent to `support@lazyrelay.com` outbound, not a reply — for `findStuckOnboardi
 ```
 Hi [name],
 
-Noticed you signed up for LazyRelay but haven't connected a social account yet — just checking in to see if you hit a snag, or if you have any questions before getting started.
+Noticed you signed up for LazyRelay but haven't connected a social account yet. Just checking in to see if you hit a snag, or if you have any questions before getting started.
 
 Connecting takes about a minute from the Social Platforms tab in your dashboard. If something's not working or you're not sure where to start, just reply here and I'll help directly.
 ```
@@ -180,20 +182,20 @@ Sent to `hello@lazyrelay.com` outbound, not a reply — for `findReviewRequestCa
 ```
 Hi [name],
 
-You've published [verifiedPostCount] posts with LazyRelay so far — love that it's working out for you!
+You've published [verifiedPostCount] posts with LazyRelay so far. Love that it's working out for you!
 
 Mind sharing a quick rating? Takes about 30 seconds, and it genuinely helps us make LazyRelay better.
 
 [BUTTON] Rate LazyRelay|[feedbackUrl]
 
-Thanks for being with us early on — it means a lot.
+Thanks for being with us early on. It means a lot.
 ```
 
 Werner's call 2026-08-21: replaced "reply to this email with a quick line or two" with a real 5-question star-rating form (`frontend/src/pages/FeedbackForm.tsx`, reached at `/feedback/<token>`) plus an optional free-text comment box — lower friction than composing a reply, and gives structured signal instead of only free text. The `[BUTTON]` line renders as a real styled button, not a bare URL (imap-tool.js, added 2026-08-21) — a first pass with a plain link read as an afterthought/chore, so it's an actual button now. **Copy rewritten same day** after Werner saw the first live test send and said it read as obligatory/a lot of work to ask — warmer, shorter, leads with genuine appreciation rather than "a few quick questions." No public reviews destination exists yet (per `ACCOUNTS_KNOWLEDGE.md`'s "Review requests" section) — responses land in the `review_feedback` table (migration 0063), not anywhere public. Update this template again if/when a real public reviews section ships.
 
 ## 13. Dunning — payment failed, subscription past due (billing_ops.js — added 2026-08-11)
 
-Sent from `accounts@lazyrelay.com` outbound, not a reply — for `findPastDueNeedingFollowup()` candidates (`status: past_due` for 24+ hours, per BILLING_KNOWLEDGE.md's dunning cadence: money-impacting issues get the tight 24h window, not the standard 1-2 days). Subject: `Your LazyRelay payment didn't go through`.
+Sent from `accounts@lazyrelay.com` outbound, not a reply — for `findPastDueNeedingFollowup()` candidates (a Growth or Pro renewal, `status: past_due` for 24+ hours, per BILLING_KNOWLEDGE.md's dunning cadence: money-impacting issues get the tight 24h window, not the standard 1-2 days). Subject: `Your LazyRelay payment didn't go through`.
 
 **Gate before sending, every time:** `getMorStatus()` must return `environment: "production"` AND `source: "deployed"`. Sandbox rows are test data and must never receive a real email. `findPastDueNeedingFollowup()` already filters internal test accounts, but the environment gate is the one that matters — check it yourself, don't assume.
 
@@ -202,16 +204,14 @@ State the fact and the fix. No threat, no urgency theatre, no dunning-escalation
 ```
 Hi [name],
 
-Your last LazyRelay payment didn't go through, so your [tier] subscription is currently marked past due.
+Your last LazyRelay payment didn't go through, so your [plan] subscription is marked past due.
 
-Usually this is just an expired or replaced card. You can update your payment details under Settings → Billing in your dashboard, and that'll settle the outstanding amount automatically.
+Most of the time this is an expired or replaced card. You can update your payment details in the billing section under Settings in your dashboard.
 
-Your scheduled posts are still running for now. If the payment doesn't clear, the account drops back to Free limits — so it's worth sorting out in the next few days.
-
-If you think this is a mistake, or the payment page gives you an error, reply here and I'll look into it directly.
+If you think this is a mistake, or the payment page shows an error, reply here and I'll look into it.
 ```
 
-Never state a specific shutoff date or dollar amount unless it's read from the real subscription row — an invented deadline or figure in a payment email is the kind of error that costs a customer permanently. Billing owns the money event only: this email never itself changes account state (`accounts_ops.js` reacts to the payment event separately, per the domain boundary in BILLING_KNOWLEDGE.md).
+Do not promise what happens to posts or credits if the payment stays unpaid, and never state a specific shutoff date or dollar amount unless it's read from the real subscription row — an invented deadline or figure in a payment email is the kind of error that costs a customer permanently. Billing owns the money event only: this email never itself changes account state (`accounts_ops.js` reacts to the payment event separately, per the domain boundary in BILLING_KNOWLEDGE.md).
 
 ## 14. Cancellation — confirming a cancel request or asking about cancellation status (added 2026-08-11)
 
@@ -222,9 +222,9 @@ Real mechanics to get right (`cancel_at_period_end`, migration `0043`, live 2026
 ```
 Hi [name],
 
-[If they're asking how to cancel:] You can cancel any time under Settings → Billing in your dashboard — no need to email us for it.
+[If they're asking how to cancel:] You can cancel any time under Settings → Billing in your dashboard, no need to email us for it.
 
-[If they've already cancelled and are asking to confirm:] That's confirmed on our end. One thing worth knowing: cancelling doesn't cut off access right away — you'll keep everything you have now until your current billing period ends, shown live under Settings → Billing, and you won't be charged again after that. Once that date passes, the account moves to the Free plan automatically; nothing else changes and nothing gets deleted.
+[If they've already cancelled and are asking to confirm:] That's confirmed on our end. One thing worth knowing: cancelling doesn't cut off access right away. You'll keep everything you have now until your current billing period ends, shown live under Settings → Billing, and you won't be charged again after that. Credits that come with a monthly plan run out at the end of that period, while credits from packs never expire. I can't see your exact end date from here, so please check it in your dashboard.
 
 Let me know if anything looks off on your end.
 ```
