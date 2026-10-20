@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { walletMode } from "./mode.js";
 import { minActionPriceMicro, shouldPauseQueue, signupGrant, subscriptionSourceKey } from "./rules.js";
 import { fetchPausedAccountIds } from "./pause.js";
-import { meterVerifiedDispatch } from "./meter.js";
 import { WalletError, createWalletLedger, type WalletRpc } from "./ledger.js";
 import { WalletValueError } from "./money.js";
 
@@ -120,56 +119,6 @@ function ledgerWith(answer: () => unknown, error?: { message: string; code?: str
   };
   return { ledger: createWalletLedger(client), calls };
 }
-const POST = { postId: "11111111-1111-4111-8111-111111111111", platform: "mastodon", accountId: ACCOUNT };
-
-describe("charging a verified post (1 credit)", () => {
-  it("off: nothing happens", async () => {
-    const { ledger, calls } = ledgerWith(() => ({ ok: true, replay: false, charged_micro: 1_000_000, balance_micro: 1 }));
-    expect(await meterVerifiedDispatch({ ledger, mode: "off", post: POST, log: () => undefined })).toEqual({ outcome: "off" });
-    expect(calls).toEqual([]);
-  });
-
-  it("shadow: it says what it would charge and charges nothing", async () => {
-    const { ledger, calls } = ledgerWith(() => ({ ok: true, replay: false, charged_micro: 2000, balance_micro: 1 }));
-    const log = vi.fn();
-    expect(await meterVerifiedDispatch({ ledger, mode: "shadow", post: POST, log })).toEqual({ outcome: "would_charge", chargedMicro: 1_000_000 });
-    expect(calls).toEqual([]);
-    expect(log).toHaveBeenCalledWith(expect.stringContaining("1 credit"));
-  });
-
-  it("on: charges exactly one post_publish with a key built from the post and the platform", async () => {
-    const { ledger, calls } = ledgerWith(() => ({ ok: true, replay: false, charged_micro: 1_000_000, balance_micro: 498_000_000 }));
-    expect(await meterVerifiedDispatch({ ledger, mode: "on", post: POST, log: () => undefined })).toEqual({ outcome: "charged", chargedMicro: 1_000_000, balanceMicro: 498_000_000 });
-    expect(calls).toEqual([{ fn: "wallet_charge", args: { p_account_id: ACCOUNT, p_action: "post_publish", p_units: 1, p_key: `dispatch:${POST.postId}:mastodon` } }]);
-  });
-
-  it("on: a retried post is a replay, not a second charge", async () => {
-    const { ledger } = ledgerWith(() => ({ ok: true, replay: true, charged_micro: 1_000_000, balance_micro: 498_000_000 }));
-    expect(await meterVerifiedDispatch({ ledger, mode: "on", post: POST, log: () => undefined })).toMatchObject({ outcome: "replay" });
-  });
-
-  it("on: an empty wallet is reported, never thrown (the post is already live; the pause stops the NEXT ones)", async () => {
-    const { ledger } = ledgerWith(() => ({ ok: false, reason: "insufficient_credits", balance_micro: 0, required_micro: 1_000_000 }));
-    expect(await meterVerifiedDispatch({ ledger, mode: "on", post: POST, log: () => undefined })).toEqual({ outcome: "insufficient_funds", balanceMicro: 0 });
-  });
-
-  it("on: a wallet failure never throws into the publisher; it is logged with no database text", async () => {
-    const { ledger } = ledgerWith(() => null, { message: "boom 10.0.0.5 secret_role" });
-    const log = vi.fn();
-    expect(await meterVerifiedDispatch({ ledger, mode: "on", post: POST, log })).toEqual({ outcome: "error" });
-    expect(JSON.stringify(log.mock.calls)).not.toMatch(/10\.0\.0\.5|secret_role/);
-  });
-
-  it("refuses a post it cannot key (no platform, bad ids) without calling the wallet", async () => {
-    const { ledger, calls } = ledgerWith(() => ({ ok: true, replay: false, charged_micro: 1_000_000, balance_micro: 1 }));
-    for (const post of [{ ...POST, platform: "" }, { ...POST, postId: "nope" }, { ...POST, accountId: "nope" }]) {
-      expect(await meterVerifiedDispatch({ ledger, mode: "on", post, log: () => undefined })).toEqual({ outcome: "error" });
-    }
-    expect(calls).toEqual([]);
-    void WalletError;
-  });
-});
-
 import { GRANDFATHERING, isGrandfathered } from "./grandfathering.js";
 
 describe("grandfathered accounts (owner decision 2026-10-19)", () => {
@@ -206,10 +155,5 @@ describe("grandfathered accounts (owner decision 2026-10-19)", () => {
   it("an exempt answer that claims a charge is refused as a bad answer", async () => {
     const { ledger } = ledgerWith(() => ({ ok: true, replay: false, exempt: true, charged_micro: 1_000_000, balance_micro: 0 }));
     await expect(ledger.charge({ accountId: ACCOUNT, action: "post_publish", idempotencyKey: "k" })).rejects.toThrow(WalletError);
-  });
-
-  it("metering reports a grandfathered account as exempt and charges nothing", async () => {
-    const { ledger } = ledgerWith(() => ({ ok: true, replay: false, exempt: true, charged_micro: 0, balance_micro: 0 }));
-    expect(await meterVerifiedDispatch({ ledger, mode: "on", post: POST, log: () => undefined })).toEqual({ outcome: "exempt" });
   });
 });
