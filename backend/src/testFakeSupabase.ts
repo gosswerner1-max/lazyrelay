@@ -47,7 +47,13 @@ export function makeBuilder(table: string) {
   b.gte = (c: string, v: string) => (filters.push((r) => String(r[c]) >= v), b);
   // PostgREST .overlaps(column, values): the array column shares at least one value with the list.
   b.overlaps = (c: string, v: unknown[]) => (filters.push((r) => Array.isArray(r[c]) && (r[c] as unknown[]).some((x) => v.includes(x))), b);
-  b.not = (c: string, _op: string, v: unknown) => (filters.push((r) => (r[c] ?? null) !== v), b);
+  b.not = (c: string, op: string, v: unknown) => {
+    if (op === "in") {
+      const list = String(v).replace(/^\(|\)$/g, "").split(",");
+      return (filters.push((r) => !list.includes(String(r[c]))), b);
+    }
+    return (filters.push((r) => (r[c] ?? null) !== v), b);
+  };
   // Only the "%text%" (contains) shape, case-insensitive, which is all the code uses.
   b.ilike = (c: string, v: string) => (filters.push((r) => String(r[c] ?? "").toLowerCase().includes(v.replace(/%/g, "").toLowerCase())), b);
   // PostgREST .or("col.ilike.%text%,other.ilike.%text%"): only the ilike "contains" shape, which is all the code uses.

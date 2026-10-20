@@ -6,14 +6,14 @@ import { tables } from "./testFakeSupabase.js";
 
 const PRICE = 1_000_000;
 interface Hold { id: string; account: string; key: string; status: "held" | "committed" | "released" | "expired" }
-const wallet = { balance: new Map<string, number>(), holds: [] as Hold[], calls: [] as string[], charges: [] as string[], n: 0 };
+const wallet = { balance: new Map<string, number>(), holds: [] as Hold[], calls: [] as string[], paused: [] as string[], charges: [] as string[], n: 0 };
 const spendable = (acc: string) => (wallet.balance.get(acc) ?? 0) - wallet.holds.filter((h) => h.account === acc && h.status === "held").length * PRICE;
 const uuidOf = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
 async function walletRpc(fn: string, a: Record<string, unknown>): Promise<{ data: unknown; error: null }> {
   wallet.calls.push(fn);
   const acc = a.p_account_id as string;
-  if (fn === "wallet_paused_account_ids") return { data: [], error: null };
+  if (fn === "wallet_paused_account_ids") return { data: wallet.paused, error: null };
   if (fn === "wallet_hold") {
     const existing = wallet.holds.find((h) => h.account === acc && h.key === a.p_key);
     if (existing) return { data: { ok: true, replay: true, hold_id: existing.id, held_micro: PRICE, status: existing.status }, error: null };
@@ -54,6 +54,7 @@ vi.mock("./email.js", () => ({ sendFailureAlert: vi.fn(), sendAccountPausedAlert
 vi.mock("./webhook.js", () => ({ dispatchWebhookEvent: async () => {} }));
 
 const { runSchedulerCycle, recoverStuckPosts } = await import("./scheduler.js");
+const { INSUFFICIENT_CREDITS_REASON } = await import("./wallet/publishGate.js");
 
 const SCHEDULED_FOR = new Date(Date.now() - 60_000).toISOString();
 let n = 0;
@@ -86,6 +87,7 @@ beforeEach(() => {
   wallet.holds.length = 0;
   tables.wallet_holds = [];
   wallet.calls.length = 0;
+  wallet.paused.length = 0;
   wallet.charges.length = 0;
   logs = [];
   vi.stubEnv("WALLET_ENABLED", "true");
@@ -189,6 +191,27 @@ describe("wallet on, a normal account", () => {
     expect(wallet.balance.get(acc)).toBe(2 * PRICE);
   });
 
+  it("drained wallet on the claim path: the pause list skips the account, yet its due post still shows the reason; a top up clears it", async () => {
+    const acc = newAccount();
+    const other = newAccount();
+    seed(acc, [{}], 0);
+    tables.scheduled_posts.push({ id: "other-1", account_id: other, social_account_id: "sa1", content: "x", media_url: null, retry_count: 0, status: "pending", paused_at: null, scheduled_for: SCHEDULED_FOR, updated_at: new Date().toISOString() });
+    const row = tables.scheduled_posts[0];
+    const a = adapterOf();
+    wallet.balance.set(other, 5 * PRICE);
+    wallet.paused.push(acc); // the wallet row exists with a balance below the cheapest action
+    await runSchedulerCycle(registryOf(a));
+    expect(a.post).toHaveBeenCalledTimes(1); // only the other account's post went out
+    expect(row.status).toBe("pending");
+    expect(String(row.wallet_hold_reason)).toBe(INSUFFICIENT_CREDITS_REASON);
+    expect(tables.scheduled_posts[1].wallet_hold_reason).toBeUndefined(); // another account is untouched
+    wallet.paused.length = 0; // top up
+    wallet.balance.set(acc, 3 * PRICE);
+    await runSchedulerCycle(registryOf(a));
+    expect(row.status).toBe("posted");
+    expect(row.wallet_hold_reason ?? null).toBeNull();
+  });
+
   it("a fan-out group (one charge_group_id, two posts) is charged one credit in total", async () => {
     const acc = newAccount();
     const group = uuidOf(777);
@@ -253,6 +276,7 @@ describe("shadow mode (the switch on, mode not on)", () => {
     vi.stubEnv("WALLET_MODE", "shadow");
     const acc = newAccount();
     seed(acc, [{}], 0); // empty wallet: in "on" this post would wait
+    wallet.paused.push(acc); // shadow must ignore the pause list
     const a = adapterOf();
     await runSchedulerCycle(registryOf(a));
     expect(a.post).toHaveBeenCalledTimes(1);

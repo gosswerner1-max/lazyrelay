@@ -26,7 +26,7 @@ import { createWalletLedger, type WalletRpc } from "./wallet/ledger.js";
 import { isLegacyAccount } from "./wallet/legacy.js";
 import { walletMode } from "./wallet/mode.js";
 import { fetchPausedAccountIds } from "./wallet/pause.js";
-import { createPublishGate, type GateHold } from "./wallet/publishGate.js";
+import { createPublishGate, INSUFFICIENT_CREDITS_REASON, type GateHold } from "./wallet/publishGate.js";
 
 /** The wallet's view of the database client: only the rpc call, with its answer reduced to data and error. */
 const walletClient: WalletRpc = {
@@ -87,6 +87,23 @@ async function holdPostForCredits(post: DuePost, reason: string): Promise<void> 
   const { error } = await supabase.from("scheduled_posts").update({ status: "pending", wallet_hold_reason: reason }).eq("id", post.id);
   if (error) await unclaimPost(post);
   console.log(`[wallet] post ${post.id} is waiting for credits`);
+}
+
+/** Accounts skipped by the wallet pause list never reach the publish gate, so their due pending posts get the same reason here (once: only rows
+ *  without one). Cleared when the post publishes, or when it is next claimed after a top up. Best effort: the reason is cosmetic. */
+async function markPausedAccountsWaiting(accountIds: string[]): Promise<void> {
+  try {
+    await supabase
+      .from("scheduled_posts")
+      .update({ wallet_hold_reason: INSUFFICIENT_CREDITS_REASON })
+      .in("account_id", accountIds)
+      .eq("status", "pending")
+      .is("paused_at", null)
+      .is("wallet_hold_reason", null)
+      .lte("scheduled_for", new Date().toISOString());
+  } catch {
+    // Never let the reason text stop the scheduler.
+  }
 }
 
 /** The post is going out, so any earlier "waiting for credits" reason is cleared. Best effort. */
@@ -396,6 +413,7 @@ async function claimDuePosts(): Promise<DuePost[]> {
   // Wallet on: accounts whose wallet cannot pay for the next action keep their posts pending (not failed); they resume on a top up.
   // Off (the default) this returns an empty list without asking the database, so nothing here changes until the wallet is switched on.
   const walletPaused = await fetchPausedAccountIds(walletClient, walletMode(), (line) => console.log(line));
+  if (walletPaused.length > 0) await markPausedAccountsWaiting(walletPaused); // only non-empty in mode "on"
   const baseQuery = supabase
     .from("scheduled_posts")
     .select((skipBlocked ? "id, social_accounts!inner(needs_reconnect_at)" : "id") as "id")
