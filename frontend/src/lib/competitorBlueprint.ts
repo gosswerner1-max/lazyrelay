@@ -57,13 +57,20 @@ const text = (v: unknown) => (typeof v === "string" ? v : "");
 
 export const hookLabel = (type: HookType): string => HOOK_LABELS[type];
 
-/** The call to action in one plain line, for example "At the bottom. A single button. Asked 1 time." */
+/** How many action links were found, in plain words. The count is the page's own total, so repeats are possible. */
+function linksFound(count: number): string {
+  if (count === 0) return "No action links found";
+  if (count === 1) return "One action link found";
+  return `About ${count} action links found on the page (some repeat)`;
+}
+
+/** The call to action in one plain line, for example "At the bottom. A single button. One action link found." */
 export function ctaLine(cta: Blueprint["cta"]): string {
   const label = CTA_PLACEMENT_LABELS[cta.placement];
   if (cta.placement === "none" && cta.style === "" && cta.count === 0) return `${label}.`;
   const parts = [label];
   if (cta.style !== "") parts.push(cta.style.replace(/[.\s]+$/, ""));
-  if (cta.count > 0) parts.push(`Asked ${cta.count} ${cta.count === 1 ? "time" : "times"}`);
+  parts.push(linksFound(cta.count));
   return `${parts.join(". ")}.`;
 }
 

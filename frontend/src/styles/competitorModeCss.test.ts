@@ -62,6 +62,27 @@ describe("competitor-mode.css", () => {
     expect(text).toMatch(/\.cs-modal\[data-state="open"\] \.cs-modal__card\s*\{[^}]*transform:\s*scale\(1\)/);
   });
 
+  it("pins the consent footer: the card never scrolls, only the text body does, and the footer cannot shrink", () => {
+    const rule = (sel: string) => {
+      const at = text.indexOf(`.content-sources ${sel} {`);
+      return at < 0 ? "" : text.slice(at, text.indexOf("}", at));
+    };
+    const card = rule(".cs-modal__card");
+    expect(card).toMatch(/display:\s*flex/);
+    expect(card).toMatch(/flex-direction:\s*column/);
+    expect(card).toMatch(/max-height:\s*100%/);
+    expect(card).toMatch(/overflow:\s*hidden/);
+    expect(card).not.toMatch(/overflow-y:\s*auto/);
+    const body = rule(".cs-modal__body");
+    expect(body).toMatch(/overflow-y:\s*auto/);
+    expect(body).toMatch(/min-height:\s*0/);
+    expect(body).toMatch(/flex:\s*1 1 auto/);
+    const footer = rule(".cs-modal__footer");
+    expect(footer).toMatch(/flex:\s*none/);
+    expect(footer).toMatch(/border-top:/);
+    expect(text).toMatch(/\.cs-modal__body:focus-visible/);
+  });
+
   it("has the reduced motion, reduced transparency and more contrast fallbacks", () => {
     expect(text).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
     expect(text).toMatch(/@media \(prefers-reduced-transparency: reduce\)/);
@@ -115,6 +136,14 @@ describe("the blueprint window in competitor-mode.css", () => {
     expect(rule(".cs-bp__heading")).toMatch(/line-height:\s*1\.2/);
     expect(rule(".cs-bp__text")).toMatch(/line-height:\s*1\.5/);
     expect(rule(".cs-bp__label")).toMatch(/letter-spacing:\s*0\.0\d+em/);
+  });
+
+  it("numbers the layout steps in a fixed first column, so items 7 and 8 line up with 1 to 6", () => {
+    const step = rule(".cs-bp__step");
+    expect(step).toMatch(/display:\s*grid/);
+    expect(step).toMatch(/grid-template-columns:\s*\d+(\.\d+)?rem\s+minmax\(0,\s*1fr\)/);
+    expect(step).not.toMatch(/display:\s*flex/);
+    expect(rule(".cs-bp__num")).toMatch(/font-variant-numeric:\s*tabular-nums/);
   });
 
   it("covers the blueprint boxes in the reduced transparency and more contrast fallbacks", () => {

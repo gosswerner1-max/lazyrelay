@@ -45,7 +45,7 @@ describe("the two columns", () => {
     expect(steps[0]).toHaveTextContent("1.Problem");
     expect(steps[0]).toHaveTextContent("Explains how slow posting wastes time.");
     expect(steps[1]).toHaveTextContent("2.Proof");
-    expect(screen.getByText("At the bottom. A single button. Asked 1 time.")).toBeInTheDocument();
+    expect(screen.getByText("At the bottom. A single button. One action link found.")).toBeInTheDocument();
     const adjustments = screen.getAllByRole("listitem").filter((li) => li.closest("ul"));
     expect(adjustments.map((li) => li.textContent)).toEqual(["Open with a question too.", "Move your proof higher."]);
   });
@@ -96,20 +96,23 @@ describe("the two columns", () => {
 });
 
 describe("the words", () => {
-  it("shows the honest line, the credits, and no draft, save, success or proof talk", () => {
+  it("shows the honest line, and no draft, save, success or proof talk", () => {
     const { container } = render(<BlueprintResult result={make()} />);
     const text = container.textContent ?? "";
     expect(text).toContain(BASED_ON_TEXT);
-    expect(text).toContain("1 credit used.");
+    expect(text).not.toMatch(/credit/i);
     expect(screen.queryByText(/save as draft/i)).toBeNull();
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(text).not.toMatch(DASH);
     expect(text).not.toMatch(/\b(safe|guarantee[ds]?|accurate|instant(ly)?|successful|proven|draft|video|motion|pacing)\b/i);
   });
 
-  it("says credits in the plural when there are several", () => {
-    render(<BlueprintResult result={{ ...make(), creditsUsed: 3 }} />);
-    expect(screen.getByText("3 credits used.")).toBeInTheDocument();
+  it("never shows the internal credit count, however many were used", () => {
+    for (const creditsUsed of [0, 1, 3]) {
+      const { container, unmount } = render(<BlueprintResult result={{ ...make(), creditsUsed }} />);
+      expect(container.textContent).not.toMatch(/credit/i);
+      unmount();
+    }
   });
 });
 

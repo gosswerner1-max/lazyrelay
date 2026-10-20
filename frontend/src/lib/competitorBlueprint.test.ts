@@ -51,9 +51,11 @@ describe("the plain word labels", () => {
   });
 
   it("describes the call to action in one plain line", () => {
-    expect(ctaLine({ placement: "bottom", style: "A single button", count: 1 })).toBe("At the bottom. A single button. Asked 1 time.");
-    expect(ctaLine({ placement: "multiple", style: "Links", count: 3 })).toBe("In several places. Links. Asked 3 times.");
+    expect(ctaLine({ placement: "bottom", style: "A single button", count: 1 })).toBe("At the bottom. A single button. One action link found.");
+    expect(ctaLine({ placement: "multiple", style: "Links", count: 17 })).toBe("In several places. Links. About 17 action links found on the page (some repeat).");
+    expect(ctaLine({ placement: "bottom", style: "A button", count: 0 })).toBe("At the bottom. A button. No action links found.");
     expect(ctaLine({ placement: "none", style: "", count: 0 })).toBe("No clear call to action.");
+    expect(ctaLine({ placement: "bottom", style: "A single button", count: 2 })).not.toMatch(/asked|times?/i);
   });
 });
 
@@ -116,7 +118,7 @@ describe("blueprintToText", () => {
     expect(text).toContain("It asks if you are tired of slow posting.");
     expect(text).toContain("1. Problem: Explains how slow posting wastes time.");
     expect(text).toContain("2. Proof: Shows three customer quotes.");
-    expect(text).toContain("At the bottom. A single button. Asked 1 time.");
+    expect(text).toContain("At the bottom. A single button. One action link found.");
     expect(text).toContain("- Open with a question too.");
     expect(text).toContain("- Move your proof higher.");
     expect(text.trim().endsWith(BASED_ON_TEXT)).toBe(true);

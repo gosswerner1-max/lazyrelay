@@ -9,22 +9,20 @@ afterEach(() => {
 });
 
 function setup(fetchImpl: (url: string, init?: RequestInit) => Promise<Response>) {
-  const getToken = vi.fn(async () => "tok_SECRET");
   const spy = vi.fn(fetchImpl);
-  const client = createServiceClient({ baseUrl: "https://service.example", getToken, fetchImpl: spy as unknown as typeof fetch });
-  return { client, getToken, spy };
+  const client = createServiceClient({ baseUrl: "https://service.example", fetchImpl: spy as unknown as typeof fetch });
+  return { client, spy };
 }
 
 describe("client.ready", () => {
   it("asks GET /v1/ready with no token and no cookies, and is true on 200", async () => {
-    const { client, getToken, spy } = setup(async () => new Response("{}", { status: 200 }));
+    const { client, spy } = setup(async () => new Response("{}", { status: 200 }));
     expect(await client.ready!()).toBe(true);
     const [url, init] = spy.mock.calls[0]!;
     expect(url).toBe("https://service.example/v1/ready");
     expect(init?.method).toBe("GET");
     expect(init?.credentials).toBe("omit");
     expect(JSON.stringify(init?.headers ?? {})).not.toMatch(/authorization/i);
-    expect(getToken).not.toHaveBeenCalled();
   });
 
   it("is false when the service answers with a failure", async () => {

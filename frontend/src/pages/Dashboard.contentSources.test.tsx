@@ -2,8 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-// The Content Sources tab sits behind a build-time flag (VITE_CONTENT_SOURCES_ENABLED === "true", default off). The flag is read
-// once when Dashboard.tsx loads, so each test sets it first and then imports a fresh copy of the module.
+// The Content Sources tab sits behind two build-time flags, both off by default: VITE_CONTENT_SOURCES_ENABLED === "true" (the tab)
+// and VITE_COMPETITOR_MODE_ENABLED === "true" (its competitor box, the front door). The tab shows only when both are on, so it
+// can never open on a page with no box. The flags are read once when Dashboard.tsx loads, so each test sets them first and then
+// imports a fresh copy of the module.
 
 const state = vi.hoisted(() => ({
   value: {} as Record<string, unknown>,
@@ -71,10 +73,11 @@ function baseState(tab: string) {
   };
 }
 
-async function loadDashboard(flag: string | undefined) {
+async function loadDashboard(flag: string | undefined, competitorFlag: string | null = "true") {
   vi.resetModules();
-  if (flag === undefined) vi.unstubAllEnvs();
-  else vi.stubEnv("VITE_CONTENT_SOURCES_ENABLED", flag);
+  vi.unstubAllEnvs();
+  if (flag !== undefined) vi.stubEnv("VITE_CONTENT_SOURCES_ENABLED", flag);
+  if (competitorFlag !== null) vi.stubEnv("VITE_COMPETITOR_MODE_ENABLED", competitorFlag);
   return (await import("./Dashboard")).Dashboard;
 }
 
@@ -112,10 +115,32 @@ describe("Content Sources tab flag", () => {
     expect(screen.queryByTestId("cs-tab")).toBeNull();
   });
 
-  it("appears directly after Calendar when the flag is true", async () => {
+  it("appears directly after Calendar when both flags are true", async () => {
     const Dashboard = await loadDashboard("true");
     render(<Dashboard />);
     expect(navNames()).toEqual(["Overview", "Posts", "Failed", "Calendar", "Content Sources", "Social Platforms", "API Keys", "Settings", "More"]);
+  });
+
+  it("is absent when the competitor box is off, so the tab can never be a dead end", async () => {
+    for (const competitor of [null, "false", "1", "TRUE", ""]) {
+      const Dashboard = await loadDashboard("true", competitor);
+      const { unmount } = render(<Dashboard />);
+      expect(navNames(), `competitor flag ${JSON.stringify(competitor)}`).not.toContain("Content Sources");
+      unmount();
+    }
+  });
+
+  it("does not render the panel when the competitor box is off, even if the tab name were selected", async () => {
+    state.value = baseState("Content Sources");
+    const Dashboard = await loadDashboard("true", "false");
+    render(<Dashboard />);
+    expect(screen.queryByTestId("cs-tab")).toBeNull();
+  });
+
+  it("is absent when only the competitor flag is on: the tab's own flag still gates it", async () => {
+    const Dashboard = await loadDashboard(undefined, "true");
+    render(<Dashboard />);
+    expect(navNames()).not.toContain("Content Sources");
   });
 
   it("opens the panel when pressed and shows it when selected", async () => {

@@ -94,11 +94,11 @@
 }
 
 .content-sources .cs-modal__card {
-  display: grid;
-  gap: 0.875rem;
+  display: flex;
+  flex-direction: column;
   width: min(32rem, 100%);
   max-height: 100%;
-  overflow-y: auto;
+  overflow: hidden;
   box-sizing: border-box;
   padding: 1.25rem;
   background: var(--byok-slate);
@@ -115,6 +115,30 @@
 .content-sources .cs-modal[data-state="open"] .cs-modal__card {
   transform: scale(1);
   opacity: 1;
+}
+
+/* Only the explanation scrolls. The footer (tick box and buttons) is a sibling, so a short window never hides it. */
+.content-sources .cs-modal__body {
+  display: grid;
+  gap: 0.875rem;
+  align-content: start;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 0.875rem;
+}
+
+.content-sources .cs-modal__body:focus-visible {
+  outline: 2px solid var(--byok-coral);
+  outline-offset: 2px;
+}
+
+.content-sources .cs-modal__footer {
+  display: grid;
+  gap: 0.75rem;
+  flex: none;
+  padding-top: 0.875rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .content-sources .cs-modal__card:focus {
@@ -183,13 +207,15 @@
 }
 
 .content-sources .cs-bp__step {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
   gap: 0.5rem;
+  align-items: start;
   min-width: 0;
 }
 
 .content-sources .cs-bp__num {
-  flex: none;
+  font-variant-numeric: tabular-nums;
   color: var(--byok-muted);
   font-size: 0.8125rem;
   line-height: 1.5;
@@ -266,6 +292,9 @@
   .content-sources .cs-textarea {
     border-color: var(--byok-ink);
     border-width: 2px;
+  }
+  .content-sources .cs-modal__footer {
+    border-top-color: var(--byok-ink);
   }
   .content-sources .cs-consent,
   .content-sources .cs-source .cs-hint {

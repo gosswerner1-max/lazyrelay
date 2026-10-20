@@ -39,9 +39,10 @@ import { ApiKeysTab } from "./dashboard/ApiKeysTab";
 import "./Dashboard.css";
 
 const ProductTour = lazy(() => import("../components/ProductTour").then((m) => ({ default: m.ProductTour })));
-// Content Sources (a thin client for a separate service) is behind a build-time flag, default off: a build without the flag has
-// no tab and no panel code. When on, the tab sits directly after Calendar and loads lazily.
-const CONTENT_SOURCES_ENABLED = import.meta.env.VITE_CONTENT_SOURCES_ENABLED === "true";
+// Content Sources (a thin client for a separate service) is behind two build-time flags, both default off: the tab itself, and
+// its competitor box, which is the tab's front door. The tab shows only when both are exactly "true", so it can never open on
+// a page with no box. A build without them has no tab and no panel code. When on, the tab sits directly after Calendar and loads lazily.
+const CONTENT_SOURCES_ENABLED = import.meta.env.VITE_CONTENT_SOURCES_ENABLED === "true" && import.meta.env.VITE_COMPETITOR_MODE_ENABLED === "true";
 const ContentSourcesTab = CONTENT_SOURCES_ENABLED ? lazy(() => import("./dashboard/ContentSourcesTabConnected")) : null;
 const MAIN_TABS: Tab[] = [
   "Overview",

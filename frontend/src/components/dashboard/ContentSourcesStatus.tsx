@@ -1,30 +1,17 @@
-// The live status panel. It shows only what this page can read right now: the customer's own posting queue, when each
-// source was last checked, and whether the service answers. Anything it cannot read says Unknown. It makes no promise about
-// uptime, and it never claims the customer's computer can be off: the background checks happen only while the engine runs.
+// The live status panel. It shows only what this page can read right now: the customer's own posting queue and whether the
+// service answers. Anything it cannot read says Unknown. It makes no promise about uptime and no claim about where anything runs.
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { ScheduledPost } from "../../lib/api";
-import { SOURCE_TYPE_LABELS, describeLastProblem, type ContentSourcesClient, type ServiceSource } from "../../lib/contentSources";
-import {
-  HEALTH_WORDS,
-  OVERALL_WORDS,
-  deriveOverall,
-  describeLastChecked,
-  describeQueue,
-  summarizeQueue,
-  type Health,
-  type Overall,
-} from "../../lib/contentSourcesStatus";
+import type { ContentSourcesClient } from "../../lib/contentSources";
+import { HEALTH_WORDS, OVERALL_WORDS, deriveOverall, describeQueue, summarizeQueue, type Health, type Overall } from "../../lib/contentSourcesStatus";
 import "../../styles/content-sources-status.css";
 
 const GIVE_UP_AFTER_MS = 8000; // the client has its own shorter limit; this one keeps the panel from waiting on a stuck check
 
 export interface ContentSourcesStatusProps {
   posts: readonly ScheduledPost[];
-  /** The sources list, or null when it could not be read. */
-  sources: readonly ServiceSource[] | null;
   client: ContentSourcesClient;
-  now?: () => number;
 }
 
 const BADGE_CLASS: Record<Overall, string> = {
@@ -34,15 +21,6 @@ const BADGE_CLASS: Record<Overall, string> = {
   problem: "cs-badge cs-badge--attention",
   unknown: "cs-badge cs-badge--unknown",
 };
-
-function hostOf(address: string | null): string {
-  if (!address) return "Unnamed source";
-  try {
-    return new URL(address).host;
-  } catch {
-    return "Unnamed source";
-  }
-}
 
 function useServiceHealth(client: ContentSourcesClient) {
   const [health, setHealth] = useState<Health>(client.ready ? "checking" : "unknown");
@@ -82,39 +60,11 @@ function useServiceHealth(client: ContentSourcesClient) {
   return { health, check };
 }
 
-function EngineRows({ sources, now }: { sources: readonly ServiceSource[] | null; now: number }) {
-  if (sources === null) return <p data-testid="engine-unknown">Unknown. We could not read your sources.</p>;
-  if (sources.length === 0) return <p>No sources yet.</p>;
-  return (
-    <ul className="cs-status__list">
-      {sources.map((s) => (
-        <li key={s.id}>
-          <span className="cs-chip">{SOURCE_TYPE_LABELS[s.sourceType]}</span> <span>{hostOf(s.sourceUrl)}</span>
-          <span className="cs-hint">{describeLastChecked(s.lastSyncedAt, now)}</span>
-          {s.lastError && <span className="cs-error">{describeLastProblem(s.lastError)}</span>}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-const REFRESH_TIME_EVERY_MS = 30_000;
-
-/** Asks for a fresh render now and then, so "Last checked 2 minutes ago" cannot stay frozen while the page is open. */
-function useClockTick() {
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const timer = setInterval(() => setTick((n) => n + 1), REFRESH_TIME_EVERY_MS);
-    return () => clearInterval(timer);
-  }, []);
-}
-
-export function ContentSourcesStatus({ posts, sources, client, now = Date.now }: ContentSourcesStatusProps) {
+export function ContentSourcesStatus({ posts, client }: ContentSourcesStatusProps) {
   const titleId = useId();
-  useClockTick();
   const { health, check } = useServiceHealth(client);
   const queue = summarizeQueue(posts);
-  const overall = deriveOverall(queue, sources, health);
+  const overall = deriveOverall(queue, health);
 
   return (
     <section className="cs-card cs-status" role="region" aria-labelledby={titleId}>
@@ -130,13 +80,6 @@ export function ContentSourcesStatus({ posts, sources, client, now = Date.now }:
         <div>
           <dt className="cs-label">Posting queue</dt>
           <dd data-testid="queue-state">{describeQueue(queue)}</dd>
-        </div>
-        <div>
-          <dt className="cs-label">Content engine</dt>
-          <dd>
-            <EngineRows sources={sources} now={now()} />
-            <p className="cs-hint">Background checks only happen while the engine is running.</p>
-          </dd>
         </div>
         <div>
           <dt className="cs-label">Service</dt>
