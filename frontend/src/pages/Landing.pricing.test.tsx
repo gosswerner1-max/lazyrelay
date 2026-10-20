@@ -43,12 +43,23 @@ describe("home page pricing section", () => {
     expect(packs.map((c) => c.textContent)).toEqual([
       expect.stringContaining("Starter pack$15(plus tax)300 credits"),
       expect.stringContaining("Growth pack$50(plus tax)1,500 credits"),
-      expect.stringContaining("Pro top-up$30(plus tax)1,500 creditsActive Pro subscribers only"),
+      expect.stringContaining("Pro top-up$30(plus tax)1,500 creditsActive Pro subscribers only. $30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax."),
     ]);
     const text = document.querySelector("#pricing")!.textContent ?? "";
     expect(text).toContain("1 credit per channel destination");
     expect(text).toContain("5 channels × 1 credit = 5 credits");
     expect(text).toContain("10 credits");
+  });
+
+  it("Pay-as-you-go has the two wallet lines and no 'Pay once' note; Pro lists the top-up text; packs do not all 'never expire'", () => {
+    renderLanding();
+    const text = document.querySelector("#pricing")!.textContent ?? "";
+    expect(text).toContain("300 credits that stay in your wallet until used");
+    expect(text).toContain("Balance can be topped up at any time");
+    expect(text).not.toContain("Pay once, use whenever");
+    expect(text).not.toContain("the credits never expire");
+    const pro = [...document.querySelectorAll("#pricing .pricing-grid:not(.pricing-grid-packs) .pricing-card")].find((c) => c.textContent?.startsWith("Pro"));
+    expect(pro?.textContent).toContain("$30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax.");
   });
 
   it("mentions no old plan, old price or dash", () => {
@@ -78,6 +89,23 @@ describe("static pricing surfaces", () => {
     expect(pricingPage).not.toMatch(/[–—]|&mdash;|&ndash;/);
     expect(pricingPage).toContain('rel="canonical" href="https://lazyrelay.com/pricing/"');
     expect(pricingPage).toContain('name="robots"');
+  });
+
+  it("states the Pro top-up expiry exactly, in the visible text and the FAQ schema, and never says all packs never expire", () => {
+    for (const [name, text] of [["pricing page", pricingPage], ["pricing.md", pricingMd]] as const) {
+      expect(text, name).toContain("$30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax.");
+      expect(text, name).not.toMatch(/Packs are one-time purchases and the credits never expire|credit packs never expire|all with credits that never expire/);
+    }
+    const block = pricingPage.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1];
+    const faq = JSON.parse(block)["@graph"]?.filter((n: { "@type": string }) => n["@type"] === "FAQPage") ?? [JSON.parse(block)];
+    const answers: string[] = faq.flatMap((f: { mainEntity: { acceptedAnswer: { text: string } }[] }) => f.mainEntity.map((q) => q.acceptedAnswer.text));
+    const packs = answers.find((a) => a.startsWith("Three packs"))!;
+    expect(packs).toContain("$30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax.");
+    const expiry = answers.find((a) => a.includes("Pro top-up credits are bound"))!;
+    expect(expiry).toBeTruthy();
+    const visible = pricingPage.split("</script>").slice(-1)[0];
+    expect(visible).toContain(packs);
+    expect(visible).toContain(expiry);
   });
 
   it("index.html has one valid schema block whose offers match the four plans", () => {

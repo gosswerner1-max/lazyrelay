@@ -7,7 +7,7 @@ interface TermsOfServiceProps {
   onBack: () => void;
 }
 
-const LAST_UPDATED = "16 October 2026";
+const LAST_UPDATED = "20 October 2026";
 
 export function TermsOfService({ onBack }: TermsOfServiceProps) {
   useEffect(() => {
@@ -48,55 +48,89 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
             (registration number 2021/003176/07).
           </p>
 
-          <h3>Subscriptions and billing</h3>
+          <h3>Plans, LazyCredits and billing</h3>
           <p>
-            Paid plans (Starter, Pro, Business) and storage add-ons are billed as recurring monthly
-            subscriptions, processed by our payment provider, Paddle.com, who acts as merchant of record and
-            handles payment, tax, and invoicing. Subscriptions renew automatically each month until cancelled.
+            <strong>LazyCredits are purely operational tokens for software features, hold no independent cash value, and are strictly non-refundable.</strong>
           </p>
           <p>
-            A storage add-on is a separate subscription from your plan, so you can buy more than one, and cancel
-            any single add-on without affecting your plan or your other add-ons.
+            LazyRelay is sold as LazyCredits, one wallet per account. All prices are in USD, plus tax. Payments
+            are processed by our payment provider, Paddle.com, who acts as merchant of record and handles
+            payment, tax, and invoicing.
+          </p>
+          <ul>
+            <li>
+              <strong>Free:</strong> $0. 30 credits once at registration, with no monthly reset. Up to 3
+              connected accounts, 1 brand and 10 queued posts.
+            </li>
+            <li>
+              <strong>Pay-as-you-go:</strong> $15 one time (plus tax) for 300 credits that never expire. Up to 20
+              connected accounts and 2 brands.
+            </li>
+            <li>
+              <strong>Growth:</strong> $29 a month (plus tax) for 1,000 credits each billing cycle. Unused credits
+              expire at the end of each cycle, with no rollover. Up to 30 connected accounts and 4 brands.
+            </li>
+            <li>
+              <strong>Pro:</strong> $99 a month (plus tax) for 6,000 credits each billing cycle. Unused credits
+              expire at the end of each cycle, with no rollover. Up to 1,000 connected accounts and unlimited
+              brands.
+            </li>
+          </ul>
+          <p>
+            Extra credit packs: Starter pack $15 for 300 credits and Growth pack $50 for 1,500 credits never
+            expire. Pro top-up $30 for 1,500 credits (bound to active subscription status, expires if canceled;
+            available only to active Pro subscribers). If the Pro subscription is canceled, Pro top-up credits stay
+            usable until the paid period ends, and are removed at once on a refund or chargeback. All prices are
+            plus tax.
+          </p>
+          <p>
+            Publishing costs 1 credit per channel destination, so one post sent to 5 channels costs 5 credits. A
+            channel that fails is not charged: a credit is taken only after the platform confirms the post is
+            live. A competitor page teardown costs 10 credits and is charged only when the blueprint is
+            delivered. Credits that expire first are spent first, then non-expiring credits. When your wallet is
+            empty, due posts wait (they are not deleted) and publish once credits are added.
+          </p>
+          <p>
+            Growth and Pro are billed as recurring monthly subscriptions and renew automatically each month until
+            cancelled.
           </p>
 
           <h3>Cancellations and refunds</h3>
           <p>
+            <strong>All purchases, credit packages and subscription cycles are strictly non-refundable.</strong>{" "}
+            This covers Pay-as-you-go, every credit pack, and every Growth and Pro billing cycle. We don't refund
+            the unused portion of a partly used billing period, and we don't refund a purchase because you changed
+            your mind.
+          </p>
+          <p>
+            {"Except as required under local consumer protection laws or our payment processor's mandatory terms."}
+          </p>
+          <p>
             <strong>You can cancel your plan at any time</strong> from the Billing section of the Settings tab
-            (always visible in the top nav).
-            Cancelling stops future billing, but you keep access to your current plan's features until the end
-            of the billing period you've already paid for, then your account drops to the Free plan.
+            (always visible in the top nav). Cancelling stops future charges, and your plan stays active until the
+            end of the billing period you've already paid for.
+          </p>
+
+          <h3>When your data is deleted</h3>
+          <p>
+            <strong>Subscription plans (Growth and Pro):</strong> your posts and uploaded media are permanently
+            deleted 30 days after the subscription ends or is cancelled. You'll see this notice again and have to
+            confirm it when you cancel, and we'll email you a reminder about a week before deletion happens.
+            Download anything you want to keep before then - resubscribing before the 30 days are up cancels the
+            deletion.
           </p>
           <p>
-            <strong>We don't offer refunds for partial billing periods.</strong> If you cancel partway through
-            a month, you won't be charged again, but we don't refund the unused portion of the current period.
-          </p>
-          <p>
-            <strong>Cancelling your plan also cancels any active storage add-ons.</strong> If you want to keep
-            an add-on running on its own after downgrading to Free, contact us, since that isn't currently
-            supported through self-serve cancellation.
-          </p>
-          <p>
-            Storage add-ons themselves follow the same rule: cancel one at any time from the Billing section
-            of the Settings tab, effective at the end of its current billing period, no partial refund for
-            time already paid.
-          </p>
-          <p>
-            <strong>Once your plan actually ends, your posts and uploaded media are permanently deleted 30 days
-            later.</strong> We can't provide storage for an account that isn't a paying customer. You'll see this
-            notice again and have to confirm it when you cancel, and we'll email you a reminder about a week
-            before deletion happens. Download anything you want to keep before then — resubscribing before the
-            30 days are up cancels the deletion.
+            <strong>Non-subscription plans (Free and Pay-as-you-go):</strong> Data is maintained as long as the
+            account remains active, and is subject to deletion after 6 consecutive months of total
+            inactivity.
           </p>
 
           <h3>Your data and content</h3>
           <p>
             You own the content you schedule through LazyRelay. We store it only to publish it at the time you
-            choose, and to show you what's scheduled, posted, or failed. Uploaded media counts against your
-            plan's storage quota (shown as a gauge in the Storage section of the Settings tab) plus any
-            storage add-ons you've purchased.
-            Once you're at your limit, new uploads are rejected until you delete something or add more space.
-            We never delete your files ourselves for going over your quota while subscribed — storage is only
-            ever freed by your own action or the 30-day post-cancellation deletion described above.
+            choose, and to show you what's scheduled, posted, or failed.
+            We never delete your files ourselves while you are subscribed. Storage is only ever freed by your own
+            action or by the deletion rules described above.
           </p>
           <p>
             When you delete your account, we remove your stored content and connected-platform access tokens
@@ -113,7 +147,7 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
             to make sure your content complies with each platform's own rules and terms.
           </p>
           <p>
-            Some platforms — including TikTok — don't allow direct, automated posting for every connected
+            Some platforms, including TikTok, don't allow direct, automated posting for every connected
             account. Whether this applies to your account is determined entirely by the platform (for example
             by account type, settings, or your region), not by us, and we have no way to override it. When a
             platform blocks a post for this reason, we'll show you a clear explanation of why rather than
@@ -130,7 +164,7 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
           <p>
             Don't use LazyRelay to post content that violates a connected platform's terms, to spam, or for any
             unlawful purpose. We reserve the right to suspend accounts that abuse the service, including
-            attempts to circumvent storage or rate limits through automated or repeated fraudulent activity.
+            attempts to circumvent plan or rate limits through automated or repeated fraudulent activity.
           </p>
 
           <h3>No warranty, limited liability</h3>
@@ -154,8 +188,7 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
 
           <h3>Contact us</h3>
           <p>
-            Questions about these terms, billing, or a refund request you'd like us to consider outside the
-            standard policy? Email <a href="mailto:hello@lazyrelay.com">hello@lazyrelay.com</a>.
+            Questions about these terms or billing? Email <a href="mailto:hello@lazyrelay.com">hello@lazyrelay.com</a>.
           </p>
         </div>
       </section>

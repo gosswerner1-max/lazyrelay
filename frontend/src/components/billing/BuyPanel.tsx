@@ -36,11 +36,27 @@ function priceText(item: CatalogItem): string {
   return `${dollars(item.priceCents)} plus tax${item.interval === "month" ? " per month" : ""}`;
 }
 
-/** What the person is told about when the credits end. Only what the catalog itself says. */
+/** What the person is told about when the credits end. Only what the catalog itself says. A plan-bound item (the Pro top-up) has its own text in Row, so it never reads "never expire". */
 function expiryText(item: CatalogItem): string {
   if (item.kind === "subscription") return "credits expire each billing cycle";
-  if (!item.expires) return "credits never expire";
-  return item.requiresPlan === "pro" ? "credits lapse when your Pro plan ends" : "credits expire";
+  return item.expires ? "credits expire" : "credits never expire";
+}
+
+/** The pay-as-you-go pack (the Starter Pack in the catalog). Its two lines are fixed wording. */
+const PAYG_SKU = "lazycredits-starter-pack";
+const PAYG_LINES = ["300 credits that stay in your wallet until used", "Balance can be topped up at any time"] as const;
+
+/** Whole dollars read "$30", anything else "$30.50". */
+const plainDollars = (cents: number) => (cents % 100 === 0 ? "$" + String(cents / 100) : dollars(cents));
+
+/** The Pro top-up is bound to the active Pro plan, so it is described that way and never as "never expires". */
+function ProTopUpText({ item }: { item: CatalogItem }) {
+  return (
+    <>
+      <p className="bm-buy__credits">{`${plainDollars(item.priceCents)} for ${formatCredits(item.credits)} credits (bound to active subscription status, expires if canceled).`}</p>
+      <p className="bm-buy__note">Plus tax.</p>
+    </>
+  );
 }
 
 interface RowProps {
@@ -59,15 +75,33 @@ function Row({ item, busySku, onBuy }: RowProps) {
       </h4>
       {item.purchasable ? (
         <>
-          <p className="bm-buy__price">{priceText(item)}</p>
-          <p className="bm-buy__credits">{`${formatCredits(item.credits)} credits`}</p>
-          <p className="bm-buy__note">{expiryText(item)}</p>
+          {item.requiresPlan === "pro" ? (
+            <ProTopUpText item={item} />
+          ) : item.sku === PAYG_SKU ? (
+            <>
+              <p className="bm-buy__price">{priceText(item)}</p>
+              {PAYG_LINES.map((line) => (
+                <p key={line} className="bm-buy__credits">{line}</p>
+              ))}
+            </>
+          ) : (
+            <>
+              <p className="bm-buy__price">{priceText(item)}</p>
+              <p className="bm-buy__credits">{`${formatCredits(item.credits)} credits`}</p>
+              <p className="bm-buy__note">{expiryText(item)}</p>
+            </>
+          )}
           <button type="button" className="bm-btn bm-btn--primary" aria-label={`Buy ${item.name}`} disabled={busySku !== null} onClick={() => onBuy(item.sku)}>
             {busy ? "Starting checkout..." : "Buy"}
           </button>
         </>
       ) : (
-        <p className="bm-buy__reason">{catalogReasonLine(item.reason)}</p>
+        <>
+          {item.requiresPlan === "pro" && (
+            <ProTopUpText item={item} />
+          )}
+          <p className="bm-buy__reason">{catalogReasonLine(item.reason)}</p>
+        </>
       )}
     </li>
   );

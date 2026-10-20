@@ -19,7 +19,7 @@ This section replaces every older plan, price and limit in this file. Anything b
 | Growth | $29 a month | 1,000 each billing cycle | expire at the end of each cycle, no rollover | 30 connected accounts, 4 brands |
 | Pro | $99 a month | 6,000 each billing cycle | expire at the end of each cycle, no rollover | 1,000 connected accounts, unlimited brands |
 
-Extra credit packs (never expire, plus tax): Starter pack $15 for 300 credits; Growth pack $50 for 1,500 credits; Pro top-up $30 for 1,500 credits, available only to active Pro subscribers.
+Extra credit packs: Starter pack $15 for 300 credits and Growth pack $50 for 1,500 credits (plus tax; these never expire). Pro top-up, available only to active Pro subscribers: $30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax. The top-up is bound to the Pro plan (migration 0140): on a voluntary cancel its credits stay spendable until the paid period ends; on a refund or chargeback they are cancelled at once.
 
 How the single wallet spends credits:
 - **Publishing:** 1 credit per channel destination. One post sent to 5 channels costs 5 credits. A channel that fails is not charged; a credit is taken only after the platform confirms the post is live (Proof-of-Publish).
@@ -114,6 +114,8 @@ Same reasoning as `<other business>`'s vendor-issue follow-up policy: standard i
 ## Refund policy
 
 **Current state (2026-10-20): refunds are handled manually by the owner.** Werner decides each one and issues it from the Paddle dashboard; moving real money is never done by unattended ops code. A refund, double-charge or billing-error claim from a customer is a no-reply hard case for the email agent (see `support/SUPPORT_KNOWLEDGE.md`, "Billing disputes, refunds and I was charged"), so it is flagged, not answered from a template.
+
+**Policy (owner's definitive rule, 2026-10-20):** all purchases, credit packages and subscription cycles are strictly non-refundable, and there is no case-by-case or individual review. Except as required under local consumer protection laws or our payment processor's mandatory terms. Cancelling a subscription stops future charges and the plan stays active until the end of the paid period. Data deletion: subscription plans (Growth, Pro) 30 days after the subscription ends or is cancelled; Free and Pay-as-you-go: Data is maintained as long as the account remains active, and is subject to deletion after 6 consecutive months of total inactivity.
 
 History, superseded 2026-10-20 as far as plans and add-ons go: a refund page was published at https://lazyrelay.com/refunds on 2026-07-23 (linked from the site footer per Paddle's requirement) with a no-refund-for-partial-periods position, and `billing_ops.js::planRefund()` classified a request against it (`deny_per_policy` or `escalate_for_manual_review`). Its wording was written for the old subscription plans, and whether the published page has been reworded for credit purchases was not checked in this pass. **Contradiction found 2026-10-20, left for Werner:** step 7 of `lazyrelay-billing-ops-daily` was written to send the `planRefund` `customerMessage` directly, which clashes with refunds being manual and with the no-reply rule in the support file. Until Werner decides, treat a refund request as a hard case and send nothing from the planRefund output.
 

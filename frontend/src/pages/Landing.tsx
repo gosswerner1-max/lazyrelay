@@ -99,13 +99,15 @@ type PricingPlan = {
   price: string;
   // What follows the price: nothing for Free, "one time" or "a month" for the paid plans.
   period?: string;
-  note: string;
+  note?: string;
   features: string[];
   cta: string;
   featured?: boolean;
 };
 
 // The public plans (Werner, 2026-10-20): one wallet of credits. Prices are USD, shown before tax.
+const PRO_TOP_UP_TEXT = "$30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax.";
+
 const PRICING: PricingPlan[] = [
   {
     tier: "free",
@@ -120,8 +122,7 @@ const PRICING: PricingPlan[] = [
     name: "Pay-as-you-go",
     price: "$15",
     period: "one time",
-    note: "Pay once, use whenever",
-    features: ["300 credits that stay in your wallet until used", "20 connected accounts", "2 brands", "AI-agent / MCP access", "Proof-of-Publish verification"],
+    features: ["300 credits that stay in your wallet until used", "Balance can be topped up at any time", "20 connected accounts", "2 brands", "AI-agent / MCP access", "Proof-of-Publish verification"],
     cta: "Get started",
   },
   {
@@ -140,16 +141,16 @@ const PRICING: PricingPlan[] = [
     price: "$99",
     period: "a month",
     note: "For high volume and many accounts",
-    features: ["6,000 credits each billing cycle", "Credits expire at the end of each cycle, no rollover", "1,000 connected accounts", "Unlimited brands", "AI-agent / MCP access", "Proof-of-Publish verification"],
+    features: ["6,000 credits each billing cycle", "Credits expire at the end of each cycle, no rollover", "1,000 connected accounts", "Unlimited brands", "AI-agent / MCP access", "Proof-of-Publish verification", PRO_TOP_UP_TEXT],
     cta: "Get started",
   },
 ];
 
-// Extra credit packs: one-time purchases, credits never expire (Werner, 2026-10-20).
+// Extra credit packs: one-time purchases. Starter and Growth credits never expire; the Pro top-up is bound to the Pro plan (migration 0140).
 const CREDIT_PACKS = [
   { name: "Starter pack", price: "$15", credits: "300 credits", note: "" },
   { name: "Growth pack", price: "$50", credits: "1,500 credits", note: "" },
-  { name: "Pro top-up", price: "$30", credits: "1,500 credits", note: "Active Pro subscribers only" },
+  { name: "Pro top-up", price: "$30", credits: "1,500 credits", note: "Active Pro subscribers only. " + PRO_TOP_UP_TEXT },
 ];
 
 // Fact-based comparison, not a named-competitor callout — every row is a
@@ -864,7 +865,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
                     </>
                   )}
                 </p>
-                <p className="pricing-note">{plan.note}</p>
+                {plan.note && <p className="pricing-note">{plan.note}</p>}
                 <ul>
                   {plan.features.map((f) => (
                     <li key={f}>{f}</li>
@@ -879,7 +880,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
         </div>
 
         <h3 className="pricing-subheading">Credit packs</h3>
-        <p className="section-note">Need more credits? Packs are one-time purchases and the credits never expire.</p>
+        <p className="section-note">Need more credits? Packs are one-time purchases. Starter and Growth pack credits never expire. Pro top-up credits are bound to your Pro subscription and expire if it is canceled.</p>
         <div className="pricing-grid pricing-grid-packs">
           {CREDIT_PACKS.map((pack) => (
             <div className="pricing-card-wrap pricing-card-wrap-plain" key={pack.name}>

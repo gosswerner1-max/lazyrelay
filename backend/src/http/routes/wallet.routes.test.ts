@@ -41,6 +41,8 @@ function stubs() {
     service: { getBalance: vi.fn(async (_id: string) => balanceView) },
     runTeardown: vi.fn(async (_i: any) => ({ status: 200, body: { analysis: {}, blueprint: {}, charged: true } })),
     getTier: vi.fn(async (_id: string) => "free" as any),
+    isLegacy: vi.fn(async (_id: string) => false),
+    isCancelPending: vi.fn(async (_id: string) => false),
     readPacks: vi.fn(async () => [
       { sku: SKU.starterPack, name: "LazyCredits Starter Pack", kind: "pack", price_cents: 1500, credits: 300, expires: false, interval: "one_time", requires_plan: null, active: true },
     ]),
@@ -121,6 +123,71 @@ describe("GET /wallet/catalog", () => {
     expect(res.status).toBe(200);
     expect(res.body.items).toHaveLength(1);
     expect(res.body.items[0]).toMatchObject({ sku: SKU.starterPack, priceCents: 1500, taxNote: "plus tax", credits: 300 });
+  });
+
+  const allRows = () => [
+    { sku: SKU.starterPack, name: "LazyCredits Starter Pack", kind: "pack", price_cents: 1500, credits: 300, expires: false, interval: "one_time", requires_plan: null, active: true },
+    { sku: SKU.proTopUp, name: "LazyCredits Pro Top-Up", kind: "pack", price_cents: 3000, credits: 1500, expires: false, interval: "one_time", requires_plan: "pro", active: true },
+    { sku: SKU.growthPlan, name: "LazyRelay Growth Plan", kind: "subscription", price_cents: 2900, credits: 1000, expires: true, interval: "month", requires_plan: null, active: true },
+    { sku: SKU.proPlan, name: "LazyRelay Pro Plan", kind: "subscription", price_cents: 9900, credits: 6000, expires: true, interval: "month", requires_plan: null, active: true },
+  ];
+  const bySku = (items: any[]) => Object.fromEntries(items.map((i) => [i.sku, [i.purchasable, i.reason]]));
+
+  it("carries purchasable and reason on every item for a free account", async () => {
+    s.readPacks.mockImplementation(async () => allRows());
+    const res = await request(mount(s)).get("/wallet/catalog");
+    expect(bySku(res.body.items)).toEqual({
+      [SKU.starterPack]: [true, null], [SKU.proTopUp]: [false, "needs_pro"], [SKU.growthPlan]: [true, null], [SKU.proPlan]: [true, null],
+    });
+    expect(s.isLegacy).toHaveBeenCalledWith("acc-1");
+  });
+
+  it("legacy account: nothing purchasable", async () => {
+    s.readPacks.mockImplementation(async () => allRows());
+    s.isLegacy.mockImplementation(async () => true);
+    const res = await request(mount(s)).get("/wallet/catalog");
+    for (const v of Object.values(bySku(res.body.items))) expect(v).toEqual([false, "legacy_account"]);
+  });
+
+  it("pro account with a cancel pending: top-up plan_ending, plan already_subscribed", async () => {
+    s.readPacks.mockImplementation(async () => allRows());
+    s.getTier.mockImplementation(async () => "lazy_pro");
+    s.isCancelPending.mockImplementation(async () => true);
+    const res = await request(mount(s)).get("/wallet/catalog");
+    const v = bySku(res.body.items);
+    expect(v[SKU.proTopUp]).toEqual([false, "plan_ending"]);
+    expect(v[SKU.proPlan]).toEqual([false, "already_subscribed"]);
+    expect(res.body.items.find((i: any) => i.sku === SKU.proTopUp).expires).toBe(true);
+  });
+
+  it("answers 503 when the legacy check throws", async () => {
+    s.isLegacy.mockImplementation(async () => { throw new Error("db down"); });
+    expect((await request(mount(s)).get("/wallet/catalog")).status).toBe(503);
+  });
+
+  // CONTRACT: a copy of the validation rules in frontend/src/lib/walletApi.ts readItem. If the frontend changes them, change this copy too.
+  const REASONS = ["needs_pro", "already_subscribed", "legacy_account", "plan_ending"];
+  const isCount = (n: unknown) => typeof n === "number" && Number.isInteger(n) && n >= 0;
+  const frontendAccepts = (v: any): boolean =>
+    v !== null && typeof v === "object" && typeof v.sku === "string" && v.sku !== "" && typeof v.name === "string" &&
+    ["pack", "subscription"].includes(v.kind) && isCount(v.priceCents) && isCount(v.credits) &&
+    typeof v.expires === "boolean" && ["one_time", "month"].includes(v.interval) && typeof v.purchasable === "boolean" &&
+    (v.requiresPlan === null || typeof v.requiresPlan === "string") && (v.reason === null || REASONS.includes(v.reason));
+
+  it("CONTRACT: every item the route returns passes the frontend validation and has the 11 keys", async () => {
+    const keys = ["sku", "name", "kind", "priceCents", "credits", "expires", "interval", "requiresPlan", "purchasable", "reason"];
+    s.readPacks.mockImplementation(async () => allRows());
+    for (const [tier, legacy, cancel] of [["free", false, false], ["growth", false, false], ["lazy_pro", false, true], ["lazy_pro", true, false], ["business", false, false]] as const) {
+      s.getTier.mockImplementation(async () => tier as any);
+      s.isLegacy.mockImplementation(async () => legacy);
+      s.isCancelPending.mockImplementation(async () => cancel);
+      const res = await request(mount(s)).get("/wallet/catalog");
+      expect(res.body.items).toHaveLength(4);
+      for (const item of res.body.items) {
+        for (const k of keys) expect(item, `${tier} ${item.sku} missing ${k}`).toHaveProperty(k);
+        expect(frontendAccepts(item), `${tier} ${item.sku}`).toBe(true);
+      }
+    }
   });
 });
 

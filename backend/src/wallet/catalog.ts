@@ -41,7 +41,7 @@ export const CATALOG: Record<SkuId, CatalogEntry> = {
   },
   [SKU.proTopUp]: {
     sku: SKU.proTopUp, name: "LazyCredits Pro Top-Up", kind: "pack", priceCents: 3000, credits: 1500, expires: false, interval: "one_time", requiresPlan: "pro", paddlePriceId: null, active: true,
-    description: "1,500 universal credits available exclusively for active Pro Tier subscribers. Credits never expire.",
+    description: "1,500 universal credits available exclusively for active Pro Tier subscribers. Bound to active subscription status: credits expire if the subscription is canceled.",
   },
   [SKU.growthPlan]: {
     sku: SKU.growthPlan, name: "LazyRelay Growth Plan", kind: "subscription", priceCents: 2900, credits: 1000, expires: true, interval: "month", requiresPlan: null, paddlePriceId: null, active: true,

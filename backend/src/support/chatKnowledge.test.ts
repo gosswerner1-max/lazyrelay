@@ -65,7 +65,14 @@ describe("support bot knowledge: plans, credits and prices", () => {
   it("states the credit packs and that the Pro top-up is Pro only", () => {
     expect(prompt).toMatch(/Starter pack \$15 for 300 credits/);
     expect(prompt).toMatch(/Growth pack \$50 for 1,500 credits/);
-    expect(prompt).toMatch(/Pro top-up \$30 for 1,500 credits, available only to active Pro subscribers/);
+    expect(prompt).toMatch(/Pro top-up, available only to active Pro subscribers/);
+    expect(prompt).toContain("$30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax.");
+  });
+
+  it("does not say all packs never expire", () => {
+    expect(prompt).not.toMatch(/packs never expire/i);
+    expect(prompt).toMatch(/Starter pack credits and Growth pack credits never expire/);
+    expect(prompt).toMatch(/Pro top-up credits are bound to the Pro subscription and expire if it is canceled/);
   });
 
   it("states what actions cost and the spending rules", () => {
@@ -85,5 +92,31 @@ describe("support bot knowledge: plans, credits and prices", () => {
 
   it("uses no em or en dashes", () => {
     expect(prompt).not.toMatch(/[–—]/);
+  });
+});
+
+describe("support bot knowledge: refunds and data deletion", () => {
+  const prompt = buildSupportSystemPrompt(null).replace(/\s+/g, " ");
+
+  it("states strict non-refundability, the verbatim notice and the footnote", () => {
+    expect(prompt).toContain("All purchases, credit packages and subscription cycles are strictly non-refundable.");
+    expect(prompt).toContain(
+      "LazyCredits are purely operational tokens for software features, hold no independent cash value, and are strictly non-refundable.",
+    );
+    expect(prompt).toContain("Except as required under local consumer protection laws or our payment processor's mandatory terms.");
+  });
+
+  it("never offers case-by-case review or says a cancelled plan moves to Free", () => {
+    expect(prompt).not.toMatch(/case[- ]by[- ]case/i);
+    expect(prompt).not.toMatch(/individually/i);
+    expect(prompt).not.toMatch(/drops to Free/);
+    expect(prompt).not.toMatch(/outside the standard policy/);
+  });
+
+  it("states both data deletion rules", () => {
+    expect(prompt).toContain("data is deleted 30 days after the subscription ends or is cancelled");
+    expect(prompt).toContain(
+      "Data is maintained as long as the account remains active, and is subject to deletion after 6 consecutive months of total inactivity.",
+    );
   });
 });

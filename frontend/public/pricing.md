@@ -9,7 +9,7 @@ WhatsApp and X can be connected with your own keys on the paid plans. You pay Me
 | Plan | Price | Credits | Credit expiry | Connected accounts | Brands |
 |---|---|---|---|---|---|
 | Free | $0 | 30 credits once, at registration (no monthly reset) | Never expire | 3 | 1 |
-| Pay-as-you-go | $15 one time (plus tax) | 300 | Never expire | 20 | 2 |
+| Pay-as-you-go | $15 one time (plus tax) | 300 credits that stay in your wallet until used. Balance can be topped up at any time. | Until used | 20 | 2 |
 | Growth | $29 a month (plus tax) | 1,000 each billing cycle | Expire at the end of each cycle, no rollover | 30 | 4 |
 | Pro | $99 a month (plus tax) | 6,000 each billing cycle | Expire at the end of each cycle, no rollover | 1,000 | Unlimited |
 
@@ -17,13 +17,13 @@ Free also allows up to 10 queued posts at a time.
 
 ## Credit packs
 
-Packs are one-time purchases and the credits never expire.
+Packs are one-time purchases. Starter and Growth pack credits never expire. Pro top-up credits are bound to your Pro subscription and expire if it is canceled.
 
 | Pack | Price | Credits | Who can buy it |
 |---|---|---|---|
 | Starter pack | $15 (plus tax) | 300 | Anyone |
 | Growth pack | $50 (plus tax) | 1,500 | Anyone |
-| Pro top-up | $30 (plus tax) | 1,500 | Active Pro subscribers only |
+| Pro top-up | $30 (plus tax) | 1,500 | Active Pro subscribers only. $30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax. |
 
 ## What a credit pays for
 
