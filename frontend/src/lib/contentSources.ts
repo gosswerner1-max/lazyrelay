@@ -75,6 +75,11 @@ export interface ContentSourcesClient {
   updateSource(id: string, patch: { syncInterval?: SyncInterval; brandId?: string | null }): Promise<ServiceSource>;
   deleteSource(id: string): Promise<void>;
   runSource(id: string): Promise<void>;
+  /**
+   * Is the service up? Needs no sign in. True or false when the service really answered or did not; null when it cannot be
+   * told (the browser itself is offline). Optional: the Not connected client has none, and the status panel then shows Unknown.
+   */
+  ready?(signal?: AbortSignal): Promise<boolean | null>;
 }
 
 /** The origin of a draft: which kind of source made it and the source's name. */
@@ -121,7 +126,7 @@ function ipv6Blocked(host: string): boolean {
 }
 
 /** True for localhost and for private, loopback and link-local address literals. */
-function hostIsInternal(hostname: string): boolean {
+export function hostIsInternal(hostname: string): boolean {
   const host = hostname.replace(/\.$/, "").toLowerCase();
   if (host === "localhost" || host.endsWith(".localhost")) return true;
   if (host.startsWith("[") && host.endsWith("]")) return ipv6Blocked(host.slice(1, -1));
@@ -267,6 +272,7 @@ export class ContentSourcesError extends Error {
   }
 }
 
+const READY_TIMEOUT_MS = 5000;
 const MAX_RETRY_AFTER_SECONDS = 3600;
 const CODE_WORD = /^[a-z][a-z0-9_]{0,39}$/;
 
@@ -542,6 +548,23 @@ export function createServiceClient(opts: {
     },
     async runSource(id) {
       await call("POST", `${sourcePath(id)}/run`);
+    },
+    async ready(signal) {
+      const ctl = new AbortController();
+      const stop = () => ctl.abort();
+      const timer = setTimeout(stop, READY_TIMEOUT_MS);
+      signal?.addEventListener("abort", stop);
+      try {
+        const res = await doFetch(`${base}/v1/ready`, { method: "GET", headers: { Accept: "application/json" }, credentials: "omit", cache: "no-store", signal: ctl.signal });
+        return res.ok;
+      } catch (err) {
+        if (ctl.signal.aborted) return false; // a timeout or a stop is expected
+        console.error(err); // anything else stays visible
+        return typeof navigator !== "undefined" && navigator.onLine === false ? null : false; // offline says nothing about the service
+      } finally {
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", stop);
+      }
     },
   };
 }

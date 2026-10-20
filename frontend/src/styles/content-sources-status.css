@@ -1,0 +1,59 @@
+/* The Content Sources live status panel. Same canvas and tokens as content-sources.css (no new tokens, no new hues), every
+   selector under .content-sources. Nothing here animates. The Unknown badge is deliberately plain grey, never green. */
+
+.content-sources .cs-status__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.content-sources .cs-status__rows {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.content-sources .cs-status__rows > div {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.content-sources .cs-status__rows dd {
+  margin: 0;
+  color: var(--byok-ink);
+  overflow-wrap: anywhere;
+}
+
+.content-sources .cs-status__rows dd p {
+  margin: 0;
+}
+
+.content-sources .cs-status__list {
+  display: grid;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.content-sources .cs-status__list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.625rem;
+}
+
+.content-sources .cs-badge--unknown {
+  border-color: var(--byok-muted);
+  color: var(--byok-muted);
+}
+
+@media (prefers-contrast: more) {
+  .content-sources .cs-badge--unknown {
+    border-color: var(--byok-ink);
+    color: var(--byok-ink);
+  }
+}
