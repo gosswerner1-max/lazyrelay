@@ -2,12 +2,12 @@
 
 > Schedule social posts across 18 distribution platforms plus WhatsApp and independently verify each post actually went live, not just that it was sent.
 
-LazyRelay is a social media scheduling platform built around Proof-of-Publish: instead of marking a post "sent" the moment an API call is accepted, it independently re-checks each platform afterward to confirm the post is genuinely live. A free tier is available with no card required, and AI-agent/MCP access is included on every plan, including Free.
+LazyRelay is a social media scheduling platform built around Proof-of-Publish: instead of marking a post "sent" the moment an API call is accepted, it independently re-checks each platform afterward to confirm the post is genuinely live. A free plan starts you with 30 credits, and AI-agent/MCP access is included on every plan, including Free.
 
 ## Docs
 
-- [Pricing](https://lazyrelay.com/pricing/): Free tier to Agency Plus plans, $29.99-$199.99 / mo (plus applicable tax). Proof-of-Publish is included on every plan.
-- [Pricing (machine-readable)](https://lazyrelay.com/pricing.md): Structured plan/price/limit data for AI agents.
+- [Pricing](https://lazyrelay.com/pricing/): Free (30 credits once), Pay-as-you-go ($15 one time), Growth ($29 a month) and Pro ($99 a month), all plus tax, plus credit packs. 1 credit per channel destination, 10 credits per competitor page teardown. Proof-of-Publish is included on every plan.
+- [Pricing (machine-readable)](https://lazyrelay.com/pricing.md): Structured plan, price and credit data for AI agents.
 - [API & MCP Docs](https://lazyrelay.com/docs/): REST API and MCP server reference for scheduling and verifying posts programmatically.
 - [MCP Tools, Webhooks and Rate Limits](https://lazyrelay.com/docs/mcp-api/): The 27 MCP tools grouped by job, how webhooks are signed (HMAC-SHA256) and retried, how the hosted MCP endpoint and API keys are secured, and the request limit per plan.
 - [MCP Tool Reference](https://lazyrelay.com/mcp/tools/): All 27 MCP tools with their exact descriptions and full input schemas, for AI agents and developers.
@@ -25,7 +25,7 @@ LazyRelay is a social media scheduling platform built around Proof-of-Publish: i
 - [AI Agent Silent Failure](https://lazyrelay.com/ai-agent-scheduled-post-failure/): What happens when an AI agent's scheduled post fails with nobody watching the calendar.
 - [Mastodon, Bluesky & Tumblr Scheduler](https://lazyrelay.com/mastodon-bluesky-tumblr-scheduler/): Coverage for platforms most schedulers skip.
 - [Stuck on What to Post](https://lazyrelay.com/stuck-on-what-to-post/): AI content-idea generation grounded in your business and recent posts.
-- [Multi-Brand Scheduling](https://lazyrelay.com/multi-brand-social-media-scheduler/): A flat-rate alternative to per-brand or per-workspace pricing.
+- [Multi-Brand Scheduling](https://lazyrelay.com/multi-brand-social-media-scheduler/): How brands work on LazyRelay, with no per-brand or per-workspace fee.
 - [Proof a Post Went Live](https://lazyrelay.com/proof-post-went-live/): Sharing verifiable proof of a live post with a client, franchise, or boss.
 - [Analytics Insight](https://lazyrelay.com/social-media-analytics-insight/): Turning raw analytics numbers into an actual next step.
 - [Connect to Zapier](https://lazyrelay.com/connect-zapier/): Automate scheduling with 9,000+ apps via Zapier, no code required.

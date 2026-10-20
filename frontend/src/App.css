@@ -1679,6 +1679,28 @@ button[type="submit"]:not(.btn-outline),
   margin: 28px 0 0;
 }
 
+.pricing-subheading {
+  margin: 32px 0 8px;
+}
+
+/* The three credit packs: three columns, collapsing like the plan grid. */
+.pricing-grid-packs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 16px;
+}
+
+@media (max-width: 900px) {
+  .pricing-grid-packs {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pricing-rates {
+  margin: 8px 0 0;
+  padding-left: 22px;
+}
+
+
 /* The section used to look like every other plain .landing-section (same
    background, same weight), so someone scrolling normally had nothing to
    catch their eye. This gives it the same kind of visual weight

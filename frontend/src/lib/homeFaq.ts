@@ -27,15 +27,15 @@ export const HOME_FAQ: FaqItem[] = [
   },
   {
     q: "Is LazyRelay free?",
-    a: "Yes. The Free plan costs $0 and needs no credit card. It includes 3 connected accounts, 1 brand, 250MB of storage and Proof-of-Publish verification on every post. Free covers one-time scheduled posts only, with 10 posts per account that refill over time. Paid plans add more accounts, unlimited scheduled posts and recurring schedules.",
+    a: "Yes. The Free plan costs $0 and gives you 30 credits once, when you register, with no monthly reset. It includes 3 connected accounts, 1 brand and 10 queued posts, plus Proof-of-Publish verification on every post. When the credits run out, you can add more with a credit pack or a paid plan.",
   },
   {
     q: "How much does LazyRelay cost?",
-    a: "LazyRelay charges one flat price per plan, with no fee for each connected platform. Starter is $29.99 / mo (plus applicable tax). Pro is $59.99, Business is $99.99, Agency is $149.99 and Agency Plus is $199.99. Tax is added at checkout. Each higher plan allows more connected accounts and brands. The Free plan costs $0.",
+    a: "LazyRelay runs on credits. One credit publishes to one channel, so a post to 5 channels costs 5 credits. A competitor teardown costs 10 credits. Pay-as-you-go is $15 one time, Growth is $29 a month and Pro is $99 a month, all plus tax. Credit packs start at $15 plus tax.",
   },
   {
     q: "Can I schedule a recurring post?",
-    a: "Yes, on paid plans. A recurring schedule is one piece of content that repeats on a day and time you set. Starter includes 3 recurring schedules, Pro includes 5, and Business and above are unlimited. Each recurring schedule counts against your plan's limit. The Free plan supports one-time scheduled posts only.",
+    a: "Yes. A recurring schedule is one piece of content that repeats on a day and time you set. Each time it publishes, it uses credits like any other post, at 1 credit for each channel. If your credits run out, due posts wait and publish once you add credits.",
   },
   {
     q: "Does LazyRelay work with AI assistants?",
