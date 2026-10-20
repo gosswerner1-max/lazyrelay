@@ -1,8 +1,7 @@
 import { ACCOUNT_LIMITS } from "../accountLimits.js";
-import { BRAND_LIMITS } from "../brandLimits.js";
-import { SEAT_LIMITS } from "../seatLimits.js";
-import { STORAGE_QUOTA_BYTES } from "../storageQuota.js";
-import { RECURRING_SCHEDULE_SLOT_LIMITS, TIER_DISPLAY_NAMES, type Tier } from "../tier.js";
+import { BRAND_LIMITS, UNLIMITED_BRANDS } from "../brandLimits.js";
+import { FREE_QUEUE_CAP } from "../queueCap.js";
+import { TIER_DISPLAY_NAMES, type Tier } from "../tier.js";
 import { PLATFORM_ROLLING_24H_POST_LIMIT } from "../platformPostLimits.js";
 
 // Flipped 2026-08-11 -- Render's deployed Paddle credentials and the
@@ -26,11 +25,6 @@ export interface SupportAccountContext {
   storageQuotaBytes: number;
 }
 
-function formatBytes(bytes: number): string {
-  const GB = 1024 * 1024 * 1024;
-  return bytes < GB ? `${Math.round(bytes / (1024 * 1024))}MB` : `${(bytes / GB).toFixed(1)}GB`;
-}
-
 function buildAccountContextSection(ctx: SupportAccountContext): string {
   const platforms =
     ctx.connectedPlatforms.length > 0
@@ -45,7 +39,6 @@ THIS CUSTOMER'S REAL ACCOUNT (they are logged in -- use this to answer account-s
 - Plan: ${ctx.tierDisplayName}
 - Connected platforms: ${platforms}
 - Recent post failures: ${failures}
-- Storage used: ${formatBytes(ctx.storageUsedBytes)} of ${formatBytes(ctx.storageQuotaBytes)}
 
 GUIDED ACTIONS AVAILABLE (Phase 2, logged-in only) -- you can offer to do these three things directly instead of just explaining how:
 
@@ -65,41 +58,33 @@ Never tell a customer "you'll be taken through," "a button will appear," "once y
 `.trim();
 }
 
-// Real dollar prices aren't available from a backend constant (Paddle owns
-// them) -- these must stay hand-kept in sync with frontend/src/pages/Landing.tsx's
-// PRICING array, which is itself the one place a human reviews these numbers.
-const TIER_PRICES: Record<Tier, string> = {
-  free: "$0",
-  starter: "$29.99/mo",
-  pro: "$59.99/mo",
-  business: "$99.99/mo",
-  agency: "$149.99/mo",
-  agency_plus: "$199.99/mo",
-  payg: "$15 per top-up",
-  growth: "$29/mo",
-  lazy_pro: "$99/mo",
-};
-
-const GB = 1024 * 1024 * 1024;
-
-function formatStorage(tier: Tier): string {
-  const bytes = STORAGE_QUOTA_BYTES[tier];
-  return bytes < GB ? `${Math.round(bytes / (1024 * 1024))}MB` : `${Math.round(bytes / GB)}GB`;
+// Prices and credit amounts are owned by Paddle and the wallet catalog (backend/src/wallet/plans.ts and catalog.ts); these
+// words are hand-kept in sync with those and with the pricing facts of 2026-10-20. Account and brand caps are read from the
+// live tier tables. Every price carries "plus tax" right beside it. Per-plan storage, team seats, AI limits and recurring
+// schedule limits are deliberately NOT stated: those numbers are not decided.
+function capsText(tier: Tier): string {
+  const brands = BRAND_LIMITS[tier];
+  const brandText = brands < UNLIMITED_BRANDS ? `${brands} brand${brands === 1 ? "" : "s"}` : "unlimited brands";
+  return `${ACCOUNT_LIMITS[tier].toLocaleString("en-US")} connected accounts, ${brandText}`;
 }
 
-function formatRecurringLimit(tier: Tier): string {
-  const limit = RECURRING_SCHEDULE_SLOT_LIMITS[tier];
-  if (limit === null) return "unlimited recurring schedules";
-  if (limit === 0) return "no recurring schedules (one-time posts only)";
-  return `${limit} recurring schedule${limit === 1 ? "" : "s"}`;
-}
+const PLAN_LINES: string[] = [
+  `${TIER_DISPLAY_NAMES.free} ($0): 30 credits once at registration, no monthly reset and they do not expire; ${capsText("free")}, ${FREE_QUEUE_CAP} queued posts`,
+  `${TIER_DISPLAY_NAMES.payg} ($15 one time, plus tax): 300 credits that never expire, ${capsText("payg")}`,
+  `${TIER_DISPLAY_NAMES.growth} ($29 a month, plus tax): 1,000 credits each billing cycle that expire at the end of each cycle with no rollover; ${capsText("growth")}`,
+  `${TIER_DISPLAY_NAMES.lazy_pro} ($99 a month, plus tax): 6,000 credits each billing cycle that expire at the end of each cycle with no rollover; ${capsText("lazy_pro")}`,
+];
 
-function tierLine(tier: Tier): string {
-  const brandCap = BRAND_LIMITS[tier];
-  const seatCap = SEAT_LIMITS[tier];
-  const seatsPart = seatCap > 0 ? `, ${seatCap} team seat${seatCap === 1 ? "" : "s"} included (+2 more available as paid add-ons)` : "";
-  return `${TIER_DISPLAY_NAMES[tier]} (${TIER_PRICES[tier]}): ${ACCOUNT_LIMITS[tier]} connected accounts, ${brandCap} brand${brandCap === 1 ? "" : "s"}, ${formatStorage(tier)} storage, ${formatRecurringLimit(tier)}${seatsPart}`;
-}
+const CREDITS_KNOWLEDGE = `
+CREDITS AND WHAT THINGS COST (one wallet per account)
+- Publishing costs 1 credit per channel destination. One post sent to 5 channels costs 5 credits. A channel that fails is not charged: a credit is taken only after the platform confirms the post is live (Proof-of-Publish).
+- A competitor page teardown costs 10 credits. It is charged only when the blueprint is delivered; a failed teardown costs nothing.
+- Extra credit packs never expire: Starter pack $15 for 300 credits, Growth pack $50 for 1,500 credits, plus tax. Pro top-up $30 for 1,500 credits, available only to active Pro subscribers, plus tax.
+- Credits that expire first are spent first, then credits that never expire.
+- When the wallet is empty, due posts wait (they are not deleted) and publish once credits are added.
+- Growth and Pro credits expire at the end of each billing cycle, with no rollover. Pay as you go credits and pack credits never expire.
+- Do not state any price, credit amount or limit that is not written in this section or in PLANS. If asked about something not covered (for example storage, team size or AI limits per plan), say you do not have that detail and offer to pass it to the team.
+`.trim();
 
 // Real dashboard tab layout (frontend/src/pages/Dashboard.tsx MAIN_TABS/
 // MORE_TABS) -- kept here as plain data, not prose, so navigation
@@ -133,7 +118,7 @@ const LIVE_PLATFORMS = [
 // X (2026-10-10): connectable with the customer's OWN X developer keys (OAuth 1.0a, "bring your own key") on any
 // paid plan. X bills the customer directly; LazyRelay has no X app and pays nothing. Nothing is "coming soon" any more
 // (Google Business was dropped 2026-09-17 and Snapchat 2026-09-03, adapters removed). X went public 2026-10-15/16.
-const X_OWN_KEYS_NOTE = `X (Twitter) connects differently from every other platform: the customer uses their OWN X developer app and pastes its four keys (API Key, API Secret, Access Token, Access Token Secret) on the Connect X page in Social Platforms. It is available on any paid plan (not on Free). X bills the customer's own X developer account directly for every post (at X's current rates: a plain post about $0.015, a post containing a link about $0.20, and X can change these); LazyRelay never pays for it and cannot see or change that balance. Setup guide: https://lazyrelay.com/guides/x-developer-keys/ . If a post fails with a message about credits or a spending limit, the customer adds credits in the X Developer Console and schedules the post again. If X says the keys are no longer valid or the app needs Read and Write permission, they regenerate the Access Token after fixing the permission and paste the keys again. NEVER ask a customer to paste their X keys into this chat or an email: they go only into the Connect X page. X is one of the 18 distribution platforms.`;
+const X_OWN_KEYS_NOTE = `X (Twitter) connects differently from every other platform: the customer uses their OWN X developer app and pastes its four keys (API Key, API Secret, Access Token, Access Token Secret) on the Connect X page in Social Platforms. It is available on any plan except Free. X bills the customer's own X developer account directly for every post (at X's current rates: a plain post about $0.015, a post containing a link about $0.20, and X can change these); LazyRelay never pays for it and cannot see or change that balance. Setup guide: https://lazyrelay.com/guides/x-developer-keys/ . If a post fails with a message about credits or a spending limit, the customer adds credits in the X Developer Console and schedules the post again. If X says the keys are no longer valid or the app needs Read and Write permission, they regenerate the Access Token after fixing the permission and paste the keys again. NEVER ask a customer to paste their X keys into this chat or an email: they go only into the Connect X page. X is one of the 18 distribution platforms.`;
 
 // Curated from support/SUPPORT_KNOWLEDGE.md -- customer-safe troubleshooting
 // and feature explanations only. Deliberately excludes that file's internal
@@ -185,20 +170,17 @@ PLATFORM TROUBLESHOOTING
 CORE FEATURES
 - Proof-of-Publish: after a post is sent, LazyRelay independently re-checks the platform to confirm it's genuinely live, not just that the send request was accepted. Verified-live posts get a public, no-login "Share proof" button right on that post in the **Posts** or **Calendar** tab, useful for proving to a client/boss a post actually went out.
 - Failure alerts: opt-in email notifications ("Email me if a scheduled post fails" checkbox on the **Settings** tab, top nav) when a post fails for good or an account gets auto-paused. Off by default. Email only -- there's no Slack or other notification channel for this yet.
-- Recurring schedules: set content, days, time, and platforms once; LazyRelay keeps posting weekly until paused or deleted. Free tier is one-time posts only.
+- Recurring schedules: set content, days, time, and platforms once; LazyRelay keeps posting weekly until paused or deleted. Each post it sends uses credits like any other post. Do not state a limit on how many recurring schedules a plan allows.
 - Bulk CSV import: schedule up to 200 posts at once from a CSV, with a per-row preview before committing.
-- AI captions, hashtags, and content ideas: available from the compose form, count against the account's daily AI-generation quota.
-- Brands: group connected accounts under a brand to filter Overview/Posts/Calendar/Analytics/Mentions/DMs by brand. Each plan includes a set number of brands (Free 1, Starter 2, Pro 4, Business 7, Agency 12, Agency Plus 20); still one login and one subscription -- brands are a grouping/filter within your account, not separate workspaces or separate billing.
-- Team seats: on Business, Agency, or Agency Plus, the account owner can invite teammates to work in the same account (Settings tab, top nav). Everyone invited can post, schedule, and manage connected platforms; only the owner can change billing, webhooks, API keys, and the team itself. Included seats vary by plan (Business 2, Agency 3, Agency Plus 6), plus up to 2 extra seats available as a paid add-on on any of those three plans. Not available on Free, Starter, or Pro.
-- API keys and MCP server: let a customer or their AI agent (Claude Desktop, Cursor, etc.) interact with their account programmatically. Included on EVERY tier, including Free (opened up 2026-09-02 -- Free-tier usage is still bounded by the normal rate limit and Free's own post-count cap, an API key doesn't bypass either). Two ways to connect an AI agent: (1) a local server run on the customer's own machine, using an API key from the **API Keys** tab (top nav, always visible); or (2) LazyRelay's own hosted MCP server, no local install at all, signing in with their LazyRelay account instead of a key. Both offer the same 27 tools. Accounts and rules: list connected accounts, list workspaces/brands, get a platform's rules, TikTok creator info, board lists, the next free posting slot, posting slots and saved snippets. Posting: publish a post immediately, create a draft, schedule a post, schedule a draft, update, reschedule, pause, resume, list scheduled posts and cancel a scheduled post. Proof and review: get a post's proof link, approve a post, create, list and revoke review links, read and reply to client feedback. Insight: get analytics and get mentions. Full setup docs at lazyrelay.com/docs. Rotating a leaked/compromised API key is done by revoking the old one and creating a new one -- there's no separate "regenerate" for API keys (unlike the webhook secret, which does have a one-click regenerate).
-- AI captions/hashtags/content ideas share one daily quota (resets at midnight UTC): Free 5/day, Starter 20/day, Pro 50/day, Business/Agency/Agency Plus 100/day. Each request generates one caption/hashtag-set/idea for one platform at a time -- asking for multiple tones or multiple platforms at once means multiple requests, each counted against the quota.
+- AI captions, hashtags, and content ideas: available from the compose form. Do not state a daily AI limit for any plan.
+- Brands: group connected accounts under a brand to filter Overview/Posts/Calendar/Analytics/Mentions/DMs by brand. Each plan includes a set number of brands (Free 1, Pay as you go 2, Growth 4, Pro unlimited); still one login and one subscription -- brands are a grouping/filter within your account, not separate workspaces or separate billing.
+- API keys and MCP server: let a customer or their AI agent (Claude Desktop, Cursor, etc.) interact with their account programmatically. Included on EVERY tier, including Free (opened up 2026-09-02 -- Free-tier usage is still bounded by the normal rate limit and Free's 10 queued posts cap, an API key doesn't bypass either). Two ways to connect an AI agent: (1) a local server run on the customer's own machine, using an API key from the **API Keys** tab (top nav, always visible); or (2) LazyRelay's own hosted MCP server, no local install at all, signing in with their LazyRelay account instead of a key. Both offer the same 27 tools. Accounts and rules: list connected accounts, list workspaces/brands, get a platform's rules, TikTok creator info, board lists, the next free posting slot, posting slots and saved snippets. Posting: publish a post immediately, create a draft, schedule a post, schedule a draft, update, reschedule, pause, resume, list scheduled posts and cancel a scheduled post. Proof and review: get a post's proof link, approve a post, create, list and revoke review links, read and reply to client feedback. Insight: get analytics and get mentions. Full setup docs at lazyrelay.com/docs. Rotating a leaked/compromised API key is done by revoking the old one and creating a new one -- there's no separate "regenerate" for API keys (unlike the webhook secret, which does have a one-click regenerate).
 - Bio Page: a public "link in bio" page (LazyRelay's own URL, not a custom domain) listing links a customer adds one at a time. No layout/color customization, no click-tracking, and no password-protecting individual links today. It keeps working even on the Free tier or a paused/cancelled account.
 - Unified inbox (Mentions and DMs tabs): built, but hidden behind a "Coming soon" badge as of 2026-09-08 -- the reply/DM capability depends on Facebook/Instagram permissions (pages_manage_engagement, instagram_manage_comments, pages_messaging, instagram_manage_messages) that are still unapproved by Meta (Standard access only, works for our own test accounts, not real customers). Tell a customer asking about this that it's coming soon, not that it's live today. Don't describe the per-platform mechanics (which platforms, DM automation via Private Reply, etc.) since none of it is reachable in the product right now.
 - Webhooks: a customer can add up to 5 endpoints (Settings tab, top nav, owner/dashboard-only), each with its own secret. Each endpoint chooses which events it gets (post confirmed live, post failed, post sent but not confirmed, account needs reconnecting) and can be limited to certain connected accounts. Every delivery is signed with HMAC-SHA256 so the receiving system can verify it's really from LazyRelay. If the receiving system is down, LazyRelay retries up to 6 times over about 9 hours (1 min, 5 min, 30 min, 2 h, 6 h). There is a Send test button and a recent-deliveries list per endpoint in Settings.
-- Add-ons (any paid tier, Free excluded): extra Brand slots (~$10/mo each, up to 10), extra storage (5GB/$2.99, 20GB/$7.99, or 50GB/$14.99 per month), and extra team seats (Business/Agency/Agency Plus only, up to 2 beyond what the plan already includes). Cancelling an add-on later doesn't delete anything already using it -- it just lowers the cap going forward.
 - Zapier integration: connects LazyRelay to 9,000+ other apps. Two triggers (a post goes live; a new mention comes in) and four actions (schedule a post, upload media, cancel a post, reply to a mention). Works on every plan, including Free, same as API keys/MCP above -- not restricted to specific plans.
 - A dedicated "Social Inbox" (reading/replying to comments and DMs in one place) is built but not yet live -- see the Mentions/DMs entry above. Tell the customer it's coming soon rather than framing it as already covered.
-- If a payment fails, recurring schedules aren't deleted or need re-enabling -- they simply stop generating new posts (since recurring schedules are a paid feature) until the payment succeeds again, at which point generation resumes automatically with no action needed.
+- If a payment fails, recurring schedules aren't deleted or need re-enabling -- they simply stop generating new posts until the payment succeeds again, at which point generation resumes automatically with no action needed.
 - Downgrading to a lower paid tier (or to Free) never deletes anything, including Proof-of-Publish history -- only a full cancellation does that, and even then only 30 days after cancelling (see CANCELLATION below). A downgrade can only pause connected accounts that now exceed the new tier's limit; their history stays intact.
 - Turnstile on sign-up/sign-in runs invisibly for most users -- not seeing a visible checkbox is normal, not broken.
 - Google Calendar sync: connect/disconnect from the **Settings** tab (top nav). Two-way -- posts LazyRelay schedules appear on a dedicated "LazyRelay Posts" calendar on the customer's own Google account, and moving/editing/deleting an event there syncs back to LazyRelay within seconds (real-time push, not a periodic poll). Creating a brand-new event on that Google Calendar does NOT schedule a post directly (Calendar has no field for "which platform") -- it becomes a planned idea in LazyRelay's compose flow instead. Disconnecting only stops the sync; the Google Calendar and every event already on it stay exactly as they are.
@@ -208,19 +190,19 @@ CORE FEATURES
 SECURITY & ACCOUNT
 - Disconnecting a platform in LazyRelay revokes LazyRelay's own access token immediately; it does not undo anything already posted, and the customer should also check the platform's own connected-apps settings if they want to fully revoke access on that platform's side.
 - LazyRelay does not set or enforce what content is allowed on any platform -- that's each platform's own rules.
-- There's no free trial period -- every new signup lands on the Free tier permanently until they choose to upgrade, no time limit involved.
+- There's no free trial period -- every new signup lands on the Free plan (30 credits once at registration, no monthly reset) until they choose to upgrade or buy credits, no time limit involved.
 - Two-factor authentication (2FA) is available, optional, TOTP-based (any authenticator app -- Google Authenticator, Authy, etc.), set up from the **Settings** tab (top nav): scan the QR code, confirm a 6-digit code, and 10 single-use recovery codes are shown once (also regeneratable later from the same section, which invalidates the old set). Losing both the authenticator app and the recovery codes means the customer can't sign themselves back in -- escalate that per ESCALATION below rather than trying to talk them through it, since there's no self-serve override. Removing 2FA requires being signed in with a completed 2FA challenge already (a bare stolen password alone can't turn it off).
-- Team roles are just owner and member -- there's no draft-only, approver-only, or restricted-analytics-only role. Any invited team member can post, schedule, and manage connected platforms; only billing/webhooks/API keys/team management are owner-only.
+- Team roles are just owner and member -- there's no draft-only, approver-only, or restricted-analytics-only role. Any invited team member can post, schedule, and manage connected platforms; only billing/webhooks/API keys/team management are owner-only. Do not state a team size limit for any plan.
 - There's no self-serve "delete my account" button -- the way to fully remove data is to cancel the subscription; everything (including Proof-of-Publish history) is automatically and permanently deleted 30 days after a cancellation takes effect.
 - VAT-compliant invoices come directly from Paddle (LazyRelay's payment processor and merchant of record), not from LazyRelay itself -- Paddle handles tax/VAT on every transaction and issues its own receipts/invoices automatically.
-- A claim of being charged twice (or any billing/refund dispute) still must be escalated per ESCALATION below -- you cannot confirm or resolve it yourself. While escalating, you can also mention: their current plan and next renewal date are in the dashboard under Settings (top nav) -> Billing section; if they've also bought extra storage, that bills as its own separate Paddle subscription, so two charges in the same month can be normal rather than a mistake; and there's no invoice or charge history anywhere in the dashboard -- every payment gets its own receipt email from Paddle, which is the only record of what was charged. Never tell someone to "check their invoices in the dashboard" (none exist), and never quote the "no refunds for partial billing periods" cancellation policy at a double-charge claim -- that policy is about cancelling partway through a month, not a billing error, and citing it here reads as refusing a legitimate refund.
+- A claim of being charged twice (or any billing/refund dispute) still must be escalated per ESCALATION below -- you cannot confirm or resolve it yourself. While escalating, you can also mention: their current plan and next renewal date are in the dashboard under Settings (top nav) -> Billing section; a credit pack is its own separate one-time purchase, so two charges in the same month can be normal rather than a mistake; and there's no invoice or charge history anywhere in the dashboard -- every payment gets its own receipt email from Paddle, which is the only record of what was charged. Never tell someone to "check their invoices in the dashboard" (none exist), and never quote the "no refunds for partial billing periods" cancellation policy at a double-charge claim -- that policy is about cancelling partway through a month, not a billing error, and citing it here reads as refusing a legitimate refund.
 `.trim();
 
 export function buildSupportSystemPrompt(accountContext: SupportAccountContext | null = null): string {
-  const allTierLines = (["free", "starter", "pro", "business", "agency", "agency_plus"] as Tier[]).map((t) => `- ${tierLine(t)}`).join("\n");
+  const allTierLines = PLAN_LINES.map((l) => `- ${l}`).join("\n");
   const pricingSection = BILLING_LIVE
-    ? `PLANS (live, customers can subscribe today):\n${allTierLines}`
-    : `PLANS (these are the real prices and limits -- use these exact numbers, never invent different ones):\n${allTierLines}\n\nOnly the Free plan is actually usable today. The three paid plans above are coming soon and NOT live yet -- there is no way for anyone to be on a paid plan or be charged right now, no exceptions, no "just launched," no "recently started." When asked about paid plans, give these exact prices/limits but state plainly nobody can subscribe yet.`;
+    ? `PLANS (live, customers can subscribe today, all prices in USD plus tax):\n${allTierLines}\n\n${CREDITS_KNOWLEDGE}`
+    : `PLANS (these are the real prices and limits -- use these exact numbers, never invent different ones):\n${allTierLines}\n\n${CREDITS_KNOWLEDGE}\n\nOnly the Free plan is actually usable today. The paid plans above are coming soon and NOT live yet -- there is no way for anyone to be on a paid plan or be charged right now. When asked about paid plans, give these exact prices/limits but state plainly nobody can subscribe yet.`;
 
   const accountSection = accountContext ? `\n${buildAccountContextSection(accountContext)}\n` : "";
   const dataAccessLine = accountContext
