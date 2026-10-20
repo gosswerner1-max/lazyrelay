@@ -16,13 +16,23 @@ Werner said 2026-08-24 that LazyRelay has **7 social media accounts** total — 
 
 ## Brand voice / positioning
 
-Cross-linked to `memory/lazyrelay/project-launch-pricing-tiers.md` and `support/SUPPORT_KNOWLEDGE.md`'s "Trust" section. The core differentiator to lead with: **Proof-of-Publish** — "we don't just trust that the API said yes, we independently check the post is actually live." This is LazyRelay's strongest trust asset for a new/small player and should anchor most acquisition content, not generic SaaS marketing copy.
+Cross-linked to `support/SUPPORT_KNOWLEDGE.md`'s "Trust" section (the old `project-launch-pricing-tiers` note is superseded for pricing as of 2026-10-20). The core differentiator to lead with: **Proof-of-Publish** — "we don't just trust that the API said yes, we independently check the post is actually live." This is LazyRelay's strongest trust asset for a new/small player and should anchor most acquisition content, not generic SaaS marketing copy.
 
 ## Honesty constraints (important — checked mechanically by marketing_auditor.js)
 
-- **Corrected 2026-08-24 — both lines below were stale and said the opposite of current reality; do not use the old wording.**
-- Pricing is real and live: Free $0 / Starter $29.99 / Pro $59.99 / Business $99.99 (see `Billing/project-launch-pricing-tiers.md`'s correction block for the source of truth — do not quote the old $24.99/$49 figures). Never claim "100% free forever" — the Free tier is real but capped (3 accounts, 1 brand), not unlimited.
-- **Live platform posting genuinely works today** — Paddle billing has been in production since 2026-08-11, IPE Projects is CIPC-registered, and lazyrelay.com's own landing page carries a real 9-platform Proof-of-Publish marquee (every post independently verified live, not staged). Ad copy can and should claim real, working, verified posting — that's the core sellable fact, not a hedge.
+- **Corrected 2026-08-24, pricing replaced 2026-10-20.** Do not use any older price wording.
+- **Pricing (Werner, 2026-10-20, the only pricing truth).** The Free, Pay-as-you-go, Growth and Pro plans below replace the old Free / Starter / Pro / Business subscription set, which is not sold any more and must not be quoted. Every price in ad copy, posts and outreach carries "plus tax" beside it. Never claim "100% free forever": Free is real but capped (30 credits once at registration, 3 connected accounts, 1 brand, 10 queued posts).
+
+  | Plan | Price (plus tax) | Credits | Credit expiry |
+  |---|---|---|---|
+  | Free | $0 | 30 once at registration, no monthly reset | none |
+  | Pay-as-you-go | $15 one time | 300 | never expire |
+  | Growth | $29 a month | 1,000 each billing cycle | end of each cycle, no rollover |
+  | Pro | $99 a month | 6,000 each billing cycle | end of each cycle, no rollover |
+
+  Extra packs that never expire (plus tax): Starter pack $15 for 300 credits, Growth pack $50 for 1,500 credits, Pro top-up $30 for 1,500 credits (active Pro subscribers only). Credits work like this: 1 credit per channel destination (one post to 5 channels is 5 credits, and a channel that fails is not charged), 10 credits for a competitor page teardown (charged only when the blueprint is delivered). Expiring credits are spent first. If the wallet runs empty, due posts wait and publish once credits are added. Payments go through Paddle and tax is added at checkout. Per-plan storage, team seats, AI-suggestion limits and recurring-slot or RSS limits are not decided: do not state any of them in marketing.
+- **Platform count wording (Werner, 2026-10-16):** always "18 distribution platforms plus WhatsApp". Never 17, never 19. No em dashes or en dashes in any customer-facing text.
+- **Live platform posting genuinely works today.** Paddle billing has been in production since 2026-08-11 and IPE Projects is CIPC-registered. Ad copy can claim real, working, verified posting (Proof-of-Publish: every post is independently checked as live), but only for a platform that is actually connectable. The earlier "9-platform marquee" figure in this line was dropped on 2026-10-20 because it contradicts the 18-plus-WhatsApp wording and was not re-verified.
 - Every piece of content links back to lazyrelay.com.
 
 ## Standing rule

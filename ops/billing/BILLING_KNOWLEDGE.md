@@ -8,6 +8,30 @@ Living document for the Billing Operator/Auditor. Read every run before doing an
 
 **Billing owns pure money events only**: subscription tier, payment status, dunning, refunds. It never changes account state directly (pausing posts, connected-account limits) — it reports payment events and `accounts_ops.js` reacts. See `ops/accounts/ACCOUNTS_KNOWLEDGE.md` for the full split rationale.
 
+## Current pricing and the credit wallet (Werner, 2026-10-20: the only pricing truth)
+
+This section replaces every older plan, price and limit in this file. Anything below it that describes the six old subscription plans or the storage, brand and seat add-ons is history and is marked superseded where it appears. All prices are USD and every price shown to a reader carries "plus tax" beside it. Payments run through Paddle (merchant of record); tax is added at checkout.
+
+| Plan | Price (plus tax) | Credits | Credit expiry | Hard caps |
+|---|---|---|---|---|
+| Free | $0 | 30 credits once at registration, no monthly reset | none | 3 connected accounts, 1 brand, 10 queued posts |
+| Pay-as-you-go | $15 one time | 300 | never expire | 20 connected accounts, 2 brands |
+| Growth | $29 a month | 1,000 each billing cycle | expire at the end of each cycle, no rollover | 30 connected accounts, 4 brands |
+| Pro | $99 a month | 6,000 each billing cycle | expire at the end of each cycle, no rollover | 1,000 connected accounts, unlimited brands |
+
+Extra credit packs (never expire, plus tax): Starter pack $15 for 300 credits; Growth pack $50 for 1,500 credits; Pro top-up $30 for 1,500 credits, available only to active Pro subscribers.
+
+How the single wallet spends credits:
+- **Publishing:** 1 credit per channel destination. One post sent to 5 channels costs 5 credits. A channel that fails is not charged; a credit is taken only after the platform confirms the post is live (Proof-of-Publish).
+- **Competitor page teardown:** 10 credits, charged only when the blueprint is delivered. A failed teardown costs nothing.
+- **Spend order:** credits that expire first are spent first, then non-expiring credits.
+- **Empty wallet:** due posts wait, they are not deleted, and they publish once credits are added.
+- **Refunds** are handled manually by the owner (Werner) in the Paddle dashboard. Nothing issues a refund automatically.
+
+Not decided, so never stated for the new plans: per-plan storage, team seats, AI-suggestion limits, recurring-slot or RSS limits. The old storage, extra brand and seat add-ons are not sold any more.
+
+Code status seen on 2026-10-20 (`main` at `fd04fca`): the wallet merged in PR #177 as "dark behind flags" and the frontend reads `VITE_BILLING_ENABLED`; the wallet screens live in the Settings tab. Whether the production flags are on was not checked in this pass, so confirm against the live site before telling a customer what a screen shows.
+
 ## Payment processor decision (2026-07-22, revised same day — final: Paddle)
 
 **First choice, Stripe Managed Payments, turned out not to work**: Stripe doesn't support South Africa as an account home country at all — it's only reachable via Paystack (a separate Stripe-owned product for African markets) or by incorporating a foreign entity (e.g. Stripe Atlas, a US company). Given the user is South Africa-based and doesn't want that overhead, Stripe was ruled out and the already-built `StripeMorAdapter` was removed.
@@ -29,6 +53,8 @@ Living document for the Billing Operator/Auditor. Read every run before doing an
 **Real instant activation — how it actually works (no agent involved)**: `backend/src/http/webhook.ts` is mounted at `POST /api/webhooks/mor` in `app.ts`. Paddle's event hits that route directly and `syncSubscriptionFromWebhook()` runs synchronously in the same HTTP request — the `subscriptions` row updates within the request. `lazyrelay-billing-ops-daily` is NOT part of this path — it's a periodic safety net (catching a broken/missed webhook, stale sync, tier drift), not the activation mechanism. Activation must never depend on a scheduled agent — even a tight cron still means a delay window, which is the exact failure mode ("paid but not active for hours") this whole processor decision was made to avoid.
 
 ## LIVE IN PRODUCTION as of 2026-08-11 — verified deployed (previous sandbox drift resolved)
+
+*Superseded 2026-10-20: the plans, Price IDs and add-ons named in this history (Starter, Pro, Business, Agency, Agency Plus, storage add-ons) are no longer sold; the wallet section near the top is the current model. The payment and webhook findings below still stand.*
 
 **Billing went live on 2026-08-11.** The 2026-08-11 scheduled run found `getMorStatus()` returning `{live: true, environment: "production", source: "deployed", localDisagreesWithDeployed: false}` — the first production result after five consecutive days of sandbox. Verified directly against Render's deployed env vars, not the local `.env`:
 
@@ -59,22 +85,9 @@ All six production Price IDs (`STARTER`/`PRO`/`BUSINESS` + the three storage add
 
 **Step 7 must not rest on `list-unread` alone (added 2026-08-27).** `SUPPORT_KNOWLEDGE.md` records nine confirmed instances of mail arriving *already marked read* and never appearing in `list-unread`; the `search-all <mailbox> "@"` full-folder sweep is the only mechanism that has ever caught those. A refund request is money-impacting, so this task runs the sweep on both billing mailboxes as well and scans it for refund/billing-shaped subjects — `list-unread: []` on its own is not evidence that no refund request arrived. The 2026-08-27 sweep read 48 messages on `support@` (0 billing-shaped) and 179 on `accounts@` (39 billing-shaped, every one Paddle system mail or the documented `sellers@paddle.com` vendor thread — no customer request).
 
-**Live prices are NOT the Pro $24.99 / Business $49 pair recorded below.** Verified live 2026-08-11: **Free $0 / Starter $29.99 / Pro $59.99 / Business $99.99** per month (recorded in `support/EMAIL_REPLY_TEMPLATES.md` template 3, kept in sync with `frontend/src/pages/Landing.tsx`'s `PRICING` array — the one place a human reviews these numbers).
+**Superseded 2026-10-20: the old six-plan price list and the tier-code table that stood here are removed.** The plans are now Free, Pay-as-you-go, Growth and Pro (wallet section near the top). Two durable points from the removed text still hold. First, the Paddle price id, not `customData.tier`, is the authority for what a webhook means, because Paddle keeps custom data for a subscription's life and old values can linger. Second, a `[paddle] WARNING: cannot resolve the tier` line in the Render logs means a price id the code does not recognise, so check the configured Paddle price ids against the code. For the current price and SKU mapping read `backend/src/billing/skuPrices.ts` and `backend/src/billing/tierResolution.ts`, not this file.
 
-**Internal tier codes match the display names (changed by migration 0119, 2026-10-10 — before that they were offset by one: `pro` stored Starter, `business` stored Pro, `enterprise` stored Business).** Source of truth: `backend/src/tier.ts`'s `TIER_DISPLAY_NAMES` and `backend/src/billing/tierResolution.ts`'s `TIER_PRICE_ID_ENV_VARS`.
-
-| DB `subscriptions.tier` | Display name | Price | Checkout price ID env var |
-|---|---|---|---|
-| `free` | Free | $0 | — |
-| `starter` | Starter | $29.99 | `PADDLE_PRICE_ID_STARTER` |
-| `pro` | Pro | $59.99 | `PADDLE_PRICE_ID_PRO` |
-| `business` | Business | $99.99 | `PADDLE_PRICE_ID_BUSINESS` |
-| `agency` | Agency | $149.99 | `PADDLE_PRICE_ID_AGENCY` |
-| `agency_plus` | Agency Plus | $199.99 | `PADDLE_PRICE_ID_AGENCY_PLUS` |
-
-**The Paddle price id is the authority for a webhook's tier, not `customData.tier`.** Subscriptions created before the rename still echo the OLD codes in their Paddle custom data on every renewal/update (Paddle keeps custom data for the subscription's life), and old `pro`/`business` mean something different from the new `pro`/`business`. `resolveWebhookTier()` therefore maps the subscription's price id through the `PADDLE_PRICE_ID_*` env vars; only the unambiguous legacy `enterprise` is translated by string (to `business`). If a legacy `pro`/`business` arrives with a price id that matches no configured tier price, the account's stored tier is left unchanged, status/period still sync, and a `[paddle] WARNING` is logged (a first-ever subscription that cannot be stored this way returns a 500 so Paddle retries). **A `[paddle] WARNING: cannot resolve the tier` line in the Render logs means a PADDLE_PRICE_ID_* env var is missing or stale.** The old trap (reading a `business` row and quoting it as Business) no longer exists after 0119, but any note or report written before 2026-10-10 that says "tier `business` = Pro" or "tier `enterprise`" uses the old codes.
-
-**Still needed before this goes live** (real Paddle account setup, not code — ALL COMPLETED, retained for the record):
+**Still needed before this goes live** (historical, written when the plans were Pro $24.99 and Business $49, superseded 2026-10-20; real Paddle account setup, not code — ALL COMPLETED, retained for the record):
 1. Create the Paddle account (works directly from South Africa, confirmed).
 2. Create Pro ($24.99) and Business ($49) Prices in Paddle, set their IDs as `PADDLE_PRICE_ID_PRO`/`PADDLE_PRICE_ID_BUSINESS` in `.env`.
 3. Set `MOR_API_KEY` (Paddle API key) and `MOR_WEBHOOK_SECRET` (the notification setting's secret key, Paddle Dashboard → Developer Tools → Notifications, once `/api/webhooks/mor` is registered against the deployed backend URL). Set `PADDLE_ENVIRONMENT=production` when ready to go live (defaults to sandbox).
@@ -82,11 +95,13 @@ All six production Price IDs (`STARTER`/`PRO`/`BUSINESS` + the three storage add
 
 ## Tier naming (fixed 2026-07-22)
 
+*Superseded 2026-10-20: this whole section describes the retired plan set. Kept only because other notes link to it.*
+
 Database `subscriptions.tier` was `solo`/`pro`/`agency`, mismatched with the locked pricing decision (`memory/lazyrelay/project-launch-pricing-tiers.md`: Free/Pro $24.99/Business $49). Fixed via `backend/supabase/migrations/0006_tier_naming.sql` to `free`/`pro`/`business` — the database now matches the real decision, no permanent name-mapping layer needed.
 
 **Superseded — the live tier set is four, not three (recorded 2026-08-05).** `backend/supabase/migrations/0011_add_enterprise_tier.sql` additively widened the constraint to `free`/`pro`/`business`/`enterprise` (its own comment: the top tier is shown as "Business" but coded internally as `enterprise`). `ops/oversight/billing_auditor.js`'s `VALID_TIERS` matched the database at the time (since 0119 it is `free/starter/pro/business/agency/agency_plus`), so a live `enterprise` row was correct and was *not* drift — the 2026-08-05 audit found one and correctly passed it. Two follow-ups for Werner, flagged not fixed:
 1. ~~`billing_auditor.js:17`'s flag message still reads "not in the corrected free/pro/business set" while the array it guards allows `enterprise`.~~ **RESOLVED — verified fixed 2026-08-11.** Line 17 now interpolates `VALID_TIERS` directly (`not in the valid set (${VALID_TIERS.join("/")})`), so the message can no longer drift from the array it guards.
-2. ~~`.env` carries a `PADDLE_PRICE_ID_STARTER` with no corresponding `starter` tier in the database constraint or `VALID_TIERS`.~~ **RESOLVED 2026-08-11 — not a defect.** At the time, internal tier codes were offset from display names (`pro` = Starter, `business` = Pro, `enterprise` = Business). **Superseded 2026-10-10: migration 0119 renamed the codes to match the display names (`starter`/`pro`/`business`); see the tier mapping table in the live-in-production section above.**
+2. ~~`.env` carries a `PADDLE_PRICE_ID_STARTER` with no corresponding `starter` tier in the database constraint or `VALID_TIERS`.~~ **RESOLVED 2026-08-11 — not a defect.** At the time, internal tier codes were offset from display names (`pro` = Starter, `business` = Pro, `enterprise` = Business). **Superseded 2026-10-10: migration 0119 renamed the codes to match the display names (`starter`/`pro`/`business`); the table that recorded this was removed 2026-10-20.**
 
 ## Dunning cadence
 
@@ -98,9 +113,9 @@ Same reasoning as `<other business>`'s vendor-issue follow-up policy: standard i
 
 ## Refund policy
 
-**Authored and live** at https://lazyrelay.com/refunds (published 2026-07-23, linked from the site footer per Paddle's requirement). Summary: no refunds for partial billing periods or change-of-mind — a cancelled plan/add-on simply stops renewing, access continues until the paid-for period ends. Suspected billing errors (duplicate charge, wrong amount) are reviewed individually, not auto-refunded.
+**Current state (2026-10-20): refunds are handled manually by the owner.** Werner decides each one and issues it from the Paddle dashboard; moving real money is never done by unattended ops code. A refund, double-charge or billing-error claim from a customer is a no-reply hard case for the email agent (see `support/SUPPORT_KNOWLEDGE.md`, "Billing disputes, refunds and I was charged"), so it is flagged, not answered from a template.
 
-`billing_ops.js::planRefund(supabase, refundRequest)` classifies an incoming request against this policy — `deny_per_policy` for the common partial-period/change-of-mind case, `escalate_for_manual_review` when the reason text suggests a billing error. It never issues an actual refund: moving real money stays a manual action in the Paddle dashboard, not something ops code executes unattended. **Corrected 2026-08-11 — the line below was stale**: both outcomes return a `customerMessage` that `lazyrelay-billing-ops-daily` (step 7) sends **directly** via `send-mail`, once `environment === "production"` — draft-and-hold was retired for every customer-facing LazyRelay mailbox on 2026-08-03 (see `03 - LazyRelay/Support/feedback-email-agent-draft-and-hold.md` in the vault), so this no longer routes through a review queue.
+History, superseded 2026-10-20 as far as plans and add-ons go: a refund page was published at https://lazyrelay.com/refunds on 2026-07-23 (linked from the site footer per Paddle's requirement) with a no-refund-for-partial-periods position, and `billing_ops.js::planRefund()` classified a request against it (`deny_per_policy` or `escalate_for_manual_review`). Its wording was written for the old subscription plans, and whether the published page has been reworded for credit purchases was not checked in this pass. **Contradiction found 2026-10-20, left for Werner:** step 7 of `lazyrelay-billing-ops-daily` was written to send the `planRefund` `customerMessage` directly, which clashes with refunds being manual and with the no-reply rule in the support file. Until Werner decides, treat a refund request as a hard case and send nothing from the planRefund output.
 
 ## SARS bookkeeping records (built 2026-07-23)
 
@@ -114,9 +129,9 @@ Verified via `backend/src/test-paddle-adapter.ts` (10/10 pass, including the two
 
 ## Storage margin monitoring (added 2026-08-05)
 
-Werner's concern: LazyRelay sells storage add-ons (+5GB/$2.99, +20GB/$7.99, +50GB/$14.99 — `project-storage-addons-2026-07-23`), but a customer's paid storage physically lives in the same Supabase storage pool that drives LazyRelay's own Supabase bill (100GB included on Pro, $0.021/GB overage past that). So "we sell storage" and "we pay for storage" aren't actually separate pools — the real question is whether what's charged still covers what's paid to Supabase.
+*Superseded 2026-10-20: storage add-ons are not sold any more and the per-plan storage allowance for the new plans is not decided, so no add-on price list is kept here.* The check itself is history unless Werner brings add-ons back.
 
-`billing_ops.js::checkStorageMargin(supabase)` answers this with real numbers, not the raw GB figure: sums active/trialing `storage_addons` revenue, compares against `storageUsage.js::gatherStorageUsage()`'s real overage cost. At current usage (2GB of 100GB) cost is $0, so margin is trivially fine — the check only becomes meaningful once real overage cost exists. Thresholds: `critical` if cost actually exceeds revenue (losing money), `warn` if revenue is under 2x cost (thinning margin, worth a pricing look), `ok` otherwise. This is a **pricing decision trigger for Werner, never an automated price change or a "storage full" block** — nothing in the storage pipeline itself ever breaks or throttles a customer regardless of margin (see Health & Safety's storage_overage note — Supabase auto-scales, never hard-blocks). Wired into `lazyrelay-daily-ops-digest` (Part 2 step 6).
+Werner's original concern: a customer's paid storage physically lives in the same Supabase storage pool that drives LazyRelay's own Supabase bill (100GB included on Pro, $0.021/GB overage past that), so "we sell storage" and "we pay for storage" were never separate pools. `billing_ops.js::checkStorageMargin(supabase)` compared active/trialing `storage_addons` revenue against `storageUsage.js::gatherStorageUsage()`'s real overage cost, with `critical` if cost exceeded revenue, `warn` if revenue was under 2x cost and `ok` otherwise. It was a pricing decision trigger for Werner, never an automated price change and never a "storage full" block, and it was wired into `lazyrelay-daily-ops-digest` (Part 2 step 6). With no add-ons sold it reads `ok` with `activeAddonCount: 0`.
 
 ## Auditor now distinguishes pending cancellations (fixed 2026-08-11)
 
