@@ -17,13 +17,13 @@ Free also allows up to 10 queued posts at a time.
 
 ## Credit packs
 
-Packs are one-time purchases and the credits never expire.
+Packs are one-time purchases. Starter and Growth pack credits never expire. Pro top-up credits are bound to your Pro subscription and expire if it is canceled.
 
 | Pack | Price | Credits | Who can buy it |
 |---|---|---|---|
 | Starter pack | $15 (plus tax) | 300 | Anyone |
 | Growth pack | $50 (plus tax) | 1,500 | Anyone |
-| Pro top-up | $30 (plus tax) | 1,500 | Active Pro subscribers only |
+| Pro top-up | $30 (plus tax) | 1,500 | Active Pro subscribers only. $30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax. |
 
 ## What a credit pays for
 

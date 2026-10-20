@@ -79,10 +79,10 @@ const CREDITS_KNOWLEDGE = `
 CREDITS AND WHAT THINGS COST (one wallet per account)
 - Publishing costs 1 credit per channel destination. One post sent to 5 channels costs 5 credits. A channel that fails is not charged: a credit is taken only after the platform confirms the post is live (Proof-of-Publish).
 - A competitor page teardown costs 10 credits. It is charged only when the blueprint is delivered; a failed teardown costs nothing.
-- Extra credit packs never expire: Starter pack $15 for 300 credits, Growth pack $50 for 1,500 credits, plus tax. Pro top-up $30 for 1,500 credits, available only to active Pro subscribers, plus tax.
+- Extra credit packs: Starter pack $15 for 300 credits and Growth pack $50 for 1,500 credits, plus tax; these never expire. Pro top-up, available only to active Pro subscribers: $30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax. If the Pro subscription is canceled, top-up credits stay spendable until the paid period ends (and are removed at once on a refund or chargeback).
 - Credits that expire first are spent first, then credits that never expire.
 - When the wallet is empty, due posts wait (they are not deleted) and publish once credits are added.
-- Growth and Pro credits expire at the end of each billing cycle, with no rollover. Pay as you go credits and pack credits never expire.
+- Growth and Pro credits expire at the end of each billing cycle, with no rollover. Pay as you go credits, Starter pack credits and Growth pack credits never expire. Pro top-up credits are bound to the Pro subscription and expire if it is canceled.
 - Do not state any price, credit amount or limit that is not written in this section or in PLANS. If asked about something not covered (for example storage, team size or AI limits per plan), say you do not have that detail and offer to pass it to the team.
 `.trim();
 

@@ -77,9 +77,11 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
             </li>
           </ul>
           <p>
-            Extra credit packs never expire: Starter pack $15 for 300 credits, Growth pack $50 for 1,500 credits,
-            and Pro top-up $30 for 1,500 credits (available only to active Pro subscribers). All prices are plus
-            tax.
+            Extra credit packs: Starter pack $15 for 300 credits and Growth pack $50 for 1,500 credits never
+            expire. Pro top-up $30 for 1,500 credits (bound to active subscription status, expires if canceled;
+            available only to active Pro subscribers). If the Pro subscription is canceled, Pro top-up credits stay
+            usable until the paid period ends, and are removed at once on a refund or chargeback. All prices are
+            plus tax.
           </p>
           <p>
             Publishing costs 1 credit per channel destination, so one post sent to 5 channels costs 5 credits. A

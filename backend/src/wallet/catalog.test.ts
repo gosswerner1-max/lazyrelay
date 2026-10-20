@@ -26,8 +26,9 @@ describe("the pack catalog (local staging data; nothing reads it yet)", () => {
   it("the Pro Top-Up: 30 USD, 1,500 credits, only for an active Pro plan", () => {
     expect(CATALOG[SKU.proTopUp]).toEqual({
       sku: "lazycredits-pro-top-up", name: "LazyCredits Pro Top-Up", kind: "pack", priceCents: 3000, credits: 1500, expires: false, interval: "one_time", requiresPlan: "pro", paddlePriceId: null, active: true,
-      description: "1,500 universal credits available exclusively for active Pro Tier subscribers. Credits never expire.",
+      description: "1,500 universal credits available exclusively for active Pro Tier subscribers. Bound to active subscription status: credits expire if the subscription is canceled.",
     });
+    expect(CATALOG[SKU.proTopUp].description).not.toMatch(/never expire/i);
   });
 
   it("the Growth Plan: 29 USD a month, 1,000 credits, expire at period end", () => {

@@ -19,7 +19,7 @@ This section replaces every older plan, price and limit in this file. Anything b
 | Growth | $29 a month | 1,000 each billing cycle | expire at the end of each cycle, no rollover | 30 connected accounts, 4 brands |
 | Pro | $99 a month | 6,000 each billing cycle | expire at the end of each cycle, no rollover | 1,000 connected accounts, unlimited brands |
 
-Extra credit packs (never expire, plus tax): Starter pack $15 for 300 credits; Growth pack $50 for 1,500 credits; Pro top-up $30 for 1,500 credits, available only to active Pro subscribers.
+Extra credit packs: Starter pack $15 for 300 credits and Growth pack $50 for 1,500 credits (plus tax; these never expire). Pro top-up, available only to active Pro subscribers: $30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax. The top-up is bound to the Pro plan (migration 0140): on a voluntary cancel its credits stay spendable until the paid period ends; on a refund or chargeback they are cancelled at once.
 
 How the single wallet spends credits:
 - **Publishing:** 1 credit per channel destination. One post sent to 5 channels costs 5 credits. A channel that fails is not charged; a credit is taken only after the platform confirms the post is live (Proof-of-Publish).

@@ -24,6 +24,12 @@ describe("legal pages use the credits model", () => {
     expect(text).not.toMatch(/[–—]/);
   });
 
+  it("Terms of Service says Starter and Growth packs never expire but the Pro top-up is bound to the Pro plan", () => {
+    const text = (render(<TermsOfService onBack={() => {}} />).container.textContent ?? "").replace(/\s+/g, " ");
+    expect(text).not.toContain("Extra credit packs never expire");
+    expect(text).toContain("never expire. Pro top-up $30 for 1,500 credits (bound to active subscription status, expires if canceled;");
+  });
+
   it("Refund Policy has the notice once and no old tiers", () => {
     expect(count(refunds, NOTICE)).toBe(1);
     for (const old of OLD) expect(refunds.includes(old), old).toBe(false);

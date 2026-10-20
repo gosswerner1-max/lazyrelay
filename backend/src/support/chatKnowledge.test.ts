@@ -65,7 +65,14 @@ describe("support bot knowledge: plans, credits and prices", () => {
   it("states the credit packs and that the Pro top-up is Pro only", () => {
     expect(prompt).toMatch(/Starter pack \$15 for 300 credits/);
     expect(prompt).toMatch(/Growth pack \$50 for 1,500 credits/);
-    expect(prompt).toMatch(/Pro top-up \$30 for 1,500 credits, available only to active Pro subscribers/);
+    expect(prompt).toMatch(/Pro top-up, available only to active Pro subscribers/);
+    expect(prompt).toContain("$30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax.");
+  });
+
+  it("does not say all packs never expire", () => {
+    expect(prompt).not.toMatch(/packs never expire/i);
+    expect(prompt).toMatch(/Starter pack credits and Growth pack credits never expire/);
+    expect(prompt).toMatch(/Pro top-up credits are bound to the Pro subscription and expire if it is canceled/);
   });
 
   it("states what actions cost and the spending rules", () => {

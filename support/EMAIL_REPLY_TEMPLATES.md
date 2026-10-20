@@ -64,7 +64,7 @@ Here's how pricing works. You pay for credits, and one credit publishes one post
 - Growth: $29 plus tax a month for 1,000 credits each billing cycle. Up to 30 connected accounts and 4 brands.
 - Pro: $99 plus tax a month for 6,000 credits each billing cycle. Up to 1,000 connected accounts and unlimited brands.
 
-Credits on Growth and Pro run out at the end of each billing cycle and don't roll over. If you need more, packs never expire: $15 plus tax for 300 credits, or $50 plus tax for 1,500. Pro customers can also add 1,500 credits for $30 plus tax.
+Credits on Growth and Pro run out at the end of each billing cycle and don't roll over. If you need more, the Starter and Growth packs never expire: $15 plus tax for 300 credits, or $50 plus tax for 1,500. Pro customers can also add a top-up: $30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax.
 
 [If they asked about one plan or one number, answer just that instead of listing everything.]
 
@@ -224,7 +224,7 @@ Hi [name],
 
 [If they're asking how to cancel:] You can cancel any time under Settings → Billing in your dashboard, no need to email us for it.
 
-[If they've already cancelled and are asking to confirm:] That's confirmed on our end. One thing worth knowing: cancelling doesn't cut off access right away. You'll keep everything you have now until your current billing period ends, shown live under Settings → Billing, and you won't be charged again after that. Credits that come with a monthly plan run out at the end of that period, while credits from packs never expire. I can't see your exact end date from here, so please check it in your dashboard.
+[If they've already cancelled and are asking to confirm:] That's confirmed on our end. One thing worth knowing: cancelling doesn't cut off access right away. You'll keep everything you have now until your current billing period ends, shown live under Settings → Billing, and you won't be charged again after that. Credits that come with a monthly plan run out at the end of that period, while credits from the Starter and Growth packs never expire. A Pro top-up is tied to the Pro plan, so its credits can still be used until that period ends and then expire. I can't see your exact end date from here, so please check it in your dashboard.
 
 Let me know if anything looks off on your end.
 ```
