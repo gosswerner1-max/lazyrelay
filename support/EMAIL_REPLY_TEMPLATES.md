@@ -226,11 +226,7 @@ Hi [name],
 
 [If they're asking how to cancel:] You can cancel any time under Settings → Billing in your dashboard, no need to email us for it.
 
-<<<<<<< HEAD
-[If they've already cancelled and are asking to confirm:] That's confirmed on our end. One thing worth knowing: cancelling doesn't cut off access right away. You'll keep everything you have now until your current billing period ends, shown live under Settings → Billing, and you won't be charged again after that. Credits that come with a monthly plan run out at the end of that period, while credits from the Starter and Growth packs never expire. A Pro top-up is tied to the Pro plan, so its credits can still be used until that period ends and then expire. I can't see your exact end date from here, so please check it in your dashboard.
-=======
-[If they've already cancelled and are asking to confirm:] That's confirmed on our end. One thing worth knowing: cancelling doesn't cut off access right away. You'll keep everything you have now until your current billing period ends, shown live under Settings → Billing, and you won't be charged again after that. Credits that come with a monthly plan run out at the end of that period, while credits from packs never expire. Your posts and uploaded media are deleted 30 days after the plan ends, so download anything you want to keep before then. I can't see your exact end date from here, so please check it in your dashboard.
->>>>>>> docs/legal-rules
+[If they've already cancelled and are asking to confirm:] That's confirmed on our end. One thing worth knowing: cancelling doesn't cut off access right away. You'll keep everything you have now until your current billing period ends, shown live under Settings → Billing, and you won't be charged again after that. Credits that come with a monthly plan run out at the end of that period, while credits from the Starter and Growth packs never expire. A Pro top-up is tied to the Pro plan, so its credits can still be used until that period ends and then expire. Your posts and uploaded media are deleted 30 days after the plan ends, so download anything you want to keep before then. I can't see your exact end date from here, so please check it in your dashboard.
 
 Let me know if anything looks off on your end.
 ```
