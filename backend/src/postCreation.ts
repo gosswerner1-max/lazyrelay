@@ -17,6 +17,8 @@
 import { resolvePostExtras, extrasToColumns } from "./postExtras.js";
 import { supabase } from "./supabase.js";
 import { enforceQueueCap } from "./queueCap.js";
+import { resolveTier } from "./tier.js";
+import { walletEnabled } from "./wallet/flags.js";
 import { isSafeMediaUrl } from "./urlSafety.js";
 import { validateMediaForPlatform, type Platform } from "./mediaLimits.js";
 import { syncPostToCalendar } from "./googleCalendar/outboundSync.js";
@@ -353,6 +355,8 @@ export async function checkFreeTierPostLimit(accountId: string | undefined, soci
     .maybeSingle();
   const isPaidInGoodStanding = sub?.tier !== "free" && (sub?.status === "active" || sub?.status === "trialing");
   if (isPaidInGoodStanding) return null;
+  // Pay as you go (derived plan, wallet switch on) pays per post with credits, so the monthly free-post rule does not apply to it.
+  if (accountId && walletEnabled() && (await resolveTier(accountId)) === "payg") return null;
 
   const now = new Date();
   const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
