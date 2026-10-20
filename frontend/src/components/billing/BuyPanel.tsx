@@ -8,6 +8,7 @@ import { formatCredits } from "../../lib/billingSummary";
 import { getCatalog, type CatalogItem, type CatalogResult } from "../../lib/walletApi";
 import { startCheckout, type CheckoutResult } from "../../lib/walletCheckout";
 import { CHECKOUT_NO_WINDOW, catalogReasonLine } from "../../lib/walletWords";
+import "../../styles/byok-panels.css";
 import "../../styles/billing-mockup.css";
 import "../../styles/billing-mockup-adapt.css";
 import "../../styles/billing-live.css";

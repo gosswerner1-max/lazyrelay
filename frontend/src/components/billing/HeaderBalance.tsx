@@ -3,6 +3,7 @@
 
 import { useWallet } from "../../lib/walletContext";
 import { BalanceIndicator } from "./BalanceIndicator";
+import "../../styles/byok-panels.css";
 import "../../styles/billing-live.css";
 
 export default function HeaderBalance() {
