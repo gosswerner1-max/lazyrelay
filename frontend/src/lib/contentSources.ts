@@ -121,7 +121,7 @@ function ipv6Blocked(host: string): boolean {
 }
 
 /** True for localhost and for private, loopback and link-local address literals. */
-function hostIsInternal(hostname: string): boolean {
+export function hostIsInternal(hostname: string): boolean {
   const host = hostname.replace(/\.$/, "").toLowerCase();
   if (host === "localhost" || host.endsWith(".localhost")) return true;
   if (host.startsWith("[") && host.endsWith("]")) return ipv6Blocked(host.slice(1, -1));
