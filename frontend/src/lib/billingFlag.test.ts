@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+vi.mock("./supabase", () => ({ supabase: {} })); // the real client refuses to start without its address
 
 // The flag is read once when the module loads, so each test sets it first and imports a fresh copy.
 async function load(value?: string) {

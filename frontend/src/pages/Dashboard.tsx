@@ -36,9 +36,8 @@ import { FailedTab } from "./dashboard/FailedTab";
 import { CalendarTab } from "./dashboard/CalendarTab";
 import { SettingsTab } from "./dashboard/SettingsTab";
 import { ApiKeysTab } from "./dashboard/ApiKeysTab";
-import { BILLING_ENABLED } from "../lib/billingFlag";
-import { useWalletBalance } from "../lib/useWalletBalance";
-import { OFF_VIEW, WalletContext } from "../lib/walletContext";
+import { HeaderBalance, useBillingWallet } from "../lib/billingFlag";
+import { WalletContext } from "../lib/walletContext";
 import "./Dashboard.css";
 
 const ProductTour = lazy(() => import("../components/ProductTour").then((m) => ({ default: m.ProductTour })));
@@ -47,10 +46,6 @@ const ProductTour = lazy(() => import("../components/ProductTour").then((m) => (
 // a page with no box. A build without them has no tab and no panel code. When on, the tab sits directly after Calendar and loads lazily.
 const CONTENT_SOURCES_ENABLED = import.meta.env.VITE_CONTENT_SOURCES_ENABLED === "true" && import.meta.env.VITE_COMPETITOR_MODE_ENABLED === "true";
 const ContentSourcesTab = CONTENT_SOURCES_ENABLED ? lazy(() => import("./dashboard/ContentSourcesTabConnected")) : null;
-// The credit wallet (balance in the header, billing view in Settings) is behind VITE_BILLING_ENABLED, default off. With it off nothing is
-// requested, nothing extra is shown and the build carries none of it. A legacy (exempt) account is treated as off even with the flag on.
-const HeaderBalance = BILLING_ENABLED ? lazy(() => import("../components/billing/HeaderBalance")) : null;
-const useBillingWallet = BILLING_ENABLED ? (checkoutDoneCount: number) => useWalletBalance({ enabled: true, checkoutDoneCount }) : (_checkoutDoneCount: number) => OFF_VIEW;
 const MAIN_TABS: Tab[] = [
   "Overview",
   "Posts",
