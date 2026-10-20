@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { expirationNotice, type CreditLot } from "../../lib/billingSummary";
 import "../../styles/billing-mockup.css";
+import "../../styles/billing-mockup-adapt.css";
 
 interface Props {
   lots: CreditLot[];

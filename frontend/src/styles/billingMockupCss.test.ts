@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
 const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8");
-const css = read("./billing-mockup.css");
+const css = [read("./billing-mockup.css"), read("./billing-mockup-adapt.css")].join(" ");
 const byokCss = read("./byok-panels.css");
 const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "");
 const text = strip(css);

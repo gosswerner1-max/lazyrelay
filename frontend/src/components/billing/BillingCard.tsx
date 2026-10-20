@@ -4,6 +4,7 @@
 import { useId, useState, type ReactNode } from "react";
 import { buildAllocation, formatCredits, totalCredits, type CreditLot } from "../../lib/billingSummary";
 import "../../styles/billing-mockup.css";
+import "../../styles/billing-mockup-adapt.css";
 
 interface Props {
   lots: CreditLot[];
