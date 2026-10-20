@@ -80,3 +80,73 @@ describe("createCheckout", () => {
     expect(() => createPaddleCheckoutPort({ apiKey: "", http: client({ body: created }), env: WALLET_ENV })).toThrow(/MOR_API_KEY/);
   });
 });
+
+describe("createCheckout with a known account email", () => {
+  const EMAIL = "customer@example.com";
+  const found = { data: [{ id: "ctm_found" }] };
+  const none = { data: [] };
+  const makeCustomer = { data: { id: "ctm_new" } };
+  /** A fake http that answers by method and path. */
+  function routed(answers: { lookup?: { status?: number; body: unknown }; create?: { status?: number; body: unknown } }) {
+    const answer = (r: { status?: number; body: unknown }) => ({ ok: (r.status ?? 200) < 300, status: r.status ?? 200, text: async () => JSON.stringify(r.body) });
+    return vi.fn(async (url: string, init: { method: string }) => {
+      if (url.includes("/customers?")) return answer(answers.lookup ?? { body: none });
+      if (url.endsWith("/customers")) return answer(answers.create ?? { body: makeCustomer });
+      return answer({ body: created });
+    }) as unknown as PaddleHttpClient & ReturnType<typeof vi.fn>;
+  }
+  function withEmail(http: PaddleHttpClient, email: string | null | (() => Promise<string | null>) = EMAIL) {
+    const emailForAccount = typeof email === "function" ? email : async () => email;
+    return createPaddleCheckoutPort({ apiKey: API_KEY, http, env: { ...WALLET_ENV, PADDLE_ENVIRONMENT: "production" }, emailForAccount });
+  }
+  const bodyOfTransaction = (http: ReturnType<typeof vi.fn>) => JSON.parse(http.mock.calls.find((c) => String(c[0]).endsWith("/transactions"))![1].body);
+
+  it("reuses the Paddle customer that already has this email and sends its id on the transaction", async () => {
+    const http = routed({ lookup: { body: found } });
+    await withEmail(http).createCheckout(ACCOUNT_ID, SKU.starterPack);
+    const lookupCall = http.mock.calls[0];
+    expect(lookupCall[0]).toBe("https://api.paddle.com/customers?email=customer%40example.com");
+    expect(lookupCall[1].method).toBe("GET");
+    expect(http.mock.calls.some((c) => c[1].method === "POST" && String(c[0]).endsWith("/customers"))).toBe(false);
+    expect(bodyOfTransaction(http).customer_id).toBe("ctm_found");
+  });
+
+  it("creates the customer when none has this email", async () => {
+    const http = routed({ lookup: { body: none } });
+    await withEmail(http).createCheckout(ACCOUNT_ID, SKU.starterPack);
+    const createCall = http.mock.calls.find((c) => c[1].method === "POST" && String(c[0]).endsWith("/customers"))!;
+    expect(JSON.parse(createCall[1].body)).toEqual({ email: EMAIL });
+    expect(bodyOfTransaction(http).customer_id).toBe("ctm_new");
+  });
+
+  it("sends no customer and makes no customer call when the email is not known", async () => {
+    const http = routed({});
+    await withEmail(http, null).createCheckout(ACCOUNT_ID, SKU.starterPack);
+    expect(http).toHaveBeenCalledTimes(1);
+    expect(bodyOfTransaction(http)).not.toHaveProperty("customer_id");
+  });
+
+  it("a failed email lookup is thrown raw and no transaction is created", async () => {
+    const http = routed({});
+    await expect(withEmail(http, async () => { throw new Error("auth user read failed: boom"); }).createCheckout(ACCOUNT_ID, SKU.starterPack)).rejects.toThrow(/auth user read failed: boom/);
+    expect(http).not.toHaveBeenCalled();
+  });
+
+  it("a failed customer lookup or create is thrown raw (status and body), no transaction, no api key in the message", async () => {
+    const lookupFail = routed({ lookup: { status: 403, body: { error: { detail: "forbidden thing" } } } });
+    const e1 = await withEmail(lookupFail).createCheckout(ACCOUNT_ID, SKU.starterPack).catch((e: Error) => e);
+    expect((e1 as Error).message).toMatch(/403/);
+    expect((e1 as Error).message).toContain("forbidden thing");
+    expect((e1 as Error).message).not.toContain(API_KEY);
+    expect(lookupFail.mock.calls.every((c) => !String(c[0]).endsWith("/transactions"))).toBe(true);
+
+    const createFail = routed({ lookup: { body: none }, create: { status: 400, body: { error: { detail: "invalid email" } } } });
+    await expect(withEmail(createFail).createCheckout(ACCOUNT_ID, SKU.starterPack)).rejects.toThrow(/400.*invalid email/s);
+    expect(createFail.mock.calls.every((c) => !String(c[0]).endsWith("/transactions"))).toBe(true);
+  });
+
+  it("a customer answer without an id is an error", async () => {
+    const http = routed({ lookup: { body: none }, create: { body: { data: {} } } });
+    await expect(withEmail(http).createCheckout(ACCOUNT_ID, SKU.starterPack)).rejects.toThrow(/customer id/);
+  });
+});
