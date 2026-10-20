@@ -169,7 +169,7 @@ describe("the notice with the credits setting", () => {
   it("has no em or en dash and none of the claims we cannot prove", async () => {
     setup({ creditBalance: 40 });
     const dialog = await openDialog("https://rival.example/pricing");
-    expect(dialog.textContent).not.toMatch(/[–—]/);
+    expect(dialog.textContent).not.toMatch(/[20132014]/);
     expect(dialog.textContent).not.toMatch(/\b(free|instant(ly)?|guarantee[ds]?)\b/i);
   });
 });

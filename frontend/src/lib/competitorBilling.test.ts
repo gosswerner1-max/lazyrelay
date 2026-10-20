@@ -11,7 +11,7 @@ import {
 } from "./competitorBilling";
 
 const KEY = "11111111-2222-4333-8444-555555555555";
-const DASH = /[–—]/;
+const DASH = /[20132014]/;
 
 const engineBlueprint = {
   hook: { type: "statistic", note: "It opens with a number." },
