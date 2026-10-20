@@ -1,6 +1,6 @@
 import { supabase } from "./supabase.js";
 import { resolveTier, type Tier } from "./tier.js";
-import { walletEnabled } from "./wallet/flags.js";
+import { walletMode } from "./wallet/mode.js";
 import { isLegacyAccount } from "./wallet/legacy.js";
 import type { PostFieldsError } from "./postCreation.js";
 
@@ -10,9 +10,9 @@ export const FREE_QUEUE_CAP_MESSAGE = "Your free plan holds up to 10 queued post
 const QUEUED_STATUSES = ["pending", "needs_approval"];
 
 /** Refuses a new queued post when a non-legacy FREE account already holds FREE_QUEUE_CAP of them. Every other tier, every legacy
- *  account, and the whole check while the wallet switch is off, answer null. */
+ *  account, and the whole check unless wallet mode is exactly "on" (off and shadow never enforce), answer null. */
 export async function checkQueueCap(accountId: string, tier: Tier, isLegacy: boolean): Promise<PostFieldsError | null> {
-  if (!walletEnabled() || tier !== "free" || isLegacy) return null;
+  if (walletMode() !== "on" || tier !== "free" || isLegacy) return null;
 
   const { count, error } = await supabase
     .from("scheduled_posts")
@@ -26,9 +26,9 @@ export async function checkQueueCap(accountId: string, tier: Tier, isLegacy: boo
   return (count ?? 0) >= FREE_QUEUE_CAP ? { status: 403, body: { error: FREE_QUEUE_CAP_MESSAGE } } : null;
 }
 
-/** The call sites use this: it looks up the tier and the legacy flag, and with the wallet switch off it reads nothing at all. */
+/** The call sites use this: it looks up the tier and the legacy flag, and unless wallet mode is "on" it reads nothing at all. */
 export async function enforceQueueCap(accountId: string | undefined): Promise<PostFieldsError | null> {
-  if (!accountId || !walletEnabled()) return null;
+  if (!accountId || walletMode() !== "on") return null;
   const [tier, legacy] = await Promise.all([resolveTier(accountId), isLegacyAccount(accountId)]);
   return checkQueueCap(accountId, tier, legacy);
 }

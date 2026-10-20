@@ -51,6 +51,15 @@ describe("payg derivation", () => {
     expect(await both()).toEqual(["free", "free"]);
   });
 
+  it("shadow mode (switch on, mode not 'on'): never payg", async () => {
+    vi.stubEnv("WALLET_ENABLED", "true");
+    setup({ unlocked: true });
+    expect(await both()).toEqual(["free", "free"]);
+    vi.stubEnv("WALLET_MODE", "shadow");
+    setup({ unlocked: true });
+    expect(await both()).toEqual(["free", "free"]);
+  });
+
   it("a switch that is not exactly 'true' is off", async () => {
     vi.stubEnv("WALLET_ENABLED", "1");
     setup({ unlocked: true });
@@ -59,30 +68,35 @@ describe("payg derivation", () => {
 
   it("switch on, unlocked, no subscription row: payg", async () => {
     vi.stubEnv("WALLET_ENABLED", "true");
+    vi.stubEnv("WALLET_MODE", "on");
     setup({ unlocked: true });
     expect(await both()).toEqual(["payg", "payg"]);
   });
 
   it("switch on but not unlocked: free", async () => {
     vi.stubEnv("WALLET_ENABLED", "true");
+    vi.stubEnv("WALLET_MODE", "on");
     setup({ unlocked: false });
     expect(await both()).toEqual(["free", "free"]);
   });
 
   it("an active paid subscription wins over the unlock", async () => {
     vi.stubEnv("WALLET_ENABLED", "true");
+    vi.stubEnv("WALLET_MODE", "on");
     setup({ unlocked: true, sub: { tier: "growth", status: "active" } });
     expect(await both()).toEqual(["growth", "growth"]);
   });
 
   it("a lapsed subscription resolves to free, so an unlocked account is payg", async () => {
     vi.stubEnv("WALLET_ENABLED", "true");
+    vi.stubEnv("WALLET_MODE", "on");
     setup({ unlocked: true, sub: { tier: "growth", status: "past_due" } });
     expect(await both()).toEqual(["payg", "payg"]);
   });
 
   it("if the account row cannot be read the tier is free, not payg", async () => {
     vi.stubEnv("WALLET_ENABLED", "true");
+    vi.stubEnv("WALLET_MODE", "on");
     setup({ unlocked: true });
     ctl.failAccounts = true;
     expect(await both()).toEqual(["free", "free"]);
@@ -90,6 +104,7 @@ describe("payg derivation", () => {
 
   it("payg gets the payg request rate", async () => {
     vi.stubEnv("WALLET_ENABLED", "true");
+    vi.stubEnv("WALLET_MODE", "on");
     setup({ unlocked: true });
     expect(TIER_LIMITS[await resolveCachedTier(acct)]).toBe(300);
   });
@@ -104,6 +119,7 @@ describe("payg derivation", () => {
 describe("limit hooks see payg", () => {
   it("brand and account caps follow the derived tier", async () => {
     vi.stubEnv("WALLET_ENABLED", "true");
+    vi.stubEnv("WALLET_MODE", "on");
     setup({ unlocked: true });
     const { getBrandCapacity } = await import("./brandLimits.js");
     const { ACCOUNT_LIMITS } = await import("./accountLimits.js");

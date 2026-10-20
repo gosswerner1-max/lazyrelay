@@ -1,5 +1,5 @@
 import { supabase } from "./supabase.js";
-import { walletEnabled } from "./wallet/flags.js";
+import { walletMode } from "./wallet/mode.js";
 
 /** Internal database tier codes match the public plan names exactly (renamed
  *  in migration 0119; before that, "pro" stored Starter, "business" stored
@@ -83,7 +83,7 @@ export const REVIEW_LINK_LIMITS: Record<Tier, number> = {
 
 /** True when the account has unlocked pay as you go (accounts.payg_unlocked_at is set). An unreadable row counts as not unlocked, so a
  *  failed read can only ever lower the limits, never raise them. Free accounts have no subscriptions row, so the column cannot ride on
- *  the subscription query; this is the one extra read, made only when the wallet switch is on and the subscription resolved to free. */
+ *  the subscription query; this is the one extra read, made only when wallet mode is "on" and the subscription resolved to free. */
 async function isPaygUnlocked(accountId: string): Promise<boolean> {
   const { data, error } = await supabase.from("accounts").select("payg_unlocked_at").eq("id", accountId).maybeSingle();
   return !error && data?.payg_unlocked_at != null;
@@ -93,8 +93,8 @@ export async function resolveTier(accountId: string): Promise<Tier> {
   const { data } = await supabase.from("subscriptions").select("tier, status").eq("account_id", accountId).maybeSingle();
   const isPaidInGoodStanding = data?.tier !== "free" && (data?.status === "active" || data?.status === "trialing");
   if (isPaidInGoodStanding) return data!.tier as Tier;
-  // payg is derived: a free account that has unlocked pay as you go. With the wallet switch off this branch is never taken.
-  if (walletEnabled() && (await isPaygUnlocked(accountId))) return "payg";
+  // payg is derived: a free account that has unlocked pay as you go. Only wallet mode "on" takes this branch; off and shadow never do.
+  if (walletMode() === "on" && (await isPaygUnlocked(accountId))) return "payg";
   return "free";
 }
 

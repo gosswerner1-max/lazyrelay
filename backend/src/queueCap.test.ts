@@ -31,6 +31,7 @@ beforeEach(() => {
   tables.wallet_legacy_accounts = [];
   tables.social_accounts = [{ id: "mine", account_id: "me", platform: "bluesky" }];
   vi.stubEnv("WALLET_ENABLED", "true");
+  vi.stubEnv("WALLET_MODE", "on");
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -71,6 +72,15 @@ describe("checkQueueCap", () => {
     for (const t of ["payg", "growth", "lazy_pro", "starter", "pro", "business", "agency", "agency_plus"] as const) {
       expect(await checkQueueCap("me", t, false), t).toBeNull();
     }
+  });
+
+  it("shadow mode (switch on, mode not 'on') never refuses", async () => {
+    queue("me", 50);
+    vi.stubEnv("WALLET_MODE", "shadow");
+    expect(await checkQueueCap("me", "free", false)).toBeNull();
+    vi.stubEnv("WALLET_MODE", "");
+    expect(await checkQueueCap("me", "free", false)).toBeNull();
+    expect(await enforceQueueCap("me")).toBeNull();
   });
 
   it("does nothing when the wallet switch is off (today's behaviour)", async () => {
