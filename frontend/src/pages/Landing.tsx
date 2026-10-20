@@ -614,7 +614,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
   }, [mobileMenuOpen]);
 
   return (
-    <div className="landing">
+    <div className="landing landing-vibrant">
       <CircuitBackground />
       <header className="landing-nav">
         <div className="wordmark">
