@@ -53,7 +53,7 @@ async function loadDashboard(flag: string | undefined) {
   return (await import("./Dashboard")).Dashboard;
 }
 
-const OLD_WORDING = /10 posts per connected account/;
+const FREE_LIMITS_WORDING = /3 connected accounts, 1 brand, 10 queued posts, 30 credits once/;
 const BALANCE = "Available Balance: 1,830 Credits";
 
 beforeEach(() => {
@@ -74,7 +74,7 @@ describe("Dashboard with billing off", () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(getBalance).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
-    expect(screen.getByText(OLD_WORDING)).toBeInTheDocument();
+    expect(screen.getByText(FREE_LIMITS_WORDING)).toBeInTheDocument();
     expect(screen.queryByText(BALANCE)).toBeNull();
     fetchSpy.mockRestore();
   });
@@ -84,7 +84,7 @@ describe("Dashboard with billing off", () => {
     for (const flag of ["false", "1", "TRUE", ""]) {
       const Dashboard = await loadDashboard(flag);
       const { unmount } = render(<Dashboard />);
-      expect(screen.getByText(OLD_WORDING), JSON.stringify(flag)).toBeInTheDocument();
+      expect(screen.getByText(FREE_LIMITS_WORDING), JSON.stringify(flag)).toBeInTheDocument();
       unmount();
     }
     expect(getBalance).not.toHaveBeenCalled();
@@ -97,7 +97,7 @@ describe("Dashboard with billing on", () => {
     const Dashboard = await loadDashboard("true");
     render(<Dashboard />);
     const balance = await screen.findByText(BALANCE);
-    expect(screen.queryByText(OLD_WORDING)).toBeNull();
+    expect(screen.queryByText(FREE_LIMITS_WORDING)).toBeNull();
     const guides = screen.getByRole("link", { name: "Guides" });
     expect(balance.compareDocumentPosition(guides) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(balance.closest(".header-actions")).not.toBeNull();
@@ -110,7 +110,7 @@ describe("Dashboard with billing on", () => {
     render(<Dashboard />);
     await waitFor(() => expect(getBalance).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 50));
-    expect(screen.getByText(OLD_WORDING)).toBeInTheDocument();
+    expect(screen.getByText(FREE_LIMITS_WORDING)).toBeInTheDocument();
     expect(screen.queryByText(BALANCE)).toBeNull();
   });
 
@@ -120,7 +120,7 @@ describe("Dashboard with billing on", () => {
     render(<Dashboard />);
     await waitFor(() => expect(getBalance).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 50));
-    expect(screen.getByText(OLD_WORDING)).toBeInTheDocument();
+    expect(screen.getByText(FREE_LIMITS_WORDING)).toBeInTheDocument();
     expect(screen.queryByText(BALANCE)).toBeNull();
     expect(document.querySelector(".error")).toBeNull();
   });
@@ -131,7 +131,7 @@ describe("Dashboard with billing on", () => {
     render(<Dashboard />);
     await waitFor(() => expect(getBalance).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 50));
-    expect(screen.getByText(OLD_WORDING)).toBeInTheDocument();
+    expect(screen.getByText(FREE_LIMITS_WORDING)).toBeInTheDocument();
     expect(screen.queryByText(BALANCE)).toBeNull();
   });
 
@@ -139,6 +139,6 @@ describe("Dashboard with billing on", () => {
     getBalance.mockReturnValue(new Promise(() => {}));
     const Dashboard = await loadDashboard("true");
     render(<Dashboard />);
-    expect(screen.getByText(OLD_WORDING)).toBeInTheDocument();
+    expect(screen.getByText(FREE_LIMITS_WORDING)).toBeInTheDocument();
   });
 });

@@ -160,7 +160,7 @@ export function Dashboard() {
             ) : (
               <>
                 You're on the <strong>{tierNames[currentTier]}</strong> plan
-                {isFreePlan && !wallet.billingActive && ": 10 posts per connected account, refillable monthly"}
+                {isFreePlan && !wallet.billingActive && ": 3 connected accounts, 1 brand, 10 queued posts, 30 credits once"}
                 {isPendingCancellation &&
                   `; cancels${periodEndDate ? ` on ${periodEndDate}` : " at the end of your billing period"}`}
                 {isLapsedCancelled && "; cancelled"}
