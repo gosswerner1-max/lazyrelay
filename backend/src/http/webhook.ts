@@ -2,6 +2,8 @@ import type { Request, Response } from "express";
 import { syncSubscriptionFromWebhook, recordBillingEvent } from "../billing/sync.js";
 import { WebhookSignatureError } from "../billing/types.js";
 import type { MerchantOfRecordAdapter } from "../billing/types.js";
+import { walletEnabled } from "../wallet/flags.js";
+import { defaultWalletWebhookDeps, handleWalletBillingEvent, handleWalletRefund } from "../wallet/webhook.js";
 
 // A prior IP-allowlist check against api.paddle.com/ips was removed
 // 2026-08-11 — real production traffic proved it was rejecting 100% of
@@ -50,8 +52,13 @@ export function buildWebhookHandler(morAdapter: MerchantOfRecordAdapter) {
     }
 
     try {
-      if (event.kind === "sale_record" || event.kind === "refund_record") {
+      if (event.kind === "wallet_pack" || event.kind === "wallet_plan") {
+        // LazyCredits wallet payments and plan lifecycle (billing/paddle.ts only produces these while the wallet switch is on).
+        await handleWalletBillingEvent(event, defaultWalletWebhookDeps());
+      } else if (event.kind === "sale_record" || event.kind === "refund_record") {
         await recordBillingEvent(event, morAdapter);
+        // The refund is booked first (it finds the account through the sale record), then the wallet decides about the credits.
+        if (event.kind === "refund_record" && walletEnabled()) await handleWalletRefund(event, defaultWalletWebhookDeps());
       } else {
         await syncSubscriptionFromWebhook(event);
       }

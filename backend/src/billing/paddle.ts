@@ -1,6 +1,10 @@
 import { Paddle, Environment } from "@paddle/paddle-node-sdk";
 import { WebhookSignatureError } from "./types.js";
 import { resolveWebhookTier, LEGACY_TIER_EQUIVALENT, type PaidTier } from "./tierResolution.js";
+import { skuForPriceIds, walletPlanForSku } from "./skuPrices.js";
+import { walletEnabled } from "../wallet/flags.js";
+import { tierForWalletPlan } from "../wallet/tierMap.js";
+import { CATALOG } from "../wallet/catalog.js";
 import type {
   MerchantOfRecordAdapter,
   BillingEvent,
@@ -8,6 +12,9 @@ import type {
   SaleRecordEvent,
   RefundRecordEvent,
   CancelResult,
+  WalletPackEvent,
+  WalletPlanPaymentEvent,
+  WalletPlanLifecycleEvent,
 } from "./types.js";
 
 // 2026-08-16: extended again for brand add-ons (Phase 1b, see brand_addons
@@ -197,6 +204,9 @@ interface TransactionLike {
     totals: TransactionTotalsLike | null;
     payoutTotals: TransactionPayoutTotalsLike | null;
   } | null;
+  // Read only by the wallet path: the price ids say which sku was bought, the billing period says when a plan lot ends.
+  items?: Array<{ price?: { id?: string } | null }> | null;
+  billingPeriod?: { startsAt: string; endsAt: string } | null;
 }
 
 /** Builds the internal SARS bookkeeping record for a completed sale. Reuses
@@ -204,14 +214,15 @@ interface TransactionLike {
  *  subscriptions — embedded at checkout time via buildCheckoutTransaction,
  *  echoed back on the transaction webhook, so no extra Paddle API call is
  *  needed to resolve who this sale belongs to. */
-function buildSaleRecordEvent(txn: TransactionLike): SaleRecordEvent {
+function buildSaleRecordEvent(txn: TransactionLike, walletCheckout = false): SaleRecordEvent {
   const customData = txn.customData ?? {};
-  const accountEmail = customData.accountEmail;
-  if (typeof accountEmail !== "string" || !accountEmail) {
+  // A wallet checkout is created by the server with {account_id, sku} and no e-mail; the account id alone resolves the account.
+  const accountEmail = walletCheckout ? "" : customData.accountEmail;
+  if (typeof accountEmail !== "string" || (!accountEmail && !walletCheckout)) {
     throw new Error(`Transaction ${txn.id} has no customData.accountEmail — was it created via buildCheckoutTransaction?`);
   }
   // See buildEventFromCustomData's matching comment above.
-  const accountId = typeof customData.accountId === "string" && customData.accountId ? customData.accountId : undefined;
+  const accountId = walletCheckout ? walletAccountId(customData) : typeof customData.accountId === "string" && customData.accountId ? customData.accountId : undefined;
   const totals = txn.details?.totals;
   if (!totals) throw new Error(`Transaction ${txn.id} has no details.totals — cannot record a sale without amounts`);
   const payoutTotals = txn.details?.payoutTotals ?? null;
@@ -245,6 +256,7 @@ interface AdjustmentTotalsLike {
 interface AdjustmentLike {
   id: string;
   action: string;
+  type?: string;
   transactionId: string;
   subscriptionId: string | null;
   reason: string;
@@ -272,13 +284,77 @@ function buildRefundRecordEvent(adj: AdjustmentLike): RefundRecordEvent {
     tax: totals.tax,
     total: totals.total,
     occurredAt: adj.createdAt,
+    ...(adj.type === "full" || adj.type === "partial" ? { adjustmentType: adj.type } : {}),
   };
+}
+
+type Env = Record<string, string | undefined>;
+
+/** The account a wallet checkout belongs to: the transaction's custom data, written by the server when it created the transaction. */
+function walletAccountId(customData: Record<string, unknown>): string | undefined {
+  const id = customData.account_id ?? customData.accountId;
+  return typeof id === "string" && id ? id : undefined;
+}
+
+function priceIdsOf(items: TransactionLike["items"] | SubscriptionLike["items"]): string[] {
+  return (items ?? []).map((item) => item?.price?.id).filter((id): id is string => typeof id === "string" && id.length > 0);
+}
+
+/** A transaction.completed whose price is a wallet price becomes a wallet event. Null means "not a wallet price" and the old sale path runs. */
+function buildWalletTransactionEvent(txn: TransactionLike, eventId: string, occurredAt: string, env: Env): WalletPackEvent | WalletPlanPaymentEvent | null {
+  const sku = skuForPriceIds(priceIdsOf(txn.items), env);
+  if (!sku) return null;
+  const accountId = walletAccountId(txn.customData ?? {});
+  let sale: SaleRecordEvent | undefined;
+  try {
+    sale = buildSaleRecordEvent(txn, true);
+  } catch (err) {
+    // Not swallowed: the bookkeeping record could not be built, the grant still goes ahead, and this is the raw reason.
+    console.error(`[paddle] wallet transaction ${txn.id}: no sale record built:`, err);
+  }
+  if (CATALOG[sku].kind === "pack") {
+    return { kind: "wallet_pack", eventId, sku, accountId, paddleTransactionId: txn.id, occurredAt: txn.billedAt ?? occurredAt, sale };
+  }
+  return {
+    kind: "wallet_plan",
+    phase: "payment",
+    eventId,
+    sku,
+    accountId,
+    paddleTransactionId: txn.id,
+    paddleSubscriptionId: txn.subscriptionId,
+    periodEnd: txn.billingPeriod?.endsAt,
+    occurredAt: txn.billedAt ?? occurredAt,
+    sale,
+  };
+}
+
+/** A subscription event on a plan price: the usual tier event (growth or lazy_pro), wrapped so the wallet can act on it too. */
+function buildWalletLifecycleEvent(sub: SubscriptionLike, status: SubscriptionEvent["status"], eventId: string, occurredAt: string, env: Env): WalletPlanLifecycleEvent | null {
+  const sku = skuForPriceIds(priceIdsOf(sub.items), env);
+  if (!sku) return null;
+  const plan = walletPlanForSku(sku);
+  if (!plan) throw new Error(`Subscription ${sub.id} is on the one time wallet sku ${sku}; a pack cannot be a subscription`);
+  const accountId = walletAccountId(sub.customData ?? {});
+  if (!accountId) throw new Error(`Subscription ${sub.id} (wallet sku ${sku}) has no account_id in its custom data`);
+  const subscription: SubscriptionEvent = {
+    kind: "tier",
+    morSubscriptionId: sub.id,
+    accountEmail: "", // never read: the account id resolves the account
+    accountId,
+    tier: tierForWalletPlan(plan) as SubscriptionEvent["tier"],
+    status,
+    currentPeriodEnd: sub.currentBillingPeriod?.endsAt ?? new Date().toISOString(),
+    occurredAt,
+    cancelAtPeriodEnd: deriveCancelAtPeriodEnd(sub),
+  };
+  return { kind: "wallet_plan", phase: "lifecycle", eventId, sku, accountId, paddleSubscriptionId: sub.id, subscription, occurredAt };
 }
 
 export class PaddleMorAdapter implements MerchantOfRecordAdapter {
   private paddle: Paddle;
 
-  constructor(apiKey: string, private webhookSecret: string, environment: Environment = Environment.production) {
+  constructor(apiKey: string, private webhookSecret: string, environment: Environment = Environment.production, private env: Env = process.env) {
     this.paddle = new Paddle(apiKey, { environment });
   }
 
@@ -327,7 +403,10 @@ export class PaddleMorAdapter implements MerchantOfRecordAdapter {
     }
 
     if (event.eventType === "transaction.completed") {
-      return buildSaleRecordEvent(event.data as unknown as TransactionLike);
+      const txn = event.data as unknown as TransactionLike;
+      // Wallet prices are recognised only while the wallet switch is on; with it off this is exactly the old code.
+      const walletEvent = walletEnabled(this.env) ? buildWalletTransactionEvent(txn, event.eventId, event.occurredAt, this.env) : null;
+      return walletEvent ?? buildSaleRecordEvent(txn);
     }
     if (event.eventType === "adjustment.created") {
       return buildRefundRecordEvent(event.data as unknown as AdjustmentLike);
@@ -339,7 +418,11 @@ export class PaddleMorAdapter implements MerchantOfRecordAdapter {
       throw new Error(`Unmapped Paddle subscription status "${subscription.status}" for ${subscription.id}`);
     }
 
-    return buildEventFromCustomData(subscription, status, event.occurredAt);
+    if (walletEnabled(this.env)) {
+      const walletEvent = buildWalletLifecycleEvent(subscription, status, event.eventId, event.occurredAt, this.env);
+      if (walletEvent) return walletEvent;
+    }
+    return buildEventFromCustomData(subscription, status, event.occurredAt, this.env);
   }
 
   /** Deferred to the end of the current paid period, not "immediately"

@@ -1,4 +1,5 @@
 import type { StoredTier } from "../tier.js";
+import type { SkuId } from "../wallet/catalog.js";
 
 // Merchant-of-Record adapter interface. Decided (revised 2026-07-22): build
 // the real implementation against Paddle. Stripe Managed Payments was the
@@ -126,6 +127,8 @@ export interface RefundRecordEvent {
   tax: string;
   total: string;
   occurredAt: string; // ISO timestamp — Paddle's createdAt
+  // Paddle's adjustment type. Only the wallet handler reads it (a partial refund must not cancel a plan).
+  adjustmentType?: "full" | "partial";
 }
 
 /** A brand add-on (Phase 1b, 2026-08-16) — same "own Paddle subscription"
@@ -156,7 +159,48 @@ export interface SeatAddonEvent {
   cancelAtPeriodEnd: boolean; // see SubscriptionEvent.cancelAtPeriodEnd
 }
 
-export type BillingEvent = SubscriptionEvent | StorageAddonEvent | BrandAddonEvent | SeatAddonEvent | SaleRecordEvent | RefundRecordEvent;
+/** LazyCredits wallet events (only produced while the wallet switch is on). The sku comes from the PRICE ID through the
+ *  PADDLE_PRICE_ID_* env vars (see billing/skuPrices.ts), because a price's custom data is not echoed on a webhook; the
+ *  transaction's own custom data ({account_id, sku}, set when the server creates the checkout) names the account. */
+export interface WalletPackEvent {
+  kind: "wallet_pack";
+  eventId: string; // Paddle's event id
+  sku: SkuId;
+  accountId?: string; // undefined when the transaction names no account: the handler alerts, it never drops the payment
+  paddleTransactionId: string;
+  occurredAt: string; // ISO timestamp
+  sale?: SaleRecordEvent; // the SARS bookkeeping record for this payment
+}
+
+/** A plan payment, first or renewal (transaction.completed on a subscription price): the monthly lot is granted from this. */
+export interface WalletPlanPaymentEvent {
+  kind: "wallet_plan";
+  phase: "payment";
+  eventId: string;
+  sku: SkuId;
+  accountId?: string;
+  paddleTransactionId: string;
+  paddleSubscriptionId: string | null;
+  periodEnd?: string; // the billing period's end: the monthly lot expires then
+  occurredAt: string;
+  sale?: SaleRecordEvent;
+}
+
+/** A subscription lifecycle event on a plan price. `subscription` is the normal tier event, so the existing sync path stores the tier. */
+export interface WalletPlanLifecycleEvent {
+  kind: "wallet_plan";
+  phase: "lifecycle";
+  eventId: string;
+  sku: SkuId;
+  accountId: string;
+  paddleSubscriptionId: string;
+  subscription: SubscriptionEvent;
+  occurredAt: string;
+}
+
+export type WalletBillingEvent = WalletPackEvent | WalletPlanPaymentEvent | WalletPlanLifecycleEvent;
+
+export type BillingEvent = SubscriptionEvent | StorageAddonEvent | BrandAddonEvent | SeatAddonEvent | SaleRecordEvent | RefundRecordEvent | WalletBillingEvent;
 
 /** Thrown by parseWebhookEvent specifically when the signature itself is
  *  invalid — distinct from any other error parseWebhookEvent can throw
