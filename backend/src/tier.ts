@@ -103,7 +103,7 @@ export async function resolveTier(accountId: string): Promise<Tier> {
  *  accounts are blocked (resolveTier counts a lapsed plan as free). The customer pays X directly, so there is no metering. Every
  *  caller (GET /platforms, the keys route, the generic connect route) goes through canUseXByok; the frontend never decides. Keyed by
  *  DB tier code, which matches the public plan name. */
-export const X_BYOK_ALLOWED_TIERS: ReadonlySet<Tier> = new Set<Tier>(["starter", "pro", "business", "agency", "agency_plus"]);
+export const X_BYOK_ALLOWED_TIERS: ReadonlySet<Tier> = new Set<Tier>(["starter", "pro", "business", "agency", "agency_plus", "growth", "lazy_pro", "payg"]);
 
 /** The cheapest plan that unlocks X BYOK, in public wording, for "Upgrade to ..." copy. */
 export const X_BYOK_REQUIRED_PLAN_NAME = TIER_DISPLAY_NAMES.starter;
@@ -117,7 +117,7 @@ export function canUseXByok(tier: Tier): boolean {
  *  Every PAID tier may use it: Starter, Pro, Business, Agency and Agency Plus. Free and lapsed accounts are blocked. The ONE place
  *  that decides it: every caller (GET /platforms, the keys route, the generic connect route, the broadcast and chat routes) goes
  *  through canUseWhatsappByok / checkWhatsappPlan; the frontend never decides. Keyed by DB tier code (the plan name). */
-export const WHATSAPP_BYOK_ALLOWED_TIERS: ReadonlySet<Tier> = new Set<Tier>(["starter", "pro", "business", "agency", "agency_plus"]);
+export const WHATSAPP_BYOK_ALLOWED_TIERS: ReadonlySet<Tier> = new Set<Tier>(["starter", "pro", "business", "agency", "agency_plus", "growth", "lazy_pro", "payg"]);
 
 /** The cheapest plan that unlocks WhatsApp BYOK, in public wording, for "Upgrade to ..." copy. */
 export const WHATSAPP_BYOK_REQUIRED_PLAN_NAME = TIER_DISPLAY_NAMES.starter;
