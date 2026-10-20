@@ -1197,20 +1197,6 @@ export const api = {
     authedFetch(`/media/${id}`, { method: "PATCH", body: JSON.stringify({ altText }) }),
 
   getSubscription: (): Promise<Subscription> => authedFetch("/subscription"),
-  startCheckout: (
-    tier: "starter" | "pro" | "business" | "agency" | "agency_plus",
-    promoCode?: string | null,
-    referralCode?: string | null
-  ): Promise<{ transactionId: string; checkoutUrl: string | null }> =>
-    authedFetch("/subscription/checkout", {
-      method: "POST",
-      body: JSON.stringify({ tier, ...(promoCode ? { promoCode } : {}), ...(referralCode ? { referralCode } : {}) }),
-    }),
-  // For a customer already on an active paid tier -- real proration on the
-  // existing subscription, not a fresh checkout. startCheckout above is for
-  // Free/lapsed -> paid only; this is for moving between paid tiers.
-  changeTier: (tier: "starter" | "pro" | "business" | "agency" | "agency_plus"): Promise<{ changed: boolean }> =>
-    authedFetch("/subscription/change-tier", { method: "POST", body: JSON.stringify({ tier }) }),
   cancelSubscription: (feedback: string | undefined, acknowledgedDataDeletion: boolean): Promise<{ cancelled: boolean }> =>
     authedFetch("/subscription/cancel", { method: "POST", body: JSON.stringify({ feedback, acknowledgedDataDeletion }) }),
 
@@ -1403,10 +1389,6 @@ export const api = {
     authedFetch("/admin/announce", { method: "POST", body: JSON.stringify({ taskLabel: taskLabel ?? null }) }),
 
   listStorageAddons: (): Promise<StorageAddon[]> => authedFetch("/storage-addons"),
-  startStorageAddonCheckout: (
-    gbAmount: 5 | 20 | 50
-  ): Promise<{ transactionId: string; checkoutUrl: string | null }> =>
-    authedFetch("/storage-addons/checkout", { method: "POST", body: JSON.stringify({ gbAmount }) }),
   cancelStorageAddon: (id: string): Promise<{ cancelled: boolean }> =>
     authedFetch(`/storage-addons/${id}/cancel`, { method: "POST" }),
 
@@ -1417,8 +1399,6 @@ export const api = {
     authedFetch(`/brand-addons/${id}/cancel`, { method: "POST" }),
 
   getSeatAddons: (): Promise<SeatCapacity> => authedFetch("/seat-addons"),
-  startSeatAddonCheckout: (): Promise<{ transactionId: string; checkoutUrl: string | null }> =>
-    authedFetch("/seat-addons/checkout", { method: "POST" }),
   cancelSeatAddon: (id: string): Promise<{ cancelled: boolean }> =>
     authedFetch(`/seat-addons/${id}/cancel`, { method: "POST" }),
 };
