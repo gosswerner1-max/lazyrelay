@@ -2,7 +2,7 @@
 // 3 seconds (for at most 60 seconds) until the balance changes, because the credits arrive a few seconds after the card is
 // charged. With billing off, or for an exempt (legacy) account, nothing is requested and no timer runs.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { getBalance, type BalanceResult, type Wallet } from "./walletApi";
 
 export const POLL_EVERY_MS = 3_000;
@@ -33,14 +33,57 @@ interface Options {
 type Core = Pick<WalletView, "status" | "wallet" | "error" | "fetchedAt">;
 const OFF: Core = { status: "off", wallet: null, error: null, fetchedAt: null };
 
+interface PollArgs {
+  enabled: boolean;
+  checkoutDoneCount: number;
+  walletRef: MutableRefObject<Wallet | null>;
+  loadRef: MutableRefObject<() => Promise<BalanceResult>>;
+  apply: (result: BalanceResult, quietErrors: boolean) => void;
+}
+
+/** After each new checkout.completed: check every 3 seconds for at most 60 seconds, stopping as soon as the balance changes. */
+function useCheckoutPoll({ enabled, checkoutDoneCount, walletRef, loadRef, apply }: PollArgs) {
+  const seenCount = useRef(checkoutDoneCount);
+  useEffect(() => {
+    if (!enabled || checkoutDoneCount === seenCount.current) return;
+    seenCount.current = checkoutDoneCount;
+    const start = walletRef.current;
+    if (!start || start.exempt) return;
+    let live = true;
+    let busy = false;
+    let checks = 0;
+    const stop = () => {
+      live = false;
+      clearInterval(timer);
+    };
+    const timer = setInterval(async () => {
+      if (busy) return;
+      busy = true;
+      checks += 1;
+      try {
+        const result = await loadRef.current();
+        if (!live) return;
+        apply(result, true);
+        if (result.kind === "ok" && (result.wallet.balance !== start.balance || result.wallet.exempt)) stop();
+        else if (result.kind === "unavailable") stop();
+      } finally {
+        busy = false;
+      }
+      if (live && checks >= MAX_CHECKS) stop();
+    }, POLL_EVERY_MS);
+    return stop;
+  }, [enabled, checkoutDoneCount, apply, walletRef, loadRef]);
+}
+
 export function useWalletBalance({ enabled, checkoutDoneCount, loadBalance = getBalance, now = () => new Date() }: Options): WalletView {
   const [core, setCore] = useState<Core>(enabled ? { ...OFF, status: "loading" } : OFF);
   const walletRef = useRef<Wallet | null>(null);
-  const seenCount = useRef(checkoutDoneCount);
   const loadRef = useRef(loadBalance);
   const nowRef = useRef(now);
-  loadRef.current = loadBalance;
-  nowRef.current = now;
+  useEffect(() => {
+    loadRef.current = loadBalance;
+    nowRef.current = now;
+  });
 
   const apply = useCallback((result: BalanceResult, quietErrors: boolean) => {
     if (result.kind === "ok") {
@@ -70,35 +113,7 @@ export function useWalletBalance({ enabled, checkoutDoneCount, loadBalance = get
     };
   }, [enabled, apply]);
 
-  useEffect(() => {
-    if (!enabled || checkoutDoneCount === seenCount.current) return;
-    seenCount.current = checkoutDoneCount;
-    const start = walletRef.current;
-    if (!start || start.exempt) return;
-    let live = true;
-    let busy = false;
-    let checks = 0;
-    const stop = () => {
-      live = false;
-      clearInterval(timer);
-    };
-    const timer = setInterval(async () => {
-      if (busy) return;
-      busy = true;
-      checks += 1;
-      try {
-        const result = await loadRef.current();
-        if (!live) return;
-        apply(result, true);
-        if (result.kind === "ok" && (result.wallet.balance !== start.balance || result.wallet.exempt)) stop();
-        else if (result.kind === "unavailable") stop();
-      } finally {
-        busy = false;
-      }
-      if (live && checks >= MAX_CHECKS) stop();
-    }, POLL_EVERY_MS);
-    return stop;
-  }, [enabled, checkoutDoneCount, apply]);
+  useCheckoutPoll({ enabled, checkoutDoneCount, walletRef, loadRef, apply });
 
   return { ...core, refresh, billingActive: core.status === "ready" };
 }

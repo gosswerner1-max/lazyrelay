@@ -72,15 +72,12 @@ function Row({ item, busySku, onBuy }: RowProps) {
   );
 }
 
-export function BuyPanel({ paddle, loadCatalog = getCatalog, start = startCheckout }: Props) {
-  const titleId = useId();
+function useCatalog(loadCatalog: () => Promise<CatalogResult>) {
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
-  const [busySku, setBusySku] = useState<string | null>(null);
-  const [problem, setProblem] = useState<Problem | null>(null);
-  const pending = useRef(false);
   const loadRef = useRef(loadCatalog);
-  loadRef.current = loadCatalog;
-
+  useEffect(() => {
+    loadRef.current = loadCatalog;
+  });
   const load = useCallback(async () => {
     setPhase({ kind: "loading" });
     const r = await loadRef.current();
@@ -89,7 +86,14 @@ export function BuyPanel({ paddle, loadCatalog = getCatalog, start = startChecko
   useEffect(() => {
     void load();
   }, [load]);
+  return { phase, load };
+}
 
+/** Starts a purchase for one sku and opens the payment window. One at a time: a second click while one is starting does nothing. */
+function useBuy(paddle: PaymentWindow | undefined, start: (sku: string) => Promise<CheckoutResult>) {
+  const [busySku, setBusySku] = useState<string | null>(null);
+  const [problem, setProblem] = useState<Problem | null>(null);
+  const pending = useRef(false);
   const buy = useCallback(
     async (sku: string) => {
       if (pending.current) return;
@@ -110,7 +114,13 @@ export function BuyPanel({ paddle, loadCatalog = getCatalog, start = startChecko
     },
     [paddle, start],
   );
+  return { busySku, problem, buy };
+}
 
+export function BuyPanel({ paddle, loadCatalog = getCatalog, start = startCheckout }: Props) {
+  const titleId = useId();
+  const { phase, load } = useCatalog(loadCatalog);
+  const { busySku, problem, buy } = useBuy(paddle, start);
   if (phase.kind === "off") return null;
   return (
     <section className="bm-buy" aria-labelledby={titleId} id="bm-buy">
