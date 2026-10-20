@@ -9,7 +9,7 @@ WhatsApp and X can be connected with your own keys on the paid plans. You pay Me
 | Plan | Price | Credits | Credit expiry | Connected accounts | Brands |
 |---|---|---|---|---|---|
 | Free | $0 | 30 credits once, at registration (no monthly reset) | Never expire | 3 | 1 |
-| Pay-as-you-go | $15 one time (plus tax) | 300 | Never expire | 20 | 2 |
+| Pay-as-you-go | $15 one time (plus tax) | 300 credits that stay in your wallet until used. Balance can be topped up at any time. | Until used | 20 | 2 |
 | Growth | $29 a month (plus tax) | 1,000 each billing cycle | Expire at the end of each cycle, no rollover | 30 | 4 |
 | Pro | $99 a month (plus tax) | 6,000 each billing cycle | Expire at the end of each cycle, no rollover | 1,000 | Unlimited |
 
