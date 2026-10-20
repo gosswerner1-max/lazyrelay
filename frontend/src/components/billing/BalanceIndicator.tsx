@@ -9,10 +9,12 @@ import "../../styles/billing-mockup-adapt.css";
 interface Props {
   lots: CreditLot[];
   now: Date;
+  /** The balance the server reports. When given it is shown instead of the sum of the lots. */
+  total?: number;
 }
 
-export function BalanceIndicator({ lots, now }: Props) {
-  const total = totalCredits(lots, now);
+export function BalanceIndicator({ lots, now, total: given }: Props) {
+  const total = given ?? totalCredits(lots, now);
   const status = balanceStatus(total);
   const mark = statusMark(status);
   return (

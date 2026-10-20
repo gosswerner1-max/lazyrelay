@@ -301,6 +301,7 @@ export function useDashboardState() {
   const [historyHasMore, setHistoryHasMore] = useState(true);
   const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
   const [paddle, setPaddle] = useState<Paddle | undefined>(undefined);
+  const [checkoutDoneCount, setCheckoutDoneCount] = useState(0); // +1 on each checkout.completed; the credit wallet watches it
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [csvRows, setCsvRows] = useState<
     Array<{ platform: string; content: string; scheduledFor: string; mediaUrl: string; socialAccountId: string | null; error: string | null }>
@@ -925,6 +926,7 @@ export function useDashboardState() {
         // purchase). Waiting for the real checkout.completed event fixes
         // both paths the same way.
         if (event.name === "checkout.completed") {
+          setCheckoutDoneCount((n) => n + 1);
           if (pendingTierRef.current) {
             pollUntilUpgraded();
           } else if (pendingStorageAddonRef.current) {
@@ -3108,5 +3110,7 @@ export function useDashboardState() {
     isLapsedCancelled,
     isFreeOrLapsed,
     periodEndDate,
+    paddle,
+    checkoutDoneCount,
   };
 }

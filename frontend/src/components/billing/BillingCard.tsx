@@ -9,6 +9,10 @@ import "../../styles/billing-mockup-adapt.css";
 interface Props {
   lots: CreditLot[];
   now: Date;
+  /** The balance the server reports. When given it is shown instead of the sum of the lots. */
+  total?: number;
+  /** In the live app the main button calls this (it brings the buy panel into view). Without it the button only shows a note. */
+  onBuy?: () => void;
 }
 
 interface LotProps {
@@ -32,10 +36,10 @@ function Lot({ title, value, children }: LotProps) {
 
 const credits = (n: number) => `${formatCredits(n)} credits`;
 
-export function BillingCard({ lots, now }: Props) {
+export function BillingCard({ lots, now, total: given, onBuy }: Props) {
   const titleId = useId();
   const [noted, setNoted] = useState(false);
-  const total = totalCredits(lots, now);
+  const total = given ?? totalCredits(lots, now);
   const { subscription, topup, payg } = buildAllocation(lots, now);
   return (
     <section className="bm-card" aria-labelledby={titleId}>
@@ -49,7 +53,7 @@ export function BillingCard({ lots, now }: Props) {
           </span>{" "}
           <span className="bm-total__unit">credits</span>
         </p>
-        <button type="button" className="bm-btn bm-btn--primary" onClick={() => setNoted(true)}>
+        <button type="button" className="bm-btn bm-btn--primary" onClick={onBuy ?? (() => setNoted(true))}>
           Buy Credits / Upgrade Plan
         </button>
         {noted && (
