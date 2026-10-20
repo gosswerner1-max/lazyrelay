@@ -36,6 +36,8 @@ import { FailedTab } from "./dashboard/FailedTab";
 import { CalendarTab } from "./dashboard/CalendarTab";
 import { SettingsTab } from "./dashboard/SettingsTab";
 import { ApiKeysTab } from "./dashboard/ApiKeysTab";
+import { HeaderBalance, useBillingWallet } from "../lib/billingFlag";
+import { WalletContext } from "../lib/walletContext";
 import "./Dashboard.css";
 
 const ProductTour = lazy(() => import("../components/ProductTour").then((m) => ({ default: m.ProductTour })));
@@ -74,6 +76,7 @@ const DISABLED_TABS: Tab[] = COMMENTS_DMS_LIVE ? [] : ["DMs"];
 export function Dashboard() {
   useNoindex("/dashboard");
   const state = useDashboardState();
+  const wallet = useBillingWallet(state.checkoutDoneCount);
   const {
     signOut,
     accounts,
@@ -146,6 +149,7 @@ export function Dashboard() {
 
   return (
     <DashboardContext.Provider value={state}>
+    <WalletContext.Provider value={wallet}>
     <>
       <CircuitBackground />
       <div className="plan-banner">
@@ -156,7 +160,7 @@ export function Dashboard() {
             ) : (
               <>
                 You're on the <strong>{tierNames[currentTier]}</strong> plan
-                {isFreePlan && ": 10 posts per connected account, refillable monthly"}
+                {isFreePlan && !wallet.billingActive && ": 10 posts per connected account, refillable monthly"}
                 {isPendingCancellation &&
                   `; cancels${periodEndDate ? ` on ${periodEndDate}` : " at the end of your billing period"}`}
                 {isLapsedCancelled && "; cancelled"}
@@ -184,6 +188,11 @@ export function Dashboard() {
         </div>
         <div className="header-actions">
           {COMMENTS_DMS_LIVE && <NotificationBell onOpenTab={setTab} />}
+          {HeaderBalance && wallet.billingActive && (
+            <Suspense fallback={null}>
+              <HeaderBalance />
+            </Suspense>
+          )}
           <a href="/guides/" className="link">
             Guides
           </a>
@@ -551,6 +560,7 @@ export function Dashboard() {
       )}
       <SupportWidget />
     </>
+    </WalletContext.Provider>
     </DashboardContext.Provider>
   );
 }
