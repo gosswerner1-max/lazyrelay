@@ -93,62 +93,63 @@ const STEPS = [
   { title: "It happens automatically", body: "LazyRelay posts it for you and confirms it's live." },
 ];
 
-const PRICING = [
+type PricingPlan = {
+  tier: "free" | "payg" | "growth" | "pro";
+  name: string;
+  price: string;
+  // What follows the price: nothing for Free, "one time" or "a month" for the paid plans.
+  period?: string;
+  note: string;
+  features: string[];
+  cta: string;
+  featured?: boolean;
+};
+
+// The public plans (Werner, 2026-10-20): one wallet of credits. Prices are USD, shown before tax.
+const PRICING: PricingPlan[] = [
   {
-    tier: "free" as const,
+    tier: "free",
     name: "Free",
     price: "$0",
-    note: "Get started, no card required",
-    features: ["3 connected accounts", "1 brand", "10 posts per account, refillable", "One-time scheduled posts only", "250MB storage", "AI-agent / MCP access", "Proof-of-Publish verification"],
+    note: "Get started with 30 credits",
+    features: ["30 credits once, at registration", "No monthly reset", "3 connected accounts", "1 brand", "10 queued posts", "AI-agent / MCP access", "Proof-of-Publish verification"],
     cta: "Get started free",
   },
   {
-    tier: "starter" as const,
-    name: "Starter",
-    price: "$29.99",
-    note: "For creators posting regularly",
-    features: ["20 connected accounts", "2 brands", "Unlimited scheduled posts", "3 recurring schedules", "AI-agent / MCP access", "5GB storage", "Proof-of-Publish verification"],
+    tier: "payg",
+    name: "Pay-as-you-go",
+    price: "$15",
+    period: "one time",
+    note: "Pay once, use whenever",
+    features: ["300 credits that never expire", "20 connected accounts", "2 brands", "AI-agent / MCP access", "Proof-of-Publish verification"],
     cta: "Get started",
   },
   {
-    tier: "pro" as const,
-    name: "Pro",
-    price: "$59.99",
-    note: "For creators and small businesses",
-    features: ["30 connected accounts", "4 brands", "Unlimited scheduled posts", "5 recurring schedules", "AI-agent / MCP access", "10GB storage", "Priority support", "Proof-of-Publish verification"],
+    tier: "growth",
+    name: "Growth",
+    price: "$29",
+    period: "a month",
+    note: "For regular posting",
+    features: ["1,000 credits each billing cycle", "Credits expire at the end of each cycle, no rollover", "30 connected accounts", "4 brands", "AI-agent / MCP access", "Proof-of-Publish verification"],
     cta: "Get started",
     featured: true,
   },
   {
-    tier: "business" as const,
-    name: "Business",
-    price: "$99.99",
-    note: "For running several brands solo",
-    features: ["50 connected accounts", "7 brands", "2 team seats included", "Unlimited scheduled posts", "Unlimited recurring schedules", "AI-agent / MCP access", "20GB storage", "Priority support", "Proof-of-Publish verification"],
+    tier: "pro",
+    name: "Pro",
+    price: "$99",
+    period: "a month",
+    note: "For high volume and many accounts",
+    features: ["6,000 credits each billing cycle", "Credits expire at the end of each cycle, no rollover", "1,000 connected accounts", "Unlimited brands", "AI-agent / MCP access", "Proof-of-Publish verification"],
     cta: "Get started",
   },
 ];
 
-// Kept separate from PRICING, revealed via the "See Agency plans" button
-// below rather than appended inline -- 6 cards in one row doesn't fit the
-// home screen (Werner, 2026-08-17).
-const AGENCY_PRICING = [
-  {
-    tier: "agency" as const,
-    name: "Agency",
-    price: "$149.99",
-    note: "For agencies running client work with a small team",
-    features: ["100 connected accounts", "12 brands", "3 team seats included (+2 more available)", "Unlimited scheduled posts", "Unlimited recurring schedules", "AI-agent / MCP access", "20GB storage", "Priority support", "Proof-of-Publish verification"],
-    cta: "Get started",
-  },
-  {
-    tier: "agency_plus" as const,
-    name: "Agency Plus",
-    price: "$199.99",
-    note: "For larger agencies that have outgrown Agency",
-    features: ["150 connected accounts", "20 brands", "6 team seats included (+2 more available)", "Unlimited scheduled posts", "Unlimited recurring schedules", "AI-agent / MCP access", "20GB storage", "Priority support", "Proof-of-Publish verification"],
-    cta: "Get started",
-  },
+// Extra credit packs: one-time purchases, credits never expire (Werner, 2026-10-20).
+const CREDIT_PACKS = [
+  { name: "Starter pack", price: "$15", credits: "300 credits", note: "" },
+  { name: "Growth pack", price: "$50", credits: "1,500 credits", note: "" },
+  { name: "Pro top-up", price: "$30", credits: "1,500 credits", note: "Active Pro subscribers only" },
 ];
 
 // Fact-based comparison, not a named-competitor callout — every row is a
@@ -162,10 +163,10 @@ const AGENCY_PRICING = [
 // easiest wins on a service page.
 const COMPARISON = [
   { label: "How you use it", us: "Real dashboard — click, don't code", them: "API/CLI only, or a dashboard bolted onto an API-first tool" },
-  { label: "Pricing", us: "Shown on the homepage, every tier", them: "Often hidden behind “Contact sales”" },
+  { label: "Pricing", us: "Shown on the homepage, every plan", them: "Often hidden behind “Contact sales”" },
   { label: "Platform coverage", us: "18 distribution platforms plus WhatsApp, including Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress, dev.to, Hashnode, Lemmy, Slack, and X", them: "Usually stops at the big four or five" },
   { label: "“Sent” vs. “live”", us: "Proof-of-Publish independently confirms a post is actually live", them: "“Sent” is treated as done" },
-  { label: "Getting started", us: "Free tier, no card required", them: "A card is often required just to try it" },
+  { label: "Getting started", us: "Free tier with 30 credits to start", them: "A card is often required just to try it" },
 ];
 
 // Platforms LazyRelay's own developer app has genuinely passed that
@@ -558,7 +559,6 @@ const WORKS_WITH: { id: string; label: string }[] = [
 
 export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onContact, onPartners, onDocs, scrollToPricing }: LandingProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [showAgencyPricing, setShowAgencyPricing] = useState(false);
   const [referralModalOpen, setReferralModalOpen] = useState(false);
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -857,10 +857,10 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
                 <h3>{plan.name}</h3>
                 <p className="pricing-price">
                   {plan.price}
-                  {plan.tier !== "free" && (
+                  {plan.period && (
                     <>
-                      <span className="pricing-period"> / mo</span>
-                      <span className="pricing-tax-note">(plus applicable tax)</span>
+                      <span className="pricing-period"> {plan.period}</span>
+                      <span className="pricing-tax-note">(plus tax)</span>
                     </>
                   )}
                 </p>
@@ -877,40 +877,37 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
             </div>
           ))}
         </div>
-        <p className="section-note pricing-footnote">
-          Start on Free, upgrade to Starter, Pro, Business, Agency, or Agency Plus any time from your dashboard. Tax is added at checkout.
-        </p>
 
-        {!showAgencyPricing && (
-          <button type="button" className="btn-outline pricing-agency-toggle" onClick={() => setShowAgencyPricing(true)}>
-            Running an agency? See Agency plans &rarr;
-          </button>
-        )}
-
-        {showAgencyPricing && (
-          <div className="pricing-grid pricing-grid-agency">
-            {AGENCY_PRICING.map((plan) => (
-              <div className="pricing-card-wrap pricing-card-wrap-plain" key={plan.tier}>
-                <div className="pricing-card">
-                  <h3>{plan.name}</h3>
-                  <p className="pricing-price">
-                    {plan.price}
-                    <span className="pricing-period"> / mo</span><span className="pricing-tax-note">(plus applicable tax)</span>
-                  </p>
-                  <p className="pricing-note">{plan.note}</p>
-                  <ul>
-                    {plan.features.map((f) => (
-                      <li key={f}>{f}</li>
-                    ))}
-                  </ul>
-                  <button className="cta" onClick={onGetStarted}>
-                    {plan.cta}
-                  </button>
-                </div>
+        <h3 className="pricing-subheading">Credit packs</h3>
+        <p className="section-note">Need more credits? Packs are one-time purchases and the credits never expire.</p>
+        <div className="pricing-grid pricing-grid-packs">
+          {CREDIT_PACKS.map((pack) => (
+            <div className="pricing-card-wrap pricing-card-wrap-plain" key={pack.name}>
+              <div className="pricing-card">
+                <h3>{pack.name}</h3>
+                <p className="pricing-price">
+                  {pack.price}
+                  <span className="pricing-tax-note">(plus tax)</span>
+                </p>
+                <p className="pricing-note">{pack.credits}</p>
+                {pack.note && <p className="pricing-note">{pack.note}</p>}
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+        </div>
+
+        <h3 className="pricing-subheading">What a credit pays for</h3>
+        <ul className="pricing-rates">
+          <li>
+            <strong>Publishing: 1 credit per channel destination.</strong> Posting to 5 channels: 5 channels &times; 1 credit = 5 credits.
+          </li>
+          <li>
+            <strong>Competitor page teardown: 10 credits.</strong> Charged only when the blueprint is delivered.
+          </li>
+        </ul>
+        <p className="section-note pricing-footnote">
+          A credit is taken for a post only after the platform confirms it is live, so a channel that fails is not charged. All prices are in US dollars, plus tax.
+        </p>
       </section>
 
       <section className="landing-section landing-newsletter" id="newsletter">

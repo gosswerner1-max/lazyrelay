@@ -69,18 +69,6 @@ function buildPublishGate() {
   });
 }
 
-/** The group a post is charged under: charge_group_id when the post was part of a multi platform schedule, else the post itself.
- *  Read only when the wallet is on (the column comes with migration 0141); any problem falls back to the post's own id. */
-async function chargeGroupOf(postId: string): Promise<string> {
-  try {
-    const { data, error } = await supabase.from("scheduled_posts").select("charge_group_id").eq("id", postId).maybeSingle();
-    const group = !error && data ? (data as { charge_group_id?: string | null }).charge_group_id : null;
-    return group ?? postId;
-  } catch {
-    return postId;
-  }
-}
-
 /** A post the wallet cannot pay for yet: back to pending (not failed, no retry counted) with a reason the customer can see. It is picked up
  *  again on a later tick, and goes out once credits arrive. If the reason cannot be saved (column not migrated yet) it is still put back. */
 async function holdPostForCredits(post: DuePost, reason: string): Promise<void> {
@@ -1248,7 +1236,7 @@ export async function recoverStuckPosts(now: number = Date.now()): Promise<numbe
     if (!failed || failed.length === 0) continue;
     recovered += 1;
     if (walletMode() === "on") {
-      await buildPublishGate().releaseForPost({ accountId: row.account_id, chargeGroupId: await chargeGroupOf(row.id), attempt: row.retry_count + 1 });
+      await buildPublishGate().releaseForPost({ accountId: row.account_id, postId: row.id, attempt: row.retry_count + 1 });
     }
     await supabase.from("post_results").insert({
       scheduled_post_id: row.id,
@@ -1530,11 +1518,10 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     // duplicate Facebook/Reel/Telegram posts logged in the platform
     // capability matrix. Re-check the existing post instead.
     const alreadyPublished = await findAcceptedPublish(post.id);
-    // Wallet: one credit is held BEFORE the send (off: nothing; shadow: only logged). Not enough credits leaves the post pending.
+    // Wallet: one credit per channel row is held BEFORE the send (off: nothing; shadow: only logged). Not enough credits leaves the post pending.
     const walletOn = walletMode() === "on";
     const reservation = await gate.reserve({
       accountId: post.account_id,
-      chargeGroupId: walletOn ? await chargeGroupOf(post.id) : post.id,
       postId: post.id,
       attempt: post.retry_count + 1,
       platform: adapter.platform,

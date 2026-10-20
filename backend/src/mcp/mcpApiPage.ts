@@ -47,11 +47,9 @@ export const TOOL_GROUPS: Array<{ id: string; title: string; blurb: string; acce
 /** Requests per minute per account, by the PUBLIC plan name. Mirrors TIER_LIMITS in http/rateLimit.ts (the test reads that file). */
 export const RATE_LIMIT_LADDER: Array<{ plan: string; perMinute: number }> = [
   { plan: "Free", perMinute: 60 },
-  { plan: "Starter", perMinute: 300 },
-  { plan: "Pro", perMinute: 450 },
-  { plan: "Business", perMinute: 600 },
-  { plan: "Agency", perMinute: 600 },
-  { plan: "Agency Plus", perMinute: 600 },
+  { plan: "Pay as you go", perMinute: 300 },
+  { plan: "Growth", perMinute: 450 },
+  { plan: "Pro", perMinute: 600 },
 ];
 
 /** Waits between webhook attempts, in the words the page uses. Mirrors RETRY_DELAYS_MS in webhook.ts (the test reads that file). */
