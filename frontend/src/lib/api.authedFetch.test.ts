@@ -35,6 +35,20 @@ describe("authedFetch failures", () => {
     expect(err.status).toBe(409);
   });
 
+  it("keeps the numbers a refusal sends (balance and required), so a screen can say how many credits are missing", async () => {
+    answer(402, { error: "Not enough", code: "insufficient_credits", balance: 3, required: 10 });
+    const err = (await authedFetch("/x").catch((e: unknown) => e)) as Failure & { balance?: number; required?: number };
+    expect(err.balance).toBe(3);
+    expect(err.required).toBe(10);
+  });
+
+  it("ignores a balance or required that is not a number", async () => {
+    answer(402, { error: "Not enough", balance: "lots", required: null });
+    const err = (await authedFetch("/x").catch((e: unknown) => e)) as Failure & { balance?: number; required?: number };
+    expect(err.balance).toBeUndefined();
+    expect(err.required).toBeUndefined();
+  });
+
   it("still returns the body on success and null on 204", async () => {
     answer(200, { a: 1 });
     expect(await authedFetch("/x")).toEqual({ a: 1 });

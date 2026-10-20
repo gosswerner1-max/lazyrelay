@@ -16,7 +16,7 @@ export const BLUEPRINT_FAILED_MESSAGE = "We could not build a blueprint for that
 
 export interface CompetitorClient {
   /** Reads the page and builds a blueprint. Rejects with a CompetitorError and nothing else. */
-  blueprint(input: string, signal?: AbortSignal): Promise<CompetitorBlueprint>;
+  blueprint(input: string, signal?: AbortSignal, idempotencyKey?: string): Promise<CompetitorBlueprint>;
 }
 
 // ---------- The pasted link ----------
@@ -99,14 +99,16 @@ const MESSAGES = {
   invalid_input: "We could not use that link. Paste the full address of a public web page, for example https://example.com/page.",
 } as const;
 
-export type CompetitorErrorCode = keyof typeof MESSAGES;
+/** The codes the paid (credits) route adds. Their sentences live with that route, so a build without it carries none of them. */
+export type BillingErrorCode = "insufficient_credits" | "in_flight" | "idempotency_conflict" | "already_charged";
+export type CompetitorErrorCode = keyof typeof MESSAGES | BillingErrorCode;
 
 /** The only error the client rejects with. A stable code and a plain sentence, never a token, a key or service text. */
 export class CompetitorError extends Error {
   readonly code: CompetitorErrorCode;
 
-  constructor(code: CompetitorErrorCode, message: string = MESSAGES[code]) {
-    super(message);
+  constructor(code: CompetitorErrorCode, message?: string) {
+    super(message ?? MESSAGES[code as keyof typeof MESSAGES] ?? MESSAGES.unknown);
     this.name = "CompetitorError";
     this.code = code;
   }
@@ -130,7 +132,8 @@ function plainServerSentence(v: unknown): string | null {
   return text !== "" && text.length <= SERVER_SENTENCE_MAX ? text : null;
 }
 
-function errorFor(code: string | undefined, status: number, serverMessage: unknown): CompetitorError {
+/** A service code plus the HTTP status turned into the one error this page shows. Shared with the paid route. */
+export function errorFor(code: string | undefined, status: number, serverMessage: unknown): CompetitorError {
   if (code === undefined) return new CompetitorError(codeFromStatus(status));
   if (code === "network_not_supported") return new CompetitorError("network_not_supported", plainServerSentence(serverMessage) ?? CLOSED_NETWORK_MESSAGE);
   if (code === "blueprint_not_supported") return new CompetitorError("blueprint_not_supported");

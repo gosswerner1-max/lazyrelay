@@ -44,9 +44,13 @@ export async function authedFetch(path: string, options: RequestInit = {}) {
       window.dispatchEvent(new CustomEvent(PLATFORM_LIMIT_EVENT, { detail: body }));
     }
     // The refusal code some routes add (for example the WhatsApp window), so a screen can react to it without reading words.
-    const failure = new Error(body.error ?? `Request failed: ${res.status}`) as Error & { code?: string; status?: number };
+    const failure = new Error(body.error ?? `Request failed: ${res.status}`) as Error & { code?: string; status?: number; balance?: number; required?: number };
     failure.status = res.status; // lets a caller tell "switched off" (404) from "sign in again" (401) without reading words
     if (typeof body.code === "string") failure.code = body.code;
+    // The credit counts a refusal can carry, so a screen can say how many are missing without reading words.
+    for (const key of ["balance", "required"] as const) {
+      if (typeof body[key] === "number" && Number.isFinite(body[key])) failure[key] = body[key];
+    }
     throw failure;
   }
   return res.status === 204 ? null : res.json();
