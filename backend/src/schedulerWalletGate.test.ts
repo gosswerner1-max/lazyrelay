@@ -76,6 +76,12 @@ const adapterOf = (verification: unknown = live, postResult: unknown = { success
   post: vi.fn(async (_r: Record<string, unknown>) => postResult),
   verifyPublished: vi.fn(async () => verification),
 });
+/** An adapter on a platform name of its own: the scheduler's per platform rate limit and circuit breaker are module state, and the many
+ *  channel fan-out tests must not use up the shared test platform's allowance for the tests around them. */
+const ownAdapter = (name: string) => {
+  tables.social_accounts[0].platform = name;
+  return { ...adapterOf(), platform: name };
+};
 const registryOf = (a: { platform: string }) => ({ get: (p: string) => (p === a.platform ? a : undefined) }) as never;
 const heldNow = (acc: string) => wallet.holds.filter((h) => h.account === acc && h.status === "held").length;
 const committed = (acc: string) => wallet.holds.filter((h) => h.account === acc && h.status === "committed").length;
@@ -212,16 +218,96 @@ describe("wallet on, a normal account", () => {
     expect(row.wallet_hold_reason ?? null).toBeNull();
   });
 
-  it("a fan-out group (one charge_group_id, two posts) is charged one credit in total", async () => {
+  it("a fan-out group (one charge_group_id, two posts) is charged one credit per channel (2 in total)", async () => {
     const acc = newAccount();
     const group = uuidOf(777);
     seed(acc, [{ charge_group_id: group }, { charge_group_id: group }], 5);
-    const a = adapterOf();
+    const a = ownAdapter("fan9");
     await runSchedulerCycle(registryOf(a));
     expect(a.post).toHaveBeenCalledTimes(2);
     expect(tables.scheduled_posts.every((p) => p.status === "posted")).toBe(true);
+    expect(wallet.balance.get(acc)).toBe(3 * PRICE);
+    expect(wallet.holds.map((h) => h.key).sort()).toEqual(tables.scheduled_posts.map((p) => `post:${p.id}:a1`).sort());
+  });
+
+  it("one post sent to 5 channels with enough credits deducts exactly 5 credits (5 committed holds)", async () => {
+    const acc = newAccount();
+    const group = uuidOf(778);
+    seed(acc, [1, 2, 3, 4, 5].map(() => ({ charge_group_id: group })), 8);
+    const a = ownAdapter("fan10");
+    await runSchedulerCycle(registryOf(a));
+    expect(a.post).toHaveBeenCalledTimes(5);
+    expect(tables.scheduled_posts.every((p) => p.status === "posted")).toBe(true);
+    expect(wallet.holds).toHaveLength(5);
+    expect(committed(acc)).toBe(5);
+    expect(new Set(wallet.holds.map((h) => h.key)).size).toBe(5);
+    expect(wallet.balance.get(acc)).toBe(3 * PRICE); // 8 - 5: the ledger moved -5,000,000 micro in total
+    expect(wallet.charges).toEqual([]);
+  });
+
+  it("5 channels with 3 credits: 3 publish and are charged, 2 stay pending with the reason; a 2 credit top up lets them go", async () => {
+    const acc = newAccount();
+    const group = uuidOf(779);
+    seed(acc, [1, 2, 3, 4, 5].map(() => ({ charge_group_id: group })), 3);
+    const a = ownAdapter("fan11");
+    await runSchedulerCycle(registryOf(a));
+    const posted = () => tables.scheduled_posts.filter((p) => p.status === "posted");
+    const waiting = () => tables.scheduled_posts.filter((p) => p.status === "pending");
+    expect(posted()).toHaveLength(3);
+    expect(waiting()).toHaveLength(2);
+    expect(waiting().every((p) => /credits/i.test(String(p.wallet_hold_reason)) && p.retry_count === 0)).toBe(true);
+    expect(a.post).toHaveBeenCalledTimes(3);
+    expect(committed(acc)).toBe(3);
+    expect(wallet.balance.get(acc)).toBe(0);
+
+    wallet.balance.set(acc, 2 * PRICE); // top up
+    await runSchedulerCycle(registryOf(a));
+    expect(posted()).toHaveLength(5);
+    expect(a.post).toHaveBeenCalledTimes(5);
+    expect(committed(acc)).toBe(5);
+    expect(wallet.balance.get(acc)).toBe(0);
+    expect(tables.scheduled_posts.every((p) => (p.wallet_hold_reason ?? null) === null)).toBe(true);
+  });
+
+  it("one of 5 channels failing deducts only 4: the failed channel's hold is released", async () => {
+    const acc = newAccount();
+    const group = uuidOf(780);
+    seed(acc, [1, 2, 3, 4, 5].map((i) => ({ charge_group_id: group, content: i === 5 ? "bad" : "hello" })), 5);
+    const a = ownAdapter("failplat");
+    a.post.mockImplementation(async (r: Record<string, unknown>) =>
+      r.content === "bad" ? { success: false, platformPostId: null, errorMessage: "temporary network glitch" } : { success: true, platformPostId: "plat-1", errorMessage: null },
+    );
+    await runSchedulerCycle(registryOf(a));
+    expect(tables.scheduled_posts.filter((p) => p.status === "posted")).toHaveLength(4);
+    expect(committed(acc)).toBe(4);
+    expect(wallet.holds.filter((h) => h.status === "released")).toHaveLength(1);
+    expect(heldNow(acc)).toBe(0);
+    expect(wallet.balance.get(acc)).toBe(1 * PRICE);
+  });
+
+  it("a crash-retry of a fanned-out row re-verifies and commits the SAME per-row hold (no double charge)", async () => {
+    const acc = newAccount();
+    const group = uuidOf(781);
+    seed(acc, [{ id: "crashed-g", charge_group_id: group, status: "posting", updated_at: new Date(Date.now() - 30 * 60_000).toISOString() }], 5);
+    tables.post_results = [{ id: "pr2", scheduled_post_id: "crashed-g", account_id: acc, platform_post_id: "plat-9", verified_live: false }];
+    await walletRpc("wallet_hold", { p_account_id: acc, p_action: "post_publish", p_key: "post:crashed-g:a1" });
+    expect(await recoverStuckPosts(nextSweepNow())).toBe(1);
+    const a = adapterOf();
+    await runSchedulerCycle(registryOf(a));
+    expect(a.post).not.toHaveBeenCalled();
+    expect(tables.scheduled_posts[0].status).toBe("posted");
+    expect(wallet.holds).toHaveLength(1);
+    expect(committed(acc)).toBe(1);
     expect(wallet.balance.get(acc)).toBe(4 * PRICE);
-    expect(wallet.holds.every((h) => h.key === `post:${group}:a1`)).toBe(true);
+    expect(wallet.charges).toEqual([]);
+  });
+
+  it("a stuck fanned-out row with no platform id releases its own per-row hold", async () => {
+    const acc = newAccount();
+    seed(acc, [{ id: "stuck-g", charge_group_id: uuidOf(782), status: "posting", updated_at: new Date(Date.now() - 30 * 60_000).toISOString() }], 5);
+    await walletRpc("wallet_hold", { p_account_id: acc, p_action: "post_publish", p_key: "post:stuck-g:a1" });
+    expect(await recoverStuckPosts(nextSweepNow())).toBe(1);
+    expect(wallet.holds.map((h) => h.status)).toEqual(["released"]);
   });
 
   it("a crash between the send and the verify does not charge twice: the retry re-verifies and commits the SAME hold", async () => {
@@ -269,6 +355,18 @@ describe("wallet on, a legacy account", () => {
     expect(wallet.calls).not.toContain("wallet_hold");
     expect(wallet.calls).not.toContain("wallet_charge");
   });
+
+  it("a fan-out to 5 channels is never charged", async () => {
+    const acc = newAccount();
+    const group = uuidOf(783);
+    seed(acc, [1, 2, 3, 4, 5].map(() => ({ charge_group_id: group })), 0);
+    tables.wallet_legacy_accounts = [{ account_id: acc }];
+    const a = ownAdapter("fan18");
+    await runSchedulerCycle(registryOf(a));
+    expect(a.post).toHaveBeenCalledTimes(5);
+    expect(wallet.calls).not.toContain("wallet_hold");
+    expect(wallet.calls).not.toContain("wallet_charge");
+  });
 });
 
 describe("shadow mode (the switch on, mode not on)", () => {
@@ -284,6 +382,17 @@ describe("shadow mode (the switch on, mode not on)", () => {
     expect(tables.scheduled_posts[0].wallet_hold_reason).toBeUndefined();
     expect(wallet.calls.filter((c) => c !== "wallet_paused_account_ids" && c !== "read_social_token")).toEqual([]);
     expect(logs.join("\n")).toMatch(/\[wallet-shadow\].*would charge 1 credit/);
+  });
+
+  it("a 5 channel fan-out on an empty wallet still publishes all 5 and touches no wallet function", async () => {
+    vi.stubEnv("WALLET_MODE", "shadow");
+    const acc = newAccount();
+    const group = uuidOf(784);
+    seed(acc, [1, 2, 3, 4, 5].map(() => ({ charge_group_id: group })), 0);
+    const a = ownAdapter("fan20");
+    await runSchedulerCycle(registryOf(a));
+    expect(a.post).toHaveBeenCalledTimes(5);
+    expect(wallet.calls.filter((c) => c !== "wallet_paused_account_ids" && c !== "read_social_token")).toEqual([]);
   });
 });
 

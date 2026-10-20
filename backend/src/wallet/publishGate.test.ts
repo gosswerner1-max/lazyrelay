@@ -3,9 +3,9 @@ import { createPublishGate, INSUFFICIENT_CREDITS_REASON, holdKey } from "./publi
 import type { WalletMode } from "./mode.js";
 
 const ACCOUNT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-const GROUP = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const HOLD = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
-const POST = { accountId: ACCOUNT, chargeGroupId: GROUP, postId: "p1", attempt: 1, platform: "mastodon" };
+const POST_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+const POST = { accountId: ACCOUNT, postId: POST_ID, attempt: 1, platform: "mastodon" };
 
 function build(mode: WalletMode, over: Partial<Record<"hold" | "commit" | "release" | "charge", unknown>> = {}, legacy = false) {
   const ledger = {
@@ -22,8 +22,8 @@ function build(mode: WalletMode, over: Partial<Record<"hold" | "commit" | "relea
 }
 
 describe("hold key", () => {
-  it("is post:{group}:a{attempt}", () => {
-    expect(holdKey(GROUP, 1)).toBe(`post:${GROUP}:a1`);
+  it("is post:{postId}:a{attempt} (one hold per channel row)", () => {
+    expect(holdKey(POST_ID, 1)).toBe(`post:${POST_ID}:a1`);
     expect(holdKey("p9", 3)).toBe("post:p9:a3");
   });
 });
@@ -51,10 +51,10 @@ describe("shadow", () => {
 });
 
 describe("on", () => {
-  it("reserves one post credit with the group key, then commits the hold", async () => {
+  it("reserves one post credit with the row key, then commits the hold", async () => {
     const { gate, ledger } = build("on");
     const r = await gate.reserve(POST);
-    expect(ledger.hold).toHaveBeenCalledWith({ accountId: ACCOUNT, action: "post_publish", idempotencyKey: `post:${GROUP}:a1` });
+    expect(ledger.hold).toHaveBeenCalledWith({ accountId: ACCOUNT, action: "post_publish", idempotencyKey: `post:${POST_ID}:a1` });
     expect(r.proceed).toBe(true);
     if (!r.proceed) return;
     await gate.commit(r.hold);
@@ -85,7 +85,7 @@ describe("on", () => {
     expect(r.proceed).toBe(true);
     if (!r.proceed) return;
     await gate.commit(r.hold);
-    expect(ledger.charge).toHaveBeenCalledWith({ accountId: ACCOUNT, action: "post_publish", idempotencyKey: `post:${GROUP}:late` });
+    expect(ledger.charge).toHaveBeenCalledWith({ accountId: ACCOUNT, action: "post_publish", idempotencyKey: `post:${POST_ID}:late` });
   });
 
   it("a wallet outage never stops a post: it proceeds and is logged without database text", async () => {
@@ -102,7 +102,7 @@ describe("on", () => {
     expect(ledger.charge).toHaveBeenCalledTimes(1);
   });
 
-  it("a hold already committed by another post of the same group is not charged again", async () => {
+  it("a hold already committed (a replay of the same row) is not charged again", async () => {
     const { gate, ledger } = build("on", { commit: vi.fn(async () => ({ ok: false, reason: "hold_not_held", status: "committed" })) });
     const r = await gate.reserve(POST);
     if (!r.proceed) throw new Error("should proceed");
@@ -130,7 +130,7 @@ describe("on", () => {
   it("releaseForPost (stuck sweep) finds the hold by its key and releases it; no hold means nothing to do", async () => {
     const a = build("on");
     await a.gate.releaseForPost(POST);
-    expect(a.findHold).toHaveBeenCalledWith(ACCOUNT, `post:${GROUP}:a1`);
+    expect(a.findHold).toHaveBeenCalledWith(ACCOUNT, `post:${POST_ID}:a1`);
     expect(a.ledger.release).toHaveBeenCalledWith(HOLD);
     const b = build("on");
     b.findHold.mockResolvedValueOnce(null as never);

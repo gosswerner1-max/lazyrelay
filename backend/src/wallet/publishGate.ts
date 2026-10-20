@@ -7,18 +7,18 @@ type Ledger = ReturnType<typeof createWalletLedger>;
 export const INSUFFICIENT_CREDITS_REASON = "Waiting for credits. Add credits and this post will go out on its own.";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const GROUP = /^[A-Za-z0-9_.\-]{1,90}$/;
+const POST_ID = /^[A-Za-z0-9_.\-]{1,90}$/;
 
-/** One hold per post fan-out group and attempt. A retry is a new attempt (the scheduler counts it), a replay of the same attempt reuses
- *  the same hold, so a crash and a re-verify can never hold or charge twice. */
-export function holdKey(chargeGroup: string, attempt: number): string {
-  return `post:${chargeGroup}:a${attempt}`;
+/** One hold per scheduled_posts row (one channel destination) and attempt: every channel costs its own credit, so a post sent to 5 channels
+ *  costs 5. A retry is a new attempt (the scheduler counts it), a replay of the same row and attempt reuses the same hold, so a crash and a
+ *  re-verify can never hold or charge twice. */
+export function holdKey(postId: string, attempt: number): string {
+  return `post:${postId}:a${attempt}`;
 }
 
 export interface GatePost {
   accountId: string;
-  /** scheduled_posts.charge_group_id, or the post's own id when it has none. */
-  chargeGroupId: string;
+  /** scheduled_posts.id: one row is one channel destination and costs one credit. */
   postId: string;
   /** retry_count + 1 */
   attempt: number;
@@ -30,8 +30,8 @@ export interface GatePost {
 /** What the scheduler carries from reserve to commit or release. null = nothing to settle (off, legacy, wallet unreadable). */
 export type GateHold =
   | { kind: "shadow" }
-  | { kind: "hold"; holdId: string; accountId: string; chargeGroupId: string }
-  | { kind: "late"; accountId: string; chargeGroupId: string };
+  | { kind: "hold"; holdId: string; accountId: string; postId: string }
+  | { kind: "late"; accountId: string; postId: string };
 
 export type Reservation = { proceed: true; hold: GateHold | null } | { proceed: false; reason: string };
 
@@ -45,7 +45,7 @@ export interface PublishGateDeps {
 }
 
 /**
- * The publisher's side of the wallet: reserve one credit BEFORE a post is sent, commit it only AFTER the platform read-back says the post
+ * The publisher's side of the wallet: reserve one credit PER CHANNEL ROW BEFORE a post is sent, commit it only AFTER the platform read-back says the post
  * is live, release it on every other outcome. Off and shadow never touch the wallet (shadow only logs what it would charge). Nothing here
  * throws: a wallet problem is logged and never turns a good publish into a failure. If the wallet cannot be asked, the post goes out
  * (the same rule as the queue pause), and the outage is logged.
@@ -58,19 +58,19 @@ export function createPublishGate(deps: PublishGateDeps) {
     async reserve(post: GatePost): Promise<Reservation> {
       if (mode === "off") return { proceed: true, hold: null };
       if (mode === "shadow") return { proceed: true, hold: { kind: "shadow" } };
-      if (!UUID.test(post.accountId) || !GROUP.test(post.chargeGroupId)) {
+      if (!UUID.test(post.accountId) || !POST_ID.test(post.postId)) {
         log("[wallet] a post could not be held: the account or group id was not valid");
         return { proceed: true, hold: null };
       }
       try {
         if (await isLegacy(post.accountId)) return { proceed: true, hold: null };
-        const r = await ledger.hold({ accountId: post.accountId, action: "post_publish", idempotencyKey: holdKey(post.chargeGroupId, post.attempt) });
+        const r = await ledger.hold({ accountId: post.accountId, action: "post_publish", idempotencyKey: holdKey(post.postId, post.attempt) });
         if (r.ok === false) {
-          if (post.alreadyPublished) return { proceed: true, hold: { kind: "late", accountId: post.accountId, chargeGroupId: post.chargeGroupId } };
+          if (post.alreadyPublished) return { proceed: true, hold: { kind: "late", accountId: post.accountId, postId: post.postId } };
           return { proceed: false, reason: INSUFFICIENT_CREDITS_REASON };
         }
         if ("exempt" in r) return { proceed: true, hold: null };
-        return { proceed: true, hold: { kind: "hold", holdId: r.holdId, accountId: post.accountId, chargeGroupId: post.chargeGroupId } };
+        return { proceed: true, hold: { kind: "hold", holdId: r.holdId, accountId: post.accountId, postId: post.postId } };
       } catch (error) {
         problem("a post could not be held, sending it anyway", error);
         return { proceed: true, hold: null };
@@ -87,12 +87,12 @@ export function createPublishGate(deps: PublishGateDeps) {
       try {
         if (hold.kind === "hold") {
           const r = await ledger.commit(hold.holdId);
-          // Another post of the same group already paid for it.
+          // A replay of the same row: it is already paid for.
           if (r.ok || r.status === "committed") return;
         }
         // The hold was released or expired in the meantime (or this post was already live and had none): one late charge, same key every
         // time, so it can never be charged twice.
-        const late = await ledger.charge({ accountId: hold.accountId, action: "post_publish", idempotencyKey: `post:${hold.chargeGroupId}:late` });
+        const late = await ledger.charge({ accountId: hold.accountId, action: "post_publish", idempotencyKey: `post:${hold.postId}:late` });
         if (late.ok === false) log("[wallet] a post that went live could not be charged: the balance is too low");
       } catch (error) {
         problem("a verified post could not be charged", error);
@@ -110,10 +110,10 @@ export function createPublishGate(deps: PublishGateDeps) {
     },
 
     /** The stuck-post sweep: finds the hold of a post that was given up on and releases it. Nothing to do when there is none. */
-    async releaseForPost(post: Pick<GatePost, "accountId" | "chargeGroupId" | "attempt">): Promise<void> {
-      if (mode !== "on" || !UUID.test(post.accountId) || !GROUP.test(post.chargeGroupId)) return;
+    async releaseForPost(post: Pick<GatePost, "accountId" | "postId" | "attempt">): Promise<void> {
+      if (mode !== "on" || !UUID.test(post.accountId) || !POST_ID.test(post.postId)) return;
       try {
-        const found = await findHold(post.accountId, holdKey(post.chargeGroupId, post.attempt));
+        const found = await findHold(post.accountId, holdKey(post.postId, post.attempt));
         if (found) await ledger.release(found.id);
       } catch (error) {
         problem("a stuck post's hold could not be released (it will expire on its own)", error);
