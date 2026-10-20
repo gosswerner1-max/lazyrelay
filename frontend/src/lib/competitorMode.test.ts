@@ -12,7 +12,7 @@ import { ContentSourcesError } from "./contentSources";
 
 const TOKEN = "tok_SECRET_session_value_123";
 const BASE = "https://service.example";
-const DASH = /[–—]/;
+const DASH = /[\u2013\u2014]/;
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -208,7 +208,7 @@ describe("the plain words for every error", () => {
   });
 
   it("uses the server's own sentence for network_not_supported, kept plain", async () => {
-    const err = await ask(422, shape("network_not_supported", "That network is closed — try their website."));
+    const err = await ask(422, shape("network_not_supported", "That network is closed \u2014 try their website."));
     expect(err.code).toBe("network_not_supported");
     expect(err.message).toBe("That network is closed - try their website.");
   });

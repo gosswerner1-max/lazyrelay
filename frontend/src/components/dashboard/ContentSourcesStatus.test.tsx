@@ -14,7 +14,7 @@ afterEach(() => {
 
 const NOW = Date.parse("2026-10-20T12:00:00Z");
 const minutesAgo = (m: number) => new Date(NOW - m * 60_000).toISOString();
-const DASH = /[–—]/;
+const DASH = /[\u2013\u2014]/;
 
 const post = (over: Partial<ScheduledPost>): ScheduledPost =>
   ({ id: Math.random().toString(36), content: "x", status: "pending", paused_at: null, tags: [], social_account_id: "a", scheduled_for: "2026-10-21T08:00:00Z", ...over }) as ScheduledPost;

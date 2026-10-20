@@ -10,7 +10,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const DASH = /[–—]/;
+const DASH = /[\u2013\u2014]/;
 
 const analysis: CompetitorAnalysis = {
   kind: "page",
@@ -263,6 +263,8 @@ describe("running, the draft, and saving", () => {
     expect(onSaveDraft).toHaveBeenCalledWith({ content: "My own wording", tags: ["cs:competitor:rival.example"] });
     expect(await screen.findByText(/saved as a draft/i)).toHaveTextContent(/not (scheduled|posted)/i);
     expect(screen.getByRole("button", { name: "Saved" })).toBeDisabled();
+    expect(screen.getByLabelText("Draft post")).toHaveAttribute("readonly"); // no second copy by accident
+    expect(onSaveDraft).toHaveBeenCalledTimes(1);
   });
 
   it("says so in plain words when saving fails, keeps the text, and lets the customer try again", async () => {

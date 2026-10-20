@@ -138,7 +138,7 @@ function codeFromStatus(status: number): CompetitorErrorCode {
 
 function plainServerSentence(v: unknown): string | null {
   if (typeof v !== "string") return null;
-  const text = v.replace(/[–—]/g, "-").replace(/\s+/g, " ").trim();
+  const text = v.replace(/[\u2013\u2014]/g, "-").replace(/\s+/g, " ").trim();
   return text !== "" && text.length <= SERVER_SENTENCE_MAX ? text : null;
 }
 

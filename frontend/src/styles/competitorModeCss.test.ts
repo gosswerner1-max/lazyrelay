@@ -42,7 +42,7 @@ describe("competitor-mode.css", () => {
   });
 
   it("has no em or en dash anywhere", () => {
-    expect(css).not.toMatch(/[–—]/);
+    expect(css).not.toMatch(/[\u2013\u2014]/);
   });
 
   it("animates only transform and opacity, never 'all' and never layout", () => {
@@ -99,6 +99,6 @@ describe("content-sources-status.css", () => {
     for (const name of used) expect(defined.has(name), name).toBe(true);
     expect(body).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(|transition|animation|@keyframes/);
     expect(status.toLowerCase()).not.toContain("blue");
-    expect(status).not.toMatch(/[–—]/);
+    expect(status).not.toMatch(/[\u2013\u2014]/);
   });
 });

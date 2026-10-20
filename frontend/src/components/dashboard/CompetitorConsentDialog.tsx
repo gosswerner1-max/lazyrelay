@@ -23,16 +23,32 @@ interface Props {
 
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 
-export function CompetitorConsentDialog({ open, link, origin, restoreFocusTo, onConfirm, onCancel }: Props) {
-  const titleId = useId();
-  const textId = useId();
+/** Keeps Tab inside the dialog, both ways round. */
+function trapTab(e: KeyboardEvent<HTMLDivElement>, dialog: HTMLElement | null) {
+  if (e.key !== "Tab") return;
+  const items = dialog?.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled])");
+  if (!items || items.length === 0) return;
+  const first = items[0]!;
+  const last = items[items.length - 1]!;
+  const active = document.activeElement;
+  if (e.shiftKey && (active === first || active === dialog)) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && (active === last || active === dialog)) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
+/** Mounting, the enter and leave states, focus in and back out, the grow-from-the-button origin, and Escape. */
+function useDialogLifecycle({ open, origin, restoreFocusTo, onCancel }: Pick<Props, "open" | "origin" | "restoreFocusTo" | "onCancel">) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(false);
   const [mounted, setMounted] = useState(false);
   const [shown, setShown] = useState(false);
   const [agreed, setAgreed] = useState(false);
 
-  // Enter and leave. Reopening while it is still leaving cancels the removal, so the motion turns around from where it is.
+  // Reopening while it is still leaving cancels the removal, so the motion turns around from where it is.
   useEffect(() => {
     if (open) {
       setMounted(true);
@@ -66,30 +82,21 @@ export function CompetitorConsentDialog({ open, link, origin, restoreFocusTo, on
   useEffect(() => {
     if (!open) return;
     const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onCancel();
-      }
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      onCancel();
     };
     document.addEventListener("keydown", onKey, true);
     return () => document.removeEventListener("keydown", onKey, true);
   }, [open, onCancel]);
 
-  function trapTab(e: KeyboardEvent<HTMLDivElement>) {
-    if (e.key !== "Tab") return;
-    const items = dialogRef.current?.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled])");
-    if (!items || items.length === 0) return;
-    const first = items[0]!;
-    const last = items[items.length - 1]!;
-    const active = document.activeElement;
-    if (e.shiftKey && (active === first || active === dialogRef.current)) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && (active === last || active === dialogRef.current)) {
-      e.preventDefault();
-      first.focus();
-    }
-  }
+  return { dialogRef, mounted, shown, agreed, setAgreed };
+}
+
+export function CompetitorConsentDialog({ open, link, origin, restoreFocusTo, onConfirm, onCancel }: Props) {
+  const titleId = useId();
+  const textId = useId();
+  const { dialogRef, mounted, shown, agreed, setAgreed } = useDialogLifecycle({ open, origin, restoreFocusTo, onCancel });
 
   function onBackdrop(e: MouseEvent<HTMLDivElement>) {
     if (e.target === e.currentTarget) onCancel();
@@ -97,7 +104,7 @@ export function CompetitorConsentDialog({ open, link, origin, restoreFocusTo, on
 
   if (!mounted) return null;
   return (
-    <div className="cs-modal" data-state={shown && open ? "open" : "closed"} onClick={onBackdrop} onKeyDown={trapTab}>
+    <div className="cs-modal" data-state={shown && open ? "open" : "closed"} onClick={onBackdrop} onKeyDown={(e) => trapTab(e, dialogRef.current)}>
       <div ref={dialogRef} className="cs-modal__card" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={textId} tabIndex={-1}>
         <h3 id={titleId} className="cs-modal__title">
           Before you analyze
