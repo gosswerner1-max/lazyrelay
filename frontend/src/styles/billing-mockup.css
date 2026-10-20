@@ -323,6 +323,22 @@
   letter-spacing: 0.02em;
 }
 
+/* The front door preview section on the dev page. */
+.billing-mock .bm-front-door__title {
+  margin: 0;
+  color: var(--byok-ink);
+  font-size: 1.15rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.billing-mock .bm-front-door__note {
+  margin: 0;
+  color: var(--byok-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
 /* Buttons: the press is felt on pointer-down. */
 .billing-mock .bm-btn {
   min-height: 2.5rem;

@@ -53,10 +53,10 @@ async function confirm() {
 }
 
 describe("the box and the button", () => {
-  it("has one text box, one Analyze button, and says it is for web pages and posts, not video or closed networks", () => {
+  it("has one text box, the Analyze button and the Help me set up button, and says it is for web pages and posts, not video or closed networks", () => {
     const { container } = setup();
     expect(box()).toBeInTheDocument();
-    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["Analyze", "Help me set up"]);
     expect(container.textContent).toMatch(/web ?(page|site)/i);
     expect(container.textContent).toMatch(/video links do not/i);
     expect(screen.getByRole("heading", { name: "Competitor content blueprint" })).toBeInTheDocument();
@@ -361,5 +361,44 @@ describe("running and the blueprint", () => {
     await confirm();
     await screen.findByText("Rival pricing page");
     expect(container.textContent).not.toMatch(DASH);
+  });
+});
+
+describe("the Help me set up tour on the front door", () => {
+  const helpBtn = () => screen.getByRole("button", { name: "Help me set up" });
+
+  it("puts the button in the same row as Analyze, right after it, under the link box", () => {
+    setup();
+    expect(analyzeBtn().nextElementSibling).toBe(helpBtn());
+    expect(analyzeBtn().parentElement).toBe(helpBtn().parentElement);
+    const form = box().closest("form")!;
+    expect(box().compareDocumentPosition(helpBtn()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(form).toContainElement(helpBtn());
+  });
+
+  it("walks steps 1 and 2 with the exact copy, without a balance widget there is no step 3, and never opens the consent dialog", async () => {
+    const { analyze } = setup();
+    await userEvent.click(helpBtn());
+    expect(screen.getByRole("dialog", { name: "Step 1: Target a Competitor" })).toHaveAccessibleDescription(
+      "Paste a link to any public website page here. We will show you how it is built: its opening hook, the order of its sections and where its calls to action sit.",
+    );
+    expect(screen.getByText("Step 1 of 2")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("dialog", { name: "Step 2: Safety Check" })).toHaveAccessibleDescription(
+      "When you click Analyze, we ask you to confirm this run is for public market research. No website verification and no password is needed.",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(analyze).not.toHaveBeenCalled();
+    expect(helpBtn()).toHaveFocus();
+  });
+
+  it("leaves the consent step alone: Analyze still asks, and the tour button does not tick or confirm anything", async () => {
+    setup();
+    await userEvent.click(helpBtn());
+    await userEvent.keyboard("{Escape}");
+    const dialog = await openDialog();
+    expect(within(dialog).getByRole("checkbox")).not.toBeChecked();
+    expect(within(dialog).getByRole("button", { name: /analyze this link/i })).toBeDisabled();
   });
 });

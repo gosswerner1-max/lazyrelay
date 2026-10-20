@@ -1,0 +1,247 @@
+/* Guided tour: the popover, its arrow, the ring around the target and the trigger icon. Uses the existing dashboard tokens
+   (the fallback values after each var() are those same token values, for a page that does not load byok-panels.css).
+   Neutral surface and ink, the orange accent for the ring and focus, no cool hues.
+   Written to the Apple layout rules in .claude/rules/apple-design:
+     - feedback on pointer-down (:active, scale 0.97, 100 ms);
+     - the popover fades in and settles 4 px; only transform and opacity ever animate; the ring and the popover are moved by
+       plain position values, never by a transition, so a fast Next never waits on an animation;
+     - tighter tracking on the title, plain on body text, looser leading on body than on the title;
+     - the fallbacks: reduced motion, more contrast.
+   Every selector starts with .guided-tour. */
+
+.guided-tour,
+.guided-tour__ring {
+  --gt-surface: var(--byok-slate, #141b2d);
+  --gt-ink: var(--byok-ink, #eef0f5);
+  --gt-muted: var(--byok-muted, #aab3c2);
+  --gt-accent: var(--byok-coral, #ff5630);
+  --gt-primary: var(--byok-crimson, #c82400);
+}
+
+.guided-tour__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.guided-tour__icon {
+  flex: none;
+  width: 1em;
+  height: 1em;
+}
+
+/* The ring marks the target. It never takes a click. */
+.guided-tour__ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 69;
+  box-sizing: border-box;
+  border: 2px solid var(--gt-accent);
+  border-radius: 10px;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+.guided-tour__ring[data-ready="false"] {
+  visibility: hidden;
+}
+
+.guided-tour {
+  position: fixed;
+  z-index: 70;
+  box-sizing: border-box;
+  width: min(20rem, calc(100vw - 1rem));
+  background: var(--gt-surface);
+  color: var(--gt-ink);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 140ms ease-out,
+    transform 140ms ease-out;
+}
+
+.guided-tour[data-side="above"] {
+  transform: translateY(-4px);
+}
+
+.guided-tour[data-state="open"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Only the text scrolls (when a short window leaves little room). The arrow sits outside it, so it is never cut off. */
+.guided-tour__scroll {
+  overflow-y: auto;
+  border-radius: 11px;
+}
+
+.guided-tour__content {
+  display: grid;
+  gap: 0.375rem;
+  align-content: start;
+  padding: 0.875rem;
+}
+
+.guided-tour:focus {
+  outline: none;
+}
+
+.guided-tour:focus-visible {
+  outline: 2px solid var(--gt-accent);
+  outline-offset: 2px;
+}
+
+/* A rotated square pointing at the target, on the edge that faces it. */
+.guided-tour__arrow {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  background: var(--gt-surface);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  transform: rotate(45deg);
+}
+
+.guided-tour[data-side="below"] .guided-tour__arrow {
+  top: -6px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.guided-tour[data-side="above"] .guided-tour__arrow {
+  bottom: -6px;
+  border-left: 0;
+  border-top: 0;
+}
+
+.guided-tour[data-side="inside"] .guided-tour__arrow {
+  display: none;
+}
+
+.guided-tour__count {
+  margin: 0;
+  color: var(--gt-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+
+.guided-tour__title {
+  margin: 0;
+  color: var(--gt-ink);
+  font-size: 1rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.guided-tour__text {
+  margin: 0;
+  color: var(--gt-ink);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.guided-tour__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.guided-tour__btn {
+  min-height: 2.25rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 9px;
+  font: inherit;
+  font-weight: 600;
+  line-height: 1.25;
+  cursor: pointer;
+  transition: transform 100ms ease-out;
+}
+
+.guided-tour__btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.guided-tour__btn:focus-visible {
+  outline: 2px solid var(--gt-accent);
+  outline-offset: 2px;
+}
+
+.guided-tour__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.guided-tour__btn--primary {
+  background: var(--gt-primary);
+  color: #ffffff;
+  border: 1px solid transparent;
+}
+
+.guided-tour__btn--secondary {
+  background: transparent;
+  color: var(--gt-ink);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* Short laptop windows (1366x600, 1280x560): tighter box so the step fits beside its target. */
+@media (max-height: 700px) {
+  .guided-tour__content {
+    gap: 0.25rem;
+    padding: 0.625rem 0.75rem;
+  }
+  .guided-tour__text {
+    font-size: 0.8125rem;
+  }
+  .guided-tour__btn {
+    min-height: 2rem;
+    padding: 0.3rem 0.75rem;
+  }
+}
+
+/* Reduced motion: no movement at all. The popover still fades, and the press loses its scale. */
+@media (prefers-reduced-motion: reduce) {
+  .guided-tour,
+  .guided-tour[data-side="above"],
+  .guided-tour[data-state="open"] {
+    transform: none;
+    transition: opacity 140ms ease-out;
+  }
+  .guided-tour__btn {
+    transition: none;
+  }
+  .guided-tour__btn:active:not(:disabled) {
+    transform: none;
+    opacity: 0.75;
+  }
+}
+
+/* More contrast: firm borders and a thicker ring. */
+@media (prefers-contrast: more) {
+  .guided-tour {
+    border-color: var(--gt-ink);
+    border-width: 2px;
+  }
+  .guided-tour__arrow {
+    border-color: var(--gt-ink);
+  }
+  .guided-tour__ring {
+    border-width: 3px;
+    border-color: var(--gt-ink);
+  }
+  .guided-tour__btn--secondary {
+    border-color: var(--gt-ink);
+    border-width: 2px;
+  }
+  .guided-tour__count {
+    color: var(--gt-ink);
+  }
+}

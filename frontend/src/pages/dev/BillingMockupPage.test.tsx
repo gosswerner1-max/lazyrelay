@@ -70,3 +70,40 @@ describe("the dev route in App", () => {
     expect(await screen.findByText("landing page")).toBeInTheDocument();
   });
 });
+
+describe("the front door preview on the page", () => {
+  it("shows the real front door under a Front door preview heading", () => {
+    render(<BillingMockupPage />);
+    expect(screen.getByRole("heading", { name: "Front door preview" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Competitor content blueprint" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Help me set up" })).toBeInTheDocument();
+  });
+
+  it("walks all three steps because the balance widget is on this page, with the scenario's balance", async () => {
+    render(<BillingMockupPage />);
+    await userEvent.click(screen.getByRole("button", { name: "Help me set up" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("Step 3 of 3")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Step 3: Your Credits" })).toHaveAccessibleDescription(
+      "You have 2,030 credits. A post costs 1 credit, however many channels it goes to, and a competitor page teardown costs 10 credits.",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
+    await userEvent.selectOptions(screen.getByRole("combobox"), "empty");
+    await userEvent.click(screen.getByRole("button", { name: "Help me set up" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("dialog", { name: "Step 3: Your Credits" })).toHaveAccessibleDescription(expect.stringMatching(/^You have 0 credits\./));
+  });
+
+  it("runs the consent dialog and returns the sample result after the wait", async () => {
+    render(<BillingMockupPage />);
+    await userEvent.type(screen.getByLabelText("Paste a competitor link or website"), "https://rival.example/pricing");
+    await userEvent.click(screen.getByRole("button", { name: "Analyze" }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("checkbox"));
+    await userEvent.click(within(dialog).getByRole("button", { name: /analyze this link/i }));
+    expect(await screen.findByRole("status", {}, { timeout: 1000 })).toHaveTextContent(/building your blueprint/i);
+    expect(await screen.findByRole("button", { name: "Copy blueprint" }, { timeout: 3500 })).toBeInTheDocument();
+  }, 8000);
+});

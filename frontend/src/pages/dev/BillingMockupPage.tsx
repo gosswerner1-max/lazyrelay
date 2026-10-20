@@ -5,7 +5,9 @@ import { useId, useState } from "react";
 import { BalanceIndicator } from "../../components/billing/BalanceIndicator";
 import { BillingCard } from "../../components/billing/BillingCard";
 import { ExpirationBanner } from "../../components/billing/ExpirationBanner";
+import { FrontDoorPreview } from "../../dev/FrontDoorPreview";
 import { MOCK_NOW, MOCK_SCENARIOS } from "../../dev/billingMockScenarios";
+import { totalCredits } from "../../lib/billingSummary";
 import "../../styles/byok-panels.css";
 import "../../styles/billing-mockup.css";
 
@@ -38,6 +40,7 @@ export function BillingMockupPage() {
           <ExpirationBanner lots={scenario.lots} now={NOW} />
           <BillingCard lots={scenario.lots} now={NOW} />
         </div>
+        <FrontDoorPreview creditBalance={totalCredits(scenario.lots, NOW)} />
       </main>
     </div>
   );

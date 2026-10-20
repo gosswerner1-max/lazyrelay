@@ -8,10 +8,14 @@ import { normalizeCompetitorInput, type CompetitorClient } from "../../lib/compe
 import { CompetitorConsentDialog, type DialogOrigin } from "./CompetitorConsentDialog";
 import { BlueprintResult } from "./BlueprintResult";
 import { useCompetitorAnalysis } from "./useCompetitorAnalysis";
+import { GuidedTour } from "./GuidedTour";
+import { frontDoorTourSteps, TOUR_TARGET } from "../../lib/frontDoorTour";
 import "../../styles/competitor-mode.css";
 
 interface Props {
   client: CompetitorClient;
+  /** The credits the customer has, when the page shows a balance. It only feeds step 3 of the "Help me set up" tour. */
+  creditBalance?: number;
 }
 
 interface LinkFieldProps {
@@ -31,6 +35,7 @@ function LinkField({ id, value, error, onChange }: LinkFieldProps) {
         id={id}
         className="cs-input"
         type="text"
+        data-tour={TOUR_TARGET.link}
         inputMode="url"
         autoComplete="off"
         spellCheck={false}
@@ -95,7 +100,7 @@ function useLinkEntry(analyzeRef: RefObject<HTMLButtonElement | null>) {
   return { text, inputError, pending, dialogOpen, origin, submit, change, closeDialog: () => setDialogOpen(false) };
 }
 
-export function CompetitorPanel({ client }: Props) {
+export function CompetitorPanel({ client, creditBalance }: Props) {
   const uid = useId();
   const id = (part: string) => `${uid}-${part}`;
   const analyzeRef = useRef<HTMLButtonElement>(null);
@@ -118,9 +123,10 @@ export function CompetitorPanel({ client }: Props) {
       <form className="cs-competitor__form" onSubmit={(e) => (running ? e.preventDefault() : entry.submit(e))} noValidate>
         <LinkField id={id("link")} value={entry.text} error={entry.inputError} onChange={entry.change} />
         <div className="cs-actions">
-          <button ref={analyzeRef} type="submit" className="cs-btn cs-btn--primary" aria-disabled={running ? true : undefined}>
+          <button ref={analyzeRef} type="submit" className="cs-btn cs-btn--primary" data-tour={TOUR_TARGET.analyze} aria-disabled={running ? true : undefined}>
             Analyze
           </button>
+          <GuidedTour steps={frontDoorTourSteps(creditBalance)} buttonClassName="cs-btn cs-btn--secondary" />
         </div>
       </form>
 

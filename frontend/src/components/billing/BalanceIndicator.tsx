@@ -15,7 +15,7 @@ export function BalanceIndicator({ lots, now }: Props) {
   const status = balanceStatus(total);
   const mark = statusMark(status);
   return (
-    <span className="bm-balance" data-status={status}>
+    <span className="bm-balance" data-status={status} data-tour="balance">
       <span className="bm-dot" role="img" aria-label={statusLabel(status)} data-status={status} />
       <span className="bm-balance__text">{`Available Balance: ${formatCredits(total)} Credits`}</span>
       {mark && <span className="bm-balance__mark">{mark}</span>}
