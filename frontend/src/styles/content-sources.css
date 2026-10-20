@@ -1,4 +1,4 @@
-/* Content Sources tab (a form and a list of drafts). It sits on the Custom Developer Keys canvas (byok-panels.css) and
+/* Content Sources tab (the competitor box and the status panel). It sits on the Custom Developer Keys canvas (byok-panels.css) and
    uses only that file's colour tokens: no new tokens and no new hues. The only literal colours here are neutral
    white and black at partial opacity, plus white text on the crimson button.
 
@@ -7,7 +7,7 @@
      - feedback on pointer-down (:active, instant), never waiting for the click to finish;
      - only transform and opacity are ever animated, and nothing moves the layout;
      - the fallbacks: reduced motion, reduced transparency, more contrast;
-     - size-specific tracking: slightly tighter on titles, slightly open on the small table headings.
+     - size-specific tracking: slightly tighter on titles, slightly open on the small labels.
    Spacing is the same scale the Custom Developer Keys panels use (0.375, 0.5, 0.625, 0.75, 0.875 and 1rem). */
 
 .content-sources.byok-panels {
@@ -49,27 +49,10 @@
   color: var(--byok-ink);
 }
 
-.content-sources .cs-fields {
-  display: grid;
-  gap: 0.875rem 1rem;
-  grid-template-columns: 1fr;
-  align-items: start;
-}
-
-@media (min-width: 640px) {
-  .content-sources .cs-fields {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 .content-sources .cs-field {
   display: grid;
   gap: 0.375rem;
   min-width: 0;
-}
-
-.content-sources .cs-field--wide {
-  grid-column: 1 / -1;
 }
 
 .content-sources .cs-label {
@@ -111,67 +94,9 @@
   border-color: var(--byok-error);
 }
 
-.content-sources .cs-input:focus-visible,
-.content-sources .cs-table-wrap:focus-visible {
+.content-sources .cs-input:focus-visible {
   outline: 2px solid var(--byok-coral);
   outline-offset: 2px;
-}
-
-.content-sources input[type="file"].cs-input {
-  padding: 0.375rem 0.625rem;
-}
-
-/* Source type: three radio choices drawn as one row of buttons. The real radio stays in the page, so the arrow keys work. */
-.content-sources .cs-segments {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.content-sources .cs-segment {
-  position: relative;
-  display: inline-flex;
-  cursor: pointer;
-}
-
-.content-sources .cs-segment input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.content-sources .cs-segment__label {
-  display: inline-block;
-  padding: 0.5rem 0.9rem;
-  background: transparent;
-  color: var(--byok-ink);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 9px;
-  font-weight: 600;
-  transition: transform 100ms ease-out;
-}
-
-.content-sources .cs-segment:hover .cs-segment__label {
-  border-color: var(--byok-coral);
-}
-
-.content-sources .cs-segment input:checked + .cs-segment__label {
-  background: var(--byok-crimson);
-  border-color: transparent;
-  color: #ffffff;
-}
-
-.content-sources .cs-segment input:focus-visible + .cs-segment__label {
-  outline: 2px solid var(--byok-coral);
-  outline-offset: 2px;
-}
-
-.content-sources .cs-segment:active .cs-segment__label {
-  transform: scale(0.97);
 }
 
 /* Buttons. Press feedback is instant: the scale starts on pointer-down. */
@@ -211,22 +136,6 @@
   border: 1px solid transparent;
 }
 
-.content-sources .cs-btn--secondary,
-.content-sources .cs-btn--quiet {
-  background: transparent;
-  color: var(--byok-ink);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-}
-
-.content-sources .cs-btn--secondary:hover:not(:disabled),
-.content-sources .cs-btn--quiet:hover:not(:disabled) {
-  border-color: var(--byok-coral);
-}
-
-.content-sources .cs-btn--quiet {
-  color: var(--byok-error);
-}
-
 .content-sources .cs-result {
   margin: 0;
   min-width: 0;
@@ -243,54 +152,6 @@
 
 .content-sources .cs-result--info {
   color: var(--byok-muted);
-}
-
-/* The drafts matrix. A real table that scrolls sideways on a narrow screen instead of squeezing. */
-.content-sources .cs-table-wrap {
-  overflow-x: auto;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 10px;
-}
-
-.content-sources .cs-table {
-  width: 100%;
-  min-width: 46rem;
-  border-collapse: collapse;
-  text-align: left;
-}
-
-.content-sources .cs-table th,
-.content-sources .cs-table td {
-  padding: 0.625rem 0.75rem;
-  vertical-align: top;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.content-sources .cs-table thead th {
-  color: var(--byok-muted);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.content-sources .cs-table tbody tr:last-child th,
-.content-sources .cs-table tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-.content-sources .cs-table tbody th {
-  color: var(--byok-ink);
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-
-.content-sources .cs-origin {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.375rem;
-  color: var(--byok-ink);
-  overflow-wrap: anywhere;
 }
 
 .content-sources .cs-chip {
@@ -314,55 +175,14 @@
   font-weight: 600;
 }
 
-.content-sources .cs-row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.375rem;
-}
-
-.content-sources .cs-confirm {
-  flex: 1 1 100%;
-  display: grid;
-  gap: 0.5rem;
-  padding: 0.625rem 0.75rem;
-  border: 1px solid var(--byok-coral);
-  border-radius: 10px;
-}
-
-.content-sources .cs-confirm__text {
-  margin: 0;
-  color: var(--byok-ink);
-  font-weight: 600;
-}
-
-.content-sources .cs-empty {
-  margin: 0;
-  padding: 0.5rem 0;
-  color: var(--byok-muted);
-}
-
-/* Plain sentences, the CSV choice that is not ready, and elements that take focus from a script (a heading, a saved line). */
+/* Plain sentences. */
 .content-sources .cs-note {
   margin: 0;
   max-width: 62ch;
   color: var(--byok-ink);
 }
 
-.content-sources .cs-segment--disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.content-sources .cs-segment--disabled input {
-  cursor: not-allowed;
-}
-
-.content-sources [tabindex="-1"]:focus-visible {
-  outline: 2px solid var(--byok-coral);
-  outline-offset: 2px;
-}
-
-/* A button that reads as a link (See plans, Go to the API Keys tab). It is still a button, so it keeps the press feedback above. */
+/* A link drawn like plain text with an underline (the source link in a result). */
 .content-sources .cs-btn--link {
   padding: 0.125rem 0;
   background: transparent;
@@ -376,42 +196,6 @@
 
 .content-sources .cs-btn--link:hover:not(:disabled) {
   color: var(--byok-ink);
-}
-
-/* Connect your LazyRelay key: the saved state. */
-.content-sources .cs-key-saved {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.content-sources .cs-key-saved__line {
-  margin: 0;
-  color: var(--byok-ink);
-  font-weight: 600;
-}
-
-/* Prove you own this website: three methods, each with the exact text to publish. */
-.content-sources .cs-proof {
-  border-color: var(--byok-coral);
-}
-
-.content-sources .cs-method {
-  display: grid;
-  gap: 0.5rem;
-  justify-items: start;
-  min-width: 0;
-  padding: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 10px;
-}
-
-.content-sources .cs-method__title {
-  margin: 0;
-  color: var(--byok-ink);
-  font-size: 0.9rem;
-  line-height: 1.25;
 }
 
 .content-sources .cs-code {
@@ -431,33 +215,7 @@
   user-select: all;
 }
 
-.content-sources .cs-copy {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.content-sources .cs-copy__note {
-  color: var(--byok-ok);
-  font-size: 0.8rem;
-}
-
-.content-sources .cs-check {
-  display: grid;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.content-sources .cs-reasons {
-  display: grid;
-  gap: 0.25rem;
-  margin: 0;
-  padding-left: 1.1rem;
-  color: var(--byok-ink);
-}
-
-/* The sources list: the three status badges. Waiting keeps the warm badge colour above. */
+/* The status badges. Waiting keeps the warm badge colour above. */
 .content-sources .cs-badge--wait {
   border-color: var(--byok-coral);
   color: var(--byok-coral);
@@ -473,19 +231,12 @@
   color: var(--byok-error);
 }
 
-.content-sources .cs-table td .cs-hint {
-  margin-top: 0.375rem;
-  max-width: 26ch;
-}
-
 /* Reduced motion: no scale, no transition. A press still shows, as a change in opacity. */
 @media (prefers-reduced-motion: reduce) {
-  .content-sources .cs-btn,
-  .content-sources .cs-segment__label {
+  .content-sources .cs-btn {
     transition: none;
   }
-  .content-sources .cs-btn:active:not(:disabled),
-  .content-sources .cs-segment:active .cs-segment__label {
+  .content-sources .cs-btn:active:not(:disabled) {
     transform: none;
     opacity: 0.75;
   }
@@ -508,23 +259,17 @@
 @media (prefers-contrast: more) {
   .content-sources .cs-card,
   .content-sources .cs-input,
-  .content-sources .cs-segment__label,
   .content-sources .cs-btn--secondary,
-  .content-sources .cs-btn--quiet,
-  .content-sources .cs-table-wrap,
   .content-sources .cs-chip,
-  .content-sources .cs-method,
   .content-sources .cs-code {
     border-color: var(--byok-ink);
     border-width: 2px;
   }
   .content-sources .cs-hint,
   .content-sources .cs-result--info,
-  .content-sources .cs-empty,
   .content-sources .cs-chip,
-  .content-sources .cs-copy__note,
-  .content-sources .cs-btn--link,
-  .content-sources .cs-table thead th {
+  .content-sources .cs-btn--link {
     color: var(--byok-ink);
   }
 }
+
