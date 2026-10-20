@@ -28,7 +28,7 @@ describe("competitor-mode.css", () => {
   });
 
   it("has no blue and uses only black and white at partial opacity as literal colours", () => {
-    expect(css.toLowerCase()).not.toContain("blue");
+    expect(css.toLowerCase()).not.toMatch(/\bblue\b/); // the word "blueprint" is the feature's name, a blue colour is not allowed
     expect(text).not.toMatch(/#[0-9a-fA-F]{3,8}\b|hsla?\(/);
     for (const c of text.match(/rgba?\([^)]*\)/g) ?? []) expect(c, c).toMatch(/^rgba\((0, 0, 0|255, 255, 255),/);
   });
@@ -73,11 +73,62 @@ describe("competitor-mode.css", () => {
   });
 
   it("styles every cs- class the competitor components add", () => {
-    const files = ["CompetitorPanel.tsx", "CompetitorResult.tsx", "CompetitorConsentDialog.tsx"].map((f) => read(`../components/dashboard/${f}`)).join("\n");
+    const files = ["CompetitorPanel.tsx", "BlueprintResult.tsx", "CompetitorConsentDialog.tsx"].map((f) => read(`../components/dashboard/${f}`)).join("\n");
     const base = strip(read("./content-sources.css")) + text;
     const used = new Set([...files.matchAll(/"((?:[^"]*\s)?cs-[\w\s-]*)"/g)].flatMap((m) => [...m[1]!.matchAll(/cs-[a-z0-9_-]*[a-z0-9]/g)].map((c) => c[0])));
     expect(used.size).toBeGreaterThan(15);
     for (const cls of used) expect(base, `.${cls} has no rule`).toContain(`.${cls}`);
+  });
+});
+
+describe("the blueprint window in competitor-mode.css", () => {
+  const escape = (selector: string) => selector.replace(/[.]/g, "\\.");
+  const rule = (selector: string) => {
+    const m = text.match(new RegExp(`\\.content-sources ${escape(selector)}\\s*\\{([^}]*)\\}`));
+    expect(m, `${selector} has a rule`).not.toBeNull();
+    return m![1]!;
+  };
+
+  it("lays the two columns side by side and stacks them on a narrow screen", () => {
+    expect(rule(".cs-bp__grid")).toMatch(/grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+    const narrow = text.match(/@media \(max-width: \d+px\)\s*\{([\s\S]*?)\n\}/);
+    expect(narrow).not.toBeNull();
+    expect(narrow![1]).toMatch(/\.cs-bp__grid[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  });
+
+  it("lets long words wrap and lets every column shrink, so nothing pushes the screen wider", () => {
+    expect(rule(".cs-bp__col")).toMatch(/min-width:\s*0/);
+    expect(rule(".cs-bp__item")).toMatch(/min-width:\s*0/);
+    expect(rule(".cs-bp__item")).toMatch(/overflow-wrap:\s*anywhere/);
+    expect(rule(".cs-bp__link")).toMatch(/overflow-wrap:\s*anywhere/);
+  });
+
+  it("uses the list look of the post ideas: a thin light border, 8px corners, small body text", () => {
+    const item = rule(".cs-bp__item");
+    expect(item).toMatch(/border:\s*1px solid rgba\(255, 255, 255,/);
+    expect(item).toMatch(/border-radius:\s*8px/);
+    expect(rule(".cs-bp__text")).toMatch(/font-size:\s*0\.8\d*rem/);
+  });
+
+  it("sets tracking and leading by size: tight on the heading, plain on body text, a touch open on the small label", () => {
+    expect(rule(".cs-bp__heading")).toMatch(/letter-spacing:\s*-0\.01em/);
+    expect(rule(".cs-bp__heading")).toMatch(/line-height:\s*1\.2/);
+    expect(rule(".cs-bp__text")).toMatch(/line-height:\s*1\.5/);
+    expect(rule(".cs-bp__label")).toMatch(/letter-spacing:\s*0\.0\d+em/);
+  });
+
+  it("covers the blueprint boxes in the reduced transparency and more contrast fallbacks", () => {
+    const transparency = text.slice(text.indexOf("@media (prefers-reduced-transparency"), text.indexOf("@media (prefers-contrast"));
+    expect(transparency).toMatch(/\.cs-bp__item/);
+    const contrast = text.slice(text.indexOf("@media (prefers-contrast"));
+    expect(contrast).toMatch(/\.cs-bp__item/);
+    expect(contrast).toMatch(/\.cs-bp__label/);
+  });
+
+  it("animates nothing of its own (the Copy button only gets the shared press feedback)", () => {
+    const bpRules = [...text.matchAll(/\.content-sources \.cs-bp[^{]*\{[^}]*\}/g)].map((m) => m[0]).join("\n");
+    expect(bpRules.length).toBeGreaterThan(200);
+    expect(bpRules).not.toMatch(/transition|animation|transform/);
   });
 });
 

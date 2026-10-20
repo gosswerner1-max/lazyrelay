@@ -160,7 +160,7 @@ export function ContentSourcesTab({ posts, brands, onReviewAndEdit, onApproveToC
 
       {CompetitorSection && (
         <Suspense fallback={null}>
-          <CompetitorSection onSaved={onRefreshPosts} />
+          <CompetitorSection />
         </Suspense>
       )}
 

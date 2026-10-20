@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { createMockContentSourcesClient } from "../../lib/contentSourcesMock";
 
 // Competitor mode sits behind its own build setting, VITE_COMPETITOR_MODE_ENABLED, off unless it is exactly "true".
@@ -17,8 +17,8 @@ async function renderTab(flag: string | undefined, onRefreshPosts = vi.fn()) {
   if (flag === undefined) vi.stubEnv("VITE_COMPETITOR_MODE_ENABLED", "");
   else vi.stubEnv("VITE_COMPETITOR_MODE_ENABLED", flag);
   vi.doMock("./CompetitorSection", () => ({
-    default: ({ onSaved }: { onSaved?: () => void }) => (
-      <button type="button" onClick={onSaved}>
+    default: (props: Record<string, unknown>) => (
+      <button type="button" data-props={Object.keys(props).join(",")}>
         COMPETITOR SECTION STUB
       </button>
     ),
@@ -36,10 +36,10 @@ describe("the competitor mode build setting", () => {
     expect(screen.queryByText("COMPETITOR SECTION STUB")).toBeNull();
   });
 
-  it("shows the section, and hands it the post refresh, when the setting is exactly true", async () => {
+  it("shows the section, and hands it nothing to save or refresh, when the setting is exactly true", async () => {
     const { onRefreshPosts } = await renderTab("true");
     const stub = await screen.findByText("COMPETITOR SECTION STUB");
-    stub.click();
-    await waitFor(() => expect(onRefreshPosts).toHaveBeenCalledTimes(1));
+    expect(stub).toHaveAttribute("data-props", "");
+    expect(onRefreshPosts).not.toHaveBeenCalled();
   });
 });

@@ -1,29 +1,22 @@
 // Competitor mode, the thin client side. It checks the pasted link, sends it to the companion service for reading and
-// drafting, and turns every answer into plain words. Nothing here reads a page: the reading and the drafting happen in the
-// companion service. The service saves nothing; the screen saves the draft through the app's own draft call.
+// building a blueprint, and turns every answer into plain words. Nothing here reads a page: the reading and the blueprint
+// happen in the companion service. Nothing is saved anywhere; the customer reads the blueprint and can copy it.
 // Only the lazily loaded competitor section imports this file, and only when VITE_COMPETITOR_MODE_ENABLED is "true".
 
+import { readBlueprint, type CompetitorBlueprint } from "./competitorBlueprint";
 import { ContentSourcesError, URL_MAX_LENGTH, hostIsInternal } from "./contentSources";
 
-export const MAX_DRAFT_LENGTH = 280;
 /** The screen gives up after this long and says so. It never waits on a spinner. */
 export const ANALYZE_TIMEOUT_MS = 90_000;
 
 export const CONSENT_TEXT = "AI can make mistakes. I confirm this tool is used for public market analysis and research purposes.";
-export const CLOSED_NETWORK_MESSAGE = "This network blocks public reading, so we can't analyze it. Paste a page from their website or a YouTube link instead.";
-
-export interface CompetitorAnalysis {
-  kind: "page" | "youtube";
-  sourceUrl: string;
-  title: string;
-  facts: string[];
-  draft: { content: string; tags: string[] };
-  creditsUsed: number;
-}
+export const CLOSED_NETWORK_MESSAGE = "This network blocks public reading, so we can't analyze it. Paste a page from their website instead.";
+export const VIDEO_NOT_SUPPORTED_MESSAGE = "Blueprints work on web pages and posts for now. Paste a page from their website.";
+export const BLUEPRINT_FAILED_MESSAGE = "We could not build a blueprint for that page, try another page";
 
 export interface CompetitorClient {
-  /** Reads the page or video and writes a draft. Rejects with a CompetitorError and nothing else. */
-  analyze(input: string, signal?: AbortSignal): Promise<CompetitorAnalysis>;
+  /** Reads the page and builds a blueprint. Rejects with a CompetitorError and nothing else. */
+  blueprint(input: string, signal?: AbortSignal): Promise<CompetitorBlueprint>;
 }
 
 // ---------- The pasted link ----------
@@ -48,7 +41,14 @@ const isClosedNetwork = (hostname: string) => {
   return CLOSED_NETWORKS.some((d) => host === d || host.endsWith(`.${d}`));
 };
 
-export type InputCheck = { ok: true; input: string } | { ok: false; error: string; closedNetwork?: true };
+const VIDEO_SITES = ["youtube.com", "youtu.be", "youtube-nocookie.com"];
+
+const isVideoSite = (hostname: string) => {
+  const host = hostname.replace(/\.$/, "").toLowerCase();
+  return VIDEO_SITES.some((d) => host === d || host.endsWith(`.${d}`));
+};
+
+export type InputCheck = { ok: true; input: string } | { ok: false; error: string; closedNetwork?: true; videoLink?: true };
 
 const reject = (error: string): InputCheck => ({ ok: false, error });
 
@@ -67,22 +67,9 @@ export function normalizeCompetitorInput(raw: string): InputCheck {
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return reject("Use a web link that starts with https://");
   if (parsed.username || parsed.password) return reject("Remove the username and password from the link.");
   if (isClosedNetwork(parsed.hostname)) return { ok: false, error: CLOSED_NETWORK_MESSAGE, closedNetwork: true };
+  if (isVideoSite(parsed.hostname)) return { ok: false, error: VIDEO_NOT_SUPPORTED_MESSAGE, videoLink: true };
   if (hostIsInternal(parsed.hostname) || !parsed.hostname.includes(".")) return reject("Use the public address of a website, not a private or local one.");
   return { ok: true, input: withScheme };
-}
-
-const TAG_PREFIX = "cs:competitor:";
-const TAG_MAX_LENGTH = 30; // the app keeps the first 30 characters of a tag, lower case
-
-/** The tag a saved competitor draft carries, so it shows up under Drafts for review like any other Content Sources draft. */
-export function competitorDraftTags(sourceUrl: string): string[] {
-  let host = "";
-  try {
-    host = new URL(sourceUrl).hostname.replace(/^www\./i, "").toLowerCase();
-  } catch {
-    host = "";
-  }
-  return [`${TAG_PREFIX}${host}`.slice(0, TAG_MAX_LENGTH)];
 }
 
 // ---------- Plain words for errors ----------
@@ -107,8 +94,9 @@ const MESSAGES = {
   page_blocked: "That page does not let us read it. Try a different page from their website.",
   reader_timeout: "That page took too long to read. Please try again, or try a different page.",
   reader_unavailable: "We could not read pages right now. Please try again in a moment.",
-  draft_refused: "We could not write a safe draft for that page, try another page.",
-  invalid_input: "We could not use that link. Paste the full address of a public web page or a YouTube video, for example https://example.com/page.",
+  blueprint_not_supported: VIDEO_NOT_SUPPORTED_MESSAGE,
+  blueprint_failed: BLUEPRINT_FAILED_MESSAGE,
+  invalid_input: "We could not use that link. Paste the full address of a public web page, for example https://example.com/page.",
 } as const;
 
 export type CompetitorErrorCode = keyof typeof MESSAGES;
@@ -145,9 +133,10 @@ function plainServerSentence(v: unknown): string | null {
 function errorFor(code: string | undefined, status: number, serverMessage: unknown): CompetitorError {
   if (code === undefined) return new CompetitorError(codeFromStatus(status));
   if (code === "network_not_supported") return new CompetitorError("network_not_supported", plainServerSentence(serverMessage) ?? CLOSED_NETWORK_MESSAGE);
-  if (code.startsWith("draft_")) return new CompetitorError("draft_refused");
+  if (code === "blueprint_not_supported") return new CompetitorError("blueprint_not_supported");
+  if (code.startsWith("draft_") || code.startsWith("blueprint_")) return new CompetitorError("blueprint_failed");
   if (code.startsWith("invalid_") || code === "bad_request") return new CompetitorError("invalid_input");
-  if (Object.hasOwn(MESSAGES, code) && code !== "unknown" && code !== "draft_refused") return new CompetitorError(code as CompetitorErrorCode);
+  if (Object.hasOwn(MESSAGES, code) && code !== "unknown" && code !== "blueprint_failed") return new CompetitorError(code as CompetitorErrorCode);
   return new CompetitorError(codeFromStatus(status)); // a code this page does not know: the status decides
 }
 
@@ -176,25 +165,10 @@ function fromSession(err: ContentSourcesError): CompetitorError {
 // ---------- Reading the service's answer ----------
 
 const bad = () => new CompetitorError("bad_response");
-const isStringList = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === "string");
-
-function readAnalysis(v: unknown): CompetitorAnalysis {
-  if (!isObject(v) || !isObject(v.draft)) throw bad();
-  const { kind, sourceUrl, title, facts, creditsUsed } = v;
-  const { content, tags } = v.draft;
-  if (
-    (kind !== "page" && kind !== "youtube") ||
-    typeof sourceUrl !== "string" ||
-    typeof title !== "string" ||
-    !isStringList(facts) ||
-    typeof content !== "string" ||
-    !isStringList(tags) ||
-    typeof creditsUsed !== "number" ||
-    !Number.isFinite(creditsUsed)
-  ) {
-    throw bad();
-  }
-  return { kind, sourceUrl, title, facts, draft: { content, tags }, creditsUsed };
+function readAnswer(v: unknown): CompetitorBlueprint {
+  const result = readBlueprint(v);
+  if (!result) throw bad();
+  return result;
 }
 
 // ---------- The service client ----------
@@ -235,11 +209,11 @@ export function createCompetitorClient(opts: {
   }
 
   return {
-    async analyze(input, signal) {
+    async blueprint(input, signal) {
       const bearer = await token();
       let res: Response;
       try {
-        res = await doFetch(`${base}/v1/analyze`, {
+        res = await doFetch(`${base}/v1/blueprint`, {
           method: "POST",
           headers: { Authorization: `Bearer ${bearer}`, Accept: "application/json", "Content-Type": "application/json" },
           credentials: "omit",
@@ -255,7 +229,7 @@ export function createCompetitorClient(opts: {
       if (res.status === 401) opts.onUnauthorized?.();
       if (!res.ok) throw await errorFromResponse(res);
       try {
-        return readAnalysis(await res.json());
+        return readAnswer(await res.json());
       } catch (err) {
         if (err instanceof CompetitorError) throw err;
         throw bad(); // the answer is not JSON; nothing from it is echoed

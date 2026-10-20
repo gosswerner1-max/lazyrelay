@@ -5,7 +5,7 @@ import { authedFetch } from "./api";
 import { CompetitorError, createCompetitorClient, type CompetitorClient } from "./competitorMode";
 import { createSessionTokenProvider, type SessionGrant } from "./contentSources";
 
-const notConnected = (): CompetitorClient => ({ analyze: () => Promise.reject(new CompetitorError("not_connected")) });
+const notConnected = (): CompetitorClient => ({ blueprint: () => Promise.reject(new CompetitorError("not_connected")) });
 
 /**
  * baseUrl is the service address from the build setting (the same one the Content Sources tab uses). Unset or blank: not
