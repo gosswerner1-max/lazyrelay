@@ -16,6 +16,7 @@
 
 import { resolvePostExtras, extrasToColumns } from "./postExtras.js";
 import { supabase } from "./supabase.js";
+import { enforceQueueCap } from "./queueCap.js";
 import { isSafeMediaUrl } from "./urlSafety.js";
 import { validateMediaForPlatform, type Platform } from "./mediaLimits.js";
 import { syncPostToCalendar } from "./googleCalendar/outboundSync.js";
@@ -574,6 +575,8 @@ export async function scheduleOnePost(
 
   const limitError = await checkFreeTierPostLimit(accountId, socialAccountId);
   if (limitError) return limitError;
+  const queueCapError = await enforceQueueCap(accountId);
+  if (queueCapError) return queueCapError;
 
   // A post created with requiresApproval (needs_approval) counts toward the
   // platform's rolling-24h cap just like a pending one, so both get checked.

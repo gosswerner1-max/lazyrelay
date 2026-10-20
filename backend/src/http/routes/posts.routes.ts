@@ -12,6 +12,7 @@ import { syncPostToCalendar, deletePostFromCalendar } from "../../googleCalendar
 import { syncAccountSheet } from "../../googleSheets/outboundSync.js";
 import { requireAuth, type AuthedRequest } from "../auth.js";
 import { tieredRateLimit } from "../rateLimit.js";
+import { enforceQueueCap } from "../../queueCap.js";
 import { scheduleOnePost, validatePostFields, validateScheduledFor, checkFreeTierPostLimit, checkPlatformPostLimit, checkSchedulingWarnings, MAX_POST_CONTENT_LENGTH, TIKTOK_PRIVACY_LEVELS } from "../../postCreation.js";
 import { dbError, resolveBrandFilterSocialAccountIds, fetchAllRows } from "./shared.js";
 import { validateBody, nonEmptyString, optionalNullableString, optionalBoolean, unvalidated } from "../validation.js";
@@ -506,6 +507,11 @@ export function buildPostsRouter(): Router {
     const limitError = await checkFreeTierPostLimit(req.accountId, socialAccountId);
     if (limitError) {
       res.status(limitError.status).json(limitError.body);
+      return;
+    }
+    const queueCapError = await enforceQueueCap(req.accountId);
+    if (queueCapError) {
+      res.status(queueCapError.status).json(queueCapError.body);
       return;
     }
 
