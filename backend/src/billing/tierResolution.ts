@@ -1,4 +1,4 @@
-import type { Tier } from "../tier.js";
+import type { StoredTier } from "../tier.js";
 
 // Tier resolution for Paddle: which internal tier code does a price id, or a
 // tier string read back from Paddle, stand for?
@@ -22,7 +22,7 @@ export type PaidTier = (typeof PAID_TIERS)[number];
 
 /** Tier codes a Paddle payload may legitimately resolve to (everything the
  *  database CHECK constraint allows). */
-export const VALID_TIERS = ["free", ...PAID_TIERS] as const satisfies readonly Tier[];
+export const VALID_TIERS = ["free", ...PAID_TIERS] as const satisfies readonly StoredTier[];
 
 /** The env var holding each paid tier's Paddle price id. Used in both
  *  directions: checkout/change-tier turn a tier into a price id, the webhook
@@ -55,14 +55,14 @@ export function tierForPriceId(priceId: string, env: Env = process.env): PaidTie
 /** The new code that each pre-rename code stands for. Only used to tell an
  *  expected legacy spelling apart from a genuine disagreement in logs; never
  *  used to decide a tier (old "pro"/"business" are ambiguous, see above). */
-export const LEGACY_TIER_EQUIVALENT: Record<string, Tier | undefined> = {
+export const LEGACY_TIER_EQUIVALENT: Record<string, StoredTier | undefined> = {
   pro: "starter",
   business: "pro",
   enterprise: "business",
 };
 
 export type WebhookTierResolution =
-  | { tier: Tier; source: "price_id" | "custom_data" }
+  | { tier: StoredTier; source: "price_id" | "custom_data" }
   | { tier: null; reason: string };
 
 /** Resolves the tier a subscription webhook stands for.
@@ -102,7 +102,7 @@ export function resolveWebhookTier(customDataTier: unknown, priceIds: readonly s
     };
   }
   if (typeof customDataTier === "string" && (VALID_TIERS as readonly string[]).includes(customDataTier)) {
-    return { tier: customDataTier as Tier, source: "custom_data" };
+    return { tier: customDataTier as StoredTier, source: "custom_data" };
   }
   throw new Error(`invalid/missing customData.tier "${String(customDataTier)}" and no price id matched a configured tier price`);
 }

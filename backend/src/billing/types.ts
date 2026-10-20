@@ -1,3 +1,5 @@
+import type { StoredTier } from "../tier.js";
+
 // Merchant-of-Record adapter interface. Decided (revised 2026-07-22): build
 // the real implementation against Paddle. Stripe Managed Payments was the
 // first choice but turned out not to work — Stripe doesn't support South
@@ -30,7 +32,7 @@ export interface SubscriptionEvent {
   // the tier could not be resolved safely (a legacy ambiguous customData code
   // with no matching price id): syncSubscriptionFromWebhook then leaves the
   // account's stored tier unchanged and still syncs status/period/cancellation.
-  tier?: "free" | "starter" | "pro" | "business" | "agency" | "agency_plus";
+  tier?: StoredTier;
   status: "trialing" | "active" | "past_due" | "cancelled";
   currentPeriodEnd: string; // ISO timestamp
   // Paddle's own event.occurredAt (2026-08-25, pre-launch audit fix) — used

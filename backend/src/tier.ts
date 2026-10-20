@@ -8,7 +8,14 @@ import { supabase } from "./supabase.js";
  *  rename, old stored metadata) must go through billing/tierResolution.ts,
  *  because the old and new meanings of "pro" and "business" collide.
  */
-export type Tier = "free" | "starter" | "pro" | "business" | "agency" | "agency_plus";
+export type Tier = "free" | "starter" | "pro" | "business" | "agency" | "agency_plus" | "payg" | "growth" | "lazy_pro";
+
+/** Wallet plans, added alongside the six tiers above (which stay for grandfathered accounts). `payg` is DERIVED by resolveTier
+ *  and never stored in subscriptions. `growth` and `lazy_pro` are stored. `lazy_pro` is the new Pro plan; the code is not
+ *  `pro` because `pro` is the older $59.99 plan and must stay as it is. */
+
+/** The tier codes a subscriptions row can hold (everything except the derived `payg`). */
+export type StoredTier = Exclude<Tier, "payg">;
 
 export const TIER_DISPLAY_NAMES: Record<Tier, string> = {
   free: "Free",
@@ -17,6 +24,9 @@ export const TIER_DISPLAY_NAMES: Record<Tier, string> = {
   business: "Business",
   agency: "Agency",
   agency_plus: "Agency Plus",
+  payg: "Pay as you go",
+  growth: "Growth",
+  lazy_pro: "Pro",
 };
 
 /** Recurring-schedule slot caps, added 2026-07-29. Free has none — one-off
@@ -36,6 +46,9 @@ export const RECURRING_SCHEDULE_SLOT_LIMITS: Record<Tier, number | null> = {
   business: null, // unlimited
   agency: null, // unlimited, mirrors business
   agency_plus: null, // unlimited, mirrors business
+  payg: 3, // mirrors starter
+  growth: 5, // mirrors the old pro
+  lazy_pro: null, // mirrors agency_plus
 };
 
 /** RSS feed caps (2026-09-30, Werner approved): a paid convenience feature, capped per
@@ -47,6 +60,9 @@ export const RSS_FEED_LIMITS: Record<Tier, number> = {
   business: 5,
   agency: 5,
   agency_plus: 5,
+  payg: 1, // mirrors starter
+  growth: 3, // mirrors the old pro
+  lazy_pro: 5, // mirrors agency_plus
 };
 
 /** Active client review links (master list #23): two per brand the plan allows, since a client
@@ -59,6 +75,9 @@ export const REVIEW_LINK_LIMITS: Record<Tier, number> = {
   business: 14, // 7 brands
   agency: 24, // 12 brands
   agency_plus: 40, // 20 brands
+  payg: 4, // 2 brands, mirrors starter
+  growth: 8, // 4 brands, mirrors the old pro
+  lazy_pro: 40, // mirrors agency_plus
 };
 
 export async function resolveTier(accountId: string): Promise<Tier> {

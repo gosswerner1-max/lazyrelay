@@ -75,6 +75,9 @@ const TIER_PRICES: Record<Tier, string> = {
   business: "$99.99/mo",
   agency: "$149.99/mo",
   agency_plus: "$199.99/mo",
+  payg: "$15 per top-up",
+  growth: "$29/mo",
+  lazy_pro: "$99/mo",
 };
 
 const GB = 1024 * 1024 * 1024;

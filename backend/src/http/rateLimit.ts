@@ -24,6 +24,9 @@ export const TIER_LIMITS: Record<Tier, number> = {
   business: 600,
   agency: 600, // mirrors business — not part of the 2026-08-17 Agency pricing decision
   agency_plus: 600, // mirrors business, same reasoning
+  payg: 300, // mirrors starter
+  growth: 450, // mirrors the old pro
+  lazy_pro: 600, // mirrors agency_plus
 };
 
 // Cached per account for a short window so every request doesn't cost a
