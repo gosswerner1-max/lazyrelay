@@ -440,7 +440,7 @@ export async function syncSubscriptionFromWebhook(event: SubscriptionEvent | Sto
   }
 }
 
-async function recordSale(event: SaleRecordEvent): Promise<void> {
+export async function recordSale(event: SaleRecordEvent): Promise<void> {
   const accountId = await resolveAccountId(event);
 
   const { error } = await supabase.from("billing_records").insert({

@@ -23,9 +23,10 @@ import { decideFirstComment, firstCommentDueAt } from "./firstCommentDelay.js";
 import { emitBeforePublish, emitAfterVerify } from "./publishHooks.js";
 import { selfHealingMode } from "./selfHealing/mode.js";
 import { createWalletLedger, type WalletRpc } from "./wallet/ledger.js";
-import { meterVerifiedDispatch } from "./wallet/meter.js";
+import { isLegacyAccount } from "./wallet/legacy.js";
 import { walletMode } from "./wallet/mode.js";
 import { fetchPausedAccountIds } from "./wallet/pause.js";
+import { createPublishGate, INSUFFICIENT_CREDITS_REASON, type GateHold } from "./wallet/publishGate.js";
 
 /** The wallet's view of the database client: only the rpc call, with its answer reduced to data and error. */
 const walletClient: WalletRpc = {
@@ -52,6 +53,67 @@ import {
 import { buildShadowEvent, errorClassOf } from "./selfHealing/evaluate.js";
 import { recordShadowEvent } from "./selfHealing/shadow.js";
 import { authReasonFromText, recordSystemCredentialTransition, type AuditReasonCode } from "./selfHealing/audit.js";
+
+/** The wallet gate for this moment's mode. Cheap to build, so it is built where it is used. */
+function buildPublishGate() {
+  return createPublishGate({
+    ledger: createWalletLedger(walletClient),
+    mode: walletMode(),
+    isLegacy: isLegacyAccount,
+    findHold: async (accountId, key) => {
+      const { data, error } = await supabase.from("wallet_holds").select("id, status").eq("account_id", accountId).eq("idempotency_key", key).maybeSingle();
+      if (error) throw new Error("hold lookup failed");
+      return data ? { id: data.id as string, status: data.status as string } : null;
+    },
+    log: (line) => console.log(line),
+  });
+}
+
+/** The group a post is charged under: charge_group_id when the post was part of a multi platform schedule, else the post itself.
+ *  Read only when the wallet is on (the column comes with migration 0141); any problem falls back to the post's own id. */
+async function chargeGroupOf(postId: string): Promise<string> {
+  try {
+    const { data, error } = await supabase.from("scheduled_posts").select("charge_group_id").eq("id", postId).maybeSingle();
+    const group = !error && data ? (data as { charge_group_id?: string | null }).charge_group_id : null;
+    return group ?? postId;
+  } catch {
+    return postId;
+  }
+}
+
+/** A post the wallet cannot pay for yet: back to pending (not failed, no retry counted) with a reason the customer can see. It is picked up
+ *  again on a later tick, and goes out once credits arrive. If the reason cannot be saved (column not migrated yet) it is still put back. */
+async function holdPostForCredits(post: DuePost, reason: string): Promise<void> {
+  const { error } = await supabase.from("scheduled_posts").update({ status: "pending", wallet_hold_reason: reason }).eq("id", post.id);
+  if (error) await unclaimPost(post);
+  console.log(`[wallet] post ${post.id} is waiting for credits`);
+}
+
+/** Accounts skipped by the wallet pause list never reach the publish gate, so their due pending posts get the same reason here (once: only rows
+ *  without one). Cleared when the post publishes, or when it is next claimed after a top up. Best effort: the reason is cosmetic. */
+async function markPausedAccountsWaiting(accountIds: string[]): Promise<void> {
+  try {
+    await supabase
+      .from("scheduled_posts")
+      .update({ wallet_hold_reason: INSUFFICIENT_CREDITS_REASON })
+      .in("account_id", accountIds)
+      .eq("status", "pending")
+      .is("paused_at", null)
+      .is("wallet_hold_reason", null)
+      .lte("scheduled_for", new Date().toISOString());
+  } catch {
+    // Never let the reason text stop the scheduler.
+  }
+}
+
+/** The post is going out, so any earlier "waiting for credits" reason is cleared. Best effort. */
+async function clearWalletHoldReason(postId: string): Promise<void> {
+  try {
+    await supabase.from("scheduled_posts").update({ wallet_hold_reason: null }).eq("id", postId).not("wallet_hold_reason", "is", null);
+  } catch {
+    // The reason is cosmetic; never stop a post for it.
+  }
+}
 
 // How many due posts one scheduler cycle claims and processes. Combined
 // with index.ts's POLL_INTERVAL_MS, this is the real throughput ceiling —
@@ -351,6 +413,7 @@ async function claimDuePosts(): Promise<DuePost[]> {
   // Wallet on: accounts whose wallet cannot pay for the next action keep their posts pending (not failed); they resume on a top up.
   // Off (the default) this returns an empty list without asking the database, so nothing here changes until the wallet is switched on.
   const walletPaused = await fetchPausedAccountIds(walletClient, walletMode(), (line) => console.log(line));
+  if (walletPaused.length > 0) await markPausedAccountsWaiting(walletPaused); // only non-empty in mode "on"
   const baseQuery = supabase
     .from("scheduled_posts")
     .select((skipBlocked ? "id, social_accounts!inner(needs_reconnect_at)" : "id") as "id")
@@ -1184,6 +1247,9 @@ export async function recoverStuckPosts(now: number = Date.now()): Promise<numbe
       .select("id");
     if (!failed || failed.length === 0) continue;
     recovered += 1;
+    if (walletMode() === "on") {
+      await buildPublishGate().releaseForPost({ accountId: row.account_id, chargeGroupId: await chargeGroupOf(row.id), attempt: row.retry_count + 1 });
+    }
     await supabase.from("post_results").insert({
       scheduled_post_id: row.id,
       account_id: row.account_id,
@@ -1400,6 +1466,9 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     await unclaimPost(post);
     return;
   }
+  const gate = buildPublishGate();
+  let walletHold: GateHold | null = null;
+  let walletSettled = false;
   try {
     if (await isAccountPaused(post.social_account_id)) {
       // Not a platform/adapter failure — retrying won't help until the
@@ -1461,6 +1530,22 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     // duplicate Facebook/Reel/Telegram posts logged in the platform
     // capability matrix. Re-check the existing post instead.
     const alreadyPublished = await findAcceptedPublish(post.id);
+    // Wallet: one credit is held BEFORE the send (off: nothing; shadow: only logged). Not enough credits leaves the post pending.
+    const walletOn = walletMode() === "on";
+    const reservation = await gate.reserve({
+      accountId: post.account_id,
+      chargeGroupId: walletOn ? await chargeGroupOf(post.id) : post.id,
+      postId: post.id,
+      attempt: post.retry_count + 1,
+      platform: adapter.platform,
+      alreadyPublished: !!alreadyPublished,
+    });
+    if (!reservation.proceed) {
+      await holdPostForCredits(post, reservation.reason);
+      return;
+    }
+    walletHold = reservation.hold;
+    if (walletOn && walletHold) await clearWalletHoldReason(post.id);
     // Observe-only hooks (publishHooks.ts): none are registered by default. Only for a real publish, not a re-check of one already accepted.
     const hookContext = { postId: post.id, accountId: post.account_id, socialAccountId: post.social_account_id, platform: adapter.platform, scheduledFor: post.scheduled_for ?? null, attempt: post.retry_count + 1 };
     if (!alreadyPublished) await emitBeforePublish(hookContext);
@@ -1566,8 +1651,9 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     await setByokStatus(post, "valid");
     await supabase.from("scheduled_posts").update({ status: "posted" }).eq("id", post.id);
     await maybeSendWebhook(post, verification.platformPostUrl, verifiedAt);
-    // Wallet: one verified dispatch costs 0.002 USD. Never throws and never changes the post's result; off by default (see wallet/mode.ts).
-    await meterVerifiedDispatch({ ledger: createWalletLedger(walletClient), mode: walletMode(), post: { postId: post.id, platform: adapter.platform, accountId: post.account_id }, log: (line) => console.log(line) });
+    // Wallet: the held credit is committed only now, after the read-back said the post is live. Never throws and never changes the post's result.
+    walletSettled = true;
+    await gate.commit(walletHold);
 
     // Best-effort, non-fatal: a comment failure must never flip the parent
     // post's own status or trigger handleFailure's retry path — the post
@@ -1630,6 +1716,9 @@ async function processPost(post: DuePost, registry: PlatformAdapterRegistry): Pr
     // vanished into console/Slack with nothing in the customer-visible
     // History tab.
     await failAttempt(post, adapter.platform, err instanceof Error ? err.message : String(err), adapter);
+  } finally {
+    // Every outcome except "verified live" gives the credit back (a failure, a draft that never went live, an unconfirmed read-back).
+    if (walletHold && !walletSettled) await gate.release(walletHold);
   }
 }
 

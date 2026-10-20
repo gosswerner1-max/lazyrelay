@@ -3,15 +3,26 @@
 // links are caught before anything is sent), then a
 // consent dialog opens, and only a ticked box plus the confirm sends the request.
 
-import { useId, useRef, useState, type FormEvent, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type RefObject } from "react";
 import { normalizeCompetitorInput, type CompetitorClient } from "../../lib/competitorMode";
+import type { BillingUi } from "../../lib/competitorBilling";
 import { CompetitorConsentDialog, type DialogOrigin } from "./CompetitorConsentDialog";
 import { BlueprintResult } from "./BlueprintResult";
 import { useCompetitorAnalysis } from "./useCompetitorAnalysis";
+import { GuidedTour } from "./GuidedTour";
+import { frontDoorTourSteps, TOUR_TARGET } from "../../lib/frontDoorTour";
 import "../../styles/competitor-mode.css";
 
 interface Props {
   client: CompetitorClient;
+  /** The credits the customer has, when the page shows a balance. It only feeds step 3 of the "Help me set up" tour. */
+  creditBalance?: number;
+  /** Set only when credits are switched on: makes the run key, and supplies the cost words. Absent, the panel behaves as it always did. */
+  billing?: BillingUi;
+  /** Opens the place to buy credits. The "Add credits" button shows only when this is given. */
+  onAddCredits?: () => void;
+  /** Called with the new balance once a paid blueprint is shown. */
+  onBalanceChanged?: (balance: number) => void;
 }
 
 interface LinkFieldProps {
@@ -31,6 +42,7 @@ function LinkField({ id, value, error, onChange }: LinkFieldProps) {
         id={id}
         className="cs-input"
         type="text"
+        data-tour={TOUR_TARGET.link}
         inputMode="url"
         autoComplete="off"
         spellCheck={false}
@@ -95,18 +107,41 @@ function useLinkEntry(analyzeRef: RefObject<HTMLButtonElement | null>) {
   return { text, inputError, pending, dialogOpen, origin, submit, change, closeDialog: () => setDialogOpen(false) };
 }
 
-export function CompetitorPanel({ client }: Props) {
+/** The one key of the run the person just confirmed: made at the confirmation, kept for its retries, dropped when the notice opens again. */
+function useRunKey(billing: BillingUi | undefined) {
+  const key = useRef<string | null>(null);
+  return {
+    forRun: () => (billing ? (key.current ??= billing.newKey()) : undefined),
+    forget: () => {
+      key.current = null;
+    },
+  };
+}
+
+export function CompetitorPanel({ client, creditBalance, billing, onAddCredits, onBalanceChanged }: Props) {
   const uid = useId();
   const id = (part: string) => `${uid}-${part}`;
   const analyzeRef = useRef<HTMLButtonElement>(null);
   const entry = useLinkEntry(analyzeRef);
   const { state, start, cancel } = useCompetitorAnalysis(client);
   const running = state.kind === "running";
+  const runKey = useRunKey(billing);
+  const balanceChanged = useRef(onBalanceChanged);
+  balanceChanged.current = onBalanceChanged;
+
+  useEffect(() => {
+    if (state.kind === "done" && typeof state.result.balance === "number") balanceChanged.current?.(state.result.balance);
+  }, [state]);
 
   function confirm() {
     entry.closeDialog();
-    if (entry.pending) void start(entry.pending);
+    if (!entry.pending) return;
+    const key = runKey.forRun();
+    void (key === undefined ? start(entry.pending) : start(entry.pending, key));
   }
+
+  const notices = billing ? [billing.costNotice, ...(typeof creditBalance === "number" ? [billing.balanceNotice(creditBalance)] : [])] : [];
+  const needsCredits = billing && onAddCredits && state.kind === "error" && state.code === "insufficient_credits";
 
   return (
     <section className="cs-card cs-competitor" aria-labelledby={id("title")}>
@@ -115,12 +150,17 @@ export function CompetitorPanel({ client }: Props) {
       </h3>
       <p className="cs-note">Paste a link to a competitor's page or post. We read its public text and show you how it is built, next to changes you could make to your own content.</p>
 
-      <form className="cs-competitor__form" onSubmit={(e) => (running ? e.preventDefault() : entry.submit(e))} noValidate>
+      <form className="cs-competitor__form" onSubmit={(e) => {
+          if (running) return e.preventDefault();
+          runKey.forget();
+          entry.submit(e);
+        }} noValidate>
         <LinkField id={id("link")} value={entry.text} error={entry.inputError} onChange={entry.change} />
         <div className="cs-actions">
-          <button ref={analyzeRef} type="submit" className="cs-btn cs-btn--primary" aria-disabled={running ? true : undefined}>
+          <button ref={analyzeRef} type="submit" className="cs-btn cs-btn--primary" data-tour={TOUR_TARGET.analyze} aria-disabled={running ? true : undefined}>
             Analyze
           </button>
+          <GuidedTour steps={frontDoorTourSteps(creditBalance)} buttonClassName="cs-btn cs-btn--secondary" />
         </div>
       </form>
 
@@ -130,9 +170,14 @@ export function CompetitorPanel({ client }: Props) {
           {state.message}
         </p>
       )}
+      {needsCredits && (
+        <button type="button" className="cs-btn cs-btn--primary" onClick={onAddCredits}>
+          {billing.addCreditsLabel}
+        </button>
+      )}
       {state.kind === "done" && <BlueprintResult key={state.result.sourceUrl + state.result.title} result={state.result} />}
 
-      <CompetitorConsentDialog open={entry.dialogOpen} link={entry.pending ?? ""} origin={entry.origin} restoreFocusTo={analyzeRef} onConfirm={confirm} onCancel={entry.closeDialog} />
+      <CompetitorConsentDialog open={entry.dialogOpen} link={entry.pending ?? ""} origin={entry.origin} restoreFocusTo={analyzeRef} notices={notices} onConfirm={confirm} onCancel={entry.closeDialog} />
     </section>
   );
 }

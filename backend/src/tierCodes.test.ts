@@ -45,7 +45,7 @@ vi.mock("./supabase.js", () => {
 
 import { resolveTier, TIER_DISPLAY_NAMES, RECURRING_SCHEDULE_SLOT_LIMITS, RSS_FEED_LIMITS, REVIEW_LINK_LIMITS, type Tier } from "./tier.js";
 import { ACCOUNT_LIMITS, checkAccountLimit, checkNewDistinctAccountLimit } from "./accountLimits.js";
-import { BRAND_LIMITS, checkBrandLimit, getBrandCapacity } from "./brandLimits.js";
+import { BRAND_LIMITS, UNLIMITED_BRANDS, checkBrandLimit, getBrandCapacity } from "./brandLimits.js";
 import { SEAT_LIMITS, checkSeatLimit, getSeatCapacity } from "./seatLimits.js";
 import { STORAGE_QUOTA_BYTES, getStorageUsage } from "./storageQuota.js";
 import { AI_GENERATION_DAILY_LIMIT, checkGenerationLimit } from "./aiUsage.js";
@@ -55,21 +55,24 @@ import { PAID_TIERS } from "./billing/tierResolution.js";
 
 const MB = 1024 * 1024;
 const GB = 1024 * MB;
-const NEW_CODES: Tier[] = ["free", "starter", "pro", "business", "agency", "agency_plus"];
+const OLD_SIX: Tier[] = ["free", "starter", "pro", "business", "agency", "agency_plus"];
+// Added with the wallet plans: payg is derived (no subscription row stores it), growth and lazy_pro are stored.
+const NEW_CODES: Tier[] = [...OLD_SIX, "payg", "growth", "lazy_pro"];
 
-// Order: free, starter, pro, business, agency, agency_plus. Values are the
-// pre-rename values of the old codes free, pro, business, enterprise, agency,
-// agency_plus respectively.
+// Order: free, starter, pro, business, agency, agency_plus, payg, growth, lazy_pro. The first six
+// are the pre-rename values of the old codes free, pro, business, enterprise, agency, agency_plus
+// respectively. The last three are the wallet plans: payg mirrors starter, growth mirrors the old
+// pro, lazy_pro mirrors agency_plus except accounts (1000) and brands (UNLIMITED_BRANDS).
 const EXPECTED = {
-  accounts: [3, 20, 30, 50, 100, 150],
-  brands: [1, 2, 4, 7, 12, 20],
-  seats: [0, 0, 0, 2, 3, 6],
-  storage: [250 * MB, 5 * GB, 10 * GB, 20 * GB, 20 * GB, 20 * GB],
-  aiPerDay: [5, 20, 50, 100, 100, 100],
-  requestsPerMinute: [60, 300, 450, 600, 600, 600],
-  recurring: [0, 3, 5, null, null, null],
-  rssFeeds: [0, 1, 3, 5, 5, 5],
-  reviewLinks: [0, 4, 8, 14, 24, 40],
+  accounts: [3, 20, 30, 50, 100, 150, 20, 30, 1000],
+  brands: [1, 2, 4, 7, 12, 20, 2, 4, UNLIMITED_BRANDS],
+  seats: [0, 0, 0, 2, 3, 6, 0, 0, 6],
+  storage: [250 * MB, 5 * GB, 10 * GB, 20 * GB, 20 * GB, 20 * GB, 5 * GB, 10 * GB, 20 * GB],
+  aiPerDay: [5, 20, 50, 100, 100, 100, 20, 50, 100],
+  requestsPerMinute: [60, 300, 450, 600, 600, 600, 300, 450, 600],
+  recurring: [0, 3, 5, null, null, null, 3, 5, null],
+  rssFeeds: [0, 1, 3, 5, 5, 5, 1, 3, 5],
+  reviewLinks: [0, 4, 8, 14, 24, 40, 4, 8, 40],
 } as const;
 
 const TABLES: Record<keyof typeof EXPECTED, Record<string, unknown>> = {
@@ -93,7 +96,7 @@ beforeEach(() => {
 
 describe("limits tables for the renamed tier codes", () => {
   for (const [name, expected] of Object.entries(EXPECTED)) {
-    it(`${name}: exactly the six new codes, with the old per-plan values`, () => {
+    it(`${name}: exactly the nine codes, with the agreed per-plan values`, () => {
       const table = TABLES[name as keyof typeof EXPECTED];
       expect(Object.keys(table).sort()).toEqual([...NEW_CODES].sort());
       expect(NEW_CODES.map((code) => table[code])).toEqual([...expected]);
@@ -101,20 +104,30 @@ describe("limits tables for the renamed tier codes", () => {
   }
 
   it("display names are the public plan names", () => {
-    expect(TIER_DISPLAY_NAMES).toEqual({ free: "Free", starter: "Starter", pro: "Pro", business: "Business", agency: "Agency", agency_plus: "Agency Plus" });
+    expect(TIER_DISPLAY_NAMES).toEqual({
+      free: "Free",
+      starter: "Starter",
+      pro: "Pro",
+      business: "Business",
+      agency: "Agency",
+      agency_plus: "Agency Plus",
+      payg: "Pay as you go",
+      growth: "Growth",
+      lazy_pro: "Pro",
+    });
   });
 
   it("no old-only code survives as a key anywhere", () => {
     for (const table of Object.values(TABLES)) expect(table).not.toHaveProperty("enterprise");
   });
 
-  it("paid tiers are exactly the five non-free codes", () => {
-    expect([...PAID_TIERS]).toEqual(NEW_CODES.filter((c) => c !== "free"));
+  it("the five old paid tiers are unchanged (growth and lazy_pro are not in the Paddle price table yet)", () => {
+    expect([...PAID_TIERS]).toEqual(OLD_SIX.filter((c) => c !== "free"));
   });
 });
 
 describe("resolveTier (good-standing logic) with the new codes", () => {
-  for (const code of NEW_CODES.filter((c) => c !== "free")) {
+  for (const code of NEW_CODES.filter((c) => c !== "free" && c !== "payg")) {
     it(`${code}: active and trialing keep the tier, anything else is Free`, async () => {
       db.tier = code;
       for (const status of ["active", "trialing"]) {
@@ -136,6 +149,7 @@ describe("resolveTier (good-standing logic) with the new codes", () => {
 
 describe("every limit hook enforces the new codes at the old numbers", () => {
   NEW_CODES.forEach((code, i) => {
+    if (code === "payg") return; // derived, not stored: covered in paygDerivation.test.ts
     describe(code, () => {
       beforeEach(() => {
         db.tier = code;
@@ -156,7 +170,16 @@ describe("every limit hook enforces the new codes at the old numbers", () => {
         db.counts.brands = cap - 1;
         expect(await checkBrandLimit("acct")).toBeNull();
         db.counts.brands = cap;
-        expect(await checkBrandLimit("acct")).toContain(`limit of ${cap} brand`);
+        if (cap === UNLIMITED_BRANDS) {
+          db.counts.brands = 500;
+          expect(await checkBrandLimit("acct")).toBeNull();
+          db.counts.brands = cap + 5;
+          expect(await checkBrandLimit("acct")).toContain("no brand limit");
+          expect(await checkBrandLimit("acct")).not.toContain(String(cap));
+          db.counts.brands = cap;
+        } else {
+          expect(await checkBrandLimit("acct")).toContain(`limit of ${cap} brand`);
+        }
         db.counts.brand_addons = 2;
         expect(await getBrandCapacity("acct")).toMatchObject({ tier: code, baseLimit: cap, addonSlots: 2, totalLimit: cap + 2 });
       });

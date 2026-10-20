@@ -1,0 +1,203 @@
+/* Billing screens, live version: the header chip, the plan line and the buy panel. Same rules as billing-mockup.css, which this
+   sits beside: every selector starts with .billing-mock, only existing --byok tokens and the three --bm status tokens are used,
+   and only transform and opacity ever animate (the buttons reuse .bm-btn, so the press is felt on pointer-down).
+   The wrappers carry .billing-mock and .byok-panels, which supplies the tokens. Short windows, phones and the accessibility
+   fallbacks are at the bottom. */
+
+/* The billing view inside Settings: the dark canvas, but sized by its content instead of the whole window. */
+.billing-mock.byok-panels.bm-live {
+  min-height: 0;
+  gap: 0.875rem;
+  padding: 1rem;
+  border: 1px solid var(--byok-edge);
+  border-radius: 16px;
+}
+
+/* The balance in the header: a small solid pill so the light-on-dark text reads on any header. */
+.billing-mock.byok-panels.bm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.25rem 0.75rem;
+  background: var(--byok-midnight);
+  border: 1px solid var(--byok-edge);
+  border-radius: 999px;
+  font-size: 0.875rem;
+}
+
+.billing-mock .bm-plan {
+  margin: 0;
+  color: var(--byok-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
+}
+
+/* The buy panel. */
+.billing-mock .bm-buy {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 1.25rem;
+  background: var(--byok-slate);
+  border: 1px solid var(--byok-edge);
+  border-radius: 14px;
+  box-shadow: var(--byok-card-shadow);
+  scroll-margin-top: 1rem;
+}
+
+.billing-mock .bm-buy__title {
+  margin: 0;
+  color: var(--byok-ink);
+  font-size: 1.0625rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.billing-mock .bm-buy__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.75rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.billing-mock .bm-buy__item {
+  display: grid;
+  gap: 0.25rem;
+  align-content: start;
+  justify-items: start;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+.billing-mock .bm-buy__name {
+  margin: 0;
+  color: var(--byok-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+
+.billing-mock .bm-buy__price {
+  margin: 0;
+  color: var(--byok-ink);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+}
+
+.billing-mock .bm-buy__credits,
+.billing-mock .bm-buy__reason,
+.billing-mock .bm-buy__line {
+  margin: 0;
+  color: var(--byok-ink);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.billing-mock .bm-buy__note {
+  margin: 0 0 0.25rem;
+  color: var(--byok-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+}
+
+.billing-mock .bm-buy__problem {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  margin: 0;
+  padding-left: 0.625rem;
+  border-left: 3px solid var(--bm-red);
+  color: var(--byok-ink);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+/* A button that is waiting: dimmed, and it does not move when pressed. */
+.billing-mock .bm-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.billing-mock .bm-btn:disabled:active {
+  transform: none;
+}
+
+/* Phones (360 px): tighter padding, full-width buttons, nothing wider than the screen. */
+@media (max-width: 420px) {
+  .billing-mock.byok-panels.bm-live {
+    padding: 0.75rem;
+  }
+  .billing-mock .bm-buy {
+    padding: 1rem;
+  }
+  .billing-mock .bm-buy__list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .billing-mock .bm-buy .bm-btn {
+    width: 100%;
+  }
+  .billing-mock.byok-panels.bm-chip {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8125rem;
+  }
+}
+
+/* Short, compressed laptop windows (1366x600, 1280x560). */
+@media (max-height: 700px) {
+  .billing-mock.byok-panels.bm-live {
+    gap: 0.5rem;
+    padding: 0.625rem 0.75rem;
+  }
+  .billing-mock .bm-buy {
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+  }
+  .billing-mock .bm-buy__item {
+    padding: 0.5rem 0.625rem;
+  }
+  .billing-mock .bm-buy__price {
+    font-size: 1.125rem;
+  }
+}
+
+/* Reduced transparency: solid fills. */
+@media (prefers-reduced-transparency: reduce) {
+  .billing-mock .bm-buy__item {
+    background: var(--byok-midnight);
+  }
+}
+
+/* More contrast: firm borders and plain ink text. */
+@media (prefers-contrast: more) {
+  .billing-mock .bm-buy,
+  .billing-mock .bm-buy__item,
+  .billing-mock.byok-panels.bm-chip {
+    border-color: var(--byok-ink);
+    border-width: 2px;
+  }
+  .billing-mock .bm-buy__name,
+  .billing-mock .bm-buy__note,
+  .billing-mock .bm-plan {
+    color: var(--byok-ink);
+  }
+}

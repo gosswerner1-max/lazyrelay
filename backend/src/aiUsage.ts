@@ -17,6 +17,9 @@ export const AI_GENERATION_DAILY_LIMIT: Record<Tier, number | null> = {
   business: 100,
   agency: 100, // mirrors business — not part of the 2026-08-17 Agency pricing decision, revisit with real usage data
   agency_plus: 100, // mirrors business, same reasoning
+  payg: 20, // mirrors starter
+  growth: 50, // mirrors the old pro
+  lazy_pro: 100, // mirrors agency_plus
 };
 
 function todayUTC(): string {

@@ -16,6 +16,7 @@ import { getBrandCapacity } from "../../brandLimits.js";
 import { getSeatCapacity, MAX_SEAT_ADDONS_PER_ACCOUNT } from "../../seatLimits.js";
 import { resolveTier } from "../../tier.js";
 import { dbError } from "./shared.js";
+import { OLD_CHECKOUT_CLOSED_MESSAGE, oldTierCheckoutClosed } from "../../wallet/closeOldCheckout.js";
 
 // Storage add-ons — priced 2026-07-23 after researching real comparables
 // (consumer cloud storage clusters $0.005-0.02/GB/mo, the closest real B2B
@@ -119,6 +120,11 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
         error:
           'tier must be "starter", "pro", "business", "agency", or "agency_plus". Use the Free tier by just not upgrading',
       });
+      return;
+    }
+    // LazyCredits wallet (on): the old six tier checkout is closed to everyone who is not a legacy account.
+    if (await oldTierCheckoutClosed(req.accountId!)) {
+      res.status(403).json({ error: OLD_CHECKOUT_CLOSED_MESSAGE, code: "old_checkout_closed" });
       return;
     }
     // Launch-discount promo code (2026-09-28), captured client-side from a

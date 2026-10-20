@@ -24,6 +24,9 @@ export const TIER_LIMITS: Record<Tier, number> = {
   business: 600,
   agency: 600, // mirrors business — not part of the 2026-08-17 Agency pricing decision
   agency_plus: 600, // mirrors business, same reasoning
+  payg: 300, // mirrors starter
+  growth: 450, // mirrors the old pro
+  lazy_pro: 600, // mirrors agency_plus
 };
 
 // Cached per account for a short window so every request doesn't cost a
@@ -32,7 +35,7 @@ export const TIER_LIMITS: Record<Tier, number> = {
 const TIER_CACHE_TTL_MS = 60_000;
 const tierCache = new Map<string, { tier: Tier; expiresAt: number }>();
 
-async function resolveTier(accountId: string): Promise<Tier> {
+export async function resolveCachedTier(accountId: string): Promise<Tier> {
   const cached = tierCache.get(accountId);
   if (cached && cached.expiresAt > Date.now()) return cached.tier;
 
@@ -49,7 +52,7 @@ export const tieredRateLimit = rateLimit({
   max: async (req: Request) => {
     const accountId = (req as AuthedRequest).accountId;
     if (!accountId) return 30; // shouldn't normally be reached post-requireAuth; a safe floor if it is
-    return TIER_LIMITS[await resolveTier(accountId)];
+    return TIER_LIMITS[await resolveCachedTier(accountId)];
   },
   keyGenerator: (req: Request) => (req as AuthedRequest).accountId ?? req.ip ?? "unknown",
   standardHeaders: true,
@@ -69,7 +72,7 @@ export const mcpRateLimit = rateLimit({
   max: async (req: Request) => {
     const accountId = req.auth?.extra?.accountId;
     if (typeof accountId !== "string" || !accountId) return 30;
-    return TIER_LIMITS[await resolveTier(accountId)];
+    return TIER_LIMITS[await resolveCachedTier(accountId)];
   },
   keyGenerator: (req: Request) => {
     const accountId = req.auth?.extra?.accountId;

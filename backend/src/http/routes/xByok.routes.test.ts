@@ -531,7 +531,7 @@ describe("migration 0126 (database plan gate for X own keys) and the route's han
   it("0126 holds the ORIGINAL list (Pro and above); migration 0132 supersedes it with every paid tier, kept equal to X_BYOK_ALLOWED_TIERS in byokPlanGate.test.ts", () => {
     expect(code).toMatch(/v_tier in \(([^)]*)\)/);
     expect(listOf(/v_tier in \(([^)]*)\)/)).toEqual(["agency", "agency_plus", "business", "pro"]);
-    expect([...X_BYOK_ALLOWED_TIERS].sort()).toEqual(["agency", "agency_plus", "business", "pro", "starter"]);
+    expect([...X_BYOK_ALLOWED_TIERS].sort()).toEqual(["agency", "agency_plus", "business", "growth", "lazy_pro", "payg", "pro", "starter"]);
   });
 
   it("only active and trialing count, as in resolveTier", () => {

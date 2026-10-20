@@ -208,7 +208,7 @@ describe("plan gate: every PAID tier (Starter and up); Free and lapsed answer HT
   }
 
   it("the allow-list is exactly every paid tier", () => {
-    expect([...WHATSAPP_BYOK_ALLOWED_TIERS].sort()).toEqual(["agency", "agency_plus", "business", "pro", "starter"]);
+    expect([...WHATSAPP_BYOK_ALLOWED_TIERS].sort()).toEqual(["agency", "agency_plus", "business", "growth", "lazy_pro", "payg", "pro", "starter"]);
     expect(canUseWhatsappByok("free")).toBe(false);
     for (const t of ["starter", "pro", "business", "agency", "agency_plus"] as Tier[]) expect(canUseWhatsappByok(t), t).toBe(true);
   });
@@ -495,7 +495,7 @@ describe("migration 0125 (database plan gate) and the route's handling of it", (
   it("0125 holds the ORIGINAL list (Business and above); migration 0132 supersedes it with every paid tier, kept equal to WHATSAPP_BYOK_ALLOWED_TIERS in byokPlanGate.test.ts", () => {
     expect(code).toMatch(/v_tier in \(([^)]*)\)/);
     expect(listOf(/v_tier in \(([^)]*)\)/)).toEqual(["agency", "agency_plus", "business"]);
-    expect([...WHATSAPP_BYOK_ALLOWED_TIERS].sort()).toEqual(["agency", "agency_plus", "business", "pro", "starter"]);
+    expect([...WHATSAPP_BYOK_ALLOWED_TIERS].sort()).toEqual(["agency", "agency_plus", "business", "growth", "lazy_pro", "payg", "pro", "starter"]);
   });
 
   it("only active and trialing count, as in resolveTier", () => {

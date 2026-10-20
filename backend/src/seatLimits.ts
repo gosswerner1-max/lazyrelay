@@ -14,6 +14,9 @@ export const SEAT_LIMITS: Record<Tier, number> = {
   business: 2,
   agency: 3,
   agency_plus: 6,
+  payg: 0, // mirrors starter
+  growth: 0, // mirrors the old pro
+  lazy_pro: 6, // mirrors agency_plus
 };
 
 /** Deliberately NOT the brand-addon-style cap of 10 — included seat counts

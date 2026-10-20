@@ -19,7 +19,9 @@ const { checkWhatsappPlan, WHATSAPP_PLAN_MESSAGE, WHATSAPP_DB_GATE_MESSAGE, X_BY
 import type { Tier } from "./tier.js";
 
 const PAID: Tier[] = ["starter", "pro", "business", "agency", "agency_plus"];
-const ALL: Tier[] = ["free", ...PAID];
+const NEW_PLANS: Tier[] = ["growth", "lazy_pro", "payg"];
+const ALLOWED: Tier[] = [...PAID, ...NEW_PLANS];
+const ALL: Tier[] = ["free", ...ALLOWED];
 const GOOD_STANDING = ["active", "trialing"];
 const LAPSED = ["canceled", "cancelled", "past_due", "paused", "unpaid", "incomplete", "expired", ""];
 
@@ -30,11 +32,11 @@ const sub = (tier: string, status: string) => void (tables.subscriptions = [{ ac
 
 describe("the tier lists", () => {
   it("X own keys and WhatsApp own keys are open to every paid tier and to nobody else", () => {
-    expect([...X_BYOK_ALLOWED_TIERS].sort()).toEqual([...PAID].sort());
-    expect([...WHATSAPP_BYOK_ALLOWED_TIERS].sort()).toEqual([...PAID].sort());
+    expect([...X_BYOK_ALLOWED_TIERS].sort()).toEqual([...ALLOWED].sort());
+    expect([...WHATSAPP_BYOK_ALLOWED_TIERS].sort()).toEqual([...ALLOWED].sort());
     expect(canUseXByok("free")).toBe(false);
     expect(canUseWhatsappByok("free")).toBe(false);
-    for (const t of PAID) {
+    for (const t of ALLOWED) {
       expect(canUseXByok(t), `X ${t}`).toBe(true);
       expect(canUseWhatsappByok(t), `WhatsApp ${t}`).toBe(true);
     }
@@ -120,5 +122,39 @@ describe("migration 0132 (the database backstop for both gates) matches the back
     expect(isXByokPlanGateError({ code: "LRXB1", message: "anything" })).toBe(true);
     expect(isWhatsappPlanGateError({ message: "whatsapp requires the Business plan or above" })).toBe(true);
     expect(isXByokPlanGateError({ message: "x own keys requires the Pro plan or above" })).toBe(true);
+  });
+});
+
+describe("migration 0143 (database backstop extended to the wallet plans)", () => {
+  const dir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../supabase/migrations");
+  const name = fs.readdirSync(dir).find((f) => f.startsWith("0143_"));
+  const sql = name ? fs.readFileSync(path.join(dir, name), "utf8") : "";
+  const code = sql.replace(/^\s*--.*$/gm, "");
+  const lists = [...code.matchAll(/v_tier in \(([^)]*)\)/g)].map((m) => m[1].split(",").map((x) => x.trim().replace(/'/g, "")));
+
+  it("exists, one transaction, idempotent, marked not applied, with a rollback note", () => {
+    expect(name).toBe("0143_own_keys_new_plans.sql");
+    expect(code).toMatch(/^\s*begin;/m);
+    expect(code).toMatch(/commit;\s*$/);
+    expect(sql).toMatch(/NOT applied anywhere/i);
+    expect(sql).toMatch(/ROLLBACK/);
+    expect(code).not.toMatch(/create function/i);
+  });
+
+  it("replaces both functions; the stored tiers match tier.ts and payg is allowed through the unlock column", () => {
+    expect(code).toContain("create or replace function public.enforce_whatsapp_plan_gate()");
+    expect(code).toContain("create or replace function public.enforce_x_byok_plan_gate()");
+    expect(lists).toHaveLength(2);
+    const stored = ALLOWED.filter((t) => t !== "payg").sort();
+    for (const l of lists) expect([...l].sort()).toEqual(stored);
+    expect(code.match(/payg_unlocked_at is not null/g)).toHaveLength(2);
+  });
+
+  it("keeps the SQLSTATEs, the good-standing test and the messages of 0132", () => {
+    expect(code).toContain("errcode = 'LRWA1'");
+    expect(code).toContain("errcode = 'LRXB1'");
+    expect(code.match(/v_status in \('active', 'trialing'\)/g)).toHaveLength(2);
+    expect(code).toContain(`'${WHATSAPP_DB_GATE_MESSAGE}'`);
+    expect(code).toContain(`'${X_BYOK_DB_GATE_MESSAGE}'`);
   });
 });

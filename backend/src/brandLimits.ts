@@ -11,6 +11,9 @@ import { resolveTier, type Tier } from "./tier.js";
  *  self-serve tier: an agency running many client brands is a Phase-2
  *  Agency-tier conversation, not a Business plan.
  */
+/** Stands for "no brand limit" (the Pro plan). A number rather than Infinity so the arithmetic and the "N/cap" displays stay finite. */
+export const UNLIMITED_BRANDS = 1_000_000;
+
 export const BRAND_LIMITS: Record<Tier, number> = {
   free: 1,
   starter: 2,
@@ -18,6 +21,9 @@ export const BRAND_LIMITS: Record<Tier, number> = {
   business: 7,
   agency: 12, // Agency tier (2026-08-17)
   agency_plus: 20, // Agency Plus
+  payg: 2, // mirrors starter
+  growth: 4,
+  lazy_pro: UNLIMITED_BRANDS,
 };
 
 /** Phase 1b (2026-08-16) — a paid customer can exceed their base brand cap by
@@ -59,6 +65,7 @@ export async function checkBrandLimit(accountId: string): Promise<string | null>
   if (error) throw error;
 
   if ((count ?? 0) >= totalLimit) {
+    if (totalLimit >= UNLIMITED_BRANDS) return "Your plan has no brand limit, but this account has reached the maximum we can hold. Please contact support.";
     const upgradeHint = addonSlots > 0 ? "upgrade, or buy another brand add-on" : "upgrade for more, or buy a brand add-on";
     return `You've reached your plan's limit of ${totalLimit} ${totalLimit === 1 ? "brand" : "brands"}. Delete one, or ${upgradeHint}.`;
   }
