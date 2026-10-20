@@ -149,7 +149,6 @@ export function BlueprintResult({ result }: { result: CompetitorBlueprint }) {
         <button type="button" className="cs-btn cs-btn--primary" onClick={() => void copy()}>
           Copy blueprint
         </button>
-        <span className="cs-hint">{result.creditsUsed === 1 ? "1 credit used." : `${result.creditsUsed} credits used.`}</span>
       </div>
       {state === "copied" && (
         <p className="cs-result cs-result--ok" role="status">

@@ -114,6 +114,38 @@ describe("the consent dialog", () => {
     expect(analyze).not.toHaveBeenCalled();
   });
 
+  it("pins the checkbox and both buttons in a footer outside the scrolling text, so a short window never hides them", async () => {
+    setup();
+    const dialog = await openDialog();
+    const body = dialog.querySelector(".cs-modal__body") as HTMLElement;
+    const footer = dialog.querySelector(".cs-modal__footer") as HTMLElement;
+    expect(body).not.toBeNull();
+    expect(footer).not.toBeNull();
+    expect(body.contains(footer)).toBe(false);
+    expect(footer.contains(body)).toBe(false);
+    expect(footer.parentElement).toBe(dialog);
+    expect(body.parentElement).toBe(dialog);
+    expect(body.nextElementSibling).toBe(footer);
+    expect(within(body).getByRole("heading", { name: "Before you analyze" })).toBeInTheDocument();
+    expect(within(body).getByText("https://rival.example/pricing")).toBeInTheDocument();
+    expect(within(body).queryByRole("checkbox")).toBeNull();
+    expect(within(body).queryByRole("button")).toBeNull();
+    expect(within(footer).getByLabelText(CONSENT_TEXT)).toBeInTheDocument();
+    expect(within(footer).getByRole("button", { name: /analyze this link/i })).toBeInTheDocument();
+    expect(within(footer).getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    expect(body).toHaveAttribute("tabindex", "0"); // the only scrolling part can be scrolled from the keyboard
+  });
+
+  it("keeps Tab inside the dialog, with the footer controls last", async () => {
+    setup();
+    const dialog = await openDialog();
+    await userEvent.click(within(dialog).getByRole("checkbox"));
+    within(dialog).getByRole("button", { name: "Cancel" }).focus();
+    await userEvent.tab();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).not.toBe(within(dialog).getByRole("button", { name: "Cancel" }));
+  });
+
   it("keeps the confirm button off until the box is ticked, and off again when it is unticked", async () => {
     const { analyze } = setup();
     const dialog = await openDialog();

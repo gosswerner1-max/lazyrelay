@@ -106,24 +106,28 @@ export function CompetitorConsentDialog({ open, link, origin, restoreFocusTo, on
   return (
     <div className="cs-modal" data-state={shown && open ? "open" : "closed"} onMouseDown={onBackdrop} onKeyDown={(e) => trapTab(e, dialogRef.current)}>
       <div ref={dialogRef} className="cs-modal__card" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={textId} tabIndex={-1}>
-        <h3 id={titleId} className="cs-modal__title">
-          Before you analyze
-        </h3>
-        <p id={textId} className="cs-note">
-          We will read the public text of this link and build a blueprint from it. Read it through and check anything that matters before you use it.
-        </p>
-        <p className="cs-code">{link}</p>
-        <label className="cs-consent">
-          <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
-          <span>{CONSENT_TEXT}</span>
-        </label>
-        <div className="cs-actions">
-          <button type="button" className="cs-btn cs-btn--primary" disabled={!agreed} onClick={onConfirm}>
-            Analyze this link
-          </button>
-          <button type="button" className="cs-btn cs-btn--secondary" onClick={onCancel}>
-            Cancel
-          </button>
+        <div className="cs-modal__body" role="region" aria-labelledby={titleId} tabIndex={0}>
+          <h3 id={titleId} className="cs-modal__title">
+            Before you analyze
+          </h3>
+          <p id={textId} className="cs-note">
+            We will read the public text of this link and build a blueprint from it. Read it through and check anything that matters before you use it.
+          </p>
+          <p className="cs-code">{link}</p>
+        </div>
+        <div className="cs-modal__footer">
+          <label className="cs-consent">
+            <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+            <span>{CONSENT_TEXT}</span>
+          </label>
+          <div className="cs-actions">
+            <button type="button" className="cs-btn cs-btn--primary" disabled={!agreed} onClick={onConfirm}>
+              Analyze this link
+            </button>
+            <button type="button" className="cs-btn cs-btn--secondary" onClick={onCancel}>
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
     </div>
