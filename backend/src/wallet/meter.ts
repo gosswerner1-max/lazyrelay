@@ -1,5 +1,5 @@
 import type { createWalletLedger } from "./ledger.js";
-import { microToUsd } from "./money.js";
+import { microToCredits } from "./money.js";
 import type { WalletMode } from "./mode.js";
 import { priceMicro } from "./prices.js";
 
@@ -18,7 +18,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PLATFORM = /^[a-z0-9_-]{1,40}$/;
 
 /**
- * Charges one api_dispatch (0.002 USD) for a post that has been verified live on a platform. The key is built from the post and the
+ * Charges one post_publish (1 credit) for a post that has been verified live on a platform. The key is built from the post and the
  * platform, so a retry of the same post is a replay, never a second charge. Best effort by design: it NEVER throws, because the post is
  * already live and a wallet problem must not turn a good publish into a failure. An empty wallet is reported; the queue pause stops the
  * NEXT posts.
@@ -36,12 +36,12 @@ export async function meterVerifiedDispatch(input: {
     return { outcome: "error" };
   }
   if (mode === "shadow") {
-    const chargedMicro = priceMicro("api_dispatch");
-    log(`[wallet-shadow] would charge ${microToUsd(chargedMicro)} USD for a verified dispatch to ${post.platform}`);
+    const chargedMicro = priceMicro("post_publish");
+    log(`[wallet-shadow] would charge ${microToCredits(chargedMicro)} credit for a verified dispatch to ${post.platform}`);
     return { outcome: "would_charge", chargedMicro };
   }
   try {
-    const r = await ledger.charge({ accountId: post.accountId, action: "api_dispatch", idempotencyKey: `dispatch:${post.postId}:${post.platform}` });
+    const r = await ledger.charge({ accountId: post.accountId, action: "post_publish", idempotencyKey: `dispatch:${post.postId}:${post.platform}` });
     if (!r.ok) {
       log("[wallet] a verified dispatch could not be charged: the balance is too low");
       return { outcome: "insufficient_funds", balanceMicro: r.balanceMicro };

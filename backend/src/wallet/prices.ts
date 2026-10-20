@@ -1,12 +1,12 @@
 import { WalletValueError } from "./money.js";
 
 /**
- * What each metered action costs, in micro dollars. The database holds the same numbers in wallet_prices (migration 0139) and is the
- * one that charges; these exist so the code can show a price and so a test can catch the two drifting apart.
- *   api_dispatch  0.002 USD  one verified dispatch to a platform's API
- *   sitemap_sync  0.05 USD   one crawl and sync of a Content Sources sitemap source
+ * What each metered action costs, in micro credits (1 credit = 1,000,000). The database holds the same numbers in wallet_prices
+ * (migration 0140) and is the one that charges; these exist so the code can show a price and so a test can catch the two drifting apart.
+ *   post_publish          1 credit    one published post
+ *   competitor_teardown   10 credits  one competitor content teardown
  */
-export const WALLET_PRICES_MICRO = { api_dispatch: 2000, sitemap_sync: 50_000 } as const;
+export const WALLET_PRICES_MICRO = { post_publish: 1_000_000, competitor_teardown: 10_000_000 } as const;
 
 export type WalletAction = keyof typeof WALLET_PRICES_MICRO;
 
