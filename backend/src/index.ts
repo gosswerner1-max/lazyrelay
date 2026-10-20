@@ -23,6 +23,8 @@ import { checkProductionConfig } from "./startupConfigCheck.js";
 import { retryStartupCheck } from "./startupRetry.js";
 import type { MerchantOfRecordAdapter } from "./billing/types.js";
 import { startWalletExpiryJob } from "./wallet/expiryJob.js";
+import { setCheckoutPort } from "./wallet/checkoutPort.js";
+import { createPaddleCheckoutPort } from "./billing/checkout.js";
 
 // How often the scheduler checks for due posts. Combined with scheduler.ts's
 // CLAIM_BATCH_SIZE, this sets the real publishing throughput ceiling (see
@@ -270,6 +272,8 @@ async function main() {
       return { data, error: error ? { message: error.message, code: error.code } : null };
     },
   });
+  // Wallet: server-created Paddle checkouts. Registered only when the Paddle key exists; otherwise the route answers 503.
+  if (process.env.MOR_API_KEY) setCheckoutPort(createPaddleCheckoutPort({ apiKey: process.env.MOR_API_KEY }));
   setTimeout(runTokenJob, 60_000);
 
   // Same gap as runSchedulerCycle's initial call above, same fix.
