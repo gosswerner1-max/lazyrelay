@@ -97,21 +97,32 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
 
           <h3>Cancellations and refunds</h3>
           <p>
+            <strong>All purchases, credit packages and subscription cycles are strictly non-refundable.</strong>{" "}
+            This covers Pay-as-you-go, every credit pack, and every Growth and Pro billing cycle. We don't refund
+            the unused portion of a partly used billing period, and we don't refund a purchase because you changed
+            your mind.
+          </p>
+          <p>
+            {"Except as required under local consumer protection laws or our payment processor's mandatory terms."}
+          </p>
+          <p>
             <strong>You can cancel your plan at any time</strong> from the Billing section of the Settings tab
-            (always visible in the top nav).
-            Cancelling stops future billing, but you keep access to your current plan's features until the end
-            of the billing period you've already paid for, then your account drops to the Free plan.
+            (always visible in the top nav). Cancelling stops future charges, and your plan stays active until the
+            end of the billing period you've already paid for.
+          </p>
+
+          <h3>When your data is deleted</h3>
+          <p>
+            <strong>Subscription plans (Growth and Pro):</strong> your posts and uploaded media are permanently
+            deleted 30 days after the subscription ends or is cancelled. You'll see this notice again and have to
+            confirm it when you cancel, and we'll email you a reminder about a week before deletion happens.
+            Download anything you want to keep before then - resubscribing before the 30 days are up cancels the
+            deletion.
           </p>
           <p>
-            <strong>We don't offer refunds for partial billing periods.</strong> If you cancel partway through
-            a month, you won't be charged again, but we don't refund the unused portion of the current period.
-          </p>
-          <p>
-            <strong>Once your plan actually ends, your posts and uploaded media are permanently deleted 30 days
-            later.</strong> We can't provide storage for an account that isn't a paying customer. You'll see this
-            notice again and have to confirm it when you cancel, and we'll email you a reminder about a week
-            before deletion happens. Download anything you want to keep before then - resubscribing before the
-            30 days are up cancels the deletion.
+            <strong>Non-subscription plans (Free and Pay-as-you-go):</strong> Data is maintained as long as the
+            account remains active, and is subject to deletion after 6 consecutive months of total
+            inactivity.
           </p>
 
           <h3>Your data and content</h3>
@@ -119,7 +130,7 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
             You own the content you schedule through LazyRelay. We store it only to publish it at the time you
             choose, and to show you what's scheduled, posted, or failed.
             We never delete your files ourselves while you are subscribed. Storage is only ever freed by your own
-            action or the 30-day post-cancellation deletion described above.
+            action or by the deletion rules described above.
           </p>
           <p>
             When you delete your account, we remove your stored content and connected-platform access tokens
@@ -177,8 +188,7 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
 
           <h3>Contact us</h3>
           <p>
-            Questions about these terms, billing, or a refund request you'd like us to consider outside the
-            standard policy? Email <a href="mailto:hello@lazyrelay.com">hello@lazyrelay.com</a>.
+            Questions about these terms or billing? Email <a href="mailto:hello@lazyrelay.com">hello@lazyrelay.com</a>.
           </p>
         </div>
       </section>

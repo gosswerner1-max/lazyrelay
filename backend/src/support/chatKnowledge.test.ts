@@ -94,3 +94,29 @@ describe("support bot knowledge: plans, credits and prices", () => {
     expect(prompt).not.toMatch(/[–—]/);
   });
 });
+
+describe("support bot knowledge: refunds and data deletion", () => {
+  const prompt = buildSupportSystemPrompt(null).replace(/\s+/g, " ");
+
+  it("states strict non-refundability, the verbatim notice and the footnote", () => {
+    expect(prompt).toContain("All purchases, credit packages and subscription cycles are strictly non-refundable.");
+    expect(prompt).toContain(
+      "LazyCredits are purely operational tokens for software features, hold no independent cash value, and are strictly non-refundable.",
+    );
+    expect(prompt).toContain("Except as required under local consumer protection laws or our payment processor's mandatory terms.");
+  });
+
+  it("never offers case-by-case review or says a cancelled plan moves to Free", () => {
+    expect(prompt).not.toMatch(/case[- ]by[- ]case/i);
+    expect(prompt).not.toMatch(/individually/i);
+    expect(prompt).not.toMatch(/drops to Free/);
+    expect(prompt).not.toMatch(/outside the standard policy/);
+  });
+
+  it("states both data deletion rules", () => {
+    expect(prompt).toContain("data is deleted 30 days after the subscription ends or is cancelled");
+    expect(prompt).toContain(
+      "Data is maintained as long as the account remains active, and is subject to deletion after 6 consecutive months of total inactivity.",
+    );
+  });
+});

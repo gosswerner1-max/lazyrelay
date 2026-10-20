@@ -7,6 +7,13 @@ import { DataDeletion } from "./DataDeletion";
 
 const NOTICE =
   "LazyCredits are purely operational tokens for software features, hold no independent cash value, and are strictly non-refundable.";
+const FOOTNOTE = "Except as required under local consumer protection laws or our payment processor's mandatory terms.";
+const NON_REFUNDABLE = "All purchases, credit packages and subscription cycles are strictly non-refundable.";
+const SUBSCRIPTION_RULE = "30 days after the subscription ends or is cancelled";
+const INACTIVITY_RULE =
+  "Data is maintained as long as the account remains active, and is subject to deletion after 6 consecutive months of total inactivity.";
+const BANNED_REFUND_LANGUAGE = [/case[- ]by[- ]case/i, /individually/i, /outside (this|the standard) policy/i, /we'll review it/i];
+const flat = (t: string) => t.replace(/\s+/g, " ");
 const OLD = ["Agency Plus", "Business", "$29.99", "$59.99", "$99.99", "$149.99", "storage add-on", "seat add-on"];
 
 function count(haystack: string, needle: string) {
@@ -40,5 +47,38 @@ describe("legal pages use the credits model", () => {
     const text = render(<DataDeletion onBack={() => {}} />).container.textContent ?? "";
     expect(text.toLowerCase()).not.toContain("add-on");
     expect(deletionHtml.toLowerCase()).not.toContain("add-on");
+  });
+
+  it("Terms and Refund Policy state strict non-refundability with the footnote and no case-by-case language", () => {
+    const terms = flat(render(<TermsOfService onBack={() => {}} />).container.textContent ?? "");
+    for (const text of [terms, flat(refunds)]) {
+      expect(text).toContain(NON_REFUNDABLE);
+      expect(count(text, FOOTNOTE)).toBe(1);
+      for (const re of BANNED_REFUND_LANGUAGE) expect(text, String(re)).not.toMatch(re);
+    }
+  });
+
+  it("Terms, Data Deletion page and public copy carry both deletion rules", () => {
+    const terms = flat(render(<TermsOfService onBack={() => {}} />).container.textContent ?? "");
+    const deletion = flat(render(<DataDeletion onBack={() => {}} />).container.textContent ?? "");
+    for (const text of [terms, deletion, flat(deletionHtml)]) {
+      expect(text).toContain(SUBSCRIPTION_RULE);
+      expect(text).toContain(INACTIVITY_RULE);
+      expect(text).toContain("6 consecutive months of total inactivity");
+      expect(text).not.toMatch(/12 consecutive months/);
+      expect(text).not.toMatch(/drops to the Free plan/);
+    }
+  });
+
+  it("support macros carry the footnote and the inactivity phrase exactly as on the legal pages, with no em or en dashes", () => {
+    const macros = readFileSync(resolve(__dirname, "../../../support/SUPPORT_MACROS.md"), "utf8");
+    const terms = flat(render(<TermsOfService onBack={() => {}} />).container.textContent ?? "");
+    const INACTIVITY_PHRASE = "6 consecutive months of total inactivity";
+    const [, m1, m2, m3] = macros.split(/^## MACRO /m);
+    for (const page of [terms, flat(refunds)]) expect(page).toContain(FOOTNOTE);
+    for (const macro of [m1, m2]) expect(flat(macro)).toContain(FOOTNOTE);
+    for (const page of [terms, flat(deletionHtml)]) expect(page).toContain(INACTIVITY_PHRASE);
+    expect(flat(m3)).toContain(INACTIVITY_PHRASE);
+    expect(macros).not.toMatch(/[–—]/);
   });
 });
