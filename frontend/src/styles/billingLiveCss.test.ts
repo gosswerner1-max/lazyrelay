@@ -33,7 +33,7 @@ describe("billing-live.css", () => {
   });
 
   it("has no em or en dash", () => {
-    expect(css).not.toMatch(/[–—]/);
+    expect(css).not.toMatch(/[\u2013\u2014]/);
   });
 
   it("animates nothing but transform and opacity", () => {
