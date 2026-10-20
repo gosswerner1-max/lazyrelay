@@ -1,0 +1,156 @@
+/* Competitor mode (a link box, a consent dialog, a draft box). Sits inside the Content Sources tab and uses only the
+   Custom Developer Keys tokens (byok-panels.css): no new tokens and no new hues. Every selector starts with
+   .content-sources so nothing here can repaint the rest of the dashboard. Loaded only with the competitor section.
+   Written to the Apple layout rules in .claude/rules/apple-design:
+     - feedback on pointer-down (:active, instant, 100 ms);
+     - the dialog grows out of the Analyze button and leaves the same way; only transform and opacity ever animate;
+     - the dialog turns around if it is reopened while leaving (a CSS transition starts from the live value);
+     - tighter tracking on the title, plain tracking on body text, looser leading on body than on the title;
+     - the fallbacks: reduced motion, reduced transparency, more contrast. */
+
+.content-sources .cs-competitor__form,
+.content-sources .cs-result-box,
+.content-sources .cs-progress {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.content-sources .cs-progress {
+  justify-items: start;
+}
+
+.content-sources .cs-source {
+  display: grid;
+  gap: 0.375rem;
+  justify-items: start;
+  min-width: 0;
+}
+
+.content-sources .cs-source__title {
+  margin: 0;
+  color: var(--byok-ink);
+  font-size: 1rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.content-sources .cs-textarea {
+  resize: vertical;
+  line-height: 1.5;
+  min-height: 6rem;
+}
+
+.content-sources .cs-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  color: var(--byok-ink);
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.content-sources .cs-consent input {
+  flex: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0.2rem 0 0;
+  accent-color: var(--byok-crimson);
+}
+
+.content-sources .cs-consent input:focus-visible {
+  outline: 2px solid var(--byok-coral);
+  outline-offset: 2px;
+}
+
+/* The dialog. It covers the screen while it is open. Closed is the resting look: the card is small and clear. */
+.content-sources .cs-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.6);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+}
+
+.content-sources .cs-modal[data-state="open"] {
+  opacity: 1;
+}
+
+.content-sources .cs-modal__card {
+  display: grid;
+  gap: 0.875rem;
+  width: min(32rem, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 1.25rem;
+  background: var(--byok-slate);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 14px;
+  box-shadow: var(--byok-card-shadow);
+  transform: scale(0.96);
+  opacity: 0;
+  transition:
+    transform 160ms ease-out,
+    opacity 160ms ease-out;
+}
+
+.content-sources .cs-modal[data-state="open"] .cs-modal__card {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.content-sources .cs-modal__card:focus {
+  outline: none;
+}
+
+.content-sources .cs-modal__title {
+  margin: 0;
+  color: var(--byok-ink);
+  font-size: 1.15rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.content-sources .cs-modal__card .cs-note {
+  line-height: 1.5;
+}
+
+/* Reduced motion: no scale and no movement. The dialog still fades, which is gentle and says what is happening. */
+@media (prefers-reduced-motion: reduce) {
+  .content-sources .cs-modal__card {
+    transform: none;
+  }
+  .content-sources .cs-modal[data-state="open"] .cs-modal__card {
+    transform: none;
+  }
+}
+
+/* Reduced transparency: a solid backdrop, no blur. */
+@media (prefers-reduced-transparency: reduce) {
+  .content-sources .cs-modal {
+    background: var(--byok-midnight);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* More contrast: firm borders and plain ink text. */
+@media (prefers-contrast: more) {
+  .content-sources .cs-modal__card,
+  .content-sources .cs-textarea {
+    border-color: var(--byok-ink);
+    border-width: 2px;
+  }
+  .content-sources .cs-consent,
+  .content-sources .cs-source .cs-hint {
+    color: var(--byok-ink);
+  }
+}

@@ -4,7 +4,7 @@
 // (see lib/contentSources.ts). The three draft actions are handed in as props, so each one runs through the dashboard's own
 // existing post flows.
 
-import { useId, useMemo, useState, type KeyboardEvent } from "react";
+import { Suspense, lazy, useId, useMemo, useState, type KeyboardEvent } from "react";
 import type { Brand, ScheduledPost } from "../../lib/api";
 import { SOURCE_TYPE_LABELS, contentSourceDrafts, type ContentSourcesClient, type DraftRow } from "../../lib/contentSources";
 import { ContentSourcesAddForm } from "./ContentSourcesAddForm";
@@ -14,6 +14,10 @@ import { CheckResult, ContentSourcesProof } from "./ContentSourcesProof";
 import { useContentSources } from "./useContentSources";
 import "../../styles/byok-panels.css";
 import "../../styles/content-sources.css";
+
+// Competitor mode is off unless the build setting is exactly "true". Off, the section is never imported, so the build carries none of it.
+const COMPETITOR_ENABLED = import.meta.env.VITE_COMPETITOR_MODE_ENABLED === "true";
+const CompetitorSection = COMPETITOR_ENABLED ? lazy(() => import("./CompetitorSection")) : null;
 
 type RowHandler = (post: ScheduledPost) => void | Promise<void>;
 
@@ -149,6 +153,12 @@ export function ContentSourcesTab({ posts, brands, onReviewAndEdit, onApproveToC
             {checkInList && <CheckResult check={cs.check} checking={checkingId !== null} />}
           </ContentSourcesList>
         </>
+      )}
+
+      {CompetitorSection && (
+        <Suspense fallback={null}>
+          <CompetitorSection onSaved={onRefreshPosts} />
+        </Suspense>
       )}
 
       <section className="cs-card" aria-labelledby={id("drafts-title")}>
