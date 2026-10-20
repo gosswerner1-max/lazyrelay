@@ -1,55 +1,81 @@
 // Checks (e) to (g): a charge racing the expiry instant, deadlock freedom under mixed load, and the ledger chain afterwards.
 import { accountProblem } from "./fixture.mjs";
+import { classifyByExpiry, leadMs, median, raceExercised } from "./lib.mjs";
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const fail = (detail) => ({ pass: false, detail });
 
-/** Milliseconds until the given moment on the DATABASE clock (negative once it has passed). */
-async function msUntil(ctx, at) {
-  const r = await ctx.run(ctx.clients[0], `select (extract(epoch from ($1::timestamptz - clock_timestamp())) * 1000)::float8 as ms`, [at]);
-  return r[0].ms;
+// Check (e) helpers. Every operation is stamped with now() INSIDE its own statement, which is the same transaction time the wallet
+// functions use to decide whether a lot has expired, so the before and after split uses the database clock only.
+async function calibrate(ctx) {
+  const samples = [];
+  await Promise.all(ctx.clients.map(async (c) => {
+    for (let i = 0; i < 5; i++) {
+      const t0 = performance.now();
+      await c.query("select 1");
+      samples.push(performance.now() - t0);
+    }
+  }));
+  return median(samples);
 }
 
-/** One burst of parallel work: charges, wallet_expire calls and a hold, all fired together on separate connections. */
-function burst(ctx, acc, tag) {
-  const ops = [];
-  for (let i = 0; i < ctx.size; i++) {
-    const c = ctx.clients[i];
-    if (i % 4 === 3) ops.push(ctx.call(c, `fx.wallet_expire(now())`));
-    else if (i % 8 === 6) ops.push(ctx.call(c, `fx.wallet_hold($1::uuid, 'post_publish', $2)`, [acc, `${tag}-h${i}`]));
-    else ops.push(ctx.call(c, `fx.wallet_charge($1::uuid, 'post_publish', 1, $2)`, [acc, `${tag}-c${i}`]));
+async function stamped(ctx, client, expr, params) {
+  try {
+    const row = (await ctx.run(client, `select now() as t, (${expr.split("fx.").join(`${ctx.fx}.`)}) as r`, params))[0];
+    return { t: row.t, r: row.r };
+  } catch (e) {
+    return { t: null, error: e.code ?? "none" };
   }
-  return ctx.settle(ops);
 }
 
-/** (e) bursts of charges, holds and wallet_expire around the expiry instant: nothing is spent from, or reserved on, a lot at or after its expiry. */
-export async function checkExpiryRace(ctx) {
+/** One worker loops as fast as its connection allows until stopAt: charges and holds of 1 credit, and on every fourth connection wallet_expire. */
+async function raceWorker(ctx, w, acc, tag, stopAt, ops) {
+  const client = ctx.clients[w];
+  for (let i = 0; Date.now() < stopAt; i++) {
+    if (w % 4 === 3) ops.push(await stamped(ctx, client, `fx.wallet_expire(now())`));
+    else if (i % 2 === 0) ops.push(await stamped(ctx, client, `fx.wallet_charge($1::uuid, 'post_publish', 1, $2)`, [acc, `${tag}-c${w}-${i}`]));
+    else ops.push(await stamped(ctx, client, `fx.wallet_hold($1::uuid, 'post_publish', $2)`, [acc, `${tag}-h${w}-${i}`]));
+  }
+}
+
+async function raceAttempt(ctx, lead, attempt) {
+  const c0 = ctx.clients[0];
   const acc = await ctx.newAccount();
   await ctx.grant(acc, "pack", 5, null, ctx.key("g"));
-  const expiry = (await ctx.run(ctx.clients[0], `select now() + interval '3 seconds' as t`))[0].t;
-  await ctx.call(ctx.clients[0], `fx.wallet_grant($1::uuid, 'subscription', 1000000000, $2::timestamptz, $3)`, [acc, expiry, ctx.key("sub")]);
-  for (let ms = await msUntil(ctx, expiry); ms > 120; ms = await msUntil(ctx, expiry)) await sleep(Math.min(ms - 100, 500));
-  const tag = ctx.key("race");
-  let before = 0;
-  let after = 0;
-  let errors = 0;
-  for (let round = 0; (await msUntil(ctx, expiry)) > -400 && round < 400; round++) {
-    const wasBefore = (await msUntil(ctx, expiry)) > 0;
-    const res = await burst(ctx, acc, `${tag}-${round}`);
-    errors += res.filter((r) => !r.ok).length;
-    if (wasBefore) before += res.length;
-    else after += res.length;
-  }
-  const late = await ctx.run(ctx.clients[0], `select
+  const expiry = (await ctx.run(c0, `select clock_timestamp() + make_interval(secs => $1::float8 / 1000) as t`, [lead]))[0].t;
+  const sub = await ctx.call(c0, `fx.wallet_grant($1::uuid, 'subscription', 900000000000::bigint, $2::timestamptz, $3)`, [acc, expiry, ctx.key("sub")]);
+  const ops = [];
+  const stopAt = Date.now() + 2 * lead;
+  await Promise.all(ctx.clients.map((_, w) => raceWorker(ctx, w, acc, `${ctx.key("race")}-${attempt}`, stopAt, ops)));
+  return { acc, sub: sub.lot_id, expiry, ops };
+}
+
+async function raceViolations(ctx, { acc, sub }) {
+  const r = (await ctx.run(ctx.clients[0], `select
     (select count(*) from ${ctx.fx}.wallet_ledger l, jsonb_array_elements(l.lot_breakdown) e, ${ctx.fx}.wallet_lots lt
        where l.account_id = $1 and l.kind in ('charge', 'hold_commit') and lt.id = (e ->> 'lot_id')::uuid and lt.expires_at is not null and l.created_at >= lt.granted_expires_at)::int as spent_late,
     (select count(*) from ${ctx.fx}.wallet_holds h, jsonb_array_elements(h.breakdown) e, ${ctx.fx}.wallet_lots lt
        where h.account_id = $1 and lt.id = (e ->> 'lot_id')::uuid and lt.expires_at is not null and h.created_at >= lt.granted_expires_at)::int as held_late,
-    (select count(*) from ${ctx.fx}.wallet_ledger where account_id = $1 and kind = 'expire')::int as expire_entries`, [acc]);
-  const problem = await accountProblem(ctx, acc);
-  const detail = `${before} operations before and ${after} after the expiry instant; spent after expiry: ${late[0].spent_late}, reserved after expiry: ${late[0].held_late}, expire entries: ${late[0].expire_entries}`;
-  if (before === 0 || after === 0 || late[0].expire_entries < 1) return fail(`${detail}; the race window was not exercised`);
-  return late[0].spent_late === 0 && late[0].held_late === 0 && errors === 0 && problem === null ? { pass: true, detail } : fail(`${detail}; errors ${errors}; ${problem ?? ""}`);
+    (select count(*) from ${ctx.fx}.wallet_ledger where account_id = $1 and kind = 'expire' and lot_breakdown -> 0 ->> 'lot_id' = $2)::int as expire_entries`, [acc, sub]))[0];
+  return r;
+}
+
+/** (e) up to 3 attempts, each with a longer lead, until at least 20 operations ran before AND after the expiry instant (by database time). */
+export async function checkExpiryRace(ctx) {
+  const rtt = await calibrate(ctx);
+  let last = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const lead = leadMs(rtt, attempt);
+    const run = await raceAttempt(ctx, lead, attempt);
+    const split = classifyByExpiry(run.ops, run.expiry);
+    const errors = run.ops.filter((o) => o.error).length;
+    const v = await raceViolations(ctx, run);
+    const problem = await accountProblem(ctx, run.acc);
+    last = `attempt ${attempt + 1} (median round trip ${rtt.toFixed(0)} ms, lead ${(lead / 1000).toFixed(1)} s): ${split.before} operations before and ${split.after} after the expiry instant; spent after expiry: ${v.spent_late}, reserved after expiry: ${v.held_late}, expire entries for the lot: ${v.expire_entries}, errors: ${errors}`;
+    if (v.spent_late !== 0 || v.held_late !== 0 || errors !== 0 || problem !== null) return fail(`${last}; ${problem ?? "a correctness assertion failed"}`);
+    if (!raceExercised(split)) continue;
+    return v.expire_entries === 1 ? { pass: true, detail: last } : fail(`${last}; expected exactly one expire entry`);
+  }
+  return fail(`${last}; the race window was not exercised`);
 }
 
 function pickOp(rnd) {

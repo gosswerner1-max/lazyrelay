@@ -107,3 +107,39 @@ describe("tallyTerminal decides who won a commit and release race", () => {
     expect(tallyTerminal({ commits: [{ ok: true, replay: false }], releases: [{ ok: false, reason: "hold_not_held" }], status: "committed", commitEntries: 2 }).ok).toBe(false);
   });
 });
+
+import { classifyByExpiry, leadMs, median, raceExercised } from "./lib.mjs";
+
+describe("timing helpers of the expiry race check", () => {
+  it("median of an odd and an even list, and of nothing", () => {
+    expect(median([5, 1, 3])).toBe(3);
+    expect(median([4, 1, 3, 2])).toBe(2.5);
+    expect(median([])).toBe(0);
+  });
+
+  it("the lead is the larger of 4 seconds and 25 round trips, and grows with every retry", () => {
+    expect(leadMs(10, 0)).toBe(4000);
+    expect(leadMs(200, 0)).toBe(5000);
+    expect(leadMs(400, 0)).toBe(10000);
+    expect(leadMs(10, 1)).toBe(8000);
+    expect(leadMs(10, 2)).toBe(12000);
+  });
+
+  it("classifies each operation by its database timestamp, not by the client clock", () => {
+    const expiry = new Date("2026-11-01T10:00:10.000Z");
+    const ops = [
+      { t: new Date("2026-11-01T10:00:09.999Z") },
+      { t: new Date("2026-11-01T10:00:10.000Z") },
+      { t: new Date("2026-11-01T10:00:12.000Z") },
+      { t: null },
+    ];
+    expect(classifyByExpiry(ops, expiry)).toEqual({ before: 1, after: 2, unstamped: 1 });
+  });
+
+  it("the race window counts as exercised only with at least 20 operations on each side", () => {
+    expect(raceExercised({ before: 20, after: 20 })).toBe(true);
+    expect(raceExercised({ before: 19, after: 50 })).toBe(false);
+    expect(raceExercised({ before: 50, after: 19 })).toBe(false);
+    expect(raceExercised({ before: 0, after: 8 })).toBe(false);
+  });
+});

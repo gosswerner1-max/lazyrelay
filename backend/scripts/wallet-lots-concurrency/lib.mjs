@@ -72,3 +72,33 @@ export function tallyTerminal({ commits, releases, status, commitEntries }) {
   }
   return { ok: false, reason: `the hold ended as ${status}` };
 }
+
+/** Median of a list of numbers (0 for an empty list). */
+export function median(xs) {
+  if (xs.length === 0) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 === 1 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
+/** How far ahead of the start the expiry is set: the larger of 4 seconds and 25 round trips, longer on every retry (attempt 0, 1, 2). */
+export function leadMs(medianRttMs, attempt) {
+  return Math.max(4000, 25 * medianRttMs) * (1 + attempt);
+}
+
+/** Splits operations into before and after the expiry by their DATABASE timestamp (op.t, a Date taken from now() inside the statement). */
+export function classifyByExpiry(ops, expiry) {
+  const limit = expiry.getTime();
+  const out = { before: 0, after: 0, unstamped: 0 };
+  for (const op of ops) {
+    if (!(op.t instanceof Date)) out.unstamped += 1;
+    else if (op.t.getTime() < limit) out.before += 1;
+    else out.after += 1;
+  }
+  return out;
+}
+
+/** The race window is exercised only when at least 20 operations ran before the expiry instant and at least 20 after it. */
+export function raceExercised({ before, after }) {
+  return before >= 20 && after >= 20;
+}
