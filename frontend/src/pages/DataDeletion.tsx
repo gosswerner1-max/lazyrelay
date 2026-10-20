@@ -7,7 +7,7 @@ interface DataDeletionProps {
   onBack: () => void;
 }
 
-const LAST_UPDATED = "3 September 2026";
+const LAST_UPDATED = "20 October 2026";
 
 export function DataDeletion({ onBack }: DataDeletionProps) {
   useEffect(() => {
@@ -58,7 +58,7 @@ export function DataDeletion({ onBack }: DataDeletionProps) {
           <p>
             Go to the Billing section of the Settings tab (always visible in the top nav) and click Cancel. This stops
             future billing; your account drops to the Free plan at the end of the period you've already paid
-            for. Your data is <strong>not</strong> deleted at that point — but <strong>30 days after your access
+            for. Your data is <strong>not</strong> deleted at that point, but <strong>30 days after your access
             ends, your posts and uploaded media are permanently deleted</strong>, since we can't provide storage
             for an account that isn't a paying customer. You'll confirm this when you cancel, and we'll email you
             a reminder about a week before it happens. Download anything you want to keep before then, or
@@ -75,7 +75,7 @@ export function DataDeletion({ onBack }: DataDeletionProps) {
           <ul>
             <li>Revoke every connected platform's access token, disconnecting all of your connected accounts.</li>
             <li>Delete your account record, subscription and billing history, uploaded media, and scheduled/post history.</li>
-            <li>Cancel any active subscription or storage add-ons, effective immediately rather than waiting out the billing period, since the account itself is being removed.</li>
+            <li>Cancel any active subscription, effective immediately rather than waiting out the billing period, since the account itself is being removed.</li>
           </ul>
           <p>
             Records we're legally required to keep for tax/accounting purposes (e.g. sale and refund records for
