@@ -9,7 +9,8 @@ import llms from "../../public/llms.txt?raw";
 // the same thing as the page, and the page is discoverable (sitemap, llms.txt).
 //   Platforms: the live platform picker, 18 distribution platforms plus WhatsApp (Werner, 2026-10-16).
 //   MCP: 27 tools (backend/src/mcp/lazyrelayTools.ts, lazyrelay-mcp.json), hosted endpoint plus local package.
-//   Content Sources: the tab's own text. Proof of Publish, free tier, approvals, analytics, CSV import, 2FA: the live landing page.
+//   Competitor teardown: 10 credits, Claude Sonnet 5.5 (engine DEFAULT_COMPETITOR_MODEL), structure only (engine blueprintSchema.ts).
+//   Own keys: X_BYOK_ALLOWED_TIERS and WHATSAPP_BYOK_ALLOWED_TIERS in backend/src/tier.ts. Free plan: FACTS-2026-10-20.
 
 const guard = createRequire(import.meta.url)("../../../scripts/check-copy-guardrails.js") as { checkHtml: (html: string) => string[] };
 const URL_ = "https://lazyrelay.com/capabilities/";
@@ -52,7 +53,7 @@ describe("the structured data", () => {
     expect(software.applicationCategory).toBe("BusinessApplication");
     expect(software.operatingSystem).toBe("Web");
     expect(software.offers).toMatchObject({ "@type": "Offer", price: "0", priceCurrency: "USD" });
-    expect(software.featureList.length).toBeGreaterThanOrEqual(8);
+    expect(software.featureList.length).toBeGreaterThanOrEqual(5);
   });
   it("lists only features the page itself describes (each feature name appears in the visible text)", () => {
     for (const f of software.featureList) expect(visible.toLowerCase(), f).toContain(f.toLowerCase().split(":")[0]!.trim());
@@ -73,18 +74,33 @@ describe("the structured data", () => {
 describe("what it claims is true", () => {
   it.each([
     ["the approved platform wording", "18 distribution platforms plus WhatsApp"],
+    ["WhatsApp is not counted as a distribution platform", "not one of the 18 distribution platforms"],
     ["27 MCP tools", "27 MCP tools"],
-    ["any MCP capable agent", "any AI agent that supports MCP"],
-    ["Proof of Publish on every plan", "Proof of Publish"],
-    ["Content Sources needs a proven website", "a website you have proven you own"],
-    ["nothing posts until approved", "Nothing is posted until you approve it"],
-    ["the free tier", "3 accounts"],
-    ["page text is not stored (the runner keeps titles and links; the database clears a handed off body)", "keeps only the title and the link"],
-    ["row level security (tested: 2,992 live attempts blocked, see the security report)", "row level security"],
-    ["WhatsApp opt outs are honoured (backend/src/whatsappBroadcast/metaErrors.ts)", "When a contact opts out, LazyRelay honours it and records it"],
-    ["the Drafts for review table", "Drafts for review"],
+    ["Proof of Publish reads the post back", "reads it back from the platform"],
+    ["a post is live only when confirmed", "marked live only when that read back confirms it"],
+    ["the cost of a teardown", "A teardown costs 10 credits"],
+    ["charged only on delivery", "charged only when the blueprint is delivered"],
+    ["the model", "Claude Sonnet 5.5"],
+    ["the page reader", "Firecrawl"],
+    ["own keys plans", "Growth, Pro and Pay as you go"],
+    ["the free plan", "30 credits once at registration"],
   ])("says %s", (_why, text) => {
     expect(visible).toContain(text);
+  });
+  it.each([
+    [/split[ -]screen/i],
+    [/Sonnet 3/i],
+    [/tracker|tracking competitors/i],
+    [/hook zone/i],
+    [/absolute control/i],
+    [/heavy messaging/i],
+    [/programmatic data hook/i],
+    [/silent (API )?drops/i],
+    [/local (workspace )?files/i],
+    [/brand settings/i],
+    [/(17|19) (distribution )?platforms/i],
+  ])("never says %s", (pattern) => {
+    expect(visible).not.toMatch(pattern);
   });
   it.each([
     [/model[ -]agnostic/i],
@@ -105,7 +121,7 @@ describe("what it claims is true", () => {
     expect(page).not.toMatch(pattern);
   });
   it("lists exactly the 18 distribution platforms", () => {
-    for (const name of ["Facebook", "Instagram", "TikTok", "Pinterest", "YouTube", "LinkedIn", "Threads", "Mastodon", "Bluesky", "Telegram", "Discord", "Tumblr", "WordPress", "DEV", "Hashnode", "Lemmy", "Slack", "X"]) {
+    for (const name of ["Facebook", "Instagram", "TikTok", "Pinterest", "YouTube", "LinkedIn", "Threads", "Mastodon", "Bluesky", "Telegram", "Discord", "Tumblr", "WordPress", "dev.to", "Hashnode", "Lemmy", "Slack", "X"]) {
       expect(visible, name).toContain(name);
     }
   });
@@ -114,6 +130,10 @@ describe("what it claims is true", () => {
 describe("it can be found", () => {
   it("is in the sitemap once", () => {
     expect(sitemap.split(URL_).length - 1).toBe(1);
+  });
+  it("has the five search phrases in the keywords tag", () => {
+    const kw = /<meta name="keywords" content="([^"]+)"/.exec(page)![1]!;
+    for (const k of ["usage-based social media scheduler", "pay-as-you-go competitor analysis", "Claude Code Model Context Protocol tools", "verified post distribution ledger", "landing page structure extraction"]) expect(kw).toContain(k);
   });
   it("is in llms.txt", () => {
     expect(llms).toContain(URL_);

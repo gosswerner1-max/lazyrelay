@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Core Capabilities and Architectural Features of LazyRelay</title>
-<meta name="description" content="What LazyRelay does: scheduling to 18 distribution platforms plus WhatsApp, Proof of Publish checks, MCP access for AI agents and Content Sources." />
+<title>Usage-Based Social Media Scheduler: Architecture Blueprint</title>
+<meta name="description" content="A usage-based social media scheduler for 18 distribution platforms plus WhatsApp, with pay-as-you-go competitor analysis and 27 MCP tools." />
+<meta name="keywords" content="usage-based social media scheduler, pay-as-you-go competitor analysis, Claude Code Model Context Protocol tools, verified post distribution ledger, landing page structure extraction" />
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
 <link rel="canonical" href="https://lazyrelay.com/capabilities/" />
-<meta property="og:title" content="Core Capabilities and Architectural Features of LazyRelay" />
-<meta property="og:description" content="What LazyRelay does: scheduling to 18 distribution platforms plus WhatsApp, Proof of Publish checks, MCP access for AI agents and Content Sources." />
+<meta property="og:title" content="Usage-Based Social Media Scheduler: Architecture Blueprint" />
+<meta property="og:description" content="A usage-based social media scheduler for 18 distribution platforms plus WhatsApp, with pay-as-you-go competitor analysis and 27 MCP tools." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://lazyrelay.com/capabilities/" />
 <meta property="og:site_name" content="LazyRelay" />
@@ -18,8 +19,8 @@
 <meta property="og:image:height" content="630" />
 <meta property="og:image:alt" content="LazyRelay logo with the tagline Automate. Schedule. Publish. Repeat., and icons for smart scheduling, auto posting and flexible storage, linked to social platform icons." />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Core Capabilities and Architectural Features of LazyRelay" />
-<meta name="twitter:description" content="What LazyRelay does: scheduling to 18 distribution platforms plus WhatsApp, Proof of Publish checks, MCP access for AI agents and Content Sources." />
+<meta name="twitter:title" content="Usage-Based Social Media Scheduler: Architecture Blueprint" />
+<meta name="twitter:description" content="A usage-based social media scheduler for 18 distribution platforms plus WhatsApp, with pay-as-you-go competitor analysis and 27 MCP tools." />
 <meta name="twitter:image" content="https://lazyrelay.com/og-image-1200x630.jpg" />
 <link rel="icon" type="image/png" href="/favicon.png" />
 <script src="/consent.js" defer></script>
@@ -41,9 +42,12 @@
   nav.primary a:hover { color: var(--text); }
   main { max-width: 960px; margin: 0 auto; padding: 8px 16px 56px; }
   h1 { font-family: Georgia, serif; font-size: clamp(30px, 5vw, 44px); line-height: 1.15; margin: 24px 0 12px; letter-spacing: -0.02em; }
-  h2 { font-family: Georgia, serif; font-size: 22px; margin: 0 0 6px; line-height: 1.25; }
+  h2 { font-family: Georgia, serif; font-size: 24px; margin: 0 0 6px; line-height: 1.25; }
   h3 { font-family: Georgia, serif; font-size: 17px; margin: 28px 0 6px; }
+  .row h3 { margin: 4px 0 0; font-size: 19px; }
   .lede { color: var(--muted); font-size: 18px; max-width: 720px; margin: 0 0 28px; }
+  .block { margin: 0 0 40px; }
+  .block > .intro { color: var(--muted); max-width: 760px; margin: 0 0 16px; }
   .rows { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
   .row { background: var(--row); border: 1px solid var(--row-edge); border-left: 6px solid var(--accent); border-radius: 10px; padding: 18px 20px; }
   .row p { margin: 6px 0 0; color: var(--muted); }
@@ -69,32 +73,23 @@
   "@id": "https://lazyrelay.com/capabilities/#software",
   "name": "LazyRelay",
   "url": "https://lazyrelay.com",
-  "description": "LazyRelay schedules and publishes posts to 18 distribution platforms plus WhatsApp, checks that each post is really live, and gives AI agents access through 27 MCP tools.",
+  "description": "LazyRelay schedules and publishes posts to 18 distribution platforms plus WhatsApp, checks that each post is really live, runs pay as you go competitor teardowns and gives AI agents 27 MCP tools.",
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Web",
   "featureList": [
     "18 distribution platforms plus WhatsApp",
-    "Scheduling that runs by itself",
     "Proof of Publish",
-    "27 MCP tools for AI agents",
-    "Content Sources: draft posts from your own website",
-    "Drafts for review",
-    "Page text is not kept",
-    "Your data stays yours",
-    "WhatsApp broadcasts",
-    "Approvals and client review links",
-    "Brands",
-    "AI captions, hashtags and ideas",
-    "Bulk CSV import",
-    "REST API and signed webhooks",
-    "Analytics dashboard",
-    "Two factor authentication"
+    "Verified post distribution ledger",
+    "Pay as you go competitor analysis",
+    "Landing page structure extraction",
+    "27 MCP tools",
+    "Your own X and WhatsApp developer keys"
   ],
   "offers": {
     "@type": "Offer",
     "price": "0",
     "priceCurrency": "USD",
-    "description": "Free tier with 30 credits once, 3 accounts and Proof of Publish included"
+    "description": "Free plan with 30 credits once at registration and 3 connected accounts"
   }
 }
 </script>
@@ -108,15 +103,7 @@
       "name": "Which platforms can LazyRelay publish to?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "LazyRelay publishes to 18 distribution platforms plus WhatsApp: Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress, DEV, Hashnode, Lemmy, Slack and X."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Does LazyRelay work with my AI agent?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "LazyRelay works with any AI agent that supports MCP, including Claude, ChatGPT, Gemini and Cursor. It offers 27 MCP tools, included on every plan, through a hosted endpoint with sign in or a local package with an API key."
+        "text": "LazyRelay publishes to 18 distribution platforms plus WhatsApp. The 18 are TikTok, Pinterest, YouTube, Mastodon, Bluesky, Telegram, LinkedIn, Threads, Facebook, Instagram, Discord, Tumblr, WordPress, dev.to, Hashnode, Lemmy, Slack and X. WhatsApp is client messaging and is not one of the 18."
       }
     },
     {
@@ -124,15 +111,23 @@
       "name": "What is Proof of Publish?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Proof of Publish is a second check. After LazyRelay posts, it looks at the platform again to confirm the post is really live, instead of trusting that the platform accepted the request. It is included on every plan, including Free."
+        "text": "Proof of Publish is a second step. After LazyRelay posts, it reads the post back from the platform. A post is marked live only when that read back confirms it. Otherwise it shows as unverified."
       }
     },
     {
       "@type": "Question",
-      "name": "What does Content Sources do?",
+      "name": "What does a competitor teardown cost?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Content Sources reads an RSS feed or a sitemap from a website you have proven you own and turns new pages into draft posts for you to review. Nothing is posted until you approve it."
+        "text": "A competitor teardown costs 10 credits. The credits are charged only when the blueprint is delivered, and a failed teardown costs nothing."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does LazyRelay work with my AI agent?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LazyRelay has 27 MCP tools. An AI agent that supports MCP, such as Claude Code, can use them to schedule and manage your LazyRelay posts through the API. Use the hosted endpoint with sign in, or the local package with an API key."
       }
     },
     {
@@ -140,7 +135,7 @@
       "name": "Is there a free plan?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. The free tier has 30 credits once, 3 accounts and 1 brand, and includes Proof of Publish and MCP access."
+        "text": "Yes. The Free plan gives you 30 credits once at registration and up to 3 connected accounts."
       }
     }
   ]
@@ -161,98 +156,74 @@
   </nav>
 </header>
 <main id="content">
-  <h1>What LazyRelay can do</h1>
-  <p class="lede">One place to schedule, publish and check your posts, with access for AI agents built in. Every line below describes something LazyRelay does today.</p>
+  <h1>System Capabilities &amp; Technical Architecture Blueprint</h1>
+  <p class="lede">How LazyRelay is built, in three parts. Every line below describes something it does today.</p>
 
-  <ul class="rows">
-    <li class="row">
-      <span class="tag">Publish</span>
-      <h2>18 distribution platforms plus WhatsApp</h2>
-      <p>Connect your accounts once and post to all of them from one screen, or from an AI agent.</p>
-      <ul class="platforms" aria-label="Distribution platforms">
-        <li>Facebook</li><li>Instagram</li><li>TikTok</li><li>Pinterest</li><li>YouTube</li><li>LinkedIn</li><li>Threads</li><li>Mastodon</li><li>Bluesky</li><li>Telegram</li><li>Discord</li><li>Tumblr</li><li>WordPress</li><li>DEV</li><li>Hashnode</li><li>Lemmy</li><li>Slack</li><li>X</li>
-      </ul>
-      <p class="note">X is available on paid plans, using your own X developer keys. WhatsApp is used for client messaging.</p>
-    </li>
-    <li class="row">
-      <span class="tag">Schedule</span>
-      <h2>Scheduling that runs by itself</h2>
-      <p>Queue a one time post for the exact moment you want, or set a recurring weekly schedule once. Plan by day on the content calendar. LazyRelay checks for due posts every 30 seconds and sends them out when they are due.</p>
-    </li>
-    <li class="row">
-      <span class="tag">Verify</span>
-      <h2>Proof of Publish</h2>
-      <p>After posting, LazyRelay looks at the platform again to confirm the post is really live, not just accepted. It is included on every plan, including Free.</p>
-    </li>
-    <li class="row">
-      <span class="tag">AI agents</span>
-      <h2>27 MCP tools for AI agents</h2>
-      <p>LazyRelay works with any AI agent that supports MCP, including Claude, ChatGPT, Gemini and Cursor. Agents can check platform rules, create drafts, schedule, approve and read analytics. Use the hosted endpoint with sign in, or the local package with an API key. Included on every plan, including Free. <a href="/mcp/">See the integration guides</a>.</p>
-    </li>
-    <li class="row">
-      <span class="tag">Content Sources</span>
-      <h2>Content Sources: draft posts from your own website</h2>
-      <p>Connect an RSS feed or a sitemap from a website you have proven you own, and LazyRelay turns new pages into draft posts for you to review. Nothing is posted until you approve it.</p>
-    </li>
-    <li class="row">
-      <span class="tag">Drafts</span>
-      <h2>Drafts for review</h2>
-      <p>See everything a source produced in one table, then review and edit, approve and move to the calendar, or dismiss each draft before anything is scheduled.</p>
-    </li>
-    <li class="row">
-      <span class="tag">Privacy</span>
-      <h2>Page text is not kept</h2>
-      <p>When Content Sources builds a draft it keeps only the title and the link. The text of the page is used to write a short excerpt and is not stored by the service, and the database clears any stored page body once a draft has been handed to LazyRelay.</p>
-    </li>
-    <li class="row">
-      <span class="tag">Security</span>
-      <h2>Your data stays yours</h2>
-      <p>Each customer can only reach their own sources and drafts, and the database enforces it with row level security. Your LazyRelay key is stored encrypted and is never shown again, only its last four characters. In our own testing with thousands of simulated cross customer attempts, none got through.</p>
-    </li>
-    <li class="row">
-      <span class="tag">WhatsApp</span>
-      <h2>WhatsApp broadcasts</h2>
-      <p>Send a message to a list of contacts on WhatsApp. When a contact opts out, LazyRelay honours it and records it.</p>
-    </li>
-    <li class="row">
-      <span class="tag">Review</span>
-      <h2>Approvals and client review links</h2>
-      <p>Mark a post as needing sign off before it goes out. On paid plans, send clients a review link so they can approve or ask for changes.</p>
-    </li>
-    <li class="row">
-      <span class="tag">Teams</span>
-      <h2>Brands</h2>
-      <p>Keep several brands or clients in one account, with the number of brands depending on your plan.</p>
-    </li>
-    <li class="row">
-      <span class="tag">Writing help</span>
-      <h2>AI captions, hashtags and ideas</h2>
-      <p>Generate wording or tags from your draft in one click and get fresh content ideas on demand. On paid plans, LazyRelay can also draft a suggested reply for Mastodon and Bluesky comments, and nothing posts until you approve it.</p>
-    </li>
-    <li class="row">
-      <span class="tag">Bulk</span>
-      <h2>Bulk CSV import</h2>
-      <p>Schedule up to 200 posts at once, with a preview of every row before anything is saved.</p>
-    </li>
-    <li class="row">
-      <span class="tag">Developers</span>
-      <h2>REST API and signed webhooks</h2>
-      <p>Create, schedule and manage posts through a REST API described by an OpenAPI document. Webhooks are signed with HMAC SHA256 and retried. <a href="/docs/">Read the docs</a>.</p>
-    </li>
-    <li class="row">
-      <span class="tag">Insight</span>
-      <h2>Analytics dashboard</h2>
-      <p>See total posts, success rates for each platform and a daily volume trend.</p>
-    </li>
-    <li class="row">
-      <span class="tag">Security</span>
-      <h2>Two factor authentication</h2>
-      <p>Turn on optional two factor sign in with an authenticator app, with one time recovery codes for safety.</p>
-    </li>
-  </ul>
+  <section class="block" aria-labelledby="engine">
+    <h2 id="engine">1. Multi Platform Content Distribution Engine</h2>
+    <p class="intro">LazyRelay is a usage based social media scheduler. Connect your accounts once, schedule a post, and it goes to every destination you picked. Each destination costs 1 credit, and the credit is taken only after the platform confirms the post is live.</p>
+    <ul class="rows">
+      <li class="row">
+        <span class="tag">Publish</span>
+        <h3>(a) 18 distribution platforms</h3>
+        <p>LazyRelay publishes to 18 distribution platforms plus WhatsApp.</p>
+        <ul class="platforms" aria-label="Distribution platforms">
+          <li>TikTok</li><li>Pinterest</li><li>YouTube</li><li>Mastodon</li><li>Bluesky</li><li>Telegram</li><li>LinkedIn</li><li>Threads</li><li>Facebook</li><li>Instagram</li><li>Discord</li><li>Tumblr</li><li>WordPress</li><li>dev.to</li><li>Hashnode</li><li>Lemmy</li><li>Slack</li><li>X</li>
+        </ul>
+        <p class="note">WordPress, dev.to and Hashnode can publish live or save a draft, your choice for each post. A draft is never reported as live. X connects with your own X developer keys, see part 3.</p>
+      </li>
+      <li class="row">
+        <span class="tag">Messaging</span>
+        <h3>(b) WhatsApp</h3>
+        <p>WhatsApp is client messaging. It is not one of the 18 distribution platforms and is not counted as one. You link your own Meta WhatsApp Business account and phone number, your login is stored encrypted, and Meta bills that account directly. Broadcasts are sent from the signed in dashboard using message templates Meta has approved. When a contact opts out, LazyRelay honours it and records it. A post cannot be sent to WhatsApp through the API, MCP, bulk import or duplicate.</p>
+      </li>
+      <li class="row">
+        <span class="tag">Verify</span>
+        <h3>(c) Proof of Publish</h3>
+        <p>Posting and checking are two separate steps. First post() sends the content to the platform. Then verifyPublished() reads it back from the platform. A post is marked live only when that read back confirms it, and the public URL of the post is stored with the result. If the read back does not confirm it, the post shows as unverified and no credit is taken.</p>
+        <p>Each destination gets its own result row. Together they work as a verified post distribution ledger: for every post you can see which destinations were confirmed live and where each one lives.</p>
+      </li>
+    </ul>
+  </section>
+
+  <section class="block" aria-labelledby="competitor">
+    <h2 id="competitor">2. Pay As You Go Competitor Analysis Architecture</h2>
+    <p class="intro">Pay as you go competitor analysis is a one off teardown, not ongoing tracking. A teardown costs 10 credits. They are charged only when the blueprint is delivered, and a failed teardown costs nothing.</p>
+    <ul class="rows">
+      <li class="row">
+        <span class="tag">Extract</span>
+        <h3>(a) Frictionless extraction</h3>
+        <p>Paste a link to any public web page from a competitor. You do not have to verify the site, because it is not yours. You tick a consent box and LazyRelay reads the page with Firecrawl. This is landing page structure extraction: it pulls out the headings, how the page opens and its call to action links, from the public text of the page. Links to TikTok, Instagram, Facebook, X and LinkedIn are not read, and video links are not supported for blueprints.</p>
+      </li>
+      <li class="row">
+        <span class="tag">Analyse</span>
+        <h3>(b) Analysis by Claude Sonnet 5.5</h3>
+        <p>The extracted structure goes to Claude Sonnet 5.5, which returns two parts.</p>
+        <p><strong>Competitor strategy map.</strong> How the page opens, such as a question, a statistic, a bold claim or an offer. Its sections in page order, each named by its job, for example Promise, Proof, Steps, Pricing or FAQ. Where the page asks for action, how, and about how many action links it has. LazyRelay counts and places those links itself, so the numbers do not come from the model.</p>
+        <p><strong>Recommended blueprints.</strong> Three to six short instructions you can apply to your own content, written from the structure of that competitor page. The model describes structure only. It does not quote the page and makes no claim about how well the page performs.</p>
+      </li>
+    </ul>
+  </section>
+
+  <section class="block" aria-labelledby="bridges">
+    <h2 id="bridges">3. Custom Developer Bridges &amp; MCP Workspace Tools</h2>
+    <p class="intro">LazyRelay has an API, and two ways to bring your own credentials.</p>
+    <ul class="rows">
+      <li class="row">
+        <span class="tag">AI agents</span>
+        <h3>(a) 27 MCP tools</h3>
+        <p>LazyRelay has 27 MCP tools. They work as Claude Code Model Context Protocol tools, and in any other AI agent that supports MCP, such as Claude Desktop, ChatGPT, Gemini and Cursor. An agent can check platform rules, create drafts, schedule, reschedule, pause and approve posts, create client review links and read analytics. The tools schedule and manage your LazyRelay posts through the LazyRelay API. Use the hosted endpoint with sign in, or the local package with an API key. <a href="/mcp/">See the integration guides</a>.</p>
+      </li>
+      <li class="row">
+        <span class="tag">Your keys</span>
+        <h3>(b) Your own X and WhatsApp developer keys</h3>
+        <p>Connect X with the keys from your own X developer app, and WhatsApp with your own Meta WhatsApp Business credentials. Your own keys are available on Growth, Pro and Pay as you go. They are not available on Free. Calls go out under your own credentials, so X and Meta apply their rate limits and billing to your own developer accounts. Your keys are stored encrypted.</p>
+      </li>
+    </ul>
+  </section>
 
   <div class="cta">
-    <strong>Start free.</strong> The free tier has 30 credits once, 3 accounts and 1 brand, and includes Proof of Publish and MCP access.
+    <strong>Start free.</strong> The Free plan gives you 30 credits once at registration and up to 3 connected accounts.
     <br /><a class="button" href="/pricing/">See plans and get started</a>
   </div>
 
@@ -260,23 +231,23 @@
     <h3 id="faq-title">Frequently asked questions</h3>
     <details>
       <summary>Which platforms can LazyRelay publish to?</summary>
-      <p>LazyRelay publishes to 18 distribution platforms plus WhatsApp: Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress, DEV, Hashnode, Lemmy, Slack and X.</p>
-    </details>
-    <details>
-      <summary>Does LazyRelay work with my AI agent?</summary>
-      <p>LazyRelay works with any AI agent that supports MCP, including Claude, ChatGPT, Gemini and Cursor. It offers 27 MCP tools, included on every plan, through a hosted endpoint with sign in or a local package with an API key.</p>
+      <p>LazyRelay publishes to 18 distribution platforms plus WhatsApp. The 18 are TikTok, Pinterest, YouTube, Mastodon, Bluesky, Telegram, LinkedIn, Threads, Facebook, Instagram, Discord, Tumblr, WordPress, dev.to, Hashnode, Lemmy, Slack and X. WhatsApp is client messaging and is not one of the 18.</p>
     </details>
     <details>
       <summary>What is Proof of Publish?</summary>
-      <p>Proof of Publish is a second check. After LazyRelay posts, it looks at the platform again to confirm the post is really live, instead of trusting that the platform accepted the request. It is included on every plan, including Free.</p>
+      <p>Proof of Publish is a second step. After LazyRelay posts, it reads the post back from the platform. A post is marked live only when that read back confirms it. Otherwise it shows as unverified.</p>
     </details>
     <details>
-      <summary>What does Content Sources do?</summary>
-      <p>Content Sources reads an RSS feed or a sitemap from a website you have proven you own and turns new pages into draft posts for you to review. Nothing is posted until you approve it.</p>
+      <summary>What does a competitor teardown cost?</summary>
+      <p>A competitor teardown costs 10 credits. The credits are charged only when the blueprint is delivered, and a failed teardown costs nothing.</p>
+    </details>
+    <details>
+      <summary>Does LazyRelay work with my AI agent?</summary>
+      <p>LazyRelay has 27 MCP tools. An AI agent that supports MCP, such as Claude Code, can use them to schedule and manage your LazyRelay posts through the API. Use the hosted endpoint with sign in, or the local package with an API key.</p>
     </details>
     <details>
       <summary>Is there a free plan?</summary>
-      <p>Yes. The free tier has 30 credits once, 3 accounts and 1 brand, and includes Proof of Publish and MCP access.</p>
+      <p>Yes. The Free plan gives you 30 credits once at registration and up to 3 connected accounts.</p>
     </details>
   </section>
 </main>
