@@ -27,6 +27,8 @@ export interface CompetitorBlueprint {
   title: string;
   blueprint: Blueprint;
   creditsUsed: number;
+  /** The customer's credits after a paid run, when the service says. Only the paid route sets it. */
+  balance?: number;
 }
 
 export const HOOK_LABELS: Record<HookType, string> = {
