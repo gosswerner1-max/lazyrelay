@@ -13,7 +13,7 @@ LazyRelay is a social media scheduling platform built around Proof-of-Publish: i
 - [MCP Tool Reference](https://lazyrelay.com/mcp/tools/): All 27 MCP tools with their exact descriptions and full input schemas, for AI agents and developers.
 - [LazyRelay on Glama](https://glama.ai/mcp/servers/gosswerner1-max/lazyrelay): LazyRelay's MCP server in the Glama directory, also listed there as a hosted OAuth connector and in the official MCP Registry.
 - [Integrations](https://lazyrelay.com/mcp/): Connect LazyRelay to 15 AI agents and editors (Claude, ChatGPT, Gemini, Cursor, Notion, and more) plus Zapier, all via one hosted MCP server.
-- [Capabilities](https://lazyrelay.com/capabilities/): Everything LazyRelay does today: publishing to 18 distribution platforms plus WhatsApp, Proof of Publish, 27 MCP tools for AI agents, Content Sources, approvals, the API and analytics.
+- [Capabilities](https://lazyrelay.com/capabilities/): System capabilities: publishing to 18 distribution platforms plus WhatsApp, Proof of Publish, pay as you go competitor teardowns (10 credits), 27 MCP tools for AI agents, and your own X and WhatsApp developer keys.
 - [Platform Coverage](https://lazyrelay.com/platform-features/): Feature-by-platform breakdown for the 18 distribution platforms (18 distribution platforms plus WhatsApp; WhatsApp is client messaging and has no row).
 - [Guides](https://lazyrelay.com/guides/): Full guide index.
 - [About LazyRelay](https://lazyrelay.com/about/): What LazyRelay is, who operates it, and short answers on login storage, MCP authentication, which AI model it uses and how failed posts are handled.
