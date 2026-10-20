@@ -28,9 +28,18 @@ export interface WalletRouterDeps {
   service?: Pick<WalletService, "getBalance">;
   runTeardown?: (input: TeardownInput) => Promise<TeardownOutcome>;
   getTier?: (accountId: string) => Promise<Tier>;
+  isLegacy?: (accountId: string) => Promise<boolean>;
+  isCancelPending?: (accountId: string) => Promise<boolean>;
   readPacks?: () => Promise<PackRow[]>;
   /** Pass null to say "no checkout is wired". Left out, the port package C registered is used. */
   checkout?: CheckoutPort | null;
+}
+
+/** True when the account's subscription is scheduled to end at the period end (subscriptions.cancel_at_period_end, kept by billing sync). */
+async function readCancelPending(accountId: string): Promise<boolean> {
+  const { data, error } = await supabase.from("subscriptions").select("cancel_at_period_end").eq("account_id", accountId).maybeSingle();
+  if (error) throw new Error(`cancel flag read failed: ${error.message}`);
+  return data?.cancel_at_period_end === true;
 }
 
 async function readPacksFromDatabase(): Promise<PackRow[]> {
@@ -54,6 +63,8 @@ export function buildWalletRouter(deps: WalletRouterDeps = {}): Router {
   const teardown = deps.runTeardown ?? realTeardown;
   const getTier = deps.getTier ?? resolveTier;
   const readPacks = deps.readPacks ?? readPacksFromDatabase;
+  const isLegacy = deps.isLegacy ?? isLegacyAccount;
+  const isCancelPending = deps.isCancelPending ?? readCancelPending;
   const checkoutPort = () => ("checkout" in deps ? deps.checkout ?? null : getCheckoutPort());
 
   // Switched off: hand the request to whatever comes after this router, which has no such route.
@@ -67,9 +78,11 @@ export function buildWalletRouter(deps: WalletRouterDeps = {}): Router {
     }
   });
 
-  router.get("/catalog", requireAuth, tieredRateLimit, async (_req: AuthedRequest, res) => {
+  router.get("/catalog", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     try {
-      res.json({ items: buildCatalogView(await readPacks()) });
+      const accountId = req.accountId as string;
+      const [rows, tier, legacy, cancelPending] = await Promise.all([readPacks(), getTier(accountId), isLegacy(accountId), isCancelPending(accountId)]);
+      res.json({ items: buildCatalogView(rows, { tier, legacy, cancelPending }) });
     } catch (err) {
       unavailable(res, "catalog", err);
     }
