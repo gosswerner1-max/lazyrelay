@@ -10,7 +10,7 @@ import {
   type CompetitorBlueprint,
 } from "./competitorBlueprint";
 
-const DASH = /[–—]/;
+const DASH = /[\u2013\u2014]/;
 
 const good = {
   kind: "page",

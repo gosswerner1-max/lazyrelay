@@ -1,13 +1,14 @@
-// The state behind one competitor analysis: idle, running, done or a plain error. The request is cut off after
+// The state behind one blueprint request: idle, running, done or a plain error. The request is cut off after
 // ANALYZE_TIMEOUT_MS even if the service never answers, so the screen can never sit on a spinner.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ANALYZE_TIMEOUT_MS, CompetitorError, type CompetitorAnalysis, type CompetitorClient } from "../../lib/competitorMode";
+import type { CompetitorBlueprint } from "../../lib/competitorBlueprint";
+import { ANALYZE_TIMEOUT_MS, CompetitorError, type CompetitorClient } from "../../lib/competitorMode";
 
 export type AnalysisState =
   | { kind: "idle" }
   | { kind: "running" }
-  | { kind: "done"; analysis: CompetitorAnalysis }
+  | { kind: "done"; result: CompetitorBlueprint }
   | { kind: "error"; message: string };
 
 function plainMessage(err: unknown): string {
@@ -44,10 +45,10 @@ export function useCompetitorAnalysis(client: CompetitorClient) {
         setState({ kind: "error", message: new CompetitorError("timeout").message });
       }, ANALYZE_TIMEOUT_MS);
       try {
-        const analysis = await client.analyze(input, ctl.signal);
+        const result = await client.blueprint(input, ctl.signal);
         if (current.current !== id) return;
         clearTimeout(timer.current);
-        setState({ kind: "done", analysis });
+        setState({ kind: "done", result });
       } catch (err) {
         if (current.current !== id) return; // cancelled or timed out already: that has its own answer
         clearTimeout(timer.current);

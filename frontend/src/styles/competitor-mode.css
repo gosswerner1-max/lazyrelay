@@ -1,4 +1,4 @@
-/* Competitor mode (a link box, a consent dialog, a draft box). Sits inside the Content Sources tab and uses only the
+/* Competitor mode (a link box, a consent dialog, a blueprint window). Sits inside the Content Sources tab and uses only the
    Custom Developer Keys tokens (byok-panels.css): no new tokens and no new hues. Every selector starts with
    .content-sources so nothing here can repaint the rest of the dashboard. Loaded only with the competitor section.
    Written to the Apple layout rules in .claude/rules/apple-design:
@@ -133,6 +133,111 @@
   line-height: 1.5;
 }
 
+/* The blueprint window. Two columns on a wide screen, stacked on a narrow one. It borrows the look of the post ideas list
+   (thin light border, 8px corners, small body text) on the dark canvas, with the same tokens as the rest of the tab.
+   Nothing here moves: the only motion on the Copy button is the shared press feedback. */
+.content-sources .cs-bp__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+  min-width: 0;
+}
+
+.content-sources .cs-bp__col {
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
+  min-width: 0;
+}
+
+.content-sources .cs-bp__heading {
+  margin: 0;
+  color: var(--byok-ink);
+  font-size: 0.95rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.content-sources .cs-bp__item {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.5rem 0.625rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+.content-sources .cs-bp__list,
+.content-sources .cs-bp__steps {
+  display: grid;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.content-sources .cs-bp__step {
+  display: flex;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.content-sources .cs-bp__num {
+  flex: none;
+  color: var(--byok-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.content-sources .cs-bp__body {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.content-sources .cs-bp__label {
+  margin: 0;
+  color: var(--byok-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+
+.content-sources .cs-bp__strong {
+  margin: 0;
+  color: var(--byok-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.content-sources .cs-bp__text {
+  margin: 0;
+  color: var(--byok-ink);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.content-sources .cs-bp__link {
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+@media (max-width: 720px) {
+  .content-sources .cs-bp__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Reduced motion: no scale and no movement. The dialog still fades, which is gentle and says what is happening. */
 @media (prefers-reduced-motion: reduce) {
   .content-sources .cs-modal__card {
@@ -150,6 +255,9 @@
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
+  .content-sources .cs-bp__item {
+    background: var(--byok-midnight);
+  }
 }
 
 /* More contrast: firm borders and plain ink text. */
@@ -161,6 +269,13 @@
   }
   .content-sources .cs-consent,
   .content-sources .cs-source .cs-hint {
+    color: var(--byok-ink);
+  }
+  .content-sources .cs-bp__item {
+    border-color: var(--byok-ink);
+  }
+  .content-sources .cs-bp__label,
+  .content-sources .cs-bp__num {
     color: var(--byok-ink);
   }
 }

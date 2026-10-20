@@ -1,18 +1,17 @@
-// Competitor mode: paste a competitor link or a YouTube link, confirm, and get a draft post to edit and save.
-// One box, one Analyze button. The link is checked here first (closed networks are caught before anything is sent), then a
+// Competitor content blueprint: paste a competitor page link, confirm, and read how that page is built next to changes you
+// could make to your own content. One box, one Analyze button. The link is checked here first (closed networks and video
+// links are caught before anything is sent), then a
 // consent dialog opens, and only a ticked box plus the confirm sends the request.
 
 import { useId, useRef, useState, type FormEvent, type RefObject } from "react";
 import { normalizeCompetitorInput, type CompetitorClient } from "../../lib/competitorMode";
 import { CompetitorConsentDialog, type DialogOrigin } from "./CompetitorConsentDialog";
-import { CompetitorResult, type DraftToSave } from "./CompetitorResult";
+import { BlueprintResult } from "./BlueprintResult";
 import { useCompetitorAnalysis } from "./useCompetitorAnalysis";
 import "../../styles/competitor-mode.css";
 
 interface Props {
   client: CompetitorClient;
-  /** Saves the draft through the app's own draft call. It lands as a draft, never scheduled or posted. */
-  onSaveDraft: (draft: DraftToSave) => Promise<void>;
 }
 
 interface LinkFieldProps {
@@ -42,7 +41,7 @@ function LinkField({ id, value, error, onChange }: LinkFieldProps) {
         aria-describedby={[`${id}-hint`, error ? `${id}-error` : null].filter(Boolean).join(" ")}
       />
       <p className="cs-hint" id={`${id}-hint`}>
-        Pages from their website and YouTube links work. Closed networks such as TikTok, Instagram, Facebook, X and LinkedIn do not.
+        Pages and posts from their website work. Closed networks such as TikTok, Instagram, Facebook, X and LinkedIn do not, and video links do not.
       </p>
       {error && (
         <p className="cs-error" id={`${id}-error`} role="alert">
@@ -57,7 +56,7 @@ function Progress({ onCancel }: { onCancel: () => void }) {
   return (
     <div className="cs-progress">
       <p className="cs-result cs-result--info" role="status">
-        Reading the page and writing a draft. This can take up to 90 seconds.
+        Reading the page and building your blueprint. This can take up to 90 seconds.
       </p>
       <button type="button" className="cs-btn cs-btn--secondary" onClick={onCancel}>
         Cancel
@@ -96,7 +95,7 @@ function useLinkEntry(analyzeRef: RefObject<HTMLButtonElement | null>) {
   return { text, inputError, pending, dialogOpen, origin, submit, change, closeDialog: () => setDialogOpen(false) };
 }
 
-export function CompetitorPanel({ client, onSaveDraft }: Props) {
+export function CompetitorPanel({ client }: Props) {
   const uid = useId();
   const id = (part: string) => `${uid}-${part}`;
   const analyzeRef = useRef<HTMLButtonElement>(null);
@@ -112,9 +111,9 @@ export function CompetitorPanel({ client, onSaveDraft }: Props) {
   return (
     <section className="cs-card cs-competitor" aria-labelledby={id("title")}>
       <h3 className="cs-card__title" id={id("title")}>
-        Competitor analysis
+        Competitor content blueprint
       </h3>
-      <p className="cs-note">Paste a link to a competitor's page or a YouTube video. We read it and write a draft post for you to edit. Nothing is posted until you approve it.</p>
+      <p className="cs-note">Paste a link to a competitor's page or post. We read its public text and show you how it is built, next to changes you could make to your own content.</p>
 
       <form className="cs-competitor__form" onSubmit={(e) => (running ? e.preventDefault() : entry.submit(e))} noValidate>
         <LinkField id={id("link")} value={entry.text} error={entry.inputError} onChange={entry.change} />
@@ -131,7 +130,7 @@ export function CompetitorPanel({ client, onSaveDraft }: Props) {
           {state.message}
         </p>
       )}
-      {state.kind === "done" && <CompetitorResult key={state.analysis.sourceUrl + state.analysis.draft.content} analysis={state.analysis} onSaveDraft={onSaveDraft} />}
+      {state.kind === "done" && <BlueprintResult key={state.result.sourceUrl + state.result.title} result={state.result} />}
 
       <CompetitorConsentDialog open={entry.dialogOpen} link={entry.pending ?? ""} origin={entry.origin} restoreFocusTo={analyzeRef} onConfirm={confirm} onCancel={entry.closeDialog} />
     </section>

@@ -110,7 +110,7 @@ export function CompetitorConsentDialog({ open, link, origin, restoreFocusTo, on
           Before you analyze
         </h3>
         <p id={textId} className="cs-note">
-          We will read this public link and write a draft post from it. Read the draft and fix anything that is wrong before you use it.
+          We will read the public text of this link and build a blueprint from it. Read it through and check anything that matters before you use it.
         </p>
         <p className="cs-code">{link}</p>
         <label className="cs-consent">
