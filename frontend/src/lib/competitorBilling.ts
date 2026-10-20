@@ -24,6 +24,15 @@ export const IN_FLIGHT_MESSAGE = "A teardown is already running. Please wait for
 export const IDEMPOTENCY_CONFLICT_MESSAGE = "That request was already used. Please try again.";
 const NOT_ON_YET_MESSAGE = "This feature is not switched on yet.";
 
+/** What the panel needs to speak and behave in the paid way. Handed in as one prop, so the panel itself holds none of these words. */
+export interface BillingUi {
+  /** A fresh idempotency key. Called once per confirmed run. */
+  newKey(): string;
+  costNotice: string;
+  balanceNotice(balance: number): string;
+  addCreditsLabel: string;
+}
+
 export function insufficientCreditsMessage(balance?: number, required: number = TEARDOWN_CREDITS): string {
   const need = `You need ${required} credits for a competitor teardown.`;
   return typeof balance === "number" ? `${need} You have ${balance}.` : need;
@@ -38,6 +47,8 @@ export function newIdempotencyKey(): string {
   const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
+
+export const BILLING_UI: BillingUi = { newKey: newIdempotencyKey, costNotice: COST_NOTICE, balanceNotice, addCreditsLabel: ADD_CREDITS_LABEL };
 
 // ---------- Errors ----------
 

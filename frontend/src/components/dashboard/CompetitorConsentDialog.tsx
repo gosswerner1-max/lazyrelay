@@ -17,6 +17,8 @@ interface Props {
   link: string;
   origin: DialogOrigin | null;
   restoreFocusTo: RefObject<HTMLElement | null>;
+  /** Plain lines shown just above the tick box (the paid route uses them for the cost and the balance). */
+  notices?: string[];
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -93,7 +95,7 @@ function useDialogLifecycle({ open, origin, restoreFocusTo, onCancel }: Pick<Pro
   return { dialogRef, mounted, shown, agreed, setAgreed };
 }
 
-export function CompetitorConsentDialog({ open, link, origin, restoreFocusTo, onConfirm, onCancel }: Props) {
+export function CompetitorConsentDialog({ open, link, origin, restoreFocusTo, notices = [], onConfirm, onCancel }: Props) {
   const titleId = useId();
   const textId = useId();
   const { dialogRef, mounted, shown, agreed, setAgreed } = useDialogLifecycle({ open, origin, restoreFocusTo, onCancel });
@@ -116,6 +118,11 @@ export function CompetitorConsentDialog({ open, link, origin, restoreFocusTo, on
           <p className="cs-code">{link}</p>
         </div>
         <div className="cs-modal__footer">
+          {notices.map((line) => (
+            <p key={line} className="cs-note">
+              {line}
+            </p>
+          ))}
           <label className="cs-consent">
             <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
             <span>{CONSENT_TEXT}</span>
