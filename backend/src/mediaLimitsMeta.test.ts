@@ -29,6 +29,31 @@ describe("Instagram", () => {
   });
 });
 
+// LinkedIn: the adapter only uploads images, so every video format is refused at scheduling
+// with a friendly message (it used to pass the generic fallback and fail later at LinkedIn).
+describe("LinkedIn", () => {
+  const friendly =
+    "LinkedIn publishing currently supports image uploads only. To post video content, please target YouTube, TikTok, or Instagram.";
+  it("refuses every video type, at any size, with the friendly message", () => {
+    for (const mime of ["video/mp4", "video/quicktime", "video/webm"]) {
+      const r = validateMediaForPlatform("linkedin", video(1, mime));
+      expect(r.valid).toBe(false);
+      expect(r.reason).toBe(friendly);
+    }
+    expect(validateMediaForPlatform("linkedin", video(50)).reason).toBe(friendly);
+  });
+  it("still takes a normal image and refuses an oversized one on size, not on the video message", () => {
+    expect(validateMediaForPlatform("linkedin", image(2)).valid).toBe(true);
+    const over = validateMediaForPlatform("linkedin", image(21));
+    expect(over.valid).toBe(false);
+    expect(over.reason).not.toBe(friendly);
+  });
+  it("leaves other platforms' video handling alone", () => {
+    expect(validateMediaForPlatform("instagram", video(50)).valid).toBe(true);
+    expect(validateMediaForPlatform("tiktok", video(50)).valid).toBe(true);
+  });
+});
+
 // Bluesky and Mastodon image limits (fixed 2026-10-02): both used to be a 20 MB placeholder, far above
 // what the platforms accept, so an oversized image passed LazyRelay and then failed at the platform.
 describe("Bluesky", () => {
