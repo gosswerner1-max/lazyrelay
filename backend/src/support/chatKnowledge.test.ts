@@ -54,7 +54,7 @@ describe("support bot knowledge: plans, credits and prices", () => {
     expect(prompt).toContain("Free ($0)");
     expect(prompt).toMatch(/30 credits once at registration/);
     expect(prompt).toMatch(/3 connected accounts, 1 brand, 10 queued posts/);
-    expect(prompt).toMatch(/Pay as you go \(\$15 one time, plus tax\): 300 credits that never expire, 20 connected accounts, 2 brands/);
+    expect(prompt).toMatch(/Pay as you go \(\$15 one time, plus tax\): 300 credits that stay in your wallet until used, 20 connected accounts, 2 brands/);
     expect(prompt).toMatch(/Growth \(\$29 a month, plus tax\): 1,000 credits each billing cycle/);
     expect(prompt).toMatch(/30 connected accounts, 4 brands/);
     expect(prompt).toMatch(/Pro \(\$99 a month, plus tax\): 6,000 credits each billing cycle/);

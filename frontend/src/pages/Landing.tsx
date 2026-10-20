@@ -121,7 +121,7 @@ const PRICING: PricingPlan[] = [
     price: "$15",
     period: "one time",
     note: "Pay once, use whenever",
-    features: ["300 credits that never expire", "20 connected accounts", "2 brands", "AI-agent / MCP access", "Proof-of-Publish verification"],
+    features: ["300 credits that stay in your wallet until used", "20 connected accounts", "2 brands", "AI-agent / MCP access", "Proof-of-Publish verification"],
     cta: "Get started",
   },
   {

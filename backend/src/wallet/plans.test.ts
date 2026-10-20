@@ -11,7 +11,7 @@ describe("plans as data (nothing reads them yet)", () => {
     expect(PLANS.free).toEqual({ id: "free", priceCents: 0, cadence: "none", credits: 30, creditsExpire: false, grantedOnce: true, maxAccounts: 3, maxBrands: 1, maxQueuedPosts: 10 });
   });
 
-  it("payg: a 15 USD pack gives 300 credits that never expire; 20 accounts, 2 brands", () => {
+  it("payg: a 15 USD pack gives 300 credits that stay in your wallet until used; 20 accounts, 2 brands", () => {
     expect(PLANS.payg).toEqual({ id: "payg", priceCents: 1500, cadence: "one_time", credits: 300, creditsExpire: false, grantedOnce: false, maxAccounts: 20, maxBrands: 2, maxQueuedPosts: null });
   });
 
