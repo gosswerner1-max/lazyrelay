@@ -4,7 +4,7 @@
 // live in one place (useDashboardState.tsx, called once by Dashboard.tsx)
 // and reach this file through DashboardContext.
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { lazy, Suspense, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { CodeBlock } from "../../components/CodeBlock";
 import { MediaStorageList } from "../../components/MediaStorageList";
 import { formatBytes } from "../../lib/format";
@@ -16,6 +16,11 @@ import { PostingSlotsSection } from "./PostingSlotsSection";
 import { RssFeedsSection } from "./RssFeedsSection";
 import { ReviewLinksSection } from "./ReviewLinksSection";
 import { CustomPlatformSettings } from "../../components/dashboard/CustomPlatformSettings";
+import { BILLING_ENABLED } from "../../lib/billingFlag";
+import { useWallet } from "../../lib/walletContext";
+
+// The credit-wallet billing view is loaded only when the build has billing on, so a build without it carries none of its code or words.
+const LiveBilling = BILLING_ENABLED ? lazy(() => import("../../components/billing/LiveBilling")) : null;
 
 type SettingsSub = "general" | "security" | "team" | "automation" | "keys" | "billing";
 const SETTINGS_SUBS: { id: SettingsSub; label: string }[] = [
@@ -114,6 +119,7 @@ export function SettingsTab() {
     refresh,
     setError,
   } = useDashboard();
+  const { billingActive } = useWallet(); // true only with billing on and a normal (non-exempt) account: then the credit wallet replaces the old plan cards
   // The plan banner's Upgrade button asks for the Billing section, so open that sub-tab and scroll to it.
   const [sub, setSub] = useState<SettingsSub>(scrollToBillingPending ? "billing" : "general");
   useEffect(() => {
@@ -741,7 +747,7 @@ export function SettingsTab() {
       {view === "billing" && (
       <section ref={billingSectionRef}>
         <h2>Billing</h2>
-        {(() => {
+        {LiveBilling && billingActive ? <Suspense fallback={null}><LiveBilling /></Suspense> : (() => {
           const tierNames = {
     free: "Free",
     starter: "Starter",
