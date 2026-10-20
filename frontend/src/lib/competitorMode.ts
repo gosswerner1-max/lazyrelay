@@ -156,7 +156,7 @@ async function errorFromResponse(res: Response): Promise<CompetitorError> {
 
 function fromSession(err: ContentSourcesError): CompetitorError {
   if (err.code === "not_connected") return new CompetitorError("not_connected");
-  if (err.code === "sign_in" || err.code === "unauthorized") return new CompetitorError("sign_in");
+  if (err.code === "sign_in") return new CompetitorError("sign_in");
   if (err.code === "try_later") return new CompetitorError("try_later");
   if (err.code === "network") return new CompetitorError("network");
   return new CompetitorError("unavailable");

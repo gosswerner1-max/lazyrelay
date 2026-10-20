@@ -188,58 +188,44 @@ describe("content-sources.css", () => {
     expect(reduced.some((r) => /transition\s*:\s*none/.test(r.body) || /transform\s*:\s*none/.test(r.body))).toBe(true);
   });
 
-  it("keeps the table scrollable on narrow screens", () => {
-    expect(all.some((r) => /overflow-x\s*:\s*auto/.test(r.body))).toBe(true);
-  });
-
   it("has a visible keyboard focus ring", () => {
     expect(all.some((r) => /:focus-visible/.test(r.selector) && /outline\s*:/.test(r.body))).toBe(true);
   });
 });
 
-// The key section, the proof panel and the sources list use classes of their own. Each one must be styled here (so none falls
-// back on the browser's plain look), and the new surfaces must keep the same fallbacks as the old ones.
-describe("content-sources.css covers every class the tab's components use", () => {
+// Every class the tab, the status panel and the competitor box use must be styled (in this file, the competitor file or the
+// status file), so none falls back on the browser's plain look. Nothing of the removed own-site screens may linger here.
+describe("the stylesheets cover every class the tab's components use, and nothing else from the removed screens", () => {
   const files = [
     "../components/dashboard/ContentSourcesTab.tsx",
-    "../components/dashboard/ContentSourcesKey.tsx",
-    "../components/dashboard/ContentSourcesAddForm.tsx",
-    "../components/dashboard/ContentSourcesProof.tsx",
-    "../components/dashboard/ContentSourcesList.tsx",
-    "../components/dashboard/ContentSourcesParts.tsx",
+    "../components/dashboard/ContentSourcesStatus.tsx",
+    "../components/dashboard/CompetitorPanel.tsx",
+    "../components/dashboard/BlueprintResult.tsx",
+    "../components/dashboard/CompetitorConsentDialog.tsx",
   ];
   const used = new Set<string>();
   for (const f of files) {
     for (const m of read(f).matchAll(/["'`]((?:[^"'`]*\s)?cs-[\w\s${}?:.()-]*)["'`]/g)) {
-      for (const cls of m[1]!.matchAll(/cs-[a-z0-9_-]*[a-z0-9]/g)) used.add(cls[0]); // a class built from a variable ends in -- and is covered by the badge test below
+      for (const cls of m[1]!.matchAll(/cs-[a-z0-9_-]*[a-z0-9]/g)) used.add(cls[0]);
     }
   }
-  const styled = new Set([...text.matchAll(/\.(cs-[a-z0-9_-]+)/g)].map((m) => m[1]!));
+  const allCss = text + strip(read("./competitor-mode.css")) + strip(read("./content-sources-status.css"));
 
   it("finds the classes the components use", () => {
-    expect(used.size).toBeGreaterThan(25);
-    for (const must of ["cs-method", "cs-code", "cs-btn--link", "cs-segment--disabled", "cs-copy", "cs-key-saved", "cs-reasons", "cs-note", "cs-check", "cs-proof"]) {
-      expect(used.has(must), `${must} is not used by a component`).toBe(true);
-    }
+    expect(used.size).toBeGreaterThan(30);
+    for (const must of ["cs-card", "cs-btn--primary", "cs-status", "cs-competitor", "cs-modal__footer", "cs-bp__step"]) expect(used.has(must), must).toBe(true);
   });
 
   it("styles every one of them", () => {
-    for (const cls of used) expect(styled.has(cls), `.${cls} has no rule in content-sources.css`).toBe(true);
+    for (const cls of used) expect(allCss, `.${cls} has no rule`).toContain(`.${cls}`);
   });
 
-  it("keeps long proof text from breaking the layout: code wraps and the page never scrolls sideways", () => {
-    const code = all.filter((r) => /\.cs-code\b/.test(r.selector) && !r.media).map((r) => r.body).join(";");
-    expect(code).toMatch(/overflow-wrap\s*:\s*anywhere/);
-    expect(code).toMatch(/font-family\s*:\s*(ui-monospace|monospace|var\(--byok-mono)/);
+  it("keeps no rule for the removed sources form, key box, proof screens, list or drafts table", () => {
+    const gone = ["cs-fields", "cs-segment", "cs-table", "cs-origin", "cs-row-actions", "cs-confirm", "cs-empty", "cs-key-saved", "cs-proof", "cs-method", "cs-copy", "cs-check", "cs-reasons", "cs-btn--quiet"];
+    for (const cls of gone) expect(text, cls).not.toContain(`.${cls}`);
   });
 
-  it("gives the link style button press feedback like the other buttons, and a disabled look for CSV", () => {
-    const sel = (re: RegExp) => all.filter((r) => re.test(r.selector));
-    expect(sel(/\.cs-btn--link/).length).toBeGreaterThan(0);
-    expect(sel(/\.cs-segment--disabled/).some((r) => /cursor\s*:\s*not-allowed/.test(r.body) && /opacity\s*:/.test(r.body))).toBe(true);
-  });
-
-  it("includes the new surfaces in the reduced transparency and more contrast fallbacks", () => {
+  it("includes the surfaces in the reduced motion, reduced transparency and more contrast fallbacks", () => {
     const inMedia = (re: RegExp) => all.filter((r) => re.test(r.media ?? "")).map((r) => r.selector).join(",");
     expect(inMedia(/prefers-contrast:\s*more/)).toMatch(/\.cs-code/);
     expect(inMedia(/prefers-contrast:\s*more/)).toMatch(/\.cs-btn--link/);
@@ -247,7 +233,7 @@ describe("content-sources.css covers every class the tab's components use", () =
     expect(inMedia(/prefers-reduced-transparency/)).toMatch(/\.cs-card/);
   });
 
-  it("colours the three status badges from existing tokens only (warm for waiting, green for verified, red for attention)", () => {
+  it("colours the status badges from existing tokens only (warm for waiting, green for running, red for attention)", () => {
     const body = (cls: string) => all.filter((r) => r.selector.includes(cls)).map((r) => r.body).join(";");
     expect(body(".cs-badge--ok")).toMatch(/var\(--byok-ok\)/);
     expect(body(".cs-badge--attention")).toMatch(/var\(--byok-error\)/);
