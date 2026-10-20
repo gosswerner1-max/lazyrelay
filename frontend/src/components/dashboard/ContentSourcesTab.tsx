@@ -10,6 +10,7 @@ import { SOURCE_TYPE_LABELS, contentSourceDrafts, type ContentSourcesClient, typ
 import { ContentSourcesAddForm } from "./ContentSourcesAddForm";
 import { ContentSourcesKey } from "./ContentSourcesKey";
 import { ContentSourcesList } from "./ContentSourcesList";
+import { ContentSourcesStatus } from "./ContentSourcesStatus";
 import { CheckResult, ContentSourcesProof } from "./ContentSourcesProof";
 import { useContentSources } from "./useContentSources";
 import "../../styles/byok-panels.css";
@@ -154,6 +155,8 @@ export function ContentSourcesTab({ posts, brands, onReviewAndEdit, onApproveToC
           </ContentSourcesList>
         </>
       )}
+
+      {cs.phase.kind !== "loading" && <ContentSourcesStatus posts={posts} sources={cs.phase.kind === "ready" ? cs.sources : null} client={client} />}
 
       {CompetitorSection && (
         <Suspense fallback={null}>

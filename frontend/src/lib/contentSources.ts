@@ -75,6 +75,8 @@ export interface ContentSourcesClient {
   updateSource(id: string, patch: { syncInterval?: SyncInterval; brandId?: string | null }): Promise<ServiceSource>;
   deleteSource(id: string): Promise<void>;
   runSource(id: string): Promise<void>;
+  /** Is the service up? Needs no sign in. Optional: the Not connected client has none, and the status panel then shows Unknown. */
+  ready?(signal?: AbortSignal): Promise<boolean>;
 }
 
 /** The origin of a draft: which kind of source made it and the source's name. */
@@ -267,6 +269,7 @@ export class ContentSourcesError extends Error {
   }
 }
 
+const READY_TIMEOUT_MS = 5000;
 const MAX_RETRY_AFTER_SECONDS = 3600;
 const CODE_WORD = /^[a-z][a-z0-9_]{0,39}$/;
 
@@ -542,6 +545,22 @@ export function createServiceClient(opts: {
     },
     async runSource(id) {
       await call("POST", `${sourcePath(id)}/run`);
+    },
+    async ready(signal) {
+      const ctl = new AbortController();
+      const stop = () => ctl.abort();
+      const timer = setTimeout(stop, READY_TIMEOUT_MS);
+      signal?.addEventListener("abort", stop);
+      try {
+        const res = await doFetch(`${base}/v1/ready`, { method: "GET", headers: { Accept: "application/json" }, credentials: "omit", cache: "no-store", signal: ctl.signal });
+        return res.ok;
+      } catch (err) {
+        if (!ctl.signal.aborted) console.error(err); // a timeout or a stop is expected; anything else stays visible
+        return false;
+      } finally {
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", stop);
+      }
     },
   };
 }

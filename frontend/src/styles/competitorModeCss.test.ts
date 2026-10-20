@@ -80,3 +80,25 @@ describe("competitor-mode.css", () => {
     for (const cls of used) expect(base, `.${cls} has no rule`).toContain(`.${cls}`);
   });
 });
+
+// The status panel's stylesheet gets the same basic guard: scoped, existing tokens only, no blue, no dashes, nothing animated.
+describe("content-sources-status.css", () => {
+  const status = read("./content-sources-status.css");
+  const body = strip(status);
+
+  it("scopes every selector under .content-sources", () => {
+    const selectors = [...body.matchAll(/(^|\})\s*([^{}@]+)\{/g)].map((m) => m[2]!.trim()).filter(Boolean);
+    expect(selectors.length).toBeGreaterThan(5);
+    for (const group of selectors) for (const part of group.split(",")) expect(part.trim(), part).toMatch(/^\.content-sources([\s.:[>+~#]|$)/);
+  });
+
+  it("uses only existing tokens, no literal colours, no blue, no dashes, no animation", () => {
+    const defined = new Set([...strip(byokCss).matchAll(/(--[a-z0-9-]+)\s*:/gi)].map((m) => m[1]));
+    const used = [...new Set([...body.matchAll(/var\(\s*(--[a-z0-9-]+)/gi)].map((m) => m[1]!))];
+    expect(used.length).toBeGreaterThan(0);
+    for (const name of used) expect(defined.has(name), name).toBe(true);
+    expect(body).not.toMatch(/#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(|transition|animation|@keyframes/);
+    expect(status.toLowerCase()).not.toContain("blue");
+    expect(status).not.toMatch(/[–—]/);
+  });
+});
