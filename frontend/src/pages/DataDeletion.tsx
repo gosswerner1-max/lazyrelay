@@ -57,12 +57,22 @@ export function DataDeletion({ onBack }: DataDeletionProps) {
           <h3>Cancel your subscription (self-serve)</h3>
           <p>
             Go to the Billing section of the Settings tab (always visible in the top nav) and click Cancel. This stops
-            future billing; your account drops to the Free plan at the end of the period you've already paid
-            for. Your data is <strong>not</strong> deleted at that point, but <strong>30 days after your access
-            ends, your posts and uploaded media are permanently deleted</strong>, since we can't provide storage
-            for an account that isn't a paying customer. You'll confirm this when you cancel, and we'll email you
-            a reminder about a week before it happens. Download anything you want to keep before then, or
-            resubscribe before the 30 days are up to cancel the deletion.
+            future billing; your plan stays active until the end of the period you've already paid for. Your data
+            is <strong>not</strong> deleted at that point, but <strong>30 days after your subscription ends or is
+            cancelled, your posts and uploaded media are permanently deleted</strong>. You'll confirm this when you
+            cancel, and we'll email you a reminder about a week before it happens. Download anything you want to
+            keep before then, or resubscribe before the 30 days are up to cancel the deletion.
+          </p>
+
+          <h3>When your data is deleted automatically</h3>
+          <p>
+            <strong>Subscription plans (Growth and Pro):</strong> data is deleted 30 days after the subscription
+            ends or is cancelled, as described above.
+          </p>
+          <p>
+            <strong>Non-subscription plans (Free and Pay-as-you-go):</strong> Data is maintained as long as the
+            account remains active, and is subject to deletion after 6 consecutive months of total
+            inactivity.
           </p>
 
           <h3>Delete your entire account and data</h3>

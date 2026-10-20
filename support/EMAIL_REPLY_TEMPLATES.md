@@ -1,5 +1,7 @@
 # LazyRelay Email Reply Templates
 
+Refund, statutory escalation and data deletion macros: `support/SUPPORT_MACROS.md`.
+
 Ready-to-send templates for `lazyrelay-email-operations`, the equivalent of `<other business>`'s Thunderbird Templates folder. The agent runs in full autonomy (see `SKILL.md` in the scheduled task) — for anything matching a template below, fill in the bracketed specifics from the customer's actual message and `SUPPORT_KNOWLEDGE.md`'s troubleshooting tables, then send directly via `imap-tool.js send-mail`. Don't invent a new structure/tone for a scenario that already has a template here — consistency matters more than novelty for routine replies.
 
 **Placeholders in this file.** This repo is public, so `<other business>` stands for one of Werner's other businesses rather than naming it. It resolves in the vault via `09 - Resources/Ops-QA/reference-werner-mailbox-other-businesses.md`. Same convention as `support/SUPPORT_KNOWLEDGE.md`.
@@ -217,14 +219,14 @@ Do not promise what happens to posts or credits if the payment stays unpaid, and
 
 Use when a customer emails asking to cancel, asking how to cancel, or asking to confirm their access end date. **`lazyrelay-email-operations` has no live database access, so it can never see or quote a customer's actual `current_period_end` date — don't invent one.** Cancelling itself is self-serve (Settings → Billing, real-time), not something this agent does on the customer's behalf.
 
-Real mechanics to get right (`cancel_at_period_end`, migration `0043`, live 2026-08-11): cancelling does **not** cut off access immediately. It sets a pending-cancellation flag; the subscription stays fully active, and access continues, until the current paid period genuinely ends — at which point it drops to Free automatically. No further charge happens once cancelled.
+Real mechanics to get right (`cancel_at_period_end`, migration `0043`, live 2026-08-11): cancelling does **not** cut off access immediately. It sets a pending-cancellation flag; the subscription stays fully active, and access continues, until the current paid period genuinely ends — at which point the plan ends. No further charge happens once cancelled.
 
 ```
 Hi [name],
 
 [If they're asking how to cancel:] You can cancel any time under Settings → Billing in your dashboard, no need to email us for it.
 
-[If they've already cancelled and are asking to confirm:] That's confirmed on our end. One thing worth knowing: cancelling doesn't cut off access right away. You'll keep everything you have now until your current billing period ends, shown live under Settings → Billing, and you won't be charged again after that. Credits that come with a monthly plan run out at the end of that period, while credits from packs never expire. I can't see your exact end date from here, so please check it in your dashboard.
+[If they've already cancelled and are asking to confirm:] That's confirmed on our end. One thing worth knowing: cancelling doesn't cut off access right away. You'll keep everything you have now until your current billing period ends, shown live under Settings → Billing, and you won't be charged again after that. Credits that come with a monthly plan run out at the end of that period, while credits from packs never expire. Your posts and uploaded media are deleted 30 days after the plan ends, so download anything you want to keep before then. I can't see your exact end date from here, so please check it in your dashboard.
 
 Let me know if anything looks off on your end.
 ```
