@@ -60,7 +60,7 @@ Hi [name],
 Here's how pricing works. You pay for credits, and one credit publishes one post to one channel (so a post to 5 channels costs 5). All prices are in US dollars.
 
 - Free: $0 plus tax. You get 30 credits once when you sign up, with up to 3 connected accounts and 1 brand.
-- Pay-as-you-go: $15 plus tax, one time, for 300 credits that never expire. Up to 20 connected accounts and 2 brands.
+- Pay-as-you-go: $15 plus tax, one time, for 300 credits that stay in your wallet until used. Up to 20 connected accounts and 2 brands.
 - Growth: $29 plus tax a month for 1,000 credits each billing cycle. Up to 30 connected accounts and 4 brands.
 - Pro: $99 plus tax a month for 6,000 credits each billing cycle. Up to 1,000 connected accounts and unlimited brands.
 

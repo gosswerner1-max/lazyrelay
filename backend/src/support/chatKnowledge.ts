@@ -70,7 +70,7 @@ function capsText(tier: Tier): string {
 
 const PLAN_LINES: string[] = [
   `${TIER_DISPLAY_NAMES.free} ($0): 30 credits once at registration, no monthly reset and they do not expire; ${capsText("free")}, ${FREE_QUEUE_CAP} queued posts`,
-  `${TIER_DISPLAY_NAMES.payg} ($15 one time, plus tax): 300 credits that never expire, ${capsText("payg")}`,
+  `${TIER_DISPLAY_NAMES.payg} ($15 one time, plus tax): 300 credits that stay in your wallet until used, ${capsText("payg")}`,
   `${TIER_DISPLAY_NAMES.growth} ($29 a month, plus tax): 1,000 credits each billing cycle that expire at the end of each cycle with no rollover; ${capsText("growth")}`,
   `${TIER_DISPLAY_NAMES.lazy_pro} ($99 a month, plus tax): 6,000 credits each billing cycle that expire at the end of each cycle with no rollover; ${capsText("lazy_pro")}`,
 ];
