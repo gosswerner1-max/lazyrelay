@@ -119,7 +119,7 @@ export function CompetitorPanel({ client, onSaveDraft }: Props) {
       <form className="cs-competitor__form" onSubmit={(e) => (running ? e.preventDefault() : entry.submit(e))} noValidate>
         <LinkField id={id("link")} value={entry.text} error={entry.inputError} onChange={entry.change} />
         <div className="cs-actions">
-          <button ref={analyzeRef} type="submit" className="cs-btn cs-btn--primary" disabled={running}>
+          <button ref={analyzeRef} type="submit" className="cs-btn cs-btn--primary" aria-disabled={running ? true : undefined}>
             Analyze
           </button>
         </div>

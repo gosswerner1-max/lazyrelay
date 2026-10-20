@@ -129,7 +129,7 @@ describe("the consent dialog", () => {
   it("closes on a click on the backdrop, and sends nothing", async () => {
     const { analyze } = setup();
     const dialog = await openDialog();
-    fireEvent.click(dialog.parentElement as HTMLElement);
+    fireEvent.mouseDown(dialog.parentElement as HTMLElement);
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(analyze).not.toHaveBeenCalled();
   });
@@ -183,11 +183,29 @@ describe("running, the draft, and saving", () => {
     const { analyze } = setup({ analyze: vi.fn(() => new Promise<CompetitorAnalysis>((r) => (finish = r))) });
     await confirm();
     expect(screen.getByRole("status")).toHaveTextContent(/reading/i);
-    expect(analyzeBtn()).toBeDisabled();
+    expect(analyzeBtn()).toHaveAttribute("aria-disabled", "true");
     expect(analyze).toBeDefined();
     await act(async () => finish(analysis));
     expect(await screen.findByText("Rival pricing page")).toBeInTheDocument();
     expect(screen.queryByText(/reading the page/i)).toBeNull();
+  });
+
+  it("keeps keyboard focus on Analyze after the confirm (it is marked busy, not removed), and ignores Enter while it works", async () => {
+    const { analyze } = setup({ analyze: vi.fn(() => new Promise<CompetitorAnalysis>(() => undefined)) });
+    await confirm();
+    expect(analyzeBtn()).toHaveFocus();
+    expect(analyzeBtn()).toHaveAttribute("aria-disabled", "true");
+    await userEvent.type(box(), "{Enter}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(analyze).toHaveBeenCalledTimes(1);
+  });
+
+  it("a press on the card that ends on the backdrop (a text selection drag) does not close the dialog", async () => {
+    setup();
+    const dialog = await openDialog();
+    fireEvent.mouseDown(within(dialog).getByText("Before you analyze"));
+    fireEvent.click(dialog.parentElement as HTMLElement);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
   it("Cancel while it works stops quietly: no error, the box is back", async () => {
@@ -197,7 +215,7 @@ describe("running, the draft, and saving", () => {
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(signal?.aborted).toBe(true);
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(analyzeBtn()).toBeEnabled();
+    expect(analyzeBtn()).not.toHaveAttribute("aria-disabled");
   });
 
   it("gives up after 90 seconds with a visible friendly error, even if the request never answers", async () => {
@@ -219,7 +237,7 @@ describe("running, the draft, and saving", () => {
     expect(signal?.aborted).toBe(true);
     expect(screen.queryByRole("status")).toBeNull();
     expect(screen.getByRole("alert")).toHaveTextContent(/too long/i);
-    expect(analyzeBtn()).toBeEnabled();
+    expect(analyzeBtn()).not.toHaveAttribute("aria-disabled");
   });
 
   it("shows a plain error, never the code or a stack, when the service refuses", async () => {

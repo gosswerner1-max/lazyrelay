@@ -32,13 +32,22 @@ describe("client.ready", () => {
     expect(await client.ready!()).toBe(false);
   });
 
-  it("is false when the request fails, and the raw error stays in the console", async () => {
+  it("is false when the request fails while the browser is online, and the raw error stays in the console", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const { client } = setup(async () => {
       throw new TypeError("failed to fetch");
     });
     expect(await client.ready!()).toBe(false);
     expect(errorSpy).toHaveBeenCalled();
+  });
+
+  it("is null (cannot tell), not false, when the browser itself is offline", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    const { client } = setup(async () => {
+      throw new TypeError("failed to fetch");
+    });
+    expect(await client.ready!()).toBeNull();
   });
 
   it("is false when the service does not answer within a few seconds", async () => {

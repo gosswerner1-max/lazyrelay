@@ -75,8 +75,11 @@ export interface ContentSourcesClient {
   updateSource(id: string, patch: { syncInterval?: SyncInterval; brandId?: string | null }): Promise<ServiceSource>;
   deleteSource(id: string): Promise<void>;
   runSource(id: string): Promise<void>;
-  /** Is the service up? Needs no sign in. Optional: the Not connected client has none, and the status panel then shows Unknown. */
-  ready?(signal?: AbortSignal): Promise<boolean>;
+  /**
+   * Is the service up? Needs no sign in. True or false when the service really answered or did not; null when it cannot be
+   * told (the browser itself is offline). Optional: the Not connected client has none, and the status panel then shows Unknown.
+   */
+  ready?(signal?: AbortSignal): Promise<boolean | null>;
 }
 
 /** The origin of a draft: which kind of source made it and the source's name. */
@@ -555,8 +558,9 @@ export function createServiceClient(opts: {
         const res = await doFetch(`${base}/v1/ready`, { method: "GET", headers: { Accept: "application/json" }, credentials: "omit", cache: "no-store", signal: ctl.signal });
         return res.ok;
       } catch (err) {
-        if (!ctl.signal.aborted) console.error(err); // a timeout or a stop is expected; anything else stays visible
-        return false;
+        if (ctl.signal.aborted) return false; // a timeout or a stop is expected
+        console.error(err); // anything else stays visible
+        return typeof navigator !== "undefined" && navigator.onLine === false ? null : false; // offline says nothing about the service
       } finally {
         clearTimeout(timer);
         signal?.removeEventListener("abort", stop);

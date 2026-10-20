@@ -65,14 +65,15 @@ export const HEALTH_WORDS: Record<Health, string> = {
 };
 
 /**
- * The badge. A problem beats everything, a paused queue beats a quiet unknown, and Running needs the service to have
- * answered. Sources that were not read (null) cannot show a problem, but they cannot show Running either, because the
- * service answering is the only proof the engine side is up.
+ * The badge. A problem beats everything and a paused queue beats a quiet unknown. Running needs two things: the service
+ * answered, and there is proof of work (a post waiting to go out, or a source that has really run). A service that answers
+ * with nothing to show for it stays Unknown. Sources that were not read (null) can never show Running.
  */
 export function deriveOverall(queue: QueueCounts, sources: readonly ServiceSource[] | null, health: Health): Overall {
   if (health === "down" || (sources ?? []).some((s) => s.lastError)) return "problem";
   if (queue.paused > 0 && queue.scheduled === 0) return "paused";
   if (health === "checking") return "checking";
-  if (health === "ok" && sources !== null) return "running";
+  const proofOfWork = queue.scheduled > 0 || (sources ?? []).some((s) => s.lastSyncedAt !== null);
+  if (health === "ok" && sources !== null && proofOfWork) return "running";
   return "unknown";
 }

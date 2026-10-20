@@ -63,7 +63,7 @@ function useServiceHealth(client: ContentSourcesClient) {
     }, GIVE_UP_AFTER_MS);
     try {
       const up = await client.ready(ctl.signal);
-      if (run.current === id) setHealth(up ? "ok" : "down");
+      if (run.current === id) setHealth(up === null ? "unknown" : up ? "ok" : "down");
     } catch (err) {
       console.error(err); // the raw reason stays in the console; the panel says Unknown rather than guess
       if (run.current === id) setHealth("unknown");
@@ -98,8 +98,20 @@ function EngineRows({ sources, now }: { sources: readonly ServiceSource[] | null
   );
 }
 
+const REFRESH_TIME_EVERY_MS = 30_000;
+
+/** Asks for a fresh render now and then, so "Last checked 2 minutes ago" cannot stay frozen while the page is open. */
+function useClockTick() {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick((n) => n + 1), REFRESH_TIME_EVERY_MS);
+    return () => clearInterval(timer);
+  }, []);
+}
+
 export function ContentSourcesStatus({ posts, sources, client, now = Date.now }: ContentSourcesStatusProps) {
   const titleId = useId();
+  useClockTick();
   const { health, check } = useServiceHealth(client);
   const queue = summarizeQueue(posts);
   const overall = deriveOverall(queue, sources, health);

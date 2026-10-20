@@ -103,9 +103,38 @@ describe("the status panel shows only what it can read", () => {
 
   it("an empty queue is said plainly and is not paused", async () => {
     show({ posts: [], client: clientWith(async () => true) });
-    await waitFor(() => expect(badge()).toHaveTextContent("Running"));
+    await waitFor(() => expect(within(region()).getByTestId("service-health")).toHaveTextContent("OK"));
     expect(region()).toHaveTextContent("Nothing scheduled");
     expect(region()).not.toHaveTextContent("Posting is paused");
+  });
+
+  it("does not say Running just because the service answered: with nothing scheduled and no source that ever ran, it stays Unknown", async () => {
+    show({ posts: [], sources: [source({ lastSyncedAt: null })], client: clientWith(async () => true) });
+    await waitFor(() => expect(within(region()).getByTestId("service-health")).toHaveTextContent("OK"));
+    expect(badge()).toHaveTextContent("Unknown");
+  });
+
+  it("says Running when a source has really run, even with nothing scheduled", async () => {
+    show({ posts: [], sources: [source({ lastSyncedAt: minutesAgo(10) })], client: clientWith(async () => true) });
+    await waitFor(() => expect(badge()).toHaveTextContent("Running"));
+  });
+
+  it("a service check that could not be made (null) is Unknown, not Problem and not green", async () => {
+    show({ posts: [post({})], client: clientWith(async () => null) });
+    await waitFor(() => expect(within(region()).getByTestId("service-health")).toHaveTextContent("Unknown"));
+    expect(badge()).toHaveTextContent("Unknown");
+  });
+
+  it("keeps 'Last checked' honest as time passes, without any other change on screen", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    const now = vi.fn(() => NOW);
+    render(<ContentSourcesStatus posts={[]} sources={[source({ lastSyncedAt: new Date(NOW - 10_000).toISOString() })]} client={clientWith()} now={now} />);
+    expect(region()).toHaveTextContent("Last checked less than a minute ago");
+    now.mockImplementation(() => NOW + 5 * 60_000);
+    await act(async () => {
+      vi.advanceTimersByTime(61_000);
+    });
+    expect(region()).toHaveTextContent("Last checked 5 minutes ago");
   });
 
   it("error: a source with a problem makes the badge Problem and says what it was in plain words", async () => {

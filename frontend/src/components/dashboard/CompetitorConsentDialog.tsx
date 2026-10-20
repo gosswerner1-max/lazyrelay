@@ -104,7 +104,7 @@ export function CompetitorConsentDialog({ open, link, origin, restoreFocusTo, on
 
   if (!mounted) return null;
   return (
-    <div className="cs-modal" data-state={shown && open ? "open" : "closed"} onClick={onBackdrop} onKeyDown={(e) => trapTab(e, dialogRef.current)}>
+    <div className="cs-modal" data-state={shown && open ? "open" : "closed"} onMouseDown={onBackdrop} onKeyDown={(e) => trapTab(e, dialogRef.current)}>
       <div ref={dialogRef} className="cs-modal__card" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={textId} tabIndex={-1}>
         <h3 id={titleId} className="cs-modal__title">
           Before you analyze
