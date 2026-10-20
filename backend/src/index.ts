@@ -22,6 +22,7 @@ import { fetchSupabaseOAuthMetadata } from "./http/mcpAuth.js";
 import { checkProductionConfig } from "./startupConfigCheck.js";
 import { retryStartupCheck } from "./startupRetry.js";
 import type { MerchantOfRecordAdapter } from "./billing/types.js";
+import { startWalletExpiryJob } from "./wallet/expiryJob.js";
 
 // How often the scheduler checks for due posts. Combined with scheduler.ts's
 // CLAIM_BATCH_SIZE, this sets the real publishing throughput ceiling (see
@@ -262,6 +263,13 @@ async function main() {
       })
       .catch((err) => console.error("Reply draft expiry error:", summarizeIfHtmlError(err)));
   setInterval(runTokenJob, TOKEN_REFRESH_INTERVAL_MS);
+  // Wallet: expire credit lots and stale holds every few minutes. Does nothing while the wallet switch is off.
+  startWalletExpiryJob({
+    rpc: async (fn, args) => {
+      const { data, error } = await supabase.rpc(fn as never, args as never);
+      return { data, error: error ? { message: error.message, code: error.code } : null };
+    },
+  });
   setTimeout(runTokenJob, 60_000);
 
   // Same gap as runSchedulerCycle's initial call above, same fix.
