@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createHash } from "node:crypto";
 import { supabase, createUserClient } from "../supabase.js";
 import { recordSecurityEvent } from "./securityAlerts.js";
+import { triggerSignupGrant } from "../wallet/signupGrantHook.js";
 
 export interface AuthedRequest extends Request {
   accountId?: string;
@@ -424,6 +425,13 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
   if (!membership) {
     res.status(403).json({ error: "This account has no active membership. Contact support." });
     return;
+  }
+
+  // Signup credits safety net: fire and forget, never delays or fails a login (the hook logs its own errors).
+  try {
+    void Promise.resolve(triggerSignupGrant(membership.accountId)).catch((err) => console.error("[wallet] signup grant trigger failed:", err));
+  } catch (err) {
+    console.error("[wallet] signup grant trigger failed:", err);
   }
 
   req.accountId = membership.accountId;
