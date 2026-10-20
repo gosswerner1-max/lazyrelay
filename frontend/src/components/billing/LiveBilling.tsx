@@ -20,6 +20,9 @@ interface ViewProps {
   start?: (sku: string) => Promise<CheckoutResult>;
 }
 
+/** "1 credit" or "10 credits". */
+const rate = (n: number) => `${n} ${n === 1 ? "credit" : "credits"}`;
+
 export function LiveBillingView({ wallet, now, paddle, loadCatalog, start }: ViewProps) {
   const buyRef = useRef<HTMLDivElement>(null);
   const toBuyPanel = useCallback(() => buyRef.current?.scrollIntoView?.({ block: "start" }), []);
@@ -28,6 +31,9 @@ export function LiveBillingView({ wallet, now, paddle, loadCatalog, start }: Vie
       <ExpirationBanner lots={wallet.lots} now={now} />
       <BillingCard lots={wallet.lots} now={now} total={wallet.balance} onBuy={toBuyPanel} />
       <p className="bm-plan">{capsLine(wallet.plan.caps)}</p>
+      <p className="bm-plan" data-testid="billing-rates">
+        {`Publishing costs ${rate(wallet.prices.post_publish)} per channel. A competitor page teardown costs ${rate(wallet.prices.competitor_teardown)}, charged only when it is delivered.`}
+      </p>
       <div ref={buyRef}>
         <BuyPanel paddle={paddle} loadCatalog={loadCatalog} start={start} />
       </div>

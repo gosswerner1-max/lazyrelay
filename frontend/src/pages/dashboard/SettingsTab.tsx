@@ -78,9 +78,6 @@ export function SettingsTab() {
     seatCapacity,
     seatAddonBusy,
     billingBusy,
-    showAgencyBilling,
-    setShowAgencyBilling,
-    setPendingTierChange,
     setShowCancelModal,
     mediaAltTextDrafts,
     setMediaAltTextDrafts,
@@ -89,10 +86,7 @@ export function SettingsTab() {
     setScrollToBillingPending,
     handleDeleteMedia,
     handleSaveMediaAltText,
-    handleUpgrade,
-    handleBuyStorageAddon,
     handleCancelStorageAddon,
-    handleBuySeatAddon,
     handleCancelSeatAddon,
     handleSaveBusinessName,
     handleSaveVoiceProfile,
@@ -111,13 +105,21 @@ export function SettingsTab() {
     handleRemoveMfa,
     handleGenerateMfaRecoveryCodes,
     handleAnnounceAdminAction,
-    currentTier,
     accounts,
     platforms,
     refresh,
     setError,
   } = useDashboard();
-  const { billingActive } = useWallet(); // true only with billing on and a normal (non-exempt) account: then the credit wallet replaces the old plan cards
+  const { billingActive, wallet } = useWallet(); // billingActive: billing on and a normal (non-exempt) account, so the credit wallet is what is sold
+  // Cancel works on the one subscription row, so it covers the new Growth and Pro plans and any older paid plan alike.
+  const paidPlan = subscription?.tier !== undefined && subscription.tier !== "free" && subscription.status !== "cancelled";
+  const walletPaid = billingActive && (wallet?.plan.walletPlan === "growth" || wallet?.plan.walletPlan === "pro");
+  const cancelPending = subscription?.cancelAtPeriodEnd === true;
+  const canCancel = (paidPlan || walletPaid) && !cancelPending;
+  const pendingCancelEnd = subscription?.currentPeriodEnd
+    ? new Date(subscription.currentPeriodEnd).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    : null;
+  const pendingCancelLine = paidPlan && cancelPending ? `Your plan is set to cancel${pendingCancelEnd ? ` on ${pendingCancelEnd}` : " at the end of this billing period"}.` : null;
   // The plan banner's Upgrade button asks for the Billing section, so open that sub-tab and scroll to it.
   const [sub, setSub] = useState<SettingsSub>(scrollToBillingPending ? "billing" : "general");
   useEffect(() => {
@@ -215,7 +217,7 @@ export function SettingsTab() {
                   <span>
                     {pct >= 100
                       ? "Storage full. Delete files below to upload new media."
-                      : "Getting full. Delete unused files or upgrade for more space."}
+                      : "Getting full. Delete unused files to free up space."}
                   </span>
                 )}
               </div>
@@ -566,7 +568,6 @@ export function SettingsTab() {
         const seatsUsed = team.filter((m) => m.role !== "owner").length;
         const seatTotalLimit = seatCapacity?.totalLimit ?? 0;
         const atSeatCap = seatTotalLimit > 0 && seatsUsed >= seatTotalLimit;
-        const canBuySeatAddon = subscription?.tier === "business" || subscription?.tier === "agency" || subscription?.tier === "agency_plus";
         return (
       <section>
         <h2>Seats</h2>
@@ -595,16 +596,8 @@ export function SettingsTab() {
             </button>
           </form>
         )}
-        {isOwner && atSeatCap && canBuySeatAddon && (
-          <p className="section-note">
-            At your plan's seat limit.{" "}
-            <button type="button" className="btn-outline" disabled={seatAddonBusy !== null} onClick={handleBuySeatAddon}>
-              {seatAddonBusy === "checkout" ? "Starting checkout..." : "Buy another seat ($10 / mo, plus applicable tax)"}
-            </button>
-          </p>
-        )}
-        {isOwner && atSeatCap && !canBuySeatAddon && (
-          <p className="section-note">At your plan's seat limit. Upgrade to Business, Agency, or Agency Plus for more seats.</p>
+        {isOwner && atSeatCap && (
+          <p className="section-note">At your plan's seat limit.</p>
         )}
         <ul className="media-list">
           {team.map((m) => {
@@ -695,199 +688,50 @@ export function SettingsTab() {
       </section>
       )}
 
-      {view === "billing" && currentTier !== "free" && (
+      {view === "billing" && storageAddons.length > 0 && (
       <section>
-        <h2>Buy more storage</h2>
-        <p className="section-note">Add extra space on top of your plan's included storage. Cancel any add-on separately, any time.</p>
-        <div className="pricing-grid billing-upgrade-grid">
-          {([
-            { gb: 5 as const, price: "2.99" },
-            { gb: 20 as const, price: "7.99" },
-            { gb: 50 as const, price: "14.99" },
-          ]).map(({ gb, price }) => (
-            <div className="pricing-card" key={gb}>
-              <h3>+{gb}GB</h3>
-              <p className="pricing-price">
-                ${price}<span className="pricing-period">/mo</span>
-              </p>
-              <button className="cta" onClick={() => handleBuyStorageAddon(gb)} disabled={addonBusy !== null}>
-                {addonBusy === gb ? "Starting checkout..." : `Add +${gb}GB`}
-              </button>
-            </div>
-          ))}
-        </div>
-        {storageAddons.length > 0 && (
-          <ul className="media-list">
-            {storageAddons.map((a) => (
-              <li key={a.id}>
-                <span className="media-list-meta">
-                  +{a.gb_amount}GB storage
-                  <span className={`status-badge status-${a.status}`}>
-                    {a.cancel_at_period_end
-                      ? `cancelling${a.current_period_end ? `: ends ${new Date(a.current_period_end).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}`
-                      : a.status}
-                  </span>
+        <h2>Storage add-ons</h2>
+        <p className="section-note">Storage add-ons are no longer sold. You can cancel the ones you already have, any time.</p>
+        <ul className="media-list">
+          {storageAddons.map((a) => (
+            <li key={a.id}>
+              <span className="media-list-meta">
+                +{a.gb_amount}GB storage
+                <span className={`status-badge status-${a.status}`}>
+                  {a.cancel_at_period_end
+                    ? `cancelling${a.current_period_end ? `: ends ${new Date(a.current_period_end).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}`
+                    : a.status}
                 </span>
-                <button
-                  className="btn-outline"
-                  onClick={() => handleCancelStorageAddon(a.id)}
-                  disabled={addonBusy !== null}
-                >
-                  {addonBusy === a.id ? "Cancelling..." : "Cancel"}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+              </span>
+              <button
+                className="btn-outline"
+                onClick={() => handleCancelStorageAddon(a.id)}
+                disabled={addonBusy !== null}
+              >
+                {addonBusy === a.id ? "Cancelling..." : "Cancel"}
+              </button>
+            </li>
+          ))}
+        </ul>
       </section>
       )}
 
       {view === "billing" && (
       <section ref={billingSectionRef}>
         <h2>Billing</h2>
-        {LiveBilling && billingActive ? <Suspense fallback={null}><LiveBilling /></Suspense> : (() => {
-          const tierNames = {
-    free: "Free",
-    starter: "Starter",
-    pro: "Pro",
-    business: "Business",
-    agency: "Agency",
-    agency_plus: "Agency Plus",
-  } as const;
-          // Deferred cancellation (migration 0043): `status` only becomes
-          // "cancelled" once the real period-end cancellation lands via
-          // webhook, so this stays keyed on status alone — a customer with
-          // a pending cancellation is still genuinely on their paid plan
-          // and shouldn't see upgrade/resubscribe buttons yet.
-          const canUpgrade = !subscription || subscription.tier === "free" || subscription.status === "cancelled";
-          // Truly lapsed (tier already reverted) — label the resume action
-          // "Resubscribe" so it doesn't read as contradictory next to
-          // "Current plan: Pro". Distinct from isPendingCancellation below:
-          // by the time this is true, cancelAtPeriodEnd has already been
-          // reset (see syncSubscriptionFromWebhook), so the two never
-          // overlap.
-          const isCancelling = subscription?.tier !== "free" && subscription?.status === "cancelled";
-          // Still on the paid plan, but a cancellation is scheduled for the
-          // end of the current period — real access continues (resolveTier
-          // still grants it server-side); this only drives the status badge
-          // text so the customer sees an accurate "cancelling: ends X"
-          // instead of nothing changing at all after they click cancel.
-          const isPendingCancellation = subscription?.tier !== "free" && subscription?.cancelAtPeriodEnd === true;
-          const periodEndDate = subscription?.currentPeriodEnd
-            ? new Date(subscription.currentPeriodEnd).toLocaleDateString(undefined, { month: "short", day: "numeric" })
-            : null;
-          // One button per pricing card, three real states (found live
-          // 2026-08-21 that only the first of these existed -- an already-
-          // paying customer had no self-serve way to move tiers at all,
-          // only cancel-and-lose-access):
-          // 1. This card matches the customer's current tier -> disabled
-          //    "Current plan" badge, not a button at all.
-          // 2. canUpgrade (Free, or a lapsed/cancelled account) -> the
-          //    existing checkout-overlay flow via handleUpgrade.
-          // 3. Already on a different paid tier -> the real proration flow
-          //    via handleChangeTier, no checkout overlay needed.
-          function renderTierAction(tierCode: "starter" | "pro" | "business" | "agency" | "agency_plus", displayName: string) {
-            if (subscription?.tier === tierCode && !isCancelling) {
-              return (
-                <button className="cta cta-current-plan" disabled>
-                  Current plan
-                </button>
-              );
-            }
-            if (canUpgrade) {
-              return (
-                <button className="cta" onClick={() => handleUpgrade(tierCode)} disabled={billingBusy !== null}>
-                  {billingBusy === tierCode ? "Starting checkout..." : isCancelling ? `Resubscribe to ${displayName}` : `Upgrade to ${displayName}`}
-                </button>
-              );
-            }
-            return (
-              <button
-                className="cta"
-                onClick={() => setPendingTierChange({ tier: tierCode, displayName })}
-                disabled={billingBusy !== null}
-              >
-                {billingBusy === tierCode ? "Starting checkout..." : `Switch to ${displayName}`}
-              </button>
-            );
-          }
-          return (
-            <>
-              <p className="current-plan">
-                Current plan: <strong>{subscription ? tierNames[subscription.tier] : "Free"}</strong>
-                {subscription?.status && (
-                  <span className={`status-badge status-${subscription.status}`}>
-                    {isPendingCancellation
-                      ? `cancelling${periodEndDate ? `: ends ${periodEndDate}` : ""}`
-                      : isCancelling
-                        ? "cancelled"
-                        : subscription.status}
-                  </span>
-                )}
-              </p>
-
-              <div className="pricing-grid billing-upgrade-grid">
-                <div className="pricing-card">
-                  <h3>Starter: 5GB storage</h3>
-                  <p className="pricing-price">
-                    $29.99<span className="pricing-period"> / mo</span><span className="pricing-tax-note">(plus applicable tax)</span>
-                  </p>
-                  <p className="pricing-note">20 accounts, unlimited posts, AI-agent access</p>
-                  {renderTierAction("starter", "Starter")}
-                </div>
-                <div className="pricing-card">
-                  <h3>Pro: 10GB storage</h3>
-                  <p className="pricing-price">
-                    $59.99<span className="pricing-period"> / mo</span><span className="pricing-tax-note">(plus applicable tax)</span>
-                  </p>
-                  <p className="pricing-note">30 accounts, unlimited posts, AI-agent access, priority support</p>
-                  {renderTierAction("pro", "Pro")}
-                </div>
-                <div className="pricing-card">
-                  <h3>Business: 20GB storage</h3>
-                  <p className="pricing-price">
-                    $99.99<span className="pricing-period"> / mo</span><span className="pricing-tax-note">(plus applicable tax)</span>
-                  </p>
-                  <p className="pricing-note">50 accounts, unlimited posts, AI-agent access, priority support</p>
-                  {renderTierAction("business", "Business")}
-                </div>
-              </div>
-
-              {!showAgencyBilling && (
-                <button type="button" className="btn-outline pricing-agency-toggle" onClick={() => setShowAgencyBilling(true)}>
-                  Running an agency? See Agency plans &rarr;
-                </button>
-              )}
-
-              {showAgencyBilling && (
-                <div className="pricing-grid pricing-grid-agency">
-                  <div className="pricing-card">
-                    <h3>Agency: 20GB storage</h3>
-                    <p className="pricing-price">
-                      $149.99<span className="pricing-period"> / mo</span><span className="pricing-tax-note">(plus applicable tax)</span>
-                    </p>
-                    <p className="pricing-note">100 accounts, 12 brands, 3 team seats, AI-agent access, priority support</p>
-                    {renderTierAction("agency", "Agency")}
-                  </div>
-                  <div className="pricing-card">
-                    <h3>Agency Plus: 20GB storage</h3>
-                    <p className="pricing-price">
-                      $199.99<span className="pricing-period"> / mo</span><span className="pricing-tax-note">(plus applicable tax)</span>
-                    </p>
-                    <p className="pricing-note">150 accounts, 20 brands, 6 team seats, AI-agent access, priority support</p>
-                    {renderTierAction("agency_plus", "Agency Plus")}
-                  </div>
-                </div>
-              )}
-
-              {!canUpgrade && (
-                <button className="btn-outline" onClick={() => setShowCancelModal(true)} disabled={billingBusy !== null}>
-                  Cancel subscription
-                </button>
-              )}
-            </>
-          );
-        })()}
+        {LiveBilling && billingActive ? (
+          <Suspense fallback={null}><LiveBilling /></Suspense>
+        ) : wallet?.exempt ? (
+          <p className="section-note">Your account is set up separately, so there are no plans or credits to buy here.</p>
+        ) : (
+          <p className="section-note">Plans and credits are not available to buy right now.</p>
+        )}
+        {pendingCancelLine && <p className="section-note">{pendingCancelLine}</p>}
+        {canCancel && (
+          <button className="btn-outline" onClick={() => setShowCancelModal(true)} disabled={billingBusy !== null}>
+            Cancel subscription
+          </button>
+        )}
       </section>
       )}
       </div>

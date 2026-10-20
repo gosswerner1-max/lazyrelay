@@ -102,8 +102,6 @@ export function Dashboard() {
     setMoreMenuOpen,
     moreMenuRef,
     billingBusy,
-    pendingTierChange,
-    setPendingTierChange,
     showCancelModal,
     setShowCancelModal,
     cancelFeedback,
@@ -119,11 +117,9 @@ export function Dashboard() {
     setScrollToBillingPending,
     handleTourFinish,
     dismissGcalPrompt,
-    finalizingUpgrade,
     handleFinalizeSelection,
     handleCancelSelection,
     handleConnect,
-    handleChangeTier,
     handleConnectGoogleCalendar,
     handleConfirmCancelSubscription,
     tierNames,
@@ -155,19 +151,13 @@ export function Dashboard() {
       <div className="plan-banner">
         <div className="plan-banner-inner">
           <span>
-            {finalizingUpgrade ? (
-              "Finalizing your upgrade..."
-            ) : (
-              <>
-                You're on the <strong>{tierNames[currentTier]}</strong> plan
-                {isFreePlan && !wallet.billingActive && ": 3 connected accounts, 1 brand, 10 queued posts, 30 credits once"}
-                {isPendingCancellation &&
-                  `; cancels${periodEndDate ? ` on ${periodEndDate}` : " at the end of your billing period"}`}
-                {isLapsedCancelled && "; cancelled"}
-              </>
-            )}
+            You're on the <strong>{tierNames[currentTier]}</strong> plan
+            {isFreePlan && !wallet.billingActive && ": 3 connected accounts, 1 brand, 10 queued posts, 30 credits once"}
+            {isPendingCancellation &&
+              `; cancels${periodEndDate ? ` on ${periodEndDate}` : " at the end of your billing period"}`}
+            {isLapsedCancelled && "; cancelled"}
           </span>
-          {isFreeOrLapsed && !finalizingUpgrade && (
+          {isFreeOrLapsed && (
             <button
               className="plan-banner-cta"
               onClick={() => {
@@ -453,7 +443,6 @@ export function Dashboard() {
                 You'll lose <strong>{accounts.length}</strong> connected account{accounts.length === 1 ? "" : "s"}. You'll need
                 to reconnect them if you come back.
               </li>
-              {currentTier !== "free" && <li>Your posts will drop back to the Free tier's 10-per-account monthly limit.</li>}
               <li>
                 You'll keep access until {periodEndDate ? periodEndDate : "the end of your current billing period"}. This
                 doesn't cancel immediately.
@@ -490,39 +479,6 @@ export function Dashboard() {
                 disabled={billingBusy !== null || !cancelDataDeletionAck}
               >
                 {billingBusy === "cancel" ? "Cancelling..." : "Submit & Continue to Cancel"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {pendingTierChange && (
-        <div className="modal-overlay" onClick={() => setPendingTierChange(null)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Switch to {pendingTierChange.displayName}?</h2>
-              <button className="modal-close" onClick={() => setPendingTierChange(null)} aria-label="Close">
-                &times;
-              </button>
-            </div>
-            <p className="modal-subtitle">
-              You'll move from <strong>{tierNames[currentTier]}</strong> to <strong>{pendingTierChange.displayName}</strong>.
-              The prorated price difference is charged to (or credited on) your card on file immediately — this is not a
-              fresh checkout, no card entry needed.
-            </p>
-            <div className="modal-actions">
-              <button className="btn-outline" onClick={() => setPendingTierChange(null)}>
-                Cancel
-              </button>
-              <button
-                className="cta"
-                onClick={() => {
-                  const tier = pendingTierChange.tier;
-                  setPendingTierChange(null);
-                  handleChangeTier(tier);
-                }}
-                disabled={billingBusy !== null}
-              >
-                Confirm switch
               </button>
             </div>
           </div>

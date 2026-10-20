@@ -17,8 +17,6 @@ import type { OAuthGrant } from "@supabase/supabase-js";
 import { api, type SocialAccount, type Brand, type BrandCapacity, type ScheduledPost, type Subscription, type StorageUsage, type MediaFile, type StorageAddon, type PlatformInfo, type Account, type ApiKey, type RecurringSchedule, type AnalyticsSummary, type BioPage, type MentionPost, type MentionOtherPlatform, type DMConversation, type DMMessage, type DMAutomation, type TeamMember, type SeatCapacity } from "../../lib/api";
 import { PLATFORM_LIMIT_EVENT, type PlatformLimitDetail } from "../../lib/platformLimit";
 import { isTiktokDisclosureIncomplete } from "../../lib/tiktokDisclosure";
-import { getStoredPromoCode } from "../../lib/promo";
-import { getStoredReferralCode } from "../../lib/referral";
 import { isVideoTooLongForTiktok, tiktokVideoTooLongMessage, type TiktokCreatorInfo } from "../../lib/tiktokPostChecks";
 import { type Tab, TOUR_SEEN_KEY, GCAL_PROMPT_SEEN_KEY, useIsMobile, connectParams, parseCsv, MENTIONS_LIVE_PLATFORMS } from "./dashboardHelpers";
 
@@ -154,30 +152,9 @@ export function useDashboardState() {
   const [brandAddonBusy, setBrandAddonBusy] = useState<"checkout" | string | null>(null);
   const pendingBrandAddonRef = useRef(false);
   const [seatAddonBusy, setSeatAddonBusy] = useState<"checkout" | string | null>(null);
-  const pendingSeatAddonRef = useRef(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
-  const [billingBusy, setBillingBusy] = useState<"starter" | "pro" | "business" | "agency" | "agency_plus" | "cancel" | null>(null);
-  // The Billing section's own 3-card grid, plus the "See Agency plans"
-  // reveal below it — mirrors Landing.tsx's AGENCY_PRICING pattern exactly
-  // (same reasoning: 5 cards in one row doesn't fit, and agencies are a
-  // smaller audience than the main 3 tiers). The backend/API layer already
-  // fully supported "agency"/"agency_plus" (startCheckout, /subscription
-  // /checkout, the Paddle price IDs) — only this dashboard UI was missing
-  // a way to actually reach them, despite the marketing copy already
-  // promising "upgrade to ... Agency, or Agency Plus any time from your
-  // dashboard" (found live 2026-08-21).
-  const [showAgencyBilling, setShowAgencyBilling] = useState(false);
-  // Confirmation gate for handleChangeTier -- an already-paying customer's
-  // "Switch to X" charges/credits the prorated difference immediately, no
-  // Paddle checkout overlay in between to double as a natural confirm step
-  // the way a fresh subscription's "Upgrade to X" already has. Added
-  // 2026-08-21 after Werner flagged live that an accidental click would
-  // otherwise change the plan with zero confirmation.
-  const [pendingTierChange, setPendingTierChange] = useState<{
-    tier: "starter" | "pro" | "business" | "agency" | "agency_plus";
-    displayName: string;
-  } | null>(null);
+  const [billingBusy, setBillingBusy] = useState<"cancel" | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelFeedback, setCancelFeedback] = useState("");
   const [cancelDataDeletionAck, setCancelDataDeletionAck] = useState(false);
@@ -507,9 +484,6 @@ export function useDashboardState() {
   const [analyticsRangeDays, setAnalyticsRangeDays] = useState(30);
   const [insightLoading, setInsightLoading] = useState(false);
   const [insightResult, setInsightResult] = useState<{ insight: string } | { insufficientData: true; postsWithData: number; needed: number } | null>(null);
-  const [finalizingUpgrade, setFinalizingUpgrade] = useState(false);
-  const pendingTierRef = useRef<"starter" | "pro" | "business" | "agency" | "agency_plus" | null>(null);
-  const pendingStorageAddonRef = useRef<5 | 20 | 50 | null>(null);
 
   async function refresh() {
     setError(null);
@@ -911,31 +885,11 @@ export function useDashboardState() {
       token,
       environment,
       eventCallback: (event) => {
-        // checkout.completed fires the instant the card is charged, but our
-        // tier flip depends on Paddle's subscription.activated webhook,
-        // which lands a few seconds later — an immediate refresh() here
-        // reads the still-"free" row. Poll briefly instead of refreshing
-        // once so the banner updates itself without a manual reload.
-        // Both pending refs are checked here rather than polling from
-        // inside handleUpgrade/handleBuyStorageAddon right after
-        // Checkout.open() — that used to start the poll the instant the
-        // overlay opened, racing against the customer actually entering a
-        // card and finishing checkout, so the 15s window was almost always
-        // gone before the real purchase completed (found live 2026-08-11 —
-        // the storage gauge never updated on its own after a real add-on
-        // purchase). Waiting for the real checkout.completed event fixes
-        // both paths the same way.
+        // checkout.completed fires the instant the card is charged. The wallet view reloads from the counter below; the
+        // brand add-on (the only add-on still sold) polls until its webhook lands.
         if (event.name === "checkout.completed") {
           setCheckoutDoneCount((n) => n + 1);
-          if (pendingTierRef.current) {
-            pollUntilUpgraded();
-          } else if (pendingStorageAddonRef.current) {
-            pollUntilAddonAdded();
-          } else if (pendingBrandAddonRef.current) {
-            pollUntilBrandAddonAdded();
-          } else if (pendingSeatAddonRef.current) {
-            pollUntilSeatAddonAdded();
-          }
+          if (pendingBrandAddonRef.current) pollUntilBrandAddonAdded();
         }
       },
     }).then(setPaddle);
@@ -1000,57 +954,6 @@ export function useDashboardState() {
     };
   }, [tiktokInfoAccountId]);
 
-  async function pollUntilUpgraded() {
-    const expectedTier = pendingTierRef.current;
-    setFinalizingUpgrade(true);
-    try {
-      for (let attempt = 0; attempt < 10; attempt++) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        const sub = await api.getSubscription();
-        const upgraded = expectedTier
-          ? sub.tier === expectedTier && (sub.status === "active" || sub.status === "trialing")
-          : sub.tier !== "free";
-        if (upgraded) {
-          setSubscription(sub);
-          return;
-        }
-      }
-      // Timed out waiting on the webhook — refresh once more anyway so the
-      // banner shows whatever the real current state is rather than nothing.
-      await refresh();
-    } finally {
-      setFinalizingUpgrade(false);
-      pendingTierRef.current = null;
-    }
-  }
-
-  /** Same shape as pollUntilUpgraded(), for storage add-ons — kept as a
-   *  separate function since it polls a different endpoint pair and
-   *  doesn't touch the tier-upgrade banner state. */
-  async function pollUntilAddonAdded() {
-    const gbAmount = pendingStorageAddonRef.current;
-    try {
-      for (let attempt = 0; attempt < 10; attempt++) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        const addons = await api.listStorageAddons();
-        if (addons.some((a) => a.gb_amount === gbAmount)) {
-          setStorageAddons(addons);
-          const usage = await api.getStorageUsage();
-          setStorageUsage(usage);
-          return;
-        }
-      }
-      // Timed out waiting on the webhook — refresh once more anyway so the
-      // gauge shows whatever the real current state is rather than nothing.
-      const [addons, usage] = await Promise.all([api.listStorageAddons(), api.getStorageUsage()]);
-      setStorageAddons(addons);
-      setStorageUsage(usage);
-    } finally {
-      setAddonBusy(null);
-      pendingStorageAddonRef.current = null;
-    }
-  }
-
   /** Same shape as pollUntilAddonAdded(), for brand add-ons. Matches on total
    *  add-on count increasing rather than a specific size (every brand add-on
    *  is identical — just +1 slot), unlike the gb_amount match above. */
@@ -1071,27 +974,6 @@ export function useDashboardState() {
     } finally {
       setBrandAddonBusy(null);
       pendingBrandAddonRef.current = false;
-    }
-  }
-
-  /** Same shape as pollUntilBrandAddonAdded(), for seat add-ons. */
-  async function pollUntilSeatAddonAdded() {
-    const countBefore = seatCapacity?.addonSlots ?? 0;
-    try {
-      for (let attempt = 0; attempt < 10; attempt++) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        const cap = await api.getSeatAddons();
-        if (cap.addonSlots > countBefore) {
-          setSeatCapacity(cap);
-          return;
-        }
-      }
-      // Timed out waiting on the webhook — refresh once more anyway so the
-      // capacity shown is whatever the real current state is, not stale.
-      setSeatCapacity(await api.getSeatAddons());
-    } finally {
-      setSeatAddonBusy(null);
-      pendingSeatAddonRef.current = false;
     }
   }
 
@@ -2048,83 +1930,6 @@ export function useDashboardState() {
     }
   }
 
-  async function handleUpgrade(tier: "starter" | "pro" | "business" | "agency" | "agency_plus") {
-    setBillingBusy(tier);
-    setError(null);
-    try {
-      const { transactionId, checkoutUrl } = await api.startCheckout(tier, getStoredPromoCode(), getStoredReferralCode());
-      if (paddle && transactionId) {
-        pendingTierRef.current = tier;
-        paddle.Checkout.open({ transactionId });
-        return;
-      }
-      // Fallback only — bare redirect won't show a real payment form (see
-      // the Paddle.js note above), but it's better than nothing if Paddle.js
-      // itself failed to load (e.g. VITE_PADDLE_CLIENT_TOKEN missing).
-      if (!checkoutUrl) {
-        setError("Checkout couldn't start. No checkout URL was returned.");
-        return;
-      }
-      window.location.href = checkoutUrl;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBillingBusy(null);
-    }
-  }
-
-  // For a customer already on an active paid tier -- real proration on the
-  // existing subscription (see changeSubscriptionTier's doc comment on the
-  // backend), not a fresh Paddle.js checkout overlay. No card re-entry
-  // needed since the existing saved payment method is charged directly, so
-  // this just calls the API and polls the same way handleUpgrade does while
-  // waiting for the resulting webhook to land.
-  async function handleChangeTier(tier: "starter" | "pro" | "business" | "agency" | "agency_plus") {
-    setBillingBusy(tier);
-    setError(null);
-    try {
-      await api.changeTier(tier);
-      // Don't await this -- matches handleUpgrade's own pattern (the
-      // checkout.completed event handler fires pollUntilUpgraded without
-      // awaiting it too), so billingBusy clears right away and the
-      // "Finalizing your upgrade..." banner (finalizingUpgrade) is the one
-      // piece of UI carrying the wait, not a disabled button for 15s.
-      pendingTierRef.current = tier;
-      void pollUntilUpgraded();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBillingBusy(null);
-    }
-  }
-
-  async function handleBuyStorageAddon(gbAmount: 5 | 20 | 50) {
-    setAddonBusy(gbAmount);
-    setError(null);
-    try {
-      const { transactionId, checkoutUrl } = await api.startStorageAddonCheckout(gbAmount);
-      if (paddle && transactionId) {
-        // Arm the ref and open the overlay, then return — pollUntilAddonAdded()
-        // runs from the eventCallback's real checkout.completed event, not
-        // from here. Polling used to start immediately on this line, racing
-        // the customer actually entering a card; addonBusy stays true (button
-        // shows "Starting checkout...") until that poll clears it.
-        pendingStorageAddonRef.current = gbAmount;
-        paddle.Checkout.open({ transactionId });
-        return;
-      }
-      if (!checkoutUrl) {
-        setError("Checkout couldn't start. No checkout URL was returned.");
-        setAddonBusy(null);
-        return;
-      }
-      window.location.href = checkoutUrl;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setAddonBusy(null);
-    }
-  }
-
   async function handleCancelStorageAddon(id: string) {
     if (!window.confirm("Cancel this storage add-on? You'll lose the extra space at the end of the billing period.")) {
       return;
@@ -2181,31 +1986,6 @@ export function useDashboardState() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBrandAddonBusy(null);
-    }
-  }
-
-  async function handleBuySeatAddon() {
-    setSeatAddonBusy("checkout");
-    setError(null);
-    try {
-      const { transactionId, checkoutUrl } = await api.startSeatAddonCheckout();
-      if (paddle && transactionId) {
-        // Same real-checkout.completed-event pattern as handleBuyBrandAddon
-        // — polling starts from the eventCallback, not here, so it doesn't
-        // race the customer actually entering a card.
-        pendingSeatAddonRef.current = true;
-        paddle.Checkout.open({ transactionId });
-        return;
-      }
-      if (!checkoutUrl) {
-        setError("Checkout couldn't start. No checkout URL was returned.");
-        setSeatAddonBusy(null);
-        return;
-      }
-      window.location.href = checkoutUrl;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setSeatAddonBusy(null);
     }
   }
 
@@ -2826,10 +2606,6 @@ export function useDashboardState() {
     setMoreMenuOpen,
     moreMenuRef,
     billingBusy,
-    showAgencyBilling,
-    setShowAgencyBilling,
-    pendingTierChange,
-    setPendingTierChange,
     showCancelModal,
     setShowCancelModal,
     cancelFeedback,
@@ -3017,7 +2793,6 @@ export function useDashboardState() {
     setAnalyticsRangeDays,
     insightLoading,
     insightResult,
-    finalizingUpgrade,
     handleFinalizeSelection,
     handleCancelSelection,
     selectedPinterestAccountId,
@@ -3068,13 +2843,9 @@ export function useDashboardState() {
     handleDelete,
     handleCsvFile,
     handleBulkImport,
-    handleUpgrade,
-    handleChangeTier,
-    handleBuyStorageAddon,
     handleCancelStorageAddon,
     handleBuyBrandAddon,
     handleCancelBrandAddon,
-    handleBuySeatAddon,
     handleCancelSeatAddon,
     handleSaveBusinessName,
     handleSaveVoiceProfile,
