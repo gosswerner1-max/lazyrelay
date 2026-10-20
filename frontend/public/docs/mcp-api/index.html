@@ -240,11 +240,11 @@ function isValid(secret, rawBody, signatureHeader) {
 <p>Requests are counted per account in a one minute window. The same ladder applies to authenticated REST API requests and to the hosted MCP endpoint. Over the limit, the API answers HTTP 429, and an MCP tool reports the error kind <code>rate_limited</code> with <code>retryable</code> set to true. A plan change can take up to a minute to apply.</p>
 <div class="table-wrap simple-table"><table><thead><tr><th scope="col">Plan</th><th scope="col">Limit per account</th></tr></thead><tbody>
 <tr><td>Free</td><td>60 requests per minute</td></tr>
-<tr><td>Pay-as-you-go</td><td>300 requests per minute</td></tr>
+<tr><td>Pay as you go</td><td>300 requests per minute</td></tr>
 <tr><td>Growth</td><td>450 requests per minute</td></tr>
 <tr><td>Pro</td><td>600 requests per minute</td></tr>
 </tbody></table></div>
-<p class="note">This limits request volume only. Plan limits on accounts and brands, and credit costs, are separate; see <a href="/pricing/">pricing</a>.</p>
+<p class="note">This limits request volume only. Plan limits on accounts, brands and posts are separate; see <a href="/pricing/">pricing</a>.</p>
 
 <h2 id="links">Links and packages</h2>
 <div class="card-row">
