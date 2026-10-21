@@ -497,6 +497,11 @@ function Root() {
 const BillingMockupPage = import.meta.env.DEV ? lazy(() => import("./pages/dev/BillingMockupPage").then((m) => ({ default: m.BillingMockupPage }))) : null;
 // Same rule for the Posting workspace preview (made-up data, nothing is sent).
 const PostingWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/PostingWorkspacePreview").then((m) => ({ default: m.PostingWorkspacePreview }))) : null;
+const CalendarWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/CalendarWorkspacePreview").then((m) => ({ default: m.CalendarWorkspacePreview }))) : null;
+const ConnectionsWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/ConnectionsWorkspacePreview").then((m) => ({ default: m.ConnectionsWorkspacePreview }))) : null;
+const BrandsWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/BrandsWorkspacePreview").then((m) => ({ default: m.BrandsWorkspacePreview }))) : null;
+const FailuresWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/FailuresWorkspacePreview").then((m) => ({ default: m.FailuresWorkspacePreview }))) : null;
+const AnalyticsWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/AnalyticsWorkspacePreview").then((m) => ({ default: m.AnalyticsWorkspacePreview }))) : null;
 
 function App() {
   if (import.meta.env.DEV && BillingMockupPage && window.location.pathname === "/dev/billing-mockup") {
@@ -510,6 +515,41 @@ function App() {
     return (
       <Suspense fallback={<div className="loading"><Spinner /></div>}>
         <PostingWorkspacePreview />
+      </Suspense>
+    );
+  }
+  if (import.meta.env.DEV && CalendarWorkspacePreview && window.location.pathname === "/dev/calendar-workspace") {
+    return (
+      <Suspense fallback={<div className="loading"><Spinner /></div>}>
+        <CalendarWorkspacePreview />
+      </Suspense>
+    );
+  }
+  if (import.meta.env.DEV && ConnectionsWorkspacePreview && window.location.pathname === "/dev/connections-workspace") {
+    return (
+      <Suspense fallback={<div className="loading"><Spinner /></div>}>
+        <ConnectionsWorkspacePreview />
+      </Suspense>
+    );
+  }
+  if (import.meta.env.DEV && BrandsWorkspacePreview && window.location.pathname === "/dev/brands-workspace") {
+    return (
+      <Suspense fallback={<div className="loading"><Spinner /></div>}>
+        <BrandsWorkspacePreview />
+      </Suspense>
+    );
+  }
+  if (import.meta.env.DEV && FailuresWorkspacePreview && window.location.pathname === "/dev/failures-workspace") {
+    return (
+      <Suspense fallback={<div className="loading"><Spinner /></div>}>
+        <FailuresWorkspacePreview />
+      </Suspense>
+    );
+  }
+  if (import.meta.env.DEV && AnalyticsWorkspacePreview && window.location.pathname === "/dev/analytics-workspace") {
+    return (
+      <Suspense fallback={<div className="loading"><Spinner /></div>}>
+        <AnalyticsWorkspacePreview />
       </Suspense>
     );
   }

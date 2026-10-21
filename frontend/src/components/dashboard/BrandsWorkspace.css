@@ -1,0 +1,104 @@
+/* Brands workspace: Midnight Canvas, two glass modules (#141b2d, 24px padding), one screen with no page scroll. Every class is prefixed bp-. */
+.bp-root {
+  position: relative;
+  background: #0b0f19;
+  border-radius: 24px;
+  padding: 28px;
+  color: #e6edf8;
+  overflow: hidden;
+  isolation: isolate;
+}
+/* the blueprint grid, 3.5% */
+.bp-root::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+.bp-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.bp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 28px;
+  height: calc(100dvh - 250px);
+  min-height: 520px;
+  max-height: 700px;
+}
+.bp-module {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 24px;
+  border-radius: 24px;
+  background: rgba(20, 27, 45, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+.bp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex: none; }
+.bp-head h2 { margin: 0; font-size: 20px; color: #fff; }
+.bp-chip { padding: 5px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); color: #94a3b8; font-size: 13px; white-space: nowrap; }
+
+/* brand cards */
+.bp-cards { display: grid; gap: 14px; flex: 1; min-height: 0; overflow-y: auto; align-content: start; grid-auto-rows: minmax(88px, auto); scrollbar-width: thin; }
+.bp-card {
+  border: 0; text-align: left; border-radius: 18px; cursor: pointer; padding: 16px 18px; font: inherit; color: #fff; display: grid; gap: 8px; align-content: center;
+  background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); transition: background 0.18s ease, transform 0.15s ease;
+}
+.bp-card:hover { background: rgba(255, 255, 255, 0.1); }
+.bp-card:active { transform: scale(0.98); }
+.bp-card--on { background: rgba(255, 86, 48, 0.08); box-shadow: inset 0 0 0 2px #ff5630; }
+.bp-card:focus-visible { outline: 2px solid #ff5630; outline-offset: 2px; }
+.bp-card-title { display: flex; align-items: center; gap: 10px; }
+.bp-card-title i { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.bp-card-title b { font-size: 17px; overflow-wrap: anywhere; }
+.bp-card-meta { display: flex; gap: 16px; color: #94a3b8; font-size: 13px; }
+.bp-card-meta b { color: #fff; }
+
+/* selected brand */
+.bp-work { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); gap: 16px 20px; flex: 1; min-height: 0; }
+.bp-stat { border-radius: 16px; background: rgba(255, 255, 255, 0.05); padding: 14px 16px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); }
+.bp-stat small { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #94a3b8; margin-bottom: 6px; }
+.bp-stat strong { font-size: 28px; line-height: 1.1; color: #fff; }
+.bp-voice, .bp-lower { grid-column: 1 / -1; }
+.bp-voice label, .bp-cap { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #94a3b8; margin-bottom: 8px; }
+.bp-voice textarea {
+  display: block; width: 100%; box-sizing: border-box; resize: none; border: 0; border-radius: 14px; min-height: 96px;
+  background: rgba(0, 0, 0, 0.28); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); color: #fff; font: inherit; line-height: 1.5; padding: 14px 16px; outline: none;
+}
+.bp-voice textarea:focus { box-shadow: inset 0 0 0 2px #ff5630; }
+.bp-voice-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; min-height: 40px; }
+.bp-voice-msg { font-size: 14px; color: #94a3b8; }
+.bp-error { color: #ff9d96; }
+.bp-btn { border: 0; border-radius: 999px; padding: 10px 22px; font: inherit; font-weight: 600; cursor: pointer; background: #ff5630; color: #fff; transition: transform 0.15s ease, opacity 0.2s ease; }
+.bp-btn:active:not(:disabled) { transform: scale(0.97); }
+.bp-btn:disabled { opacity: 0.4; cursor: default; }
+.bp-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+.bp-lower { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; min-height: 0; }
+.bp-channels { display: flex; flex-wrap: wrap; gap: 8px; }
+.bp-ch { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px; background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); }
+.bp-ch--off { opacity: 0.35; }
+/* the banned brand hues are not part of the palette: those icons are drawn in slate */
+.bp-ch--mono svg, .bp-ch--mono img { filter: grayscale(1) brightness(1.5); }
+.bp-chart-box { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.bp-chart { flex: 1; min-height: 90px; min-width: 0; }
+
+/* one stacked column on narrow screens, where scrolling the page is acceptable */
+@media (max-width: 1100px) {
+  .bp-grid { grid-template-columns: minmax(0, 1fr); height: auto; max-height: none; }
+  .bp-module { min-height: 320px; }
+  .bp-lower { grid-template-columns: minmax(0, 1fr); }
+  .bp-chart { height: 140px; flex: none; }
+}
+.bp-empty { max-width: 560px; margin: 0 auto; }
+.bp-empty-title { margin: 0 0 8px; font-size: 18px; font-weight: 700; color: #fff; }
+.bp-empty-text { margin: 0 0 20px; color: #94a3b8; line-height: 1.55; }
+.bp-empty .bp-btn { align-self: flex-start; }
+@media (prefers-reduced-motion: reduce) {
+  .bp-card, .bp-btn { transition: none; }
+}

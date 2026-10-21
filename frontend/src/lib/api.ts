@@ -1034,6 +1034,9 @@ export const api = {
   ): Promise<{ succeeded: number; failed: number; results: Array<{ row: number; status: number; body: { error?: string } }> }> =>
     authedFetch("/scheduled-posts/bulk", { method: "POST", body: JSON.stringify({ posts }) }),
 
+  getLinkClicks: (days = 30): Promise<{ links: Array<{ code: string; destinationUrl: string; platform: string; brand: string; scheduledPostId: string | null; createdAt: string; clicks: number; lastClick: string | null }>; totals: { clicks: number }; days: number }> =>
+    authedFetch(`/analytics/link-clicks?days=${days}`),
+
   getAnalyticsSummary: (days = 30, brand?: string, tag?: string): Promise<AnalyticsSummary> =>
     authedFetch(`/analytics/summary?days=${days}${brand ? `&brand=${encodeURIComponent(brand)}` : ""}${tag ? `&tag=${encodeURIComponent(tag)}` : ""}`),
   getAnalyticsInsight: (
