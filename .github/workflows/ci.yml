@@ -253,6 +253,12 @@ jobs:
       - name: Syntax-check every .js file (parse only, no execution, no credentials)
         working-directory: ops
         run: find . -name "*.js" -not -path "./node_modules/*" -print0 | xargs -0 -n1 node --check
+      # Pure unit tests with an in-memory fake client: no network, no database, no credentials.
+      - name: Inactivity purge unit tests (fake client, no database)
+        working-directory: ops
+        env:
+          NODE_ENV: test
+        run: node tests/test-inactivity-purge.js
 
   zapier-integration:
     runs-on: ubuntu-latest
