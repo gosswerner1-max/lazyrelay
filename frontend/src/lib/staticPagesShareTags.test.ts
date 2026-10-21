@@ -12,7 +12,7 @@ const pages = import.meta.glob("../../public/**/index.html", { query: "?raw", im
 const IMAGE = "https://lazyrelay.com/og-image-1200x630.jpg";
 const ROBOTS = "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1";
 
-// The about page is generated and the 404 page is noindex; neither belongs in this guard.
+// Every hand-written page under public/ is checked, plus the generated about page (frontend/scripts/generate-about-page.mjs). The 404 page is not matched by this glob.
 const entries = Object.entries(pages).filter(([path]) => !path.includes("/public/index.html"));
 
 const tag = (html: string, attr: "name" | "property", key: string) =>

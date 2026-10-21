@@ -201,7 +201,7 @@ describe("it can be found", () => {
   it("is in llms.txt", () => {
     expect(llms).toContain(URL_);
   });
-  it("links to the home page, pricing and the MCP guides, and back to itself nowhere else", () => {
+  it("links to the home page, pricing and the MCP guides", () => {
     for (const href of ['href="/"', 'href="/pricing/"', 'href="/mcp/"']) expect(page).toContain(href);
   });
 });

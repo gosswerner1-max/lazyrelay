@@ -16,9 +16,7 @@ interface PopoverProps {
 /** A floating panel anchored near a click point — portal-rendered so it
  *  isn't clipped by the calendar grid's own overflow, closes on outside
  *  click or Escape, and flips to the opposite side of its anchor if it
- *  wouldn't otherwise fit in the viewport. Replaces the Calendar tab's old
- *  below-grid `.calendar-day-detail` panel (2026-08-30) with something
- *  closer to Google Calendar's own event/day popovers. */
+ *  wouldn't otherwise fit in the viewport. */
 export function Popover({ anchorRect, onClose, children, className }: PopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<CSSProperties>({ visibility: "hidden" });

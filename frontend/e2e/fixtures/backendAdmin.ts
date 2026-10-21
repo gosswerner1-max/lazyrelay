@@ -20,28 +20,8 @@ if (!url || !serviceRoleKey) {
 
 export const supabaseAdmin = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
 
-const STALE_MS = 60 * 60 * 1000;
 const EMAIL_PREFIX = "e2e-";
 const EMAIL_SUFFIX = "@lazyrelay.invalid";
-
-/** Deletes any fixture from a run that crashed before its own teardown ran
- *  (mirrors generate-test-login-link.ts's cleanup rule) — only ever
- *  matches this exact prefix/suffix, never a real account. */
-export async function cleanupStaleFixtures(): Promise<void> {
-  const { data: rows, error } = await supabaseAdmin
-    .from("accounts")
-    .select("id, email, created_at")
-    .like("email", `${EMAIL_PREFIX}%${EMAIL_SUFFIX}`);
-  if (error) {
-    console.error("[e2e cleanup] listing stale fixtures failed:", error.message);
-    return;
-  }
-  const stale = (rows ?? []).filter((row) => Date.now() - new Date(row.created_at).getTime() > STALE_MS);
-  for (const row of stale) {
-    await deleteDisposableAccount(row.id);
-    console.log(`[e2e cleanup] removed stale fixture: ${row.email} (${row.id})`);
-  }
-}
 
 export interface DisposableAccount {
   accountId: string;
@@ -95,7 +75,7 @@ export async function seedSocialAccount(accountId: string, platform: string, dis
 /** Seeds a real subscriptions row so resolveTier() (backend/src/tier.ts)
  *  sees a paid tier instead of the free-tier default a disposable account
  *  otherwise gets -- needed for anything gated above free (recurring
- *  schedules are free:0 slots, pro:3). Bypasses real Paddle entirely, same
+ *  schedules are free:0 slots, starter:3, pro:5). Bypasses real Paddle entirely, same
  *  spirit as seedSocialAccount bypassing real OAuth. "starter" here is the DB
  *  code, which displays to customers as "Starter" (see tier.ts's own
  *  comment on the naming split) -- 3 recurring-schedule slots, plenty for
