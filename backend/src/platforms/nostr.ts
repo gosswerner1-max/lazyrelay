@@ -1,4 +1,4 @@
-import { generateSecretKey, getPublicKey, getEventHash, type Event as NostrEvent } from "nostr-tools/pure";
+import { generateSecretKey, getEventHash, type Event as NostrEvent } from "nostr-tools/pure";
 import * as nip19 from "nostr-tools/nip19";
 import { bytesToHex, hexToBytes } from "nostr-tools/utils";
 import { NOSTR_DEFAULT_RELAYS, NOSTR_PROOF_VIEWER, NOSTR_TEXT_LIMIT, NOSTR_TEXT_LIMIT_BYTES } from "./nostrConstants.js";

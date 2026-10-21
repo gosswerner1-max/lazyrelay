@@ -5,7 +5,7 @@ import { Paddle, Environment } from "@paddle/paddle-node-sdk";
 // $29.99, Pro $48.99→$59.99, Business $79.99→$99.99), following the new
 // feature set (analytics, AI captions/hashtags, calendar, bulk import,
 // approval workflow, link-in-bio, social listening, browser extension)
-// shipped the same day. Same pattern as setup-new-tier-prices.ts: Paddle
+// shipped the same day. Same one-off pattern as the earlier tier restructure: Paddle
 // prices are immutable, so this creates NEW price objects on the EXISTING
 // products rather than editing anything — existing subscribers stay on
 // their current price automatically (Paddle doesn't retroactively reprice

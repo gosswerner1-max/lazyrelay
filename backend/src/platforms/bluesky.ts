@@ -238,11 +238,6 @@ function isVideoUrl(url: string): boolean {
   return /\.(mp4|mov|m4v|webm)(\?.*)?$/i.test(url);
 }
 
-// A post's "at://did/.../{rkey}" uri's final path segment is the rkey used
-// both for the public bsky.app URL and for getRecord lookups.
-function rkeyFromAtUri(uri: string): string {
-  return uri.split("/").pop() ?? uri;
-}
 
 export class BlueskyAdapter implements PlatformAdapter {
   readonly platform: "bluesky" = "bluesky";

@@ -7,7 +7,6 @@ import {
   breakerSuccess,
   breakerFailure,
   breakerReleaseProbe,
-  breakerIsOpen,
   SHARED_BREAKER,
   CUSTOMER_KEY_BREAKER,
   MAX_BREAKER_COOLDOWN_MS,
@@ -126,13 +125,6 @@ describe("half-open: exactly one probe", () => {
     const released = breakerReleaseProbe(probe.state);
     expect(breakerAdmit(released, T0 + 5 * MIN).verdict).toBe("probe");
     expect(released.trippedUntil).toBe(probe.state.trippedUntil);
-  });
-
-  it("breakerIsOpen is true while open or half-open and false once closed", () => {
-    const s = trip();
-    expect(breakerIsOpen(s)).toBe(true);
-    expect(breakerIsOpen(breakerAdmit(s, T0 + 5 * MIN).state)).toBe(true);
-    expect(breakerIsOpen(breakerSuccess(s, SHARED_BREAKER))).toBe(false);
   });
 });
 

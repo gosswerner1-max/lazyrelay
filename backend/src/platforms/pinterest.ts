@@ -7,8 +7,7 @@ import type {
 } from "./types.js";
 import { fetchMediaForStreaming, buildStreamingMultipartBody, type RequestInitWithDuplex } from "./streamUpload.js";
 
-// The browser-facing consent page always stays on the real pinterest.com
-// host — only the API calls below move to the Sandbox subdomain.
+// The browser-facing consent page lives on the real pinterest.com host; API calls use API_BASE below.
 const AUTHORIZE_URL = "https://www.pinterest.com/oauth/";
 
 // Pinterest Standard access was approved 2026-08-04 (see
@@ -248,8 +247,7 @@ export class PinterestAdapter implements PlatformAdapter {
   // upload_parameters), (2) upload the file as multipart/form-data with
   // those parameters, (3) poll media status until Pinterest finishes
   // processing it. Confirmed against Pinterest's v5 docs (media-create,
-  // create_pin) 2026-08-03 — no sandbox video-pin test was possible this
-  // pass (see class-level note on credentials).
+  // create_pin) 2026-08-03.
   private async registerVideoUpload(
     accessToken: string,
   ): Promise<{ mediaId: string; uploadUrl: string; uploadParameters: Record<string, string> } | { error: string }> {

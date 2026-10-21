@@ -13,11 +13,6 @@ export interface PostRequest {
   // (currently Pinterest video Pins, which require cover_image_url) — every
   // other adapter simply ignores it.
   coverImageUrl: string | null;
-  // Only consumed by Pinterest — lets a customer pick which of their boards
-  // a Pin goes to. Optional/null means "use the adapter's own fallback"
-  // (currently whichever board the account's boards list returns first, or
-  // an auto-created default) — every existing caller (test scripts, older
-  // scheduled_posts rows) that doesn't set this keeps working unchanged.
   // The platform's own id for the connected account, as stored when it was
   // connected (Tumblr: the blog name). Only consumed by adapters that cannot
   // work it out from the token alone: a Tumblr login covers several blogs, so
@@ -30,6 +25,11 @@ export interface PostRequest {
   // Platform-specific settings for THIS platform only (backend/src/postOptions.ts):
   // the caller has already reduced the post's options to the one key this adapter reads.
   options?: import("../postOptions.js").PostOptions;
+  // Only consumed by Pinterest — lets a customer pick which of their boards
+  // a Pin goes to. Optional/null means "use the adapter's own fallback"
+  // (currently whichever board the account's boards list returns first, or
+  // an auto-created default) — every existing caller (test scripts, older
+  // scheduled_posts rows) that doesn't set this keeps working unchanged.
   boardId?: string | null;
   // Only consumed by Pinterest -- the Pin's own "Destination Link" (where a
   // click on the Pin takes someone), distinct from mediaUrl (the image/video
@@ -207,7 +207,7 @@ export interface PlatformAdapter {
    *  that needs each platform's search API, most of which are separately
    *  gated/paid and out of scope for this pass. Only implemented for
    *  platforms whose comment-read endpoint needs no scope beyond what's
-   *  already requested (Mastodon, Bluesky, YouTube) — every other adapter
+   *  already requested (e.g. Mastodon, Bluesky, YouTube, Facebook, Instagram, Telegram) — every other adapter
    *  simply doesn't declare this method, and callers must treat its
    *  absence as "not supported," never silently empty. */
   getComments?(platformPostId: string, accessToken: string): Promise<CommentsResult>;
@@ -316,7 +316,7 @@ export interface PlatformAdapter {
   replyToComment?(commentId: string, text: string, accessToken: string): Promise<CommentPostResult>;
 
   /** Optional — DM inbox, priority (4) from the 2026-08-07 competitor
-   *  audit. Only Facebook and Instagram declare these — both needed a new
+   *  audit. Only Facebook, Instagram and Telegram declare these; the two Meta ones needed a new
    *  permission (pages_messaging / instagram_manage_messages) added to the
    *  Meta app on 2026-08-07 specifically for this. Every other adapter
    *  simply doesn't declare these methods; callers must treat their

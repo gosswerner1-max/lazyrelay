@@ -1,6 +1,6 @@
 // Publish and upload calls to Meta carry NO client timeout. Meta fetches the media from our URL during these calls and may accept the
 // post even if our side gives up, and an abort after acceptance would make the scheduler retry and post twice (the scheduler already
-// recovers stuck posts). Connect, token-exchange and read calls keep the 120 s timeout. fetch is stubbed: nothing real is called.
+// recovers stuck posts). Connect, token-exchange and read calls keep the 120 s timeout (checked in metaGraphHygiene.test.ts). fetch is stubbed: nothing real is called.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { FacebookAdapter } from "./facebook.js";
@@ -90,24 +90,6 @@ describe("Instagram publish and upload calls have no client timeout", () => {
       const r = await ig().post(req(over));
       expect(r.success, JSON.stringify(r)).toBe(true);
       expectNoTimeoutOnWrites(label);
-    });
-  }
-});
-
-describe("connect and token-exchange calls keep the timeout", () => {
-  for (const [name, make] of [
-    ["facebook", () => new FacebookAdapter("c", "s", "https://x.example/cb")],
-    ["instagram", () => new InstagramAdapter("c", "s", "https://x.example/cb")],
-  ] as const) {
-    it(name, async () => {
-      stubFetch((url) =>
-        url.includes("/oauth/access_token") ? json({ access_token: "t" })
-        : url.includes("/me/accounts") ? json({ data: [{ id: "p1", name: "Page", access_token: "pt", instagram_business_account: { id: "ig1" } }] })
-        : json({ username: "acme" }),
-      );
-      await make().listConnectOptions("code");
-      expect(calls.length).toBeGreaterThanOrEqual(3);
-      for (const c of calls) expect(c.signal, c.url).toBeInstanceOf(AbortSignal);
     });
   }
 });

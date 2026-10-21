@@ -3,7 +3,6 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { errorClassOf, legacyOutcome, buildShadowEvent } from "./evaluate.js";
-import { TOO_LATE_MESSAGE } from "./policy.js";
 
 vi.mock("../supabase.js", () => ({ supabase: {} }));
 
@@ -89,6 +88,5 @@ describe("buildShadowEvent", () => {
   it("holds no content: only ids, fixed codes and numbers", () => {
     const e = buildShadowEvent(args({ message: "a customer's own words" }));
     expect(JSON.stringify(e)).not.toMatch(/customer|words|plain/);
-    expect(TOO_LATE_MESSAGE).toBeTruthy();
   });
 });

@@ -19,7 +19,6 @@ import { cleanRelayList, type GuardedRelay } from "./nostrRelayGuard.js";
 
 /** What we ask the signer to allow, and nothing more: sign plain text notes (kind 1) and tell us the public key. */
 export const REQUESTED_PERMISSIONS = "sign_event:1,get_public_key";
-const CLIENT_METADATA = JSON.stringify({ name: "LazyRelay", url: "https://lazyrelay.com" });
 
 const MAX_RESPONSE_EVENTS = 50;
 export const MAX_TOKEN_LENGTH = 2000;
