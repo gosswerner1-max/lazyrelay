@@ -9,13 +9,6 @@ import type {
 	IWebhookResponseData,
 } from 'n8n-workflow';
 
-export const LAZYRELAY_EVENTS = [
-	'post.verified',
-	'post.failed',
-	'post.unconfirmed',
-	'channel.needs_reconnect',
-] as const;
-
 export const SIGNATURE_HEADER = 'x-lazyrelay-signature';
 
 /**

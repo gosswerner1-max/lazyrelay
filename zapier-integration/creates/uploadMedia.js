@@ -2,7 +2,7 @@ const FormData = require("form-data");
 
 const BASE_URL = process.env.LAZYRELAY_API_BASE_URL || "https://lazyrelaylazyrelay-backend.onrender.com/api";
 
-// Wraps POST /media/upload (backend/src/http/routes.ts:1383). The backend
+// Wraps POST /media/upload (backend/src/http/routes/media.routes.ts). The backend
 // detects the real file type from magic bytes itself (fileTypeFromBuffer)
 // and rejects anything outside jpeg/png/webp/gif/mp4/mov/webm, so the
 // filename passed here doesn't need to be meaningful — a generic one is

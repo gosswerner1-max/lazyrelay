@@ -1,6 +1,6 @@
 const BASE_URL = process.env.LAZYRELAY_API_BASE_URL || "https://lazyrelaylazyrelay-backend.onrender.com/api";
 
-// Wraps DELETE /scheduled-posts/:id (backend/src/http/routes.ts:2834).
+// Wraps DELETE /scheduled-posts/:id (backend/src/http/routes/posts.routes.ts).
 // Backend rejects a post that's mid-publish with a 409 ("try again in a
 // moment") and a post that doesn't exist/isn't owned by this account with
 // a 404 — both surface to Zapier as a normal action failure, nothing
