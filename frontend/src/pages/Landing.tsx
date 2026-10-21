@@ -106,7 +106,7 @@ type PricingPlan = {
 };
 
 // The public plans (Werner, 2026-10-20): one wallet of credits. Prices are USD, shown before tax.
-const PRO_TOP_UP_TEXT = "$30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax.";
+const PRO_TOP_UP_TEXT = "$30 for 1,500 credits (bound to active subscription status, expires if canceled).";
 
 const PRICING: PricingPlan[] = [
   {
@@ -861,7 +861,6 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
                   {plan.period && (
                     <>
                       <span className="pricing-period"> {plan.period}</span>
-                      <span className="pricing-tax-note">(plus tax)</span>
                     </>
                   )}
                 </p>
@@ -888,7 +887,6 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
                 <h3>{pack.name}</h3>
                 <p className="pricing-price">
                   {pack.price}
-                  <span className="pricing-tax-note">(plus tax)</span>
                 </p>
                 <p className="pricing-note">{pack.credits}</p>
                 {pack.note && <p className="pricing-note">{pack.note}</p>}
@@ -907,7 +905,7 @@ export function Landing({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, onC
           </li>
         </ul>
         <p className="section-note pricing-footnote">
-          A credit is taken for a post only after the platform confirms it is live, so a channel that fails is not charged. All prices are in US dollars, plus tax.
+          A credit is taken for a post only after the platform confirms it is live, so a channel that fails is not charged. All prices are in US dollars.
         </p>
       </section>
 

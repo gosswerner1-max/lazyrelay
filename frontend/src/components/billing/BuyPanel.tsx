@@ -1,4 +1,4 @@
-// The buy panel: what can be bought, built from the server's catalog. Every price has "plus tax" right beside it, because the
+// The buy panel: what can be bought, built from the server's catalog. Prices are shown as the catalog gives them, because the
 // payment window adds tax at checkout. An item the server says is not purchasable shows one line of reason instead of a Buy
 // button. Clicking Buy asks the server for a transaction and then opens the payment window the dashboard already set up; the
 // buttons stay off while a purchase is starting, so a double click cannot start two. Styles: styles/billing-live.css.
@@ -33,7 +33,7 @@ interface Problem {
 const dollars = (cents: number) => (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
 
 function priceText(item: CatalogItem): string {
-  return `${dollars(item.priceCents)} plus tax${item.interval === "month" ? " per month" : ""}`;
+  return `${dollars(item.priceCents)}${item.interval === "month" ? " per month" : ""}`;
 }
 
 /** What the person is told about when the credits end. Only what the catalog itself says. A plan-bound item (the Pro top-up) has its own text in Row, so it never reads "never expire". */
@@ -54,7 +54,6 @@ function ProTopUpText({ item }: { item: CatalogItem }) {
   return (
     <>
       <p className="bm-buy__credits">{`${plainDollars(item.priceCents)} for ${formatCredits(item.credits)} credits (bound to active subscription status, expires if canceled).`}</p>
-      <p className="bm-buy__note">Plus tax.</p>
     </>
   );
 }

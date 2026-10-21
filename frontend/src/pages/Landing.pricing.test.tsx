@@ -9,7 +9,7 @@ vi.mock("../lib/api", () => ({ api: {} }));
 
 import { Landing } from "./Landing";
 
-// The public pricing (Werner, 2026-10-20): Free, Pay-as-you-go, Growth and Pro, one wallet of credits, every price plus tax.
+// The public pricing (Werner, 2026-10-20): Free, Pay-as-you-go, Growth and Pro, one wallet of credits, every price in USD.
 afterEach(cleanup);
 
 function renderLanding() {
@@ -23,7 +23,7 @@ function renderLanding() {
 const OLD = ["$29.99", "$59.99", "$99.99", "$149.99", "$199.99", "Agency Plus", "Business", "Starter plan"];
 
 describe("home page pricing section", () => {
-  it("shows the four plans in order with the right prices and 'plus tax' beside each paid price", () => {
+  it("shows the four plans in order with the right prices", () => {
     renderLanding();
     const cards = [...document.querySelectorAll("#pricing .pricing-grid:not(.pricing-grid-packs) .pricing-card")];
     expect(cards.map((c) => c.querySelector("h3")?.textContent)).toEqual(["Free", "Pay-as-you-go", "Growth", "Pro"]);
@@ -34,16 +34,15 @@ describe("home page pricing section", () => {
     expect(prices[2]).toContain("$29");
     expect(prices[2]).toContain("a month");
     expect(prices[3]).toContain("$99");
-    for (const p of prices.slice(1)) expect(p).toContain("(plus tax)");
   });
 
-  it("shows the three credit packs, each plus tax, and the rates block", () => {
+  it("shows the three credit packs, and the rates block", () => {
     renderLanding();
     const packs = [...document.querySelectorAll("#pricing .pricing-grid-packs .pricing-card")];
     expect(packs.map((c) => c.textContent)).toEqual([
-      expect.stringContaining("Starter pack$15(plus tax)300 credits"),
-      expect.stringContaining("Growth pack$50(plus tax)1,500 credits"),
-      expect.stringContaining("Pro top-up$30(plus tax)1,500 creditsActive Pro subscribers only. $30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax."),
+      expect.stringContaining("Starter pack$15300 credits"),
+      expect.stringContaining("Growth pack$501,500 credits"),
+      expect.stringContaining("Pro top-up$301,500 creditsActive Pro subscribers only. $30 for 1,500 credits (bound to active subscription status, expires if canceled)."),
     ]);
     const text = document.querySelector("#pricing")!.textContent ?? "";
     expect(text).toContain("1 credit per channel destination");
@@ -59,7 +58,7 @@ describe("home page pricing section", () => {
     expect(text).not.toContain("Pay once, use whenever");
     expect(text).not.toContain("the credits never expire");
     const pro = [...document.querySelectorAll("#pricing .pricing-grid:not(.pricing-grid-packs) .pricing-card")].find((c) => c.textContent?.startsWith("Pro"));
-    expect(pro?.textContent).toContain("$30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax.");
+    expect(pro?.textContent).toContain("$30 for 1,500 credits (bound to active subscription status, expires if canceled).");
   });
 
   it("mentions no old plan, old price or dash", () => {
@@ -93,14 +92,14 @@ describe("static pricing surfaces", () => {
 
   it("states the Pro top-up expiry exactly, in the visible text and the FAQ schema, and never says all packs never expire", () => {
     for (const [name, text] of [["pricing page", pricingPage], ["pricing.md", pricingMd]] as const) {
-      expect(text, name).toContain("$30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax.");
+      expect(text, name).toContain("$30 for 1,500 credits (bound to active subscription status, expires if canceled).");
       expect(text, name).not.toMatch(/Packs are one-time purchases and the credits never expire|credit packs never expire|all with credits that never expire/);
     }
     const block = pricingPage.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1];
     const faq = JSON.parse(block)["@graph"]?.filter((n: { "@type": string }) => n["@type"] === "FAQPage") ?? [JSON.parse(block)];
     const answers: string[] = faq.flatMap((f: { mainEntity: { acceptedAnswer: { text: string } }[] }) => f.mainEntity.map((q) => q.acceptedAnswer.text));
     const packs = answers.find((a) => a.startsWith("Three packs"))!;
-    expect(packs).toContain("$30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax.");
+    expect(packs).toContain("$30 for 1,500 credits (bound to active subscription status, expires if canceled).");
     const expiry = answers.find((a) => a.includes("Pro top-up credits are bound"))!;
     expect(expiry).toBeTruthy();
     const visible = pricingPage.split("</script>").slice(-1)[0];

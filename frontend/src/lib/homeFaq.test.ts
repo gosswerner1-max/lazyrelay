@@ -36,7 +36,7 @@ describe("home page FAQ", () => {
     const all = HOME_FAQ.map((i) => i.a).join(" ");
     expect(all).toContain("18 distribution platforms plus WhatsApp");
     expect(all.includes("17 platforms")).toBe(false);
-    for (const price of ["$15 one time", "$29 a month", "$99 a month", "plus tax", "1 credit", "10 credits"]) expect(all).toContain(price);
+    for (const price of ["$15 one time", "$29 a month", "$99 a month", "1 credit", "10 credits"]) expect(all).toContain(price);
     for (const old of ["$29.99", "$59.99", "$99.99", "$149.99", "$199.99", "Agency", "Business", "Starter"]) expect(all.includes(old), old).toBe(false);
     expect(all.includes("tax may apply")).toBe(false);
   });

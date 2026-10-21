@@ -31,7 +31,7 @@ export const HOME_FAQ: FaqItem[] = [
   },
   {
     q: "How much does LazyRelay cost?",
-    a: "LazyRelay runs on credits. One credit publishes to one channel, so a post to 5 channels costs 5 credits. A competitor teardown costs 10 credits. Pay-as-you-go is $15 one time, Growth is $29 a month and Pro is $99 a month, all plus tax. Credit packs start at $15 plus tax.",
+    a: "LazyRelay runs on credits. One credit publishes to one channel, so a post to 5 channels costs 5 credits. A competitor teardown costs 10 credits. Pay-as-you-go is $15 one time, Growth is $29 a month and Pro is $99 a month. Credit packs start at $15.",
   },
   {
     q: "Can I schedule a recurring post?",
