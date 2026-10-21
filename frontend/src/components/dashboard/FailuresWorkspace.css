@@ -95,3 +95,10 @@
 @media (prefers-contrast: more) {
   .fc-module, .fc-tile, .fc-row, .fc-stat { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5); }
 }
+
+@media (max-width: 600px) {
+  .fc-root { padding: 14px; }
+  .fc-row { flex-wrap: wrap; }
+  .fc-row .fc-rowtext { flex-basis: calc(100% - 52px); }
+  .fc-rowmsg { -webkit-line-clamp: 3; }
+}

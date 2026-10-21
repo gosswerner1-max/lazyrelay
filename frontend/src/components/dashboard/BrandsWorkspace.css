@@ -102,3 +102,7 @@
 @media (prefers-reduced-motion: reduce) {
   .bp-card, .bp-btn { transition: none; }
 }
+
+@media (max-width: 600px) {
+  .bp-root { padding: 14px; }
+}

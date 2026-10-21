@@ -125,3 +125,13 @@
 @media (prefers-reduced-transparency: reduce) {
   .an-module { -webkit-backdrop-filter: none; backdrop-filter: none; background: #141b2d; }
 }
+
+/* Phone width: header controls wrap, tiles and charts stay inside the card. */
+@media (max-width: 600px) {
+  .an-root { padding: 14px; }
+  .an-header, .an-controls { flex-wrap: wrap; max-width: 100%; }
+  .an-header > *, .an-controls > * { min-width: 0; }
+  .an-select { max-width: 100%; }
+  .an-kpi { grid-template-columns: minmax(0, 1fr) auto; padding: 14px 16px; }
+  .an-brand { grid-template-columns: minmax(0, 1fr); }
+}
