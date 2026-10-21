@@ -36,7 +36,6 @@ export function SocialPlatformsTab() {
     handleDeleteBrand,
     handleSaveBrandVoice,
     handleAssignBrand,
-    handleBuyBrandAddon,
     handleCancelBrandAddon,
   } = useDashboard();
 
@@ -100,7 +99,6 @@ export function SocialPlatformsTab() {
           // the brief window before GET /brand-addons has returned.
           const totalLimit = brandCapacity?.totalLimit ?? brandCapFor(subscription?.tier);
           const atCap = brands.length >= totalLimit;
-          const canBuyAddon = subscription?.tier && subscription.tier !== "free";
           return (
             <>
               <p className="brands-manager-header">
@@ -167,14 +165,6 @@ export function SocialPlatformsTab() {
                   {brandBusy ? "Saving..." : "Add brand"}
                 </button>
               </div>
-              {atCap && canBuyAddon && (
-                <p className="section-note">
-                  At your plan's brand limit.{" "}
-                  <button type="button" className="btn-outline" disabled={brandAddonBusy !== null} onClick={handleBuyBrandAddon}>
-                    {brandAddonBusy === "checkout" ? "Starting checkout..." : "Buy another brand slot — $10 / mo, plus applicable tax"}
-                  </button>
-                </p>
-              )}
               {brandCapacity && brandCapacity.addons.length > 0 && (
                 <ul className="media-list">
                   {brandCapacity.addons.map((a) => (

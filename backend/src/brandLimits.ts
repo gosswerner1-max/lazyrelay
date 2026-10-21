@@ -26,12 +26,9 @@ export const BRAND_LIMITS: Record<Tier, number> = {
   lazy_pro: UNLIMITED_BRANDS,
 };
 
-/** Phase 1b (2026-08-16) — a paid customer can exceed their base brand cap by
- *  buying add-ons, one brand slot each, ~$10/mo (anchored to SocialBee's own
- *  $10/workspace add-on). Free tier can't buy add-ons, same rule as storage
- *  add-ons — see the free-tier check in routes.ts's POST /brand-addons/checkout.
- *  Counts only active/trialing rows, same convention as
- *  storageQuota.ts's getActiveAddonBytes. */
+/** Brand add-ons are no longer sold (2026-10-20): the checkout route answers 410, so no new row can be created. Rows that
+ *  already exist (active/trialing) are still honoured so existing subscribers keep the slot they paid for until they cancel.
+ *  Counts only active/trialing rows, same convention as storageQuota.ts getActiveAddonBytes. */
 export async function getActiveBrandAddonSlots(accountId: string): Promise<number> {
   const { count, error } = await supabase
     .from("brand_addons")
@@ -56,7 +53,7 @@ export async function getBrandCapacity(accountId: string): Promise<{ tier: Tier;
  *  the account is already at its plan's (base + purchased add-ons) brand
  *  limit, else null. Same shape as checkAccountLimit in accountLimits.ts. */
 export async function checkBrandLimit(accountId: string): Promise<string | null> {
-  const { totalLimit, addonSlots } = await getBrandCapacity(accountId);
+  const { totalLimit } = await getBrandCapacity(accountId);
 
   const { count, error } = await supabase
     .from("brands")
@@ -66,8 +63,7 @@ export async function checkBrandLimit(accountId: string): Promise<string | null>
 
   if ((count ?? 0) >= totalLimit) {
     if (totalLimit >= UNLIMITED_BRANDS) return "Your plan has no brand limit, but this account has reached the maximum we can hold. Please contact support.";
-    const upgradeHint = addonSlots > 0 ? "upgrade, or buy another brand add-on" : "upgrade for more, or buy a brand add-on";
-    return `You've reached your plan's limit of ${totalLimit} ${totalLimit === 1 ? "brand" : "brands"}. Delete one, or ${upgradeHint}.`;
+    return `You've reached your plan's limit of ${totalLimit} ${totalLimit === 1 ? "brand" : "brands"}. Delete one, or upgrade your plan.`;
   }
   return null;
 }

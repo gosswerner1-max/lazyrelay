@@ -28,7 +28,6 @@ const ctx = vi.hoisted(() => ({
   handleDeleteBrand: vi.fn(),
   handleSaveBrandVoice: vi.fn(),
   handleAssignBrand: vi.fn(),
-  handleBuyBrandAddon: vi.fn(),
   handleCancelBrandAddon: vi.fn(),
 }));
 vi.mock("./DashboardContext", () => ({ useDashboard: () => ctx }));

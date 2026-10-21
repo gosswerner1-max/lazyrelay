@@ -2,7 +2,7 @@
 // in http/routes.ts (split 2026-09-25, pure mechanical move: same paths,
 // same middleware order, same handler bodies). http/routes.ts mounts this.
 
-import { Router } from "express";
+import { Router, type Response } from "express";
 import { supabase } from "../../supabase.js";
 import { cancelSubscription, cancelStorageAddon, cancelBrandAddon, cancelSeatAddon } from "../../billing/sync.js";
 import { acquireBillingLock, releaseBillingLock } from "../../billing/locks.js";
@@ -13,43 +13,20 @@ import type { MerchantOfRecordAdapter } from "../../billing/types.js";
 import { requireAuth, requireHumanAuth, requireOwner, type AuthedRequest } from "../auth.js";
 import { tieredRateLimit } from "../rateLimit.js";
 import { getBrandCapacity } from "../../brandLimits.js";
-import { getSeatCapacity, MAX_SEAT_ADDONS_PER_ACCOUNT } from "../../seatLimits.js";
-import { resolveTier } from "../../tier.js";
+import { getSeatCapacity } from "../../seatLimits.js";
 import { dbError } from "./shared.js";
 import { OLD_CHECKOUT_CLOSED_MESSAGE, oldTierCheckoutClosed } from "../../wallet/closeOldCheckout.js";
 
-// Storage add-ons — priced 2026-07-23 after researching real comparables
-// (consumer cloud storage clusters $0.005-0.02/GB/mo, the closest real B2B
-// benchmark — Microsoft 365 extra storage — runs ~$0.20/GB/mo). Landed on a
-// 20-40x markup over the $0.015/GB raw R2 cost: this is discretionary
-// convenience pricing on top of an already-paid subscription, not a storage
-// product competing on raw economics, so the margin is deliberate. Declining
-// $/GB per tier (bigger block = better relative value) mirrors every real
-// benchmark found and nudges toward the larger tier instead of repeat-buying
-// the small one. Free tier cannot buy add-ons — someone needing more than
-// 250MB should upgrade to a real tier first, which itself includes more
-// storage; add-ons are for someone already paying who wants MORE than their
-// tier's base amount (e.g. Starter + only 10 accounts, but heavy media use).
-const STORAGE_ADDON_GB_OPTIONS = [5, 20, 50] as const;
-type StorageAddonGb = (typeof STORAGE_ADDON_GB_OPTIONS)[number];
-// Closes off unbounded stacking (a scripted retry loop or fat-fingered
-// repeat-click spinning up dozens of subscriptions) without affecting any
-// real customer — 5 add-ons is already up to +250GB on top of the tier's
-// base quota, far beyond realistic single-account usage.
-const MAX_ACTIVE_STORAGE_ADDONS = 5;
-const ADDON_PRICE_ID_ENV_VAR: Record<StorageAddonGb, string> = {
-  5: "PADDLE_PRICE_ID_STORAGE_5GB",
-  20: "PADDLE_PRICE_ID_STORAGE_20GB",
-  50: "PADDLE_PRICE_ID_STORAGE_50GB",
-};
-
-// Brand add-ons (Phase 1b, 2026-08-16) — one flat price, +1 brand slot each,
-// ~$10/mo. Same abuse-prevention reasoning as MAX_ACTIVE_STORAGE_ADDONS: a
-// customer legitimately running an agency-scale operation belongs on the
-// future Agency tier, not stacking 50 add-ons on a self-serve plan.
-const MAX_ACTIVE_BRAND_ADDONS = 10;
-const BRAND_ADDON_PRICE_ID_ENV_VAR = "PADDLE_PRICE_ID_BRAND_ADDON";
-const SEAT_ADDON_PRICE_ID_ENV_VAR = "PADDLE_PRICE_ID_SEAT_ADDON";
+// The storage, brand and seat add-ons are no longer sold (owner decision, 2026-10-20). Their checkout routes answer 410
+// for every account and never reach Paddle, the billing lock or the database. Cancel routes and webhook handling stay for
+// add-ons that already exist.
+const ADDON_NOT_SOLD_BODY = {
+  error: "addon_not_sold",
+  message: "This add-on is no longer sold. Plans and credits are on the pricing page.",
+} as const;
+function addonNotSold(_req: AuthedRequest, res: Response): void {
+  res.status(410).json(ADDON_NOT_SOLD_BODY);
+}
 
 // Real gap found in the 2026-08-25 pre-launch audit: /subscription/change-tier
 // reads the current subscription, checks it's not already on the target
@@ -366,91 +343,9 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
     res.json(data);
   });
 
-  // Starts a real Paddle checkout transaction for a storage add-on. Free
-  // tier can't buy add-ons — upgrading to a real tier already includes more
-  // storage; add-ons are for someone already paying who wants MORE than
-  // their tier's base amount. Same checkout-overlay pattern as
-  // /subscription/checkout, just a different customData shape (see
-  // buildCheckoutTransaction in billing/paddle.ts).
-  router.post("/storage-addons/checkout", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const { gbAmount } = req.body ?? {};
-    if (!STORAGE_ADDON_GB_OPTIONS.includes(gbAmount)) {
-      res.status(400).json({ error: `gbAmount must be one of ${STORAGE_ADDON_GB_OPTIONS.join(", ")}` });
-      return;
-    }
-
-    const tier = await resolveTier(req.accountId!);
-    if (tier === "free") {
-      res.status(403).json({ error: "Storage add-ons aren't available on the Free tier — upgrade to a paid plan first." });
-      return;
-    }
-
-    // SECURITY FIX (2026-09-14): this route had the exact same
-    // check-then-act shape as /subscription/checkout with no lock at
-    // all -- two concurrent requests (double-click, two tabs) could both
-    // pass the active-count check below and both create a real Paddle
-    // transaction, exceeding MAX_ACTIVE_STORAGE_ADDONS and/or resulting
-    // in two real charges. Reusing the same durable billing-action lock
-    // (see its own doc comment above) rather than a separate lock, since a
-    // tier-change racing an add-on checkout for the same account is the
-    // same underlying bug.
-    if (!(await acquireBillingLock(req.accountId!, "storage-addons/checkout"))) {
-      res.status(409).json({ error: "A billing change is already in progress for this account. Please wait for it to finish." });
-      return;
-    }
-
-    try {
-      // storage_addons: service-role only, see GET /storage-addons above.
-      const { count: activeAddonCount, error: countError } = await supabase
-        .from("storage_addons")
-        .select("id", { count: "exact", head: true })
-        .eq("account_id", req.accountId)
-        .in("status", ["active", "trialing"]);
-      if (countError) {
-        dbError(res, countError, "POST /storage-addons/checkout active-count");
-        return;
-      }
-      if ((activeAddonCount ?? 0) >= MAX_ACTIVE_STORAGE_ADDONS) {
-        res.status(403).json({
-          error: `You already have ${MAX_ACTIVE_STORAGE_ADDONS} storage add-ons — cancel one before adding another.`,
-        });
-        return;
-      }
-
-      const apiKey = process.env.MOR_API_KEY;
-      const priceId = ADDON_PRICE_ID_ENV_VAR[gbAmount as StorageAddonGb] ? process.env[ADDON_PRICE_ID_ENV_VAR[gbAmount as StorageAddonGb]] : undefined;
-      if (!apiKey || !priceId) {
-        res.status(503).json({ error: "Billing isn't live yet — no Paddle account/price configured for this add-on." });
-        return;
-      }
-
-      const { data: account, error: accountError } = await req.db!
-        .from("accounts")
-        .select("email")
-        .eq("id", req.accountId)
-        .single();
-      if (accountError || !account) {
-        res.status(404).json({ error: "Account not found" });
-        return;
-      }
-
-      const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
-      try {
-        const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
-          kind: "storage_addon",
-          accountEmail: account.email,
-          accountId: req.accountId!,
-          gbAmount,
-          priceId,
-        });
-        res.json({ transactionId, checkoutUrl });
-      } catch (err) {
-        res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
-      }
-    } finally {
-      await releaseBillingLock(req.accountId!);
-    }
-  });
+  // Storage add-ons are no longer sold (2026-10-20). Refused for every account before any Paddle call, billing lock or
+  // database access. The cancel route below and the webhook handling for existing add-ons are untouched.
+  router.post("/storage-addons/checkout", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, addonNotSold);
 
   // Cancels a single storage add-on — does not touch the account's main
   // tier subscription. See billing/sync.ts's cancelStorageAddon.
@@ -488,75 +383,8 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
     res.json({ addons: data, baseLimit: capacity.baseLimit, addonSlots: capacity.addonSlots, totalLimit: capacity.totalLimit });
   });
 
-  // Starts a real Paddle checkout transaction for one brand add-on (+1 brand
-  // slot). Same free-tier exclusion and pattern as /storage-addons/checkout —
-  // a customer already on a paid tier who wants MORE brands than their
-  // tier's base allowance.
-  router.post("/brand-addons/checkout", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const tier = await resolveTier(req.accountId!);
-    if (tier === "free") {
-      res.status(403).json({ error: "Brand add-ons aren't available on the Free tier — upgrade to a paid plan first." });
-      return;
-    }
-
-    // SECURITY FIX (2026-09-14): same missing-lock race as
-    // /storage-addons/checkout above -- see that fix's comment.
-    if (!(await acquireBillingLock(req.accountId!, "brand-addons/checkout"))) {
-      res.status(409).json({ error: "A billing change is already in progress for this account. Please wait for it to finish." });
-      return;
-    }
-
-    try {
-      // brand_addons: service-role only, see GET /brand-addons above.
-      const { count: activeAddonCount, error: countError } = await supabase
-        .from("brand_addons")
-        .select("id", { count: "exact", head: true })
-        .eq("account_id", req.accountId)
-        .in("status", ["active", "trialing"]);
-      if (countError) {
-        dbError(res, countError, "POST /brand-addons/checkout active-count");
-        return;
-      }
-      if ((activeAddonCount ?? 0) >= MAX_ACTIVE_BRAND_ADDONS) {
-        res.status(403).json({
-          error: `You already have ${MAX_ACTIVE_BRAND_ADDONS} brand add-ons — cancel one before adding another, or talk to us about an Agency plan.`,
-        });
-        return;
-      }
-
-      const apiKey = process.env.MOR_API_KEY;
-      const priceId = process.env[BRAND_ADDON_PRICE_ID_ENV_VAR];
-      if (!apiKey || !priceId) {
-        res.status(503).json({ error: "Billing isn't live yet — no Paddle price configured for this add-on." });
-        return;
-      }
-
-      const { data: account, error: accountError } = await req.db!
-        .from("accounts")
-        .select("email")
-        .eq("id", req.accountId)
-        .single();
-      if (accountError || !account) {
-        res.status(404).json({ error: "Account not found" });
-        return;
-      }
-
-      const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
-      try {
-        const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
-          kind: "brand_addon",
-          accountEmail: account.email,
-          accountId: req.accountId!,
-          priceId,
-        });
-        res.json({ transactionId, checkoutUrl });
-      } catch (err) {
-        res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
-      }
-    } finally {
-      await releaseBillingLock(req.accountId!);
-    }
-  });
+  // Brand add-ons are no longer sold (2026-10-20). Same refusal as the storage checkout above.
+  router.post("/brand-addons/checkout", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, addonNotSold);
 
   // Cancels a single brand add-on — does not touch the account's main tier
   // subscription. See billing/sync.ts's cancelBrandAddon.
@@ -594,71 +422,8 @@ export function buildBillingRouter(morAdapter: MerchantOfRecordAdapter): Router 
     res.json({ addons: data, baseLimit: capacity.baseLimit, addonSlots: capacity.addonSlots, totalLimit: capacity.totalLimit });
   });
 
-  router.post("/seat-addons/checkout", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
-    const tier = await resolveTier(req.accountId!);
-    if (tier !== "business" && tier !== "agency" && tier !== "agency_plus") {
-      res.status(403).json({ error: "Seat add-ons are only available on Business, Agency, or Agency Plus — upgrade first." });
-      return;
-    }
-
-    // SECURITY FIX (2026-09-14): same missing-lock race as
-    // /storage-addons/checkout above -- see that fix's comment.
-    if (!(await acquireBillingLock(req.accountId!, "seat-addons/checkout"))) {
-      res.status(409).json({ error: "A billing change is already in progress for this account. Please wait for it to finish." });
-      return;
-    }
-
-    try {
-      // seat_addons: service-role only, see GET /seat-addons above.
-      const { count: activeAddonCount, error: countError } = await supabase
-        .from("seat_addons")
-        .select("id", { count: "exact", head: true })
-        .eq("account_id", req.accountId)
-        .in("status", ["active", "trialing"]);
-      if (countError) {
-        dbError(res, countError, "POST /seat-addons/checkout active-count");
-        return;
-      }
-      if ((activeAddonCount ?? 0) >= MAX_SEAT_ADDONS_PER_ACCOUNT) {
-        res.status(403).json({
-          error: `You already have ${MAX_SEAT_ADDONS_PER_ACCOUNT} seat add-ons — cancel one before adding another.`,
-        });
-        return;
-      }
-
-      const apiKey = process.env.MOR_API_KEY;
-      const priceId = process.env[SEAT_ADDON_PRICE_ID_ENV_VAR];
-      if (!apiKey || !priceId) {
-        res.status(503).json({ error: "Billing isn't live yet — no Paddle price configured for this add-on." });
-        return;
-      }
-
-      const { data: account, error: accountError } = await req.db!
-        .from("accounts")
-        .select("email")
-        .eq("id", req.accountId)
-        .single();
-      if (accountError || !account) {
-        res.status(404).json({ error: "Account not found" });
-        return;
-      }
-
-      const environment = process.env.PADDLE_ENVIRONMENT === "production" ? Environment.production : Environment.sandbox;
-      try {
-        const { transactionId, checkoutUrl } = await buildCheckoutTransaction(apiKey, environment, {
-          kind: "seat_addon",
-          accountEmail: account.email,
-          accountId: req.accountId!,
-          priceId,
-        });
-        res.json({ transactionId, checkoutUrl });
-      } catch (err) {
-        res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
-      }
-    } finally {
-      await releaseBillingLock(req.accountId!);
-    }
-  });
+  // Seat add-ons are no longer sold (2026-10-20). Same refusal as the storage checkout above.
+  router.post("/seat-addons/checkout", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, addonNotSold);
 
   // Cancels a single seat add-on — does not touch the account's main tier
   // subscription. See billing/sync.ts's cancelSeatAddon.
