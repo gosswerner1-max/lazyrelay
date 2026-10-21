@@ -1,0 +1,97 @@
+/* Failures workspace: Midnight Canvas, glass modules (#141b2d, 24px padding), no page scroll, inner lists scroll. Every class is prefixed fc-. */
+.fc-root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: #0b0f19;
+  border-radius: 24px;
+  padding: 28px;
+  color: #e6edf8;
+  overflow: hidden;
+  isolation: isolate;
+  height: calc(100dvh - 250px);
+  min-height: 520px;
+  max-height: 760px;
+}
+.fc-root::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+.fc-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex: none; flex-wrap: wrap; }
+.fc-header h2 { margin: 0; font-size: 24px; letter-spacing: -0.02em; line-height: 1.1; color: #fff; }
+.fc-brands { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09); overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+.fc-brands::-webkit-scrollbar { display: none; }
+.fc-seg { flex: none; border: 0; border-radius: 999px; padding: 8px 16px; font: inherit; font-weight: 600; font-size: 14px; color: #94a3b8; background: transparent; cursor: pointer; transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease; }
+.fc-seg:hover { color: #fff; }
+.fc-seg:active { transform: scale(0.97); }
+.fc-seg--on { background: #ff5630; color: #fff; }
+.fc-seg:focus-visible, .fc-open:focus-visible { outline: 2px solid #ff5630; outline-offset: 2px; }
+
+.fc-module {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 24px;
+  border-radius: 24px;
+  background: rgba(20, 27, 45, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+.fc-head { margin-bottom: 16px; flex: none; }
+.fc-head h2 { margin: 0; font-size: 20px; color: #fff; }
+
+.fc-statusrow { flex: none; flex-direction: row; align-items: center; gap: 24px; flex-wrap: wrap; }
+.fc-strip { display: flex; align-items: center; gap: 14px; flex: 1 1 280px; min-width: 0; padding: 14px 18px; border-radius: 16px; font-size: 17px; }
+.fc-strip[data-tone="ok"] { background: rgba(47, 212, 122, 0.12); box-shadow: inset 0 0 0 1px rgba(47, 212, 122, 0.4); color: #b8f5d2; }
+.fc-strip[data-tone="alert"] { background: rgba(255, 77, 79, 0.12); box-shadow: inset 0 0 0 1px rgba(255, 77, 79, 0.5); color: #ffc9c6; }
+.fc-emblem { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #2fd47a; }
+.fc-emblem svg { width: 20px; height: 20px; fill: none; stroke: #0b0f19; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.fc-emblem--alert { background: #ff4d4f; }
+.fc-emblem--alert svg { stroke: #fff; }
+.fc-stats { display: flex; gap: 12px; flex: 2 1 380px; min-width: 0; }
+.fc-stat { flex: 1; min-width: 0; border-radius: 16px; background: rgba(255, 255, 255, 0.05); padding: 12px 16px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); }
+.fc-stat small { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #94a3b8; }
+.fc-stat strong { font-size: 26px; line-height: 1.15; color: #fff; }
+
+.fc-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; flex: 1; min-height: 0; }
+.fc-scroll { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; padding-right: 4px; }
+.fc-tiles, .fc-list { display: grid; gap: 12px; align-content: start; }
+.fc-tile { display: flex; gap: 16px; align-items: flex-start; border-radius: 16px; background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); padding: 14px 16px; }
+.fc-count { flex: none; min-width: 44px; height: 44px; padding: 0 8px; display: grid; place-items: center; border-radius: 13px; background: rgba(255, 86, 48, 0.16); box-shadow: inset 0 0 0 1px rgba(255, 86, 48, 0.5); color: #ff5630; font-weight: 700; font-size: 18px; }
+.fc-msg { margin: 0 0 6px; color: #fff; font-size: 14px; line-height: 1.5; }
+.fc-step { margin: 0; color: #ffd2c6; font-size: 13px; line-height: 1.45; }
+.fc-step--none { color: #94a3b8; font-style: italic; }
+.fc-row { display: flex; align-items: center; gap: 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); padding: 10px 14px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); }
+.fc-icon { flex: none; display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: rgba(255, 255, 255, 0.08); }
+/* purple and violet brand colours are not part of the palette: those icons are drawn in slate */
+.fc-icon--mono svg { filter: grayscale(1) brightness(1.5); }
+.fc-rowtext { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.fc-rowmsg { color: #e6edf8; font-size: 14px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.fc-rowtext small { color: #94a3b8; font-size: 12px; }
+.fc-open { flex: none; border: 0; border-radius: 999px; padding: 8px 14px; font: inherit; font-weight: 600; font-size: 13px; color: #fff; background: transparent; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.3); cursor: pointer; transition: background 0.15s ease, transform 0.1s ease; }
+.fc-open:hover { background: #ff5630; box-shadow: none; }
+.fc-open:active { transform: scale(0.97); }
+.fc-empty { margin: 0; color: #94a3b8; font-size: 14px; }
+
+@media (max-width: 1100px) {
+  .fc-root { height: auto; max-height: none; }
+  .fc-grid { grid-template-columns: minmax(0, 1fr); }
+  .fc-module { min-height: 320px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fc-seg, .fc-open { transition: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .fc-module { background: #141b2d; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (prefers-contrast: more) {
+  .fc-module, .fc-tile, .fc-row, .fc-stat { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5); }
+}
