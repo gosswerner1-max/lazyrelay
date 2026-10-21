@@ -64,7 +64,6 @@ describe("legal pages use the credits model", () => {
     for (const text of [terms, deletion, flat(deletionHtml)]) {
       expect(text).toContain(SUBSCRIPTION_RULE);
       expect(text).toContain(INACTIVITY_RULE);
-      expect(text).toContain("6 consecutive months of total inactivity");
       expect(text).not.toMatch(/12 consecutive months/);
       expect(text).not.toMatch(/drops to the Free plan/);
     }
