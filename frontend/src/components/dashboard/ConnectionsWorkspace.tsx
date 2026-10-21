@@ -20,7 +20,7 @@ interface Props {
   onOpenSocialPlatforms: () => void;
 }
 
-// These brand colours are purple or violet, which the Midnight Canvas palette bans, so their icons are drawn in slate instead.
+// These brand colours fall in the hue family the Midnight Canvas palette bans, so their icons are drawn in slate instead.
 const MONO_ICONS = new Set(["mastodon", "discord", "slack", "nostr"]);
 const ALL = "";
 

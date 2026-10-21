@@ -60,7 +60,7 @@ describe("platform tiles", () => {
     await userEvent.click(screen.getByRole("radio", { name: "All brands" }));
     expect(tile("mastodon")).toHaveAttribute("data-connected", "true");
   });
-  it("draws purple-branded icons in slate", () => {
+  it("draws banned-hue icons in slate", () => {
     setup();
     expect(tile("mastodon").className).toMatch(/cn-tile--mono/);
     expect(tile("tiktok").className).not.toMatch(/cn-tile--mono/);

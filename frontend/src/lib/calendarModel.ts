@@ -7,7 +7,7 @@ import { accountMatchesBrand, localDateKey } from "../pages/dashboard/dashboardH
 /** Cards a weekly column shows before it says "+N more". */
 export const PER_DAY_CARDS = 5;
 
-/** Brand dots. Orange, teal, amber, sky, rose and green only: purple and violet are not part of the palette. */
+/** Brand dots. Orange, teal, amber, sky, rose and green only: the banned hue family is not part of the palette. */
 export const BRAND_PALETTE = ["#ff5630", "#3f8fa6", "#f5b942", "#6cb6ff", "#ff7aa8", "#2fd47a"];
 
 export function brandColor(brand: string | null | undefined, brandNames: string[]): string {
@@ -19,7 +19,7 @@ export function brandColor(brand: string | null | undefined, brandNames: string[
   return BRAND_PALETTE[h % BRAND_PALETTE.length];
 }
 
-// Purple-branded platforms (Mastodon, Discord, Slack, Nostr): their icons are drawn in slate, never in the brand colour.
+// Platforms with a banned brand hue (Mastodon, Discord, Slack, Nostr): their icons are drawn in slate, never in the brand colour.
 export const MONO_ICON_PLATFORMS = new Set(["mastodon", "discord", "slack", "nostr"]);
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];

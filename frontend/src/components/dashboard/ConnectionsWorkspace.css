@@ -38,7 +38,7 @@
 .cn-ico { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: rgba(255, 255, 255, 0.08); }
 .cn-tile b { font-size: 14px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cn-tile small { font-size: 11px; line-height: 1.25; color: #94a3b8; max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-/* purple and violet brand colours are not part of the palette: those icons are drawn in slate */
+/* the banned brand hues are not part of the palette: those icons are drawn in slate */
 .cn-tile--mono .cn-ico svg { filter: grayscale(1) brightness(1.5); }
 
 .cn-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

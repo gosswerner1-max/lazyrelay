@@ -122,7 +122,7 @@ describe("channel comparison", () => {
     expect(rows[0]).toHaveTextContent("25");
     expect(rows[1]).toHaveTextContent("Mastodon");
   });
-  it("draws the purple brand platforms in slate", () => {
+  it("draws the banned-hue brand platforms in slate", () => {
     setup();
     const row = within(screen.getByRole("list", { name: /channel comparison/i })).getByText("Mastodon").closest("li");
     expect(row?.querySelector(".an-mono")).not.toBeNull();

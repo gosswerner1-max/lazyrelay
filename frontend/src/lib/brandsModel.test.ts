@@ -21,7 +21,7 @@ describe("brandCards", () => {
     expect(cards[1]).toMatchObject({ accountCount: 1, channelCount: 1 });
     expect(cards[2]).toMatchObject({ accountCount: 0, channelCount: 0 });
   });
-  it("gives each brand a colour from the palette, wrapping around, and never purple or violet", () => {
+  it("gives each brand a colour from the palette, wrapping around, and never a banned hue", () => {
     const many = Array.from({ length: 9 }, (_, i) => brand("B" + i));
     const cards = brandCards(many, []);
     expect(cards[0].color).toBe(BRAND_PALETTE[0]);

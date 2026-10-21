@@ -4,7 +4,7 @@ import type { Brand, BrandCapacity, ScheduledPost, SocialAccount } from "./api";
 import { accountMatchesBrand } from "../pages/dashboard/dashboardHelpers";
 import { channelStates } from "./postingChannels";
 
-/** Brand dot colours: orange, teal, amber, sky, rose, green. Purple and violet are not part of the Midnight Canvas palette. */
+/** Brand dot colours: orange, teal, amber, sky, rose, green. The banned hue family is not part of the Midnight Canvas palette. */
 export const BRAND_PALETTE = ["#ff5630", "#2dd4bf", "#fbbf24", "#38bdf8", "#fb7185", "#4ade80"] as const;
 
 export interface BrandCard {

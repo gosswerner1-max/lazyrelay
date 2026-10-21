@@ -71,7 +71,7 @@
 .fc-step--none { color: #94a3b8; font-style: italic; }
 .fc-row { display: flex; align-items: center; gap: 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); padding: 10px 14px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); }
 .fc-icon { flex: none; display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: rgba(255, 255, 255, 0.08); }
-/* purple and violet brand colours are not part of the palette: those icons are drawn in slate */
+/* the banned brand hues are not part of the palette: those icons are drawn in slate */
 .fc-icon--mono svg { filter: grayscale(1) brightness(1.5); }
 .fc-rowtext { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .fc-rowmsg { color: #e6edf8; font-size: 14px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }

@@ -31,7 +31,7 @@ interface Props {
   now?: Date;
 }
 
-// These brand colours are purple or violet, which the Midnight Canvas palette bans, so their icons are drawn in slate instead.
+// These brand colours fall in the hue family the Midnight Canvas palette bans, so their icons are drawn in slate instead.
 const MONO_ICONS = new Set(["mastodon", "discord", "slack", "nostr"]);
 const ORANGE = "#ff5630";
 const SLATE = "#94a3b8";

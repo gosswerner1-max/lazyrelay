@@ -150,7 +150,7 @@ describe("Google Calendar sidebar", () => {
 });
 
 describe("palette", () => {
-  it("never uses a purple or violet colour for a brand", () => {
+  it("never uses a banned-hue colour for a brand", () => {
     const hue = (hex: string) => {
       const r = parseInt(hex.slice(1, 3), 16) / 255, g = parseInt(hex.slice(3, 5), 16) / 255, b = parseInt(hex.slice(5, 7), 16) / 255;
       const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;

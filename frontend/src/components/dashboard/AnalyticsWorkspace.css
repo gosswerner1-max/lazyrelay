@@ -94,7 +94,7 @@
 .an-channels, .an-proof { list-style: none; margin: 0; padding: 0; display: grid; align-content: start; gap: 4px; }
 .an-channels li { display: grid; grid-template-columns: 28px 84px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 36px; font-size: 13px; }
 .an-icon { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: rgba(255, 255, 255, 0.08); }
-/* purple and violet brand colours are not part of the palette: those icons are drawn in slate */
+/* the banned brand hues are not part of the palette: those icons are drawn in slate */
 .an-mono svg { filter: grayscale(1) brightness(1.5); }
 .an-ch-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .an-bar { height: 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
