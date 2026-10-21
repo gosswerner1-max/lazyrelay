@@ -269,7 +269,7 @@ describe("posting", () => {
       expect(r.errorMessage).not.toMatch(/evil|admin|chief|difficulty/);
       expect(w.net.openConnections()).toBe(0);
     }
-  });
+  }, 30_000); // eight rejection cases in one test: the 5s default times out when the whole suite runs in parallel
 
   it("relays that never answer are a timeout, and relays that cannot be reached say so", async () => {
     const w = world();

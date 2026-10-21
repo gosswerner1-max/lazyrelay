@@ -1,3 +1,4 @@
+import { buildTrackedLinkRedirectRouter } from "./trackedLinkRedirect.js";
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
@@ -200,6 +201,8 @@ export function buildApp(
   // error answer that never echoes the body. Dark unless CSV_MIGRATION_ENABLED=true (see routes/migrateCsv.routes.ts).
   app.use("/api/migrate/csv", ...csvMigrationJsonParser);
   app.use(express.json());
+  // Tracked-link redirect (Campaign clicks): public, at the root so the short address stays short. See trackedLinkRedirect.ts.
+  app.use(buildTrackedLinkRedirectRouter());
   app.use("/api", buildRouter(morAdapter, registry));
   // Own router, mounted separately -- see the doc comment at the top of
   // mfaRecovery.ts for why this lives outside buildRouter()'s single

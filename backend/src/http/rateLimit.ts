@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import type { AuthedRequest } from "./auth.js";
 import { resolveTier as resolveTierUncached, type Tier } from "../tier.js";
 import { recordSecurityEvent } from "./securityAlerts.js";
+import { HOME_URL } from "../trackedLinks.js";
 
 function onRateLimited(req: Request, res: Response) {
   recordSecurityEvent("rate_limited", `${req.method} ${req.path} from ${req.ip ?? "unknown"}`);
@@ -139,4 +140,18 @@ export const mfaRecoveryRedeemRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: onRateLimited,
+});
+
+/** Limiter for GET /r/:code (tracked links). More generous than publicRateLimit because many people can share one office or phone-network
+ *  address, and when it does trip it sends the visitor to the home page instead of showing an error: a link click must never fail. */
+export const redirectRateLimit = rateLimit({
+  windowMs: 60_000,
+  max: 120,
+  standardHeaders: false,
+  legacyHeaders: false,
+  handler: (req: Request, res: Response) => {
+    // No visitor address here: this feature keeps nothing about visitors, not even in an alert.
+    recordSecurityEvent("rate_limited", `${req.method} tracked-link redirect (rate limited)`);
+    res.redirect(302, HOME_URL);
+  },
 });
