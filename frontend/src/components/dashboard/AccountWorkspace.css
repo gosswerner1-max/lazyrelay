@@ -1,0 +1,20 @@
+/* Account workspace: Midnight Canvas shell around the existing settings sections. Every class is prefixed ac-; the sections themselves keep their own markup. */
+.ac-root { display: grid; grid-template-columns: 220px 1fr; gap: 20px; background: #0b0f19; border-radius: 24px; padding: 28px; color: #e6edf8; height: calc(100dvh - 250px); min-height: 520px; max-height: 860px; }
+.ac-nav { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; }
+.ac-title { margin: 0 0 12px; font-size: 24px; letter-spacing: -0.02em; line-height: 1.1; color: #fff; }
+.ac-nav__item { text-align: left; border: 0; border-radius: 12px; padding: 10px 14px; font: inherit; font-weight: 600; font-size: 14px; color: #94a3b8; background: transparent; cursor: pointer; transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease; }
+.ac-nav__item:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+.ac-nav__item:active { transform: scale(0.97); }
+.ac-nav__item:focus-visible { outline: 2px solid #ff5630; outline-offset: 2px; }
+.ac-body { overflow-y: auto; min-width: 0; padding-right: 8px; scrollbar-width: thin; }
+.ac-body section { background: #141b2d; border-radius: 24px; padding: 24px; margin: 0 0 16px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); }
+.ac-body section h2 { margin-top: 0; color: #fff; }
+.ac-body section, .ac-body section p, .ac-body section label, .ac-body section li { color: #cbd5e1; }
+.ac-body section input, .ac-body section select, .ac-body section textarea { background: #0b0f19; color: #e6edf8; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 12px; }
+@media (max-width: 860px) {
+  .ac-root { grid-template-columns: 1fr; height: auto; max-height: none; }
+  .ac-nav { flex-direction: row; flex-wrap: wrap; overflow: visible; }
+  .ac-title { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .ac-nav__item { transition: none; } .ac-nav__item:active { transform: none; } }
+@media (prefers-contrast: more) { .ac-body section { box-shadow: inset 0 0 0 1px #fff; } }
