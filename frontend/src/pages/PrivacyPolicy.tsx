@@ -126,10 +126,9 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
             tokens and stored content within a reasonable time.
           </p>
           <p>
-            <strong>Abandoned accounts.</strong> If you sign up but never connect a social account or schedule
-            a post, we'll delete the account after 6 months of inactivity, with two email warnings first (14
-            days and 3 days before deletion) — logging in and connecting a platform or scheduling a post at any
-            point cancels the deletion. This never applies to a paid subscription, regardless of activity.
+            <strong>Account data deletion.</strong> Free and Pay-as-you-go account data is permanently deleted
+            after 6 consecutive months of total inactivity. Data on a subscription plan (Growth or Pro) is
+            permanently deleted 30 days after the subscription ends or is cancelled.
           </p>
 
           <h3>WhatsApp and X connected with your own keys</h3>

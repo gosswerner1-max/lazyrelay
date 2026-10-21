@@ -82,3 +82,14 @@ describe("legal pages use the credits model", () => {
     expect(macros).not.toMatch(/[–—]/);
   });
 });
+
+describe("privacy policy states the unified deletion rule", () => {
+  it("has the 6 month inactivity rule and the 30 day subscription rule, and no abandoned-account clause", async () => {
+    const { PrivacyPolicy } = await import("./PrivacyPolicy");
+    const text = flat(render(<PrivacyPolicy onBack={() => {}} />).container.textContent ?? "");
+    expect(text).toContain("after 6 consecutive months of total inactivity");
+    expect(text).toContain("30 days after the subscription ends or is cancelled");
+    expect(text).not.toMatch(/Abandoned accounts/i);
+    expect(text).not.toMatch(/two email warnings/i);
+  });
+});
