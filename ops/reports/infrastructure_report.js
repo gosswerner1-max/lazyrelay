@@ -15,12 +15,12 @@ const os = require("os");
 const fs = require("fs");
 const ExcelJS = require("exceljs");
 const { getSupabaseClient } = require("../shared/supabaseClient.js");
-const { gatherStorageUsage, computeStorageMargin } = require("../shared/storageUsage.js");
+const { gatherStorageUsage } = require("../shared/storageUsage.js");
 const { checkStorageMargin } = require("../billing/billing_ops.js");
 const { runAllChecks } = require("../health/health_ops.js");
 const { getLiveInfraCosts } = require("../shared/liveInfraCosts.js");
 
-async function buildWorkbook(healthResult, marginResult, storageUsage, generatedAt, infraCosts) {
+async function buildWorkbook(healthResult, marginResult, generatedAt, infraCosts) {
   const NAVY = "14171F";
   const ACCENT = "FF5630";
   const wb = new ExcelJS.Workbook();
@@ -113,7 +113,7 @@ async function main() {
   const marginResult = await checkStorageMargin(supabase);
   const infraCosts = await getLiveInfraCosts();
 
-  const wb = await buildWorkbook(healthResult, marginResult, storageUsage, generatedAt, infraCosts);
+  const wb = await buildWorkbook(healthResult, marginResult, generatedAt, infraCosts);
 
   const filename = `LazyRelay_Infrastructure_Report_${generatedAt.toISOString().slice(0, 10)}.xlsx`;
   const outPath = path.join(outputDir, filename);

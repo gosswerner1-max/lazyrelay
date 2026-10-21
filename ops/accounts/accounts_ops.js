@@ -14,7 +14,6 @@
 //   unpaid/blocked -> status = 'past_due'
 //   existing     -> status = 'active', established (not recently created)
 
-const { getSupabaseClient } = require("../shared/supabaseClient.js");
 const { StateStore } = require("../shared/stateStore.js");
 const { isInternalTestAccount } = require("../shared/internalTestAccounts.js");
 const path = require("path");

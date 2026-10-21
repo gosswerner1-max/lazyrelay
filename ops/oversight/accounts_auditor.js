@@ -2,8 +2,8 @@
 // re-checks account state consistency. Mirrors The Lazy Download's
 // website_auditor.py shape (reads, reports {checked, flaggedCount,
 // problems}), adapted with a JSON-snapshot fixture convention instead of
-// file-artifact fixtures, since there's no PDF/image to check here — see
-// ops/tests/README for the adapted self-test convention.
+// file-artifact fixtures, since there's no PDF/image to check here, see
+// ops/tests/runSelfTest.js for the self-test convention.
 
 const fs = require("fs");
 const { getSupabaseClient } = require("../shared/supabaseClient.js");

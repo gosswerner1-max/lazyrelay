@@ -1,7 +1,7 @@
 // Billing Operator — owns pure money events: subscription tier, payment
 // status, dunning follow-up, refunds. Built against the existing
 // MerchantOfRecordAdapter interface (backend/src/billing/types.ts),
-// targeting Stripe Managed Payments per this session's research — see
+// targeting Paddle per this session's research — see
 // BILLING_KNOWLEDGE.md for why. Does NOT touch account state (pausing
 // posts, connected-account limits) — that's accounts_ops.js's job.
 //
@@ -57,7 +57,6 @@ const PAST_DUE_GRACE_HOURS = 24; // money-impacting -> tight loop, same
 const BASE_COMPARED_KEYS = ["MOR_API_KEY", "PADDLE_ENVIRONMENT", "MOR_WEBHOOK_SECRET"];
 
 async function getMorStatus() {
-  const localApiKey = process.env.MOR_API_KEY;
   const localEnvironment = process.env.PADDLE_ENVIRONMENT === "production" ? "production" : "sandbox";
 
   const renderCreds = getRenderCredentials();
