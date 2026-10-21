@@ -45,6 +45,7 @@
 // unattended agent run each time.
 
 const { isInternalTestAccount } = require("../shared/internalTestAccounts.js");
+const { deleteAccountRows } = require("./account_deletion.js");
 
 const ABANDONMENT_DAYS = 180;
 const REMINDER_1_DAYS_BEFORE = 14;
@@ -232,20 +233,7 @@ async function deleteAbandonedAccount(supabase, account) {
     return { accountId: account.id, deleted: false, reason: "no longer abandoned as of the live re-check — not deleting" };
   }
 
-  const { error: membersError } = await supabase
-    .from("account_members")
-    .delete()
-    .or(`account_id.eq.${account.id},user_id.eq.${account.id}`);
-  if (membersError) throw membersError;
-
-  const { error: subsError } = await supabase.from("subscriptions").delete().eq("account_id", account.id);
-  if (subsError) throw subsError;
-
-  const { error: accountError } = await supabase.from("accounts").delete().eq("id", account.id);
-  if (accountError) throw accountError;
-
-  const { error: authError } = await supabase.auth.admin.deleteUser(account.id);
-  if (authError) throw authError;
+  await deleteAccountRows(supabase, account.id);
 
   return { accountId: account.id, deleted: true };
 }
