@@ -52,12 +52,25 @@ const ContentSourcesTab = CONTENT_SOURCES_ENABLED ? lazy(() => import("./dashboa
 const POSTING_WORKSPACE_ENABLED = import.meta.env.VITE_POSTING_WORKSPACE_ENABLED === "true";
 // Loaded lazily and only when the flag is on, so a build without it carries none of the workspace code.
 const PostingWorkspaceTab = POSTING_WORKSPACE_ENABLED ? lazy(() => import("./dashboard/PostingWorkspaceTab").then((m) => ({ default: m.PostingWorkspaceTab }))) : null;
+// Each further workspace view has its own build-time flag, default off, and is loaded lazily only when on (same rule as the Posting workspace).
+const CALENDAR_WORKSPACE_ENABLED = import.meta.env.VITE_CALENDAR_WORKSPACE_ENABLED === "true";
+const CalendarWorkspaceTab = CALENDAR_WORKSPACE_ENABLED ? lazy(() => import("./dashboard/CalendarWorkspaceTab").then((m) => ({ default: m.CalendarWorkspaceTab }))) : null;
+const CONNECTIONS_WORKSPACE_ENABLED = import.meta.env.VITE_CONNECTIONS_WORKSPACE_ENABLED === "true";
+const ConnectionsWorkspaceTab = CONNECTIONS_WORKSPACE_ENABLED ? lazy(() => import("./dashboard/ConnectionsWorkspaceTab").then((m) => ({ default: m.ConnectionsWorkspaceTab }))) : null;
+const BRANDS_WORKSPACE_ENABLED = import.meta.env.VITE_BRANDS_WORKSPACE_ENABLED === "true";
+const BrandsWorkspaceTab = BRANDS_WORKSPACE_ENABLED ? lazy(() => import("./dashboard/BrandsWorkspaceTab").then((m) => ({ default: m.BrandsWorkspaceTab }))) : null;
+const FAILURES_WORKSPACE_ENABLED = import.meta.env.VITE_FAILURES_WORKSPACE_ENABLED === "true";
+const FailuresWorkspaceTab = FAILURES_WORKSPACE_ENABLED ? lazy(() => import("./dashboard/FailuresWorkspaceTab").then((m) => ({ default: m.FailuresWorkspaceTab }))) : null;
 const MAIN_TABS: Tab[] = [
   "Overview",
   "Posts",
   ...(POSTING_WORKSPACE_ENABLED ? (["Compose"] as Tab[]) : []),
   "Failed",
   "Calendar",
+  ...(CALENDAR_WORKSPACE_ENABLED ? (["Planner"] as Tab[]) : []),
+  ...(CONNECTIONS_WORKSPACE_ENABLED ? (["Connections"] as Tab[]) : []),
+  ...(BRANDS_WORKSPACE_ENABLED ? (["Brands"] as Tab[]) : []),
+  ...(FAILURES_WORKSPACE_ENABLED ? (["Failures"] as Tab[]) : []),
   ...(CONTENT_SOURCES_ENABLED ? (["Content Sources"] as Tab[]) : []),
   "Social Platforms",
   "API Keys",
@@ -294,6 +307,30 @@ export function Dashboard() {
       {PostingWorkspaceTab && tab === "Compose" && (
         <Suspense fallback={null}>
           <PostingWorkspaceTab />
+        </Suspense>
+      )}
+
+      {CalendarWorkspaceTab && tab === "Planner" && (
+        <Suspense fallback={null}>
+          <CalendarWorkspaceTab />
+        </Suspense>
+      )}
+
+      {ConnectionsWorkspaceTab && tab === "Connections" && (
+        <Suspense fallback={null}>
+          <ConnectionsWorkspaceTab />
+        </Suspense>
+      )}
+
+      {BrandsWorkspaceTab && tab === "Brands" && (
+        <Suspense fallback={null}>
+          <BrandsWorkspaceTab />
+        </Suspense>
+      )}
+
+      {FailuresWorkspaceTab && tab === "Failures" && (
+        <Suspense fallback={null}>
+          <FailuresWorkspaceTab />
         </Suspense>
       )}
 
