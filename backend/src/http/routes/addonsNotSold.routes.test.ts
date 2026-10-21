@@ -78,7 +78,7 @@ describe("legacy add-on checkouts are closed", () => {
   }
 
   it("the response text has no em or en dash", () => {
-    expect(JSON.stringify(EXPECTED)).not.toMatch(/[–—]/);
+    expect(JSON.stringify(EXPECTED)).not.toMatch(new RegExp(`[${String.fromCharCode(0x2013)}${String.fromCharCode(0x2014)}]`));
   });
 });
 
