@@ -431,7 +431,7 @@ export interface DraftFields {
 
 // Internal tier codes match the public plan names (backend migration 0119).
 export interface Subscription {
-  tier: "free" | "starter" | "pro" | "business" | "agency" | "agency_plus";
+  tier: "free" | "starter" | "pro" | "business" | "agency" | "agency_plus" | "growth" | "lazy_pro";
   status: "trialing" | "active" | "past_due" | "cancelled" | null;
   currentPeriodEnd: string | null;
   // True while a cancellation is scheduled for the end of the current paid
