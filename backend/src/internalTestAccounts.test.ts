@@ -8,6 +8,9 @@ import path from "node:path";
 // source code, so they are not published in the repo. The tests use made-up ones.
 vi.hoisted(() => {
   process.env.INTERNAL_TEST_EMAILS_EXTRA = "family.member@example.test, Other.Person@Gmail.com";
+  // The ops copy also reads the gitignored local file on this machine, which holds the real family mailboxes. Point it at a
+  // file that does not exist so both copies see only the made-up addresses above (same result on any machine and in CI).
+  process.env.INTERNAL_TEST_ACCOUNTS_FILE = "does-not-exist.local.json";
 });
 import { INTERNAL_TEST_EMAIL_PATTERNS, INTERNAL_TEST_EMAILS_EXACT, isInternalTestAccount } from "./internalTestAccounts.js";
 
