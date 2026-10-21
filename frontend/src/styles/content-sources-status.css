@@ -31,21 +31,6 @@
   margin: 0;
 }
 
-.content-sources .cs-status__list {
-  display: grid;
-  gap: 0.375rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.content-sources .cs-status__list li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.375rem 0.625rem;
-}
-
 .content-sources .cs-badge--unknown {
   border-color: var(--byok-muted);
   color: var(--byok-muted);
