@@ -83,11 +83,11 @@ export const mcpRateLimit = rateLimit({
   handler: onRateLimited,
 });
 
-/** Coarse IP-based limiter for the one route that runs before/without
- *  requireAuth (the OAuth callback — the platform redirects the browser
- *  here directly, so there's no JWT to key on). Not tier-aware; it's a
- *  backstop against callback-endpoint abuse, not a usage control — the
- *  callback's real protection is its one-time-use state token. */
+/** Coarse IP-based limiter for public routes that run before/without
+ *  requireAuth (OAuth callbacks, webhooks, bio and review pages, support
+ *  chat) -- there is no JWT to key on. Not tier-aware; it's a backstop
+ *  against endpoint abuse, not a usage control (the OAuth callback's real
+ *  protection is its one-time-use state token). */
 export const publicRateLimit = rateLimit({
   windowMs: 60_000,
   max: 30,

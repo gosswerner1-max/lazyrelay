@@ -91,8 +91,7 @@ async function main() {
 
   // Cancel the first add-on via the real cancelStorageAddon() path (calls
   // the MoR adapter first, same discipline as cancelSubscription). Per the
-  // 2026-08-11 deferred-cancellation fix (see billing/sync.ts around line
-  // 510+), this only flips cancel_at_period_end=true — status stays
+  // 2026-08-11 deferred-cancellation fix (see cancelSubscription / cancelStorageAddon in billing/sync.ts), this only flips cancel_at_period_end=true — status stays
   // "active" and getActiveAddonBytes() (storageQuota.ts) counts by status
   // alone, so the quota does NOT drop yet. The real removal happens later,
   // driven by the genuine webhook at period end, same as the main-plan

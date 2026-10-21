@@ -26,7 +26,6 @@ export const MULTI_MEDIA_RULES: Record<string, MultiMediaRule> = {
   lemmy: { max: 10, videos: false },
 };
 
-export const CAROUSEL_PLATFORMS = Object.keys(MULTI_MEDIA_RULES);
 /** Largest number of EXTRA items any platform takes (the frontend's overall cap). */
 export const MAX_EXTRA_CAROUSEL_IMAGES = Math.max(...Object.values(MULTI_MEDIA_RULES).map((r) => r.max)) - 1;
 

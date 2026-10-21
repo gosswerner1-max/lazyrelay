@@ -79,8 +79,8 @@ export function buildAccountRouter(): Router {
       res.status(400).json({ error: "businessName can't contain line breaks" });
       return;
     }
-    // Reserved-prefix check (2026-08-30, see the signup-time check above
-    // for the reasoning) — exempts Werner's own accounts (same
+    // Reserved-prefix check (2026-08-30, same rule as the signup check, see
+    // isReservedBusinessName in shared.ts and public.routes.ts) — exempts Werner's own accounts (same
     // OPERATOR_ACCOUNT_IDS allowlist as POST /admin/announce below), since
     // LazyRelay's own dogfooding account is literally named "LazyRelay"
     // and needs to be able to use that name. Previously this compared

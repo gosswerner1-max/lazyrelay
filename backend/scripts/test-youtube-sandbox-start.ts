@@ -36,7 +36,7 @@ async function main() {
   console.log("\nOpen this URL, log in as the Google account that owns the target YouTube channel, and approve:\n");
   console.log(authorizeUrl);
   console.log("\nAfter approving, Google will redirect to the callback URL with ?code=...&state=...");
-  console.log("Copy the `code` query param value and pass it to test-youtube-sandbox-finish.ts");
+  console.log("After approving, the callback connects the account; then run test-youtube-sandbox-finish.ts <socialAccountId> with the new social_accounts row id.");
 }
 
 main().catch((err) => {
