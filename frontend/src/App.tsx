@@ -501,6 +501,7 @@ const CalendarWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./page
 const ConnectionsWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/ConnectionsWorkspacePreview").then((m) => ({ default: m.ConnectionsWorkspacePreview }))) : null;
 const BrandsWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/BrandsWorkspacePreview").then((m) => ({ default: m.BrandsWorkspacePreview }))) : null;
 const FailuresWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/FailuresWorkspacePreview").then((m) => ({ default: m.FailuresWorkspacePreview }))) : null;
+const AnalyticsWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/AnalyticsWorkspacePreview").then((m) => ({ default: m.AnalyticsWorkspacePreview }))) : null;
 
 function App() {
   if (import.meta.env.DEV && BillingMockupPage && window.location.pathname === "/dev/billing-mockup") {
@@ -542,6 +543,13 @@ function App() {
     return (
       <Suspense fallback={<div className="loading"><Spinner /></div>}>
         <FailuresWorkspacePreview />
+      </Suspense>
+    );
+  }
+  if (import.meta.env.DEV && AnalyticsWorkspacePreview && window.location.pathname === "/dev/analytics-workspace") {
+    return (
+      <Suspense fallback={<div className="loading"><Spinner /></div>}>
+        <AnalyticsWorkspacePreview />
       </Suspense>
     );
   }
