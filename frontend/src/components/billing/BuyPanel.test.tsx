@@ -23,7 +23,7 @@ describe("BuyPanel catalog", () => {
     await screen.findByText("Credit Pack");
     const prices = document.querySelectorAll(".bm-buy__price");
     expect(prices.length).toBe(2); // the third item is not purchasable, so it shows a reason and no price
-    for (const p of prices) expect(p.textContent).toMatch(/^$[d,.]+( per month)?$/);
+    for (const p of prices) expect(p.textContent).toMatch(/^\$[\d,.]+( per month)?$/);
     expect(prices[0]!.textContent).toBe("$9.00");
   });
 
