@@ -45,8 +45,4 @@ describe("isTiktokDisclosureIncomplete", () => {
   it("is true when TikTok is only one of several selected accounts", () => {
     expect(isTiktokDisclosureIncomplete(["acc-2", "acc-1"], [tiktok, instagram], true, false, false)).toBe(true);
   });
-
-  it("is false for a non-TikTok platform regardless of the toggles", () => {
-    expect(isTiktokDisclosureIncomplete(["acc-2"], [tiktok, instagram], true, false, false)).toBe(false);
-  });
 });

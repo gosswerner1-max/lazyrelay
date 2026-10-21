@@ -11,7 +11,6 @@
   --surface: #ffffff;
   --signal: #c82400;
   --signal-bg: rgba(200, 36, 0, 0.09);
-  --signal-hover: #a81e00;
   --signal-solid: #c82400;
   --signal-solid-hover: #a81e00;
   --wire: #5b6472;
@@ -63,7 +62,6 @@
     --surface: #171a21;
     --signal: #ff7452;
     --signal-bg: rgba(255, 116, 82, 0.14);
-    --signal-hover: #ff8d6e;
     --signal-solid: #e32d00;
     --signal-solid-hover: #ff5a35;
     --wire: #a9b1bd;

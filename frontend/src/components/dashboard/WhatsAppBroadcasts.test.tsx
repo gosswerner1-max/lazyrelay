@@ -201,7 +201,7 @@ describe("WhatsAppBroadcastComposer", () => {
   it("Schedule sends the real request with an ISO time, tells the person, and refreshes the list", async () => {
     const user = userEvent.setup();
     const onCreated = vi.fn();
-    api.createWhatsAppBroadcast.mockResolvedValue({ dryRun: false, preview: { audience: 12, excludedUs: 0, estimatedCostCost: null, estimatedCost: null }, broadcast: broadcast({ status: "scheduled" }) });
+    api.createWhatsAppBroadcast.mockResolvedValue({ dryRun: false, preview: { audience: 12, excludedUs: 0, estimatedCost: null }, broadcast: broadcast({ status: "scheduled" }) });
     render(<WhatsAppBroadcastComposer socialAccountId={SA1} onCreated={onCreated} />);
     await fill(user);
     await user.click(screen.getByRole("button", { name: /^schedule broadcast/i }));
@@ -289,7 +289,7 @@ describe("WhatsAppBroadcastList", () => {
     await waitFor(() => expect(api.resumeWhatsAppSending).toHaveBeenCalledWith(SA1));
   });
 
-  it("says when there are none yet, shows an error in plain words, and loads more", async () => {
+  it("says when there are none yet, shows an error in plain words", async () => {
     api.listWhatsAppBroadcasts.mockResolvedValueOnce({ broadcasts: [], nextBefore: null });
     const { unmount } = render(<WhatsAppBroadcastList socialAccountId={SA1} refreshKey={0} />);
     expect(await screen.findByText(/no broadcasts yet/i)).toBeInTheDocument();
