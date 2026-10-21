@@ -32,6 +32,7 @@ import { buildAdminRouter } from "./routes/admin.routes.js";
 import { buildContentSourcesRouter } from "./routes/contentSources.routes.js";
 import { buildMigrateCsvRouter } from "./routes/migrateCsv.routes.js";
 import { buildWalletRouter } from "./routes/wallet.routes.js";
+import { buildTrackedLinksRouter } from "./routes/trackedLinks.routes.js";
 
 // Every /api route used to live inline in this one file's buildRouter() —
 // ~5,200 lines, 98 route handlers. Split 2026-09-25 into one module per resource
@@ -76,5 +77,6 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.use(buildContentSourcesRouter());
   router.use(buildMigrateCsvRouter());
   router.use("/wallet", buildWalletRouter());
+  router.use(buildTrackedLinksRouter());
   return router;
 }

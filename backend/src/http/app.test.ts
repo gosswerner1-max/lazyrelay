@@ -1,5 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import request from "supertest";
+
+// The /health route does one cheap database read. This suite is about the app wiring, not about reaching Supabase, so the database is an in-memory
+// stand-in here: the suite passes the same on a laptop, in CI and offline (it used to fail with a connection error unless real credentials were present).
+vi.mock("../supabase.js", async () => {
+  const f = await import("../testFakeSupabase.js");
+  return { supabase: { from: (t: string) => f.makeBuilder(t), rpc: async () => ({ data: null, error: null }) } };
+});
 import { buildApp } from "./app.js";
 import { StubMorAdapter } from "../billing/stub.js";
 
@@ -17,6 +24,7 @@ describe("GET /health", () => {
     const app = buildApp(new StubMorAdapter(), new Map());
     const res = await request(app).get("/health");
     expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: "ok" });
   });
 });
 
