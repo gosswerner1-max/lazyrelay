@@ -194,9 +194,9 @@ export class TumblrAdapter implements PlatformAdapter {
     };
   }
 
-  // platformAccountId (the blog name) isn't passed through PostRequest, so
-  // it's re-derived from the access token here — same pattern as every
-  // other adapter that needs a platform-native id at post time.
+  // Fallback only: post() uses request.platformAccountId (the blog chosen at
+  // connect time) and calls this only for connections made before blogs could
+  // be picked, re-deriving the primary blog from the access token.
   private async getBlogName(accessToken: string): Promise<string> {
     const res = await fetch(`${API_BASE}/user/info`, {
       headers: { Authorization: `Bearer ${accessToken}` },

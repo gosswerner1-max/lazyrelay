@@ -14,7 +14,7 @@
  *  Two shapes are needed because platforms send media two different ways:
  *  - A raw binary PUT/POST (TikTok, YouTube, LinkedIn, Bluesky) — trivial:
  *    the source stream can be passed directly as the outgoing body.
- *  - multipart/form-data (Mastodon, and Discord/Tumblr when built) — harder:
+ *  - multipart/form-data (Mastodon, Discord, Tumblr, Lemmy, Pinterest) -- harder:
  *    the standard Blob/FormData APIs need the whole part buffered into a
  *    Blob first, which would silently reintroduce the same problem. This
  *    file builds a real streaming multipart body by hand instead.
@@ -147,11 +147,6 @@ interface MultipartPart {
   value: string | { filename: string; contentType: string; data: ReadableStream<Uint8Array>; sizeBytes?: number | null };
 }
 
-/** Builds a real streaming multipart/form-data body: only ever holds one
- *  chunk of the underlying file stream in memory at a time, never the whole
- *  file. Returns the body (pass directly as fetch's `body`, with
- *  `duplex: "half"`) and the exact Content-Type header value to send
- *  alongside it (carries the boundary). */
 export interface StreamCursor {
   reader: ReadableStreamDefaultReader<Uint8Array>;
   pending: Uint8Array | null;
@@ -225,6 +220,11 @@ export function createChunkStream(cursor: StreamCursor, n: number): ReadableStre
 // isn't known (e.g. a file part with no `sizeBytes`) -- callers whose
 // destination requires a real Content-Length (like Pinterest) must not
 // proceed with a null value.
+/** Builds a real streaming multipart/form-data body: only ever holds one
+ *  chunk of the underlying file stream in memory at a time, never the whole
+ *  file. Returns the body (pass directly as fetch's `body`, with
+ *  `duplex: "half"`) and the exact Content-Type header value to send
+ *  alongside it (carries the boundary). */
 export function buildStreamingMultipartBody(parts: MultipartPart[]): {
   body: ReadableStream<Uint8Array>;
   contentType: string;

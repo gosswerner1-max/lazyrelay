@@ -44,8 +44,6 @@ export const X_MEDIA_UPLOAD_CONFIG: XMediaUploadConfig = {
   statusPollIntervalMs: 3_000,
 };
 
-export const V1_UPLOAD_URL = X_MEDIA_UPLOAD_CONFIG.v1Url;
-export const V2_UPLOAD_URL = X_MEDIA_UPLOAD_CONFIG.v2Url;
 export const MEDIA_SEGMENT_BYTES = X_MEDIA_UPLOAD_CONFIG.maxSegmentBytes;
 
 export interface XMediaInput {

@@ -146,7 +146,7 @@ function parseMessage(text: string): unknown[] | null {
 }
 
 /** Sends one event to one relay and waits for its OK. A socket is opened, used and closed inside this call. The relay's
- *  answer only ever means "this relay accepted the message": it is never proof the post exists (see readEventById). */
+ *  answer only ever means "this relay accepted the message": it is never proof the post exists (see readFromRelay). */
 export async function publishToRelay(
   connect: RelayConnector,
   relay: GuardedRelay,

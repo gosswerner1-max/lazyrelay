@@ -20,7 +20,7 @@ import { classifyPostError } from "../../postErrors.js";
 import type { PostRequest } from "../types.js";
 
 // Fake values that merely look the right shape. None is a real Meta credential.
-export const WA_TEST_TOKEN = "test_whatsapp_system_user_token_not_real_0123456789";
+const WA_TEST_TOKEN = "test_whatsapp_system_user_token_not_real_0123456789";
 const WABA = "123456789012345";
 const PHONE = "109876543210987";
 const BUNDLE: WhatsAppBundle = { systemUserToken: WA_TEST_TOKEN, wabaId: WABA, phoneNumberId: PHONE };
