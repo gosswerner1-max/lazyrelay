@@ -2470,6 +2470,8 @@ export function useDashboardState() {
     business: "Business",
     agency: "Agency",
     agency_plus: "Agency Plus",
+    growth: "Growth",
+    lazy_pro: "Pro",
   } as const;
   const currentTier = subscription?.tier ?? "free";
   const isFreePlan = currentTier === "free";

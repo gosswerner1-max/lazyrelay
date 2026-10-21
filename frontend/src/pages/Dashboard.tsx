@@ -38,6 +38,7 @@ import { SettingsTab } from "./dashboard/SettingsTab";
 import { ApiKeysTab } from "./dashboard/ApiKeysTab";
 import { HeaderBalance, useBillingWallet } from "../lib/billingFlag";
 import { WalletContext } from "../lib/walletContext";
+import { CancelAccountsNote, cancelPlanName } from "../components/dashboard/CancelAccountsNote";
 import "./Dashboard.css";
 
 const ProductTour = lazy(() => import("../components/ProductTour").then((m) => ({ default: m.ProductTour })));
@@ -440,8 +441,7 @@ export function Dashboard() {
             <p className="modal-subtitle">Before you cancel, please note:</p>
             <ul className="modal-loss-list">
               <li>
-                You'll lose <strong>{accounts.length}</strong> connected account{accounts.length === 1 ? "" : "s"}. You'll need
-                to reconnect them if you come back.
+                <CancelAccountsNote count={accounts.length} planName={cancelPlanName(currentTier, wallet.billingActive ? wallet.wallet?.plan.walletPlan : null)} />
               </li>
               <li>
                 You'll keep access until {periodEndDate ? periodEndDate : "the end of your current billing period"}. This

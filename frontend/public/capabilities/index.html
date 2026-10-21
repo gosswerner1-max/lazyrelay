@@ -62,6 +62,8 @@
   .faq summary { cursor: pointer; font-weight: 600; }
   .faq p { color: var(--muted); margin: 10px 0 0; }
   .note { color: var(--muted); font-size: 14px; }
+  .row ul.facts { margin: 8px 0 0; padding-left: 20px; color: var(--muted); }
+  .row ul.facts li { margin: 4px 0; }
   footer { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; border-top: 1px solid var(--row-edge); color: var(--muted); font-size: 14px; }
   footer a { color: var(--muted); }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
@@ -79,7 +81,7 @@
   "featureList": [
     "18 distribution platforms plus WhatsApp",
     "Proof of Publish",
-    "Verified post distribution ledger",
+    "Result record for each destination",
     "Pay as you go competitor analysis",
     "Landing page structure extraction",
     "27 MCP tools",
@@ -175,32 +177,51 @@
       <li class="row">
         <span class="tag">Messaging</span>
         <h3>(b) WhatsApp</h3>
-        <p>WhatsApp is client messaging. It is not one of the 18 distribution platforms and is not counted as one. You link your own Meta WhatsApp Business account and phone number, your login is stored encrypted, and Meta bills that account directly. Broadcasts are sent from the signed in dashboard using message templates Meta has approved. When a contact opts out, LazyRelay honours it and records it. A post cannot be sent to WhatsApp through the API, MCP, bulk import or duplicate.</p>
+        <p>WhatsApp is client messaging. It is not one of the 18 distribution platforms and is not counted as one.</p>
+        <p><strong>Who can use it.</strong> Any paid plan: Growth, Pro or Pay as you go. Free accounts and accounts whose plan has lapsed cannot connect WhatsApp. You link your own Meta WhatsApp Business account, phone number and access token. They are stored encrypted, every message goes out with them, and Meta bills that account directly. LazyRelay takes no credits for WhatsApp messages and has no shared number.</p>
+        <p><strong>What it sends.</strong> All sending happens from the signed in dashboard.</p>
+        <ul class="facts">
+          <li>Broadcasts: one message template that Meta has approved, scheduled between 1 minute and 30 days ahead, sent to the opted in contacts of one WhatsApp number.</li>
+          <li>Replies in a conversation: free form text, reply buttons or a list, only while the 24 hour window after the customer's last message is open. Outside that window only an approved template can be sent, and only to a saved contact who opted in.</li>
+          <li>A marketing template is never sent to a US number (+1), because Meta does not deliver it.</li>
+          <li>A message counts as handed off when Meta accepts it, and as delivered only when Meta's own receipt says so. The cost shown is an estimate from the prices you enter.</li>
+          <li>LazyRelay sets no limit on how many messages you send. Meta's limits apply, and if Meta restricts your number, sending pauses until you resume it.</li>
+        </ul>
+        <p><strong>What is not possible.</strong> A post cannot be sent to WhatsApp through the API, an API key, MCP, Zapier, bulk import or duplicate. Those routes refuse WhatsApp. You cannot send a template to someone who has not opted in, or a free form message outside the 24 hour window.</p>
+        <p><strong>Opt outs.</strong> If a contact replies with only STOP, UNSUBSCRIBE, CANCEL, END, QUIT, OPT OUT, OPTOUT or STOP ALL, or Meta reports that the person stopped marketing messages, LazyRelay records the opt out and marks the contact as opted out. That record is checked again just before every send. Reply keywords are read once you point your own Meta app's webhook at LazyRelay.</p>
       </li>
       <li class="row">
         <span class="tag">Verify</span>
         <h3>(c) Proof of Publish</h3>
         <p>Posting and checking are two separate steps. First post() sends the content to the platform. Then verifyPublished() reads it back from the platform. A post is marked live only when that read back confirms it, and the public URL of the post is stored with the result. If the read back does not confirm it, the post shows as unverified and no credit is taken.</p>
-        <p>Each destination gets its own result row. Together they work as a verified post distribution ledger: for every post you can see which destinations were confirmed live and where each one lives.</p>
+        <p>You get a result record for each destination. It shows whether the read back confirmed the post is live, and the public URL of the post.</p>
       </li>
     </ul>
   </section>
 
   <section class="block" aria-labelledby="competitor">
     <h2 id="competitor">2. Pay As You Go Competitor Analysis Architecture</h2>
-    <p class="intro">Pay as you go competitor analysis is a one off teardown, not ongoing tracking. A teardown costs 10 credits. They are charged only when the blueprint is delivered, and a failed teardown costs nothing.</p>
+    <p class="intro">Pay as you go competitor analysis is a one off teardown, not ongoing tracking. A teardown costs 10 credits. The 10 credits are charged only when the blueprint is delivered, and a failed teardown costs nothing.</p>
     <ul class="rows">
       <li class="row">
         <span class="tag">Extract</span>
-        <h3>(a) Frictionless extraction</h3>
-        <p>Paste a link to any public web page from a competitor. You do not have to verify the site, because it is not yours. You tick a consent box and LazyRelay reads the page with Firecrawl. This is landing page structure extraction: it pulls out the headings, how the page opens and its call to action links, from the public text of the page. Links to TikTok, Instagram, Facebook, X and LinkedIn are not read, and video links are not supported for blueprints.</p>
+        <h3>(a) Reading the page</h3>
+        <p>Paste a link to a public web page from a competitor. You tick a consent box before anything is sent. LazyRelay reads the public text of the page with Firecrawl, main content only, and a copy up to a day old may be used. This is landing page structure extraction: it pulls out the headings, how the page opens and its call to action links.</p>
+        <ul class="facts">
+          <li>Public web pages only. If the site does not allow the page to be read, the teardown stops there.</li>
+          <li>Links to TikTok, Instagram, Facebook, X, Twitter, LinkedIn and Threads are not read, and neither are their short link addresses.</li>
+          <li>Video links are not supported: a YouTube link cannot be turned into a blueprint.</li>
+          <li>Teardowns are rate limited: there is a pause of at least 45 seconds between two of yours, a daily count per user and a daily ceiling across all users.</li>
+          <li>If a teardown stops for any of these reasons, or fails for any other reason, nothing is charged.</li>
+        </ul>
       </li>
       <li class="row">
         <span class="tag">Analyse</span>
         <h3>(b) Analysis by Claude Sonnet 5.5</h3>
-        <p>The extracted structure goes to Claude Sonnet 5.5, which returns two parts.</p>
-        <p><strong>Competitor strategy map.</strong> How the page opens, such as a question, a statistic, a bold claim or an offer. Its sections in page order, each named by its job, for example Promise, Proof, Steps, Pricing or FAQ. Where the page asks for action, how, and about how many action links it has. LazyRelay counts and places those links itself, so the numbers do not come from the model.</p>
-        <p><strong>Recommended blueprints.</strong> Three to six short instructions you can apply to your own content, written from the structure of that competitor page. The model describes structure only. It does not quote the page and makes no claim about how well the page performs.</p>
+        <p>The extracted structure goes to Claude Sonnet 5.5, which returns two parts. It describes structure only. It does not quote the page, and its answer is rejected if it holds a link, an @mention, a claim that the page performs well, or a copied run of eight words or more from the page.</p>
+        <p><strong>Competitor strategy map.</strong> The hook, which is one of question, statistic, bold claim, story, how to, list, problem and agitate, social proof, offer or other, with a note of up to 160 characters. Up to 8 sections in page order, each with a role label of up to 40 characters, such as Promise, Proof, Steps, Pricing or FAQ, and a summary of up to 140 characters. The call to action: its placement (top, middle, bottom, multiple or none), a style of up to 100 characters, and a count. LazyRelay counts and places the call to action links itself, so the placement and count do not come from the model.</p>
+        <p><strong>Recommended adjustments.</strong> Three to six short adjustments of up to 160 characters each, written from the structure of that competitor page.</p>
+        <p><strong>Also returned.</strong> The facts read from the page, such as its title, headings, prices and features, and a draft post of up to 280 characters with one tag.</p>
       </li>
     </ul>
   </section>
