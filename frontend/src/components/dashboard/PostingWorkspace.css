@@ -127,3 +127,13 @@
 @media (prefers-reduced-motion: reduce) {
   .pw-chip, .pw-arrow, .pw-btn, .pw-bar i { transition: none; }
 }
+
+/* Phone width: everything wraps inside the card, nothing is cut off on the right. */
+@media (max-width: 600px) {
+  .pw-root { padding: 14px; }
+  .pw-grid > * { min-width: 0; }
+  .pw-head { flex-wrap: wrap; }
+  .pw-head select { max-width: 100%; min-width: 0; }
+  .pw-stats { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .pw-write { min-height: 220px; }
+}
