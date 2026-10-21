@@ -163,7 +163,6 @@ async function handOffDueBroadcasts(now: Date): Promise<void> {
     // Only one loop wins this conditional update.
     const won = await supabase.from("whatsapp_broadcasts").update({ status: "sending", started_at: at, updated_at: at }).eq("id", b.id).eq("status", "scheduled").select("id");
     if (won.error) fail("hand-off failed", won.error);
-    if (((won.data as unknown[] | null) ?? []).length === 0) continue;
   }
 }
 

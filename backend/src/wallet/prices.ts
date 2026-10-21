@@ -10,8 +10,6 @@ export const WALLET_PRICES_MICRO = { post_publish: 1_000_000, competitor_teardow
 
 export type WalletAction = keyof typeof WALLET_PRICES_MICRO;
 
-export const WALLET_ACTIONS = Object.keys(WALLET_PRICES_MICRO) as WalletAction[];
-
 export function isWalletAction(value: unknown): value is WalletAction {
   return typeof value === "string" && Object.prototype.hasOwnProperty.call(WALLET_PRICES_MICRO, value);
 }

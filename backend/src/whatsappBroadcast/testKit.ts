@@ -167,13 +167,11 @@ export function claimModel(args: Record<string, unknown>, now: Date = clock.now 
   return out;
 }
 
-export const rpcLog: Array<{ fn: string; args: Record<string, unknown> }> = [];
 /** Lets a test change the world at the exact moment after a claim, to model a race (an opt-out landing mid-batch). */
 export const hooks: { afterClaim?: () => void } = {};
 
 /** The fake `supabase.rpc`: the in-memory Vault functions plus the claim model. */
 export async function fakeRpcAll(fn: string, args: Record<string, unknown>): Promise<{ data: unknown; error: null | { message: string } }> {
-  rpcLog.push({ fn, args });
   if (fn === "claim_whatsapp_broadcast_recipients") {
     const data = claimModel(args);
     hooks.afterClaim?.();

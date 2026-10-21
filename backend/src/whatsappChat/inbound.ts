@@ -235,13 +235,13 @@ export async function recordInboundChat(account: { id: string; account_id: strin
     // A STOP-style message opts the number out, even though the same delivery was already offered to the inbound handler.
     if (m.kind === "text" && optOutKeywordOf(m.text)) await recordInboundOptOuts(account, [{ from: m.from, text: m.text }], now);
 
-    if (m.interaction && m.contextWamid) await recordApprovalAnswer(account.account_id, m, messageKey, messageId, now);
+    if (m.interaction && m.contextWamid) await recordApprovalAnswer(account.account_id, m, messageId, now);
   }
   return out;
 }
 
 /** Matches a tap to the approval request whose outgoing message it answers. Only the same account's request is touched. */
-async function recordApprovalAnswer(accountId: string, m: InboundChat, _replyMessageKey: string, replyMessageId: string, now: Date): Promise<void> {
+async function recordApprovalAnswer(accountId: string, m: InboundChat, replyMessageId: string, now: Date): Promise<void> {
   const contextKey = messageKeyFor(accountId, m.contextWamid!);
   if (!contextKey || !m.interaction) return;
   const out = await supabase.from("whatsapp_chat_messages").select("id").eq("account_id", accountId).eq("message_key", contextKey).eq("direction", "outbound").maybeSingle();
