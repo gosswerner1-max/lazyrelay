@@ -1,6 +1,6 @@
 # Pricing: LazyRelay
 
-All prices are in US dollars and are shown before tax (plus tax). LazyRelay uses one wallet of credits. Proof-of-Publish verification (an independent re-check that every post actually went live, not just that it was accepted), AI-agent/MCP access and the REST API are available on every plan, including Free.
+All prices are in US dollars. LazyRelay uses one wallet of credits. Proof-of-Publish verification (an independent re-check that every post actually went live, not just that it was accepted), AI-agent/MCP access and the REST API are available on every plan, including Free.
 
 WhatsApp and X can be connected with your own keys on the paid plans. You pay Meta or X directly for the messages you send; LazyRelay does not add a fee for them. Free plans cannot connect them.
 
@@ -9,9 +9,9 @@ WhatsApp and X can be connected with your own keys on the paid plans. You pay Me
 | Plan | Price | Credits | Credit expiry | Connected accounts | Brands |
 |---|---|---|---|---|---|
 | Free | $0 | 30 credits once, at registration (no monthly reset) | Never expire | 3 | 1 |
-| Pay-as-you-go | $15 one time (plus tax) | 300 credits that stay in your wallet until used. Balance can be topped up at any time. | Until used | 20 | 2 |
-| Growth | $29 a month (plus tax) | 1,000 each billing cycle | Expire at the end of each cycle, no rollover | 30 | 4 |
-| Pro | $99 a month (plus tax) | 6,000 each billing cycle | Expire at the end of each cycle, no rollover | 1,000 | Unlimited |
+| Pay-as-you-go | $15 one time | 300 credits that stay in your wallet until used. Balance can be topped up at any time. | Until used | 20 | 2 |
+| Growth | $29 a month | 1,000 each billing cycle | Expire at the end of each cycle, no rollover | 30 | 4 |
+| Pro | $99 a month | 6,000 each billing cycle | Expire at the end of each cycle, no rollover | 1,000 | Unlimited |
 
 Free also allows up to 10 queued posts at a time.
 
@@ -21,9 +21,9 @@ Packs are one-time purchases. Starter and Growth pack credits never expire. Pro 
 
 | Pack | Price | Credits | Who can buy it |
 |---|---|---|---|
-| Starter pack | $15 (plus tax) | 300 | Anyone |
-| Growth pack | $50 (plus tax) | 1,500 | Anyone |
-| Pro top-up | $30 (plus tax) | 1,500 | Active Pro subscribers only. $30 for 1,500 credits (bound to active subscription status, expires if canceled). Plus tax. |
+| Starter pack | $15 | 300 | Anyone |
+| Growth pack | $50 | 1,500 | Anyone |
+| Pro top-up | $30 | 1,500 | Active Pro subscribers only. $30 for 1,500 credits (bound to active subscription status, expires if canceled). |
 
 ## What a credit pays for
 

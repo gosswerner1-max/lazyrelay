@@ -113,11 +113,11 @@ describe("Plan & billing with billing on", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("shows the balance card, the new tiers with plus tax, the pack and the spend rates to a normal account", async () => {
+  it("shows the balance card, the new tiers, the pack and the spend rates to a normal account", async () => {
     await open("true", view());
     expect(await screen.findByRole("heading", { name: "Buy credits" })).toBeInTheDocument();
-    expect(await screen.findByText("$9.00 plus tax")).toBeInTheDocument();
-    expect(screen.getByText("$59.99 plus tax per month")).toBeInTheDocument();
+    expect(await screen.findByText("$9.00")).toBeInTheDocument();
+    expect(screen.getByText("$59.99 per month")).toBeInTheDocument();
     expect(screen.getByTestId("billing-total")).toHaveTextContent("1,830");
     expect(screen.getByTestId("billing-rates")).toHaveTextContent("Publishing costs 1 credit per channel. A competitor page teardown costs 10 credits");
     noOldGrid();

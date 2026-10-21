@@ -100,10 +100,10 @@ describe("LiveBillingView", () => {
     expect(scrollIntoView).toHaveBeenCalledTimes(1);
   });
 
-  it("has the buy panel with 'plus tax' beside the prices and no promise it cannot keep", async () => {
+  it("has the buy panel with the prices and no promise it cannot keep", async () => {
     render(<LiveBillingView wallet={wallet()} now={NOW} paddle={undefined} loadCatalog={catalog} />);
     await screen.findByText("Credit Pack");
-    expect(screen.getByText("$9.00 plus tax")).toBeInTheDocument();
+    expect(screen.getByText("$9.00")).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/instant|unlimited|uptime|guarantee/i);
     expect(document.body.textContent).not.toMatch(/10 posts per connected account/);
   });

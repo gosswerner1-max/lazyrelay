@@ -18,19 +18,19 @@ const started = (id = "txn_1"): CheckoutResult => ({ ok: true, transactionId: id
 const item = (name: string) => screen.getByRole("listitem", { name });
 
 describe("BuyPanel catalog", () => {
-  it("shows 'plus tax' directly beside every price", async () => {
+  it("shows the plain price for every item", async () => {
     render(<BuyPanel paddle={paddleFake()} loadCatalog={catalogOf(items())} start={vi.fn()} />);
     await screen.findByText("Credit Pack");
     const prices = document.querySelectorAll(".bm-buy__price");
     expect(prices.length).toBe(2); // the third item is not purchasable, so it shows a reason and no price
-    for (const p of prices) expect(p.textContent).toMatch(/\$[\d,.]+ plus tax/);
-    expect(prices[0]!.textContent).toBe("$9.00 plus tax");
+    for (const p of prices) expect(p.textContent).toMatch(/^\$[\d,.]+( per month)?$/);
+    expect(prices[0]!.textContent).toBe("$9.00");
   });
 
   it("labels a subscription 'per month' with 'credits expire each billing cycle'", async () => {
     render(<BuyPanel paddle={paddleFake()} loadCatalog={catalogOf(items())} start={vi.fn()} />);
     const plan = within(await screen.findByRole("listitem", { name: "Pro Plan" }));
-    expect(plan.getByText(/^\$59\.99 plus tax per month$/)).toBeInTheDocument();
+    expect(plan.getByText(/^\$59\.99 per month$/)).toBeInTheDocument();
     expect(plan.getByText("1,200 credits")).toBeInTheDocument();
     expect(plan.getByText("credits expire each billing cycle")).toBeInTheDocument();
   });
@@ -43,13 +43,12 @@ describe("BuyPanel catalog", () => {
     expect(pack.queryByText(/per month/)).toBeNull();
   });
 
-  it("shows a purchasable Pro top-up with the plan-bound text, plus tax, and never 'never expire'", async () => {
+  it("shows a purchasable Pro top-up with the plan-bound text and never 'never expire'", async () => {
     const list = items();
     list[2] = { ...list[2]!, purchasable: true, reason: null, expires: false };
     render(<BuyPanel paddle={paddleFake()} loadCatalog={catalogOf(list)} start={vi.fn()} />);
     const topup = within(await screen.findByRole("listitem", { name: "Pro Top-Up" }));
     expect(topup.getByText("$25 for 500 credits (bound to active subscription status, expires if canceled).")).toBeInTheDocument();
-    expect(topup.getByText("Plus tax.")).toBeInTheDocument();
     expect(topup.queryByText(/never expire/)).toBeNull();
     expect(topup.getByRole("button", { name: "Buy Pro Top-Up" })).toBeEnabled();
   });
@@ -67,7 +66,7 @@ describe("BuyPanel catalog", () => {
     list[0] = { ...list[0]!, sku: "lazycredits-starter-pack", name: "Pay-as-you-go", priceCents: 1500 };
     render(<BuyPanel paddle={paddleFake()} loadCatalog={catalogOf(list)} start={vi.fn()} />);
     const payg = within(await screen.findByRole("listitem", { name: "Pay-as-you-go" }));
-    expect(payg.getByText("$15.00 plus tax")).toBeInTheDocument();
+    expect(payg.getByText("$15.00")).toBeInTheDocument();
     expect(payg.getByText("300 credits that stay in your wallet until used")).toBeInTheDocument();
     expect(payg.getByText("Balance can be topped up at any time")).toBeInTheDocument();
     expect(payg.queryByText(/never expire|Pay once/)).toBeNull();
@@ -86,7 +85,7 @@ describe("BuyPanel catalog", () => {
     const topup = within(await screen.findByRole("listitem", { name: "Pro Top-Up" }));
     expect(topup.getByText(line)).toBeInTheDocument();
     expect(topup.queryByRole("button")).toBeNull();
-    expect(topup.queryByText(/plus tax/)).toBeNull();
+    expect(topup.queryByText(/tax/i)).toBeNull();
   });
 
   it("says loading first, then lists the items", async () => {
