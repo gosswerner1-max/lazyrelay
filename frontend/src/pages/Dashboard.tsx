@@ -47,9 +47,15 @@ const ProductTour = lazy(() => import("../components/ProductTour").then((m) => (
 // a page with no box. A build without them has no tab and no panel code. When on, the tab sits directly after Calendar and loads lazily.
 const CONTENT_SOURCES_ENABLED = import.meta.env.VITE_CONTENT_SOURCES_ENABLED === "true" && import.meta.env.VITE_COMPETITOR_MODE_ENABLED === "true";
 const ContentSourcesTab = CONTENT_SOURCES_ENABLED ? lazy(() => import("./dashboard/ContentSourcesTabConnected")) : null;
+// The Posting workspace (a single-screen composer with a channel slider and live previews) is behind a build-time flag, default off: without
+// VITE_POSTING_WORKSPACE_ENABLED=true there is no tab and nothing changes for any customer.
+const POSTING_WORKSPACE_ENABLED = import.meta.env.VITE_POSTING_WORKSPACE_ENABLED === "true";
+// Loaded lazily and only when the flag is on, so a build without it carries none of the workspace code.
+const PostingWorkspaceTab = POSTING_WORKSPACE_ENABLED ? lazy(() => import("./dashboard/PostingWorkspaceTab").then((m) => ({ default: m.PostingWorkspaceTab }))) : null;
 const MAIN_TABS: Tab[] = [
   "Overview",
   "Posts",
+  ...(POSTING_WORKSPACE_ENABLED ? (["Compose"] as Tab[]) : []),
   "Failed",
   "Calendar",
   ...(CONTENT_SOURCES_ENABLED ? (["Content Sources"] as Tab[]) : []),
@@ -284,6 +290,12 @@ export function Dashboard() {
       {tab === "Social Platforms" && <SocialPlatformsTab />}
 
       {tab === "Posts" && <PostsTab />}
+
+      {PostingWorkspaceTab && tab === "Compose" && (
+        <Suspense fallback={null}>
+          <PostingWorkspaceTab />
+        </Suspense>
+      )}
 
       {tab === "Failed" && <FailedTab />}
 

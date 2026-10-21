@@ -495,12 +495,21 @@ function Root() {
 // Dev server only: the billing mockup lives outside Root so it needs no session. In a production build import.meta.env.DEV is
 // false, this constant folds to null and the page module is never bundled.
 const BillingMockupPage = import.meta.env.DEV ? lazy(() => import("./pages/dev/BillingMockupPage").then((m) => ({ default: m.BillingMockupPage }))) : null;
+// Same rule for the Posting workspace preview (made-up data, nothing is sent).
+const PostingWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/PostingWorkspacePreview").then((m) => ({ default: m.PostingWorkspacePreview }))) : null;
 
 function App() {
   if (import.meta.env.DEV && BillingMockupPage && window.location.pathname === "/dev/billing-mockup") {
     return (
       <Suspense fallback={<div className="loading"><Spinner /></div>}>
         <BillingMockupPage />
+      </Suspense>
+    );
+  }
+  if (import.meta.env.DEV && PostingWorkspacePreview && window.location.pathname === "/dev/posting-workspace") {
+    return (
+      <Suspense fallback={<div className="loading"><Spinner /></div>}>
+        <PostingWorkspacePreview />
       </Suspense>
     );
   }
