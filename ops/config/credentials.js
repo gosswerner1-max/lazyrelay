@@ -45,7 +45,7 @@ function getSupabaseCredentials() {
 }
 
 /**
- * Merchant-of-Record credentials (Stripe Managed Payments — see
+ * Merchant-of-Record credentials (Paddle, see
  * backend/src/billing/types.ts for why). Returns null, not a throw, until
  * that account actually exists — Billing domain functions must check for
  * null and report "billing not live yet" rather than crash, same honesty

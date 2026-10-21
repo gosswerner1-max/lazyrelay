@@ -28,7 +28,6 @@ const SUPABASE_PLAN_PRICES_USD = {
 const FALLBACK_COSTS = [
   { provider: "Render", tier: "Standard (2GB)", monthlyCost: 25.0, notes: "Fallback figure -- live Render check failed this run." },
   { provider: "Supabase", tier: "Pro", monthlyCost: 25.0, notes: "Fallback figure -- live Supabase check failed this run." },
-  { provider: "cPanel hosting", tier: "Shared (bundled)", monthlyCost: 0.0, notes: "Bundled with The Lazy Download's existing plan -- no marginal cost." },
 ];
 
 async function getRenderCost() {
