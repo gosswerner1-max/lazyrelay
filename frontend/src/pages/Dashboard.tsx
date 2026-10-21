@@ -57,6 +57,8 @@ const CALENDAR_WORKSPACE_ENABLED = import.meta.env.VITE_CALENDAR_WORKSPACE_ENABL
 const CalendarWorkspaceTab = CALENDAR_WORKSPACE_ENABLED ? lazy(() => import("./dashboard/CalendarWorkspaceTab").then((m) => ({ default: m.CalendarWorkspaceTab }))) : null;
 const CONNECTIONS_WORKSPACE_ENABLED = import.meta.env.VITE_CONNECTIONS_WORKSPACE_ENABLED === "true";
 const ConnectionsWorkspaceTab = CONNECTIONS_WORKSPACE_ENABLED ? lazy(() => import("./dashboard/ConnectionsWorkspaceTab").then((m) => ({ default: m.ConnectionsWorkspaceTab }))) : null;
+const ACCOUNT_WORKSPACE_ENABLED = import.meta.env.VITE_ACCOUNT_WORKSPACE_ENABLED === "true";
+const AccountWorkspaceTab = ACCOUNT_WORKSPACE_ENABLED ? lazy(() => import("./dashboard/AccountWorkspaceTab").then((m) => ({ default: m.AccountWorkspaceTab }))) : null;
 const ANALYTICS_WORKSPACE_ENABLED = import.meta.env.VITE_ANALYTICS_WORKSPACE_ENABLED === "true";
 const AnalyticsWorkspaceTab = ANALYTICS_WORKSPACE_ENABLED ? lazy(() => import("./dashboard/AnalyticsWorkspaceTab").then((m) => ({ default: m.AnalyticsWorkspaceTab }))) : null;
 const BRANDS_WORKSPACE_ENABLED = import.meta.env.VITE_BRANDS_WORKSPACE_ENABLED === "true";
@@ -71,6 +73,7 @@ const MAIN_TABS: Tab[] = [
   "Calendar",
   ...(CALENDAR_WORKSPACE_ENABLED ? (["Planner"] as Tab[]) : []),
   ...(CONNECTIONS_WORKSPACE_ENABLED ? (["Connections"] as Tab[]) : []),
+  ...(ACCOUNT_WORKSPACE_ENABLED ? (["Account"] as Tab[]) : []),
   ...(ANALYTICS_WORKSPACE_ENABLED ? (["Insights"] as Tab[]) : []),
   ...(BRANDS_WORKSPACE_ENABLED ? (["Brands"] as Tab[]) : []),
   ...(FAILURES_WORKSPACE_ENABLED ? (["Failures"] as Tab[]) : []),
@@ -322,6 +325,12 @@ export function Dashboard() {
       {ConnectionsWorkspaceTab && tab === "Connections" && (
         <Suspense fallback={null}>
           <ConnectionsWorkspaceTab />
+        </Suspense>
+      )}
+
+      {AccountWorkspaceTab && tab === "Account" && (
+        <Suspense fallback={null}>
+          <AccountWorkspaceTab />
         </Suspense>
       )}
 
