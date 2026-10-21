@@ -24,13 +24,15 @@ describe("runTeardown", () => {
     const m = make();
     const out = await runTeardown(m.deps, input);
     expect(m.hold).toHaveBeenCalledWith({ accountId: ACCOUNT, action: "competitor_teardown", idempotencyKey: "teardown:click-abc123" });
-    expect(m.analyze).toHaveBeenCalledWith({ userId: "user-1", accountId: ACCOUNT, tier: "free" }, "https://rival.example");
+    // ONE engine call: the engine gives a user a 45 second cooldown shared by analyze and blueprint, so a second call would be refused
+    expect(m.analyze).not.toHaveBeenCalled();
     expect(m.blueprint).toHaveBeenCalledTimes(1);
+    expect(m.blueprint).toHaveBeenCalledWith({ userId: "user-1", accountId: ACCOUNT, tier: "free" }, "https://rival.example");
     expect(m.commit).toHaveBeenCalledWith(HOLD);
     expect(m.release).not.toHaveBeenCalled();
-    expect(out).toEqual({ status: 200, body: { analysis: { analysis: "a" }, blueprint: { blueprint: "b" }, charged: true } });
+    expect(out).toEqual({ status: 200, body: { blueprint: { blueprint: "b" }, charged: true } });
     // the engine is only reached after the hold exists
-    expect(m.hold.mock.invocationCallOrder[0]).toBeLessThan(m.analyze.mock.invocationCallOrder[0]);
+    expect(m.hold.mock.invocationCallOrder[0]).toBeLessThan(m.blueprint.mock.invocationCallOrder[0]);
   });
 
   it("releases the hold and reports the raw engine error when the engine fails, and never commits", async () => {
@@ -46,16 +48,15 @@ describe("runTeardown", () => {
 
   it("releases on a timeout too", async () => {
     const m = make();
-    m.analyze.mockRejectedValueOnce(new EngineError("timed out", { code: "timeout" }));
+    m.blueprint.mockRejectedValueOnce(new EngineError("timed out", { code: "timeout" }));
     const out = await runTeardown(m.deps, input);
     expect(m.release).toHaveBeenCalledWith(HOLD);
-    expect(m.blueprint).not.toHaveBeenCalled();
     expect(out.body).toMatchObject({ error: "engine_failed", engineCode: "timeout" });
   });
 
   it("releases and rethrows an unexpected crash so nothing is swallowed", async () => {
     const m = make();
-    m.analyze.mockRejectedValueOnce(new TypeError("boom"));
+    m.blueprint.mockRejectedValueOnce(new TypeError("boom"));
     await expect(runTeardown(m.deps, input)).rejects.toThrow("boom");
     expect(m.release).toHaveBeenCalledWith(HOLD);
   });
@@ -101,8 +102,8 @@ describe("runTeardown", () => {
     const out = await runTeardown(m.deps, input);
     expect(m.hold).not.toHaveBeenCalled();
     expect(m.commit).not.toHaveBeenCalled();
-    expect(m.analyze).toHaveBeenCalled();
-    expect(out).toEqual({ status: 200, body: { analysis: { analysis: "a" }, blueprint: { blueprint: "b" }, charged: false } });
+    expect(m.blueprint).toHaveBeenCalled();
+    expect(out).toEqual({ status: 200, body: { blueprint: { blueprint: "b" }, charged: false } });
   });
 
   it("treats an exempt hold answer the same way: engine runs, nothing to commit", async () => {

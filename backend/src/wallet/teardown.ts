@@ -5,7 +5,8 @@ import { EngineError, type EngineClient } from "./engineClient.js";
 /**
  * The competitor teardown orchestrator (10 credits, charged only when a blueprint is delivered):
  *   1. reserve a hold for the teardown, keyed by the client's Idempotency-Key (one key per confirmed click);
- *   2. call the engine (analyze, then blueprint) with a server only token;
+ *   2. call the engine's blueprint route ONCE with a server only token (the engine gives a user one 45 second cooldown shared by analyze and
+ *      blueprint, so a second call for the same user would be refused with a 429; the blueprint route does the page read itself);
  *   3. commit the hold when the blueprint arrived, release it on ANY failure, so a failure never costs credits.
  * A replay of a key never runs the engine again, so it can never charge twice. Legacy accounts skip the hold but still go through the engine.
  */
@@ -52,10 +53,8 @@ export async function runTeardown(deps: TeardownDeps, req: TeardownInput): Promi
     }
   }
 
-  let analysis: unknown;
   let blueprint: unknown;
   try {
-    analysis = await deps.engine.analyze(identity, req.input);
     blueprint = await deps.engine.blueprint(identity, req.input);
   } catch (err) {
     console.error("[wallet] teardown failed, releasing the hold:", err);
@@ -84,5 +83,5 @@ export async function runTeardown(deps: TeardownDeps, req: TeardownInput): Promi
       console.error("[wallet] teardown delivered but the commit failed (not charged, the hold will expire):", commitErr);
     }
   }
-  return { status: 200, body: { analysis, blueprint, charged } };
+  return { status: 200, body: { blueprint, charged } };
 }
