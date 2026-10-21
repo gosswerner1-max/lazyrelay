@@ -149,9 +149,8 @@ export function useDashboardState() {
   // purchased add-on slots) and the add-ons themselves, from GET /brand-addons.
   const [brandCapacity, setBrandCapacity] = useState<BrandCapacity | null>(null);
   const [seatCapacity, setSeatCapacity] = useState<SeatCapacity | null>(null);
-  const [brandAddonBusy, setBrandAddonBusy] = useState<"checkout" | string | null>(null);
-  const pendingBrandAddonRef = useRef(false);
-  const [seatAddonBusy, setSeatAddonBusy] = useState<"checkout" | string | null>(null);
+  const [brandAddonBusy, setBrandAddonBusy] = useState<string | null>(null);
+  const [seatAddonBusy, setSeatAddonBusy] = useState<string | null>(null);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const [billingBusy, setBillingBusy] = useState<"cancel" | null>(null);
@@ -885,11 +884,9 @@ export function useDashboardState() {
       token,
       environment,
       eventCallback: (event) => {
-        // checkout.completed fires the instant the card is charged. The wallet view reloads from the counter below; the
-        // brand add-on (the only add-on still sold) polls until its webhook lands.
+        // checkout.completed fires the instant the card is charged. The wallet view reloads from the counter below.
         if (event.name === "checkout.completed") {
           setCheckoutDoneCount((n) => n + 1);
-          if (pendingBrandAddonRef.current) pollUntilBrandAddonAdded();
         }
       },
     }).then(setPaddle);
@@ -953,29 +950,6 @@ export function useDashboardState() {
       cancelled = true;
     };
   }, [tiktokInfoAccountId]);
-
-  /** Same shape as pollUntilAddonAdded(), for brand add-ons. Matches on total
-   *  add-on count increasing rather than a specific size (every brand add-on
-   *  is identical — just +1 slot), unlike the gb_amount match above. */
-  async function pollUntilBrandAddonAdded() {
-    const countBefore = brandCapacity?.addonSlots ?? 0;
-    try {
-      for (let attempt = 0; attempt < 10; attempt++) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        const cap = await api.getBrandAddons();
-        if (cap.addonSlots > countBefore) {
-          setBrandCapacity(cap);
-          return;
-        }
-      }
-      // Timed out waiting on the webhook — refresh once more anyway so the
-      // capacity shown is whatever the real current state is, not stale.
-      setBrandCapacity(await api.getBrandAddons());
-    } finally {
-      setBrandAddonBusy(null);
-      pendingBrandAddonRef.current = false;
-    }
-  }
 
   // Returns an error message (or null on success) so a dialog can show it itself.
   // `quiet` keeps the error off the dashboard banner when the caller shows it.
@@ -1948,31 +1922,6 @@ export function useDashboardState() {
     }
   }
 
-  async function handleBuyBrandAddon() {
-    setBrandAddonBusy("checkout");
-    setError(null);
-    try {
-      const { transactionId, checkoutUrl } = await api.startBrandAddonCheckout();
-      if (paddle && transactionId) {
-        // Same real-checkout.completed-event pattern as handleBuyStorageAddon
-        // — polling starts from the eventCallback, not here, so it doesn't
-        // race the customer actually entering a card.
-        pendingBrandAddonRef.current = true;
-        paddle.Checkout.open({ transactionId });
-        return;
-      }
-      if (!checkoutUrl) {
-        setError("Checkout couldn't start. No checkout URL was returned.");
-        setBrandAddonBusy(null);
-        return;
-      }
-      window.location.href = checkoutUrl;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setBrandAddonBusy(null);
-    }
-  }
-
   async function handleCancelBrandAddon(id: string) {
     if (!window.confirm("Cancel this brand add-on? You'll lose the extra brand slot at the end of the billing period.")) {
       return;
@@ -2846,7 +2795,6 @@ export function useDashboardState() {
     handleCsvFile,
     handleBulkImport,
     handleCancelStorageAddon,
-    handleBuyBrandAddon,
     handleCancelBrandAddon,
     handleCancelSeatAddon,
     handleSaveBusinessName,

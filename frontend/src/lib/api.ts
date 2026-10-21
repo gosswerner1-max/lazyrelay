@@ -1393,8 +1393,6 @@ export const api = {
     authedFetch(`/storage-addons/${id}/cancel`, { method: "POST" }),
 
   getBrandAddons: (): Promise<BrandCapacity> => authedFetch("/brand-addons"),
-  startBrandAddonCheckout: (): Promise<{ transactionId: string; checkoutUrl: string | null }> =>
-    authedFetch("/brand-addons/checkout", { method: "POST" }),
   cancelBrandAddon: (id: string): Promise<{ cancelled: boolean }> =>
     authedFetch(`/brand-addons/${id}/cancel`, { method: "POST" }),
 
