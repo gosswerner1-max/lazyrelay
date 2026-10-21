@@ -176,10 +176,10 @@ export function buildApp(
         callback(new Error("Not allowed by CORS"));
       },
       // Needed so the browser will store and re-send the short-lived
-      // lr_oauth_state cookie (see routes.ts's /social-accounts/connect
-      // and /social-accounts/callback) across the cross-origin fetch calls
-      // the frontend makes here — without this, Set-Cookie on the
-      // connect-initiate response is silently dropped by the browser.
+      // lr_oauth_state cookie (see routes/socialAccounts.routes.ts's
+      // /social-accounts/connect and /social-accounts/callback) across the
+      // cross-origin fetch calls the frontend makes here -- without this,
+      // Set-Cookie on the connect-initiate response is silently dropped by the browser.
       credentials: true,
       // Lets the browser remember the preflight (OPTIONS) answer for 2 hours instead of Chrome's 5-second default,
       // so the dashboard's ~14 API calls on every reload don't each pay an extra round trip first. Only the answer
@@ -202,8 +202,8 @@ export function buildApp(
   app.use(express.json());
   app.use("/api", buildRouter(morAdapter, registry));
   // Own router, mounted separately -- see the doc comment at the top of
-  // mfaRecovery.ts for why this lives outside buildRouter()'s single
-  // 4700-line router.
+  // mfaRecovery.ts for why this is not folded into the resource routers
+  // mounted by buildRouter().
   app.use("/api", buildMfaRecoveryRouter());
 
   // Real gap found in the 2026-08-25 pre-launch audit: this used to be a

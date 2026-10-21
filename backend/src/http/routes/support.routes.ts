@@ -91,7 +91,7 @@ export function buildSupportRouter(): Router {
   // SELF_REPORTED_EMAIL and extractSelfReportedEmail live in
   // support/escalationIdentity.ts -- pure, and covered by test-support-chat.ts.
 
-  // Recognises OUR OWN contact ask (chatKnowledge.ts:177 tells the model to ask
+  // Recognises OUR OWN contact ask (chatKnowledge.ts contactCaptureLine tells the model to ask
   // for both a name and an email), so a customer's reply to it -- handover or
   // refusal -- isn't mistaken for their question. Deliberately requires the two
   // words together: a reply that merely mentions email (failure alerts, say)
@@ -250,14 +250,14 @@ export function buildSupportRouter(): Router {
         //
         // question_summary must be the customer's actual question, not the
         // forced name/email reply an anonymous visitor gives right before
-        // escalation (chatKnowledge.ts:177) -- found live 2026-08-17. For an
+        // escalation (chatKnowledge.ts contactCaptureLine) -- found live 2026-08-17. For an
         // anonymous, multi-turn escalation the last user turn is that
         // contact-details reply, so walk back one turn to the real question;
         // logged-in customers never hit the forced contact turn, so their
         // last message already is the question.
         //
         // Walking back is gated on evidence that the last turn really IS the
-        // contact-details turn, not on position alone: chatKnowledge.ts:177
+        // contact-details turn, not on position alone: chatKnowledge.ts contactCaptureLine
         // also tells the model to escalate WITHOUT capturing contact when a
         // visitor declines or just repeats themselves, and it can simply not
         // ask. There the last turn is the real question, and an unconditional

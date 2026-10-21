@@ -2,7 +2,7 @@ import "dotenv/config";
 import { supabase } from "../src/supabase.js";
 
 // Creates a confirmed test user for manual UI testing through the browser.
-// Prints credentials; does NOT clean up — call test-ui-fixture-cleanup.ts after.
+// Prints credentials; does NOT clean up -- call test-ui-cleanup.ts <id> after.
 async function main() {
   const email = `ui-test-${Date.now()}@lazyrelay.invalid`;
   const password = "ui-test-password-123";

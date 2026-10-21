@@ -1,6 +1,6 @@
 /** Manual sanity check for computeOccurrencesInWindow() — the one genuinely
  *  tricky piece of the recurring-schedules feature (DST edges, wall-clock
- *  time correctness). No DB access, pure function only. Run with:
+ *  time correctness). Most checks are pure-function; Test 6 seeds and queries the real database (needs .env). Run with:
  *    npx tsx scripts/test-recurring-scheduler.ts
  */
 import "dotenv/config";

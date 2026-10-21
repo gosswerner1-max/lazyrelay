@@ -9,12 +9,12 @@ import { recordSecurityEvent } from "./securityAlerts.js";
 // earlier optional-TOTP-MFA ship (commit f9118f4). Supabase's own MFA has no
 // backup-code mechanism, so without this, losing the authenticator app is a
 // permanent lockout at MfaChallenge.tsx. Kept as its own file rather than
-// folded into routes.ts's already-4700-line buildRouter(): this is a
+// folded into the main buildRouter(): this is a
 // distinct concern (account-recovery, not a CRUD resource) and its own
 // router keeps the one deliberately-weaker-auth endpoint in the whole API
 // (the redeem route below) easy to find and audit in isolation.
 
-// Same logging discipline as routes.ts's own dbError -- a Postgres error's
+// Same logging discipline as routes/shared.ts's own dbError -- a Postgres error's
 // raw message can name internal detail (constraint/column names) that
 // shouldn't reach the client; log the real thing, return a generic one.
 function dbError(res: Response, err: { message: string }, context: string): void {
@@ -83,7 +83,7 @@ export function buildMfaRecoveryRouter(): Router {
 
       // The only time these are ever returned in plaintext -- never stored,
       // never retrievable again, same one-time-reveal principle as a fresh
-      // API key (see POST /api-keys in routes.ts).
+      // API key (see POST /api-keys in routes/account.routes.ts).
       res.json({ codes });
     },
   );

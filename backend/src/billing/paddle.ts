@@ -17,10 +17,6 @@ import type {
   WalletPlanLifecycleEvent,
 } from "./types.js";
 
-// 2026-08-16: extended again for brand add-ons (Phase 1b, see brand_addons
-// migration 0048) — same customData.kind-branching pattern as storage
-// add-ons below, just with no size field (a brand add-on is always +1).
-
 // Real Paddle Billing adapter — see BILLING_KNOWLEDGE.md for why Paddle was
 // chosen over Stripe Managed Payments (Stripe doesn't support South Africa
 // as an account home country without a foreign entity) and over PayPal (no

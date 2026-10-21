@@ -10,8 +10,6 @@ export const MAX_FIRST_COMMENT_DELAY_MINUTES = 1440;
 /** A comment more than this long past its due time is marked failed, not posted. */
 export const FIRST_COMMENT_STALE_AFTER_MS = 24 * 60 * 60_000;
 
-export const FIRST_COMMENT_DELAY_OPTIONS = [0, 5, 15, 30, 60, 120, 360, 1440];
-
 type Result = { ok: true; value: number | null } | { ok: false; error: string };
 
 function hasComment(firstComment: unknown): boolean {

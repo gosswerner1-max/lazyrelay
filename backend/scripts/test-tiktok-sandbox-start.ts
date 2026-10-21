@@ -35,7 +35,7 @@ async function main() {
   console.log("\nOpen this URL, log in as the @lazyrelay2 Sandbox target user, and approve:\n");
   console.log(authorizeUrl);
   console.log("\nAfter approving, TikTok will redirect to the callback URL with ?code=...&state=...");
-  console.log("Copy the `code` query param value and pass it to test-tiktok-sandbox-finish.ts");
+  console.log("After approving, the callback connects the account; then run test-tiktok-sandbox-finish.ts <socialAccountId> with the new social_accounts row id.");
 }
 
 main().catch((err) => {
