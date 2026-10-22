@@ -312,8 +312,8 @@ function buildRules(): PlatformRuleSet[] {
         "mediaAltText (max 1000 chars) is sent as the alt text.",
       ],
       sources: [
-        "https://github.com/bluesky-social/atproto/blob/main/lexicons/app/bsky/feed/post.json",
-        "https://github.com/bluesky-social/atproto/blob/main/lexicons/app/bsky/embed/images.json",
+        "https://github.com/bluesky-social/atproto/blob/main/packages/api/lexicons/app/bsky/feed/post.json",
+        "https://github.com/bluesky-social/atproto/blob/main/packages/api/lexicons/app/bsky/embed/images.json",
       ],
     },
     {

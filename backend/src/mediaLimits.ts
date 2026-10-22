@@ -169,7 +169,7 @@ const RULES: Record<Platform, PlatformRules> = {
   // project-media-pipeline-video-support-2026-09-05) — this rule is ready
   // for when that gets built.
   // Image limit set to Bluesky's real figure on 2026-10-02: the
-  // app.bsky.embed.images lexicon (github.com/bluesky-social/atproto/blob/main/
+  // app.bsky.embed.images lexicon (github.com/bluesky-social/atproto/blob/main/packages/api/
   // lexicons/app/bsky/embed/images.json) says `"maxSize": 2000000` with the
   // note "May be up to 2 MB, formerly limited to 1 MB". That is 2,000,000
   // bytes, NOT 2 MiB, so it is written out in full here. The prose on
