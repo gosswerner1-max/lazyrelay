@@ -22,13 +22,13 @@ const TOUR_STEPS = [
       "Connect your accounts here. Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress, dev.to, Hashnode, Lemmy, and Slack, all in one place.",
   },
   {
-    target: '[data-tour="tab-posts"]',
+    target: '[data-tour="tab-posts"], [data-tour="tab-compose"]',
     closeButtonAction: "skip" as const,
     content:
       "Schedule a post here. Once it's due, LazyRelay's Proof-of-Publish independently checks that the post actually went live, not just that the platform's API accepted the request.",
   },
   {
-    target: '[data-tour="tab-calendar"]',
+    target: '[data-tour="tab-calendar"], [data-tour="tab-planner"]',
     closeButtonAction: "skip" as const,
     content: "Everything you've scheduled, laid out on a calendar.",
   },

@@ -137,3 +137,12 @@
   .pw-stats { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .pw-write { min-height: 220px; }
 }
+
+/* Inside the dashboard shell the older ".dashboard section" and ".dashboard section h2" rules out-rank the module rules above
+   (20px bottom margin, flat surface, small orange caps heading), which pushed the grid past one screen. Put the module look back,
+   and size the grid to what is left under the banner, header and tab row. */
+.dashboard .pw-module { margin-bottom: 0; border: 0; border-radius: 24px; background: rgba(20, 27, 45, 0.9); padding: 24px; }
+.dashboard .pw-module .pw-head h2 { margin: 0; font-size: 20px; letter-spacing: normal; text-transform: none; color: #fff; font-weight: 700; }
+@media (min-width: 1101px) {
+  .dashboard .pw-grid { height: calc(100dvh - 360px); }
+}

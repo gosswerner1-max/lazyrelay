@@ -339,7 +339,7 @@ export function StatusStackedBar({
     { key: "posted", label: "Posted", count: postedOnly, color: "#3b82f6" },
     { key: "failed", label: "Failed", count: failed, color: "#f97316" },
     { key: "pending", label: "Pending", count: pending, color: "#9ca3af" },
-    { key: "dm", label: "DMs sent", count: dmCount, color: "#8b5cf6" },
+    { key: "dm", label: "DMs sent", count: dmCount, color: "#64748b" },
     { key: "accounts", label: "Accounts connected", count: accountsConnected, color: "#0d9488" },
   ].filter((s) => s.count > 0);
 
@@ -931,7 +931,7 @@ export function OverviewPanel({
                   label="Total engagement"
                   value={platformsWithData.length > 0 ? formatCompact(totalEngagement) : "—"}
                   icon="spark"
-                  accent="#8b5cf6"
+                  accent="#0d9488"
                   onClick={onOpenTab ? () => onOpenTab("Analytics") : undefined}
                   actionLabel="Open the Analytics tab for likes, comments and shares by platform"
                 />

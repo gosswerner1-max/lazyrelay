@@ -4,16 +4,16 @@ import { useEffect, useState } from "react";
 // (as a static HTML/JS equivalent, generated from the same PULSE_ROUTES
 // shape by hand — see public/circuit-bg.js) every guide/tool page under
 // frontend/public/. See App.css for the .circuit-*, .trace, .via base
-// rules and the 4-color palette (--signal-solid orange, --confirm green,
-// --pulse-teal, --pulse-violet).
+// rules and the 3-color palette (--signal-solid orange, --confirm green,
+// --pulse-teal).
 //
 // Colors are assigned to routes via inline style, not CSS classes — a
-// prior version used .color-green/-teal/-violet classes and hit a real bug
+// prior version used .color-green/-teal classes and hit a real bug
 // (2026-08-10): those classes set `fill` unconditionally, which won a
 // source-order tiebreak against .pulse/.confirmation-ring's `fill: none`
 // and turned every colored pulse into a solid filled triangle at each
 // sharp turn. Inline styles can't have that class-ordering problem.
-const PULSE_COLORS = ["var(--signal-solid)", "var(--confirm)", "var(--pulse-teal)", "var(--pulse-violet)"];
+const PULSE_COLORS = ["var(--signal-solid)", "var(--confirm)", "var(--pulse-teal)"];
 
 // 16 routes across the 32 static traces (was 8 — Werner's 2026-08-10
 // feedback: some traces never had anything moving on them). 4 are
