@@ -321,7 +321,7 @@ export function Login({ initialMode = "signin", onBack, onForgotPassword, onPriv
           </button>
         </div>
       )}
-      <button className="link" onClick={onBack}>
+      <button className="link auth-back-link" onClick={onBack}>
         &larr; Back to home
       </button>
     </div>

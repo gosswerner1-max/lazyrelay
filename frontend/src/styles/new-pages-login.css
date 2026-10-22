@@ -276,3 +276,18 @@
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
   }
 }
+
+/* Desktop (1024px wide, 640px tall or more): the page fits one screen with no scrollbar and "Back to home" docks at the bottom centre. Shorter windows keep the normal scrolling layout so the form is never cut off. */
+@media (min-width: 1024px) and (min-height: 640px) {
+  .auth-page--glass {
+    height: 100svh;
+    overflow: hidden;
+  }
+  .auth-page--glass > button.auth-back-link {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 0 !important;
+  }
+}
