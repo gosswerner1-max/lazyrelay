@@ -510,6 +510,7 @@ const PostingWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages
 const CalendarWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/CalendarWorkspacePreview").then((m) => ({ default: m.CalendarWorkspacePreview }))) : null;
 const ConnectionsWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/ConnectionsWorkspacePreview").then((m) => ({ default: m.ConnectionsWorkspacePreview }))) : null;
 const BrandsWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/BrandsWorkspacePreview").then((m) => ({ default: m.BrandsWorkspacePreview }))) : null;
+const OverviewWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/OverviewWorkspacePreview").then((m) => ({ default: m.OverviewWorkspacePreview }))) : null;
 const FailuresWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/FailuresWorkspacePreview").then((m) => ({ default: m.FailuresWorkspacePreview }))) : null;
 const AnalyticsWorkspacePreview = import.meta.env.DEV ? lazy(() => import("./pages/dev/AnalyticsWorkspacePreview").then((m) => ({ default: m.AnalyticsWorkspacePreview }))) : null;
 
@@ -546,6 +547,13 @@ function App() {
     return (
       <Suspense fallback={<div className="loading"><Spinner /></div>}>
         <BrandsWorkspacePreview />
+      </Suspense>
+    );
+  }
+  if (import.meta.env.DEV && OverviewWorkspacePreview && window.location.pathname === "/dev/overview-workspace") {
+    return (
+      <Suspense fallback={<div className="loading"><Spinner /></div>}>
+        <OverviewWorkspacePreview />
       </Suspense>
     );
   }

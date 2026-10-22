@@ -32,6 +32,7 @@ import { MentionsTab } from "./dashboard/MentionsTab";
 import { DmsTab } from "./dashboard/DmsTab";
 import { BioPageTab } from "./dashboard/BioPageTab";
 import { OverviewTab } from "./dashboard/OverviewTab";
+import { OverviewWorkspaceTab } from "./dashboard/OverviewWorkspaceTab";
 import { SocialPlatformsTab } from "./dashboard/SocialPlatformsTab";
 import { PostsTab } from "./dashboard/PostsTab";
 import { FailedTab } from "./dashboard/FailedTab";
@@ -170,6 +171,7 @@ export function Dashboard() {
   // The original pages (Overview, Posts, the admin tabs) keep their layout and take the Midnight Canvas look through .legacy-look.
   const showsNewPage =
     ["Compose", "Insights", "Connections", "Brands"].includes(view) ||
+    (view === "Overview" && newViewsOn) ||
     (view === "Failed" && !!FailuresWorkspaceTab) ||
     (view === "Calendar" && !!CalendarWorkspaceTab) ||
     (view === "Settings" && !!AccountWorkspaceTab);
@@ -324,7 +326,7 @@ export function Dashboard() {
 
       {view === "Bio Page" && <BioPageTab />}
 
-      {view === "Overview" && <OverviewTab />}
+      {view === "Overview" && (newViewsOn ? <OverviewWorkspaceTab /> : <OverviewTab />)}
 
       {view === "Social Platforms" && (
         <>
