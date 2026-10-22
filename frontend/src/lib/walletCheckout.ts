@@ -3,6 +3,7 @@
 // turned into plain words here, and the raw error is kept on the result and never shown.
 
 import { authedFetch } from "./api";
+import { getStoredReferralCode } from "./referral";
 import type { Fetcher } from "./walletApi";
 import { CHECKOUT_OFF, CHECKOUT_SIGN_IN, CHECKOUT_TRY_AGAIN, REFUSAL_WORDS } from "./walletWords";
 
@@ -23,10 +24,12 @@ function refusalFor(cause: unknown): CheckoutResult {
   return { ok: false, message: CHECKOUT_TRY_AGAIN, cause };
 }
 
-export async function startCheckout(sku: string, fetcher: Fetcher = authedFetch): Promise<CheckoutResult> {
+export async function startCheckout(sku: string, fetcher: Fetcher = authedFetch, readPartnerCode: () => string | null = getStoredReferralCode): Promise<CheckoutResult> {
   let body: unknown;
+  // The partner code (captured from a ?ref= link) rides along so the sale can be credited. The server checks it and ignores a bad one.
+  const partnerCode = readPartnerCode();
   try {
-    body = await fetcher("/wallet/checkout-intent", { method: "POST", body: JSON.stringify({ sku }) });
+    body = await fetcher("/wallet/checkout-intent", { method: "POST", body: JSON.stringify(partnerCode ? { sku, partnerCode } : { sku }) });
   } catch (cause) {
     return refusalFor(cause);
   }

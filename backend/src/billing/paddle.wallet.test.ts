@@ -105,3 +105,22 @@ describe("everything else is unchanged", () => {
     warn.mockRestore();
   });
 });
+
+describe("partner code on wallet payments (affiliate attribution)", () => {
+  it("a pack carries customData.partnerCode onto the wallet_pack event", async () => {
+    const ev: any = await parse(adapter(), "transaction.completed", transactionData({ priceId: FAKE_PRICES.starterPack, customData: { account_id: ACCOUNT_ID, sku: SKU.starterPack, partnerCode: "sarah" } }));
+    expect(ev).toMatchObject({ kind: "wallet_pack", partnerCode: "sarah" });
+  });
+
+  it("a plan payment carries customData.partnerCode onto the wallet_plan payment event", async () => {
+    const ev: any = await parse(adapter(), "transaction.completed", transactionData({ id: "txn_fake_2", priceId: FAKE_PRICES.growthPlan, subscriptionId: "sub_fake_1", billingPeriod: { starts_at: PERIOD_START, ends_at: PERIOD_END }, customData: { account_id: ACCOUNT_ID, partnerCode: "sarah" } }));
+    expect(ev).toMatchObject({ kind: "wallet_plan", phase: "payment", partnerCode: "sarah" });
+  });
+
+  it("no code, or a non text code, leaves partnerCode undefined", async () => {
+    const a: any = await parse(adapter(), "transaction.completed", transactionData({ priceId: FAKE_PRICES.starterPack }));
+    const b: any = await parse(adapter(), "transaction.completed", transactionData({ priceId: FAKE_PRICES.starterPack, customData: { account_id: ACCOUNT_ID, partnerCode: 7 } }));
+    expect(a.partnerCode).toBeUndefined();
+    expect(b.partnerCode).toBeUndefined();
+  });
+});

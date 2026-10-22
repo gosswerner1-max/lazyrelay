@@ -46,7 +46,8 @@ function stubs() {
     readPacks: vi.fn(async () => [
       { sku: SKU.starterPack, name: "LazyCredits Starter Pack", kind: "pack", price_cents: 1500, credits: 300, expires: false, interval: "one_time", requires_plan: null, active: true },
     ]),
-    checkout: { createCheckout: vi.fn(async (accountId: string, sku: string) => ({ checkoutId: `txn_${accountId}_${sku}` })) },
+    checkout: { createCheckout: vi.fn(async (accountId: string, sku: string, _opts?: { partnerCode?: string }) => ({ checkoutId: `txn_${accountId}_${sku}` })) },
+    resolvePartnerCode: vi.fn(async (code: unknown) => (code === "sarah" ? "Sarah" : null)),
   };
 }
 type Stubs = ReturnType<typeof stubs>;
@@ -235,6 +236,35 @@ describe("POST /wallet/checkout-intent", () => {
     auth.role = "member";
     expect((await post({ sku: SKU.starterPack })).status).toBe(403);
     expect(s.checkout.createCheckout).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /wallet/checkout-intent with a partner code (affiliate attribution)", () => {
+  const post = (body: unknown) => request(mount(s)).post("/wallet/checkout-intent").send(body as object);
+
+  it("passes the approved partner's real code to the checkout port", async () => {
+    const res = await post({ sku: SKU.starterPack, partnerCode: "sarah" });
+    expect(res.status).toBe(200);
+    expect(s.resolvePartnerCode).toHaveBeenCalledWith("sarah");
+    expect(s.checkout.createCheckout).toHaveBeenCalledWith("acc-1", SKU.starterPack, { partnerCode: "Sarah" });
+  });
+
+  it("an unknown code is dropped quietly: the checkout is created exactly as before", async () => {
+    const res = await post({ sku: SKU.starterPack, partnerCode: "nobody" });
+    expect(res.status).toBe(200);
+    expect(s.checkout.createCheckout).toHaveBeenCalledWith("acc-1", SKU.starterPack);
+  });
+
+  it("a failing code lookup never fails the checkout", async () => {
+    s.resolvePartnerCode.mockRejectedValueOnce(new Error("db down"));
+    const res = await post({ sku: SKU.starterPack, partnerCode: "sarah" });
+    expect(res.status).toBe(200);
+    expect(s.checkout.createCheckout).toHaveBeenCalledWith("acc-1", SKU.starterPack);
+  });
+
+  it("no code in the body means no lookup at all", async () => {
+    await post({ sku: SKU.starterPack });
+    expect(s.resolvePartnerCode).not.toHaveBeenCalled();
   });
 });
 

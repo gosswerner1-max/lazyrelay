@@ -32,6 +32,7 @@ import { buildAdminRouter } from "./routes/admin.routes.js";
 import { buildContentSourcesRouter } from "./routes/contentSources.routes.js";
 import { buildMigrateCsvRouter } from "./routes/migrateCsv.routes.js";
 import { buildWalletRouter } from "./routes/wallet.routes.js";
+import { buildReferralClaimRouter } from "./routes/referralClaim.routes.js";
 import { buildTrackedLinksRouter } from "./routes/trackedLinks.routes.js";
 
 // Every /api route used to live inline in this one file's buildRouter() —
@@ -77,6 +78,7 @@ export function buildRouter(morAdapter: MerchantOfRecordAdapter, registry: Platf
   router.use(buildContentSourcesRouter());
   router.use(buildMigrateCsvRouter());
   router.use("/wallet", buildWalletRouter());
+  router.use("/referral", buildReferralClaimRouter());
   router.use(buildTrackedLinksRouter());
   return router;
 }

@@ -14,6 +14,7 @@ import { resolveTier, type Tier } from "../../tier.js";
 import { walletEnabled } from "../../wallet/flags.js";
 import { buildCatalogView, buildCheckoutIntent, type PackRow } from "../../wallet/checkout.js";
 import { getCheckoutPort, type CheckoutPort } from "../../wallet/checkoutPort.js";
+import { resolveApprovedPartnerCode } from "../../billing/partnerCode.js";
 import { createEngineClient } from "../../wallet/engineClient.js";
 import { createWalletLedger } from "../../wallet/ledger.js";
 import { isLegacyAccount } from "../../wallet/legacy.js";
@@ -33,6 +34,8 @@ export interface WalletRouterDeps {
   readPacks?: () => Promise<PackRow[]>;
   /** Pass null to say "no checkout is wired". Left out, the port package C registered is used. */
   checkout?: CheckoutPort | null;
+  /** Affiliate code check for the checkout. Returns the approved partner's real code or null; may throw (treated as no code). */
+  resolvePartnerCode?: (code: unknown) => Promise<string | null>;
 }
 
 /** True when the account's subscription is scheduled to end at the period end (subscriptions.cancel_at_period_end, kept by billing sync). */
@@ -65,6 +68,7 @@ export function buildWalletRouter(deps: WalletRouterDeps = {}): Router {
   const readPacks = deps.readPacks ?? readPacksFromDatabase;
   const isLegacy = deps.isLegacy ?? isLegacyAccount;
   const isCancelPending = deps.isCancelPending ?? readCancelPending;
+  const resolvePartnerCode = deps.resolvePartnerCode ?? resolveApprovedPartnerCode;
   const checkoutPort = () => ("checkout" in deps ? deps.checkout ?? null : getCheckoutPort());
 
   // Switched off: hand the request to whatever comes after this router, which has no such route.
@@ -92,7 +96,8 @@ export function buildWalletRouter(deps: WalletRouterDeps = {}): Router {
   router.post("/checkout-intent", requireAuth, requireHumanAuth, requireOwner, tieredRateLimit, async (req: AuthedRequest, res) => {
     try {
       const accountId = req.accountId as string;
-      const built = buildCheckoutIntent((req.body as { sku?: unknown } | undefined)?.sku, await getTier(accountId));
+      const body = req.body as { sku?: unknown; partnerCode?: unknown } | undefined;
+      const built = buildCheckoutIntent(body?.sku, await getTier(accountId));
       if (!built.ok) {
         const { status, ...body } = built;
         res.status(status).json(body);
@@ -103,7 +108,17 @@ export function buildWalletRouter(deps: WalletRouterDeps = {}): Router {
         res.status(503).json({ error: "checkout_not_available" });
         return;
       }
-      res.json({ intent: built.intent, checkout: await port.createCheckout(accountId, built.intent.sku) });
+      // An affiliate code that is unknown, paused or cannot be checked is dropped quietly: it must never stop a purchase.
+      let partnerCode: string | null = null;
+      if (body?.partnerCode !== undefined) {
+        try {
+          partnerCode = await resolvePartnerCode(body.partnerCode);
+        } catch (err) {
+          console.error("[wallet] partner code check failed, continuing without it:", err);
+        }
+      }
+      const checkout = partnerCode ? await port.createCheckout(accountId, built.intent.sku, { partnerCode }) : await port.createCheckout(accountId, built.intent.sku);
+      res.json({ intent: built.intent, checkout });
     } catch (err) {
       unavailable(res, "checkout intent", err);
     }

@@ -58,7 +58,7 @@ export function Partners({ onBack }: PartnersProps) {
               <p className="pricing-note">Your audience gets a discount too</p>
               <ul>
                 <li>Your referral code also gives your audience 10% off their first 3 months</li>
-                <li>You earn 20% of what they pay, for 12 months</li>
+                <li>You earn 20% of what they pay (before tax), for 6 months from their first purchase</li>
                 <li>Good fit if the discount itself helps you convert your audience</li>
               </ul>
             </div>
@@ -69,12 +69,18 @@ export function Partners({ onBack }: PartnersProps) {
               <p className="pricing-note">No discount, higher commission</p>
               <ul>
                 <li>No discount for your audience</li>
-                <li>You earn 30% for the first 3 months, then 20% for the next 9</li>
+                <li>You earn 30% for the first 3 months, then 20% for the next 3 (before tax, from their first purchase)</li>
                 <li>Good fit if your audience doesn't need a discount to convert</li>
               </ul>
             </div>
           </div>
         </div>
+
+        <p className="section-note">
+          Commission is paid on what your customer pays us, before tax, for 6 months from their first paid purchase. If their
+          subscription is cancelled before the 6 months are over, commission on that subscription stops when it is cancelled.
+          Refunded amounts earn nothing.
+        </p>
 
         <h2>How it works</h2>
         <div className="landing-steps">

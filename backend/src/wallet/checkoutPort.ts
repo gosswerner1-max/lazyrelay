@@ -4,7 +4,8 @@
  * in account) and registers it with setCheckoutPort. Until then the checkout route answers 503 checkout_not_available.
  */
 export interface CheckoutPort {
-  createCheckout(accountId: string, sku: string): Promise<unknown>;
+  /** opts.partnerCode is an already validated affiliate code; it rides in the transaction's custom data so the webhook can attribute the sale. */
+  createCheckout(accountId: string, sku: string, opts?: { partnerCode?: string }): Promise<unknown>;
 }
 
 let registered: CheckoutPort | null = null;

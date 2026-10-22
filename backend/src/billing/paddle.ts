@@ -296,6 +296,12 @@ function walletAccountId(customData: Record<string, unknown>): string | undefine
   return typeof id === "string" && id ? id : undefined;
 }
 
+/** The affiliate code the server put in a wallet transaction's custom data, if any (billing/checkout.ts). Text only. */
+function walletPartnerCode(customData: Record<string, unknown>): string | undefined {
+  const code = customData.partnerCode;
+  return typeof code === "string" && code ? code : undefined;
+}
+
 function priceIdsOf(items: TransactionLike["items"] | SubscriptionLike["items"]): string[] {
   return (items ?? []).map((item) => item?.price?.id).filter((id): id is string => typeof id === "string" && id.length > 0);
 }
@@ -305,6 +311,7 @@ function buildWalletTransactionEvent(txn: TransactionLike, eventId: string, occu
   const sku = skuForPriceIds(priceIdsOf(txn.items), env);
   if (!sku) return null;
   const accountId = walletAccountId(txn.customData ?? {});
+  const partnerCode = walletPartnerCode(txn.customData ?? {});
   let sale: SaleRecordEvent | undefined;
   try {
     sale = buildSaleRecordEvent(txn, true);
@@ -313,7 +320,7 @@ function buildWalletTransactionEvent(txn: TransactionLike, eventId: string, occu
     console.error(`[paddle] wallet transaction ${txn.id}: no sale record built:`, err);
   }
   if (CATALOG[sku].kind === "pack") {
-    return { kind: "wallet_pack", eventId, sku, accountId, paddleTransactionId: txn.id, occurredAt: txn.billedAt ?? occurredAt, sale };
+    return { kind: "wallet_pack", eventId, sku, accountId, paddleTransactionId: txn.id, occurredAt: txn.billedAt ?? occurredAt, sale, ...(partnerCode ? { partnerCode } : {}) };
   }
   return {
     kind: "wallet_plan",
@@ -326,6 +333,7 @@ function buildWalletTransactionEvent(txn: TransactionLike, eventId: string, occu
     periodEnd: txn.billingPeriod?.endsAt,
     occurredAt: txn.billedAt ?? occurredAt,
     sale,
+    ...(partnerCode ? { partnerCode } : {}),
   };
 }
 

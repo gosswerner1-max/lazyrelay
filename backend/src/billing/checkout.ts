@@ -58,7 +58,7 @@ export function createPaddleCheckoutPort(opts: { apiKey: string | undefined; htt
   }
 
   return {
-    async createCheckout(accountId, sku) {
+    async createCheckout(accountId, sku, checkoutOpts) {
       if (!isSku(sku)) throw new Error(`unknown sku "${String(sku)}"`);
       if (typeof accountId !== "string" || !UUID.test(accountId)) throw new Error("the account id is not valid");
       const priceId = priceIdForSku(sku, env);
@@ -74,7 +74,7 @@ export function createPaddleCheckoutPort(opts: { apiKey: string | undefined; htt
         body: JSON.stringify({
           items: [{ price_id: priceId, quantity: 1 }],
           ...(customerId ? { customer_id: customerId } : {}),
-          custom_data: { account_id: accountId, sku },
+          custom_data: { account_id: accountId, sku, ...(checkoutOpts?.partnerCode ? { partnerCode: checkoutOpts.partnerCode } : {}) },
           checkout: { url: RETURN_URL },
         }),
       });

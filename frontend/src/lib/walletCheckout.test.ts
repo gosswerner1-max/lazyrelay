@@ -17,6 +17,18 @@ describe("startCheckout", () => {
     expect(result).toEqual({ ok: true, transactionId: "txn_1", checkoutUrl: "https://pay.example/txn_1", sku: "pack_small" });
   });
 
+  it("sends the stored partner code with the sku so the sale can be credited to the partner", async () => {
+    const fetcher = vi.fn(async () => ({ transactionId: "txn_1", checkoutUrl: "https://pay.example/txn_1", sku: "pack_small" }));
+    await startCheckout("pack_small", fetcher, () => "sarah");
+    expect(fetcher).toHaveBeenCalledWith("/wallet/checkout-intent", { method: "POST", body: JSON.stringify({ sku: "pack_small", partnerCode: "sarah" }) });
+  });
+
+  it("sends no partnerCode field when there is no stored code", async () => {
+    const fetcher = vi.fn(async () => ({ transactionId: "txn_1", checkoutUrl: "https://pay.example/txn_1", sku: "pack_small" }));
+    await startCheckout("pack_small", fetcher, () => null);
+    expect(fetcher).toHaveBeenCalledWith("/wallet/checkout-intent", { method: "POST", body: JSON.stringify({ sku: "pack_small" }) });
+  });
+
   it.each([
     ["needs_pro", 403, "The Pro top-up is only for active Pro plan subscribers."],
     ["legacy_account", 409, "Credit purchases are not available on your current account type."],

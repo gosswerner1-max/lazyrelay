@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
-import { readChannelParam, reportReferralClick } from "./referral";
+import { captureReferralCode, claimStoredReferral, readChannelParam, reportReferralClick } from "./referral";
 
 describe("readChannelParam", () => {
   it("reads utm_content when it is a safe short word", () => {
@@ -49,5 +49,41 @@ describe("reportReferralClick", () => {
     fetchMock.mockRejectedValue(new Error("offline"));
     expect(() => reportReferralClick("sarah", null)).not.toThrow();
     await Promise.resolve();
+  });
+});
+
+describe("claimStoredReferral (keeps the code for a Google sign in)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  it("posts the stored code to /referral/claim", async () => {
+    captureReferralCode("sarah");
+    const fetcher = vi.fn(async () => ({ claimed: true }));
+    await claimStoredReferral(fetcher);
+    expect(fetcher).toHaveBeenCalledWith("/referral/claim", { method: "POST", body: JSON.stringify({ code: "sarah" }) });
+  });
+
+  it("does nothing when no code is stored", async () => {
+    const fetcher = vi.fn(async () => ({ claimed: false }));
+    await claimStoredReferral(fetcher);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("asks the server once per browser session for the same code", async () => {
+    captureReferralCode("sarah");
+    const fetcher = vi.fn(async () => ({ claimed: false }));
+    await claimStoredReferral(fetcher);
+    await claimStoredReferral(fetcher);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed call is swallowed (it must never break sign in) and is tried again next time", async () => {
+    captureReferralCode("sarah");
+    const fetcher = vi.fn().mockRejectedValueOnce(new Error("network")).mockResolvedValueOnce({ claimed: true });
+    await expect(claimStoredReferral(fetcher)).resolves.toBeUndefined();
+    await claimStoredReferral(fetcher);
+    expect(fetcher).toHaveBeenCalledTimes(2);
   });
 });

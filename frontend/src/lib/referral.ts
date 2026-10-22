@@ -88,3 +88,29 @@ export function reportReferralClick(refCode: string | null, channel: string | nu
     // ignore
   }
 }
+
+const CLAIM_SESSION_KEY = "lazyrelay_ref_claimed";
+
+/** Keeps the stored partner code for a person who signed in with Google (2026-10-22). Email signups put the code in the signup
+ *  metadata, but Google's sign in carries none, so after the sign in this hands the code to the server once, which sets it on the
+ *  account only when the account has no code yet. Once per browser session per code (remembered in sessionStorage, not a cookie).
+ *  Never throws: losing the code must never break signing in, and a failed call is tried again next time. */
+export async function claimStoredReferral(fetcher: (path: string, options?: RequestInit) => Promise<unknown>): Promise<void> {
+  const code = getStoredReferralCode();
+  if (!code) return;
+  try {
+    if (sessionStorage.getItem(CLAIM_SESSION_KEY) === code) return;
+  } catch {
+    // sessionStorage unavailable: ask anyway (the server never overwrites a code, so a repeat is harmless).
+  }
+  try {
+    await fetcher("/referral/claim", { method: "POST", body: JSON.stringify({ code }) });
+    try {
+      sessionStorage.setItem(CLAIM_SESSION_KEY, code);
+    } catch {
+      // ignore
+    }
+  } catch {
+    // Not fatal; the next sign in or page load tries again.
+  }
+}

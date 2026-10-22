@@ -150,3 +150,17 @@ describe("createCheckout with a known account email", () => {
     await expect(withEmail(http).createCheckout(ACCOUNT_ID, SKU.starterPack)).rejects.toThrow(/customer id/);
   });
 });
+
+describe("createCheckout with a partner code (affiliate attribution)", () => {
+  it("puts partnerCode into the transaction custom data next to account_id and sku", async () => {
+    const http = client({ body: created });
+    await port(http).createCheckout(ACCOUNT_ID, SKU.starterPack, { partnerCode: "sarah" });
+    expect(JSON.parse(http.mock.calls[0][1].body).custom_data).toEqual({ account_id: ACCOUNT_ID, sku: SKU.starterPack, partnerCode: "sarah" });
+  });
+
+  it("leaves custom data exactly as before when there is no partner code", async () => {
+    const http = client({ body: created });
+    await port(http).createCheckout(ACCOUNT_ID, SKU.starterPack, {});
+    expect(JSON.parse(http.mock.calls[0][1].body).custom_data).toEqual({ account_id: ACCOUNT_ID, sku: SKU.starterPack });
+  });
+});
