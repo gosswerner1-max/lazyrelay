@@ -23,32 +23,14 @@
     rv.forEach(function (e) { io.observe(e); });
   }
 
-  // Cursor glow, specular sheen and 3D tilt share one pointer reading, so light and lean always agree.
+  // 3D tilt only. No glow, sheen or orb follows the pointer (Werner, 2026-10-22).
   if (fine && !reduce) {
-    var orb = document.createElement('div');
-    orb.className = 'orb';
-    orb.setAttribute('aria-hidden', 'true');
-    document.body.insertBefore(orb, document.body.firstChild);
-    var tx = -999, ty = -999, cx = -999, cy = -999, run = 0;
-    function tick() {
-      cx += (tx - cx) * 0.14; cy += (ty - cy) * 0.14;
-      orb.style.transform = 'translate3d(' + cx.toFixed(1) + 'px,' + cy.toFixed(1) + 'px,0)';
-      run = (Math.abs(tx - cx) + Math.abs(ty - cy) > 0.5) ? requestAnimationFrame(tick) : 0;
-    }
-    window.addEventListener('pointermove', function (e) {
-      tx = e.clientX; ty = e.clientY;
-      if (cx === -999) { cx = tx; cy = ty; }
-      if (!run) run = requestAnimationFrame(tick);
-    }, { passive: true });
-
     [].slice.call(document.querySelectorAll('.g, .rp, .glass')).forEach(function (t) {
       var tiltable = (t.classList.contains('g') || t.classList.contains('rp')) && !t.classList.contains('notilt');
-      if (!t.querySelector('.glow')) { var s = document.createElement('span'); s.className = 'glow'; s.setAttribute('aria-hidden', 'true'); t.insertBefore(s, t.firstChild); }
       var raf = 0, px = 0, py = 0, w = 1, h = 1;
       t.addEventListener('pointermove', function (e) {
         var r = t.getBoundingClientRect(); w = r.width; h = r.height;
         px = e.clientX - r.left; py = e.clientY - r.top;
-        t.classList.add('lit');
         if (tiltable) t.classList.add('tilting');
         if (!raf) raf = requestAnimationFrame(function () {
           t.style.setProperty('--gx', px.toFixed(0) + 'px'); t.style.setProperty('--gy', py.toFixed(0) + 'px');
@@ -62,7 +44,7 @@
         });
       });
       t.addEventListener('pointerleave', function () {
-        t.classList.remove('lit', 'tilting');
+        t.classList.remove('tilting');
         t.style.setProperty('--rx', '0deg'); t.style.setProperty('--ry', '0deg');
       });
     });
@@ -261,33 +243,16 @@
         d = Math.sqrt(dx * dx + dy * dy);
         if (d >= LINK) continue;
         al = (1 - d / LINK) * 0.34;
-        if (mouse.on) { // links brighten near the cursor
-          var mx = (a.x + b.x) / 2 - mouse.x, my = (a.y + b.y) / 2 - mouse.y, md = Math.sqrt(mx * mx + my * my);
-          if (md < REACH) al += (1 - md / REACH) * 0.5;
-        }
         ctx.strokeStyle = 'rgba(' + ((a.hot && b.hot) ? ORANGE : TEAL_TINT) + ',' + al.toFixed(3) + ')';
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
       }
     }
-    // cursor to node links, then the nodes themselves
-    if (mouse.on) {
-      for (i = 0; i < nodes.length; i++) {
-        a = nodes[i]; dx = mouse.x - a.x; dy = mouse.y - a.y; d = Math.sqrt(dx * dx + dy * dy);
-        if (d < REACH) {
-          ctx.strokeStyle = 'rgba(' + ORANGE + ',' + ((1 - d / REACH) * 0.75).toFixed(3) + ')';
-          ctx.beginPath(); ctx.moveTo(mouse.x, mouse.y); ctx.lineTo(a.x, a.y); ctx.stroke();
-        }
-      }
-    }
+    // the nodes themselves
     for (i = 0; i < nodes.length; i++) {
       a = nodes[i];
       var pulse = 0.7 + 0.3 * Math.sin(tt * 1.3 + a.ph);
       ctx.fillStyle = 'rgba(' + (a.hot ? ORANGE : TEAL_TINT) + ',' + (0.95 * pulse).toFixed(3) + ')';
       ctx.beginPath(); ctx.arc(a.x, a.y, a.r, 0, 6.2832); ctx.fill();
-    }
-    if (mouse.on) { // small reticle at the cursor, the point the field gathers around
-      ctx.strokeStyle = 'rgba(' + ORANGE + ',0.55)'; ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 7, 0, 6.2832); ctx.stroke();
-      ctx.fillStyle = 'rgba(' + ORANGE + ',0.9)'; ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 2, 0, 6.2832); ctx.fill();
     }
     raf = reduce ? 0 : requestAnimationFrame(frame);
   }
