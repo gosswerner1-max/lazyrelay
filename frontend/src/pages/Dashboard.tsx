@@ -20,6 +20,7 @@ import { MastodonServerModal } from "../components/MastodonServerModal";
 import { WhopConnectModal } from "../components/WhopConnectModal";
 import { describePlatformLimit } from "../lib/platformLimit";
 import { useNoindex } from "../lib/useCanonical";
+import "../components/dashboard/WorkspaceShell.css";
 import { type Tab, moreTabsFor, splitDashboardTabs, bannerPlanName } from "./dashboard/dashboardHelpers";
 import { useWhatsAppBroadcasts } from "./dashboard/useWhatsAppBroadcasts";
 import { WhatsAppTab } from "./dashboard/WhatsAppTab";
@@ -238,6 +239,7 @@ export function Dashboard() {
         ))}
         <div className="tab-more" ref={moreMenuRef}>
           <button
+            data-tour="tab-more"
             className={moreTabs.includes(tab) ? "tab-active" : ""}
             onClick={() => setMoreMenuOpen((v) => !v)}
           >

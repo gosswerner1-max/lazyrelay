@@ -16,7 +16,7 @@ const TOUR_STEPS = [
     content: "Welcome to LazyRelay. Here's where everything lives, in under a minute.",
   },
   {
-    target: '[data-tour="tab-social-platforms"]',
+    target: '[data-tour="tab-social-platforms"], [data-tour="tab-connections"]',
     closeButtonAction: "skip" as const,
     content:
       "Connect your accounts here. Facebook, Instagram, TikTok, Pinterest, YouTube, LinkedIn, Threads, Mastodon, Bluesky, Telegram, Discord, Tumblr, WordPress, dev.to, Hashnode, Lemmy, and Slack, all in one place.",
@@ -33,13 +33,13 @@ const TOUR_STEPS = [
     content: "Everything you've scheduled, laid out on a calendar.",
   },
   {
-    target: '[data-tour="tab-api-keys"]',
+    target: '[data-tour="tab-api-keys"], [data-tour="tab-more"]',
     closeButtonAction: "skip" as const,
     content:
       "Generate an API key here to automate scheduling through LazyRelay's REST API or MCP server — available on every plan, including free.",
   },
   {
-    target: '[data-tour="tab-settings"]',
+    target: '[data-tour="tab-settings"], [data-tour="tab-account"]',
     closeButtonAction: "skip" as const,
     content: "Manage billing, storage, and your account here. Replay this tour anytime from the Account section.",
   },

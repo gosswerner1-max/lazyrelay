@@ -125,10 +125,9 @@ export function AnalyticsWorkspace({ rangeDays, onRangeChange, brands, brand, on
             </div>
           </div>
           {view === "trend" ? (
-            seriesTotal === 0 ? (
-              <p className="an-empty">No published posts in this range yet. Your daily line appears here after the first post goes live.</p>
-            ) : (
-              <div className="an-chart" role="img" aria-label={trendLabel}>
+            (
+              <div className={seriesTotal === 0 ? "an-chart an-chart--empty" : "an-chart"} role="img" aria-label={trendLabel}>
+                {seriesTotal === 0 && <p className="an-empty">No published posts in this range yet. Your daily line appears here after the first post goes live.</p>}
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={series} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
                     <defs>

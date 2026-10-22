@@ -25,13 +25,14 @@ export type Tab = (typeof TABS)[number];
 export function moreTabsFor(whatsappBroadcasts: boolean): Tab[] {
   return ["Analytics", "Mentions", "DMs", "Bio Page", ...(whatsappBroadcasts ? (["WhatsApp"] as Tab[]) : [])];
 }
-// The four original views the new workspace tabs replace. When any new tab is on they sit behind "More", so the bar is one row.
-const SUPERSEDED_VIEW_TABS: readonly Tab[] = ["Overview", "Posts", "Failed", "Calendar"];
+// The seven new workspace views are the only tabs on the bar. Every other tab (the four original views, Content Sources,
+// Social Platforms, API Keys, Settings) goes behind "More", so the bar is one short row.
+const WORKSPACE_BAR_TABS: readonly Tab[] = ["Compose", "Planner", "Insights", "Connections", "Brands", "Failures", "Account"];
 export function splitDashboardTabs(mainTabs: Tab[], moreTabs: Tab[], newViewsOn: boolean): { bar: Tab[]; more: Tab[] } {
   if (!newViewsOn) return { bar: mainTabs, more: moreTabs };
   return {
-    bar: mainTabs.filter((t) => !SUPERSEDED_VIEW_TABS.includes(t)),
-    more: [...mainTabs.filter((t) => SUPERSEDED_VIEW_TABS.includes(t)), ...moreTabs],
+    bar: mainTabs.filter((t) => WORKSPACE_BAR_TABS.includes(t)),
+    more: [...mainTabs.filter((t) => !WORKSPACE_BAR_TABS.includes(t)), ...moreTabs],
   };
 }
 
