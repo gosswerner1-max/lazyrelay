@@ -110,3 +110,20 @@
 .legacy-look .post-date-group summary { padding: 14px 0; color: #fff; }
 .legacy-look .section-note { line-height: 1.5; }
 @media (prefers-reduced-motion: reduce) { .legacy-look .post-list li, .legacy-look .account-picker-group-header { transition: none; } }
+
+/* Compact: tighter panels, a shorter account list, and each post as one row (text clamped to two lines, status and buttons on the right). */
+.dashboard .legacy-look section { padding: 20px; margin-bottom: 16px; }
+.legacy-look .account-picker-groups { max-height: 168px; }
+.legacy-look .post-list { gap: 6px; margin-bottom: 10px; }
+.legacy-look .post-list li { display: flex; align-items: center; gap: 12px; padding: 10px 14px; flex-wrap: nowrap; }
+.legacy-look .post-content { flex: 1 1 auto; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 14px; line-height: 1.4; }
+.legacy-look .post-meta { flex: none; font-size: 12px; white-space: nowrap; }
+.legacy-look .post-list .btn-outline { padding: 6px 12px; font-size: 13px; flex: none; }
+.legacy-look .post-date-group { margin-bottom: 8px; padding: 2px 14px; }
+.legacy-look .post-date-group summary { padding: 10px 0; }
+.legacy-look .status-badge { flex: none; }
+.legacy-look .overview-panel .chart-kpi-row { gap: 16px; margin-bottom: 16px; }
+.legacy-look .overview-panel .chart-stat-tile { padding: 14px 20px; }
+.legacy-look .overview-panel .chart-stat-value { font-size: 26px; }
+.legacy-look .overview-panel .overview-grid-2col { gap: 16px; margin-bottom: 16px; }
+.dashboard .legacy-look section.overview-panel h2 { margin-bottom: 14px; }
