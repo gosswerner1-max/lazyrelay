@@ -2,6 +2,12 @@ import { StrictMode } from 'react'
 import { createRoot, hydrateRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+
+// Midnight Canvas for the app's own public pages (Terms, Privacy, Contact and the rest), switched on with VITE_NEW_PAGES_ENABLED. Off: nothing is loaded.
+if (import.meta.env.VITE_NEW_PAGES_ENABLED === 'true') {
+  document.body.classList.add('lr-new')
+  void import('./styles/new-pages-dark.css')
+}
 import { restoreStoredConsent } from './components/CookieConsent.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { loadScriptAfterLoad } from './lib/deferUntilLoad.ts'

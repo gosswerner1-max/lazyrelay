@@ -1,0 +1,63 @@
+/* Midnight Canvas theme for the older static pages (schedule-to, alternatives, pricing, about, status, changelog and the rest).
+   Linked after each page's own inline style so it wins; canvas #0b0f19, panels #141b2d, locked orange #ff5630, hover #ff7a58. */
+@font-face{font-family:"League Spartan";font-style:normal;font-weight:600;font-display:swap;src:url(/assets-static/fonts/league-spartan-600.woff2) format("woff2");}
+@font-face{font-family:"League Spartan";font-style:normal;font-weight:700;font-display:swap;src:url(/assets-static/fonts/league-spartan-700.woff2) format("woff2");}
+@font-face{font-family:"Work Sans";font-style:normal;font-weight:400;font-display:swap;src:url(/assets-static/fonts/work-sans-400.woff2) format("woff2");}
+@font-face{font-family:"Work Sans";font-style:normal;font-weight:500;font-display:swap;src:url(/assets-static/fonts/work-sans-500.woff2) format("woff2");}
+@font-face{font-family:"Work Sans";font-style:normal;font-weight:600;font-display:swap;src:url(/assets-static/fonts/work-sans-600.woff2) format("woff2");}
+:root{color-scheme:dark}
+html{background:#0b0f19}
+body{background:#0b0f19!important;color:#cbd5e1!important;font-family:"Work Sans",system-ui,-apple-system,"Segoe UI",sans-serif!important;-webkit-font-smoothing:antialiased;min-height:100vh;
+  background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px)!important;background-size:40px 40px!important}
+body *{scrollbar-color:#2a3550 transparent}
+header,footer{color:#94a3b8!important}
+main,.page,article{background:#141b2d!important;color:#cbd5e1!important;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);padding-top:24px!important;padding-bottom:32px!important}
+.wordmark{font-family:"League Spartan",system-ui,sans-serif!important;color:#fff!important;letter-spacing:.2px}
+.wordmark .dot{color:#ff5630!important}
+h1,h2,h3,h4{font-family:"League Spartan",system-ui,sans-serif!important;color:#fff!important;letter-spacing:-.01em}
+h1{line-height:1.12!important}
+a{color:#ff7a58!important}
+a:hover{color:#ff9a80!important}
+a.back{color:#94a3b8!important}
+a.back:hover{color:#fff!important}
+strong,b,th{color:#fff!important}
+.subtitle,.note,small,.muted,.meta,.tax-note,figcaption{color:#94a3b8!important}
+hr{border-color:rgba(255,255,255,.1)!important}
+.cta-box,.callout,.card,.box,.panel,.tile,.faq-item,details{background:rgba(255,255,255,.05)!important;border-color:rgba(255,255,255,.1)!important;color:#cbd5e1!important;box-shadow:none}
+.cta-box{border-left:3px solid #ff5630!important}
+.cta-box a.button,a.button,.btn,button.button{background:#ff5630!important;color:#0b0f19!important;border-radius:999px!important;font-weight:600;text-decoration:none}
+.cta-box a.button:hover,a.button:hover,.btn:hover{background:#ff7a58!important;color:#0b0f19!important}
+table{border-collapse:collapse;width:100%;color:#cbd5e1!important;background:transparent!important}
+th,td{border-color:rgba(255,255,255,.1)!important;background:transparent!important}
+thead th{border-bottom:1px solid rgba(255,255,255,.2)!important}
+tr:nth-child(even) td{background:rgba(255,255,255,.025)!important}
+code,pre,kbd{background:#0b0f19!important;color:#e6edf8!important;border-radius:10px;border:1px solid rgba(255,255,255,.1)!important}
+pre{padding:14px 16px;overflow-x:auto}
+input,select,textarea{background:#0b0f19!important;color:#e6edf8!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:12px;color-scheme:dark}
+::selection{background:rgba(255,86,48,.35);color:#fff}
+img{max-width:100%;height:auto}
+.circuit-bg,#circuit-bg,canvas.circuit{opacity:.35}
+@media (max-width:600px){
+  header,footer{padding:16px!important}
+  main,.page,article{border-radius:18px;margin:0 12px!important;padding-left:16px!important;padding-right:16px!important}
+  table{display:block;overflow-x:auto}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* One-off blocks used by single pages (calculator, status, changelog, developers, free tools, pricing) */
+th,td:first-child,td.price,.price,.yes,.check,.summary,summary,.group-heading,.item h3,.status-row-label,.calc-field label,.calc-box legend,.client-card .name,.calc-result .big,.section-note{color:#fff!important}
+th{font-family:"League Spartan",system-ui,sans-serif!important}
+td,.client-card .blurb,.mini,.noscript,.tool-card,.rates{color:#cbd5e1!important}
+.calc-box,.calc-result,.rates,.tool-card,.mini,.faq,.panel,.panel-yellow,.noscript,.client-card,.item,.step,.badge-row span,.dev a.pill,.skip{background:rgba(255,255,255,.05)!important;border-color:rgba(255,255,255,.1)!important;box-shadow:none}
+.calc-result{border-left:3px solid #ff5630!important}
+.calc-result .big{font-family:"League Spartan",system-ui,sans-serif!important}
+.calc-field textarea,.calc-field input[type="number"]{background:#0b0f19!important;color:#e6edf8!important}
+.status-banner{border-radius:16px}
+.status-banner.ok,.badge.ok,.tag.ok,.chip-read,.chip-safe,.chip-live{background:rgba(47,212,122,.14)!important;color:#7ff0b4!important;border-color:rgba(47,212,122,.4)!important}
+.status-banner.degraded,.badge.warn,.tag-progress,.chip-write{background:rgba(245,185,66,.14)!important;color:#f7d489!important;border-color:rgba(245,185,66,.4)!important}
+.badge.critical,.badge.delayed,.chip-danger{background:rgba(255,77,79,.14)!important;color:#ffb0b1!important;border-color:rgba(255,77,79,.4)!important}
+.status-banner.loading,.badge.unknown,.badge.watching,.tag-planned{background:rgba(148,163,184,.14)!important;color:#cbd5e1!important;border-color:rgba(148,163,184,.3)!important}
+.endpoint-header code{color:#fff!important}
+.bar{background:rgba(255,255,255,.08)!important}
+.step .step-num{background:#ff5630!important;color:#0b0f19!important}
+details summary{cursor:pointer}

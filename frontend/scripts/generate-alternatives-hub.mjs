@@ -78,6 +78,7 @@ const page = `<!doctype html>
 <script type="application/ld+json">
 ${JSON.stringify(ld, null, 2)}
 </script>
+<link rel="stylesheet" href="/assets-static/lr-theme.css">
 </head>
 <body>
 <header><a class="wordmark" href="/">LazyRelay<span class="dot">.</span></a></header>

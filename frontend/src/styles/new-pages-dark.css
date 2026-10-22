@@ -1,0 +1,38 @@
+/* Midnight Canvas for the app's own public pages (Terms, Privacy, DPA, Contact, Partners, Data deletion, API docs, password pages, review and consent pages).
+   They share the .landing shell and read their colours from CSS variables, so the variables are re-pointed here; the logged-in dashboard is not inside .landing and is untouched.
+   Loaded only when VITE_NEW_PAGES_ENABLED is "true" (see main.tsx). Canvas #0b0f19, panels #141b2d, locked orange #ff5630, hover #ff7a58. */
+body.lr-new .landing {
+  --ink: #f1f5f9;
+  --paper: #0b0f19;
+  --surface: #141b2d;
+  --signal: #ff7a58;
+  --signal-bg: rgba(255, 86, 48, 0.14);
+  --signal-hover: #ff9a80;
+  --signal-solid: #ff5630;
+  --signal-solid-hover: #ff7a58;
+  --wire: #94a3b8;
+  --line: rgba(255, 255, 255, 0.1);
+  --confirm: #2fd47a;
+  --confirm-bg: rgba(47, 212, 122, 0.14);
+  --error: #ff7b7d;
+  --error-bg: rgba(255, 77, 79, 0.14);
+  min-height: 100dvh;
+  background-color: #0b0f19;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 40px 40px;
+  color: #cbd5e1;
+}
+body.lr-new .landing h1, body.lr-new .landing h2, body.lr-new .landing h3, body.lr-new .landing h4 { color: #fff; }
+body.lr-new .landing .landing-section.legal-page, body.lr-new .landing .landing-section { color: #cbd5e1; }
+body.lr-new .landing .legal-page { background: #141b2d; border-radius: 24px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); padding: 40px 32px; margin: 8px 16px 32px; }
+body.lr-new .landing input, body.lr-new .landing select, body.lr-new .landing textarea { background: #0b0f19; color: #e6edf8; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 12px; color-scheme: dark; }
+body.lr-new .landing code, body.lr-new .landing pre { background: #0b0f19; color: #e6edf8; border-color: rgba(255, 255, 255, 0.1); }
+body.lr-new .landing table, body.lr-new .landing th, body.lr-new .landing td { border-color: rgba(255, 255, 255, 0.1); }
+body.lr-new .landing .primary, body.lr-new .landing button.primary { background: #ff5630; color: #0b0f19; border-radius: 999px; }
+body.lr-new .landing .primary:hover, body.lr-new .landing button.primary:hover { background: #ff7a58; }
+body.lr-new .landing .link { color: #ff7a58; }
+body.lr-new .landing .link:hover { color: #ff9a80; }
+@media (max-width: 600px) {
+  body.lr-new .landing .legal-page { padding: 28px 18px; margin: 8px 12px 24px; border-radius: 18px; }
+}
+@media (prefers-contrast: more) { body.lr-new .landing .legal-page { box-shadow: inset 0 0 0 1px #fff; } }
