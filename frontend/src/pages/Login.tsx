@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { BrandMark } from "../components/BrandMark";
 import { useCanonical } from "../lib/useCanonical";
 import { api } from "../lib/api";
+import { newPagesEnabled } from "../lib/newPagesFlag";
 
 interface LoginProps {
   initialMode?: "signin" | "signup";
@@ -17,6 +18,8 @@ const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | u
 
 export function Login({ initialMode = "signin", onBack, onForgotPassword, onPrivacy, onTerms }: LoginProps) {
   const { signIn, signUp, signInWithGoogle } = useAuth();
+  // Midnight Canvas glass card, only when VITE_NEW_PAGES_ENABLED is "true". It adds class names and a decorative header; no logic changes.
+  const glass = newPagesEnabled();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [businessName, setBusinessName] = useState("");
@@ -42,6 +45,9 @@ export function Login({ initialMode = "signin", onBack, onForgotPassword, onPriv
     };
   }, [mode]);
   useCanonical(mode === "signup" ? "/signup" : "/login");
+  useEffect(() => {
+    if (glass) void import("../styles/new-pages-login.css");
+  }, [glass]);
 
   // Checks as the customer types so a taken name surfaces before they hit
   // submit, with a few free alternatives to pick from (2026-08-30) --
@@ -145,7 +151,22 @@ export function Login({ initialMode = "signin", onBack, onForgotPassword, onPriv
   }
 
   return (
-    <div className="auth-page auth-page--compact">
+    <div className={glass ? "auth-page auth-page--compact auth-page--glass" : "auth-page auth-page--compact"}>
+      {glass && (
+        <header className="auth-glass-top">
+          <a className="auth-glass-wordmark" href="/">
+            Lazy<span>Relay</span>
+          </a>
+          <nav aria-label="Primary">
+            <a href="/">Home</a>
+            <a href="/capabilities/">Capabilities</a>
+            <a href="/pricing/">Pricing</a>
+            <a href="/mcp/">Integrations</a>
+            <a href="/guides/">Guides</a>
+            <a href="/docs/">Docs</a>
+          </nav>
+        </header>
+      )}
       {signedUp ? (
         <div className="auth-card">
           <BrandMark size={40} />

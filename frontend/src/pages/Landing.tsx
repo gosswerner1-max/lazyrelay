@@ -183,12 +183,14 @@ const COMPARISON = [
 // "Passed review" is a true, narrower claim than "official partner" and
 // doesn't conflict with it. Update this list only after independently
 // re-confirming a platform's status in its own dashboard, not from memory.
-const REVIEWED_PLATFORMS = ["pinterest", "tiktok", "youtube", "facebook", "instagram"] as const;
+// oxlint-disable-next-line react/only-export-components -- shared with LandingV2 so the footer links cannot drift
+export const REVIEWED_PLATFORMS = ["pinterest", "tiktok", "youtube", "facebook", "instagram"] as const;
 
 // Footer links so Google can reach every comparison and schedule-to page from
 // the home page. Kept in step with public/sitemap.xml by
 // scripts/test-discovery-links.mjs.
-const FOOTER_COMPARE_LINKS: ReadonlyArray<readonly [string, string]> = [
+// oxlint-disable-next-line react/only-export-components -- shared with LandingV2 so the footer links cannot drift
+export const FOOTER_COMPARE_LINKS: ReadonlyArray<readonly [string, string]> = [
   ["/alternatives/", "All comparisons"],
   ["/alternatives/postdodo/", "PostDodo"],
   ["/alternatives/buffer/", "Buffer"],
@@ -205,7 +207,8 @@ const FOOTER_COMPARE_LINKS: ReadonlyArray<readonly [string, string]> = [
   ["/alternatives/agorapulse/", "Agorapulse"],
   ["/alternatives/loomly/", "Loomly"],
 ];
-const FOOTER_SCHEDULE_LINKS: ReadonlyArray<readonly [string, string]> = [
+// oxlint-disable-next-line react/only-export-components -- shared with LandingV2 so the footer links cannot drift
+export const FOOTER_SCHEDULE_LINKS: ReadonlyArray<readonly [string, string]> = [
   ["/schedule-to-facebook/", "Facebook"],
   ["/schedule-to-instagram/", "Instagram"],
   ["/schedule-to-tiktok/", "TikTok"],
@@ -521,7 +524,7 @@ function AiToolGroup({ ariaHidden }: { ariaHidden?: boolean }) {
   );
 }
 
-function FooterBadgeGroup({ ariaHidden }: { ariaHidden?: boolean }) {
+export function FooterBadgeGroup({ ariaHidden }: { ariaHidden?: boolean }) {
   return (
     <div className="landing-footer-badges-group" aria-hidden={ariaHidden || undefined}>
       {FOOTER_BADGES.map((badge) => (
