@@ -4,12 +4,12 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Usage-Based Social Media Scheduler: Architecture Blueprint</title>
-<meta name="description" content="A usage-based social media scheduler for 18 distribution platforms plus WhatsApp, with pay-as-you-go competitor analysis and 27 MCP tools." />
+<meta name="description" content="A usage-based social media scheduler for 18 distribution platforms plus WhatsApp, with competitor blueprints at 10 credits each and 27 MCP tools." />
 <meta name="keywords" content="usage-based social media scheduler, pay-as-you-go competitor analysis, Claude Code Model Context Protocol tools, verified post distribution ledger, landing page structure extraction" />
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
 <link rel="canonical" href="https://lazyrelay.com/capabilities/" />
 <meta property="og:title" content="Usage-Based Social Media Scheduler: Architecture Blueprint" />
-<meta property="og:description" content="A usage-based social media scheduler for 18 distribution platforms plus WhatsApp, with pay-as-you-go competitor analysis and 27 MCP tools." />
+<meta property="og:description" content="A usage-based social media scheduler for 18 distribution platforms plus WhatsApp, with competitor blueprints at 10 credits each and 27 MCP tools." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://lazyrelay.com/capabilities/" />
 <meta property="og:site_name" content="LazyRelay" />
@@ -20,7 +20,7 @@
 <meta property="og:image:alt" content="LazyRelay logo with the tagline Automate. Schedule. Publish. Repeat., and icons for smart scheduling, auto posting and flexible storage, linked to social platform icons." />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Usage-Based Social Media Scheduler: Architecture Blueprint" />
-<meta name="twitter:description" content="A usage-based social media scheduler for 18 distribution platforms plus WhatsApp, with pay-as-you-go competitor analysis and 27 MCP tools." />
+<meta name="twitter:description" content="A usage-based social media scheduler for 18 distribution platforms plus WhatsApp, with competitor blueprints at 10 credits each and 27 MCP tools." />
 <meta name="twitter:image" content="https://lazyrelay.com/og-image-1200x630.jpg" />
 <link rel="icon" type="image/png" href="/favicon.png" />
 <link rel="stylesheet" href="/assets-static/lr-site.css" />
@@ -33,17 +33,19 @@
   "@id": "https://lazyrelay.com/capabilities/#software",
   "name": "LazyRelay",
   "url": "https://lazyrelay.com",
-  "description": "LazyRelay schedules and publishes posts to 18 distribution platforms plus WhatsApp, checks that each post is really live, runs pay as you go competitor teardowns and gives AI agents 27 MCP tools.",
+  "description": "LazyRelay schedules and publishes posts to 18 distribution platforms plus WhatsApp, checks that each post is really live, runs competitor blueprints at 10 credits each, keeps everything in one wallet of credits and gives AI agents 27 MCP tools.",
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Web",
   "featureList": [
     "18 distribution platforms plus WhatsApp",
     "Proof of Publish",
     "Result record for each destination",
-    "Pay as you go competitor analysis",
+    "Competitor blueprint",
     "Landing page structure extraction",
     "27 MCP tools",
-    "Your own X and WhatsApp developer keys"
+    "Your own X and WhatsApp developer keys",
+    "Credit wallet: Free, Pay as you go, Growth and Pro plans",
+    "Reply suggestions: drafts you approve before anything is posted"
   ],
   "offers": {
     "@type": "Offer",
@@ -92,6 +94,14 @@
     },
     {
       "@type": "Question",
+      "name": "How does LazyRelay charge for posts?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "LazyRelay runs on one wallet of credits. One credit publishes to one destination and is taken only after the platform confirms the post is live. Free starts with 30 credits once, and the paid plans and credit packs add more. The pricing page lists every plan."
+      }
+    },
+    {
+      "@type": "Question",
       "name": "Is there a free plan?",
       "acceptedAnswer": {
         "@type": "Answer",
@@ -114,7 +124,7 @@
 <div>
 <span class="eyebrow">System capabilities</span>
 <h1 id="h1">System Capabilities &amp; Technical Architecture Blueprint</h1>
-<p class="lede">How LazyRelay is built, in three parts. Every line below describes something it does today.</p>
+<p class="lede">How LazyRelay is built, in four parts. Every line below describes something it does today.</p>
 <div class="hero-cta"><a class="btn" href="/pricing/">See plans and get started</a><a class="btn ghost" href="#mcp-tools">Browse the 27 MCP tools</a></div>
 </div>
 <div class="facts" aria-label="Key facts">
@@ -177,14 +187,14 @@
 </section>
 
 <section class="part" aria-labelledby="competitor">
-<h2 class="sect-t" id="competitor">2. Pay As You Go Competitor Analysis Architecture</h2>
+<h2 class="sect-t" id="competitor">2. Competitor Blueprint Architecture</h2>
 <div class="cb">
 <article class="g c12"><span class="k hot">One off</span>
-<p class="lead-p">Pay as you go competitor analysis is a one off teardown, not ongoing tracking. A teardown costs 10 credits. The 10 credits are charged only when the blueprint is delivered, and a failed teardown costs nothing.</p>
+<p class="lead-p">A competitor blueprint is a one off teardown, not ongoing tracking. You find it under More, in Content Sources. A teardown costs 10 credits. The 10 credits are charged only when the blueprint is delivered, and a failed teardown costs nothing.</p>
 <div class="stp3">
 <div><b>Read the page</b><span>Paste a public competitor page link and tick the consent box. Main content only, read with Firecrawl.</span></div>
 <div><b>Analyse the structure</b><span>Claude Sonnet 5.5 returns a strategy map and three to six recommended adjustments. It does not quote the page.</span></div>
-<div><b>Blueprint delivered</b><span>Hook, sections, call to action, plus a draft post of up to 280 characters. Credits are taken now.</span></div>
+<div><b>Blueprint delivered</b><span>Hook, sections and call to action, plus recommended adjustments. It is text only: nothing is saved or posted. Credits are taken now.</span></div>
 </div>
 </article>
 <article class="g c6" id="extract"><span class="k">Extract</span>
@@ -203,7 +213,7 @@
 <p>The extracted structure goes to Claude Sonnet 5.5, which returns two parts. It describes structure only. It does not quote the page, and its answer is rejected if it holds a link, an @mention, a claim that the page performs well, or a copied run of eight words or more from the page.</p>
 <p><strong>Competitor strategy map.</strong> The hook, which is one of question, statistic, bold claim, story, how to, list, problem and agitate, social proof, offer or other, with a note of up to 160 characters. Up to 8 sections in page order, each with a role label of up to 40 characters, such as Promise, Proof, Steps, Pricing or FAQ, and a summary of up to 140 characters. The call to action: its placement (top, middle, bottom, multiple or none), a style of up to 100 characters, and a count. LazyRelay counts and places the call to action links itself, so the placement and count do not come from the model.</p>
 <p><strong>Recommended adjustments.</strong> Three to six short adjustments of up to 160 characters each, written from the structure of that competitor page.</p>
-<p><strong>Also returned.</strong> The facts read from the page, such as its title, headings, prices and features, and a draft post of up to 280 characters with one tag.</p>
+<p><strong>Also returned.</strong> The result also shows the page title.</p>
 </article>
 </div>
 </section>
@@ -234,6 +244,31 @@
 </div>
 </section>
 
+<section class="part" aria-labelledby="dashboard">
+<h2 class="sect-t" id="dashboard">4. The Dashboard, Credits &amp; Clients</h2>
+<p class="sect-p">Everything above is run from one dashboard, paid for from one wallet of credits.</p>
+<div class="cb">
+<article class="g c6" id="wallet"><span class="k hot">Credits</span>
+<h3>(a) One credit wallet</h3>
+<p>One wallet of credits pays for everything. Free gives you 30 credits once. Pay as you go is $15 for 300 credits that stay until used. Growth is $29 a month for 1,000 credits each cycle and Pro is $99 a month for 6,000 each cycle. Full details are on the <a href="/pricing/">pricing page</a>.</p>
+</article>
+<article class="g c6" id="menu"><span class="k">Dashboard</span>
+<h3>(b) The dashboard menu</h3>
+<p>Overview, Compose, Posts, Failed, Calendar, Insights, Connections and Brands are in the main bar. Content Sources, API Keys, Settings, Mentions, Bio Page and WhatsApp sit behind More.</p>
+</article>
+<article class="g c6" id="replies"><span class="k">Comments</span>
+<h3>(c) Comments and reply suggestions</h3>
+<p>Mentions shows the recent comments on your posts from dev.to, Hashnode, Mastodon, Bluesky, YouTube, Lemmy, WordPress, Telegram and Discord, with a note on which ones need an answer.</p>
+<p>On paid plans LazyRelay drafts a suggested reply to new comments on Mastodon and Bluesky. Nothing is posted until you approve it, and comments about money, legal matters, security or a complaint get no draft.</p>
+</article>
+<article class="g c6" id="clients"><span class="k">Clients</span>
+<h3>(d) Clients and brands</h3>
+<p>On paid plans you can send a client a review link. They approve a post or leave feedback, and you can answer inside LazyRelay. Every post confirmed live can have a public proof link you can share with a client.</p>
+<p>Keep separate brands in one account: 1 on Free, 2 on Pay as you go, 4 on Growth and unlimited on Pro.</p>
+</article>
+</div>
+</section>
+
 <div class="g ctaband"><div><strong>Start free.</strong> <p>The Free plan gives you 30 credits once at registration and up to 3 connected accounts.</p></div><a class="btn" href="/pricing/">See plans and get started</a></div>
 
 <section aria-labelledby="faq-title"><h3 class="section-title" id="faq-title">Frequently asked questions</h3>
@@ -242,6 +277,7 @@
 <details class="g"><summary>What is Proof of Publish?</summary><p>Proof of Publish is a second step. After LazyRelay posts, it reads the post back from the platform. A post is marked live only when that read back confirms it. Otherwise it shows as unverified.</p></details>
 <details class="g"><summary>What does a competitor teardown cost?</summary><p>A competitor teardown costs 10 credits. The credits are charged only when the blueprint is delivered, and a failed teardown costs nothing.</p></details>
 <details class="g"><summary>Does LazyRelay work with my AI agent?</summary><p>LazyRelay has 27 MCP tools. An AI agent that supports MCP, such as Claude Code, can use them to schedule and manage your LazyRelay posts through the API. Use the hosted endpoint with sign in, or the local package with an API key.</p></details>
+<details class="g"><summary>How does LazyRelay charge for posts?</summary><p>LazyRelay runs on one wallet of credits. One credit publishes to one destination and is taken only after the platform confirms the post is live. Free starts with 30 credits once, and the paid plans and credit packs add more. The pricing page lists every plan.</p></details>
 <details class="g"><summary>Is there a free plan?</summary><p>Yes. The Free plan gives you 30 credits once at registration and up to 3 connected accounts.</p></details>
 </div></section>
 </main>

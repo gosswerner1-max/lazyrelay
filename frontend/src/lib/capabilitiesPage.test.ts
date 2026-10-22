@@ -84,6 +84,11 @@ describe("what it claims is true", () => {
     ["Proof of Publish reads the post back", "reads it back from the platform"],
     ["a post is live only when confirmed", "marked live only when that read back confirms it"],
     ["the cost of a teardown", "A teardown costs 10 credits"],
+    ["the credit wallet plans", "Pay as you go is $15 for 300 credits that stay until used. Growth is $29 a month for 1,000 credits each cycle and Pro is $99 a month for 6,000 each cycle."],
+    ["the dashboard menu (dashboardHelpers.ts BAR_TAB_ORDER and MORE_TAB_ORDER)", "Overview, Compose, Posts, Failed, Calendar, Insights, Connections and Brands are in the main bar. Content Sources, API Keys, Settings, Mentions, Bio Page and WhatsApp sit behind More."],
+    ["reply suggestions need approval and skip money, legal, security and complaints (replyDrafting.ts ESCALATION_PATTERN)", "Nothing is posted until you approve it, and comments about money, legal matters, security or a complaint get no draft."],
+    ["the Mentions platforms (mentionsPlatforms.ts MENTIONS_LIVE_PLATFORMS)", "dev.to, Hashnode, Mastodon, Bluesky, YouTube, Lemmy, WordPress, Telegram and Discord"],
+    ["brand limits per plan (wallet/plans.ts)", "1 on Free, 2 on Pay as you go, 4 on Growth and unlimited on Pro"],
     ["charged only on delivery", "charged only when the blueprint is delivered"],
     ["the model", "Claude Sonnet 5.5"],
     ["the page reader", "Firecrawl"],
@@ -165,7 +170,7 @@ describe("the WhatsApp section states what the code enables and no more", () => 
 });
 
 describe("the competitor analysis section states what the engine does and no more", () => {
-  const comp = visible.slice(visible.indexOf("2. Pay As You Go"), visible.indexOf("3. Custom Developer Bridges"));
+  const comp = visible.slice(visible.indexOf("2. Competitor Blueprint"), visible.indexOf("3. Custom Developer Bridges"));
   it.each([
     ["10 credits, charged on delivery, nothing on failure (wallet/teardown.ts)", "A teardown costs 10 credits. The 10 credits are charged only when the blueprint is delivered, and a failed teardown costs nothing."],
     ["a consent box before anything is sent (CompetitorConsentDialog.tsx)", "You tick a consent box before anything is sent."],
@@ -181,12 +186,13 @@ describe("the competitor analysis section states what the engine does and no mor
     ["cta placement values and style cap (blueprintSchema.ts)", "its placement (top, middle, bottom, multiple or none), a style of up to 100 characters, and a count"],
     ["cta count and placement computed by LazyRelay (blueprintSchema.ts computed cta, structure.ts computeCta)", "LazyRelay counts and places the call to action links itself, so the placement and count do not come from the model."],
     ["three to six adjustments of up to 160 characters (blueprintSchema.ts)", "Three to six short adjustments of up to 160 characters each"],
-    ["the analysis part: facts and a 280 character draft with one tag (engine analyze.ts, guard.ts)", "a draft post of up to 280 characters with one tag"],
+    ["the result is text only, no draft post (engine blueprint.ts returns title and blueprint; BlueprintResult.tsx says nothing is saved or posted)", "It is text only: nothing is saved or posted."],
+    ["where to find it (ContentSourcesTab.tsx)", "You find it under More, in Content Sources."],
   ])("says %s", (_why, text) => {
     expect(comp).toContain(text);
   });
   it("does not claim anything the engine does not do", () => {
-    for (const pattern of [/guarantee/i, /performance score/i, /tracking competitors/i, /video (analysis|transcript)/i, /Sonnet 4/i, /Haiku|Opus/i]) expect(comp).not.toMatch(pattern);
+    for (const pattern of [/guarantee/i, /performance score/i, /tracking competitors/i, /video (analysis|transcript)/i, /Sonnet 4/i, /Haiku|Opus/i, /draft post of up to 280/i, /facts read from the page/i]) expect(comp).not.toMatch(pattern);
   });
 });
 
