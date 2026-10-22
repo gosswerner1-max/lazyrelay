@@ -25,14 +25,17 @@ export type Tab = (typeof TABS)[number];
 export function moreTabsFor(whatsappBroadcasts: boolean): Tab[] {
   return ["Analytics", "Mentions", "DMs", "Bio Page", ...(whatsappBroadcasts ? (["WhatsApp"] as Tab[]) : [])];
 }
-// The seven new workspace views are the only tabs on the bar. Every other tab (the four original views, Content Sources,
-// Social Platforms, API Keys, Settings) goes behind "More", so the bar is one short row.
-const WORKSPACE_BAR_TABS: readonly Tab[] = ["Compose", "Planner", "Insights", "Connections", "Brands", "Failures", "Account"];
+// The main bar holds the daily working views, in this order. Everything else (admin, developer tools, account and settings) sits
+// behind "More" in the order below; any tab in neither list (for example Planner) follows them, then the tabs "More" always had.
+const BAR_TAB_ORDER: readonly Tab[] = ["Overview", "Compose", "Posts", "Failed", "Calendar", "Insights", "Connections", "Brands"];
+const MORE_TAB_ORDER: readonly Tab[] = ["Content Sources", "Social Platforms", "API Keys", "Failures", "Account", "Settings"];
 export function splitDashboardTabs(mainTabs: Tab[], moreTabs: Tab[], newViewsOn: boolean): { bar: Tab[]; more: Tab[] } {
   if (!newViewsOn) return { bar: mainTabs, more: moreTabs };
+  const has = (t: Tab) => mainTabs.includes(t);
+  const left = mainTabs.filter((t) => !BAR_TAB_ORDER.includes(t) && !MORE_TAB_ORDER.includes(t));
   return {
-    bar: mainTabs.filter((t) => WORKSPACE_BAR_TABS.includes(t)),
-    more: [...mainTabs.filter((t) => !WORKSPACE_BAR_TABS.includes(t)), ...moreTabs],
+    bar: BAR_TAB_ORDER.filter(has),
+    more: [...MORE_TAB_ORDER.filter(has), ...left, ...moreTabs],
   };
 }
 

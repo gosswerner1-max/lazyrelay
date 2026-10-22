@@ -32,10 +32,10 @@ describe("splitDashboardTabs", () => {
   const main: Tab[] = ["Compose", "Planner", "Insights", "Connections", "Brands", "Failures", "Account", "Overview", "Posts", "Failed", "Calendar", "Content Sources", "Social Platforms", "API Keys", "Settings"];
   const more: Tab[] = ["Analytics", "Mentions"];
 
-  it("keeps only the seven workspace tabs on the bar when the new views are on", () => {
+  it("puts the daily working views on the bar and the admin pages behind More", () => {
     const out = splitDashboardTabs(main, more, true);
-    expect(out.bar).toEqual(["Compose", "Planner", "Insights", "Connections", "Brands", "Failures", "Account"]);
-    expect(out.more).toEqual(["Overview", "Posts", "Failed", "Calendar", "Content Sources", "Social Platforms", "API Keys", "Settings", "Analytics", "Mentions"]);
+    expect(out.bar).toEqual(["Overview", "Compose", "Posts", "Failed", "Calendar", "Insights", "Connections", "Brands"]);
+    expect(out.more).toEqual(["Content Sources", "Social Platforms", "API Keys", "Failures", "Account", "Settings", "Planner", "Analytics", "Mentions"]);
   });
 
   it("leaves the bar unchanged when no new view is on", () => {
@@ -75,10 +75,9 @@ describe("workspace shell styles", () => {
 });
 
 describe("workspace width", () => {
-  it("gives the seven workspace tabs the wide shell and styles it at 1360px", () => {
+  it("gives every tab the same 1360px shell when the new views are on, so the header never changes width", () => {
     const dash = src("src/pages/Dashboard.tsx");
-    expect(dash).toContain('"dashboard dashboard-workspace"');
-    expect(dash).toContain('const WORKSPACE_TABS: Tab[] = ["Compose", "Planner", "Insights", "Connections", "Brands", "Failures", "Account"]');
+    expect(dash).toContain('newViewsOn ? "dashboard dashboard-workspace"');
     expect(src("src/components/dashboard/WorkspaceShell.css")).toMatch(/\.dashboard\.dashboard-workspace\s*\{\s*max-width:\s*1360px/);
   });
 });
