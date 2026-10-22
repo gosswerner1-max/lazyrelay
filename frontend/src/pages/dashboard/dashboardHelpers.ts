@@ -47,8 +47,9 @@ export function splitDashboardTabs(mainTabs: Tab[], moreTabs: Tab[], newViewsOn:
   };
 }
 
-// A tab name that no longer has its own page opens the page that replaced it (for example a button that says "open Social Platforms").
-const TAB_ALIASES: Partial<Record<Tab, Tab>> = { "Social Platforms": "Connections", Analytics: "Insights", Planner: "Calendar", Failures: "Failed", Account: "Settings" };
+// A tab name that no longer has its own page opens the page that replaced it. Social Platforms is not listed: it is not in the menu but
+// is opened from the Manage connections button on Connections, and still shows its own page.
+const TAB_ALIASES: Partial<Record<Tab, Tab>> = { Analytics: "Insights", Planner: "Calendar", Failures: "Failed", Account: "Settings" };
 export function aliasTab(tab: Tab, mainTabs: Tab[], newViewsOn: boolean): Tab {
   if (!newViewsOn) return tab;
   const target = TAB_ALIASES[tab];

@@ -72,12 +72,12 @@ describe("palette lock: no purple or violet in the shared styling", () => {
 describe("aliasTab", () => {
   const tabs: Tab[] = ["Overview", "Calendar", "Failed", "Settings", "Insights", "Connections"];
   it("sends a removed tab name to the page that replaced it", () => {
-    expect(aliasTab("Social Platforms", tabs, true)).toBe("Connections");
     expect(aliasTab("Analytics", tabs, true)).toBe("Insights");
     expect(aliasTab("Failures", tabs, true)).toBe("Failed");
   });
   it("leaves every name alone when the new views are off or the replacement is missing", () => {
-    expect(aliasTab("Social Platforms", tabs, false)).toBe("Social Platforms");
+    expect(aliasTab("Social Platforms", tabs, true)).toBe("Social Platforms");
+    expect(aliasTab("Analytics", tabs, false)).toBe("Analytics");
     expect(aliasTab("Analytics", ["Overview"], true)).toBe("Analytics");
   });
 });

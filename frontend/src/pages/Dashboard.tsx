@@ -240,7 +240,7 @@ export function Dashboard() {
           <button
             key={t}
             data-tour={`tab-${t.toLowerCase().replace(/\s+/g, "-")}`}
-            className={t === view ? "tab-active" : ""}
+            className={t === (view === "Social Platforms" && newViewsOn ? "Connections" : view) ? "tab-active" : ""}
             onClick={() => setTab(t)}
           >
             {t}
@@ -326,7 +326,18 @@ export function Dashboard() {
 
       {view === "Overview" && <OverviewTab />}
 
-      {view === "Social Platforms" && <SocialPlatformsTab />}
+      {view === "Social Platforms" && (
+        <>
+          {newViewsOn && (
+            <p>
+              <button type="button" className="btn-outline" onClick={() => setTab("Connections")}>
+                &larr; Back to Connections
+              </button>
+            </p>
+          )}
+          <SocialPlatformsTab />
+        </>
+      )}
 
       {view === "Posts" && <PostsTab />}
 

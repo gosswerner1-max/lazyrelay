@@ -34,11 +34,13 @@ describe("ConnectionsWorkspaceTab", () => {
     expect(screen.getByTestId("cn-int-gcal")).toHaveTextContent(/last synced/i);
     expect(screen.getByTestId("cn-int-gsheet")).toHaveTextContent(/not connected/i);
   });
-  it("has no Manage connections button and a tile click changes nothing", async () => {
+  it("opens the Social Platforms page from a tile and from the Manage connections button, and does nothing else", async () => {
     render(<ConnectionsWorkspaceTab />);
-    expect(screen.queryByRole("button", { name: /manage connections/i })).toBeNull();
     await userEvent.click(screen.getByTestId("cn-tile-youtube"));
-    expect(ctx.setTab).not.toHaveBeenCalled();
+    expect(ctx.setTab).toHaveBeenLastCalledWith("Social Platforms");
+    await userEvent.click(screen.getByRole("button", { name: /manage connections/i }));
+    expect(ctx.setTab).toHaveBeenCalledTimes(2);
+    expect(ctx.setTab).toHaveBeenLastCalledWith("Social Platforms");
   });
   it("copes with an account that has nothing connected", () => {
     ctx.accounts.length = 0;
