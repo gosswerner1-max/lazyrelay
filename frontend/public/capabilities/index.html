@@ -23,51 +23,9 @@
 <meta name="twitter:description" content="A usage-based social media scheduler for 18 distribution platforms plus WhatsApp, with pay-as-you-go competitor analysis and 27 MCP tools." />
 <meta name="twitter:image" content="https://lazyrelay.com/og-image-1200x630.jpg" />
 <link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="stylesheet" href="/assets-static/lr-site.css" />
 <script src="/consent.js" defer></script>
-<style>
-  :root { color-scheme: dark; --canvas: #14171f; --row: #1d2230; --row-edge: #2a3142; --text: #f5f6f8; --muted: #b4bcc8; --accent: #ff5630; --accent-soft: #ff8a6b; }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--canvas); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.65; }
-  a { color: var(--accent-soft); }
-  a:hover { color: var(--text); }
-  a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
-  .skip { position: absolute; left: -999px; top: 8px; background: var(--accent); color: #fff; padding: 8px 14px; border-radius: 6px; z-index: 10; }
-  .skip:focus { left: 8px; }
-  header.top { max-width: 960px; margin: 0 auto; padding: 20px 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-  .wordmark { font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: var(--text); text-decoration: none; }
-  .wordmark .dot { color: var(--accent); }
-  nav.primary { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 15px; }
-  nav.primary a { text-decoration: none; color: var(--muted); padding: 4px 0; }
-  nav.primary a[aria-current="page"] { color: var(--text); border-bottom: 2px solid var(--accent); }
-  nav.primary a:hover { color: var(--text); }
-  main { max-width: 960px; margin: 0 auto; padding: 8px 16px 56px; }
-  h1 { font-family: Georgia, serif; font-size: clamp(30px, 5vw, 44px); line-height: 1.15; margin: 24px 0 12px; letter-spacing: -0.02em; }
-  h2 { font-family: Georgia, serif; font-size: 24px; margin: 0 0 6px; line-height: 1.25; }
-  h3 { font-family: Georgia, serif; font-size: 17px; margin: 28px 0 6px; }
-  .row h3 { margin: 4px 0 0; font-size: 19px; }
-  .lede { color: var(--muted); font-size: 18px; max-width: 720px; margin: 0 0 28px; }
-  .block { margin: 0 0 40px; }
-  .block > .intro { color: var(--muted); max-width: 760px; margin: 0 0 16px; }
-  .rows { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
-  .row { background: var(--row); border: 1px solid var(--row-edge); border-left: 6px solid var(--accent); border-radius: 10px; padding: 18px 20px; }
-  .row p { margin: 6px 0 0; color: var(--muted); }
-  .row strong { color: var(--text); }
-  .row .tag { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #14171f; background: var(--accent); border-radius: 999px; padding: 2px 10px; margin-bottom: 8px; }
-  .platforms { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
-  .platforms li { background: #232a3b; border: 1px solid var(--row-edge); border-radius: 999px; padding: 4px 12px; font-size: 14px; color: var(--text); }
-  .cta { background: var(--row); border: 2px solid var(--accent); border-radius: 12px; padding: 22px 24px; margin: 36px 0; }
-  .cta a.button { display: inline-block; background: var(--accent); color: #14171f; font-weight: 700; padding: 12px 22px; border-radius: 8px; text-decoration: none; margin-top: 10px; }
-  .cta a.button:hover { background: #ff7a58; color: #14171f; }
-  .faq details { background: var(--row); border: 1px solid var(--row-edge); border-radius: 10px; padding: 14px 18px; margin: 10px 0; }
-  .faq summary { cursor: pointer; font-weight: 600; }
-  .faq p { color: var(--muted); margin: 10px 0 0; }
-  .note { color: var(--muted); font-size: 14px; }
-  .row ul.facts { margin: 8px 0 0; padding-left: 20px; color: var(--muted); }
-  .row ul.facts li { margin: 4px 0; }
-  footer { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; border-top: 1px solid var(--row-edge); color: var(--muted); font-size: 14px; }
-  footer a { color: var(--muted); }
-  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
-</style>
+<script src="/assets-static/lr-site.js" defer></script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -146,135 +104,152 @@
 </head>
 <body>
 <a class="skip" href="#content">Skip to the capabilities</a>
-<header class="top">
-  <a class="wordmark" href="/">Lazy<span class="dot">Relay</span></a>
-  <nav class="primary" aria-label="Primary">
-    <a href="/">Home</a>
-    <a href="/capabilities/" aria-current="page">Capabilities</a>
-    <a href="/pricing/">Pricing</a>
-    <a href="/mcp/">Integrations</a>
-    <a href="/guides/">Guides</a>
-    <a href="/docs/">Docs</a>
-  </nav>
-</header>
-<main id="content">
-  <h1>System Capabilities &amp; Technical Architecture Blueprint</h1>
-  <p class="lede">How LazyRelay is built, in three parts. Every line below describes something it does today.</p>
+<header class="top"><div class="wrap">
+<a class="wordmark" href="/">Lazy<span class="dot">Relay</span></a>
+<nav class="primary" aria-label="Primary"><a href="/">Home</a><a href="/capabilities/" aria-current="page">Capabilities</a><a href="/pricing/">Pricing</a><a href="/mcp/">Integrations</a><a href="/guides/">Guides</a><a href="/docs/">Docs</a></nav>
+<span class="hdr-cta"><a class="btn ghost" href="/login">Sign in</a><a class="btn" href="/signup">Start free</a></span>
+</div></header>
+<main id="content" class="inner">
+<section class="chead" aria-labelledby="h1">
+<div>
+<span class="eyebrow">System capabilities</span>
+<h1 id="h1">System Capabilities &amp; Technical Architecture Blueprint</h1>
+<p class="lede">How LazyRelay is built, in three parts. Every line below describes something it does today.</p>
+<div class="hero-cta"><a class="btn" href="/pricing/">See plans and get started</a><a class="btn ghost" href="#mcp-tools">Browse the 27 MCP tools</a></div>
+</div>
+<div class="facts" aria-label="Key facts">
+<div class="g"><b>18</b><span>distribution platforms plus WhatsApp</span></div>
+<div class="g"><b>27</b><span>MCP tools for AI agents</span></div>
+<div class="g"><b>1</b><span>credit per destination, taken only once the post is live</span></div>
+</div>
+</section>
 
-  <section class="block" aria-labelledby="engine">
-    <h2 id="engine">1. Multi Platform Content Distribution Engine</h2>
-    <p class="intro">LazyRelay is a usage based social media scheduler. Connect your accounts once, schedule a post, and it goes to every destination you picked. Each destination costs 1 credit, and the credit is taken only after the platform confirms the post is live.</p>
-    <ul class="rows">
-      <li class="row">
-        <span class="tag">Publish</span>
-        <h3>(a) 18 distribution platforms</h3>
-        <p>LazyRelay publishes to 18 distribution platforms plus WhatsApp.</p>
-        <ul class="platforms" aria-label="Distribution platforms">
-          <li>TikTok</li><li>Pinterest</li><li>YouTube</li><li>Mastodon</li><li>Bluesky</li><li>Telegram</li><li>LinkedIn</li><li>Threads</li><li>Facebook</li><li>Instagram</li><li>Discord</li><li>Tumblr</li><li>WordPress</li><li>dev.to</li><li>Hashnode</li><li>Lemmy</li><li>Slack</li><li>X</li>
-        </ul>
-        <p class="note">WordPress, dev.to and Hashnode can publish live or save a draft, your choice for each post. A draft is never reported as live. X connects with your own X developer keys, see part 3.</p>
-      </li>
-      <li class="row">
-        <span class="tag">Messaging</span>
-        <h3>(b) WhatsApp</h3>
-        <p>WhatsApp is client messaging. It is not one of the 18 distribution platforms and is not counted as one.</p>
-        <p><strong>Who can use it.</strong> Any paid plan: Growth, Pro or Pay as you go. Free accounts and accounts whose plan has lapsed cannot connect WhatsApp. You link your own Meta WhatsApp Business account, phone number and access token. They are stored encrypted, every message goes out with them, and Meta bills that account directly. LazyRelay takes no credits for WhatsApp messages and has no shared number.</p>
-        <p><strong>What it sends.</strong> All sending happens from the signed in dashboard.</p>
-        <ul class="facts">
-          <li>Broadcasts: one message template that Meta has approved, scheduled between 1 minute and 30 days ahead, sent to the opted in contacts of one WhatsApp number.</li>
-          <li>Replies in a conversation: free form text, reply buttons or a list, only while the 24 hour window after the customer's last message is open. Outside that window only an approved template can be sent, and only to a saved contact who opted in.</li>
-          <li>A marketing template is never sent to a US number (+1), because Meta does not deliver it.</li>
-          <li>A message counts as handed off when Meta accepts it, and as delivered only when Meta's own receipt says so. The cost shown is an estimate from the prices you enter.</li>
-          <li>LazyRelay sets no limit on how many messages you send. Meta's limits apply, and if Meta restricts your number, sending pauses until you resume it.</li>
-        </ul>
-        <p><strong>What is not possible.</strong> A post cannot be sent to WhatsApp through the API, an API key, MCP, Zapier, bulk import or duplicate. Those routes refuse WhatsApp. You cannot send a template to someone who has not opted in, or a free form message outside the 24 hour window.</p>
-        <p><strong>Opt outs.</strong> If a contact replies with only STOP, UNSUBSCRIBE, CANCEL, END, QUIT, OPT OUT, OPTOUT or STOP ALL, or Meta reports that the person stopped marketing messages, LazyRelay records the opt out and marks the contact as opted out. That record is checked again just before every send. Reply keywords are read once you point your own Meta app's webhook at LazyRelay.</p>
-      </li>
-      <li class="row">
-        <span class="tag">Verify</span>
-        <h3>(c) Proof of Publish</h3>
-        <p>Posting and checking are two separate steps. First post() sends the content to the platform. Then verifyPublished() reads it back from the platform. A post is marked live only when that read back confirms it, and the public URL of the post is stored with the result. If the read back does not confirm it, the post shows as unverified and no credit is taken.</p>
-        <p>You get a result record for each destination. It shows whether the read back confirmed the post is live, and the public URL of the post.</p>
-      </li>
-    </ul>
-  </section>
+<section class="part" aria-labelledby="engine">
+<h2 class="sect-t" id="engine">1. Multi Platform Content Distribution Engine</h2>
+<p class="sect-p">LazyRelay is a usage based social media scheduler. Connect your accounts once, schedule a post, and it goes to every destination you picked. Each destination costs 1 credit, and the credit is taken only after the platform confirms the post is live.</p>
+<div class="cb">
+<article class="g c12" id="platforms"><span class="k hot">Publish</span>
+<h3>(a) 18 distribution platforms</h3>
+<p>LazyRelay publishes to 18 distribution platforms plus WhatsApp.</p>
+<ul class="pillrow platforms" aria-label="Distribution platforms"><li>TikTok</li><li>Pinterest</li><li>YouTube</li><li>Mastodon</li><li>Bluesky</li><li>Telegram</li><li>LinkedIn</li><li>Threads</li><li>Facebook</li><li>Instagram</li><li>Discord</li><li>Tumblr</li><li>WordPress</li><li>dev.to</li><li>Hashnode</li><li>Lemmy</li><li>Slack</li><li>X</li></ul>
+<p class="note">WordPress, dev.to and Hashnode can publish live or save a draft, your choice for each post. A draft is never reported as live. X connects with your own X developer keys, see part 3.</p>
+</article>
 
-  <section class="block" aria-labelledby="competitor">
-    <h2 id="competitor">2. Pay As You Go Competitor Analysis Architecture</h2>
-    <p class="intro">Pay as you go competitor analysis is a one off teardown, not ongoing tracking. A teardown costs 10 credits. The 10 credits are charged only when the blueprint is delivered, and a failed teardown costs nothing.</p>
-    <ul class="rows">
-      <li class="row">
-        <span class="tag">Extract</span>
-        <h3>(a) Reading the page</h3>
-        <p>Paste a link to a public web page from a competitor. You tick a consent box before anything is sent. LazyRelay reads the public text of the page with Firecrawl, main content only, and a copy up to a day old may be used. This is landing page structure extraction: it pulls out the headings, how the page opens and its call to action links.</p>
-        <ul class="facts">
-          <li>Public web pages only. If the site does not allow the page to be read, the teardown stops there.</li>
-          <li>Links to TikTok, Instagram, Facebook, X, Twitter, LinkedIn and Threads are not read, and neither are their short link addresses.</li>
-          <li>Video links are not supported: a YouTube link cannot be turned into a blueprint.</li>
-          <li>Teardowns are rate limited: there is a pause of at least 45 seconds between two of yours, a daily count per user and a daily ceiling across all users.</li>
-          <li>If a teardown stops for any of these reasons, or fails for any other reason, nothing is charged.</li>
-        </ul>
-      </li>
-      <li class="row">
-        <span class="tag">Analyse</span>
-        <h3>(b) Analysis by Claude Sonnet 5.5</h3>
-        <p>The extracted structure goes to Claude Sonnet 5.5, which returns two parts. It describes structure only. It does not quote the page, and its answer is rejected if it holds a link, an @mention, a claim that the page performs well, or a copied run of eight words or more from the page.</p>
-        <p><strong>Competitor strategy map.</strong> The hook, which is one of question, statistic, bold claim, story, how to, list, problem and agitate, social proof, offer or other, with a note of up to 160 characters. Up to 8 sections in page order, each with a role label of up to 40 characters, such as Promise, Proof, Steps, Pricing or FAQ, and a summary of up to 140 characters. The call to action: its placement (top, middle, bottom, multiple or none), a style of up to 100 characters, and a count. LazyRelay counts and places the call to action links itself, so the placement and count do not come from the model.</p>
-        <p><strong>Recommended adjustments.</strong> Three to six short adjustments of up to 160 characters each, written from the structure of that competitor page.</p>
-        <p><strong>Also returned.</strong> The facts read from the page, such as its title, headings, prices and features, and a draft post of up to 280 characters with one tag.</p>
-      </li>
-    </ul>
-  </section>
+<article class="g c12" id="whatsapp"><span class="k">Messaging</span>
+<h3>(b) WhatsApp</h3>
+<p>WhatsApp is client messaging. It is not one of the 18 distribution platforms and is not counted as one.</p>
+<div class="cols3">
+<div><h4>Who can use it</h4><p>Any paid plan: Growth, Pro or Pay as you go. Free accounts and accounts whose plan has lapsed cannot connect WhatsApp. You link your own Meta WhatsApp Business account, phone number and access token. They are stored encrypted, every message goes out with them, and Meta bills that account directly. LazyRelay takes no credits for WhatsApp messages and has no shared number.</p></div>
+<div><h4>What it sends</h4><p>All sending happens from the signed in dashboard.</p>
+<ul>
+<li>Broadcasts: one message template that Meta has approved, scheduled between 1 minute and 30 days ahead, sent to the opted in contacts of one WhatsApp number.</li>
+<li>Replies in a conversation: free form text, reply buttons or a list, only while the 24 hour window after the customer's last message is open. Outside that window only an approved template can be sent, and only to a saved contact who opted in.</li>
+<li>A marketing template is never sent to a US number (+1), because Meta does not deliver it.</li>
+<li>A message counts as handed off when Meta accepts it, and as delivered only when Meta's own receipt says so. The cost shown is an estimate from the prices you enter.</li>
+<li>LazyRelay sets no limit on how many messages you send. Meta's limits apply, and if Meta restricts your number, sending pauses until you resume it.</li>
+</ul></div>
+<div><h4>What is not possible</h4><p>A post cannot be sent to WhatsApp through the API, an API key, MCP, Zapier, bulk import or duplicate. Those routes refuse WhatsApp. You cannot send a template to someone who has not opted in, or a free form message outside the 24 hour window.</p>
+<h4>Opt outs</h4><p>If a contact replies with only STOP, UNSUBSCRIBE, CANCEL, END, QUIT, OPT OUT, OPTOUT or STOP ALL, or Meta reports that the person stopped marketing messages, LazyRelay records the opt out and marks the contact as opted out. That record is checked again just before every send. Reply keywords are read once you point your own Meta app's webhook at LazyRelay.</p></div>
+</div>
+</article>
 
-  <section class="block" aria-labelledby="bridges">
-    <h2 id="bridges">3. Custom Developer Bridges &amp; MCP Workspace Tools</h2>
-    <p class="intro">LazyRelay has an API, and two ways to bring your own credentials.</p>
-    <ul class="rows">
-      <li class="row">
-        <span class="tag">AI agents</span>
-        <h3>(a) 27 MCP tools</h3>
-        <p>LazyRelay has 27 MCP tools. They work as Claude Code Model Context Protocol tools, and in any other AI agent that supports MCP, such as Claude Desktop, ChatGPT, Gemini and Cursor. An agent can check platform rules, create drafts, schedule, reschedule, pause and approve posts, create client review links and read analytics. The tools schedule and manage your LazyRelay posts through the LazyRelay API. Use the hosted endpoint with sign in, or the local package with an API key. <a href="/mcp/">See the integration guides</a>.</p>
-      </li>
-      <li class="row">
-        <span class="tag">Your keys</span>
-        <h3>(b) Your own X and WhatsApp developer keys</h3>
-        <p>Connect X with the keys from your own X developer app, and WhatsApp with your own Meta WhatsApp Business credentials. Your own keys are available on Growth, Pro and Pay as you go. They are not available on Free. Calls go out under your own credentials, so X and Meta apply their rate limits and billing to your own developer accounts. Your keys are stored encrypted.</p>
-      </li>
-    </ul>
-  </section>
+<article class="g proof c12" id="proof" aria-label="Proof of Publish workflow"><span class="k hot">Verify</span>
+<div class="cols2">
+<div>
+<h3>(c) Proof of Publish</h3>
+<p>Posting and checking are two separate steps. First post() sends the content to the platform. Then verifyPublished() reads it back from the platform. A post is marked live only when that read back confirms it, and the public URL of the post is stored with the result. If the read back does not confirm it, the post shows as unverified and no credit is taken.</p>
+<p>You get a result record for each destination. It shows whether the read back confirmed the post is live, and the public URL of the post.</p>
+</div>
+<div>
+<div class="pp-head"><h4 class="pp-title">How a post is checked</h4>
+<div class="tog" role="group" aria-label="Show an outcome"><button type="button" data-out="ok" aria-pressed="true">Confirmed</button><button type="button" data-out="bad" aria-pressed="false">Not confirmed</button></div></div>
+<ol class="pp-steps">
+<li><span class="pp-n">1</span><div><b>Posted</b><small><code>post()</code> sends the content to the platform</small></div></li>
+<li><span class="pp-n">2</span><div><b>Read back</b><small><code>verifyPublished()</code> reads it back from the platform</small></div></li>
+<li class="pp-res"><span class="pp-n">3</span><div>
+<span class="ok"><b>Live</b><small>The post is marked live, the credit is taken, and you get a result record per destination with the public URL.</small></span>
+<span class="bad"><b>Unverified</b><small>The post shows as unverified and no credit is taken.</small></span></div></li>
+</ol>
+</div>
+</div>
+</article>
+</div>
+</section>
 
-  <div class="cta">
-    <strong>Start free.</strong> The Free plan gives you 30 credits once at registration and up to 3 connected accounts.
-    <br /><a class="button" href="/pricing/">See plans and get started</a>
-  </div>
+<section class="part" aria-labelledby="competitor">
+<h2 class="sect-t" id="competitor">2. Pay As You Go Competitor Analysis Architecture</h2>
+<div class="cb">
+<article class="g c12"><span class="k hot">One off</span>
+<p class="lead-p">Pay as you go competitor analysis is a one off teardown, not ongoing tracking. A teardown costs 10 credits. The 10 credits are charged only when the blueprint is delivered, and a failed teardown costs nothing.</p>
+<div class="stp3">
+<div><b>Read the page</b><span>Paste a public competitor page link and tick the consent box. Main content only, read with Firecrawl.</span></div>
+<div><b>Analyse the structure</b><span>Claude Sonnet 5.5 returns a strategy map and three to six recommended adjustments. It does not quote the page.</span></div>
+<div><b>Blueprint delivered</b><span>Hook, sections, call to action, plus a draft post of up to 280 characters. Credits are taken now.</span></div>
+</div>
+</article>
+<article class="g c6" id="extract"><span class="k">Extract</span>
+<h3>(a) Reading the page</h3>
+<p>Paste a link to a public web page from a competitor. You tick a consent box before anything is sent. LazyRelay reads the public text of the page with Firecrawl, main content only, and a copy up to a day old may be used. This is landing page structure extraction: it pulls out the headings, how the page opens and its call to action links.</p>
+<ul class="bul">
+<li>Public web pages only. If the site does not allow the page to be read, the teardown stops there.</li>
+<li>Links to TikTok, Instagram, Facebook, X, Twitter, LinkedIn and Threads are not read, and neither are their short link addresses.</li>
+<li>Video links are not supported: a YouTube link cannot be turned into a blueprint.</li>
+<li>Teardowns are rate limited: there is a pause of at least 45 seconds between two of yours, a daily count per user and a daily ceiling across all users.</li>
+<li>If a teardown stops for any of these reasons, or fails for any other reason, nothing is charged.</li>
+</ul>
+</article>
+<article class="g c6" id="analyse"><span class="k">Analyse</span>
+<h3>(b) Analysis by Claude Sonnet 5.5</h3>
+<p>The extracted structure goes to Claude Sonnet 5.5, which returns two parts. It describes structure only. It does not quote the page, and its answer is rejected if it holds a link, an @mention, a claim that the page performs well, or a copied run of eight words or more from the page.</p>
+<p><strong>Competitor strategy map.</strong> The hook, which is one of question, statistic, bold claim, story, how to, list, problem and agitate, social proof, offer or other, with a note of up to 160 characters. Up to 8 sections in page order, each with a role label of up to 40 characters, such as Promise, Proof, Steps, Pricing or FAQ, and a summary of up to 140 characters. The call to action: its placement (top, middle, bottom, multiple or none), a style of up to 100 characters, and a count. LazyRelay counts and places the call to action links itself, so the placement and count do not come from the model.</p>
+<p><strong>Recommended adjustments.</strong> Three to six short adjustments of up to 160 characters each, written from the structure of that competitor page.</p>
+<p><strong>Also returned.</strong> The facts read from the page, such as its title, headings, prices and features, and a draft post of up to 280 characters with one tag.</p>
+</article>
+</div>
+</section>
 
-  <section class="faq" aria-labelledby="faq-title">
-    <h3 id="faq-title">Frequently asked questions</h3>
-    <details>
-      <summary>Which platforms can LazyRelay publish to?</summary>
-      <p>LazyRelay publishes to 18 distribution platforms plus WhatsApp. The 18 are TikTok, Pinterest, YouTube, Mastodon, Bluesky, Telegram, LinkedIn, Threads, Facebook, Instagram, Discord, Tumblr, WordPress, dev.to, Hashnode, Lemmy, Slack and X. WhatsApp is client messaging and is not one of the 18.</p>
-    </details>
-    <details>
-      <summary>What is Proof of Publish?</summary>
-      <p>Proof of Publish is a second step. After LazyRelay posts, it reads the post back from the platform. A post is marked live only when that read back confirms it. Otherwise it shows as unverified.</p>
-    </details>
-    <details>
-      <summary>What does a competitor teardown cost?</summary>
-      <p>A competitor teardown costs 10 credits. The credits are charged only when the blueprint is delivered, and a failed teardown costs nothing.</p>
-    </details>
-    <details>
-      <summary>Does LazyRelay work with my AI agent?</summary>
-      <p>LazyRelay has 27 MCP tools. An AI agent that supports MCP, such as Claude Code, can use them to schedule and manage your LazyRelay posts through the API. Use the hosted endpoint with sign in, or the local package with an API key.</p>
-    </details>
-    <details>
-      <summary>Is there a free plan?</summary>
-      <p>Yes. The Free plan gives you 30 credits once at registration and up to 3 connected accounts.</p>
-    </details>
-  </section>
+<section class="part" aria-labelledby="bridges">
+<h2 class="sect-t" id="bridges">3. Custom Developer Bridges &amp; MCP Workspace Tools</h2>
+<p class="sect-p">LazyRelay has an API, and two ways to bring your own credentials.</p>
+<div class="cb">
+<article class="g actions c12" id="mcp-tools" aria-label="The 27 MCP tools, by group"><span class="k hot">AI agents</span>
+<h3>(a) 27 MCP tools</h3>
+<div class="ag-top"><b>27</b><span>MCP tools</span></div>
+<p>LazyRelay has 27 MCP tools. They work as Claude Code Model Context Protocol tools, and in any other AI agent that supports MCP, such as Claude Desktop, ChatGPT, Gemini and Cursor. An agent can check platform rules, create drafts, schedule, reschedule, pause and approve posts, create client review links and read analytics. The tools schedule and manage your LazyRelay posts through the LazyRelay API. Use the hosted endpoint with sign in, or the local package with an API key. <a href="/mcp/">See the integration guides</a>.</p>
+<div class="ag-tabs" role="group" aria-label="Choose a group">
+<button type="button" data-g="lookups" aria-pressed="true">Lookups<em>8</em></button>
+<button type="button" data-g="posting" aria-pressed="false">Posting<em>9</em></button>
+<button type="button" data-g="approval" aria-pressed="false">Client approval<em>6</em></button>
+<button type="button" data-g="results" aria-pressed="false">Results<em>4</em></button>
+</div>
+<div class="ag-panel" data-g="lookups"><p>Find out what is connected and what each platform accepts before you post.</p><ul><li>list_connected_accounts</li><li>list_workspaces</li><li>get_platform_rules</li><li>get_tiktok_creator_info</li><li>list_pinterest_boards</li><li>get_next_free_slot</li><li>list_posting_slots</li><li>list_snippets</li></ul></div>
+<div class="ag-panel" data-g="posting" hidden><p>Create, schedule, edit, pause and cancel posts.</p><ul><li>schedule_post</li><li>publish_post_now</li><li>create_draft</li><li>schedule_draft</li><li>update_post</li><li>reschedule_post</li><li>pause_post</li><li>resume_post</li><li>delete_scheduled_post</li></ul></div>
+<div class="ag-panel" data-g="approval" hidden><p>Approve waiting posts and run client review links and feedback.</p><ul><li>approve_post</li><li>create_review_link</li><li>list_review_links</li><li>revoke_review_link</li><li>get_post_feedback</li><li>reply_to_post_feedback</li></ul></div>
+<div class="ag-panel" data-g="results" hidden><p>Check what happened: post status and Proof of Publish, shareable proof, analytics and comments.</p><ul><li>list_scheduled_posts</li><li>get_proof_link</li><li>get_analytics_summary</li><li>get_mentions</li></ul></div>
+</article>
+<article class="g c12" id="keys"><span class="k">Your keys</span>
+<h3>(b) Your own X and WhatsApp developer keys</h3>
+<p>Connect X with the keys from your own X developer app, and WhatsApp with your own Meta WhatsApp Business credentials. Your own keys are available on Growth, Pro and Pay as you go. They are not available on Free. Calls go out under your own credentials, so X and Meta apply their rate limits and billing to your own developer accounts. Your keys are stored encrypted.</p>
+</article>
+</div>
+</section>
+
+<div class="g ctaband"><div><strong>Start free.</strong> <p>The Free plan gives you 30 credits once at registration and up to 3 connected accounts.</p></div><a class="btn" href="/pricing/">See plans and get started</a></div>
+
+<section aria-labelledby="faq-title"><h3 class="section-title" id="faq-title">Frequently asked questions</h3>
+<div class="faqs">
+<details class="g"><summary>Which platforms can LazyRelay publish to?</summary><p>LazyRelay publishes to 18 distribution platforms plus WhatsApp. The 18 are TikTok, Pinterest, YouTube, Mastodon, Bluesky, Telegram, LinkedIn, Threads, Facebook, Instagram, Discord, Tumblr, WordPress, dev.to, Hashnode, Lemmy, Slack and X. WhatsApp is client messaging and is not one of the 18.</p></details>
+<details class="g"><summary>What is Proof of Publish?</summary><p>Proof of Publish is a second step. After LazyRelay posts, it reads the post back from the platform. A post is marked live only when that read back confirms it. Otherwise it shows as unverified.</p></details>
+<details class="g"><summary>What does a competitor teardown cost?</summary><p>A competitor teardown costs 10 credits. The credits are charged only when the blueprint is delivered, and a failed teardown costs nothing.</p></details>
+<details class="g"><summary>Does LazyRelay work with my AI agent?</summary><p>LazyRelay has 27 MCP tools. An AI agent that supports MCP, such as Claude Code, can use them to schedule and manage your LazyRelay posts through the API. Use the hosted endpoint with sign in, or the local package with an API key.</p></details>
+<details class="g"><summary>Is there a free plan?</summary><p>Yes. The Free plan gives you 30 credits once at registration and up to 3 connected accounts.</p></details>
+</div></section>
 </main>
-<footer>
-  <p><a href="/">Home</a> &middot; <a href="/capabilities/">Capabilities</a> &middot; <a href="/pricing/">Pricing</a> &middot; <a href="/mcp/">Integrations</a> &middot; <a href="/guides/">Guides</a> &middot; <a href="/alternatives/">Comparisons</a> &middot; <a href="/terms/">Terms of Service</a> &middot; <a href="/privacy/">Privacy Policy</a> &middot; <a href="/refunds/">Refund Policy</a></p>
-  <p>&copy; 2026 LazyRelay. All rights reserved.</p>
-</footer>
+<footer><div class="wrap">
+<p><a href="/">Home</a> &middot; <a href="/capabilities/">Capabilities</a> &middot; <a href="/pricing/">Pricing</a> &middot; <a href="/mcp/">Integrations</a> &middot; <a href="/guides/">Guides</a> &middot; <a href="/docs/">Docs</a> &middot; <a href="/about/">About</a> &middot; <a href="/docs/mcp-api/">MCP tools and limits</a> &middot; <a href="/connect-zapier/">Connect to Zapier</a> &middot; <a href="/terms/">Terms of Service</a> &middot; <a href="/privacy/">Privacy Policy</a> &middot; <a href="/refunds/">Refund Policy</a></p>
+<p class="footer-discovery">Compare: <a href="/alternatives/">All comparisons</a> &middot; <a href="/alternatives/postdodo/">PostDodo</a> &middot; <a href="/alternatives/buffer/">Buffer</a> &middot; <a href="/alternatives/hootsuite/">Hootsuite</a> &middot; <a href="/alternatives/metricool/">Metricool</a> &middot; <a href="/alternatives/later/">Later</a> &middot; <a href="/alternatives/sprout-social/">Sprout Social</a> &middot; <a href="/alternatives/socialbee/">SocialBee</a> &middot; <a href="/alternatives/publer/">Publer</a> &middot; <a href="/alternatives/postiz/">Postiz</a> &middot; <a href="/alternatives/publora/">Publora</a> &middot; <a href="/alternatives/ayrshare/">Ayrshare</a> &middot; <a href="/alternatives/planable/">Planable</a> &middot; <a href="/alternatives/agorapulse/">Agorapulse</a> &middot; <a href="/alternatives/loomly/">Loomly</a></p>
+<p class="footer-discovery">Schedule to: <a href="/schedule-to-facebook/">Facebook</a> &middot; <a href="/schedule-to-instagram/">Instagram</a> &middot; <a href="/schedule-to-tiktok/">TikTok</a> &middot; <a href="/schedule-to-pinterest/">Pinterest</a> &middot; <a href="/schedule-to-youtube/">YouTube</a> &middot; <a href="/schedule-to-linkedin/">LinkedIn</a> &middot; <a href="/schedule-to-threads/">Threads</a> &middot; <a href="/schedule-to-mastodon/">Mastodon</a> &middot; <a href="/schedule-to-bluesky/">Bluesky</a> &middot; <a href="/schedule-to-telegram/">Telegram</a> &middot; <a href="/schedule-to-discord/">Discord</a> &middot; <a href="/schedule-to-tumblr/">Tumblr</a> &middot; <a href="/schedule-to-wordpress/">WordPress</a> &middot; <a href="/schedule-to-devto/">DEV</a> &middot; <a href="/schedule-to-hashnode/">Hashnode</a> &middot; <a href="/schedule-to-lemmy/">Lemmy</a> &middot; <a href="/schedule-to-slack/">Slack</a></p>
+<p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</div></footer>
 </body>
 </html>

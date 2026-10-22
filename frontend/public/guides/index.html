@@ -22,199 +22,85 @@
 <meta name="twitter:description" content="Guides on social media scheduling: post verification, platform coverage, AI content ideas, comment triage, multi-brand support and analytics." />
 <meta name="twitter:image" content="https://lazyrelay.com/og-image-1200x630.jpg" />
     <link rel="icon" type="image/png" href="/favicon.png" />
-<link rel="stylesheet" href="/circuit-bg.css" />
+<link rel="stylesheet" href="/assets-static/lr-site.css" />
 <script src="/consent.js" defer></script>
-<style>
-  :root { color-scheme: light dark; }
-  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
-  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
-  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
-  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
-  .wordmark .dot { color: #ff5630; }
-  a { color: #c82400; }
-  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #c82400; }
-  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
-  .section-heading { font-family: Georgia, serif; color: #14171f; font-size: 22px; margin-top: 44px; }
-  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
-  .note { color: #5b6472; font-size: 14px; }
-  strong { color: #14171f; }
-  .guide-item { border-bottom: 1px solid #e5e7eb; padding: 20px 0; }
-  .guide-item:last-child { border-bottom: none; }
-  .guide-item h2 { font-family: Georgia, serif; color: #14171f; font-size: 18px; margin: 0 0 6px; }
-  .guide-item h2 a { color: #14171f; text-decoration: none; }
-  .guide-item h2 a:hover { color: #c82400; }
-  .guide-item p { margin: 0; font-size: 15px; }
-</style>
+<script src="/assets-static/lr-site.js" defer></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","url":"https://lazyrelay.com/guides/","name":"Guides","description":"Guides on social media scheduling: post verification, platform coverage, AI content ideas, comment triage, multi-brand support, proof-of-publish sharing, and analytics insight.","isPartOf":{"@type":"WebSite","name":"LazyRelay","url":"https://lazyrelay.com/"}}</script>
 </head>
 <body>
-<script src="/circuit-bg.js" defer></script>
-<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
-<main>
+<a class="skip" href="#content">Skip to the guides</a>
+<header class="top"><div class="wrap">
+<a class="wordmark" href="/">Lazy<span class="dot">Relay</span></a>
+<nav class="primary" aria-label="Primary"><a href="/">Home</a><a href="/capabilities/">Capabilities</a><a href="/pricing/">Pricing</a><a href="/mcp/">Integrations</a><a href="/guides/" aria-current="page">Guides</a><a href="/docs/">Docs</a></nav>
+<span class="hdr-cta"><a class="btn ghost" href="/login">Sign in</a><a class="btn" href="/signup">Start free</a></span>
+</div></header>
+<main id="content" class="inner">
+<div class="doc">
+<nav class="g side notilt" data-filter aria-label="Guide categories">
+<span class="sh">Categories</span>
+<button type="button" data-c="all" class="on">All guides<em>0</em></button>
+<button type="button" data-c="sched">Scheduling and verification<em>0</em></button>
+<button type="button" data-c="dev">Developers and connections<em>0</em></button>
+<button type="button" data-c="mcp">Connect an AI agent<em>0</em></button>
+<button type="button" data-c="ref">Tools and reference<em>0</em></button>
+<div class="sep"></div>
+<a href="/mcp/">All integrations &rarr;</a>
+<a href="/docs/">API and MCP docs &rarr;</a>
+</nav>
+
+<article class="g read notilt">
 <a class="back" href="/" id="back-home-link">&larr; Back to home</a>
 <h1>Guides</h1>
-<p class="subtitle">Straight answers on the parts of social media scheduling that actually trip people up, not just feature lists.</p>
+<p class="lede">Straight answers on the parts of social media scheduling that actually trip people up, not just feature lists.</p>
 
-<div class="guide-item">
-  <h2><a href="/verify-post-published/">Does Your Scheduled Post Actually Publish?</a></h2>
-  <p>Why "sent" and "published" aren't the same claim, and how to actually verify one from the other.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/social-media-scheduler-comparison/">Comparing Social Media Schedulers? Here's What Actually Differs.</a></h2>
-  <p>Pricing shape and post verification, compared honestly against a typical per-channel scheduler.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/ai-agent-scheduled-post-failure/">What Happens When Your AI Agent's Scheduled Post Fails Silently?</a></h2>
-  <p>Why a silent posting failure is a bigger risk when an AI agent, not a person, is doing the scheduling.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/mastodon-bluesky-tumblr-scheduler/">A Scheduler That Actually Supports Mastodon, Bluesky, or Tumblr</a></h2>
-  <p>Why most schedulers stop at the big four or five platforms, and what full coverage looks like instead.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/free-tools/">Free Tools for Social Media Posting</a></h2>
-  <p>A free checker that shows whether your post fits each platform's text and media limits, plus the time-savings calculator.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/developers/">LazyRelay for Developers</a></h2>
-  <p>The REST API, the MCP server, the Node SDK and command line tool, and the n8n node, with real install commands.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/stuck-on-what-to-post/">Stuck on What to Post? Most Schedulers Won't Help With That.</a></h2>
-  <p>The problem that comes before scheduling: not knowing what to write about in the first place.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/multi-brand-social-media-scheduler/">Running More Than One Business's Social Accounts?</a></h2>
-  <p>What per-brand and per-workspace pricing actually costs a solo operator, and a flat-rate alternative.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/proof-post-went-live/">Need to Prove a Social Post Actually Went Live?</a></h2>
-  <p>How to show a client, franchise, or boss that a post is genuinely live, not just that it was scheduled.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/social-media-analytics-insight/">Your Analytics Dashboard Has the Data. Does It Tell You Anything?</a></h2>
-  <p>The gap between having engagement numbers and knowing what to actually do differently next time.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/guides/x-developer-keys/">Connect X (Twitter) with your own developer keys (BYOK)</a></h2>
-  <p>Create your own X developer app, set Read and Write permission, copy the four keys, and see what X charges per post.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/connect-zapier/">How to Connect LazyRelay to Zapier</a></h2>
-  <p>Wire LazyRelay into 9,000+ other apps &mdash; spreadsheets, Slack, Shopify, WordPress &mdash; no code required.</p>
-</div>
+<span class="gcat" data-c="sched">Scheduling and verification</span>
+<a class="gi" data-c="sched" href="/verify-post-published/"><h3>Does Your Scheduled Post Actually Publish?</h3><p>Why "sent" and "published" aren't the same claim, and how to actually verify one from the other.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="sched" href="/social-media-scheduler-comparison/"><h3>Comparing Social Media Schedulers? Here's What Actually Differs.</h3><p>Pricing shape and post verification, compared honestly against a typical per-channel scheduler.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="sched" href="/ai-agent-scheduled-post-failure/"><h3>What Happens When Your AI Agent's Scheduled Post Fails Silently?</h3><p>Why a silent posting failure is a bigger risk when an AI agent, not a person, is doing the scheduling.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="sched" href="/mastodon-bluesky-tumblr-scheduler/"><h3>A Scheduler That Actually Supports Mastodon, Bluesky, or Tumblr</h3><p>Why most schedulers stop at the big four or five platforms, and what full coverage looks like instead.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="sched" href="/stuck-on-what-to-post/"><h3>Stuck on What to Post? Most Schedulers Won't Help With That.</h3><p>The problem that comes before scheduling: not knowing what to write about in the first place.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="sched" href="/multi-brand-social-media-scheduler/"><h3>Running More Than One Brand's Social Accounts?</h3><p>What per-brand and per-workspace pricing actually costs when you run several brands, and a flat-rate alternative.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="sched" href="/proof-post-went-live/"><h3>Need to Prove a Social Post Actually Went Live?</h3><p>How to show a client, franchise, or boss that a post is genuinely live, not just that it was scheduled.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="sched" href="/social-media-analytics-insight/"><h3>Your Analytics Dashboard Has the Data. Does It Tell You Anything?</h3><p>The gap between having engagement numbers and knowing what to actually do differently next time.</p><span class="go">&rarr;</span></a>
 
-<h2 class="section-heading">Connect an AI agent (MCP)</h2>
-<p class="subtitle" style="margin-bottom:16px;">Schedule, check, and verify posts from inside the AI agent or editor you already use &mdash; with real Proof-of-Publish status, not just an accepted API call. See the full <a href="/mcp/">Integrations page</a> for all 15 at a glance.</p>
+<span class="gcat" data-c="dev">Developers and connections</span>
+<a class="gi" data-c="dev" href="/developers/"><h3>LazyRelay for Developers</h3><p>The REST API, the MCP server, the Node SDK and command line tool, and the n8n node, with real install commands.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="dev" href="/guides/x-developer-keys/"><h3>Connect X (Twitter) with your own developer keys (BYOK)</h3><p>Create your own X developer app, set Read and Write permission, copy the four keys, and see what X charges per post.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="dev" href="/connect-zapier/"><h3>How to Connect LazyRelay to Zapier</h3><p>Wire LazyRelay into 9,000+ other apps, spreadsheets, Slack, Shopify, WordPress, no code required.</p><span class="go">&rarr;</span></a>
 
-<div class="guide-item">
-  <h2><a href="/mcp/claude/">Post to Social Media from Claude</a></h2>
-  <p>Claude Desktop and Claude Code, local config or hosted connector.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/mcp/cursor/">Post to Social Media from Cursor</a></h2>
-  <p>Schedule and verify posts without leaving your editor.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/mcp/windsurf/">Post to Social Media from Windsurf</a></h2>
-  <p>Connect LazyRelay to Cascade.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/mcp/chatgpt/">Post to Social Media from ChatGPT</a></h2>
-  <p>Connect via ChatGPT's hosted connectors, no install required.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/mcp/codex-cli/">Post to Social Media from Codex CLI</a></h2>
-  <p>Schedule and verify posts right from your terminal.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/mcp/n8n/">Post to Social Media from n8n</a></h2>
-  <p>Give an n8n workflow the ability to schedule and verify posts.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/mcp/make/">Post to Social Media from Make</a></h2>
-  <p>Give a Make scenario the ability to schedule and verify posts.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/mcp/gemini-cli/">Post to Social Media from Gemini CLI</a></h2>
-  <p>Schedule and verify posts right from your terminal.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/mcp/vscode/">Post to Social Media from VS Code / GitHub Copilot</a></h2>
-  <p>Schedule and verify posts without leaving your editor.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/mcp/antigravity/">Post to Social Media from Antigravity</a></h2>
-  <p>Connect LazyRelay to Google's agentic IDE.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/mcp/perplexity/">Post to Social Media from Perplexity</a></h2>
-  <p>Connect via Perplexity's custom remote connectors, no install required.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/mcp/notion/">Post to Social Media from Notion</a></h2>
-  <p>Give a Notion custom agent the ability to schedule and verify posts.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/mcp/manus/">Post to Social Media from Manus</a></h2>
-  <p>Let a Manus agent schedule and verify posts as part of a larger task.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/mcp/openclaw/">Post to Social Media from OpenClaw</a></h2>
-  <p>Connect your self-hosted OpenClaw agent, no install required.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/mcp/raycast/">Post to Social Media from Raycast</a></h2>
-  <p>Schedule and verify posts from Raycast AI, no browser required.</p>
-</div>
+<span class="gcat" data-c="mcp">Connect an AI agent (MCP)</span>
+<p class="gintro" data-c="mcp">Schedule, check, and verify posts from inside the AI agent or editor you already use, with real Proof-of-Publish status, not just an accepted API call. See the full <a href="/mcp/">Integrations page</a> for all 15 at a glance.</p>
+<a class="gi" data-c="mcp" href="/mcp/claude/"><h3>Post to Social Media from Claude</h3><p>Claude Desktop and Claude Code, local config or hosted connector.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="mcp" href="/mcp/cursor/"><h3>Post to Social Media from Cursor</h3><p>Schedule and verify posts without leaving your editor.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="mcp" href="/mcp/windsurf/"><h3>Post to Social Media from Windsurf</h3><p>Connect LazyRelay to Cascade.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="mcp" href="/mcp/chatgpt/"><h3>Post to Social Media from ChatGPT</h3><p>Connect via ChatGPT's hosted connectors, no install required.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="mcp" href="/mcp/codex-cli/"><h3>Post to Social Media from Codex CLI</h3><p>Schedule and verify posts right from your terminal.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="mcp" href="/mcp/n8n/"><h3>Post to Social Media from n8n</h3><p>Give an n8n workflow the ability to schedule and verify posts.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="mcp" href="/mcp/make/"><h3>Post to Social Media from Make</h3><p>Give a Make scenario the ability to schedule and verify posts.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="mcp" href="/mcp/gemini-cli/"><h3>Post to Social Media from Gemini CLI</h3><p>Schedule and verify posts right from your terminal.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="mcp" href="/mcp/vscode/"><h3>Post to Social Media from VS Code / GitHub Copilot</h3><p>Schedule and verify posts without leaving your editor.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="mcp" href="/mcp/antigravity/"><h3>Post to Social Media from Antigravity</h3><p>Connect LazyRelay to Google's agentic IDE.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="mcp" href="/mcp/perplexity/"><h3>Post to Social Media from Perplexity</h3><p>Connect via Perplexity's custom remote connectors, no install required.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="mcp" href="/mcp/notion/"><h3>Post to Social Media from Notion</h3><p>Give a Notion custom agent the ability to schedule and verify posts.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="mcp" href="/mcp/manus/"><h3>Post to Social Media from Manus</h3><p>Let a Manus agent schedule and verify posts as part of a larger task.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="mcp" href="/mcp/openclaw/"><h3>Post to Social Media from OpenClaw</h3><p>Connect your self-hosted OpenClaw agent, no install required.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="mcp" href="/mcp/raycast/"><h3>Post to Social Media from Raycast</h3><p>Schedule and verify posts from Raycast AI, no browser required.</p><span class="go">&rarr;</span></a>
 
-<h2 class="section-heading">Tools &amp; reference</h2>
-
-<div class="guide-item">
-  <h2><a href="/platform-features/">What Works on Which Platform</a></h2>
-  <p>A real feature-by-platform breakdown: which of the 18 supported distribution platforms have analytics, comment replies, first-comment posting, and DMs.</p>
+<span class="gcat" data-c="ref">Tools and reference</span>
+<a class="gi" data-c="ref" href="/free-tools/"><h3>Free Tools for Social Media Posting</h3><p>A free checker that shows whether your post fits each platform's text and media limits, plus the time-savings calculator.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="ref" href="/platform-features/"><h3>What Works on Which Platform</h3><p>A real feature-by-platform breakdown: which supported distribution platforms have analytics, comment replies, first-comment posting, and DMs.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="ref" href="/time-savings-calculator/"><h3>Time-Savings Calculator</h3><p>Roughly how much time posting the same content to multiple platforms by hand actually costs you.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="ref" href="/changelog/"><h3>Changelog</h3><p>What's actually shipped, dated, most recent first.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="ref" href="/in-the-works/"><h3>In the Works</h3><p>What's in progress and what's planned next.</p><span class="go">&rarr;</span></a>
+<a class="gi" data-c="ref" href="/status/"><h3>System Status</h3><p>Live status, checked against the running system when you load the page.</p><span class="go">&rarr;</span></a>
+</article>
 </div>
-<div class="guide-item">
-  <h2><a href="/time-savings-calculator/">Time-Savings Calculator</a></h2>
-  <p>Roughly how much time posting the same content to multiple platforms by hand actually costs you.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/changelog/">Changelog</a></h2>
-  <p>What's actually shipped, dated, most recent first.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/in-the-works/">In the Works</a></h2>
-  <p>What's in progress and what's planned next.</p>
-</div>
-<div class="guide-item">
-  <h2><a href="/status/">System Status</a></h2>
-  <p>Live status, checked against the running system when you load the page.</p>
-</div>
-
 </main>
-<footer>
-  <p><a href="/">Home</a> &middot; <a href="/pricing/">Pricing</a> &middot; <a href="/terms/">Terms of Service</a> &middot; <a href="/privacy/">Privacy Policy</a> &middot; <a href="/refunds/">Refund Policy</a></p>
-  <p class="footer-discovery">Compare: <a href="/alternatives/">All comparisons</a> &middot; <a href="/alternatives/postdodo/">PostDodo</a> &middot; <a href="/alternatives/buffer/">Buffer</a> &middot; <a href="/alternatives/hootsuite/">Hootsuite</a> &middot; <a href="/alternatives/metricool/">Metricool</a> &middot; <a href="/alternatives/later/">Later</a> &middot; <a href="/alternatives/sprout-social/">Sprout Social</a> &middot; <a href="/alternatives/socialbee/">SocialBee</a> &middot; <a href="/alternatives/publer/">Publer</a> &middot; <a href="/alternatives/postiz/">Postiz</a> &middot; <a href="/alternatives/publora/">Publora</a> &middot; <a href="/alternatives/ayrshare/">Ayrshare</a> &middot; <a href="/alternatives/planable/">Planable</a> &middot; <a href="/alternatives/agorapulse/">Agorapulse</a> &middot; <a href="/alternatives/loomly/">Loomly</a></p>
-  <p class="footer-discovery">Schedule to: <a href="/schedule-to-facebook/">Facebook</a> &middot; <a href="/schedule-to-instagram/">Instagram</a> &middot; <a href="/schedule-to-tiktok/">TikTok</a> &middot; <a href="/schedule-to-pinterest/">Pinterest</a> &middot; <a href="/schedule-to-youtube/">YouTube</a> &middot; <a href="/schedule-to-linkedin/">LinkedIn</a> &middot; <a href="/schedule-to-threads/">Threads</a> &middot; <a href="/schedule-to-mastodon/">Mastodon</a> &middot; <a href="/schedule-to-bluesky/">Bluesky</a> &middot; <a href="/schedule-to-telegram/">Telegram</a> &middot; <a href="/schedule-to-discord/">Discord</a> &middot; <a href="/schedule-to-tumblr/">Tumblr</a> &middot; <a href="/schedule-to-wordpress/">WordPress</a> &middot; <a href="/schedule-to-devto/">DEV</a> &middot; <a href="/schedule-to-hashnode/">Hashnode</a> &middot; <a href="/schedule-to-lemmy/">Lemmy</a> &middot; <a href="/schedule-to-slack/">Slack</a></p>
-  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
-</footer>
-<script>
-  // Same fix as /docs (2026-08-27, see project-docs-back-to-home-bug note):
-  // opts this page out of Chrome's back/forward cache (bfcache), which was
-  // found to sometimes restore this page from a stale snapshot where the
-  // address bar shows the wrong URL for the content on screen, making every
-  // link click a silent no-op. An empty pagehide listener forces a fresh
-  // load every time instead of relying on the user noticing and refreshing.
-  window.addEventListener("pagehide", function () {});
-
-  // Belt-and-suspenders on top of the bfcache fix above, same as /docs:
-  // forcing navigation via window.location.assign() is a more direct path
-  // than the browser's default link-following behavior, so it isn't
-  // exposed to whatever made that default path unreliable there.
-  document.getElementById("back-home-link").addEventListener("click", function (e) {
-    e.preventDefault();
-    window.location.assign("/");
-  });
-</script>
+<footer><div class="wrap">
+<p><a href="/">Home</a> &middot; <a href="/capabilities/">Capabilities</a> &middot; <a href="/pricing/">Pricing</a> &middot; <a href="/mcp/">Integrations</a> &middot; <a href="/guides/">Guides</a> &middot; <a href="/docs/">Docs</a> &middot; <a href="/about/">About</a> &middot; <a href="/docs/mcp-api/">MCP tools and limits</a> &middot; <a href="/connect-zapier/">Connect to Zapier</a> &middot; <a href="/terms/">Terms of Service</a> &middot; <a href="/privacy/">Privacy Policy</a> &middot; <a href="/refunds/">Refund Policy</a></p>
+<p class="footer-discovery">Compare: <a href="/alternatives/">All comparisons</a> &middot; <a href="/alternatives/postdodo/">PostDodo</a> &middot; <a href="/alternatives/buffer/">Buffer</a> &middot; <a href="/alternatives/hootsuite/">Hootsuite</a> &middot; <a href="/alternatives/metricool/">Metricool</a> &middot; <a href="/alternatives/later/">Later</a> &middot; <a href="/alternatives/sprout-social/">Sprout Social</a> &middot; <a href="/alternatives/socialbee/">SocialBee</a> &middot; <a href="/alternatives/publer/">Publer</a> &middot; <a href="/alternatives/postiz/">Postiz</a> &middot; <a href="/alternatives/publora/">Publora</a> &middot; <a href="/alternatives/ayrshare/">Ayrshare</a> &middot; <a href="/alternatives/planable/">Planable</a> &middot; <a href="/alternatives/agorapulse/">Agorapulse</a> &middot; <a href="/alternatives/loomly/">Loomly</a></p>
+<p class="footer-discovery">Schedule to: <a href="/schedule-to-facebook/">Facebook</a> &middot; <a href="/schedule-to-instagram/">Instagram</a> &middot; <a href="/schedule-to-tiktok/">TikTok</a> &middot; <a href="/schedule-to-pinterest/">Pinterest</a> &middot; <a href="/schedule-to-youtube/">YouTube</a> &middot; <a href="/schedule-to-linkedin/">LinkedIn</a> &middot; <a href="/schedule-to-threads/">Threads</a> &middot; <a href="/schedule-to-mastodon/">Mastodon</a> &middot; <a href="/schedule-to-bluesky/">Bluesky</a> &middot; <a href="/schedule-to-telegram/">Telegram</a> &middot; <a href="/schedule-to-discord/">Discord</a> &middot; <a href="/schedule-to-tumblr/">Tumblr</a> &middot; <a href="/schedule-to-wordpress/">WordPress</a> &middot; <a href="/schedule-to-devto/">DEV</a> &middot; <a href="/schedule-to-hashnode/">Hashnode</a> &middot; <a href="/schedule-to-lemmy/">Lemmy</a> &middot; <a href="/schedule-to-slack/">Slack</a></p>
+<p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</div></footer>
 </body>
 </html>

@@ -22,205 +22,119 @@
 <meta name="twitter:description" content="LazyRelay REST API and MCP server reference: authentication, scheduling endpoints, Proof-of-Publish status, and connecting Claude, Cursor or an MCP client." />
 <meta name="twitter:image" content="https://lazyrelay.com/og-image-1200x630.jpg" />
 <link rel="icon" type="image/png" href="/favicon.png" />
-<link rel="stylesheet" href="/circuit-bg.css" />
+<link rel="stylesheet" href="/assets-static/lr-site.css" />
 <script src="/consent.js" defer></script>
-<style>
-  :root { color-scheme: light dark; }
-  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f6f8; color: #5b6472; margin: 0; line-height: 1.65; }
-  header, footer { max-width: 720px; margin: 0 auto; padding: 24px; }
-  main { max-width: 720px; margin: 0 auto; padding: 0 24px 48px; background: #fff; }
-  .wordmark { display: flex; align-items: center; gap: 8px; font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #14171f; }
-  .wordmark .dot { color: #ff5630; }
-  a { color: #c82400; }
-  a.back { display: inline-block; margin-bottom: 24px; text-decoration: none; color: #c82400; }
-  h1 { font-family: Georgia, serif; color: #14171f; font-size: 32px; margin-bottom: 8px; line-height: 1.25; }
-  h2 { font-family: Georgia, serif; color: #14171f; font-size: 20px; margin-top: 36px; }
-  h3 { font-family: Georgia, serif; color: #14171f; font-size: 16px; margin-top: 24px; margin-bottom: 4px; }
-  .subtitle { color: #5b6472; font-size: 16px; margin-top: 0; margin-bottom: 32px; }
-  .note { color: #5b6472; font-size: 14px; }
-  strong { color: #14171f; }
-  .cta-box { background: #f5f6f8; border-left: 3px solid #ff5630; padding: 20px 24px; margin: 32px 0; border-radius: 4px; }
-  .cta-box a.button { display: inline-block; background: #ff5630; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 8px; }
-  ul, ol { padding-left: 22px; }
-  li { margin-bottom: 8px; }
-  code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 13px; }
-  pre.code-block { background: #14171f; color: #e5e7eb; border-radius: 8px; padding: 14px 16px; overflow-x: auto; margin: 0 0 16px; }
-  pre.code-block code { color: #e5e7eb; white-space: pre; }
-  .endpoint-list { display: flex; flex-direction: column; gap: 20px; margin-bottom: 16px; }
-  .endpoint { border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; }
-  .endpoint-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
-  .endpoint-header code { color: #14171f; font-size: 14px; }
-  .method { font-family: monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 5px; letter-spacing: 0.03em; }
-  .method-get { background: #ffe4da; color: #c23e15; }
-  .method-post { background: rgba(31, 157, 104, 0.15); color: #1f9d68; }
-  .method-delete { background: rgba(214, 69, 69, 0.12); color: #c23e3e; }
-  .endpoint pre.code-block { margin: 10px 0 0; }
-</style>
+<script src="/assets-static/lr-site.js" defer></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","url":"https://lazyrelay.com/docs/","name":"API & MCP Docs","description":"LazyRelay's REST API and MCP server reference: authentication, the endpoints for scheduling posts and reading Proof-of-Publish verification, and how to connect an AI agent (Claude, Cursor, or any MCP client) without writing HTTP calls by hand.","isPartOf":{"@type":"WebSite","name":"LazyRelay","url":"https://lazyrelay.com/"}}</script>
 </head>
 <body>
-<script src="/circuit-bg.js" defer></script>
-<header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>
-<main>
-<a class="back" href="/" id="back-home-link">&larr; Back to home</a>
-<h1>API &amp; MCP server</h1>
-<p class="subtitle">Everything below is real and live today: the same API LazyRelay's own dashboard runs on. Already have an account? The same docs live inside your dashboard's API Keys tab, with no need to sign back in.</p>
+<a class="skip" href="#content">Skip to the docs</a>
+<header class="top"><div class="wrap">
+<a class="wordmark" href="/">Lazy<span class="dot">Relay</span></a>
+<nav class="primary" aria-label="Primary"><a href="/">Home</a><a href="/capabilities/">Capabilities</a><a href="/pricing/">Pricing</a><a href="/mcp/">Integrations</a><a href="/guides/">Guides</a><a href="/docs/" aria-current="page">Docs</a></nav>
+<span class="hdr-cta"><a class="btn ghost" href="/login">Sign in</a><a class="btn" href="/signup">Start free</a></span>
+</div></header>
+<main id="content" class="inner">
+<div class="doc">
+<nav class="g side notilt" data-spy aria-label="On this page">
+<span class="sh">On this page</span>
+<a href="#auth" class="on">Authentication</a>
+<a href="#base">Base URL</a>
+<a href="#endpoints">Endpoints</a>
+<a href="#mcp-local">MCP server (local)</a>
+<a href="#mcp-hosted">Hosted MCP server</a>
+<a href="#tools">Tools</a>
+<div class="sep"></div>
+<a href="/mcp/tools/">MCP tool reference &rarr;</a>
+<a href="/docs/mcp-api/">Tools, webhooks and limits &rarr;</a>
+<a href="/connect-zapier/">Connect to Zapier &rarr;</a>
+<a href="/about/">About LazyRelay &rarr;</a>
+</nav>
 
-<h2>Authentication</h2>
-<p>Generate a key from your dashboard: <strong>More &rarr; API Keys &rarr; Create key</strong>. The raw key is shown once, copy it immediately. Send it as a bearer token on every request:</p>
-<pre class="code-block"><code>Authorization: Bearer lzr_live_your_key_here</code></pre>
+<article class="g read notilt">
+<a class="back" href="/" id="back-home-link">&larr; Back to home</a>
+<h1>API and MCP server</h1>
+<p class="lede">Everything below is real and live today: the same API LazyRelay's own dashboard runs on. Already have an account? The same docs live inside your dashboard's API Keys tab, with no need to sign back in.</p>
+
+<h2 id="auth">Authentication</h2>
+<p>Generate a key from your dashboard: <strong>More &rarr; API Keys &rarr; Create key</strong>. The raw key is shown once, so copy it immediately. Send it as a bearer token on every request:</p>
+<div class="con"><div class="con-bar"><b>HTTP header</b><button type="button" class="cp">Copy</button></div><pre><code><span class="jk">Authorization</span><span class="jp">:</span> <span class="js">Bearer lzr_live_your_key_here</span></code></pre></div>
 <p>Each key acts as your account. Treat it like a password. Creating or revoking keys always requires signing in to the dashboard directly; a key can never be used to mint or revoke other keys, so a leaked key can't lock you out.</p>
 
-<h2>Base URL</h2>
-<pre class="code-block"><code>https://lazyrelaylazyrelay-backend.onrender.com/api</code></pre>
+<h2 id="base">Base URL</h2>
+<div class="con"><div class="con-bar"><b>Base URL</b><button type="button" class="cp">Copy</button></div><pre><code><span class="js">https://lazyrelaylazyrelay-backend.onrender.com/api</span></code></pre></div>
 
-<h2>Endpoints</h2>
-<div class="endpoint-list">
-  <div class="endpoint">
-    <div class="endpoint-header"><span class="method method-get">GET</span><code>/social-accounts</code></div>
-    <p>List your connected social accounts</p>
-  </div>
-  <div class="endpoint">
-    <div class="endpoint-header"><span class="method method-post">POST</span><code>/scheduled-posts</code></div>
-    <p>Schedule a post to one connected account</p>
-    <pre class="code-block"><code>{
-  "socialAccountId": "&hellip;",
-  "content": "Your post text",
-  "scheduledFor": "2026-08-10T09:00:00Z",
-  "mediaUrl": "https://example.com/image.jpg"
-}</code></pre>
-  </div>
-  <div class="endpoint">
-    <div class="endpoint-header"><span class="method method-get">GET</span><code>/scheduled-posts</code></div>
-    <p>List upcoming and recent posts, with status and Proof-of-Publish verification</p>
-  </div>
-  <div class="endpoint">
-    <div class="endpoint-header"><span class="method method-delete">DELETE</span><code>/scheduled-posts/:id</code></div>
-    <p>Cancel a pending post</p>
-  </div>
-  <div class="endpoint">
-    <div class="endpoint-header"><span class="method method-get">GET</span><code>/analytics/summary?days=30</code></div>
-    <p>Post counts, verified-live rate, per-platform breakdown, engagement totals</p>
-  </div>
-  <div class="endpoint">
-    <div class="endpoint-header"><span class="method method-get">GET</span><code>/mentions</code></div>
-    <p>Recent comments on your posts, where the platform supports reading them</p>
-  </div>
-  <div class="endpoint">
-    <div class="endpoint-header"><span class="method method-post">POST</span><code>/mentions/reply</code></div>
-    <p>Reply to a comment surfaced by GET /mentions</p>
-    <pre class="code-block"><code>{
-  "postId": "&hellip;",
-  "commentId": "&hellip;",
-  "text": "Thanks so much!"
-}</code></pre>
-  </div>
+<h2 id="endpoints">Endpoints</h2>
+<div class="ep">
+<div class="g epi notilt"><div class="eh"><span class="mt get">GET</span><code>/social-accounts</code></div><p>List your connected social accounts</p></div>
+<div class="g epi notilt"><div class="eh"><span class="mt post">POST</span><code>/scheduled-posts</code></div><p>Schedule a post to one connected account</p>
+<div class="con"><div class="con-bar"><b>Request body (JSON)</b><button type="button" class="cp">Copy</button></div><pre><code><span class="jp">{</span>
+  <span class="jk">"socialAccountId"</span><span class="jp">:</span> <span class="js">"&hellip;"</span><span class="jp">,</span>
+  <span class="jk">"content"</span><span class="jp">:</span> <span class="js">"Your post text"</span><span class="jp">,</span>
+  <span class="jk">"scheduledFor"</span><span class="jp">:</span> <span class="js">"2026-08-10T09:00:00Z"</span><span class="jp">,</span>
+  <span class="jk">"mediaUrl"</span><span class="jp">:</span> <span class="js">"https://example.com/image.jpg"</span>
+<span class="jp">}</span></code></pre></div></div>
+<div class="g epi notilt"><div class="eh"><span class="mt get">GET</span><code>/scheduled-posts</code></div><p>List upcoming and recent posts, with status and Proof-of-Publish verification</p></div>
+<div class="g epi notilt"><div class="eh"><span class="mt del">DELETE</span><code>/scheduled-posts/:id</code></div><p>Cancel a pending post</p></div>
+<div class="g epi notilt"><div class="eh"><span class="mt get">GET</span><code>/analytics/summary?days=30</code></div><p>Post counts, verified-live rate, per-platform breakdown, engagement totals</p></div>
+<div class="g epi notilt"><div class="eh"><span class="mt get">GET</span><code>/mentions</code></div><p>Recent comments on your posts, where the platform supports reading them</p></div>
+<div class="g epi notilt"><div class="eh"><span class="mt post">POST</span><code>/mentions/reply</code></div><p>Reply to a comment surfaced by GET /mentions</p>
+<div class="con"><div class="con-bar"><b>Request body (JSON)</b><button type="button" class="cp">Copy</button></div><pre><code><span class="jp">{</span>
+  <span class="jk">"postId"</span><span class="jp">:</span> <span class="js">"&hellip;"</span><span class="jp">,</span>
+  <span class="jk">"commentId"</span><span class="jp">:</span> <span class="js">"&hellip;"</span><span class="jp">,</span>
+  <span class="jk">"text"</span><span class="jp">:</span> <span class="js">"Thanks so much!"</span>
+<span class="jp">}</span></code></pre></div></div>
 </div>
 
-<h2>Using this from an AI agent: the MCP server</h2>
+<h2 id="mcp-local">Using this from an AI agent: the MCP server</h2>
 <p>If you're connecting an AI agent (Claude Desktop, Claude Code, Cursor, or anything else that speaks MCP) rather than writing HTTP calls by hand, use LazyRelay's own MCP server instead of calling the API directly. It wraps every endpoint above as a real tool the agent can call. Every tool, with its exact description and input schema, is listed in the <a href="/mcp/tools/">MCP tool reference</a>. For the tools grouped by job, webhook signing, rate limits per plan and package versions, see <a href="/docs/mcp-api/">MCP tools, webhooks and limits</a>.</p>
-<pre class="code-block"><code>{
-  "mcpServers": {
-    "lazyrelay": {
-      "command": "npx",
-      "args": ["-y", "@lazyrelay/mcp-server"],
-      "env": { "LAZYRELAY_API_KEY": "lzr_live_your_key_here" }
-    }
-  }
-}</code></pre>
-<p>This runs locally on your own machine using your own API key, there's nothing to host. See the package README for the full tool list.</p>
+<div class="con"><div class="con-bar"><b>MCP config, local package</b><button type="button" class="cp">Copy</button></div><pre><code><span class="jp">{</span>
+  <span class="jk">"mcpServers"</span><span class="jp">:</span> <span class="jp">{</span>
+    <span class="jk">"lazyrelay"</span><span class="jp">:</span> <span class="jp">{</span>
+      <span class="jk">"command"</span><span class="jp">:</span> <span class="js">"npx"</span><span class="jp">,</span>
+      <span class="jk">"args"</span><span class="jp">:</span> <span class="jp">[</span><span class="js">"-y"</span><span class="jp">,</span> <span class="js">"@lazyrelay/mcp-server"</span><span class="jp">],</span>
+      <span class="jk">"env"</span><span class="jp">:</span> <span class="jp">{</span> <span class="jk">"LAZYRELAY_API_KEY"</span><span class="jp">:</span> <span class="js">"lzr_live_your_key_here"</span> <span class="jp">}</span>
+    <span class="jp">}</span>
+  <span class="jp">}</span>
+<span class="jp">}</span></code></pre></div>
+<p>This runs locally on your own machine using your own API key, so there's nothing to host. See the package README for the full tool list.</p>
 
-<h3>No install: the hosted MCP server</h3>
+<h2 id="mcp-hosted">No install: the hosted MCP server</h2>
 <p>Prefer not to install anything, or connecting from claude.ai rather than a desktop app? LazyRelay also runs a hosted MCP server. Instead of an API key, you sign in with your LazyRelay account the first time you connect. Same 27 tools, same account, nothing to run locally.</p>
-<pre class="code-block"><code>https://lazyrelaylazyrelay-backend.onrender.com/mcp</code></pre>
+<div class="con"><div class="con-bar"><b>Hosted MCP URL</b><button type="button" class="cp">Copy</button></div><pre><code><span class="js">https://lazyrelaylazyrelay-backend.onrender.com/mcp</span></code></pre></div>
 <p>In Claude, go to <strong>Settings &rarr; Connectors &rarr; Add connector</strong>, choose <strong>Remote</strong>, and paste the URL above. You'll be asked to sign in and approve access, the same way you'd approve any other app. For MCP clients that use a config file instead:</p>
-<pre class="code-block"><code>{
-  "mcpServers": {
-    "lazyrelay": {
-      "url": "https://lazyrelaylazyrelay-backend.onrender.com/mcp"
-    }
-  }
-}</code></pre>
+<div class="con"><div class="con-bar"><b>MCP config, hosted</b><button type="button" class="cp">Copy</button></div><pre><code><span class="jp">{</span>
+  <span class="jk">"mcpServers"</span><span class="jp">:</span> <span class="jp">{</span>
+    <span class="jk">"lazyrelay"</span><span class="jp">:</span> <span class="jp">{</span>
+      <span class="jk">"url"</span><span class="jp">:</span> <span class="js">"https://lazyrelaylazyrelay-backend.onrender.com/mcp"</span>
+    <span class="jp">}</span>
+  <span class="jp">}</span>
+<span class="jp">}</span></code></pre></div>
 <p>To stop a connected app from accessing your account, remove it from wherever you connected it (for example, your AI tool's connector settings).</p>
 
-<div class="endpoint-list">
-  <div class="endpoint">
-    <div class="endpoint-header"><code>list_connected_accounts</code></div>
-    <p>List your connected social accounts and their ids</p>
-  </div>
-  <div class="endpoint">
-    <div class="endpoint-header"><code>list_workspaces</code></div>
-    <p>List your brands/workspaces</p>
-  </div>
-  <div class="endpoint">
-    <div class="endpoint-header"><code>schedule_post</code></div>
-    <p>Schedule a post to one connected account</p>
-  </div>
-  <div class="endpoint">
-    <div class="endpoint-header"><code>publish_post_now</code></div>
-    <p>Publish immediately instead of scheduling for later</p>
-  </div>
-  <div class="endpoint">
-    <div class="endpoint-header"><code>update_post</code></div>
-    <p>Edit a draft or still-pending post's content or media</p>
-  </div>
-  <div class="endpoint">
-    <div class="endpoint-header"><code>list_scheduled_posts</code></div>
-    <p>See upcoming and recent posts, with status and Proof-of-Publish verification</p>
-  </div>
-  <div class="endpoint">
-    <div class="endpoint-header"><code>delete_scheduled_post</code></div>
-    <p>Cancel a pending post</p>
-  </div>
-  <div class="endpoint">
-    <div class="endpoint-header"><code>get_analytics_summary</code></div>
-    <p>Post counts, verified-live rate, per-platform breakdown, engagement totals</p>
-  </div>
-  <div class="endpoint">
-    <div class="endpoint-header"><code>get_mentions</code></div>
-    <p>Recent comments on your posts, where the platform supports reading them</p>
-  </div>
+<h2 id="tools">Tools</h2>
+<p>The hosted and local servers expose the same tools. These are the core ones; the full list of 27 is in the <a href="/mcp/tools/">MCP tool reference</a>.</p>
+<div class="toolchips">
+<div class="g epi notilt"><code>list_connected_accounts</code><p>List your connected social accounts and their ids</p></div>
+<div class="g epi notilt"><code>list_workspaces</code><p>List your brands/workspaces</p></div>
+<div class="g epi notilt"><code>schedule_post</code><p>Schedule a post to one connected account</p></div>
+<div class="g epi notilt"><code>publish_post_now</code><p>Publish immediately instead of scheduling for later</p></div>
+<div class="g epi notilt"><code>update_post</code><p>Edit a draft or still-pending post's content or media</p></div>
+<div class="g epi notilt"><code>list_scheduled_posts</code><p>See upcoming and recent posts, with status and Proof-of-Publish verification</p></div>
+<div class="g epi notilt"><code>delete_scheduled_post</code><p>Cancel a pending post</p></div>
+<div class="g epi notilt"><code>get_analytics_summary</code><p>Post counts, verified-live rate, per-platform breakdown, engagement totals</p></div>
+<div class="g epi notilt"><code>get_mentions</code><p>Recent comments on your posts, where the platform supports reading them</p></div>
 </div>
 
-<div class="cta-box">
-  <p style="margin-top:0;"><strong>Start free, no card required.</strong> API and MCP access is included on every plan, including Free.</p>
-  <a class="button" href="/">See plans and get started free</a>
+<div class="g callout notilt"><p><strong>Start free, no card required.</strong> API and MCP access is included on every plan, including Free.</p><a class="btn" href="/pricing/">See plans and get started free</a></div>
+</article>
 </div>
-
 </main>
-<footer>
-  <p><a href="/">Home</a> &middot; <a href="/about/">About</a> &middot; <a href="/guides/">Guides</a> &middot; <a href="/pricing/">Pricing</a> &middot; <a href="/docs/mcp-api/">MCP tools and limits</a> &middot; <a href="/connect-zapier/">Connect to Zapier</a> &middot; <a href="/terms/">Terms of Service</a> &middot; <a href="/privacy/">Privacy Policy</a></p>
-  <p class="footer-discovery">Compare: <a href="/alternatives/">All comparisons</a> &middot; <a href="/alternatives/postdodo/">PostDodo</a> &middot; <a href="/alternatives/buffer/">Buffer</a> &middot; <a href="/alternatives/hootsuite/">Hootsuite</a> &middot; <a href="/alternatives/metricool/">Metricool</a> &middot; <a href="/alternatives/later/">Later</a> &middot; <a href="/alternatives/sprout-social/">Sprout Social</a> &middot; <a href="/alternatives/socialbee/">SocialBee</a> &middot; <a href="/alternatives/publer/">Publer</a> &middot; <a href="/alternatives/postiz/">Postiz</a> &middot; <a href="/alternatives/publora/">Publora</a> &middot; <a href="/alternatives/ayrshare/">Ayrshare</a> &middot; <a href="/alternatives/planable/">Planable</a> &middot; <a href="/alternatives/agorapulse/">Agorapulse</a> &middot; <a href="/alternatives/loomly/">Loomly</a></p>
-  <p class="footer-discovery">Schedule to: <a href="/schedule-to-facebook/">Facebook</a> &middot; <a href="/schedule-to-instagram/">Instagram</a> &middot; <a href="/schedule-to-tiktok/">TikTok</a> &middot; <a href="/schedule-to-pinterest/">Pinterest</a> &middot; <a href="/schedule-to-youtube/">YouTube</a> &middot; <a href="/schedule-to-linkedin/">LinkedIn</a> &middot; <a href="/schedule-to-threads/">Threads</a> &middot; <a href="/schedule-to-mastodon/">Mastodon</a> &middot; <a href="/schedule-to-bluesky/">Bluesky</a> &middot; <a href="/schedule-to-telegram/">Telegram</a> &middot; <a href="/schedule-to-discord/">Discord</a> &middot; <a href="/schedule-to-tumblr/">Tumblr</a> &middot; <a href="/schedule-to-wordpress/">WordPress</a> &middot; <a href="/schedule-to-devto/">DEV</a> &middot; <a href="/schedule-to-hashnode/">Hashnode</a> &middot; <a href="/schedule-to-lemmy/">Lemmy</a> &middot; <a href="/schedule-to-slack/">Slack</a></p>
-  <p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
-</footer>
-<script>
-  // Opts this page out of Chrome's back/forward cache (bfcache). Found live
-  // 2026-08-27: reached via certain navigation paths, this page can be
-  // restored from a stale bfcache snapshot where the address bar shows the
-  // wrong URL for the content on screen ("/" while /docs is what's visible),
-  // which makes every link click on the page a silent no-op since the
-  // browser believes it's already at the destination. A real page reload
-  // works because it can't be served from bfcache. An empty pagehide
-  // listener is the standard way to force that same fresh-load behavior
-  // every time instead of relying on the user to notice and refresh.
-  window.addEventListener("pagehide", function () {});
-
-  // Belt-and-suspenders on top of the bfcache fix above: reproduced live
-  // with Werner across Chrome (normal + Incognito) and Edge, a click on
-  // "Back to home" can update the address bar to "/" while the /docs
-  // content stays frozen on screen -- the default anchor-click navigation
-  // starts but never actually completes the document swap, for a cause
-  // we could not fully pin down despite checking cache headers, CSP,
-  // service workers, and speculative-prerendering (none were the cause).
-  // Forcing the same destination via window.location.assign() is a
-  // different, more direct navigation path than relying on the browser's
-  // default link-following behavior, so it isn't exposed to whatever is
-  // making that specific path unreliable.
-  document.getElementById("back-home-link").addEventListener("click", function (e) {
-    e.preventDefault();
-    window.location.assign("/");
-  });
-</script>
+<footer><div class="wrap">
+<p><a href="/">Home</a> &middot; <a href="/capabilities/">Capabilities</a> &middot; <a href="/pricing/">Pricing</a> &middot; <a href="/mcp/">Integrations</a> &middot; <a href="/guides/">Guides</a> &middot; <a href="/docs/">Docs</a> &middot; <a href="/about/">About</a> &middot; <a href="/docs/mcp-api/">MCP tools and limits</a> &middot; <a href="/connect-zapier/">Connect to Zapier</a> &middot; <a href="/terms/">Terms of Service</a> &middot; <a href="/privacy/">Privacy Policy</a> &middot; <a href="/refunds/">Refund Policy</a></p>
+<p class="footer-discovery">Compare: <a href="/alternatives/">All comparisons</a> &middot; <a href="/alternatives/postdodo/">PostDodo</a> &middot; <a href="/alternatives/buffer/">Buffer</a> &middot; <a href="/alternatives/hootsuite/">Hootsuite</a> &middot; <a href="/alternatives/metricool/">Metricool</a> &middot; <a href="/alternatives/later/">Later</a> &middot; <a href="/alternatives/sprout-social/">Sprout Social</a> &middot; <a href="/alternatives/socialbee/">SocialBee</a> &middot; <a href="/alternatives/publer/">Publer</a> &middot; <a href="/alternatives/postiz/">Postiz</a> &middot; <a href="/alternatives/publora/">Publora</a> &middot; <a href="/alternatives/ayrshare/">Ayrshare</a> &middot; <a href="/alternatives/planable/">Planable</a> &middot; <a href="/alternatives/agorapulse/">Agorapulse</a> &middot; <a href="/alternatives/loomly/">Loomly</a></p>
+<p class="footer-discovery">Schedule to: <a href="/schedule-to-facebook/">Facebook</a> &middot; <a href="/schedule-to-instagram/">Instagram</a> &middot; <a href="/schedule-to-tiktok/">TikTok</a> &middot; <a href="/schedule-to-pinterest/">Pinterest</a> &middot; <a href="/schedule-to-youtube/">YouTube</a> &middot; <a href="/schedule-to-linkedin/">LinkedIn</a> &middot; <a href="/schedule-to-threads/">Threads</a> &middot; <a href="/schedule-to-mastodon/">Mastodon</a> &middot; <a href="/schedule-to-bluesky/">Bluesky</a> &middot; <a href="/schedule-to-telegram/">Telegram</a> &middot; <a href="/schedule-to-discord/">Discord</a> &middot; <a href="/schedule-to-tumblr/">Tumblr</a> &middot; <a href="/schedule-to-wordpress/">WordPress</a> &middot; <a href="/schedule-to-devto/">DEV</a> &middot; <a href="/schedule-to-hashnode/">Hashnode</a> &middot; <a href="/schedule-to-lemmy/">Lemmy</a> &middot; <a href="/schedule-to-slack/">Slack</a></p>
+<p class="note">&copy; 2026 LazyRelay. All rights reserved.</p>
+</div></footer>
 </body>
 </html>
