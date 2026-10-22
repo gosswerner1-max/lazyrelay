@@ -19,7 +19,7 @@ interface Props {
   /** Saves the brand's AI-caption voice (null clears it). Throws on failure; the message is shown and the draft stays. */
   onSaveVoice: (brandId: string, brandName: string, voice: string | null) => Promise<void>;
   /** Opens the Social Platforms tab, which owns brand creation and account assignment. */
-  onOpenSocialPlatforms: () => void;
+  onOpenSocialPlatforms?: () => void;
   /** Injected for tests; defaults to the real clock. */
   now?: Date;
 }
@@ -64,7 +64,7 @@ export function BrandsWorkspace({ accounts, brands, posts, brandCapacity, onSave
           <div className="bp-head"><h2>Brands</h2></div>
           <p className="bp-empty-title">No brand yet</p>
           <p className="bp-empty-text">A brand groups your social accounts, so each business or client keeps its own channels, numbers and writing voice. Create one and assign your accounts to it in Social Platforms.</p>
-          <button type="button" className="bp-btn" onClick={onOpenSocialPlatforms}>Open Social Platforms</button>
+          {onOpenSocialPlatforms && <button type="button" className="bp-btn" onClick={onOpenSocialPlatforms}>Open Social Platforms</button>}
         </section>
       </div>
     );

@@ -21,7 +21,8 @@ import { WhopConnectModal } from "../components/WhopConnectModal";
 import { describePlatformLimit } from "../lib/platformLimit";
 import { useNoindex } from "../lib/useCanonical";
 import "../components/dashboard/WorkspaceShell.css";
-import { type Tab, moreTabsFor, splitDashboardTabs, bannerPlanName } from "./dashboard/dashboardHelpers";
+import "../components/dashboard/LegacyLook.css";
+import { type Tab, moreTabsFor, splitDashboardTabs, bannerPlanName, aliasTab } from "./dashboard/dashboardHelpers";
 import { useWhatsAppBroadcasts } from "./dashboard/useWhatsAppBroadcasts";
 import { WhatsAppTab } from "./dashboard/WhatsAppTab";
 import { useDashboardState } from "./dashboard/useDashboardState";
@@ -164,6 +165,15 @@ export function Dashboard() {
     POSTING_WORKSPACE_ENABLED || CALENDAR_WORKSPACE_ENABLED || ANALYTICS_WORKSPACE_ENABLED || CONNECTIONS_WORKSPACE_ENABLED ||
     BRANDS_WORKSPACE_ENABLED || FAILURES_WORKSPACE_ENABLED || ACCOUNT_WORKSPACE_ENABLED;
   const { bar: barTabs, more: moreTabs } = splitDashboardTabs(MAIN_TABS, moreTabsFor(whatsappBroadcasts), newViewsOn);
+  // A tab name that no longer has its own page opens the page that replaced it (for example a button that says "open Social Platforms").
+  const view = aliasTab(tab, MAIN_TABS, newViewsOn);
+  // The original pages (Overview, Posts, the admin tabs) keep their layout and take the Midnight Canvas look through .legacy-look.
+  const showsNewPage =
+    ["Compose", "Insights", "Connections", "Brands"].includes(view) ||
+    (view === "Failed" && !!FailuresWorkspaceTab) ||
+    (view === "Calendar" && !!CalendarWorkspaceTab) ||
+    (view === "Settings" && !!AccountWorkspaceTab);
+  const legacyLook = newViewsOn && !showsNewPage;
   const bannerPlan = bannerPlanName(currentTier, wallet.billingActive ? wallet.wallet?.plan.walletPlan : null);
 
   if (loading) {
@@ -203,7 +213,7 @@ export function Dashboard() {
         </div>
       </div>
       )}
-      <div className={newViewsOn ? "dashboard dashboard-workspace" : tab === "Calendar" ? "dashboard dashboard-wide" : "dashboard"}>
+      <div className={newViewsOn ? "dashboard dashboard-workspace" : view === "Calendar" ? "dashboard dashboard-wide" : "dashboard"}>
       <header>
         <div className="wordmark">
           <BrandMark size={30} />
@@ -230,20 +240,20 @@ export function Dashboard() {
           <button
             key={t}
             data-tour={`tab-${t.toLowerCase().replace(/\s+/g, "-")}`}
-            className={t === tab ? "tab-active" : ""}
+            className={t === view ? "tab-active" : ""}
             onClick={() => setTab(t)}
           >
             {t}
-            {(t === "Failed" || t === "Failures") && failedCount > 0 && <span className="tab-badge">{failedCount}</span>}
+            {t === "Failed" && failedCount > 0 && <span className="tab-badge">{failedCount}</span>}
           </button>
         ))}
         <div className="tab-more" ref={moreMenuRef}>
           <button
             data-tour="tab-more"
-            className={moreTabs.includes(tab) ? "tab-active" : ""}
+            className={moreTabs.includes(view) ? "tab-active" : ""}
             onClick={() => setMoreMenuOpen((v) => !v)}
           >
-            {moreTabs.includes(tab) ? tab : "More"} ▾
+            {moreTabs.includes(view) ? view : "More"} ▾
           </button>
           {moreMenuOpen && (
             <div className="tab-more-menu">
@@ -252,7 +262,7 @@ export function Dashboard() {
                 return (
                   <button
                     key={t}
-                    className={`${t === tab ? "tab-active" : ""} ${disabled ? "tab-disabled" : ""}`.trim()}
+                    className={`${t === view ? "tab-active" : ""} ${disabled ? "tab-disabled" : ""}`.trim()}
                     disabled={disabled}
                     onClick={() => {
                       if (disabled) return;
@@ -301,81 +311,87 @@ export function Dashboard() {
         </div>
       )}
 
+      <div className={legacyLook ? "legacy-look" : undefined}>
       {error && <p className="error">{error}</p>}
       {notice && <p className="notice">{notice}</p>}
       {postWarning && <p className="notice notice-warn">{postWarning}</p>}
 
-      {tab === "Analytics" && <AnalyticsTab />}
+      {view === "Analytics" && <AnalyticsTab />}
 
-      {tab === "Mentions" && <MentionsTab />}
+      {view === "Mentions" && <MentionsTab />}
 
-      {tab === "DMs" && <DmsTab />}
+      {view === "DMs" && <DmsTab />}
 
-      {tab === "Bio Page" && <BioPageTab />}
+      {view === "Bio Page" && <BioPageTab />}
 
-      {tab === "Overview" && <OverviewTab />}
+      {view === "Overview" && <OverviewTab />}
 
-      {tab === "Social Platforms" && <SocialPlatformsTab />}
+      {view === "Social Platforms" && <SocialPlatformsTab />}
 
-      {tab === "Posts" && <PostsTab />}
+      {view === "Posts" && <PostsTab />}
 
-      {PostingWorkspaceTab && tab === "Compose" && (
+      {PostingWorkspaceTab && view === "Compose" && (
         <Suspense fallback={null}>
           <PostingWorkspaceTab />
         </Suspense>
       )}
 
-      {CalendarWorkspaceTab && tab === "Planner" && (
-        <Suspense fallback={null}>
-          <CalendarWorkspaceTab />
-        </Suspense>
-      )}
-
-      {ConnectionsWorkspaceTab && tab === "Connections" && (
+      {ConnectionsWorkspaceTab && view === "Connections" && (
         <Suspense fallback={null}>
           <ConnectionsWorkspaceTab />
         </Suspense>
       )}
 
-      {AccountWorkspaceTab && tab === "Account" && (
-        <Suspense fallback={null}>
-          <AccountWorkspaceTab />
-        </Suspense>
-      )}
-
-      {AnalyticsWorkspaceTab && tab === "Insights" && (
+      {AnalyticsWorkspaceTab && view === "Insights" && (
         <Suspense fallback={null}>
           <AnalyticsWorkspaceTab />
         </Suspense>
       )}
 
-      {BrandsWorkspaceTab && tab === "Brands" && (
+      {BrandsWorkspaceTab && view === "Brands" && (
         <Suspense fallback={null}>
           <BrandsWorkspaceTab />
         </Suspense>
       )}
 
-      {FailuresWorkspaceTab && tab === "Failures" && (
-        <Suspense fallback={null}>
-          <FailuresWorkspaceTab />
-        </Suspense>
-      )}
+      {/* Failed, Calendar and Settings keep their place in the menu and show the new-look page when it is switched on. */}
+      {view === "Failed" &&
+        (FailuresWorkspaceTab ? (
+          <Suspense fallback={null}>
+            <FailuresWorkspaceTab />
+          </Suspense>
+        ) : (
+          <FailedTab />
+        ))}
 
-      {tab === "Failed" && <FailedTab />}
+      {view === "Calendar" &&
+        (CalendarWorkspaceTab ? (
+          <Suspense fallback={null}>
+            <CalendarWorkspaceTab />
+          </Suspense>
+        ) : (
+          <CalendarTab />
+        ))}
 
-      {tab === "Calendar" && <CalendarTab />}
-
-      {ContentSourcesTab && tab === "Content Sources" && (
+      {ContentSourcesTab && view === "Content Sources" && (
         <Suspense fallback={null}>
           <ContentSourcesTab />
         </Suspense>
       )}
 
-      {tab === "Settings" && <SettingsTab />}
+      {view === "Settings" &&
+        (AccountWorkspaceTab ? (
+          <Suspense fallback={null}>
+            <AccountWorkspaceTab />
+          </Suspense>
+        ) : (
+          <SettingsTab />
+        ))}
 
-      {tab === "API Keys" && <ApiKeysTab />}
+      {view === "API Keys" && <ApiKeysTab />}
 
-      {tab === "WhatsApp" && whatsappBroadcasts && <WhatsAppTab />}
+      {view === "WhatsApp" && whatsappBroadcasts && <WhatsAppTab />}
+      </div>
       </div>
 
       {pendingSelection && pendingSelection.options.length === 1 && (

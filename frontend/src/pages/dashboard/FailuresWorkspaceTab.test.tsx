@@ -23,9 +23,9 @@ describe("FailuresWorkspaceTab", () => {
     expect(api.listFailedPosts).not.toHaveBeenCalled();
     expect(api.listScheduledPosts).not.toHaveBeenCalled();
   });
-  it("'Open in Posts' switches to the existing Failed tab", async () => {
+  it("has no Open in Posts button, because the Failed tab now shows this page", () => {
     render(<FailuresWorkspaceTab />);
-    await userEvent.click(screen.getByRole("button", { name: /open in posts/i }));
-    expect(ctx.setTab).toHaveBeenCalledWith("Failed");
+    expect(screen.queryByRole("button", { name: /open in posts/i })).toBeNull();
+    expect(ctx.setTab).not.toHaveBeenCalled();
   });
 });

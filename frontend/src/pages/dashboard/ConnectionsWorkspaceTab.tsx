@@ -5,7 +5,7 @@ import { ConnectionsWorkspace } from "../../components/dashboard/ConnectionsWork
 import { useDashboard } from "./DashboardContext";
 
 export function ConnectionsWorkspaceTab() {
-  const { accounts, brands, posts, gcalStatus, gsheetStatus, setTab } = useDashboard();
+  const { accounts, brands, posts, gcalStatus, gsheetStatus } = useDashboard();
   return (
     <ConnectionsWorkspace
       accounts={accounts}
@@ -13,7 +13,6 @@ export function ConnectionsWorkspaceTab() {
       posts={posts}
       gcalStatus={gcalStatus}
       gsheetStatus={gsheetStatus}
-      onOpenSocialPlatforms={() => setTab("Social Platforms")}
     />
   );
 }
