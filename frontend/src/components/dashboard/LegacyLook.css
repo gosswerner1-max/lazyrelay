@@ -73,3 +73,9 @@
   .dashboard .legacy-look section, .legacy-look .chart-section { -webkit-backdrop-filter: none; backdrop-filter: none; background: #141b2d; }
 }
 @media (max-width: 600px) { .legacy-look { padding: 14px; } }
+
+/* Content Sources keeps its own crimson and grey buttons otherwise: same pill buttons as the rest of the new look. */
+.legacy-look .content-sources .cs-btn { padding: 0.6rem 1.2rem; border-radius: 999px; }
+.legacy-look .content-sources .cs-btn--primary { background: #ff5630; color: #fff; border: 0; }
+.legacy-look .content-sources .cs-btn--primary:hover:not(:disabled) { background: #ff7a58; }
+.legacy-look .content-sources .cs-btn:not(.cs-btn--primary):not(.cs-btn--link) { background: transparent; color: #fff; border: 0; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.3); }

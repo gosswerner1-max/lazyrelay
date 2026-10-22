@@ -933,7 +933,7 @@ export function OverviewPanel({
                   icon="spark"
                   accent="#0d9488"
                   onClick={onOpenTab ? () => onOpenTab("Analytics") : undefined}
-                  actionLabel="Open the Analytics tab for likes, comments and shares by platform"
+                  actionLabel="Open Insights for likes, comments and shares by platform"
                 />
               </KpiRow>
             );
