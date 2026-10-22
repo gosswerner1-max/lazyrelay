@@ -39,7 +39,7 @@ const TOUR_STEPS = [
       "Generate an API key here to automate scheduling through LazyRelay's REST API or MCP server — available on every plan, including free.",
   },
   {
-    target: '[data-tour="tab-settings"], [data-tour="tab-account"]',
+    target: '[data-tour="tab-settings"], [data-tour="tab-more"]',
     closeButtonAction: "skip" as const,
     content: "Manage billing, storage, and your account here. Replay this tour anytime from the Account section.",
   },
