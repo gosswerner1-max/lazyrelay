@@ -33,3 +33,5 @@
 }
 /* Insights: the key-numbers row is a bare <section>, so it must not pick up the old section card either. */
 .dashboard .an-kpis { margin-bottom: 0; border: 0; border-radius: 0; background: none; padding: 0; }
+/* The workspace views use the full header width instead of the 960px page, so they do not sit in a narrow box with dead space either side. */
+.dashboard.dashboard-workspace { max-width: 1360px; padding-left: 32px; padding-right: 32px; }

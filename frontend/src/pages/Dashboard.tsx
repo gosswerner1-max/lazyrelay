@@ -67,6 +67,8 @@ const BrandsWorkspaceTab = BRANDS_WORKSPACE_ENABLED ? lazy(() => import("./dashb
 const FAILURES_WORKSPACE_ENABLED = import.meta.env.VITE_FAILURES_WORKSPACE_ENABLED === "true";
 const FailuresWorkspaceTab = FAILURES_WORKSPACE_ENABLED ? lazy(() => import("./dashboard/FailuresWorkspaceTab").then((m) => ({ default: m.FailuresWorkspaceTab }))) : null;
 // The new workspace views come first in the bar (each only when its own flag is on); the original tabs follow, unchanged.
+// The seven workspace views use the wide shell, so their width lines up with the header and tab row.
+const WORKSPACE_TABS: Tab[] = ["Compose", "Planner", "Insights", "Connections", "Brands", "Failures", "Account"];
 const MAIN_TABS: Tab[] = [
   ...(POSTING_WORKSPACE_ENABLED ? (["Compose"] as Tab[]) : []),
   ...(CALENDAR_WORKSPACE_ENABLED ? (["Planner"] as Tab[]) : []),
@@ -203,7 +205,7 @@ export function Dashboard() {
         </div>
       </div>
       )}
-      <div className={tab === "Calendar" || tab === "Compose" ? "dashboard dashboard-wide" : "dashboard"}>
+      <div className={tab === "Calendar" ? "dashboard dashboard-wide" : WORKSPACE_TABS.includes(tab) ? "dashboard dashboard-workspace" : "dashboard"}>
       <header>
         <div className="wordmark">
           <BrandMark size={30} />

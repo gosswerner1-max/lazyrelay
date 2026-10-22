@@ -73,3 +73,12 @@ describe("workspace shell styles", () => {
     expect(src("src/pages/Dashboard.tsx")).toContain('import "../components/dashboard/WorkspaceShell.css"');
   });
 });
+
+describe("workspace width", () => {
+  it("gives the seven workspace tabs the wide shell and styles it at 1360px", () => {
+    const dash = src("src/pages/Dashboard.tsx");
+    expect(dash).toContain('"dashboard dashboard-workspace"');
+    expect(dash).toContain('const WORKSPACE_TABS: Tab[] = ["Compose", "Planner", "Insights", "Connections", "Brands", "Failures", "Account"]');
+    expect(src("src/components/dashboard/WorkspaceShell.css")).toMatch(/\.dashboard\.dashboard-workspace\s*\{\s*max-width:\s*1360px/);
+  });
+});
