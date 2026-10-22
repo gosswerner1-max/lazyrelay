@@ -61,3 +61,12 @@ td,.client-card .blurb,.mini,.noscript,.tool-card,.rates{color:#cbd5e1!important
 .bar{background:rgba(255,255,255,.08)!important}
 .step .step-num{background:#ff5630!important;color:#0b0f19!important}
 details summary{cursor:pointer}
+
+/* Long code and wide tables scroll inside their own box instead of widening the page */
+main,.page,article{overflow-wrap:anywhere;min-width:0}
+main *{max-width:100%}
+pre{overflow-x:auto;white-space:pre;max-width:100%}
+pre code{white-space:pre}
+code{overflow-wrap:anywhere}
+table{max-width:100%}
+@media (max-width:600px){ main table,main pre{display:block;overflow-x:auto} }
