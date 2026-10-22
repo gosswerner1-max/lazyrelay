@@ -20,18 +20,32 @@
   .dashboard :is(.pw-module, .bp-module, .cn-module, .an-module, .fc-module) { background: #141b2d; }
 }
 @media (min-width: 1101px) {
-  .dashboard :is(.pw-grid, .bp-grid, .cn-grid) { height: calc(100dvh - 360px); }
+  .dashboard :is(.pw-grid, .bp-grid, .cn-grid) { height: max(calc(100dvh - 264px), 600px); }
 }
 /* Insights is one root box (its own padding included), so it gets the same room as the other grids plus their 56px of root padding. */
 @media (min-width: 1101px) {
-  .dashboard .an-root { height: calc(100dvh - 304px); min-height: 560px; }
+  .dashboard .an-root { height: max(calc(100dvh - 208px), 760px); min-height: 0; }
 }
 /* Planner: the week grid is a bare <section>, so the old section card (padding, border, flat surface) must not wrap it. */
 .dashboard .cw-grid { margin-bottom: 0; border: 0; border-radius: 0; background: none; padding: 0; }
 @media (min-width: 1101px) {
-  .dashboard .cw-body { height: calc(100dvh - 360px); }
+  .dashboard .cw-body { height: max(calc(100dvh - 264px), 600px); }
 }
 /* Insights: the key-numbers row is a bare <section>, so it must not pick up the old section card either. */
 .dashboard .an-kpis { margin-bottom: 0; border: 0; border-radius: 0; background: none; padding: 0; }
 /* The workspace views use the full header width instead of the 960px page, so they do not sit in a narrow box with dead space either side. */
 .dashboard.dashboard-workspace { max-width: 1360px; padding-left: 32px; padding-right: 32px; }
+
+/* Less empty space above the content: the header, tab row and page edges are tighter, so the pages get the room instead. Where the window is
+   too short for a page, the page scrolls (the heights above have a floor) instead of cutting content off. */
+.dashboard.dashboard-workspace { padding-top: 16px; padding-bottom: 24px; }
+.dashboard.dashboard-workspace > header { margin-bottom: 16px; }
+.dashboard.dashboard-workspace .tab-bar { margin-bottom: 16px; }
+/* Compose: a wider middle column so the four numbers and their labels fit, and no sideways scrollbar. */
+@media (min-width: 1101px) {
+  .dashboard .pw-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 4fr) minmax(0, 4fr); }
+}
+.dashboard .pw-stat { padding: 12px 14px; }
+.dashboard .pw-stat small { letter-spacing: 0.04em; min-height: 0; margin-bottom: 4px; }
+/* Connections: the integrations card always keeps room for its list. */
+.dashboard .cn-side { grid-template-rows: auto minmax(160px, 1fr); }
