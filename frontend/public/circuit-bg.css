@@ -2,14 +2,13 @@
    Kept visually identical (by hand) to CircuitBackground.tsx / App.css /
    index.css in the React app, so the whole site looks like one system, not
    a marketing site bolted onto an app. Colors match exactly: orange
-   (--signal-solid, the default/primary), green (--confirm), teal, violet. */
+   (--signal-solid, the default/primary), green (--confirm) and teal. */
 :root {
   --cb-paper: #f5f6f8;
   --cb-ink: #14171f;
   --cb-signal-solid: #c82400;
   --cb-confirm: #1f9d68;
   --cb-pulse-teal: #0d7d8c;
-  --cb-pulse-violet: #7c3aed;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -19,7 +18,6 @@
     --cb-signal-solid: #e32d00;
     --cb-confirm: #3ec98a;
     --cb-pulse-teal: #2dd4bf;
-    --cb-pulse-violet: #a78bfa;
   }
 }
 

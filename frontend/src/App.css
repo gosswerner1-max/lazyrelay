@@ -876,7 +876,7 @@ button[type="submit"]:not(.btn-outline),
 
 /* Color and timing (animation-delay/duration) are set per-instance via
    inline style in CircuitBackground.tsx / circuit-bg.js, not CSS classes —
-   a prior class-based version (.color-green/-teal/-violet) hit a real bug
+   a prior class-based version (.color-green/-teal) hit a real bug
    (2026-08-10): those classes set `fill` unconditionally, which won a
    source-order specificity tiebreak against .pulse/.confirmation-ring's
    `fill: none` below and turned every colored pulse's sharp turns into

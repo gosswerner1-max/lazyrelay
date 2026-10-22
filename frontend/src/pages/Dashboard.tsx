@@ -20,7 +20,7 @@ import { MastodonServerModal } from "../components/MastodonServerModal";
 import { WhopConnectModal } from "../components/WhopConnectModal";
 import { describePlatformLimit } from "../lib/platformLimit";
 import { useNoindex } from "../lib/useCanonical";
-import { type Tab, moreTabsFor } from "./dashboard/dashboardHelpers";
+import { type Tab, moreTabsFor, splitDashboardTabs, bannerPlanName } from "./dashboard/dashboardHelpers";
 import { useWhatsAppBroadcasts } from "./dashboard/useWhatsAppBroadcasts";
 import { WhatsAppTab } from "./dashboard/WhatsAppTab";
 import { useDashboardState } from "./dashboard/useDashboardState";
@@ -149,7 +149,6 @@ export function Dashboard() {
     handleConnect,
     handleConnectGoogleCalendar,
     handleConfirmCancelSubscription,
-    tierNames,
     currentTier,
     isFreePlan,
     isPendingCancellation,
@@ -160,7 +159,11 @@ export function Dashboard() {
   const failedCount = posts.filter((p) => p.status === "failed").length;
   // The WhatsApp (contacts and consent) tab exists only when the server says so; it asks only if a WhatsApp number is connected.
   const whatsappBroadcasts = useWhatsAppBroadcasts(accounts.some((a) => a.platform === "whatsapp"));
-  const moreTabs = moreTabsFor(whatsappBroadcasts);
+  const newViewsOn =
+    POSTING_WORKSPACE_ENABLED || CALENDAR_WORKSPACE_ENABLED || ANALYTICS_WORKSPACE_ENABLED || CONNECTIONS_WORKSPACE_ENABLED ||
+    BRANDS_WORKSPACE_ENABLED || FAILURES_WORKSPACE_ENABLED || ACCOUNT_WORKSPACE_ENABLED;
+  const { bar: barTabs, more: moreTabs } = splitDashboardTabs(MAIN_TABS, moreTabsFor(whatsappBroadcasts), newViewsOn);
+  const bannerPlan = bannerPlanName(currentTier, wallet.billingActive ? wallet.wallet?.plan.walletPlan : null);
 
   if (loading) {
     return (
@@ -175,10 +178,11 @@ export function Dashboard() {
     <WalletContext.Provider value={wallet}>
     <>
       <CircuitBackground />
+      {bannerPlan && (
       <div className="plan-banner">
         <div className="plan-banner-inner">
           <span>
-            You're on the <strong>{tierNames[currentTier]}</strong> plan
+            You're on the <strong>{bannerPlan}</strong> plan
             {isFreePlan && !wallet.billingActive && ": 3 connected accounts, 1 brand, 10 queued posts, 30 credits once"}
             {isPendingCancellation &&
               `; cancels${periodEndDate ? ` on ${periodEndDate}` : " at the end of your billing period"}`}
@@ -197,7 +201,8 @@ export function Dashboard() {
           )}
         </div>
       </div>
-      <div className={tab === "Calendar" ? "dashboard dashboard-wide" : "dashboard"}>
+      )}
+      <div className={tab === "Calendar" || tab === "Compose" ? "dashboard dashboard-wide" : "dashboard"}>
       <header>
         <div className="wordmark">
           <BrandMark size={30} />
@@ -220,7 +225,7 @@ export function Dashboard() {
       </header>
 
       <nav className="tab-bar">
-        {MAIN_TABS.map((t) => (
+        {barTabs.map((t) => (
           <button
             key={t}
             data-tour={`tab-${t.toLowerCase().replace(/\s+/g, "-")}`}
@@ -228,7 +233,7 @@ export function Dashboard() {
             onClick={() => setTab(t)}
           >
             {t}
-            {t === "Failed" && failedCount > 0 && <span className="tab-badge">{failedCount}</span>}
+            {(t === "Failed" || t === "Failures") && failedCount > 0 && <span className="tab-badge">{failedCount}</span>}
           </button>
         ))}
         <div className="tab-more" ref={moreMenuRef}>
@@ -254,6 +259,7 @@ export function Dashboard() {
                     }}
                   >
                     {t}
+                    {t === "Failed" && failedCount > 0 && <span className="tab-badge">{failedCount}</span>}
                     {disabled && <span className="coming-soon-badge">Coming soon</span>}
                   </button>
                 );

@@ -19,7 +19,6 @@
   --confirm: #1f9d68;
   --confirm-bg: rgba(31, 157, 104, 0.1);
   --pulse-teal: #0d7d8c;
-  --pulse-violet: #7c3aed;
   /* Fixed, non-theme-adaptive accent for elements that always sit on
      --hero-bg (the hero section, pricing cards) regardless of light/dark
      mode. Matches the vibrant orange baked into banner.jpg's logo
@@ -71,7 +70,6 @@
     --confirm: #3ec98a;
     --confirm-bg: rgba(62, 201, 138, 0.14);
     --pulse-teal: #2dd4bf;
-    --pulse-violet: #a78bfa;
     --error: #ff6b61;
     --error-bg: rgba(255, 107, 97, 0.13);
     --warn: #f2b842;

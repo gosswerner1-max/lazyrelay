@@ -3,7 +3,7 @@
 // Kept in sync by hand — same static traces, same PULSE_ROUTES data, same
 // randomized-per-page-load color assignment. Pair with /circuit-bg.css.
 (function () {
-  var COLORS = ["var(--cb-signal-solid)", "var(--cb-confirm)", "var(--cb-pulse-teal)", "var(--cb-pulse-violet)"];
+  var COLORS = ["var(--cb-signal-solid)", "var(--cb-confirm)", "var(--cb-pulse-teal)"];
 
   var PULSE_ROUTES = [
     { d: "M0 105H145V165H250V226H355", cx: 355, cy: 226 },

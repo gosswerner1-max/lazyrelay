@@ -25,7 +25,25 @@ export type Tab = (typeof TABS)[number];
 export function moreTabsFor(whatsappBroadcasts: boolean): Tab[] {
   return ["Analytics", "Mentions", "DMs", "Bio Page", ...(whatsappBroadcasts ? (["WhatsApp"] as Tab[]) : [])];
 }
-export const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// The four original views the new workspace tabs replace. When any new tab is on they sit behind "More", so the bar is one row.
+const SUPERSEDED_VIEW_TABS: readonly Tab[] = ["Overview", "Posts", "Failed", "Calendar"];
+export function splitDashboardTabs(mainTabs: Tab[], moreTabs: Tab[], newViewsOn: boolean): { bar: Tab[]; more: Tab[] } {
+  if (!newViewsOn) return { bar: mainTabs, more: moreTabs };
+  return {
+    bar: mainTabs.filter((t) => !SUPERSEDED_VIEW_TABS.includes(t)),
+    more: [...mainTabs.filter((t) => SUPERSEDED_VIEW_TABS.includes(t)), ...moreTabs],
+  };
+}
+
+// The plan name the top banner may show: only Free, Pay as you go, Growth or Pro. Legacy tiers (Starter, Business, Agency,
+// Agency Plus) return null and the banner says nothing about them. An active wallet plan wins over the stored tier.
+const BANNER_WALLET_NAMES: Record<string, string> = { payg: "Pay as you go", growth: "Growth", pro: "Pro" };
+const BANNER_TIER_NAMES: Record<string, string> = { free: "Free", growth: "Growth", pro: "Pro", lazy_pro: "Pro" };
+export function bannerPlanName(tier: string | undefined, walletPlan?: string | null): string | null {
+  if (walletPlan && BANNER_WALLET_NAMES[walletPlan]) return BANNER_WALLET_NAMES[walletPlan];
+  return (tier && BANNER_TIER_NAMES[tier]) || null;
+}
+export const WEEKDAY_LABELS =["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // Both Google integrations are built and working. Google's app verification
 // review (set to false 2026-09-04 to hide both behind a "Coming soon" badge
