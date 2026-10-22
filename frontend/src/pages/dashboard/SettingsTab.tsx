@@ -317,7 +317,7 @@ export function SettingsTab() {
           </label>
           <p className="section-note">
             Used by AI captions and hashtag suggestions. Running multiple brands? Set a different voice per brand in
-            the Brands manager on the Social Platforms tab — that overrides this default for accounts in that brand.
+            the Brands tab — that overrides this default for accounts in that brand.
           </p>
           <button type="submit" disabled={savingVoiceProfile}>
             {savingVoiceProfile ? "Saving..." : "Save"}
