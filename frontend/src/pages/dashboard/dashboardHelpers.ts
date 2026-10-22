@@ -25,18 +25,34 @@ export type Tab = (typeof TABS)[number];
 export function moreTabsFor(whatsappBroadcasts: boolean): Tab[] {
   return ["Analytics", "Mentions", "DMs", "Bio Page", ...(whatsappBroadcasts ? (["WhatsApp"] as Tab[]) : [])];
 }
-// The main bar holds the daily working views, in this order. Everything else (admin, developer tools, account and settings) sits
-// behind "More" in the order below; any tab in neither list (for example Planner) follows them, then the tabs "More" always had.
+// Menu: the main bar holds the daily working views, in this order; admin pages sit behind "More". Each function has ONE tab. Where a new-look
+// page replaces an old one (Failures for Failed, Planner for Calendar, Account for Settings, Insights for Analytics, Connections for
+// Social Platforms) the old name keeps its place on the bar and shows the new page, and the duplicate entry is not listed.
 const BAR_TAB_ORDER: readonly Tab[] = ["Overview", "Compose", "Posts", "Failed", "Calendar", "Insights", "Connections", "Brands"];
-const MORE_TAB_ORDER: readonly Tab[] = ["Content Sources", "Social Platforms", "API Keys", "Failures", "Account", "Settings"];
+const MORE_TAB_ORDER: readonly Tab[] = ["Content Sources", "API Keys", "Settings"];
+// new tab -> the old tab it replaces; the new tab's own entry is dropped when the old one exists
+const NEW_TAB_REPLACES: Partial<Record<Tab, Tab>> = { Planner: "Calendar", Failures: "Failed", Account: "Settings" };
 export function splitDashboardTabs(mainTabs: Tab[], moreTabs: Tab[], newViewsOn: boolean): { bar: Tab[]; more: Tab[] } {
   if (!newViewsOn) return { bar: mainTabs, more: moreTabs };
   const has = (t: Tab) => mainTabs.includes(t);
-  const left = mainTabs.filter((t) => !BAR_TAB_ORDER.includes(t) && !MORE_TAB_ORDER.includes(t));
+  const hidden = new Set<Tab>();
+  (Object.keys(NEW_TAB_REPLACES) as Tab[]).forEach((n) => { if (has(n) && has(NEW_TAB_REPLACES[n]!)) hidden.add(n); });
+  if (has("Insights")) hidden.add("Analytics");
+  if (has("Connections")) hidden.add("Social Platforms");
+  const placed = new Set<Tab>([...BAR_TAB_ORDER, ...MORE_TAB_ORDER]);
+  const leftover = mainTabs.filter((t) => !placed.has(t) && !hidden.has(t));
   return {
     bar: BAR_TAB_ORDER.filter(has),
-    more: [...MORE_TAB_ORDER.filter(has), ...left, ...moreTabs],
+    more: [...MORE_TAB_ORDER.filter(has), ...leftover, ...moreTabs.filter((t) => !hidden.has(t))],
   };
+}
+
+// A tab name that no longer has its own page opens the page that replaced it (for example a button that says "open Social Platforms").
+const TAB_ALIASES: Partial<Record<Tab, Tab>> = { "Social Platforms": "Connections", Analytics: "Insights", Planner: "Calendar", Failures: "Failed", Account: "Settings" };
+export function aliasTab(tab: Tab, mainTabs: Tab[], newViewsOn: boolean): Tab {
+  if (!newViewsOn) return tab;
+  const target = TAB_ALIASES[tab];
+  return target && mainTabs.includes(target) ? target : tab;
 }
 
 // The plan name the top banner may show: only Free, Pay as you go, Growth or Pro. Legacy tiers (Starter, Business, Agency,

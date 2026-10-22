@@ -12,7 +12,7 @@ interface Props {
   accounts: SocialAccount[];
   posts: ScheduledPost[];
   /** Called by "Open in Posts" on a failed row. */
-  onOpenFailed: () => void;
+  onOpenFailed?: () => void;
 }
 
 // These brand colours fall in the hue family the Midnight Canvas palette bans, so their icons are drawn in slate instead.
@@ -95,7 +95,7 @@ export function FailuresWorkspace({ accounts, posts, onOpenFailed }: Props) {
                   <span className="fc-rowmsg">{r.message}</span>
                   <small>{r.failed ? "Failed" : "Recovered after a retry"}{formatWhen(r.at) ? ` · ${formatWhen(r.at)}` : ""}</small>
                 </div>
-                {r.failed && (
+                {r.failed && onOpenFailed && (
                   <button type="button" className="fc-open" onClick={onOpenFailed}>Open in Posts</button>
                 )}
               </div>

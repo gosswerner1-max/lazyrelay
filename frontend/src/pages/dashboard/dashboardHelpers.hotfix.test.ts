@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { bannerPlanName, splitDashboardTabs, type Tab } from "./dashboardHelpers";
+import { aliasTab, bannerPlanName, splitDashboardTabs, type Tab } from "./dashboardHelpers";
 
 vi.mock("../../lib/supabase", () => ({ supabase: {} })); // the real client refuses to start without its address
 
@@ -32,10 +32,17 @@ describe("splitDashboardTabs", () => {
   const main: Tab[] = ["Compose", "Planner", "Insights", "Connections", "Brands", "Failures", "Account", "Overview", "Posts", "Failed", "Calendar", "Content Sources", "Social Platforms", "API Keys", "Settings"];
   const more: Tab[] = ["Analytics", "Mentions"];
 
-  it("puts the daily working views on the bar and the admin pages behind More", () => {
+  it("puts the daily working views on the bar, one tab per function, and the admin pages behind More", () => {
     const out = splitDashboardTabs(main, more, true);
     expect(out.bar).toEqual(["Overview", "Compose", "Posts", "Failed", "Calendar", "Insights", "Connections", "Brands"]);
-    expect(out.more).toEqual(["Content Sources", "Social Platforms", "API Keys", "Failures", "Account", "Settings", "Planner", "Analytics", "Mentions"]);
+    expect(out.more).toEqual(["Content Sources", "API Keys", "Settings", "Mentions"]);
+  });
+
+  it("keeps a duplicate's entry when its replacement is not there", () => {
+    const noInsights = main.filter((t) => t !== "Insights" && t !== "Connections");
+    const out = splitDashboardTabs(noInsights, ["Analytics", "Mentions"], true);
+    expect(out.more).toContain("Analytics");
+    expect(out.more).toContain("Social Platforms");
   });
 
   it("leaves the bar unchanged when no new view is on", () => {
@@ -59,6 +66,19 @@ describe("palette lock: no purple or violet in the shared styling", () => {
 
   it("Charts.tsx has no #8b5cf6", () => {
     expect(src("src/components/Charts.tsx")).not.toMatch(/#8b5cf6/i);
+  });
+});
+
+describe("aliasTab", () => {
+  const tabs: Tab[] = ["Overview", "Calendar", "Failed", "Settings", "Insights", "Connections"];
+  it("sends a removed tab name to the page that replaced it", () => {
+    expect(aliasTab("Social Platforms", tabs, true)).toBe("Connections");
+    expect(aliasTab("Analytics", tabs, true)).toBe("Insights");
+    expect(aliasTab("Failures", tabs, true)).toBe("Failed");
+  });
+  it("leaves every name alone when the new views are off or the replacement is missing", () => {
+    expect(aliasTab("Social Platforms", tabs, false)).toBe("Social Platforms");
+    expect(aliasTab("Analytics", ["Overview"], true)).toBe("Analytics");
   });
 });
 

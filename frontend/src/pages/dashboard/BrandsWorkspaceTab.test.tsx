@@ -57,10 +57,10 @@ describe("BrandsWorkspaceTab", () => {
     expect(screen.getByLabelText("Brand voice")).toHaveValue("Keep me");
     expect(ctx.refresh).not.toHaveBeenCalled();
   });
-  it("sends the customer to the Social Platforms tab from the empty state", async () => {
+  it("shows no button that leads to a removed page from the empty state", () => {
     ctx.brands = [];
     render(<BrandsWorkspaceTab />);
-    await userEvent.click(screen.getByRole("button", { name: /social platforms/i }));
-    expect(ctx.setTab).toHaveBeenCalledWith("Social Platforms");
+    expect(screen.queryByRole("button", { name: /social platforms/i })).toBeNull();
+    expect(ctx.setTab).not.toHaveBeenCalled();
   });
 });

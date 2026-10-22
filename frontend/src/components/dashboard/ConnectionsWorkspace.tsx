@@ -17,7 +17,8 @@ interface Props {
   /** Same sentinel as the dashboard: undefined = not checked yet, null = not connected, object = connected. */
   gcalStatus: GoogleStatus;
   gsheetStatus: GoogleStatus;
-  onOpenSocialPlatforms: () => void;
+  /** When given, tiles and the header button hand over to the Social Platforms page; omitted, they are plain display. */
+  onOpenSocialPlatforms?: () => void;
 }
 
 // These brand colours fall in the hue family the Midnight Canvas palette bans, so their icons are drawn in slate instead.
@@ -63,6 +64,7 @@ export function ConnectionsWorkspace({ accounts, brands, posts, gcalStatus, gshe
 
   function openTile(id: string) {
     const s = states.find((x) => x.id === id);
+    if (!onOpenSocialPlatforms) return;
     if (s && !s.connected) flash(`Open Social Platforms to connect ${s.label}`);
     onOpenSocialPlatforms();
   }
@@ -82,7 +84,7 @@ export function ConnectionsWorkspace({ accounts, brands, posts, gcalStatus, gshe
             );
           })}
         </div>
-        <button type="button" className="cn-btn" onClick={onOpenSocialPlatforms}>Manage connections</button>
+        {onOpenSocialPlatforms && <button type="button" className="cn-btn" onClick={onOpenSocialPlatforms}>Manage connections</button>}
       </header>
 
       <div className="cn-grid">
