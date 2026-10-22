@@ -123,7 +123,8 @@ export function useDashboardState() {
   // Server heads-up after scheduling (a Pinterest link host Pinterest recently
   // blocked). Own warning style; the post was still scheduled.
   const [postWarning, setPostWarning] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("Overview");
+  // With the new Compose workspace switched on, the dashboard opens on it; otherwise on Overview as before.
+  const [tab, setTab] = useState<Tab>(import.meta.env.VITE_POSTING_WORKSPACE_ENABLED === "true" ? "Compose" : "Overview");
   const [runTour, setRunTour] = useState(false);
   const [showGcalPrompt, setShowGcalPrompt] = useState(false);
   const [brandFilter, setBrandFilter] = useState("");

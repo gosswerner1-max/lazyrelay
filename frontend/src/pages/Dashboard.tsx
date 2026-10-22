@@ -65,18 +65,19 @@ const BRANDS_WORKSPACE_ENABLED = import.meta.env.VITE_BRANDS_WORKSPACE_ENABLED =
 const BrandsWorkspaceTab = BRANDS_WORKSPACE_ENABLED ? lazy(() => import("./dashboard/BrandsWorkspaceTab").then((m) => ({ default: m.BrandsWorkspaceTab }))) : null;
 const FAILURES_WORKSPACE_ENABLED = import.meta.env.VITE_FAILURES_WORKSPACE_ENABLED === "true";
 const FailuresWorkspaceTab = FAILURES_WORKSPACE_ENABLED ? lazy(() => import("./dashboard/FailuresWorkspaceTab").then((m) => ({ default: m.FailuresWorkspaceTab }))) : null;
+// The new workspace views come first in the bar (each only when its own flag is on); the original tabs follow, unchanged.
 const MAIN_TABS: Tab[] = [
-  "Overview",
-  "Posts",
   ...(POSTING_WORKSPACE_ENABLED ? (["Compose"] as Tab[]) : []),
-  "Failed",
-  "Calendar",
   ...(CALENDAR_WORKSPACE_ENABLED ? (["Planner"] as Tab[]) : []),
-  ...(CONNECTIONS_WORKSPACE_ENABLED ? (["Connections"] as Tab[]) : []),
-  ...(ACCOUNT_WORKSPACE_ENABLED ? (["Account"] as Tab[]) : []),
   ...(ANALYTICS_WORKSPACE_ENABLED ? (["Insights"] as Tab[]) : []),
+  ...(CONNECTIONS_WORKSPACE_ENABLED ? (["Connections"] as Tab[]) : []),
   ...(BRANDS_WORKSPACE_ENABLED ? (["Brands"] as Tab[]) : []),
   ...(FAILURES_WORKSPACE_ENABLED ? (["Failures"] as Tab[]) : []),
+  ...(ACCOUNT_WORKSPACE_ENABLED ? (["Account"] as Tab[]) : []),
+  "Overview",
+  "Posts",
+  "Failed",
+  "Calendar",
   ...(CONTENT_SOURCES_ENABLED ? (["Content Sources"] as Tab[]) : []),
   "Social Platforms",
   "API Keys",
