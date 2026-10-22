@@ -67,7 +67,7 @@ export function homeSoftwareFeatures(): string[] {
     "Reply to Mastodon and Bluesky comments from the dashboard",
     "Comments and direct messages are kept for up to 30 days, then deleted",
     "AI caption, hashtag and content idea suggestions, labelled as drafts to review",
-    "Groups connected accounts by brand and filters every view by brand",
+    "Groups connected accounts by brand, with 1 brand on Free, 2 on Pay as you go, 4 on Growth and unlimited on Pro",
   ];
 }
 
