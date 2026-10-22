@@ -5,8 +5,29 @@
   <link rel="self" type="application/atom+xml" href="https://lazyrelay.com/changelog.xml"/>
   <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/"/>
   <id>https://lazyrelay.com/changelog/</id>
-  <updated>2026-10-08T00:00:00Z</updated>
+  <updated>2026-10-22T00:00:00Z</updated>
   <author><name>LazyRelay</name></author>
+  <entry>
+    <title>LazyRelay update, October 22, 2026</title>
+    <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/#d-2026-10-22"/>
+    <id>https://lazyrelay.com/changelog/#d-2026-10-22</id>
+    <updated>2026-10-22T00:00:00Z</updated>
+    <summary type="text">New look for the site and the dashboard. The top menu is now Overview, Compose, Posts, Failed, Calendar, Insights, Connections and Brands, with the admin pages... | Overview shows what posts next, today's numbers, anything that needs attention and the latest posts that went out. | Connections shows a map of your platforms for the selected brand. Manage connections opens the page where you connect and reconnect accounts.</summary>
+  </entry>
+  <entry>
+    <title>LazyRelay update, October 19, 2026</title>
+    <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/#d-2026-10-19"/>
+    <id>https://lazyrelay.com/changelog/#d-2026-10-19</id>
+    <updated>2026-10-19T00:00:00Z</updated>
+    <summary type="text">Content Sources: connect an RSS feed or a sitemap from a website you have proven you own, and LazyRelay turns new pages into draft posts for you to review... | A public Capabilities page, and a machine readable list of the 27 MCP tools at lazyrelay.com/lazyrelay-mcp.json.</summary>
+  </entry>
+  <entry>
+    <title>LazyRelay update, October 16, 2026</title>
+    <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/#d-2026-10-16"/>
+    <id>https://lazyrelay.com/changelog/#d-2026-10-16</id>
+    <updated>2026-10-16T00:00:00Z</updated>
+    <summary type="text">X and WhatsApp with your own keys are now open on any paid plan. X bills your own developer account for each post, and Meta bills your WhatsApp account...</summary>
+  </entry>
   <entry>
     <title>LazyRelay update, October 8, 2026</title>
     <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/#d-2026-10-08"/>
@@ -75,6 +96,6 @@
     <link rel="alternate" type="text/html" href="https://lazyrelay.com/changelog/#d-2026-07-31"/>
     <id>https://lazyrelay.com/changelog/#d-2026-07-31</id>
     <updated>2026-07-31T00:00:00Z</updated>
-    <summary type="text">Analytics dashboard, Phase 1: total posts, per-platform success rates, and a daily volume trend. | Visual content calendar (month view). | Bulk CSV import: schedule up to 200 posts at once, with a per-row preview before importing. | AI caption generator. | Best-time-to-post suggestions, honestly labeled as general guidance, not personalized. | Approval workflow: mark a post as needing sign-off before it goes out. | AI hashtag suggestions. | Link-in-bio page. | Read-only comment tracking for YouTube, Mastodon, and Bluesky. | Browser extension for scheduling a page, link, or image directly from wherever you find it. Developer Manual Install Only: load it unpacked from the repository; it is not in any browser store.</summary>
+    <summary type="text">Analytics dashboard, Phase 1: total posts, per-platform success rates, and a daily volume trend. | Visual content calendar (month view). | Bulk CSV import: schedule up to 200 posts at once, with a per-row preview before importing. | AI caption generator. | Best-time-to-post suggestions, honestly labeled as general guidance, not personalized. | Approval workflow: mark a post as needing sign-off before it goes out. | AI hashtag suggestions. | Link-in-bio page. | Read-only comment tracking for YouTube, Mastodon, and Bluesky. | Browser extension for scheduling a page, link, or image directly from wherever you find it. Developer Manual Install Only: load it unpacked from the...</summary>
   </entry>
 </feed>

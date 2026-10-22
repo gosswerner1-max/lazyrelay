@@ -35,7 +35,7 @@ export const HOME_FAQ: FaqItem[] = [
   },
   {
     q: "Can I schedule a recurring post?",
-    a: "Yes. A recurring schedule is one piece of content that repeats on a day and time you set. Each time it publishes, it uses credits like any other post, at 1 credit for each channel. If your credits run out, due posts wait and publish once you add credits.",
+    a: "Yes, on a paid plan. A recurring schedule is one piece of content that repeats on a day and time you set. Each time it publishes, it uses credits like any other post, at 1 credit for each channel. If your credits run out, due posts wait and publish once you add credits.",
   },
   {
     q: "Does LazyRelay work with AI assistants?",
@@ -68,6 +68,22 @@ export const HOME_FAQ: FaqItem[] = [
   {
     q: "Are AI-suggested replies protected against prompt injection?",
     a: "On paid plans, LazyRelay can draft replies to Mastodon and Bluesky comments. Comment text reaches the AI as quoted data with angle brackets neutralised. A draft may only use numbers from your material or the comment, and links from your material only. Refund, legal and security comments get no draft, and nothing posts until you approve it.",
+  },
+  {
+    q: "What is a competitor teardown?",
+    a: "Paste a link to a public competitor page and LazyRelay reads it and returns a blueprint: how the page opens, its sections in order, its call to action and three to six suggested changes for your own content. It costs 10 credits, taken only when the blueprint is delivered. Links to social networks and videos are not supported.",
+  },
+  {
+    q: "What can I see in the LazyRelay dashboard?",
+    a: "The top menu has Overview, Compose, Posts, Failed, Calendar, Insights, Connections and Brands. Overview shows what posts next and what needs attention. Failed lists posts that did not go out, with the fix. Insights shows your numbers by brand and channel. Connections shows your platforms for each brand, and Brands shows one card per brand.",
+  },
+  {
+    q: "Which plans include recurring schedules and client review links?",
+    a: "Recurring schedules and client review links are on paid plans, not Free. Pay-as-you-go allows 3 recurring schedules and 4 active review links. Growth allows 5 and 8. Pro allows unlimited recurring schedules and 40 review links. A review link lets a client approve a post without an account.",
+  },
+  {
+    q: "Do my credits expire?",
+    a: "It depends where they came from. Free credits, Pay-as-you-go credits and the credit packs anyone can buy never expire. Growth and Pro plan credits expire at the end of each billing cycle with no rollover, and the credits that expire first are spent first. Pro top-up credits, which only Pro subscribers can buy, expire if the subscription is canceled.",
   },
 ];
 

@@ -58,7 +58,7 @@
 <h2>Option 1: the LazyRelay community node (recommended)</h2>
 <p>LazyRelay has its own n8n community node, <code>n8n-nodes-lazyrelay</code> (MIT licensed, on npm). It adds a <strong>LazyRelay</strong> node and a <strong>LazyRelay Trigger</strong> node, so you do not have to build HTTP requests by hand.</p>
 <ol>
-  <li>In your LazyRelay dashboard, go to <strong>API Keys</strong> and create a key. Copy it now, it's only shown once.</li>
+  <li>In your LazyRelay dashboard, open <strong>More</strong>, then <strong>API Keys</strong>, and create a key. Copy it now, it's only shown once.</li>
   <li>In n8n, open <strong>Settings &rarr; Community Nodes &rarr; Install</strong>, enter <code>n8n-nodes-lazyrelay</code>, accept the community node notice and install. This is for self-hosted n8n for now.</li>
   <li>Create a <strong>LazyRelay API</strong> credential and paste in your API key. Leave the Base URL at its default.</li>
   <li>Add the <strong>LazyRelay</strong> node to a workflow and pick an operation.</li>
@@ -80,7 +80,7 @@
 <h2>Option 2: MCP Client node (fallback)</h2>
 <p>If you would rather use n8n's MCP Client node, or you cannot install community nodes, you can connect to LazyRelay's MCP server instead.</p>
 <ol>
-  <li>In your LazyRelay dashboard, go to <strong>API Keys</strong> (top nav) and create a new key — available on every plan, including Free. Copy it now, it's only shown once.</li>
+  <li>In your LazyRelay dashboard, open <strong>More</strong>, then <strong>API Keys</strong>, and create a new key. It is available on every plan, including Free. Copy it now, it is only shown once.</li>
   <li>In your n8n workflow, add an MCP Client node (n8n's built-in node for connecting to MCP servers) and point it at LazyRelay's hosted MCP endpoint:
   <p><code>https://lazyrelaylazyrelay-backend.onrender.com/mcp</code></p>
   If your n8n MCP node needs a local command instead of a URL, use <code>npx -y @lazyrelay/mcp-server</code> with <code>LAZYRELAY_API_KEY</code> set in its environment.

@@ -33,7 +33,7 @@ console.log(`footers updated: ${changed}, noindex pages skipped: ${skipped}`);
 
 // 2. lastmod = date of the last git commit that touched the page's source file.
 function sourceFor(urlPath) {
-  if (urlPath === "/") return path.join(root, "src", "pages", "Landing.tsx");
+  if (urlPath === "/") return path.join(root, "src", "pages", "LandingV2.tsx");
   // Legal pages are React-rendered, so their source is the component file.
   const reactPages = { "/terms/": "TermsOfService.tsx", "/privacy/": "PrivacyPolicy.tsx", "/dpa/": "DPA.tsx" };
   if (reactPages[urlPath]) return path.join(root, "src", "pages", reactPages[urlPath]);

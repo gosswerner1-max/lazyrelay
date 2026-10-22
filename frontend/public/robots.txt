@@ -37,4 +37,28 @@ Allow: /
 User-agent: Meta-ExternalAgent
 Allow: /
 
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /review/
+
+User-agent: Claude-SearchBot
+Allow: /
+Disallow: /review/
+
+User-agent: Claude-User
+Allow: /
+Disallow: /review/
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /review/
+
+User-agent: Amazonbot
+Allow: /
+Disallow: /review/
+
+User-agent: DuckAssistBot
+Allow: /
+Disallow: /review/
+
 Sitemap: https://lazyrelay.com/sitemap.xml

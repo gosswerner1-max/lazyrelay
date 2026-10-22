@@ -15,6 +15,15 @@ WhatsApp and X can be connected with your own keys on the paid plans. You pay Me
 
 Free also allows up to 10 queued posts at a time.
 
+## Plan limits
+
+| Plan | Connected accounts | Brands | Recurring schedules | Active client review links |
+|---|---|---|---|---|
+| Free | 3 | 1 | None | None |
+| Pay-as-you-go | 20 | 2 | 3 | 4 |
+| Growth | 30 | 4 | 5 | 8 |
+| Pro | 1,000 | Unlimited | Unlimited | 40 |
+
 ## Credit packs
 
 Packs are one-time purchases. Starter and Growth pack credits never expire. Pro top-up credits are bound to your Pro subscription and expire if it is canceled.

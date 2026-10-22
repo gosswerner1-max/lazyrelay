@@ -4,6 +4,8 @@
 
 LazyRelay is a social media scheduling platform built around Proof-of-Publish: instead of marking a post "sent" the moment an API call is accepted, it independently re-checks each platform afterward to confirm the post is genuinely live. A free plan starts you with 30 credits, and AI-agent/MCP access is included on every plan, including Free.
 
+Key facts: LazyRelay runs on one wallet of credits. One credit publishes to one channel, and a competitor teardown costs 10 credits. Free starts with 30 credits once, Pay-as-you-go is $15 one time for 300 credits, Growth is $29 a month for 1,000 credits each cycle and Pro is $99 a month for 6,000. Brands: 1 on Free, 2 on Pay-as-you-go, 4 on Growth, unlimited on Pro. Own keys for X and WhatsApp work on any paid plan.
+
 ## Docs
 
 - [Pricing](https://lazyrelay.com/pricing/): Free (30 credits once), Pay-as-you-go ($15 one time), Growth ($29 a month) and Pro ($99 a month), plus credit packs. 1 credit per channel destination, 10 credits per competitor page teardown. Proof-of-Publish is included on every plan.
@@ -16,6 +18,8 @@ LazyRelay is a social media scheduling platform built around Proof-of-Publish: i
 - [Capabilities](https://lazyrelay.com/capabilities/): System capabilities: publishing to 18 distribution platforms plus WhatsApp, Proof of Publish, pay as you go competitor teardowns (10 credits), 27 MCP tools for AI agents, and your own X and WhatsApp developer keys.
 - [Platform Coverage](https://lazyrelay.com/platform-features/): Feature-by-platform breakdown for the 18 distribution platforms (18 distribution platforms plus WhatsApp; WhatsApp is client messaging and has no row).
 - [Guides](https://lazyrelay.com/guides/): Full guide index.
+- [In the Works](https://lazyrelay.com/in-the-works/): What LazyRelay is building next, in progress and planned, in plain language.
+- [Data Deletion](https://lazyrelay.com/data-deletion/): How to disconnect a single platform or delete your whole account and everything stored with it.
 - [About LazyRelay](https://lazyrelay.com/about/): What LazyRelay is, who operates it, and short answers on login storage, MCP authentication, which AI model it uses and how failed posts are handled.
 
 ## Guides
@@ -39,7 +43,7 @@ LazyRelay is a social media scheduling platform built around Proof-of-Publish: i
 
 ## Compare
 
-Honest, fact-checked head-to-head comparisons — features and pricing verified directly against each competitor's own site, including where they're genuinely ahead of LazyRelay.
+Honest, fact-checked head-to-head comparisons. Features and pricing are verified directly against each competitor's own site, including where they are genuinely ahead of LazyRelay.
 
 - [LazyRelay vs Buffer](https://lazyrelay.com/alternatives/buffer/)
 - [LazyRelay vs Hootsuite](https://lazyrelay.com/alternatives/hootsuite/)
@@ -55,15 +59,6 @@ Honest, fact-checked head-to-head comparisons — features and pricing verified 
 - [LazyRelay vs Planable](https://lazyrelay.com/alternatives/planable/)
 - [LazyRelay vs Agorapulse](https://lazyrelay.com/alternatives/agorapulse/)
 - [LazyRelay vs Loomly](https://lazyrelay.com/alternatives/loomly/)
-
-## Optional
-
-- [Changelog](https://lazyrelay.com/changelog/): Dated list of real shipped features.
-- [System Status](https://lazyrelay.com/status/): Live scheduler and security status.
-- [Terms of Service](https://lazyrelay.com/terms/)
-- [Privacy Policy](https://lazyrelay.com/privacy/)
-- [Refund Policy](https://lazyrelay.com/refunds/)
-- [Data Processing Agreement](https://lazyrelay.com/dpa/)
 
 ## Schedule to a specific platform
 
@@ -86,3 +81,12 @@ What LazyRelay accepts, how to connect, and how Proof-of-Publish works on each p
 - [Schedule Posts to Hashnode with LazyRelay](https://lazyrelay.com/schedule-to-hashnode/)
 - [Schedule Posts to Lemmy with LazyRelay](https://lazyrelay.com/schedule-to-lemmy/)
 - [Schedule Posts to Slack with LazyRelay](https://lazyrelay.com/schedule-to-slack/)
+
+## Optional
+
+- [Changelog](https://lazyrelay.com/changelog/): Dated list of real shipped features.
+- [System Status](https://lazyrelay.com/status/): Live scheduler and security status.
+- [Terms of Service](https://lazyrelay.com/terms/)
+- [Privacy Policy](https://lazyrelay.com/privacy/)
+- [Refund Policy](https://lazyrelay.com/refunds/)
+- [Data Processing Agreement](https://lazyrelay.com/dpa/)

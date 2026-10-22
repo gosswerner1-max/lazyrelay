@@ -120,7 +120,7 @@ function mediaLines(r, opts = {}) {
 // 3. Plain-language copy, one entry per platform. Facts are quoted from the repo; see header.
 // ---------------------------------------------------------------------------------------------
 const OAUTH_STEPS = (label) => [
-  "Sign in to LazyRelay and open the Social Platforms tab in the top menu.",
+  "Sign in to LazyRelay, open the Connections tab in the top menu and click Manage connections.",
   `Click the ${label} tile.`,
   `Sign in to ${label} when asked, and approve all of the permissions LazyRelay requests. Approving only some of them can make posting stop working later.`,
   "You land back in LazyRelay with the account connected. If you are logged in to several accounts on that platform in the same browser, log out of the ones you do not want first, so LazyRelay does not connect the wrong one.",
@@ -143,7 +143,7 @@ const COPY = {
     pop: "After Facebook accepts the post, LazyRelay asks Facebook for that post again using the Page's own access and confirms Facebook returns it with a public link. Facebook can be slow to show a brand-new object, so LazyRelay checks several times over a short window instead of failing on the first try. For videos it also waits until Facebook reports the video as ready, not just uploaded. For a Story it looks for the Story in the Page's list of Stories. Only when that read-back succeeds is the post marked confirmed live.",
     caveats: [
       "Posts go to a Facebook Page, not a personal profile. Facebook Groups are not supported, and tagging another Page in a post is not supported.",
-      "If posting silently stops after working for a while, reconnect Facebook from the Social Platforms tab and approve every permission, because a permission may have been switched off on Facebook's side.",
+      "If posting silently stops after working for a while, reconnect Facebook from the Connections tab (Manage connections) and approve every permission, because a permission may have been switched off on Facebook's side.",
       "Facebook's own posting rate limit is not verified, and LazyRelay does not add a cap of its own for Facebook.",
     ],
     faq: (r) => [
@@ -363,7 +363,7 @@ const COPY = {
     intro: "LazyRelay schedules Bluesky posts, images, video and reply threads using an app password, then reads each post back to confirm it is live.",
     connect: () => [
       "Open bsky.app and go to Settings, then Privacy and security, then App passwords. Create a new app password. Do not use your main account password.",
-      "In LazyRelay, open the Social Platforms tab and click the Bluesky tile.",
+      "In LazyRelay, open the Connections tab, click Manage connections, then click the Bluesky tile.",
       "Enter your handle (for example you.bsky.social) and paste the app password.",
       "Click Connect. LazyRelay saves the connection and takes you back to your dashboard.",
     ],
@@ -399,7 +399,7 @@ const COPY = {
     connect: () => [
       "In Telegram, message @BotFather, send /newbot, and follow the prompts. It gives you a bot token.",
       "Make sure your channel is public, so it has an @username. Add your bot to that channel as an administrator with the Post Messages permission.",
-      "In LazyRelay, open the Social Platforms tab and click the Telegram tile.",
+      "In LazyRelay, open the Connections tab, click Manage connections, then click the Telegram tile.",
       "Paste the bot token and type the channel username, for example @yourchannel.",
       "Click Connect. LazyRelay checks the bot token and that the bot can post in the channel, then saves the connection.",
     ],
@@ -430,7 +430,7 @@ const COPY = {
     connect: () => [
       "In Discord, open the channel you want to post to and go to Channel Settings, then Integrations, then Webhooks, then New Webhook.",
       "Copy the webhook URL.",
-      "In LazyRelay, open the Social Platforms tab and click the Discord tile.",
+      "In LazyRelay, open the Connections tab, click Manage connections, then click the Discord tile.",
       "Paste the webhook URL and click Connect.",
       "Optional: the connect page also has a link to invite the LazyRelay bot to your server, if you want to reply to comments from LazyRelay too. Posting works either way.",
     ],
@@ -483,7 +483,7 @@ const COPY = {
     connect: () => [
       "You need your own self-hosted WordPress site, version 5.6 or newer, with an address that starts with https. WordPress.com hosted blogs are not supported.",
       "In WordPress go to Users, then Profile, and scroll to Application Passwords. Type LazyRelay as the name and click Add. Copy the password it shows, because it is shown only once. Do not use your normal login password.",
-      "In LazyRelay, open the Social Platforms tab and click the WordPress tile.",
+      "In LazyRelay, open the Connections tab, click Manage connections, then click the WordPress tile.",
       "Enter your site address (for example https://yoursite.com), your WordPress username, and the application password. Click Connect.",
       "If connecting fails, some hosts and security plugins switch Application Passwords off or block them. In that case you need to allow them first.",
     ],
@@ -517,7 +517,7 @@ const COPY = {
     connect: () => [
       "On dev.to open Settings, then Extensions, and find DEV Community API Keys.",
       "Type LazyRelay as the description and click Generate API Key. Copy the key.",
-      "In LazyRelay, open the Social Platforms tab and click the dev.to tile.",
+      "In LazyRelay, open the Connections tab, click Manage connections, then click the dev.to tile.",
       "Paste the API key and click Connect.",
     ],
     post: (r) => [
@@ -551,7 +551,7 @@ const COPY = {
     connect: () => [
       "Your blog needs Hashnode's Pro plan. Since May 2026 Hashnode charges for API access, and without it connecting and posting fail.",
       "On Hashnode open Account settings, then Developer, click Generate New Token, and copy the token.",
-      "In LazyRelay, open the Social Platforms tab and click the Hashnode tile.",
+      "In LazyRelay, open the Connections tab, click Manage connections, then click the Hashnode tile.",
       "Paste the personal access token. If you have more than one blog, also enter the blog address, for example yourname.hashnode.dev.",
       "Click Connect.",
     ],
@@ -585,7 +585,7 @@ const COPY = {
     intro: "LazyRelay schedules posts to a Lemmy community on your own server, then checks that the post is visible to people who are not logged in.",
     connect: () => [
       "In Lemmy open Settings, then Profile, and tick Bot account. Lemmy expects automated posts to come from an account marked as a bot.",
-      "In LazyRelay, open the Social Platforms tab and click the Lemmy tile.",
+      "In LazyRelay, open the Connections tab, click Manage connections, then click the Lemmy tile.",
       "Enter your Lemmy server (for example lemmy.world), your username and your password. Add your two-factor code only if you use one.",
       "Optionally enter a default community, for example programming@programming.dev.",
       "Click Connect. LazyRelay keeps a login token, not your password.",
@@ -617,7 +617,7 @@ const COPY = {
     desc: "Schedule text posts to a public Slack channel with LazyRelay, and get a link to the live message as proof that it was posted.",
     intro: "LazyRelay schedules text posts to one public channel in your Slack workspace, then asks Slack to confirm the message exists and saves the link to it.",
     connect: () => [
-      "Sign in to LazyRelay and open the Social Platforms tab in the top menu.",
+      "Sign in to LazyRelay, open the Connections tab in the top menu and click Manage connections.",
       "Click the Slack tile.",
       "Sign in to Slack if asked, choose your workspace, and approve the LazyRelay Slack app on Slack's own screen.",
       "Back in LazyRelay, pick the public channel LazyRelay should post to, then click Connect this channel.",
