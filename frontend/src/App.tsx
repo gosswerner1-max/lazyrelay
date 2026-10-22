@@ -36,6 +36,9 @@ import "./App.css";
 // download that code up front.
 const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
 const ApiDocs = lazy(() => import("./pages/ApiDocs").then((m) => ({ default: m.ApiDocs })));
+// The new home page ships dark: it is bundled and shown only when the build sets VITE_NEW_HOME_ENABLED to "true".
+// Off (the default), this constant folds to null and the existing Landing renders unchanged.
+const LandingV2 = import.meta.env.VITE_NEW_HOME_ENABLED === "true" ? lazy(() => import("./pages/LandingV2").then((m) => ({ default: m.LandingV2 }))) : null;
 
 const MANUAL_CONNECT_PLATFORMS = ["bluesky", "telegram", "discord", "wordpress", "devto", "hashnode", "lemmy", "nostr"] as const;
 
@@ -460,20 +463,27 @@ function Root() {
   );
 
   if (view === "landing") {
+    const landingProps = {
+      onSignIn: () => setView("signin"),
+      onGetStarted: () => setView("signup"),
+      onPrivacy: () => setView("privacy"),
+      onTerms: () => setView("terms"),
+      onDpa: () => setView("dpa"),
+      onContact: () => setView("contact"),
+      onPartners: () => setView("partners"),
+      onDocs: () => setView("docs"),
+      scrollToPricing: normalizePath(INITIAL_PATH) === "/pricing",
+    };
     return (
       <>
         {authErrorBanner}
-        <Landing
-          onSignIn={() => setView("signin")}
-          onGetStarted={() => setView("signup")}
-          onPrivacy={() => setView("privacy")}
-          onTerms={() => setView("terms")}
-          onDpa={() => setView("dpa")}
-          onContact={() => setView("contact")}
-          onPartners={() => setView("partners")}
-          onDocs={() => setView("docs")}
-          scrollToPricing={normalizePath(INITIAL_PATH) === "/pricing"}
-        />
+        {LandingV2 ? (
+          <Suspense fallback={<div className="loading"><Spinner /></div>}>
+            <LandingV2 {...landingProps} />
+          </Suspense>
+        ) : (
+          <Landing {...landingProps} />
+        )}
       </>
     );
   }
