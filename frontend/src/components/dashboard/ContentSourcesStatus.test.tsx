@@ -138,10 +138,15 @@ describe("the status panel shows only what it can read", () => {
   });
 
   it("checks again when asked", async () => {
-    const ready = vi.fn(async () => true);
+    const ready = vi.fn(() => new Promise<boolean>((resolve) => setTimeout(() => resolve(true), 150)));
     show({ client: clientWith(ready) });
     await waitFor(() => expect(ready).toHaveBeenCalledTimes(1));
-    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    // The button is disabled while a check is running, so wait for the first answer before asking again. The first check is deliberately slow
+    // here: clicking as soon as it had started (the old version of this test) hit the disabled button and failed whenever the machine was slow.
+    const again = screen.getByRole("button", { name: "Check again" });
+    expect(again).toBeDisabled();
+    await waitFor(() => expect(again).toBeEnabled());
+    fireEvent.click(again);
     await waitFor(() => expect(ready).toHaveBeenCalledTimes(2));
   });
 
