@@ -6,36 +6,47 @@ Disallow: /review/
 
 User-agent: GPTBot
 Allow: /
+Disallow: /review/
 
 User-agent: ChatGPT-User
 Allow: /
+Disallow: /review/
 
 User-agent: PerplexityBot
 Allow: /
+Disallow: /review/
 
 User-agent: ClaudeBot
 Allow: /
+Disallow: /review/
 
 User-agent: Claude-Web
 Allow: /
+Disallow: /review/
 
 User-agent: Google-Extended
 Allow: /
+Disallow: /review/
 
 User-agent: CCBot
 Allow: /
+Disallow: /review/
 
 User-agent: GrokBot
 Allow: /
+Disallow: /review/
 
 User-agent: xAI-Grok
 Allow: /
+Disallow: /review/
 
 User-agent: Grok-DeepSearch
 Allow: /
+Disallow: /review/
 
 User-agent: Meta-ExternalAgent
 Allow: /
+Disallow: /review/
 
 User-agent: OAI-SearchBot
 Allow: /
