@@ -111,7 +111,7 @@ export function LandingV2({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, o
             <a href="#pricing">Pricing</a>
             <a href="/mcp/">Integrations</a>
             <a href="/guides/">Guides</a>
-            <GoLink href="/docs" onGo={onDocs}>Docs</GoLink>
+            <GoLink href="/docs/" onGo={onDocs}>Docs</GoLink>
           </nav>
           <span className="lv2-top-actions">
             <GoLink href="/login" onGo={onSignIn} className="btn ghost lv2-signin">Sign in</GoLink>
@@ -340,9 +340,9 @@ export function LandingV2({ onSignIn, onGetStarted, onPrivacy, onTerms, onDpa, o
           </div>
           <p className="lv2-footer-nav">
             <a href="/">Home</a> &middot; <a href="/capabilities/">Capabilities</a> &middot; <a href="#pricing">Pricing</a> &middot; <a href="/mcp/">Integrations</a> &middot; <a href="/guides/">Guides</a> &middot;{" "}
-            <GoLink href="/docs" onGo={onDocs}>API &amp; MCP docs</GoLink> &middot; <GoLink href="/contact" onGo={onContact}>Contact</GoLink> &middot; <GoLink href="/partners" onGo={onPartners}>Partner Program</GoLink> &middot;{" "}
-            <a href="/status/">Status</a> &middot; <a href="/changelog/">Changelog</a> &middot; <GoLink href="/terms" onGo={onTerms}>Terms of Service</GoLink> &middot; <GoLink href="/privacy" onGo={onPrivacy}>Privacy Policy</GoLink> &middot;{" "}
-            <GoLink href="/dpa" onGo={onDpa}>Data Processing Addendum</GoLink> &middot; <a href="/refunds/">Refund Policy</a> &middot; <a href="/data-deletion/">Data Deletion</a> &middot;{" "}
+            <GoLink href="/docs/" onGo={onDocs}>API &amp; MCP docs</GoLink> &middot; <GoLink href="/contact" onGo={onContact}>Contact</GoLink> &middot; <GoLink href="/partners" onGo={onPartners}>Partner Program</GoLink> &middot;{" "}
+            <a href="/status/">Status</a> &middot; <a href="/changelog/">Changelog</a> &middot; <GoLink href="/terms/" onGo={onTerms}>Terms of Service</GoLink> &middot; <GoLink href="/privacy/" onGo={onPrivacy}>Privacy Policy</GoLink> &middot;{" "}
+            <GoLink href="/dpa/" onGo={onDpa}>Data Processing Addendum</GoLink> &middot; <a href="/refunds/">Refund Policy</a> &middot; <a href="/data-deletion/">Data Deletion</a> &middot;{" "}
             <a href="mailto:hello@lazyrelay.com" suppressHydrationWarning>hello@lazyrelay.com</a>
           </p>
           <p className="lv2-footer-nav"><span>Compare:</span> {FOOTER_COMPARE_LINKS.map(([href, label]) => <a key={href} href={href}>{label}</a>)}</p>

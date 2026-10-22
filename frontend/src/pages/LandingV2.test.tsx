@@ -206,7 +206,7 @@ describe("calls to action keep the real destinations", () => {
 
   it("docs is a real /docs link that calls onDocs, and a modified click is left to the browser", () => {
     const h = renderHome();
-    const link = document.querySelector('header a[href="/docs"]')!;
+    const link = document.querySelector('header a[href="/docs/"]')!;
     fireEvent.click(link, { ctrlKey: true });
     expect(h.docs).not.toHaveBeenCalled();
     fireEvent.click(link);

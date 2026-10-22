@@ -1,5 +1,11 @@
+@font-face{font-family:"League Spartan";font-style:normal;font-weight:600;font-display:swap;src:url(/assets-static/fonts/league-spartan-600.woff2) format("woff2");}
+@font-face{font-family:"League Spartan";font-style:normal;font-weight:700;font-display:swap;src:url(/assets-static/fonts/league-spartan-700.woff2) format("woff2");}
+@font-face{font-family:"Work Sans";font-style:normal;font-weight:400;font-display:swap;src:url(/assets-static/fonts/work-sans-400.woff2) format("woff2");}
+@font-face{font-family:"Work Sans";font-style:normal;font-weight:500;font-display:swap;src:url(/assets-static/fonts/work-sans-500.woff2) format("woff2");}
+@font-face{font-family:"Work Sans";font-style:normal;font-weight:600;font-display:swap;src:url(/assets-static/fonts/work-sans-600.woff2) format("woff2");}
+@font-face{font-family:"JetBrains Mono";font-style:normal;font-weight:500;font-display:swap;src:url(/assets-static/fonts/jetbrains-mono-500.woff2) format("woff2");}
 /* LazyRelay public pages: Midnight Canvas look (canvas #0b0f19, panels #141b2d, locked orange #ff5630, hover #ff7a58).
-   Built from the approved staging sheets for /capabilities/, /guides/, /docs/ and /mcp/. Fonts are the system fonts the site already falls back to. */
+   Built from the approved staging sheets for /capabilities/, /guides/, /docs/ and /mcp/. Fonts are the site's own bundled files in /assets-static/fonts. */
 :root{--canvas:#0b0f19; --panel:#141b2d; --panel-2:#1a2342; --field:#0d1324; --edge:rgba(255,255,255,.10); --edge-strong:rgba(255,255,255,.18);
   --text:#f2f3f6; --muted:#b4bcc8;
   --orange:#ff5630; --orange-hover:#ff7a58; --orange-ink:#14171f; --orange-glow:rgba(255,86,48,.22); --orange-ring:rgba(255,86,48,.55);
