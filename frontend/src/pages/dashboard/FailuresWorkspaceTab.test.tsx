@@ -1,7 +1,6 @@
 // The connected Failures tab: reads accounts and posts from the dashboard state and only switches tab; it makes no API call.
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 
 const api = vi.hoisted(() => ({ listFailedPosts: vi.fn(), listScheduledPosts: vi.fn() }));
 vi.mock("../../lib/api", () => ({ api }));
