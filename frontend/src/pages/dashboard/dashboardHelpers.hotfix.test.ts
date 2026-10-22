@@ -29,13 +29,13 @@ describe("bannerPlanName", () => {
 });
 
 describe("splitDashboardTabs", () => {
-  const main: Tab[] = ["Compose", "Planner", "Overview", "Posts", "Failed", "Calendar", "Settings"];
+  const main: Tab[] = ["Compose", "Planner", "Insights", "Connections", "Brands", "Failures", "Account", "Overview", "Posts", "Failed", "Calendar", "Content Sources", "Social Platforms", "API Keys", "Settings"];
   const more: Tab[] = ["Analytics", "Mentions"];
 
-  it("moves the four original views behind More when the new views are on", () => {
+  it("keeps only the seven workspace tabs on the bar when the new views are on", () => {
     const out = splitDashboardTabs(main, more, true);
-    expect(out.bar).toEqual(["Compose", "Planner", "Settings"]);
-    expect(out.more).toEqual(["Overview", "Posts", "Failed", "Calendar", "Analytics", "Mentions"]);
+    expect(out.bar).toEqual(["Compose", "Planner", "Insights", "Connections", "Brands", "Failures", "Account"]);
+    expect(out.more).toEqual(["Overview", "Posts", "Failed", "Calendar", "Content Sources", "Social Platforms", "API Keys", "Settings", "Analytics", "Mentions"]);
   });
 
   it("leaves the bar unchanged when no new view is on", () => {
@@ -59,5 +59,17 @@ describe("palette lock: no purple or violet in the shared styling", () => {
 
   it("Charts.tsx has no #8b5cf6", () => {
     expect(src("src/components/Charts.tsx")).not.toMatch(/#8b5cf6/i);
+  });
+});
+
+describe("workspace shell styles", () => {
+  const css = src("src/components/dashboard/WorkspaceShell.css");
+  it("restores the glass look for every workspace module and the bare sections", () => {
+    for (const cls of [".pw-module", ".bp-module", ".cn-module", ".an-module", ".fc-module", ".cw-grid", ".an-kpis"]) {
+      expect(css).toContain(cls);
+    }
+  });
+  it("is loaded by the dashboard", () => {
+    expect(src("src/pages/Dashboard.tsx")).toContain('import "../components/dashboard/WorkspaceShell.css"');
   });
 });

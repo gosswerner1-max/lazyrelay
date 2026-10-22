@@ -79,13 +79,13 @@
 .bp-btn:disabled { opacity: 0.4; cursor: default; }
 .bp-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
-.bp-lower { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; min-height: 0; }
+.bp-lower { overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; min-height: 0; }
 .bp-channels { display: flex; flex-wrap: wrap; gap: 8px; }
 .bp-ch { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px; background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); }
 .bp-ch--off { opacity: 0.35; }
 /* the banned brand hues are not part of the palette: those icons are drawn in slate */
 .bp-ch--mono svg, .bp-ch--mono img { filter: grayscale(1) brightness(1.5); }
-.bp-chart-box { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.bp-chart-box { display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; }
 .bp-chart { flex: 1; min-height: 90px; min-width: 0; }
 
 /* one stacked column on narrow screens, where scrolling the page is acceptable */

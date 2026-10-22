@@ -66,9 +66,10 @@
 .an-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex: none; }
 .an-head h3 { margin: 0; font-size: 17px; color: #fff; letter-spacing: -0.01em; }
 .an-empty { margin: auto; max-width: 34ch; text-align: center; color: #94a3b8; font-size: 14px; line-height: 1.5; }
-.an-scroll { overflow-y: auto; scrollbar-width: thin; flex: 1; min-height: 0; padding-right: 4px; }
+.an-scroll { overflow-y: auto; scrollbar-width: thin; flex: 1; min-height: 72px; padding-right: 4px; }
 
-.an-chart { flex: 1; min-height: 0; }
+.an-chart { flex: 1; min-height: 96px; position: relative; }
+.an-chart--empty .an-empty { position: absolute; inset: 0; display: grid; place-items: center; margin: auto; pointer-events: none; }
 .an-windows { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 .an-busiest { margin: 0; font-size: 14px; color: #c9d3e3; }
 .an-busiest b { color: #ff5630; }

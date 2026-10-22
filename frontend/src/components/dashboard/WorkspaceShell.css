@@ -1,0 +1,35 @@
+/* The new workspace tabs render inside the dashboard shell, where the older ".dashboard section" and ".dashboard section h2" rules
+   out-rank the module rules (20px bottom margin, flat surface, small orange caps heading) and the grids are sized for a page without
+   banner, header and tab row. One block puts the glass look back for every workspace and sizes the grids to what is left on screen. */
+.dashboard :is(.pw-module, .bp-module, .cn-module, .an-module, .fc-module) {
+  margin-bottom: 0;
+  border: 0;
+  border-radius: 24px;
+  background: rgba(20, 27, 45, 0.9);
+  padding: 24px;
+}
+.dashboard :is(.pw-head, .bp-head, .fc-head) h2 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: normal;
+  text-transform: none;
+  color: #fff;
+  font-weight: 700;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .dashboard :is(.pw-module, .bp-module, .cn-module, .an-module, .fc-module) { background: #141b2d; }
+}
+@media (min-width: 1101px) {
+  .dashboard :is(.pw-grid, .bp-grid, .cn-grid) { height: calc(100dvh - 360px); }
+}
+/* Insights is one root box (its own padding included), so it gets the same room as the other grids plus their 56px of root padding. */
+@media (min-width: 1101px) {
+  .dashboard .an-root { height: calc(100dvh - 304px); min-height: 560px; }
+}
+/* Planner: the week grid is a bare <section>, so the old section card (padding, border, flat surface) must not wrap it. */
+.dashboard .cw-grid { margin-bottom: 0; border: 0; border-radius: 0; background: none; padding: 0; }
+@media (min-width: 1101px) {
+  .dashboard .cw-body { height: calc(100dvh - 360px); }
+}
+/* Insights: the key-numbers row is a bare <section>, so it must not pick up the old section card either. */
+.dashboard .an-kpis { margin-bottom: 0; border: 0; border-radius: 0; background: none; padding: 0; }
