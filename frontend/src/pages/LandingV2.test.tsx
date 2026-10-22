@@ -243,13 +243,19 @@ describe("platform ticker", () => {
     for (const d of dups) expect(d.getAttribute("aria-hidden")).toBe("true");
   });
 
-  it("draws the violet-family logos in slate", () => {
+  it("draws the banned-hue logos in slate and keeps Slack in its own colours", () => {
     renderHome();
-    for (const name of ["Mastodon", "Discord", "Slack"]) {
+    for (const name of ["Mastodon", "Discord"]) {
       const img = document.querySelector(`.lv2-tick [data-set="primary"] .lv2-ic[aria-label="${name}"] img`)!;
       expect(img.classList.contains("slate"), name).toBe(true);
     }
+    const slack = document.querySelector('.lv2-tick [data-set="primary"] .lv2-ic[aria-label="Slack"] img')!;
+    expect(slack.classList.contains("slate")).toBe(false);
     expect(cssText).toMatch(/\.slate\s*\{[^}]*grayscale\(1\)/);
+  });
+
+  it("no glow follows the pointer (it hid the tabs)", () => {
+    expect(cssText).toMatch(/\.lv2-orb,\s*\.lv2 \.glow\s*\{\s*display:\s*none/);
   });
 });
 

@@ -465,3 +465,6 @@ html:has(.lv2) { scroll-behavior: smooth; }
   .lv2 .lv2-bars .pl { font-size: 9.5px; letter-spacing: 0.04em; overflow-wrap: normal; }
   .lv2 .lv2-bars b { font-size: 22px; }
 }
+
+/* Werner (2026-10-22): no glow follows the pointer, it hid the tabs. The tile lean and the sheen stay. */
+.lv2 .lv2-orb, .lv2 .glow { display: none !important; }

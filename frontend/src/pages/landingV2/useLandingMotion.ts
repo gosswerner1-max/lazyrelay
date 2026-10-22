@@ -473,13 +473,7 @@ function canvasEngine(cv: HTMLCanvasElement | null, reduce: boolean): Cleanup {
     }, { passive: true }),
   );
   if (!reduce && fine) {
-    cleanups.push(
-      listen(window, "pointermove", (e) => {
-        mouse.x = e.clientX;
-        mouse.y = e.clientY;
-        mouse.on = true;
-      }, { passive: true }),
-    );
+    // Werner (2026-10-22): nothing follows the pointer any more, so the background never lights up under the tabs.
     const onLeave = () => {
       mouse.on = false;
     };

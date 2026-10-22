@@ -33,7 +33,7 @@ export const TICKER_LANES: TickerPlatform[][] = [
     { icon: "devdotto", label: "dev.to" },
     { icon: "hashnode", label: "Hashnode" },
     { icon: "lemmy", label: "Lemmy" },
-    { icon: "slack", label: "Slack", slate: true },
+    { icon: "slack", label: "Slack" },
     { icon: "whatsapp", label: "WhatsApp (messaging)" },
   ],
 ];
