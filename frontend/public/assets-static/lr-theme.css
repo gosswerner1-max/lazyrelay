@@ -68,5 +68,9 @@ main *{max-width:100%}
 pre{overflow-x:auto;white-space:pre;max-width:100%}
 pre code{white-space:pre}
 code{overflow-wrap:anywhere}
+/* Table cells break at spaces only: the rule above let a narrow column split a word in half ("Brand / s", "Unlim / ited"). The table's own box scrolls instead. */
+table,th,td{overflow-wrap:normal;word-break:normal}
+/* The logo is two text pieces, "Lazy" and "Relay"; the flex gap the page styles give an icon plus a name must not open a gap between them. */
+header .wordmark,a.wordmark{gap:0}
 table{max-width:100%}
 @media (max-width:600px){ main table,main pre{display:block;overflow-x:auto} }
