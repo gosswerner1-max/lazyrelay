@@ -7,7 +7,7 @@ import { BrandsWorkspace } from "../../components/dashboard/BrandsWorkspace";
 import { useDashboard } from "./DashboardContext";
 
 export function BrandsWorkspaceTab() {
-  const { accounts, brands, posts, brandCapacity, refresh } = useDashboard();
+  const { accounts, brands, posts, brandCapacity, refresh, setTab } = useDashboard();
 
   async function saveVoice(brandId: string, brandName: string, voice: string | null) {
     await api.updateBrand(brandId, brandName, voice);
@@ -21,6 +21,7 @@ export function BrandsWorkspaceTab() {
       posts={posts}
       brandCapacity={brandCapacity}
       onSaveVoice={saveVoice}
+      onOpenSocialPlatforms={() => setTab("Social Platforms")}
     />
   );
 }
