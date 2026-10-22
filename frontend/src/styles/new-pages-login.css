@@ -1,0 +1,278 @@
+/* Login and Signup in the Midnight Canvas look (canvas #0b0f19, panels #141b2d, locked orange #ff5630, hover #ff7a58).
+   Loaded only when VITE_NEW_PAGES_ENABLED is "true" (see Login.tsx). Every rule starts with .auth-page--glass (or .auth-glass-top, which only
+   exists inside it), so nothing else on the site can change. It restyles the existing markup; it adds no behaviour.
+   The app tokens are re-pointed here so the existing .auth-card rules in App.css pick up the dark palette.
+   Apple Design checks: press feedback on pointer down (scale .97, 100ms), only transform and opacity animate, reduced motion,
+   reduced transparency and more contrast fallbacks at the bottom. */
+.auth-page--glass {
+  --ink: #f2f3f6;
+  --paper: #0b0f19;
+  --surface: #141b2d;
+  --wire: #b4bcc8;
+  --line: rgba(255, 255, 255, 0.1);
+  --signal: #ff7a58;
+  --signal-solid: #ff5630;
+  --signal-solid-hover: #ff7a58;
+  --error: #ff8a78;
+  --success: #3ec98a;
+  --glass-field: rgba(255, 255, 255, 0.08);
+  --glass-edge: rgba(255, 255, 255, 0.18);
+  --glass-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  color-scheme: dark;
+  position: relative;
+  isolation: isolate;
+  overflow-x: hidden;
+  background:
+    radial-gradient(60% 80% at 15% 0%, rgba(255, 86, 48, 0.18), transparent 70%),
+    radial-gradient(50% 70% at 90% 10%, rgba(45, 212, 191, 0.14), transparent 70%),
+    #0b0f19;
+  color: #b4bcc8;
+  padding-top: 84px;
+}
+
+/* top bar: wordmark and the same links as the public pages */
+.auth-glass-top {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 60px;
+  padding: 0 20px;
+  background: rgba(11, 15, 25, 0.72);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.auth-glass-top .auth-glass-wordmark,
+.auth-glass-top a.auth-glass-wordmark {
+  font: 700 22px/1 var(--font-display);
+  color: #f2f3f6;
+  text-decoration: none;
+  letter-spacing: 0.2px;
+}
+.auth-glass-top .auth-glass-wordmark span {
+  color: #ff5630;
+}
+.auth-glass-top nav {
+  display: flex;
+  gap: 4px;
+  font-size: 15px;
+}
+.auth-glass-top nav a {
+  color: #b4bcc8;
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: color 180ms var(--glass-ease, ease), background-color 180ms var(--glass-ease, ease);
+}
+.auth-glass-top nav a:hover {
+  color: #f2f3f6;
+  background: rgba(255, 255, 255, 0.06);
+}
+.auth-glass-top a:focus-visible {
+  outline: 3px solid #ff5630;
+  outline-offset: 2px;
+}
+
+/* the card */
+.auth-page--glass .auth-card {
+  position: relative;
+  z-index: 1;
+  max-width: 440px;
+  padding: 30px 28px;
+  border: 0;
+  border-radius: 20px;
+  background: linear-gradient(160deg, rgba(34, 46, 86, 0.55), rgba(18, 25, 44, 0.5));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    0 40px 70px -34px rgba(3, 6, 16, 0.9),
+    0 14px 28px -18px rgba(3, 6, 16, 0.7);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(20px) saturate(150%);
+  text-align: left;
+  color: #b4bcc8;
+  overflow: hidden;
+}
+.auth-page--glass .auth-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  border-radius: 20px 20px 0 0;
+  background: linear-gradient(90deg, #ff5630, #ff7a58 55%, #2dd4bf);
+}
+.auth-page--glass .auth-card h1 {
+  color: #f2f3f6;
+  letter-spacing: -0.01em;
+}
+.auth-page--glass .auth-card p {
+  color: #b4bcc8;
+}
+.auth-page--glass .auth-card .wordmark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: #f2f3f6;
+}
+.auth-page--glass .auth-card .subtitle {
+  color: #b4bcc8;
+  text-transform: none;
+  font-size: 15px;
+  margin: 8px 0 20px;
+}
+
+/* labels and fields */
+.auth-page--glass .auth-card label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #b4bcc8;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.auth-page--glass .auth-card input {
+  border: 0;
+  border-radius: 14px;
+  background: var(--glass-field);
+  color: #f2f3f6;
+  padding: 13px 14px;
+  font: 16px/1.2 var(--font-body);
+  transition: box-shadow 180ms var(--glass-ease), background-color 180ms var(--glass-ease);
+}
+.auth-page--glass .auth-card input::placeholder {
+  color: #7f8aa0;
+}
+.auth-page--glass .auth-card input:hover {
+  background: rgba(255, 255, 255, 0.11);
+}
+.auth-page--glass .auth-card input:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 86, 48, 0.55);
+}
+.auth-page--glass .field-hint {
+  color: #b4bcc8;
+}
+.auth-page--glass .field-hint--ok {
+  color: #3ec98a;
+}
+.auth-page--glass .field-hint--error {
+  color: #ff8a78;
+}
+.auth-page--glass .auth-card .error {
+  color: #ff8a78;
+}
+.auth-page--glass .name-suggestion-chip {
+  border: 0;
+  background: rgba(255, 255, 255, 0.09);
+  color: #f2f3f6;
+}
+.auth-page--glass .name-suggestion-chip:hover {
+  background: rgba(255, 86, 48, 0.22);
+}
+
+/* buttons */
+.auth-page--glass .oauth-google-button {
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  color: #f2f3f6;
+  padding: 13px 16px;
+  transition: background-color 180ms var(--glass-ease), transform 100ms ease-out;
+}
+.auth-page--glass .oauth-google-button:hover:not(:disabled) {
+  background: rgba(255, 86, 48, 0.2);
+}
+.auth-page--glass .oauth-google-button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.auth-page--glass .oauth-divider {
+  color: #b4bcc8;
+}
+.auth-page--glass .oauth-divider::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18));
+}
+.auth-page--glass .oauth-divider::after {
+  background: linear-gradient(270deg, transparent, rgba(255, 255, 255, 0.18));
+}
+.auth-page--glass .auth-card button[type="submit"] {
+  border-radius: 999px;
+  background: #ff5630;
+  color: #14171f;
+  padding: 14px 20px;
+  font-weight: 600;
+  box-shadow: 0 6px 20px -8px rgba(255, 86, 48, 0.22);
+  transition: background-color 180ms var(--glass-ease), box-shadow 180ms var(--glass-ease), transform 100ms ease-out;
+}
+.auth-page--glass .auth-card button[type="submit"]:hover:not(:disabled) {
+  background: #ff7a58;
+  box-shadow: 0 10px 26px -8px rgba(255, 86, 48, 0.55);
+}
+.auth-page--glass .auth-card button[type="submit"]:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.auth-page--glass .auth-card button[type="submit"]:disabled {
+  opacity: 0.55;
+}
+.auth-page--glass .link {
+  color: #ff7a58;
+  text-decoration: underline;
+}
+.auth-page--glass .link:hover {
+  color: #ff5630;
+}
+.auth-page--glass > button.link {
+  position: relative;
+  z-index: 1;
+}
+.auth-page--glass button:focus-visible,
+.auth-page--glass .link:focus-visible {
+  outline: 3px solid #ff5630;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* phone width: the top bar keeps the wordmark and drops the link row, the card gets tighter padding */
+@media (max-width: 980px) {
+  .auth-glass-top nav {
+    display: none;
+  }
+}
+@media (max-width: 560px) {
+  .auth-page--glass {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .auth-page--glass .auth-card {
+    padding: 24px 18px;
+  }
+}
+
+/* fallbacks */
+@media (prefers-reduced-motion: reduce) {
+  .auth-page--glass * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .auth-page--glass .auth-card,
+  .auth-glass-top {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: #1a2342;
+  }
+}
+@media (prefers-contrast: more) {
+  .auth-page--glass .auth-card {
+    background: #1a2342;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+  }
+  .auth-page--glass .auth-card input {
+    background: #0d1324;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+  }
+}
