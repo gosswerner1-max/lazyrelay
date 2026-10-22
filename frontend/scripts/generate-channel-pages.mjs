@@ -730,6 +730,7 @@ ${CSS}
 <script type="application/ld+json">
 ${JSON.stringify(jsonLd, null, 2)}
 </script>
+<link rel="stylesheet" href="/assets-static/lr-theme.css">
 </head>
 <body>
 <script src="/circuit-bg.js" defer></script>

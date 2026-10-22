@@ -232,6 +232,7 @@ export function renderHtml(tools: CapturedTool[] = captureTools()): string {
 <script src="/consent.js" defer></script>
 <style>${PAGE_STYLE}</style>
 <script type="application/ld+json">${ld}</script>
+<link rel="stylesheet" href="/assets-static/lr-theme.css">
 </head>
 <body>
 <header><div class="wordmark">Lazy<span class="dot">Relay</span></div></header>

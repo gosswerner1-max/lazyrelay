@@ -238,6 +238,7 @@ function isValid(secret, rawBody, signatureHeader) {
 <script src="/consent.js" defer></script>
 <style>${css}</style>
 <script type="application/ld+json">${ld}</script>
+<link rel="stylesheet" href="/assets-static/lr-theme.css">
 </head>
 <body>
 <script src="/circuit-bg.js" defer></script>
