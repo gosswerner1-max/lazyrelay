@@ -162,18 +162,6 @@
   background: var(--navy);
 }
 
-.auth-hero {
-  width: 100%;
-  max-width: 720px;
-}
-
-.auth-hero img {
-  width: 100%;
-  height: auto;
-  display: block;
-  border-radius: 18px;
-}
-
 .auth-page--compact {
   justify-content: center;
 }
@@ -475,22 +463,10 @@
   font-size: 13px;
 }
 
-/* Date/time picker popup (2026-08-20) — replaces the plain native
-   date/time input pair in the Posts-tab schedule form. Self-contained
-   styling throughout (own padding/border/radius on the trigger and every
-   inner control), not relying on an ancestor form's CSS — the account-
-   picker search box shipped earlier today broke exactly that way when
-   reused outside its original context, so this doesn't repeat it. */
-
 .datetime-picker-month-nav .btn-outline {
   padding: 4px 8px;
   font-size: 12px;
 }
-
-/* Recurring-schedule day-of-week picker (2026-08-20) — a row of toggle
-   chips replacing a vertical checkbox list, same pill language as the
-   suggested-time chips above but sized for standalone use (not tucked
-   inside a popup), since this is the primary control here. */
 
 .dashboard section {
   background: var(--surface);
@@ -664,13 +640,6 @@
 /* Matches the useIsMobile(700) breakpoint in Dashboard.tsx — the JS switch
    to single-day Week view and dot-mode Calendar view happens at the same
    width these tighten up at, so the two stay in step. */
-
-.platform-grid-note {
-  margin: 10px 0 0;
-  font-size: 12px;
-  color: var(--ink-muted, var(--ink));
-  line-height: 1.5;
-}
 
 /* Site-wide primary-button sizing (2026-08-16) — most <button type="submit">
    elements had no explicit padding/radius/font-size of their own, so they
@@ -1404,20 +1373,6 @@ button[type="submit"]:not(.btn-outline),
   font-size: 13px;
 }
 
-.badge-soon {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: var(--signal-bg);
-  color: var(--signal);
-  vertical-align: middle;
-  margin-left: 8px;
-}
-
 .section-note {
   color: var(--wire);
   font-size: 14px;
@@ -1640,20 +1595,6 @@ button[type="submit"]:not(.btn-outline),
   }
 }
 
-/* Only 2 cards (Agency, Agency Plus) — the plain 4-column .pricing-grid
-   would leave two empty column tracks and push both cards to the left. */
-.pricing-grid-agency {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  max-width: 620px;
-  margin: 24px auto 0;
-}
-
-@media (max-width: 600px) {
-  .pricing-grid-agency {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* The Partners page's two commission plans (Plan A, Plan B). Same fix as the
    Agency pair above, but wider: these cards carry a paragraph of text each, and
    in the plain four-column grid they were squeezed into two narrow columns on
@@ -1763,14 +1704,6 @@ button[type="submit"]:not(.btn-outline),
   border-radius: 14px;
   padding: 32px;
   text-align: left;
-}
-
-.pricing-badge {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  margin: 0;
-  z-index: 1;
 }
 
 .pricing-card h3 {
@@ -2307,14 +2240,6 @@ button[type="submit"]:not(.btn-outline),
   font-weight: 600;
   font-size: 14px;
 }
-
-/* Cancel-subscription modal */
-
-/* Checkbox + label text as a tight, aligned pair on their own line --
-   previously an unstyled label inside the flex-wrap row, which let the
-   browser space the checkbox and text far apart and wrap "links" onto
-   its own line under the checkbox instead of under the text
-   (Werner, 2026-08-19). */
 
 .cookie-consent {
   position: fixed;

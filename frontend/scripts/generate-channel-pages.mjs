@@ -694,7 +694,7 @@ const CSS = `  :root { color-scheme: light dark; }
   li { margin-bottom: 8px; }
   .faq-item { margin-bottom: 20px; }`;
 
-function renderPage(c, r, all, checked) {
+function renderPage(c, r, checked) {
   const cap = r.limits.rollingPostsPer24h;
   const fill = (s) => s.replace("{cap}", String(cap));
   const url = `${SITE}/schedule-to-${c.slug}/`;
@@ -808,7 +808,7 @@ for (const slug of ORDER) {
     console.warn(`WARNING: the rules for ${slug} changed since its copy was written. Re-read COPY.${slug} against platformRules.ts, then run with --print-sigs and update COPY_SIGS.`);
   }
   if (c.desc.length >= 160) problems.push(`${slug}: meta description is ${c.desc.length} characters, must be under 160`);
-  const html = renderPage(c, r, ORDER, CHECKED_OVERRIDE[slug] ?? checked);
+  const html = renderPage(c, r, CHECKED_OVERRIDE[slug] ?? checked);
   if (/[–—]/.test(html)) problems.push(`${slug}: output contains an em dash or en dash`);
   const dir = join(PUBLIC_DIR, `schedule-to-${c.slug}`);
   manifest.push({

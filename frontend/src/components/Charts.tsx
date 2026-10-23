@@ -847,12 +847,9 @@ export function Sparkline({ data, color = "#8b93a1" }: { data: { value: number }
 }
 
 // ---------------------------------------------------------------------------
-// OverviewPanel — the full Overview tab content (2026-08-07 redesign),
-// factored out of Dashboard.tsx so it has exactly one implementation instead
-// of two that could drift: the real Dashboard renders it against live data,
-// and a throwaway dev-only preview route (App.tsx, removed after visual
-// verification) renders it against fixture data, since the local dev server
-// can't reach an authenticated Supabase session to show the real thing.
+// OverviewPanel -- the full Overview tab content (2026-08-07 redesign),
+// factored out of Dashboard.tsx so it has exactly one implementation;
+// dashboard/OverviewTab.tsx renders it against live data.
 // ---------------------------------------------------------------------------
 
 export function OverviewPanel({
@@ -867,9 +864,8 @@ export function OverviewPanel({
   /** When given, the four top tiles open the tab that holds the detail behind each number. */
   onOpenTab?: (tab: "Posts" | "Failed" | "Analytics") => void;
   /** Whether the customer has any connected social account yet — a
-   *  brand-new signup won't. Defaults true so every existing caller (and
-   *  the dev-only fixture preview, which has no real account data) keeps
-   *  its prior behavior unless it opts in. */
+   *  brand-new signup won't. Defaults true so a caller that does not pass
+   *  it (OverviewTiles.test.tsx) keeps the prior behavior unless it opts in. */
   hasAccounts?: boolean;
   onConnectAccount?: () => void;
 }) {

@@ -52,9 +52,8 @@ describe("WhatsApp tab, sending on", () => {
   it("opens on the Inbox and offers the five views", async () => {
     render(<WhatsAppTab />);
     expect(await screen.findByText("Conversations")).toBeInTheDocument();
-    const nav = screen.getByRole("navigation", { name: /whatsapp views/i });
+    screen.getByRole("navigation", { name: /whatsapp views/i });
     for (const label of ["Inbox", "Approvals", "Broadcasts", "Updates", "Contacts"]) expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
-    expect(nav).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Inbox" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByText(/meta bills your own whatsapp business account directly/i)).toBeInTheDocument();
   });

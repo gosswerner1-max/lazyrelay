@@ -3,8 +3,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // The legacy storage and seat add-ons in Settings can only be cancelled: a customer who already has one sees it with a Cancel
-// button, and there is no button anywhere in these views to buy another. (The brand add-on is different: SocialPlatformsTab still
-// offers a buy button, see the report on this change.)
+// button, and there is no button anywhere in these views to buy another.
 
 const dash = vi.hoisted(() => ({ extra: {} as Record<string, unknown> }));
 vi.mock("../../lib/supabase", () => ({ supabase: { auth: { getSession: vi.fn(async () => ({ data: { session: null } })) } } }));

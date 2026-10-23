@@ -305,7 +305,7 @@ describe("WhatsApp: the form", () => {
     expect((screen.getByLabelText("Phone number ID") as HTMLInputElement).value).toBe("");
   });
 
-  it("clears the token and shows the error when the backend refuses (a plan below Business answers 400)", async () => {
+  it("clears the token and shows the error when the backend refuses (the plan gate answers 400)", async () => {
     api.connectWhatsAppCredentials.mockRejectedValue(new Error("Connecting WhatsApp with your own Meta credentials is available on any paid plan."));
     const user = userEvent.setup();
     render(<CustomPlatformSettings platforms={[WA_OK]} />);

@@ -693,12 +693,6 @@
   background: color-mix(in srgb, var(--error) 14%, transparent);
 }
 
-/* REVERTED 2026-09-17, same session -- Werner's actual reference turned
-   out to be a light-themed multi-panel dashboard (stat cards + a 2-column
-   grid of chart panels), not a dark showcase card. The dark version above
-   this comment was wrong; keeping the class name but redefining it rather
-   than deleting the history here would hide that this was a real,
-   corrected mistake, not the first draft of the same idea. */
 .overview-panel .chart-stat-tile {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -795,30 +789,6 @@
   border-radius: 5px;
   transform-origin: left;
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.chart-meter-track-good {
-  background: var(--signal-bg);
-}
-
-.chart-meter-fill-good {
-  background: var(--signal);
-}
-
-.chart-meter-track-warn {
-  background: var(--warn-bg);
-}
-
-.chart-meter-fill-warn {
-  background: var(--warn);
-}
-
-.chart-meter-track-critical {
-  background: var(--error-bg);
-}
-
-.chart-meter-fill-critical {
-  background: var(--error);
 }
 
 @media (prefers-reduced-motion: reduce) {

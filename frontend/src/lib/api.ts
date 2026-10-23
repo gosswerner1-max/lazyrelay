@@ -1129,8 +1129,6 @@ export const api = {
     authedFetch("/bio-page", { method: "PUT", body: JSON.stringify(input) }),
   addBioLink: (input: { label: string; url: string }): Promise<BioLink> =>
     authedFetch("/bio-page/links", { method: "POST", body: JSON.stringify(input) }),
-  updateBioLink: (id: string, input: Partial<{ label: string; url: string; position: number }>): Promise<BioLink> =>
-    authedFetch(`/bio-page/links/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   deleteBioLink: (id: string): Promise<null> => authedFetch(`/bio-page/links/${id}`, { method: "DELETE" }),
 
   // Public, unauthenticated — the actual page a customer's followers land

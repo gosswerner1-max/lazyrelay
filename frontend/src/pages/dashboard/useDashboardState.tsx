@@ -107,8 +107,7 @@ export function useDashboardState() {
   const [mfaVerifying, setMfaVerifying] = useState(false);
   const [mfaVerified, setMfaVerified] = useState(false);
   const [mfaUnenrolling, setMfaUnenrolling] = useState(false);
-  // Recovery codes (2026-08-26) -- reveal-once, same as newlyCreatedKey /
-  // revealedWebhookSecret above. Populated right after a successful
+  // Recovery codes (2026-08-26) -- reveal-once, same as newlyCreatedKey above. Populated right after a successful
   // enrollment (auto-generated) or an explicit "Regenerate" click; never
   // fetched back from the server, since the backend never stores plaintext.
   const [mfaRecoveryCodes, setMfaRecoveryCodes] = useState<string[] | null>(null);
