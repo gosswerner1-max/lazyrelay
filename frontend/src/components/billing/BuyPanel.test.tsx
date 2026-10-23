@@ -3,7 +3,8 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import type { CatalogItem, CatalogResult } from "../../lib/walletApi";
 import type { CheckoutResult } from "../../lib/walletCheckout";
-import { sampleCatalog } from "../../lib/walletFixtures";
+import { routeCatalogFreeAccount, sampleCatalog } from "../../lib/walletFixtures";
+import { getCatalog } from "../../lib/walletApi";
 
 vi.mock("../../lib/supabase", () => ({ supabase: {} })); // the real client refuses to start without its address
 
@@ -61,6 +62,24 @@ describe("BuyPanel catalog", () => {
     expect(topup.queryByText(/never expire/)).toBeNull();
   });
 
+
+  it("renders the gated Growth Pack and Pro Top-Up cards from real route output with every fact, the right reason and a disabled button", async () => {
+    const load = () => getCatalog(async () => routeCatalogFreeAccount());
+    render(<BuyPanel paddle={paddleFake()} loadCatalog={load} start={vi.fn()} />);
+    const growth = within(await screen.findByRole("listitem", { name: "LazyCredits Growth Pack" }));
+    expect(growth.getByText("$50 for 1,500 credits (bound to active subscription status, expires if canceled).")).toBeInTheDocument();
+    expect(growth.getByText("Only for active Growth plan subscribers.")).toBeInTheDocument();
+    expect(growth.queryByText(/Pro plan/)).toBeNull();
+    expect(growth.queryByText(/never expire/)).toBeNull();
+    expect(growth.getByRole("button", { name: "LazyCredits Growth Pack: subscribers only" })).toBeDisabled();
+    const topup = within(screen.getByRole("listitem", { name: "LazyCredits Pro Top-Up" }));
+    expect(topup.getByText("$30 for 1,500 credits (bound to active subscription status, expires if canceled).")).toBeInTheDocument();
+    expect(topup.getByText("Only for active Pro plan subscribers.")).toBeInTheDocument();
+    expect(topup.getByRole("button", { name: "LazyCredits Pro Top-Up: subscribers only" })).toBeDisabled();
+    const starter = within(screen.getByRole("listitem", { name: "LazyCredits Starter Pack" }));
+    expect(starter.getByRole("button", { name: "Buy LazyCredits Starter Pack" })).toBeEnabled();
+  });
+
   it("shows the pay-as-you-go pack as exactly two lines and no 'never expire' wording", async () => {
     const list = items();
     list[0] = { ...list[0]!, sku: "lazycredits-starter-pack", name: "Pay-as-you-go", priceCents: 1500 };
@@ -74,6 +93,7 @@ describe("BuyPanel catalog", () => {
 
   it.each([
     ["needs_pro", "Only for active Pro plan subscribers."],
+    ["needs_growth", "Only for active Growth plan subscribers."],
     ["already_subscribed", "You are already subscribed to this plan."],
     ["legacy_account", "Not available on your current account type."],
     ["plan_ending", "Your Pro plan is set to end, so a top-up would lapse in days."],
@@ -84,7 +104,8 @@ describe("BuyPanel catalog", () => {
     render(<BuyPanel paddle={paddleFake()} loadCatalog={catalogOf(list)} start={vi.fn()} />);
     const topup = within(await screen.findByRole("listitem", { name: "Pro Top-Up" }));
     expect(topup.getByText(line)).toBeInTheDocument();
-    expect(topup.queryByRole("button")).toBeNull();
+    if (reason === "needs_pro" || reason === "needs_growth") expect(topup.getByRole("button")).toBeDisabled();
+    else expect(topup.queryByRole("button")).toBeNull();
     expect(topup.queryByText(/tax/i)).toBeNull();
   });
 

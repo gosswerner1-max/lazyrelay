@@ -163,13 +163,25 @@ describe("GET /wallet/catalog", () => {
     expect(res.body.items.find((i: any) => i.sku === SKU.proTopUp).expires).toBe(true);
   });
 
+  it("the live Growth Pack row (requires_plan growth) says needs_growth on a free account and the Pro Top-Up still says needs_pro", async () => {
+    s.readPacks.mockImplementation(async () => [
+      ...allRows(),
+      { sku: SKU.growthPack, name: "LazyCredits Growth Pack", kind: "pack", price_cents: 5000, credits: 1500, expires: false, interval: "one_time", requires_plan: "growth", active: true },
+    ]);
+    const res = await request(mount(s)).get("/wallet/catalog");
+    const v = bySku(res.body.items);
+    expect(v[SKU.growthPack]).toEqual([false, "needs_growth"]);
+    expect(v[SKU.proTopUp]).toEqual([false, "needs_pro"]);
+    expect(res.body.items.find((i: any) => i.sku === SKU.growthPack)).toMatchObject({ priceCents: 5000, credits: 1500, requiresPlan: "growth" });
+  });
+
   it("answers 503 when the legacy check throws", async () => {
     s.isLegacy.mockImplementation(async () => { throw new Error("db down"); });
     expect((await request(mount(s)).get("/wallet/catalog")).status).toBe(503);
   });
 
   // CONTRACT: a copy of the validation rules in frontend/src/lib/walletApi.ts readItem. If the frontend changes them, change this copy too.
-  const REASONS = ["needs_pro", "already_subscribed", "legacy_account", "plan_ending"];
+  const REASONS = ["needs_pro", "needs_growth", "already_subscribed", "legacy_account", "plan_ending"];
   const isCount = (n: unknown) => typeof n === "number" && Number.isInteger(n) && n >= 0;
   const frontendAccepts = (v: any): boolean =>
     v !== null && typeof v === "object" && typeof v.sku === "string" && v.sku !== "" && typeof v.name === "string" &&

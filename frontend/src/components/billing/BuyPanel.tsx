@@ -61,8 +61,8 @@ const PAYG_LINES = ["300 credits that stay in your wallet until used", "Balance 
 /** Whole dollars read "$30", anything else "$30.50". */
 const plainDollars = (cents: number) => (cents % 100 === 0 ? "$" + String(cents / 100) : dollars(cents));
 
-/** The Pro top-up is bound to the active Pro plan, so it is described that way and never as "never expires". */
-function ProTopUpText({ item }: { item: CatalogItem }) {
+/** A plan-bound pack (the Pro top-up, the Growth Pack) lasts only while the plan does, so it is described that way and never as "never expires". */
+function PlanBoundText({ item }: { item: CatalogItem }) {
   return (
     <>
       <p className="bm-buy__credits">{`${plainDollars(item.priceCents)} for ${formatCredits(item.credits)} credits (bound to active subscription status, expires if canceled).`}</p>
@@ -88,8 +88,8 @@ function Row({ item, busySku, onBuy, codeNote }: RowProps) {
       </h4>
       {item.purchasable ? (
         <>
-          {item.requiresPlan === "pro" ? (
-            <ProTopUpText item={item} />
+          {item.requiresPlan !== null ? (
+            <PlanBoundText item={item} />
           ) : item.sku === PAYG_SKU ? (
             <>
               <p className="bm-buy__price">{priceText(item)}</p>
@@ -111,10 +111,13 @@ function Row({ item, busySku, onBuy, codeNote }: RowProps) {
         </>
       ) : (
         <>
-          {item.requiresPlan === "pro" && (
-            <ProTopUpText item={item} />
-          )}
+          {item.requiresPlan !== null && <PlanBoundText item={item} />}
           <p className="bm-buy__reason">{catalogReasonLine(item.reason)}</p>
+          {(item.reason === "needs_pro" || item.reason === "needs_growth") && (
+            <button type="button" className="bm-btn bm-btn--secondary" aria-label={`${item.name}: subscribers only`} disabled>
+              Subscribers only
+            </button>
+          )}
         </>
       )}
     </li>
