@@ -1,6 +1,6 @@
 const BASE_URL = process.env.LAZYRELAY_API_BASE_URL || "https://lazyrelaylazyrelay-backend.onrender.com/api";
 
-// Wraps POST /mentions/reply (backend/src/http/routes.ts:2203). Only works
+// Wraps POST /mentions/reply (backend/src/http/routes/inbox.routes.ts). Only works
 // on platforms whose adapter declares replyToComment (Facebook, Instagram,
 // Mastodon, Bluesky as of this build) — the backend itself returns a plain
 // 400 with a clear message on unsupported platforms, surfaced to Zapier as

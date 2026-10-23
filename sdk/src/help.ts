@@ -159,8 +159,3 @@ Prints the next free posting time for an account, from the posting times saved i
   --brand <name> Only this brand
 `,
 };
-
-/** The help for a command path such as "posts schedule", or the top-level help. */
-export function helpFor(path: string): string {
-  return COMMAND_HELP[path] ?? TOP_HELP;
-}

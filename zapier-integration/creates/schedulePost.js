@@ -1,7 +1,7 @@
 const BASE_URL = process.env.LAZYRELAY_API_BASE_URL || "https://lazyrelaylazyrelay-backend.onrender.com/api";
 
-// Wraps POST /scheduled-posts (backend/src/http/routes.ts:1801), validated
-// server-side by validatePostFields (routes.ts:1615) — this action
+// Wraps POST /scheduled-posts (backend/src/http/routes/posts.routes.ts), validated
+// server-side by validatePostFields (backend/src/postCreation.ts) — this action
 // deliberately does no client-side re-validation of its own, since the
 // backend is the single source of truth for tier limits, media/platform
 // compatibility, and ownership checks. Errors come back as a real 4xx with
@@ -62,7 +62,7 @@ module.exports = {
       { key: "mediaAltText", label: "Media Alt Text", type: "string", required: false, helpText: "Mastodon only — ignored by other platforms." },
     ],
     // Matches the real INSERT ... .select().single() response shape
-    // (routes.ts:1774-1798) — snake_case, straight from the scheduled_posts
+    // (the scheduled_posts insert in posts.routes.ts) — snake_case, straight from the scheduled_posts
     // row, not a hand-shaped API contract.
     sample: {
       id: "b6f3c2a0-1e2d-4b3a-9c1a-0f8e2d3c4b5a",
