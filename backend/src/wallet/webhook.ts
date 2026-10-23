@@ -1,6 +1,6 @@
 import { supabase } from "../supabase.js";
 import { notifyOps } from "../notify.js";
-import { recordSale, syncSubscriptionFromWebhook } from "../billing/sync.js";
+import { recordPartnerAttributionStrict, recordSale, syncSubscriptionFromWebhook } from "../billing/sync.js";
 import { walletPlanForSku } from "../billing/skuPrices.js";
 import type { RefundRecordEvent, SaleRecordEvent, SubscriptionEvent, WalletBillingEvent, WalletPackEvent, WalletPlanLifecycleEvent, WalletPlanPaymentEvent } from "../billing/types.js";
 import { CATALOG } from "./catalog.js";
@@ -29,6 +29,12 @@ export interface WalletWebhookDeps {
   recordSale(event: SaleRecordEvent): Promise<void>;
   /** Ops alert: the manual refund queue and every unattributed payment. */
   alert(message: string): Promise<void>;
+  /** Affiliate attribution (optional so a deployment without it behaves exactly as before). hasPriorSale: does the account have a recorded
+   *  PAID sale (total above 0) OTHER than this transaction. record: sync.ts's recordPartnerAttribution (validates the partner, never overwrites, never throws). */
+  partnerAttribution?: {
+    hasPriorSale(accountId: string, exceptTransactionId: string): Promise<boolean>;
+    record(accountId: string, code: string): Promise<void>;
+  };
 }
 
 export type WalletOutcome =
@@ -41,6 +47,19 @@ export async function handleWalletBillingEvent(event: WalletBillingEvent, deps: 
   return handleLifecycle(event, deps);
 }
 
+/** Asked BEFORE this payment's sale is booked, so "first ever paid purchase" cannot be confused by our own bookkeeping row. A failure is
+ *  thrown (nothing has been booked or granted yet, so the retry starts clean). */
+async function isFirstPaidPurchase(deps: WalletWebhookDeps, accountId: string, transactionId: string, code: string | undefined): Promise<boolean> {
+  if (!code || !deps.partnerAttribution) return false;
+  return !(await deps.partnerAttribution.hasPriorSale(accountId, transactionId));
+}
+
+/** Runs after the credits are granted. A failure is thrown so the webhook answers 500 and Paddle retries: the grant and the sale record
+ *  are idempotent, and the retry is still the first purchase because the prior sale check excludes this transaction's own sale. */
+async function attribute(deps: WalletWebhookDeps, accountId: string, _transactionId: string, code: string): Promise<void> {
+  await deps.partnerAttribution?.record(accountId, code);
+}
+
 async function alertRaw(deps: WalletWebhookDeps, message: string): Promise<void> {
   console.error(`[wallet-webhook] ${message}`);
   await deps.alert(message);
@@ -51,11 +70,14 @@ async function handlePack(event: WalletPackEvent, deps: WalletWebhookDeps): Prom
     await alertRaw(deps, `Paid credit pack ${event.sku} (Paddle transaction ${event.paddleTransactionId}) names no account in its custom data. Nothing was granted. Needs a manual look.`);
     return { outcome: "unattributed" };
   }
+  const firstPurchase = await isFirstPaidPurchase(deps, event.accountId, event.paddleTransactionId, event.partnerCode);
   if (event.sale) await deps.recordSale(event.sale);
 
   const needsPlan = CATALOG[event.sku].requiresPlan !== null;
   const activePlan = needsPlan ? await deps.activePlan(event.accountId) : null;
   const result = await deps.ledger.grantForSku({ accountId: event.accountId, sku: event.sku, sourceKey: packSourceKey(event.paddleTransactionId), now: deps.now(), activePlan });
+  // The sale is booked and paid either way, so it is the customer's first paid purchase even when the pack itself is refused below.
+  if (firstPurchase && event.partnerCode) await attribute(deps, event.accountId, event.paddleTransactionId, event.partnerCode);
   if (!result.ok) {
     await alertRaw(
       deps,
@@ -72,6 +94,7 @@ async function handlePlanPayment(event: WalletPlanPaymentEvent, deps: WalletWebh
     await alertRaw(deps, `Paid plan ${event.sku} (Paddle transaction ${event.paddleTransactionId}, subscription ${event.paddleSubscriptionId ?? "none"}) could not be matched to an account. Nothing was granted. Needs a manual look.`);
     return { outcome: "unattributed" };
   }
+  const firstPurchase = await isFirstPaidPurchase(deps, accountId, event.paddleTransactionId, event.partnerCode);
   if (event.sale) await deps.recordSale({ ...event.sale, accountId });
 
   if (!event.periodEnd) throw new Error(`Plan payment ${event.paddleTransactionId} has no billing period; the monthly lot cannot be given an expiry`);
@@ -85,6 +108,7 @@ async function handlePlanPayment(event: WalletPlanPaymentEvent, deps: WalletWebh
 
   const result = await deps.ledger.grantForSku({ accountId, sku: event.sku, sourceKey: packSourceKey(event.paddleTransactionId), now, activePlan: null, periodEnd });
   if (!result.ok) throw new Error(`Plan ${event.sku} was refused (${result.reason}); a plan sku never needs another plan`);
+  if (firstPurchase && event.partnerCode) await attribute(deps, accountId, event.paddleTransactionId, event.partnerCode);
   return { outcome: result.replay ? "replay" : "granted" };
 }
 
@@ -167,5 +191,13 @@ export function defaultWalletWebhookDeps(): WalletWebhookDeps {
     syncSubscription: syncSubscriptionFromWebhook,
     recordSale,
     alert: notifyOps,
+    partnerAttribution: {
+      async hasPriorSale(accountId, exceptTransactionId) {
+        const { data, error } = await supabase.from("billing_records").select("id").eq("account_id", accountId).eq("kind", "sale").gt("total", 0).neq("paddle_transaction_id", exceptTransactionId).limit(1);
+        if (error) throw error;
+        return (data ?? []).length > 0;
+      },
+      record: recordPartnerAttributionStrict,
+    },
   };
 }

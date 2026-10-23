@@ -34,7 +34,7 @@ vi.mock("../securityAlerts.js", () => ({ recordSecurityEvent: () => {} }));
 const { buildWalletRouter } = await import("./wallet.routes.js");
 const { SKU } = await import("../../wallet/catalog.js");
 
-const balanceView = { spendableMicro: 30_000_000, heldMicro: 0, byKindMicro: { signup: 30_000_000, pack: 0, subscription: 0 }, displayCredits: "30", heldCredits: "0", nextExpiryAt: null, nextExpiryCredits: null, activeHolds: 0 };
+const balanceView = { spendableMicro: 30_000_000, heldMicro: 0, byKindMicro: { signup: 30_000_000, pack: 0, subscription: 0 }, displayCredits: "30", heldCredits: "0", nextExpiryAt: null, nextExpiryCredits: null, nextExpiryMicro: null, activeHolds: 0, lots: [] };
 
 function stubs() {
   return {
@@ -46,7 +46,9 @@ function stubs() {
     readPacks: vi.fn(async () => [
       { sku: SKU.starterPack, name: "LazyCredits Starter Pack", kind: "pack", price_cents: 1500, credits: 300, expires: false, interval: "one_time", requires_plan: null, active: true },
     ]),
-    checkout: { createCheckout: vi.fn(async (accountId: string, sku: string) => ({ checkoutId: `txn_${accountId}_${sku}` })) },
+    checkout: { createCheckout: vi.fn(async (accountId: string, sku: string, _opts?: { partnerCode?: string }) => ({ checkoutId: `txn_${accountId}_${sku}` })) },
+    resolvePartnerCode: vi.fn(async (code: unknown, _accountId?: string) => (code === "sarah" ? "Sarah" : null)),
+    discountConfigured: () => true,
   };
 }
 type Stubs = ReturnType<typeof stubs>;
@@ -105,7 +107,8 @@ describe("GET /wallet/balance", () => {
   it("reads the balance of the signed in account only", async () => {
     const res = await request(mount(s)).get("/wallet/balance?accountId=someone-else");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual(balanceView);
+    expect(res.body).toMatchObject(balanceView); // the service's own view is still sent, with the website's fields added (see wallet.contract.test.ts)
+    expect(res.body).toMatchObject({ exempt: false, balance: 30, held: 0, plan: { tier: "free", walletPlan: "free" } });
     expect(s.service.getBalance).toHaveBeenCalledWith("acc-1");
   });
 
@@ -235,6 +238,94 @@ describe("POST /wallet/checkout-intent", () => {
     auth.role = "member";
     expect((await post({ sku: SKU.starterPack })).status).toBe(403);
     expect(s.checkout.createCheckout).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /wallet/checkout-intent with a partner code (affiliate attribution)", () => {
+  const post = (body: unknown) => request(mount(s)).post("/wallet/checkout-intent").send(body as object);
+
+  it("passes the approved partner's real code to the checkout port", async () => {
+    const res = await post({ sku: SKU.starterPack, partnerCode: "sarah" });
+    expect(res.status).toBe(200);
+    expect(s.resolvePartnerCode).toHaveBeenCalledWith("sarah", "acc-1");
+    expect(s.checkout.createCheckout).toHaveBeenCalledWith("acc-1", SKU.starterPack, { partnerCode: "Sarah" });
+  });
+
+  it("an unknown code is dropped quietly: the checkout is created exactly as before", async () => {
+    const res = await post({ sku: SKU.starterPack, partnerCode: "nobody" });
+    expect(res.status).toBe(200);
+    expect(s.checkout.createCheckout).toHaveBeenCalledWith("acc-1", SKU.starterPack);
+  });
+
+  it("a failing code lookup never fails the checkout", async () => {
+    s.resolvePartnerCode.mockRejectedValueOnce(new Error("db down"));
+    const res = await post({ sku: SKU.starterPack, partnerCode: "sarah" });
+    expect(res.status).toBe(200);
+    expect(s.checkout.createCheckout).toHaveBeenCalledWith("acc-1", SKU.starterPack);
+  });
+
+  it("no code in the body means no lookup at all", async () => {
+    await post({ sku: SKU.starterPack });
+    expect(s.resolvePartnerCode).not.toHaveBeenCalled();
+  });
+});
+
+describe("the partner code at the payment window (typed code box)", () => {
+  const post = (body: unknown) => request(mount(s)).post("/wallet/checkout-intent").send(body as object);
+  const check = (body: unknown) => request(mount(s)).post("/wallet/partner-code/check").send(body as object);
+
+  it("checkout-intent says applied, with the discount flag the checkout port reported", async () => {
+    s.checkout.createCheckout.mockResolvedValueOnce({ checkoutUrl: "u", transactionId: "t", discountApplied: true } as never);
+    const res = await post({ sku: SKU.starterPack, partnerCode: "sarah" });
+    expect(res.body.partner).toEqual({ status: "applied", discount: true });
+  });
+
+  it("checkout-intent says applied without a discount for a pack", async () => {
+    const res = await post({ sku: SKU.starterPack, partnerCode: "sarah" });
+    expect(res.body.partner).toEqual({ status: "applied", discount: false });
+  });
+
+  it("checkout-intent says invalid for an unknown code and still creates the checkout", async () => {
+    const res = await post({ sku: SKU.starterPack, partnerCode: "nobody" });
+    expect(res.status).toBe(200);
+    expect(res.body.partner).toEqual({ status: "invalid", discount: false });
+    expect(s.checkout.createCheckout).toHaveBeenCalledWith("acc-1", SKU.starterPack);
+  });
+
+  it("checkout-intent says none when no code was sent", async () => {
+    const res = await post({ sku: SKU.starterPack });
+    expect(res.body.partner).toEqual({ status: "none", discount: false });
+  });
+
+  it("an empty box is the same as no code", async () => {
+    const res = await post({ sku: SKU.starterPack, partnerCode: "   " });
+    expect(res.body.partner).toEqual({ status: "none", discount: false });
+    expect(s.resolvePartnerCode).not.toHaveBeenCalled();
+  });
+
+  it("check: a valid code reports whether the first month discount is offered", async () => {
+    const res = await check({ code: "sarah" });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ valid: true, discount: true });
+    expect(s.resolvePartnerCode).toHaveBeenCalledWith("sarah", "acc-1");
+  });
+
+  it("check: no discount is promised when the discount is not configured", async () => {
+    const res = await request(mount({ ...s, discountConfigured: () => false } as never)).post("/wallet/partner-code/check").send({ code: "sarah" });
+    expect(res.body).toEqual({ valid: true, discount: false });
+  });
+
+  it("check: an unknown code, and a failing lookup, are valid false and never an error", async () => {
+    expect((await check({ code: "nobody" })).body).toEqual({ valid: false, discount: false });
+    s.resolvePartnerCode.mockRejectedValueOnce(new Error("db down"));
+    const res = await check({ code: "sarah" });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ valid: false, discount: false });
+  });
+
+  it("check needs a login", async () => {
+    auth.mode = "none";
+    expect((await check({ code: "sarah" })).status).toBe(401);
   });
 });
 

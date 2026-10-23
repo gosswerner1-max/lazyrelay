@@ -193,8 +193,8 @@ export interface ReferralApplicationVetting {
   channelLink?: string | null;
   audienceSize?: string | null;
   audienceCountries?: string | null;
-  preferredPlan?: string | null;
   howPromote?: string | null;
+  agreedToTerms?: boolean;
 }
 
 export function sendReferralApplicationNotification(
@@ -212,8 +212,8 @@ export function sendReferralApplicationNotification(
       ["Channel link", vetting.channelLink],
       ["Audience size", vetting.audienceSize],
       ["Main countries", vetting.audienceCountries],
-      ["Preferred plan", vetting.preferredPlan],
       ["How they will promote", vetting.howPromote],
+      ["Agreed to the partner terms (draft summary)", vetting.agreedToTerms ? "Yes" : null],
     ] as Array<[string, string | null | undefined]>
   )
     .filter(([, value]) => value)

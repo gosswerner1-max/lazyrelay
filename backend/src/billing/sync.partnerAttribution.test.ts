@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // .is("partner_code_redeemed", null) only matches (and updates) a row that
 // hasn't already been credited.
 type Partner = { code: string; name: string; email: string; status: string };
-type Account = { id: string; partner_code_redeemed: string | null; partner_code_redeemed_at: string | null };
+type Account = { id: string; email?: string; partner_code_redeemed: string | null; partner_code_redeemed_at: string | null };
 
 const state = vi.hoisted(() => ({
   partners: [] as Partner[],
@@ -57,7 +57,7 @@ vi.mock("../email.js", () => ({
   }),
 }));
 
-import { recordPartnerAttribution } from "./sync.js";
+import { recordPartnerAttribution, recordPartnerAttributionStrict } from "./sync.js";
 
 const APPROVED_PARTNER: Partner = { code: "bigboyslzy", name: "Big Boys Channel", email: "bigboys@example.com", status: "approved" };
 const FRESH_ACCOUNT = (id: string): Account => ({ id, partner_code_redeemed: null, partner_code_redeemed_at: null });
@@ -104,5 +104,26 @@ describe("recordPartnerAttribution", () => {
 
   it("never throws, even for a nonexistent account id -- this must never break the webhook it's attached to", async () => {
     await expect(recordPartnerAttribution("acct_does_not_exist", "bigboyslzy")).resolves.toBeUndefined();
+  });
+});
+
+describe("self referral: a partner never earns on their own account", () => {
+  it("skips the attribution (no write, no email) when the account email is the partner email, in any letter case", async () => {
+    state.accounts = [{ ...FRESH_ACCOUNT("acct_1"), email: "BigBoys@Example.com" }];
+    await recordPartnerAttributionStrict("acct_1", "bigboyslzy");
+    expect(state.accounts[0].partner_code_redeemed).toBeNull();
+    expect(state.sentEmails).toEqual([]);
+  });
+
+  it("the non strict wrapper skips it too", async () => {
+    state.accounts = [{ ...FRESH_ACCOUNT("acct_1"), email: "bigboys@example.com" }];
+    await recordPartnerAttribution("acct_1", "bigboyslzy");
+    expect(state.accounts[0].partner_code_redeemed).toBeNull();
+  });
+
+  it("another account with a different email is still attributed", async () => {
+    state.accounts = [{ ...FRESH_ACCOUNT("acct_1"), email: "buyer@example.org" }];
+    await recordPartnerAttributionStrict("acct_1", "bigboyslzy");
+    expect(state.accounts[0].partner_code_redeemed).toBe("bigboyslzy");
   });
 });

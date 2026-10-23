@@ -1,6 +1,6 @@
 import { isSku } from "../wallet/catalog.js";
 import type { CheckoutPort } from "../wallet/checkoutPort.js";
-import { SKU_PRICE_ENV_VARS, priceIdForSku } from "./skuPrices.js";
+import { SKU_PRICE_ENV_VARS, priceIdForSku, walletPlanForSku } from "./skuPrices.js";
 
 // Server created Paddle transactions for the LazyCredits packs and plans. The account id goes into the transaction's custom data HERE, on
 // the server: a browser supplied account id would be forgeable. Transactions DO echo their custom data on the webhook (a price's own
@@ -14,7 +14,7 @@ export interface PaddleHttpResponse {
   status: number;
   text(): Promise<string>;
 }
-export type PaddleHttpClient = (url: string, init: { method: string; headers: Record<string, string>; body: string }) => Promise<PaddleHttpResponse>;
+export type PaddleHttpClient = (url: string, init: { method: string; headers: Record<string, string>; body?: string }) => Promise<PaddleHttpResponse>;
 
 type Env = Record<string, string | undefined>;
 
@@ -43,7 +43,7 @@ export function createPaddleCheckoutPort(opts: { apiKey: string | undefined; htt
   const headers = { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
 
   async function paddleCustomerId(email: string): Promise<string> {
-    const lookup = await http(`${baseUrl}/customers?email=${encodeURIComponent(email)}`, { method: "GET", headers, body: "" });
+    const lookup = await http(`${baseUrl}/customers?email=${encodeURIComponent(email)}`, { method: "GET", headers });
     const lookupRaw = await lookup.text();
     if (!lookup.ok) throw new Error(`Paddle refused the customer lookup: HTTP ${lookup.status} ${lookupRaw}`);
     const existing = (parseJson(lookupRaw, lookup.status) as { data?: Array<{ id?: unknown }> }).data?.[0]?.id;
@@ -58,7 +58,7 @@ export function createPaddleCheckoutPort(opts: { apiKey: string | undefined; htt
   }
 
   return {
-    async createCheckout(accountId, sku) {
+    async createCheckout(accountId, sku, checkoutOpts) {
       if (!isSku(sku)) throw new Error(`unknown sku "${String(sku)}"`);
       if (typeof accountId !== "string" || !UUID.test(accountId)) throw new Error("the account id is not valid");
       const priceId = priceIdForSku(sku, env);
@@ -68,13 +68,18 @@ export function createPaddleCheckoutPort(opts: { apiKey: string | undefined; htt
       const email = opts.emailForAccount ? await opts.emailForAccount(accountId) : null;
       const customerId = email ? await paddleCustomerId(email) : null;
 
+      // Partner viewer discount: ONE shared Paddle discount (10%, first payment only, restricted to the Growth and Pro prices on the Paddle
+      // side), applied only to a plan, only with a partner code the server already validated, and only when its id is configured.
+      const discountId = checkoutOpts?.partnerCode && walletPlanForSku(sku) && env.PADDLE_PARTNER_DISCOUNT_ID ? env.PADDLE_PARTNER_DISCOUNT_ID : undefined;
+
       const response = await http(`${baseUrl}/transactions`, {
         method: "POST",
         headers,
         body: JSON.stringify({
           items: [{ price_id: priceId, quantity: 1 }],
           ...(customerId ? { customer_id: customerId } : {}),
-          custom_data: { account_id: accountId, sku },
+          custom_data: { account_id: accountId, sku, ...(checkoutOpts?.partnerCode ? { partnerCode: checkoutOpts.partnerCode } : {}) },
+          ...(discountId ? { discount_id: discountId } : {}),
           checkout: { url: RETURN_URL },
         }),
       });
@@ -91,7 +96,7 @@ export function createPaddleCheckoutPort(opts: { apiKey: string | undefined; htt
       const checkoutUrl = parsed.data?.checkout?.url;
       if (typeof transactionId !== "string" || !transactionId) throw new Error(`Paddle answered without a transaction id: ${raw.slice(0, 300)}`);
       if (typeof checkoutUrl !== "string" || !checkoutUrl) throw new Error(`Paddle answered without a checkout url for ${transactionId}`);
-      return { checkoutUrl, transactionId };
+      return { checkoutUrl, transactionId, ...(discountId ? { discountApplied: true } : {}) };
     },
   };
 }

@@ -46,6 +46,7 @@ beforeEach(() => {
     syncSubscription: vi.fn().mockResolvedValue(undefined),
     recordSale: vi.fn().mockResolvedValue(undefined),
     alert: vi.fn().mockResolvedValue(undefined),
+    partnerAttribution: { hasPriorSale: vi.fn().mockResolvedValue(false), record: vi.fn().mockResolvedValue(undefined) },
   };
   errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -238,5 +239,77 @@ describe("refunds and chargebacks", () => {
     ledger.handlePlanEvent.mockResolvedValue({ ok: true, replay: true, lotsRevoked: 1, expiredMicro: 5 });
     const out = await handleWalletRefund(refund("refund"), deps);
     expect(out.outcome).toBe("replay");
+  });
+});
+
+describe("partner attribution on a first ever paid purchase (affiliate)", () => {
+  const attribution = () => deps.partnerAttribution as unknown as { hasPriorSale: ReturnType<typeof vi.fn>; record: ReturnType<typeof vi.fn> };
+
+  it("a first ever pack purchase with a partner code records the attribution, asking about OTHER sales than this transaction", async () => {
+    await handleWalletBillingEvent(packEvent({ partnerCode: "sarah" }), deps);
+    expect(attribution().hasPriorSale).toHaveBeenCalledWith(ACCOUNT, "txn_1");
+    expect(attribution().record).toHaveBeenCalledWith(ACCOUNT, "sarah");
+  });
+
+  it("a first ever plan payment with a partner code records the attribution", async () => {
+    await handleWalletBillingEvent(paymentEvent({ partnerCode: "sarah" }), deps);
+    expect(attribution().hasPriorSale).toHaveBeenCalledWith(ACCOUNT, "txn_2");
+    expect(attribution().record).toHaveBeenCalledWith(ACCOUNT, "sarah");
+  });
+
+  it("the prior sale check happens BEFORE the sale is booked, and the attribution is recorded after it", async () => {
+    const order: string[] = [];
+    (deps.recordSale as ReturnType<typeof vi.fn>).mockImplementation(async () => void order.push("sale"));
+    attribution().hasPriorSale.mockImplementation(async () => (order.push("check"), false));
+    attribution().record.mockImplementation(async () => void order.push("record"));
+    await handleWalletBillingEvent(packEvent({ partnerCode: "sarah" }), deps);
+    expect(order).toEqual(["check", "sale", "record"]);
+  });
+
+  it("a customer who already paid before is not attributed (not their first purchase)", async () => {
+    attribution().hasPriorSale.mockResolvedValue(true);
+    await handleWalletBillingEvent(packEvent({ partnerCode: "sarah" }), deps);
+    expect(attribution().record).not.toHaveBeenCalled();
+  });
+
+  it("a renewal of the same plan carries the code but is never a first purchase", async () => {
+    attribution().hasPriorSale.mockResolvedValue(true);
+    await handleWalletBillingEvent(paymentEvent({ paddleTransactionId: "txn_9", partnerCode: "sarah" }), deps);
+    expect(attribution().record).not.toHaveBeenCalled();
+  });
+
+  it("no partner code: nothing is checked or recorded", async () => {
+    await handleWalletBillingEvent(packEvent(), deps);
+    expect(attribution().hasPriorSale).not.toHaveBeenCalled();
+    expect(attribution().record).not.toHaveBeenCalled();
+  });
+
+  it("an attribution failure is thrown, so the webhook answers 500 and Paddle retries; the credits were already granted (idempotent key)", async () => {
+    attribution().record.mockRejectedValue(new Error("write failed"));
+    await expect(handleWalletBillingEvent(packEvent({ partnerCode: "sarah" }), deps)).rejects.toThrow(/write failed/);
+    expect(ledger.grantForSku).toHaveBeenCalledTimes(1);
+  });
+
+  it("the retry still counts as the first purchase (its own sale is excluded) and records the attribution", async () => {
+    attribution().record.mockRejectedValueOnce(new Error("write failed"));
+    await expect(handleWalletBillingEvent(packEvent({ partnerCode: "sarah" }), deps)).rejects.toThrow();
+    const out = await handleWalletBillingEvent(packEvent({ partnerCode: "sarah" }), deps);
+    expect(out.outcome).toBe("granted");
+    expect(attribution().hasPriorSale).toHaveBeenLastCalledWith(ACCOUNT, "txn_1");
+    expect(attribution().record).toHaveBeenCalledTimes(2);
+  });
+
+  it("a failure of the first purchase check is thrown before anything is booked, so the retry starts clean", async () => {
+    attribution().hasPriorSale.mockRejectedValue(new Error("db down"));
+    await expect(handleWalletBillingEvent(packEvent({ partnerCode: "sarah" }), deps)).rejects.toThrow(/db down/);
+    expect(deps.recordSale).not.toHaveBeenCalled();
+    expect(ledger.grantForSku).not.toHaveBeenCalled();
+  });
+
+  it("a pack that was paid but refused for lacking a plan is still the customer's first paid purchase, so it still attributes", async () => {
+    ledger.grantForSku.mockResolvedValue({ ok: false, reason: "plan_required", requiredPlan: "pro" });
+    const out = await handleWalletBillingEvent(packEvent({ sku: SKU.proTopUp, partnerCode: "sarah" }), deps);
+    expect(out.outcome).toBe("refused_plan_required");
+    expect(attribution().record).toHaveBeenCalledWith(ACCOUNT, "sarah");
   });
 });

@@ -386,8 +386,9 @@ export function buildPublicRouter(): Router {
       .nullish(),
     audienceSize: z.string({ error: "Audience size must be text" }).max(100, "Audience size is too long").nullish(),
     audienceCountries: z.string({ error: "Countries must be text" }).max(200, "Countries is too long").nullish(),
-    preferredPlan: z.enum(["A", "B", "not sure"], { error: "Pick Plan A, Plan B or not sure" }).nullish(),
     howPromote: z.string({ error: "Must be text" }).max(1000, "Please keep it under 1000 characters").nullish(),
+    // Required (2026-10-23): the applicant ticked "I agree to the partner terms" (the draft summary on /partners).
+    agreedToTerms: z.literal(true, { error: "Please agree to the partner terms to apply" }),
   });
   router.post("/public/referral/apply", publicRateLimit, async (req, res) => {
     const body = validateBody(referralApplicationBodySchema, req.body);
@@ -405,8 +406,8 @@ export function buildPublicRouter(): Router {
         channelLink: body.data.channelLink?.trim() || null,
         audienceSize: body.data.audienceSize?.trim() || null,
         audienceCountries: body.data.audienceCountries?.trim() || null,
-        preferredPlan: body.data.preferredPlan ?? null,
         howPromote: body.data.howPromote?.trim() || null,
+        agreedToTerms: true,
       }
     );
     res.json({ received: true });

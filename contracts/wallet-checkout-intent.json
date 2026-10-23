@@ -1,0 +1,23 @@
+{
+  "intent": {
+    "sku": "lazyrelay-growth-plan",
+    "name": "LazyRelay Growth Plan",
+    "kind": "subscription",
+    "credits": 1000,
+    "priceCents": 2900,
+    "currency": "USD",
+    "taxNote": "plus tax",
+    "expires": true
+  },
+  "checkout": {
+    "checkoutUrl": "https://lazyrelay.com/?_ptxn=txn_fake_new",
+    "transactionId": "txn_fake_new"
+  },
+  "transactionId": "txn_fake_new",
+  "checkoutUrl": "https://lazyrelay.com/?_ptxn=txn_fake_new",
+  "sku": "lazyrelay-growth-plan",
+  "partner": {
+    "status": "none",
+    "discount": false
+  }
+}

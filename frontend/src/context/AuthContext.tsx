@@ -2,7 +2,8 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { trackSignUp } from "../lib/analytics";
-import { getStoredReferralCode } from "../lib/referral";
+import { claimStoredReferral, getStoredReferralCode } from "../lib/referral";
+import { authedFetch } from "../lib/api";
 
 interface AuthContextValue {
   session: Session | null;
@@ -62,8 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(data.session);
       setLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
+      // Google sign in carries no signup metadata: hand the stored partner code to the server once (lib/referral.ts). Deferred out of the
+      // auth callback, because calling back into Supabase from inside it can deadlock.
+      if (event === "SIGNED_IN" && newSession) setTimeout(() => void claimStoredReferral(authedFetch), 0);
     });
 
     // Background/hidden tabs have no reason to keep refreshing a session

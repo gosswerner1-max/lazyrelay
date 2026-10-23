@@ -47,34 +47,37 @@ export function Partners({ onBack }: PartnersProps) {
       <section className="landing-section legal-page">
         <h1>Partner with LazyRelay</h1>
         <p className="section-note">
-          If you have a real audience that covers tools like this, there's a genuine, ongoing commission for
-          sending customers our way, not a one-time bounty. Pick whichever structure fits you when you apply.
+          If you have a real audience that covers tools like this, there's a genuine commission for
+          sending customers our way, not a one-time bounty. There is one simple plan.
         </p>
 
         <div className="pricing-grid pricing-grid-partners">
           <div className="pricing-card-wrap">
             <div className="pricing-card">
-              <h3>Plan A</h3>
+              <h3>20% for 6 months</h3>
               <p className="pricing-note">Your audience gets a discount too</p>
               <ul>
-                <li>Your referral code also gives your audience 10% off their first 3 months</li>
-                <li>You earn 20% of what they pay, for 12 months</li>
-                <li>Good fit if the discount itself helps you convert your audience</li>
-              </ul>
-            </div>
-          </div>
-          <div className="pricing-card-wrap">
-            <div className="pricing-card">
-              <h3>Plan B</h3>
-              <p className="pricing-note">No discount, higher commission</p>
-              <ul>
-                <li>No discount for your audience</li>
-                <li>You earn 30% for the first 3 months, then 20% for the next 9</li>
-                <li>Good fit if your audience doesn't need a discount to convert</li>
+                <li>You earn 20% of what your customers pay, before tax, for 6 months from their first paid purchase</li>
+                <li>Growth and Pro subscriptions pay you every month inside those 6 months</li>
+                <li>If the customer cancels, commission on that subscription stops when it is cancelled</li>
+                <li>Pay as you go credit packs pay you once, on the customer's first paid purchase</li>
+                <li>Your audience gets 10% off their first month of Growth or Pro when they type your code at checkout</li>
               </ul>
             </div>
           </div>
         </div>
+
+        <h2>Partner terms (draft summary)</h2>
+        <p className="section-note">
+          This is a plain summary, not final. The full terms are being read by a lawyer and may change before you are accepted.
+        </p>
+        <ul className="partner-terms-draft">
+          <li>Commission is 20% of what the customer pays us, before tax, for 6 months from their first paid purchase.</li>
+          <li>If the customer cancels their subscription, commission on that subscription stops when it is cancelled.</li>
+          <li>Refunded amounts earn nothing, and commission is counted once a payment is 30 days old.</li>
+          <li>You cannot earn commission on your own purchases.</li>
+          <li>You label every post, video or mention that carries your link as a paid link or #ad.</li>
+        </ul>
 
         <h2>How it works</h2>
         <div className="landing-steps">

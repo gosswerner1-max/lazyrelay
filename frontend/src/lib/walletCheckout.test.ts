@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./supabase", () => ({ supabase: {} })); // the real client refuses to start without its address
 
-import { startCheckout } from "./walletCheckout";
+import { checkPartnerCode, startCheckout } from "./walletCheckout";
 import { catalogReasonLine } from "./walletWords";
 
 const refusal = (status: number, code?: string, message = "raw words from the server") => async () => {
@@ -14,7 +14,23 @@ describe("startCheckout", () => {
     const fetcher = vi.fn(async () => ({ transactionId: "txn_1", checkoutUrl: "https://pay.example/txn_1", sku: "pack_small" }));
     const result = await startCheckout("pack_small", fetcher);
     expect(fetcher).toHaveBeenCalledWith("/wallet/checkout-intent", { method: "POST", body: JSON.stringify({ sku: "pack_small" }) });
-    expect(result).toEqual({ ok: true, transactionId: "txn_1", checkoutUrl: "https://pay.example/txn_1", sku: "pack_small" });
+    expect(result).toEqual({ ok: true, transactionId: "txn_1", checkoutUrl: "https://pay.example/txn_1", sku: "pack_small", partner: "none", discount: false });
+  });
+
+  it("sends the code from the box with the sku so the sale can be credited to the partner", async () => {
+    const fetcher = vi.fn(async () => ({ transactionId: "txn_1", checkoutUrl: "https://pay.example/txn_1", sku: "pack_small" }));
+    await startCheckout("pack_small", fetcher, "sarah");
+    expect(fetcher).toHaveBeenCalledWith("/wallet/checkout-intent", { method: "POST", body: JSON.stringify({ sku: "pack_small", partnerCode: "sarah" }) });
+  });
+
+  it("sends no partnerCode field when the box is empty or blank, even if a link code is stored in the browser", async () => {
+    localStorage.setItem("lazyrelay_ref", JSON.stringify({ code: "stored", capturedAt: Date.now() }));
+    const fetcher = vi.fn(async () => ({ transactionId: "txn_1", checkoutUrl: "https://pay.example/txn_1", sku: "pack_small" }));
+    await startCheckout("pack_small", fetcher, "   ");
+    expect(fetcher).toHaveBeenLastCalledWith("/wallet/checkout-intent", { method: "POST", body: JSON.stringify({ sku: "pack_small" }) });
+    localStorage.clear();
+    await startCheckout("pack_small", fetcher, null);
+    expect(fetcher).toHaveBeenCalledWith("/wallet/checkout-intent", { method: "POST", body: JSON.stringify({ sku: "pack_small" }) });
   });
 
   it.each([
@@ -59,6 +75,43 @@ describe("startCheckout", () => {
       expect(result).toMatchObject({ ok: false, message: "We could not start the checkout. Please try again." });
     },
   );
+});
+
+describe("startCheckout reports what the server did with the code", () => {
+  const answer = (partner: unknown) => async () => ({ transactionId: "t", checkoutUrl: "u", sku: "lazyrelay-growth-plan", partner });
+
+  it("applied with the discount", async () => {
+    expect(await startCheckout("x", answer({ status: "applied", discount: true }), "sarah")).toMatchObject({ ok: true, partner: "applied", discount: true });
+  });
+  it("invalid still opens the checkout", async () => {
+    expect(await startCheckout("x", answer({ status: "invalid", discount: false }), "nope")).toMatchObject({ ok: true, partner: "invalid", discount: false });
+  });
+  it("a missing or odd partner answer reads as none", async () => {
+    expect(await startCheckout("x", answer(undefined))).toMatchObject({ partner: "none", discount: false });
+    expect(await startCheckout("x", answer({ status: "weird", discount: "yes" }))).toMatchObject({ partner: "none", discount: false });
+  });
+});
+
+describe("checkPartnerCode", () => {
+  it("posts the typed code and returns the verdict", async () => {
+    const fetcher = vi.fn(async () => ({ valid: true, discount: true }));
+    expect(await checkPartnerCode("sarah", fetcher)).toEqual({ kind: "valid", discount: true });
+    expect(fetcher).toHaveBeenCalledWith("/wallet/partner-code/check", { method: "POST", body: JSON.stringify({ code: "sarah" }) });
+  });
+  it("an unknown code is invalid", async () => {
+    expect(await checkPartnerCode("nope", async () => ({ valid: false, discount: false }))).toEqual({ kind: "invalid" });
+  });
+  it("a failure or a wrong answer is an error, with the raw cause kept and never shown", async () => {
+    const boom = new Error("socket hang up");
+    const a = await checkPartnerCode("sarah", async () => { throw boom; });
+    expect(a).toMatchObject({ kind: "error", cause: boom });
+    expect(await checkPartnerCode("sarah", async () => 7)).toMatchObject({ kind: "error" });
+  });
+  it("an empty box is not sent anywhere", async () => {
+    const fetcher = vi.fn();
+    expect(await checkPartnerCode("  ", fetcher)).toEqual({ kind: "invalid" });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
 });
 
 describe("catalogReasonLine", () => {

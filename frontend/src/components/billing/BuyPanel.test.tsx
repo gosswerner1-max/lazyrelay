@@ -187,3 +187,105 @@ describe("BuyPanel buying", () => {
     expect(item("Credit Pack")).toBeInTheDocument();
   });
 });
+
+describe("BuyPanel partner code box", () => {
+  const codeBox = () => screen.getByRole("textbox", { name: /partner code/i });
+  const apply = () => userEvent.click(screen.getByRole("button", { name: "Apply code" }));
+  const planItems = () => {
+    const base = items();
+    return [
+      ...base,
+      { ...base[0], sku: "lazyrelay-growth-plan", name: "Growth Plan", kind: "subscription", interval: "month", priceCents: 2900, credits: 1000, purchasable: true, reason: null } as CatalogItem,
+    ];
+  };
+
+  it("starts empty when no link code is stored, and a purchase sends no code", async () => {
+    localStorage.clear();
+    const start = vi.fn(async () => started());
+    render(<BuyPanel paddle={paddleFake()} loadCatalog={catalogOf(items())} start={start} />);
+    expect(codeBox()).toHaveValue("");
+    await userEvent.click(await screen.findByRole("button", { name: "Buy Credit Pack" }));
+    expect(start).toHaveBeenCalledWith("pack_small");
+  });
+
+  it("is pre-filled from the stored link code, editable, and clearable; only what is in the box is sent", async () => {
+    const start = vi.fn(async () => started());
+    render(<BuyPanel paddle={paddleFake()} loadCatalog={catalogOf(items())} start={start} readStoredCode={() => "sarah"} checkCode={async () => ({ kind: "valid", discount: true })} />);
+    expect(codeBox()).toHaveValue("sarah");
+    await userEvent.clear(codeBox());
+    await userEvent.type(codeBox(), "friend");
+    await userEvent.click(await screen.findByRole("button", { name: "Buy Credit Pack" }));
+    expect(start).toHaveBeenLastCalledWith("pack_small", "friend");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Buy Credit Pack" })).toBeEnabled());
+    await userEvent.clear(codeBox());
+    await userEvent.click(screen.getByRole("button", { name: "Buy Credit Pack" }));
+    expect(start).toHaveBeenLastCalledWith("pack_small");
+  });
+
+  it("a valid code says 'Code applied: 10% off your first month' on a plan and just 'Code applied' on a pack", async () => {
+    const checkCode = vi.fn(async () => ({ kind: "valid" as const, discount: true }));
+    render(<BuyPanel paddle={paddleFake()} loadCatalog={catalogOf(planItems())} start={vi.fn()} checkCode={checkCode} readStoredCode={() => null} />);
+    await userEvent.type(codeBox(), "sarah");
+    await apply();
+    expect(checkCode).toHaveBeenCalledWith("sarah");
+    const plan = within(await screen.findByRole("listitem", { name: "Growth Plan" }));
+    expect(await plan.findByText("Code applied: 10% off your first month")).toBeInTheDocument();
+    const pack = within(screen.getByRole("listitem", { name: "Credit Pack" }));
+    expect(pack.getByText("Code applied")).toBeInTheDocument();
+    expect(pack.queryByText(/10% off/)).toBeNull();
+  });
+
+  it("when the discount is not set up, a plan only says 'Code applied'", async () => {
+    render(<BuyPanel paddle={paddleFake()} loadCatalog={catalogOf(planItems())} start={vi.fn()} checkCode={async () => ({ kind: "valid", discount: false })} readStoredCode={() => null} />);
+    await userEvent.type(codeBox(), "sarah");
+    await apply();
+    const plan = within(await screen.findByRole("listitem", { name: "Growth Plan" }));
+    expect(await plan.findByText("Code applied")).toBeInTheDocument();
+    expect(screen.queryByText(/10% off/)).toBeNull();
+  });
+
+  it("an invalid code shows 'That code is not valid' inline and checkout still works without it", async () => {
+    const start = vi.fn(async () => started());
+    const paddle = paddleFake();
+    render(<BuyPanel paddle={paddle} loadCatalog={catalogOf(items())} start={start} checkCode={async () => ({ kind: "invalid" })} readStoredCode={() => null} />);
+    await userEvent.type(codeBox(), "nope");
+    await apply();
+    expect(await screen.findByText("That code is not valid")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Buy Credit Pack" }));
+    await waitFor(() => expect(paddle.Checkout.open).toHaveBeenCalledTimes(1));
+  });
+
+  it("if the server says the code was invalid at purchase time, the same message shows and the window still opens", async () => {
+    const paddle = paddleFake();
+    const start = vi.fn(async (): Promise<CheckoutResult> => ({ ok: true, transactionId: "t", checkoutUrl: "u", sku: "x", partner: "invalid", discount: false }));
+    render(<BuyPanel paddle={paddle} loadCatalog={catalogOf(items())} start={start} readStoredCode={() => null} />);
+    await userEvent.type(codeBox(), "nope");
+    await userEvent.click(await screen.findByRole("button", { name: "Buy Credit Pack" }));
+    expect(await screen.findByText("That code is not valid")).toBeInTheDocument();
+    expect(paddle.Checkout.open).toHaveBeenCalledTimes(1);
+  });
+
+  it("editing the code takes the 'applied' lines away until it is checked again", async () => {
+    render(<BuyPanel paddle={paddleFake()} loadCatalog={catalogOf(items())} start={vi.fn()} checkCode={async () => ({ kind: "valid", discount: false })} readStoredCode={() => null} />);
+    await userEvent.type(codeBox(), "sarah");
+    await apply();
+    await screen.findAllByText("Code applied");
+    await userEvent.type(codeBox(), "x");
+    expect(screen.queryByText("Code applied")).toBeNull();
+  });
+
+  it("a pre-filled link code is checked on load so its lines show straight away", async () => {
+    const checkCode = vi.fn(async () => ({ kind: "valid" as const, discount: true }));
+    render(<BuyPanel paddle={paddleFake()} loadCatalog={catalogOf(planItems())} start={vi.fn()} checkCode={checkCode} readStoredCode={() => "sarah"} />);
+    await waitFor(() => expect(checkCode).toHaveBeenCalledWith("sarah"));
+    expect((await screen.findAllByText("Code applied: 10% off your first month")).length).toBeGreaterThan(0);
+  });
+
+  it("a failed check says so plainly and does not block buying", async () => {
+    render(<BuyPanel paddle={paddleFake()} loadCatalog={catalogOf(items())} start={vi.fn(async () => started())} checkCode={async () => ({ kind: "error", cause: new Error("x") })} readStoredCode={() => null} />);
+    await userEvent.type(codeBox(), "sarah");
+    await apply();
+    expect(await screen.findByText("We could not check the code just now. You can still buy without it.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Buy Credit Pack" })).toBeEnabled();
+  });
+});

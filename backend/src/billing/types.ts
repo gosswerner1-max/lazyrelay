@@ -170,6 +170,7 @@ export interface WalletPackEvent {
   paddleTransactionId: string;
   occurredAt: string; // ISO timestamp
   sale?: SaleRecordEvent; // the SARS bookkeeping record for this payment
+  partnerCode?: string; // affiliate code the server put in the transaction's custom data (wallet/checkout.ts)
 }
 
 /** A plan payment, first or renewal (transaction.completed on a subscription price): the monthly lot is granted from this. */
@@ -184,6 +185,7 @@ export interface WalletPlanPaymentEvent {
   periodEnd?: string; // the billing period's end: the monthly lot expires then
   occurredAt: string;
   sale?: SaleRecordEvent;
+  partnerCode?: string; // see WalletPackEvent.partnerCode
 }
 
 /** A subscription lifecycle event on a plan price. `subscription` is the normal tier event, so the existing sync path stores the tier. */

@@ -7,8 +7,11 @@ import type { Fetcher } from "./walletApi";
 import { CHECKOUT_OFF, CHECKOUT_SIGN_IN, CHECKOUT_TRY_AGAIN, REFUSAL_WORDS } from "./walletWords";
 
 export type CheckoutResult =
-  | { ok: true; transactionId: string; checkoutUrl: string; sku: string }
+  | { ok: true; transactionId: string; checkoutUrl: string; sku: string; partner?: PartnerOutcome; discount?: boolean }
   | { ok: false; message: string; code?: string; cause?: unknown };
+
+/** What the server did with the code in the box: used it, found it invalid (checkout went ahead without it), or was sent none. */
+export type PartnerOutcome = "applied" | "invalid" | "none";
 
 type Failure = { status?: unknown; code?: unknown; message?: unknown };
 
@@ -23,10 +26,13 @@ function refusalFor(cause: unknown): CheckoutResult {
   return { ok: false, message: CHECKOUT_TRY_AGAIN, cause };
 }
 
-export async function startCheckout(sku: string, fetcher: Fetcher = authedFetch): Promise<CheckoutResult> {
+/** partnerCode is exactly what the buyer sees in the code box (it may have been pre-filled from a ?ref= link). Blank means none is sent.
+ *  The server checks it and ignores a bad one, so a wrong code never stops a purchase. */
+export async function startCheckout(sku: string, fetcher: Fetcher = authedFetch, typedPartnerCode: string | null = null): Promise<CheckoutResult> {
   let body: unknown;
+  const partnerCode = (typedPartnerCode ?? "").trim();
   try {
-    body = await fetcher("/wallet/checkout-intent", { method: "POST", body: JSON.stringify({ sku }) });
+    body = await fetcher("/wallet/checkout-intent", { method: "POST", body: JSON.stringify(partnerCode ? { sku, partnerCode } : { sku }) });
   } catch (cause) {
     return refusalFor(cause);
   }
@@ -34,5 +40,24 @@ export async function startCheckout(sku: string, fetcher: Fetcher = authedFetch)
   if (typeof b.transactionId !== "string" || b.transactionId === "" || typeof b.checkoutUrl !== "string" || typeof b.sku !== "string") {
     return { ok: false, message: CHECKOUT_TRY_AGAIN, cause: body };
   }
-  return { ok: true, transactionId: b.transactionId, checkoutUrl: b.checkoutUrl, sku: b.sku };
+  const p = (typeof b.partner === "object" && b.partner !== null ? b.partner : {}) as Record<string, unknown>;
+  const partner: PartnerOutcome = p.status === "applied" || p.status === "invalid" ? p.status : "none";
+  return { ok: true, transactionId: b.transactionId, checkoutUrl: b.checkoutUrl, sku: b.sku, partner, discount: partner === "applied" && p.discount === true };
+}
+
+export type CodeCheckResult = { kind: "valid"; discount: boolean } | { kind: "invalid" } | { kind: "error"; cause: unknown };
+
+/** Asks the server whether the code in the box is valid for this account and whether the first month discount is on offer. */
+export async function checkPartnerCode(code: string, fetcher: Fetcher = authedFetch): Promise<CodeCheckResult> {
+  const trimmed = code.trim();
+  if (!trimmed) return { kind: "invalid" };
+  let body: unknown;
+  try {
+    body = await fetcher("/wallet/partner-code/check", { method: "POST", body: JSON.stringify({ code: trimmed }) });
+  } catch (cause) {
+    return { kind: "error", cause };
+  }
+  const b = (typeof body === "object" && body !== null ? body : null) as Record<string, unknown> | null;
+  if (!b || typeof b.valid !== "boolean") return { kind: "error", cause: body };
+  return b.valid ? { kind: "valid", discount: b.discount === true } : { kind: "invalid" };
 }

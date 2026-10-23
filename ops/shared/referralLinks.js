@@ -2,12 +2,12 @@
 // Partner program (Step 6, 2026-10-08): unique partner codes and tracked referral links, no database access, no randomness you cannot inject.
 //
 // generatePartnerCode(name, isTaken)  -> a free, valid code like "sarah" or "sarahk7"
-// buildReferralUrl({ code, plan, path, channel })  -> the exact link a partner shares
+// buildReferralUrl({ code, path, channel })  -> the exact link a partner shares
 // readReferralParams(search)          -> the same ref/promo reading rules the website uses (frontend/src/lib/referral.ts, promo.ts)
 //
-// Why codes are letters and numbers only, 4 to 20 long: on Plan A the code is ALSO a real Paddle discount code, and Paddle accepts only
-// letters and numbers (1 to 32 characters, not case sensitive: developer.paddle.com, "Create a discount"). A hyphen would make the
-// discount impossible to create. 20 keeps links short. The database column itself allows more (hyphens, up to 40) for older codes.
+// Why codes are letters and numbers only, 4 to 20 long: short, easy to read aloud and to type into the code box at checkout. The database
+// column itself allows more (hyphens, up to 40) for older codes. There is ONE partner plan (2026-10-23): the code is never a Paddle
+// discount code any more (the viewer discount is one shared Paddle discount applied by the server), so Paddle's code rules do not apply.
 const crypto = require("node:crypto");
 
 const ORIGIN = "https://lazyrelay.com";
@@ -51,29 +51,19 @@ function generatePartnerCode(name, isTaken, rng = defaultRng) {
   throw new Error("could not find a free partner code");
 }
 
-/** Plan A codes double as Paddle discount codes, so they must also pass Paddle's own pattern. */
-function isPaddleSafe(code) {
-  return /^[a-zA-Z0-9]{1,32}$/.test(code);
-}
-
 /**
  * The link a partner shares.
- *   Plan A: ?promo=<code> (auto-applies the Paddle discount and carries checkout attribution) plus ?ref=<code> (signup capture)
- *   Plan B: ?ref=<code>
+ *   ?ref=<code>: the website stores it, prefills the code box at checkout and keeps it for a Google sign in.
  * With utm = true (default) it also adds utm_source=partner, utm_medium=referral, utm_campaign=<code> and, if channel is given,
  * utm_content=<channel> (for example "youtube" or "newsletter") so each place a partner posts can be told apart in web analytics.
  * The website ignores the utm_ words; nothing else about the link changes how attribution works.
  */
-function buildReferralUrl({ code, plan = "B", path = "/", channel, origin = ORIGIN, utm = true }) {
+function buildReferralUrl({ code, path = "/", channel, origin = ORIGIN, utm = true }) {
   const c = String(code ?? "").trim().toLowerCase();
   if (!LEGACY_CODE_RE.test(c)) throw new Error(`not a valid partner code: "${code}"`);
-  const p = String(plan).toUpperCase();
-  if (p !== "A" && p !== "B") throw new Error(`plan must be A or B, got "${plan}"`);
-  if (p === "A" && !isPaddleSafe(c)) throw new Error(`code "${c}" cannot be a Paddle discount code (letters and numbers only)`);
   if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//") || /[?#\s]/.test(path)) throw new Error(`path must start with a single "/" and contain no ? # or spaces, got "${path}"`);
   if (channel !== undefined && !/^[a-z0-9_-]{1,30}$/.test(channel)) throw new Error(`channel must be 1 to 30 lowercase letters, numbers, - or _, got "${channel}"`);
   const q = new URLSearchParams();
-  if (p === "A") q.set("promo", c);
   q.set("ref", c);
   if (utm) {
     q.set("utm_source", "partner");
@@ -95,4 +85,4 @@ function readReferralParams(search) {
   return { ref: norm(sp.get("ref")), promo: norm(sp.get("promo")) };
 }
 
-module.exports = { generatePartnerCode, buildReferralUrl, readReferralParams, isPaddleSafe, slugify, CODE_RE, RESERVED, ORIGIN };
+module.exports = { generatePartnerCode, buildReferralUrl, readReferralParams, slugify, CODE_RE, RESERVED, ORIGIN };

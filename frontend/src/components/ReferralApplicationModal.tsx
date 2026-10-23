@@ -24,7 +24,7 @@ export function ReferralApplicationModal({ onClose }: { onClose: () => void }) {
   const [channelLink, setChannelLink] = useState("");
   const [audienceSize, setAudienceSize] = useState("");
   const [audienceCountries, setAudienceCountries] = useState("");
-  const [preferredPlan, setPreferredPlan] = useState<"A" | "B" | "not sure">("not sure");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [howPromote, setHowPromote] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState("");
@@ -61,7 +61,7 @@ export function ReferralApplicationModal({ onClose }: { onClose: () => void }) {
     setStatus("loading");
     setError("");
     try {
-      await api.applyForReferralProgram({ name, channel, platform, email, message, channelLink, audienceSize, audienceCountries, preferredPlan, howPromote });
+      await api.applyForReferralProgram({ name, channel, platform, email, message, channelLink, audienceSize, audienceCountries, howPromote, agreedToTerms: true });
       setStatus("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't send your application right now.");
@@ -168,14 +168,6 @@ export function ReferralApplicationModal({ onClose }: { onClose: () => void }) {
               />
             </label>
             <label>
-              Which plan interests you?
-              <select value={preferredPlan} onChange={(e) => setPreferredPlan(e.target.value as "A" | "B" | "not sure")} disabled={status === "loading"}>
-                <option value="not sure">Not sure yet</option>
-                <option value="A">Plan A: my audience gets 10% off, I earn 20% for 12 months</option>
-                <option value="B">Plan B: no discount, I earn 30% for 3 months then 20% for 9</option>
-              </select>
-            </label>
-            <label>
               Email
               <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={status === "loading"} />
             </label>
@@ -189,6 +181,10 @@ export function ReferralApplicationModal({ onClose }: { onClose: () => void }) {
                 onChange={(e) => setMessage(e.target.value)}
                 disabled={status === "loading"}
               />
+            </label>
+            <label className="referral-modal-agree">
+              <input type="checkbox" required checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} disabled={status === "loading"} />
+              I agree to the partner terms, including labelling my posts as a paid link or #ad (see the draft summary on the partners page)
             </label>
             <p className="referral-modal-note">We use these details only to review your application and to contact you about it.</p>
             {status === "error" && <p className="error">{error}</p>}
