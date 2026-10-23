@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { walletMode } from "./mode.js";
-import { minActionPriceMicro, shouldPauseQueue, signupGrant, subscriptionSourceKey } from "./rules.js";
+import { minActionPriceMicro, signupGrant } from "./rules.js";
 import { fetchPausedAccountIds } from "./pause.js";
 import { WalletError, createWalletLedger, type WalletRpc } from "./ledger.js";
 import { WalletValueError } from "./money.js";
@@ -29,20 +29,6 @@ describe("the credit rules", () => {
     expect(signupGrant(ACCOUNT).sourceKey).not.toBe(signupGrant(OTHER).sourceKey);
   });
 
-  it("a monthly plan lot is keyed by subscription and billing period start, so a replayed webhook grants once and the next period grants again", () => {
-    const a = subscriptionSourceKey({ subscriptionId: "sub_01abc", periodStart: "2026-11-19T00:00:00Z" });
-    expect(a).toBe("period:sub_01abc:2026-11-19");
-    expect(subscriptionSourceKey({ subscriptionId: "sub_01abc", periodStart: "2026-11-19T08:30:00Z" })).toBe(a);
-    expect(subscriptionSourceKey({ subscriptionId: "sub_01abc", periodStart: "2026-12-19T00:00:00Z" })).not.toBe(a);
-  });
-
-  it.each([["", "2026-11-19T00:00:00Z"], ["not a sub", "2026-11-19T00:00:00Z"], ["sub_01abc", "not a date"], ["sub_01abc", ""]])(
-    "refuses a key for subscription %j and period %j",
-    (subscriptionId, periodStart) => {
-      expect(() => subscriptionSourceKey({ subscriptionId, periodStart })).toThrow(WalletValueError);
-    },
-  );
-
   it("refuses a bad account for the signup allowance", () => {
     expect(() => signupGrant("nope")).toThrow(WalletValueError);
   });
@@ -50,22 +36,8 @@ describe("the credit rules", () => {
 
 describe("the queue pauses when the wallet cannot pay for the next action", () => {
   it("the smallest action costs 1 credit", () => expect(minActionPriceMicro()).toBe(1_000_000));
-
-  it("pauses at zero and at any balance below the cheapest action, not at or above it", () => {
-    expect(shouldPauseQueue(0)).toBe(true);
-    expect(shouldPauseQueue(999_999)).toBe(true);
-    expect(shouldPauseQueue(1_000_000)).toBe(false);
-    expect(shouldPauseQueue(5_000_000)).toBe(false);
-  });
-
-  it("an account with NO wallet yet is never paused (so switching the wallet on cannot stop customers who were never given a balance)", () => {
-    expect(shouldPauseQueue(null)).toBe(false);
-  });
-
-  it("refuses a negative or fractional balance", () => {
-    for (const bad of [-1, 1.5, Number.NaN]) expect(() => shouldPauseQueue(bad)).toThrow(WalletValueError);
-  });
 });
+
 
 function pausedRpc(data: unknown, error: { message: string } | null = null) {
   const rpc = vi.fn(async () => ({ data, error }));

@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, unlinkSync } from "fs";
 import { supabase } from "../src/supabase.js";
 import { MastodonAdapter } from "../src/platforms/mastodon.js";
 import { startConnect, completeConnect } from "../src/platforms/connect.js";

@@ -1,7 +1,7 @@
 // Sending in a two-way conversation: a free-form reply (only inside Meta's 24 hour window), an approved template (any time, only to
 // a stored contact who opted in), and an approval request (reply buttons inside the window, a template outside it). Every send goes
-// through the SAME gates as a broadcast: a paid plan AND the customer's own stored login, an unpaused connection, the DB kill
-// switch and caps, and the opt-out and suppression rules, all failing closed. The HTTP client is a fake: nothing reaches Meta.
+// through the SAME gates as a broadcast: a paid plan AND the customer's own stored login, an unpaused connection, and the opt-out and
+// suppression rules, all failing closed (there is no volume cap or kill switch of ours). The HTTP client is a fake: nothing reaches Meta.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { tables } from "../testFakeSupabase.js";

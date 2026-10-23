@@ -132,12 +132,7 @@ async function main() {
     );
   }
 
-  // 3. Non-owner (a stranger with no relationship to this account) can't
-  //    invite -- sanity check requireOwner rejects an unrelated account's
-  //    owner acting on someone else's account id via... actually this just
-  //    confirms invite creation requires being authed as the target account
-  //    at all, which is requireAuth's job, not requireOwner's -- covered by
-  //    the fact stranger's own invite lands on THEIR OWN account, not owner's.
+  // 3. Owner can invite by email.
   {
     const res = await fetch(`${base}/api/team/invite`, {
       method: "POST",
@@ -371,7 +366,7 @@ async function main() {
       `HTTP ${resendRes.status} before=${before?.invited_at} after=${after?.invited_at}`
     );
 
-    // Non-owner can't resend.
+    // Invitee accepts, so the next check can try to resend an already-accepted invite.
     const acceptRes = await fetch(`${base}/api/team/accept-invite`, {
       method: "POST",
       headers: { ...authed(resendInvitee.token), "Content-Type": "application/json" },

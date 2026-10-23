@@ -94,7 +94,7 @@ export function createFakeWhop(companies: FakeCompany[]) {
     if (hit && !hit.afterEffect) {
       hit.times = (hit.times ?? 1) - 1;
       if (hit.networkError) throw new Error("socket hang up");
-      return reply(hit.status, hit.body ?? {}, hit.status === 429 ? {} : {});
+      return reply(hit.status, hit.body ?? {});
     }
 
     if (headers.authorization !== `Bearer ${APP_PASS}`) return reply(401, { error: { code: "unauthorized", message: "Invalid API key" } });

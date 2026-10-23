@@ -62,8 +62,8 @@ async function main() {
     pass = false;
   }
 
-  // Cancellation is deferred to the end of the paid period (2026-08-11 fix,
-  // see billing/sync.ts around line 520+): status stays "active" right after
+  // Cancellation is deferred to the end of the paid period (2026-08-11 fix, see cancelSubscription in billing/sync.ts):
+  // status stays "active" right after
   // cancelling — only cancel_at_period_end flips true immediately. The real
   // status: "cancelled" flip happens later, driven by the genuine
   // subscription.canceled webhook when Paddle's deferred cancellation

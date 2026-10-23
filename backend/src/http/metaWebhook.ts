@@ -8,7 +8,7 @@ const MESSAGING_SUBSCRIBED_FIELDS =
   "messages,messaging_postbacks,message_reactions,messaging_referrals,message_echoes,message_edits,feed";
 
 /** Subscribes a Facebook Page to the webhook fields Instagram/Facebook
- *  Messaging needs to work at all (see the file-level comment above).
+ *  Messaging needs to work at all (see the comment below this function).
  *  Called right after a Facebook/Instagram connect completes — see
  *  connect.ts's storeConnectedAccount. Failure is logged, not thrown: a
  *  customer's connect should still succeed even if this side-call to Meta

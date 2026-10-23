@@ -7,7 +7,6 @@ import {
   POST_ID,
   WHOP_TEXT_LIMIT,
   WHOP_UNREACHABLE,
-  WhopApiError,
   WhopClient,
   failureText,
   whopPostUrl,

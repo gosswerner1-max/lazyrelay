@@ -7,9 +7,6 @@
 // from whatsappSendingSupported() in platforms/whatsapp/sendSupport.ts on purpose: that one gates the generic "post to WhatsApp"
 // path used by the public API key, the MCP server, Zapier, bulk and duplicate, and it stays false. A broadcast is created only
 // through the signed-in dashboard routes in routes/whatsappBroadcasts.routes.ts.
-//
-// On top of these two sits the database kill switch and the caps (controls.ts): the flags say "this deploy may send at all", the
-// database rows say "right now, and how much".
 
 export const BYOK_FLAG = "WHATSAPP_BYOK_ENABLED";
 export const BROADCASTS_FLAG = "WHATSAPP_BROADCASTS_ENABLED";

@@ -80,8 +80,8 @@ export function computeOccurrencesInWindow(
 }
 
 /** Drops generated rows that would put a connected account over its
- *  platform's rolling-24h posting cap (platformPostLimits.ts -- today only
- *  Pinterest); rows for every other platform pass straight through. The cap
+ *  platform's rolling-24h posting cap (platformPostLimits.ts -- today
+ *  Pinterest and Instagram); rows for every other platform pass straight through. The cap
  *  is enforced here instead of at POST/PATCH /recurring-schedules because
  *  those routes only store a template, one slot yields at most one post per
  *  day per account, and what actually collides is whatever else already sits

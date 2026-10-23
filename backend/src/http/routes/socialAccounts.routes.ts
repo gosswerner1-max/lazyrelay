@@ -27,29 +27,9 @@ import { checkWhatsappPlan } from "../../accountLimits.js";
 import { resolveTier, canUseXByok, X_BYOK_REQUIRED_PLAN_NAME, WHATSAPP_BYOK_REQUIRED_PLAN_NAME } from "../../tier.js";
 
 // Every platform LazyRelay supports, in the shape the frontend's platform
-// picker grid needs. "x" had a comingSoon gate until 2026-07-31 — its
-// adapter is now built, credentials are live on Render, and it's confirmed
-// in the registry, so it's a real, connectable platform now, not just "not
-// configured." Reddit was dropped from the roadmap entirely on 2026-07-30
-// in favor of Snapchat (see
-// product/reference-social-automation-saas-venture-research and
-// lazyrelay/project-snapchat-replaces-reddit-2026-07-30 memory), then
-// Snapchat itself was dropped 2026-09-03 (its Public Profile API allowlisting
-// turned out to be gated on an Account Manager assignment Snap wouldn't
-// commit to a timeline on) and its adapter (platforms/snapchat.ts) removed
-// entirely rather than left dark — see
-// lazyrelay/project-snapchat-replaces-reddit-2026-07-30 memory for the
-// decision. "x" is comingSoon: true — the adapter is code-complete and
-// registered, but X's API is pay-per-use (Basic tier $200/mo just for write
-// access), and the user decided 2026-08-04 to hold off funding it until
-// there's real customer demand, rather than pay for an untested, unused
-// integration. Google Business Profile was dropped entirely 2026-09-17
-// (Werner's call): LazyRelay itself can't get its own Business Profile
-// verified (Google's only offered method, a video walkthrough, requires
-// branded documentation and a branded vehicle LazyRelay doesn't have and
-// never will), and the API access application was abandoned as a result
-// rather than resubmitted — the adapter (platforms/googleBusiness.ts) was
-// removed rather than left dark, same treatment Snapchat got.
+// picker grid needs. "x" is own-keys (customer's developer keys) and hidden
+// until X_BYOK_ENABLED registers it. Reddit, Snapchat and Google Business
+// Profile were dropped and have no adapter.
 const ALL_PLATFORMS = [
   "tiktok", "pinterest", "youtube", "mastodon", "bluesky", "telegram",
   "linkedin", "threads", "facebook", "instagram", "discord", "tumblr", "x",
@@ -429,7 +409,7 @@ export function buildSocialAccountsRouter(registry: PlatformAdapterRegistry): Ro
 
   // Assign (or clear) a connected account's brand. brandId must reference a
   // brand owned by this caller, or be null to unbrand. Also writes the
-  // brand_label mirror (see the transition note above).
+  // legacy brand_label mirror column.
   const assignBrandBodySchema = z.object({ brandId: optionalNullableString("brandId must be a string or null") });
   router.patch("/social-accounts/:id", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     const body = validateBody(assignBrandBodySchema, req.body);

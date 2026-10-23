@@ -4,7 +4,7 @@
 // mcpDocs.test.ts fails if either file is out of date with the tools.
 
 import { z } from "zod";
-import { registerLazyRelayTools, LAZYRELAY_TOOL_NAMES } from "./lazyrelayTools.js";
+import { registerLazyRelayTools } from "./lazyrelayTools.js";
 
 export interface CapturedTool {
   name: string;
@@ -247,5 +247,3 @@ ${body.join("\n")}
 </html>
 `;
 }
-
-export { LAZYRELAY_TOOL_NAMES };
