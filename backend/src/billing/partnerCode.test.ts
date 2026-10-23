@@ -34,3 +34,25 @@ describe("resolveApprovedPartnerCode", () => {
     }
   });
 });
+
+describe("resolveApprovedPartnerCode: a partner cannot earn on their own purchase", () => {
+  beforeEach(() => {
+    tables.referral_partners = [{ id: "p1", code: "Sarah", status: "approved", email: "Sarah@Example.org" }];
+    tables.accounts = [
+      { id: "acc-self", email: "sarah@example.org" },
+      { id: "acc-other", email: "buyer@example.org" },
+    ];
+  });
+
+  it("the partner's own account (matched by the registered email, any letter case) gets null", async () => {
+    expect(await resolveApprovedPartnerCode("sarah", "acc-self")).toBeNull();
+  });
+
+  it("any other account gets the code", async () => {
+    expect(await resolveApprovedPartnerCode("sarah", "acc-other")).toBe("Sarah");
+  });
+
+  it("with no account given (no self check possible) the code resolves as before", async () => {
+    expect(await resolveApprovedPartnerCode("sarah")).toBe("Sarah");
+  });
+});

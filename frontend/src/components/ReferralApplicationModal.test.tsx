@@ -23,7 +23,8 @@ describe("ReferralApplicationModal", () => {
     await userEvent.type(screen.getByLabelText("Audience size"), "12,000 subscribers");
     await userEvent.type(screen.getByLabelText("Where is your audience mainly?"), "South Africa");
     await userEvent.type(screen.getByLabelText("How would you promote LazyRelay?"), "A video review");
-    await userEvent.selectOptions(screen.getByLabelText("Which plan interests you?"), "B");
+    expect(screen.queryByLabelText("Which plan interests you?")).toBeNull();
+    await userEvent.click(screen.getByLabelText(/I agree to the partner terms/));
     await userEvent.type(screen.getByLabelText("Email"), "sam@example.org");
     await userEvent.click(screen.getByRole("button", { name: "Submit application" }));
     await waitFor(() => expect(api.applyForReferralProgram).toHaveBeenCalledTimes(1));
@@ -36,8 +37,8 @@ describe("ReferralApplicationModal", () => {
       channelLink: "https://youtube.com/@sam",
       audienceSize: "12,000 subscribers",
       audienceCountries: "South Africa",
-      preferredPlan: "B",
       howPromote: "A video review",
+      agreedToTerms: true,
     });
     expect(await screen.findByText(/we'll review it/)).toBeInTheDocument();
   });
@@ -45,6 +46,20 @@ describe("ReferralApplicationModal", () => {
   it("does not send until the required questions are answered", async () => {
     render(<ReferralApplicationModal onClose={() => {}} />);
     await userEvent.type(screen.getByLabelText("Name"), "Sam");
+    await userEvent.click(screen.getByRole("button", { name: "Submit application" }));
+    expect(api.applyForReferralProgram).not.toHaveBeenCalled();
+  });
+
+  it("will not send until the partner terms box is ticked", async () => {
+    render(<ReferralApplicationModal onClose={() => {}} />);
+    await userEvent.type(screen.getByLabelText("Name"), "Sam");
+    await userEvent.type(screen.getByLabelText("Channel or handle"), "@sam");
+    await userEvent.type(screen.getByLabelText("Platform"), "YouTube");
+    await userEvent.type(screen.getByLabelText("Link to your channel or website"), "https://youtube.com/@sam");
+    await userEvent.type(screen.getByLabelText("Audience size"), "12,000");
+    await userEvent.type(screen.getByLabelText("How would you promote LazyRelay?"), "A video");
+    await userEvent.type(screen.getByLabelText("Email"), "sam@example.org");
+    expect(screen.getByLabelText(/I agree to the partner terms/)).toBeRequired();
     await userEvent.click(screen.getByRole("button", { name: "Submit application" }));
     expect(api.applyForReferralProgram).not.toHaveBeenCalled();
   });

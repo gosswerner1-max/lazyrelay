@@ -25,7 +25,7 @@ const app = () => {
   return a;
 };
 const base = { name: "Sam", channel: "@sam", platform: "YouTube", email: "sam@example.org" };
-const full = { ...base, channelLink: "https://youtube.com/@sam", audienceSize: "12,000 subscribers", audienceCountries: "South Africa", preferredPlan: "A", howPromote: "A video review" };
+const full = { ...base, channelLink: "https://youtube.com/@sam", audienceSize: "12,000 subscribers", audienceCountries: "South Africa", howPromote: "A video review", agreedToTerms: true };
 
 beforeEach(() => {
   mail.calls = [];
@@ -40,15 +40,23 @@ describe("POST /public/referral/apply", () => {
       channelLink: "https://youtube.com/@sam",
       audienceSize: "12,000 subscribers",
       audienceCountries: "South Africa",
-      preferredPlan: "A",
       howPromote: "A video review",
+      agreedToTerms: true,
     });
   });
 
-  it("still accepts an older form that sends none of the new answers", async () => {
-    const res = await request(app()).post("/public/referral/apply").send(base);
+  it("refuses an application that has not agreed to the partner terms", async () => {
+    for (const body of [base, { ...full, agreedToTerms: false }, { ...full, agreedToTerms: "yes" }]) {
+      const res = await request(app()).post("/public/referral/apply").send(body);
+      expect(res.status).toBe(400);
+    }
+    expect(mail.calls).toHaveLength(0);
+  });
+
+  it("accepts the minimum: the four basics plus the agreement", async () => {
+    const res = await request(app()).post("/public/referral/apply").send({ ...base, agreedToTerms: true });
     expect(res.status).toBe(200);
-    expect(mail.calls[0][5]).toEqual({ channelLink: null, audienceSize: null, audienceCountries: null, preferredPlan: null, howPromote: null });
+    expect(mail.calls[0][5]).toEqual({ channelLink: null, audienceSize: null, audienceCountries: null, howPromote: null, agreedToTerms: true });
   });
 
   it("rejects a channel link that is not a web address", async () => {
@@ -57,9 +65,4 @@ describe("POST /public/referral/apply", () => {
     expect(mail.calls).toHaveLength(0);
   });
 
-  it("rejects an unknown plan", async () => {
-    const res = await request(app()).post("/public/referral/apply").send({ ...full, preferredPlan: "C" });
-    expect(res.status).toBe(400);
-    expect(mail.calls).toHaveLength(0);
-  });
 });

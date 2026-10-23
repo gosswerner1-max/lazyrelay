@@ -14,7 +14,7 @@ import { resolveTier, type Tier } from "../../tier.js";
 import { walletEnabled } from "../../wallet/flags.js";
 import { buildCatalogView, buildCheckoutIntent, type PackRow } from "../../wallet/checkout.js";
 import { getCheckoutPort, type CheckoutPort } from "../../wallet/checkoutPort.js";
-import { resolveApprovedPartnerCode } from "../../billing/partnerCode.js";
+import { partnerDiscountConfigured, resolveApprovedPartnerCode } from "../../billing/partnerCode.js";
 import { createEngineClient } from "../../wallet/engineClient.js";
 import { createWalletLedger } from "../../wallet/ledger.js";
 import { isLegacyAccount } from "../../wallet/legacy.js";
@@ -35,7 +35,9 @@ export interface WalletRouterDeps {
   /** Pass null to say "no checkout is wired". Left out, the port package C registered is used. */
   checkout?: CheckoutPort | null;
   /** Affiliate code check for the checkout. Returns the approved partner's real code or null; may throw (treated as no code). */
-  resolvePartnerCode?: (code: unknown) => Promise<string | null>;
+  resolvePartnerCode?: (code: unknown, accountId?: string) => Promise<string | null>;
+  /** Whether the shared partner discount is set up (env PADDLE_PARTNER_DISCOUNT_ID). Only used to tell the screen what to promise. */
+  discountConfigured?: () => boolean;
 }
 
 /** True when the account's subscription is scheduled to end at the period end (subscriptions.cancel_at_period_end, kept by billing sync). */
@@ -69,6 +71,7 @@ export function buildWalletRouter(deps: WalletRouterDeps = {}): Router {
   const isLegacy = deps.isLegacy ?? isLegacyAccount;
   const isCancelPending = deps.isCancelPending ?? readCancelPending;
   const resolvePartnerCode = deps.resolvePartnerCode ?? resolveApprovedPartnerCode;
+  const discountConfigured = deps.discountConfigured ?? (() => partnerDiscountConfigured());
   const checkoutPort = () => ("checkout" in deps ? deps.checkout ?? null : getCheckoutPort());
 
   // Switched off: hand the request to whatever comes after this router, which has no such route.
@@ -108,19 +111,39 @@ export function buildWalletRouter(deps: WalletRouterDeps = {}): Router {
         res.status(503).json({ error: "checkout_not_available" });
         return;
       }
-      // An affiliate code that is unknown, paused or cannot be checked is dropped quietly: it must never stop a purchase.
+      // An affiliate code that is unknown, paused, the buyer's own or cannot be checked is dropped quietly: it must never stop a purchase.
+      // Only a code the buyer typed (or saw prefilled) in the box arrives here; an empty box counts as no code.
+      const typed = typeof body?.partnerCode === "string" ? body.partnerCode.trim() : "";
       let partnerCode: string | null = null;
-      if (body?.partnerCode !== undefined) {
+      if (typed) {
         try {
-          partnerCode = await resolvePartnerCode(body.partnerCode);
+          partnerCode = await resolvePartnerCode(typed, accountId);
         } catch (err) {
           console.error("[wallet] partner code check failed, continuing without it:", err);
         }
       }
       const checkout = partnerCode ? await port.createCheckout(accountId, built.intent.sku, { partnerCode }) : await port.createCheckout(accountId, built.intent.sku);
-      res.json({ intent: built.intent, checkout });
+      const discount = partnerCode !== null && Boolean((checkout as { discountApplied?: unknown } | null)?.discountApplied);
+      res.json({ intent: built.intent, checkout, partner: { status: partnerCode ? "applied" : typed ? "invalid" : "none", discount } });
     } catch (err) {
       unavailable(res, "checkout intent", err);
+    }
+  });
+
+  // The code box on the payment screen. Says only whether the code is valid for THIS account (an unknown, paused or own code is not)
+  // and whether the first month discount is on offer; never an error for a bad code. The checkout re-checks the code itself.
+  router.post("/partner-code/check", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
+    try {
+      const raw = (req.body as { code?: unknown } | undefined)?.code;
+      let valid = false;
+      try {
+        valid = Boolean(typeof raw === "string" && raw.trim() && (await resolvePartnerCode(raw, req.accountId as string)));
+      } catch (err) {
+        console.error("[wallet] partner code check failed:", err);
+      }
+      res.json({ valid, discount: valid && discountConfigured() });
+    } catch (err) {
+      unavailable(res, "partner code check", err);
     }
   });
 

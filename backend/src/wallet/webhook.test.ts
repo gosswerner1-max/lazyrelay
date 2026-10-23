@@ -284,15 +284,26 @@ describe("partner attribution on a first ever paid purchase (affiliate)", () => 
     expect(attribution().record).not.toHaveBeenCalled();
   });
 
-  it("a failure in the attribution never stops the credits being granted; the raw error is logged", async () => {
-    attribution().hasPriorSale.mockRejectedValue(new Error("db down"));
+  it("an attribution failure is thrown, so the webhook answers 500 and Paddle retries; the credits were already granted (idempotent key)", async () => {
+    attribution().record.mockRejectedValue(new Error("write failed"));
+    await expect(handleWalletBillingEvent(packEvent({ partnerCode: "sarah" }), deps)).rejects.toThrow(/write failed/);
+    expect(ledger.grantForSku).toHaveBeenCalledTimes(1);
+  });
+
+  it("the retry still counts as the first purchase (its own sale is excluded) and records the attribution", async () => {
+    attribution().record.mockRejectedValueOnce(new Error("write failed"));
+    await expect(handleWalletBillingEvent(packEvent({ partnerCode: "sarah" }), deps)).rejects.toThrow();
     const out = await handleWalletBillingEvent(packEvent({ partnerCode: "sarah" }), deps);
     expect(out.outcome).toBe("granted");
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("attribution check failed"), "db down");
-    attribution().hasPriorSale.mockResolvedValue(false);
-    attribution().record.mockRejectedValue(new Error("write failed"));
-    const out2 = await handleWalletBillingEvent(paymentEvent({ partnerCode: "sarah" }), deps);
-    expect(out2.outcome).toBe("granted");
+    expect(attribution().hasPriorSale).toHaveBeenLastCalledWith(ACCOUNT, "txn_1");
+    expect(attribution().record).toHaveBeenCalledTimes(2);
+  });
+
+  it("a failure of the first purchase check is thrown before anything is booked, so the retry starts clean", async () => {
+    attribution().hasPriorSale.mockRejectedValue(new Error("db down"));
+    await expect(handleWalletBillingEvent(packEvent({ partnerCode: "sarah" }), deps)).rejects.toThrow(/db down/);
+    expect(deps.recordSale).not.toHaveBeenCalled();
+    expect(ledger.grantForSku).not.toHaveBeenCalled();
   });
 
   it("a pack that was paid but refused for lacking a plan is still the customer's first paid purchase, so it still attributes", async () => {

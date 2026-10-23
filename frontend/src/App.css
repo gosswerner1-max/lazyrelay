@@ -122,6 +122,21 @@
   margin-top: 4px;
 }
 
+.referral-modal-card label.referral-modal-agree {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  font-weight: 500;
+}
+
+.referral-modal-card .referral-modal-agree input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  padding: 0;
+}
+
 .referral-modal-note {
   margin: 0;
   font-size: 12px;

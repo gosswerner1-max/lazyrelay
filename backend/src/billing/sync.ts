@@ -138,27 +138,35 @@ async function resolveAccountId(event: { accountId?: string; accountEmail: strin
  *  own subscription state failing to sync. */
 export async function recordPartnerAttribution(accountId: string, code: string): Promise<void> {
   try {
-    const { data: partner } = await supabase
-      .from("referral_partners")
-      .select("code, name, email")
-      .eq("code", code)
-      .eq("status", "approved")
-      .maybeSingle();
-    if (!partner) return;
-
-    const { data: updated, error } = await supabase
-      .from("accounts")
-      .update({ partner_code_redeemed: partner.code, partner_code_redeemed_at: new Date().toISOString() })
-      .eq("id", accountId)
-      .is("partner_code_redeemed", null)
-      .select("id")
-      .maybeSingle();
-    if (error) throw error;
-    if (updated) {
-      sendPartnerConversionAlert(partner.email, partner.name, partner.code);
-    }
+    await recordPartnerAttributionStrict(accountId, code);
   } catch (err) {
     console.error(`[referral] recordPartnerAttribution failed for code "${code}" on account ${accountId}:`, err instanceof Error ? err.message : err);
+  }
+}
+
+/** The same write, but a failure is THROWN. The wallet webhook uses this so a failed write makes the webhook answer 500 and Paddle
+ *  retries it (the credits are granted under an idempotent key, so a retry changes nothing else, and the purchase still counts as the
+ *  first one because its own sale is excluded from the prior sale check). */
+export async function recordPartnerAttributionStrict(accountId: string, code: string): Promise<void> {
+  const { data: partner, error: partnerError } = await supabase
+    .from("referral_partners")
+    .select("code, name, email")
+    .eq("code", code)
+    .eq("status", "approved")
+    .maybeSingle();
+  if (partnerError) throw partnerError;
+  if (!partner) return;
+
+  const { data: updated, error } = await supabase
+    .from("accounts")
+    .update({ partner_code_redeemed: partner.code, partner_code_redeemed_at: new Date().toISOString() })
+    .eq("id", accountId)
+    .is("partner_code_redeemed", null)
+    .select("id")
+    .maybeSingle();
+  if (error) throw error;
+  if (updated) {
+    sendPartnerConversionAlert(partner.email, partner.name, partner.code);
   }
 }
 

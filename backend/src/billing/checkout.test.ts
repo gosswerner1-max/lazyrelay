@@ -164,3 +164,36 @@ describe("createCheckout with a partner code (affiliate attribution)", () => {
     expect(JSON.parse(http.mock.calls[0][1].body).custom_data).toEqual({ account_id: ACCOUNT_ID, sku: SKU.starterPack });
   });
 });
+
+describe("createCheckout with the partner discount (10% off the first payment of Growth or Pro)", () => {
+  const withDiscount = { ...WALLET_ENV, PADDLE_ENVIRONMENT: "production", PADDLE_PARTNER_DISCOUNT_ID: "dsc_fake_partner" };
+  const body = (http: ReturnType<typeof client>) => JSON.parse(http.mock.calls[0][1].body);
+
+  it.each([[SKU.growthPlan], [SKU.proPlan]])("%s with a partner code gets the one shared discount id and reports it", async (sku) => {
+    const http = client({ body: created });
+    const out = await port(http, withDiscount).createCheckout(ACCOUNT_ID, sku, { partnerCode: "sarah" });
+    expect(body(http).discount_id).toBe("dsc_fake_partner");
+    expect(out).toMatchObject({ transactionId: "txn_fake_new", discountApplied: true });
+  });
+
+  it.each([[SKU.starterPack], [SKU.growthPack], [SKU.proTopUp]])("the pack %s never gets a discount", async (sku) => {
+    const http = client({ body: created });
+    const out = await port(http, withDiscount).createCheckout(ACCOUNT_ID, sku, { partnerCode: "sarah" });
+    expect(body(http).discount_id).toBeUndefined();
+    expect((out as { discountApplied?: boolean }).discountApplied).toBeUndefined();
+  });
+
+  it("a plan with no partner code gets no discount", async () => {
+    const http = client({ body: created });
+    await port(http, withDiscount).createCheckout(ACCOUNT_ID, SKU.growthPlan);
+    expect(body(http).discount_id).toBeUndefined();
+  });
+
+  it("with PADDLE_PARTNER_DISCOUNT_ID unset the checkout still works, with the code in custom data and no discount", async () => {
+    const http = client({ body: created });
+    const out = await port(http).createCheckout(ACCOUNT_ID, SKU.growthPlan, { partnerCode: "sarah" });
+    expect(body(http).discount_id).toBeUndefined();
+    expect(body(http).custom_data.partnerCode).toBe("sarah");
+    expect((out as { discountApplied?: boolean }).discountApplied).toBeUndefined();
+  });
+});

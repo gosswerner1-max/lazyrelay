@@ -1,6 +1,6 @@
 import { supabase } from "../supabase.js";
 import { notifyOps } from "../notify.js";
-import { recordPartnerAttribution, recordSale, syncSubscriptionFromWebhook } from "../billing/sync.js";
+import { recordPartnerAttributionStrict, recordSale, syncSubscriptionFromWebhook } from "../billing/sync.js";
 import { walletPlanForSku } from "../billing/skuPrices.js";
 import type { RefundRecordEvent, SaleRecordEvent, SubscriptionEvent, WalletBillingEvent, WalletPackEvent, WalletPlanLifecycleEvent, WalletPlanPaymentEvent } from "../billing/types.js";
 import { CATALOG } from "./catalog.js";
@@ -47,24 +47,17 @@ export async function handleWalletBillingEvent(event: WalletBillingEvent, deps: 
   return handleLifecycle(event, deps);
 }
 
-/** Asked BEFORE this payment's sale is booked, so "first ever paid purchase" cannot be confused by our own bookkeeping row. Never throws:
- *  a lost attribution is a real problem, but a smaller one than credits that were paid for not being granted. */
+/** Asked BEFORE this payment's sale is booked, so "first ever paid purchase" cannot be confused by our own bookkeeping row. A failure is
+ *  thrown (nothing has been booked or granted yet, so the retry starts clean). */
 async function isFirstPaidPurchase(deps: WalletWebhookDeps, accountId: string, transactionId: string, code: string | undefined): Promise<boolean> {
   if (!code || !deps.partnerAttribution) return false;
-  try {
-    return !(await deps.partnerAttribution.hasPriorSale(accountId, transactionId));
-  } catch (err) {
-    console.error(`[wallet-webhook] partner attribution check failed for transaction ${transactionId}:`, err instanceof Error ? err.message : err);
-    return false;
-  }
+  return !(await deps.partnerAttribution.hasPriorSale(accountId, transactionId));
 }
 
-async function attribute(deps: WalletWebhookDeps, accountId: string, transactionId: string, code: string): Promise<void> {
-  try {
-    await deps.partnerAttribution?.record(accountId, code);
-  } catch (err) {
-    console.error(`[wallet-webhook] partner attribution failed for transaction ${transactionId}:`, err instanceof Error ? err.message : err);
-  }
+/** Runs after the credits are granted. A failure is thrown so the webhook answers 500 and Paddle retries: the grant and the sale record
+ *  are idempotent, and the retry is still the first purchase because the prior sale check excludes this transaction's own sale. */
+async function attribute(deps: WalletWebhookDeps, accountId: string, _transactionId: string, code: string): Promise<void> {
+  await deps.partnerAttribution?.record(accountId, code);
 }
 
 async function alertRaw(deps: WalletWebhookDeps, message: string): Promise<void> {
@@ -204,7 +197,7 @@ export function defaultWalletWebhookDeps(): WalletWebhookDeps {
         if (error) throw error;
         return (data ?? []).length > 0;
       },
-      record: recordPartnerAttribution,
+      record: recordPartnerAttributionStrict,
     },
   };
 }

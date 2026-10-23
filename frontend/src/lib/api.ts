@@ -1373,8 +1373,8 @@ export const api = {
     channelLink: string;
     audienceSize: string;
     audienceCountries: string;
-    preferredPlan: "A" | "B" | "not sure";
     howPromote: string;
+    agreedToTerms: true;
   }): Promise<void> => {
     const res = await fetch(`${API_URL}/public/referral/apply`, {
       method: "POST",
