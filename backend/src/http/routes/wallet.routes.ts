@@ -12,6 +12,8 @@ import { tieredRateLimit } from "../rateLimit.js";
 import { supabase } from "../../supabase.js";
 import { resolveTier, type Tier } from "../../tier.js";
 import { walletEnabled } from "../../wallet/flags.js";
+import { walletMode } from "../../wallet/mode.js";
+import { toWalletContract } from "../../wallet/balanceContract.js";
 import { buildCatalogView, buildCheckoutIntent, type PackRow } from "../../wallet/checkout.js";
 import { getCheckoutPort, type CheckoutPort } from "../../wallet/checkoutPort.js";
 import { partnerDiscountConfigured, resolveApprovedPartnerCode } from "../../billing/partnerCode.js";
@@ -79,7 +81,9 @@ export function buildWalletRouter(deps: WalletRouterDeps = {}): Router {
 
   router.get("/balance", requireAuth, tieredRateLimit, async (req: AuthedRequest, res) => {
     try {
-      res.json(await service().getBalance(req.accountId as string));
+      const accountId = req.accountId as string;
+      const [view, tier, legacy, cancelPending] = await Promise.all([service().getBalance(accountId), getTier(accountId), isLegacy(accountId), isCancelPending(accountId)]);
+      res.json(toWalletContract(view, { tier, legacy, cancelPending, walletOn: walletMode() === "on" }));
     } catch (err) {
       unavailable(res, "balance", err);
     }
@@ -124,7 +128,16 @@ export function buildWalletRouter(deps: WalletRouterDeps = {}): Router {
       }
       const checkout = partnerCode ? await port.createCheckout(accountId, built.intent.sku, { partnerCode }) : await port.createCheckout(accountId, built.intent.sku);
       const discount = partnerCode !== null && Boolean((checkout as { discountApplied?: unknown } | null)?.discountApplied);
-      res.json({ intent: built.intent, checkout, partner: { status: partnerCode ? "applied" : typed ? "invalid" : "none", discount } });
+      // The website reads transactionId, checkoutUrl and sku at the top level; the nested checkout object stays for anything that read it.
+      const flat = checkout as { transactionId?: unknown; checkoutUrl?: unknown } | null;
+      res.json({
+        intent: built.intent,
+        checkout,
+        ...(typeof flat?.transactionId === "string" ? { transactionId: flat.transactionId } : {}),
+        ...(typeof flat?.checkoutUrl === "string" ? { checkoutUrl: flat.checkoutUrl } : {}),
+        sku: built.intent.sku,
+        partner: { status: partnerCode ? "applied" : typed ? "invalid" : "none", discount },
+      });
     } catch (err) {
       unavailable(res, "checkout intent", err);
     }

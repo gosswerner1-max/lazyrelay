@@ -1,0 +1,55 @@
+{
+  "spendableMicro": 1830000000,
+  "heldMicro": 5000000,
+  "byKindMicro": {
+    "signup": 30000000,
+    "pack": 600000000,
+    "subscription": 1200000000
+  },
+  "displayCredits": "1830",
+  "heldCredits": "5",
+  "nextExpiryAt": "2026-11-10T12:00:00.000Z",
+  "nextExpiryCredits": "1200",
+  "nextExpiryMicro": 1200000000,
+  "activeHolds": 1,
+  "lots": [
+    {
+      "kind": "subscription",
+      "remaining": 1200,
+      "expiresAt": "2026-11-10T12:00:00.000Z",
+      "autoRenew": true,
+      "planName": "Pro"
+    },
+    {
+      "kind": "pack",
+      "remaining": 600,
+      "expiresAt": null
+    },
+    {
+      "kind": "signup",
+      "remaining": 30,
+      "expiresAt": null
+    }
+  ],
+  "exempt": false,
+  "balance": 1830,
+  "held": 5,
+  "nextExpiry": {
+    "at": "2026-11-10T12:00:00.000Z",
+    "credits": 1200
+  },
+  "paused": false,
+  "plan": {
+    "tier": "lazy_pro",
+    "walletPlan": "pro",
+    "caps": {
+      "accounts": 1000,
+      "brands": null,
+      "queued": null
+    }
+  },
+  "prices": {
+    "post_publish": 1,
+    "competitor_teardown": 10
+  }
+}

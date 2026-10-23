@@ -34,7 +34,7 @@ vi.mock("../securityAlerts.js", () => ({ recordSecurityEvent: () => {} }));
 const { buildWalletRouter } = await import("./wallet.routes.js");
 const { SKU } = await import("../../wallet/catalog.js");
 
-const balanceView = { spendableMicro: 30_000_000, heldMicro: 0, byKindMicro: { signup: 30_000_000, pack: 0, subscription: 0 }, displayCredits: "30", heldCredits: "0", nextExpiryAt: null, nextExpiryCredits: null, activeHolds: 0 };
+const balanceView = { spendableMicro: 30_000_000, heldMicro: 0, byKindMicro: { signup: 30_000_000, pack: 0, subscription: 0 }, displayCredits: "30", heldCredits: "0", nextExpiryAt: null, nextExpiryCredits: null, nextExpiryMicro: null, activeHolds: 0, lots: [] };
 
 function stubs() {
   return {
@@ -107,7 +107,8 @@ describe("GET /wallet/balance", () => {
   it("reads the balance of the signed in account only", async () => {
     const res = await request(mount(s)).get("/wallet/balance?accountId=someone-else");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual(balanceView);
+    expect(res.body).toMatchObject(balanceView); // the service's own view is still sent, with the website's fields added (see wallet.contract.test.ts)
+    expect(res.body).toMatchObject({ exempt: false, balance: 30, held: 0, plan: { tier: "free", walletPlan: "free" } });
     expect(s.service.getBalance).toHaveBeenCalledWith("acc-1");
   });
 

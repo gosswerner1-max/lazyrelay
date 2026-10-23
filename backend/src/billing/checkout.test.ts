@@ -197,3 +197,23 @@ describe("createCheckout with the partner discount (10% off the first payment of
     expect((out as { discountApplied?: boolean }).discountApplied).toBeUndefined();
   });
 });
+
+describe("the customer lookup (a GET) carries no body, like Node's fetch demands", () => {
+  it("Node's own fetch refuses a GET with a body (this is why the lookup used to fail with a 503)", async () => {
+    await expect(fetch("http://127.0.0.1:9/x", { method: "GET", body: "" })).rejects.toThrow(/cannot have body/i);
+  });
+
+  it("createCheckout for a buyer with a known email never sends a body on the GET", async () => {
+    const seen: Array<{ method: string; body: unknown }> = [];
+    const http = vi.fn(async (url: string, init: { method: string; body?: string }) => {
+      seen.push({ method: init.method, body: init.body });
+      if ((init.method === "GET" || init.method === "HEAD") && init.body !== undefined) throw new TypeError("Request with GET/HEAD method cannot have body.");
+      const data = url.includes("/customers?") ? { data: [{ id: "ctm_1" }] } : created;
+      return { ok: true, status: 200, text: async () => JSON.stringify(data) };
+    }) as unknown as PaddleHttpClient;
+    const p = createPaddleCheckoutPort({ apiKey: API_KEY, http, env: { ...WALLET_ENV, PADDLE_ENVIRONMENT: "production" }, emailForAccount: async () => "buyer@example.org" });
+    const out = await p.createCheckout(ACCOUNT_ID, SKU.starterPack);
+    expect(out).toMatchObject({ transactionId: "txn_fake_new" });
+    expect(seen[0]).toEqual({ method: "GET", body: undefined });
+  });
+});

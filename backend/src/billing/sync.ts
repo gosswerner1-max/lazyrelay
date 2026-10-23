@@ -157,6 +157,11 @@ export async function recordPartnerAttributionStrict(accountId: string, code: st
   if (partnerError) throw partnerError;
   if (!partner) return;
 
+  // Self referral: a partner never earns on their own account (the checkout already refuses their code; this is the second guard).
+  const { data: account, error: accountError } = await supabase.from("accounts").select("email").eq("id", accountId).maybeSingle();
+  if (accountError) throw accountError;
+  if (typeof account?.email === "string" && typeof partner.email === "string" && account.email.trim().toLowerCase() === partner.email.trim().toLowerCase()) return;
+
   const { data: updated, error } = await supabase
     .from("accounts")
     .update({ partner_code_redeemed: partner.code, partner_code_redeemed_at: new Date().toISOString() })

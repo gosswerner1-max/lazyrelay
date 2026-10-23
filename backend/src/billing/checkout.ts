@@ -14,7 +14,7 @@ export interface PaddleHttpResponse {
   status: number;
   text(): Promise<string>;
 }
-export type PaddleHttpClient = (url: string, init: { method: string; headers: Record<string, string>; body: string }) => Promise<PaddleHttpResponse>;
+export type PaddleHttpClient = (url: string, init: { method: string; headers: Record<string, string>; body?: string }) => Promise<PaddleHttpResponse>;
 
 type Env = Record<string, string | undefined>;
 
@@ -43,7 +43,7 @@ export function createPaddleCheckoutPort(opts: { apiKey: string | undefined; htt
   const headers = { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
 
   async function paddleCustomerId(email: string): Promise<string> {
-    const lookup = await http(`${baseUrl}/customers?email=${encodeURIComponent(email)}`, { method: "GET", headers, body: "" });
+    const lookup = await http(`${baseUrl}/customers?email=${encodeURIComponent(email)}`, { method: "GET", headers });
     const lookupRaw = await lookup.text();
     if (!lookup.ok) throw new Error(`Paddle refused the customer lookup: HTTP ${lookup.status} ${lookupRaw}`);
     const existing = (parseJson(lookupRaw, lookup.status) as { data?: Array<{ id?: unknown }> }).data?.[0]?.id;

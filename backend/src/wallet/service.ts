@@ -10,6 +10,8 @@ export interface LotRow {
   remainingMicro: number;
   reservedMicro: number;
   expiresAt: string | null;
+  /** The plan a lot is bound to (the Pro top-up), or null. */
+  boundPlan?: string | null;
 }
 
 export interface WalletServiceDeps {
@@ -31,7 +33,10 @@ export interface BalanceView {
   heldCredits: string;
   nextExpiryAt: string | null;
   nextExpiryCredits: string | null;
+  nextExpiryMicro: number | null;
   activeHolds: number;
+  /** The lots that still count (expired ones left out), for the website's per lot list. */
+  lots: LotRow[];
 }
 
 export type SignupGrantOutcome =
@@ -57,7 +62,9 @@ export function createWalletService(deps: WalletServiceDeps) {
         heldCredits: microToCredits(bal.heldMicro),
         nextExpiryAt: bal.nextExpiryAt,
         nextExpiryCredits: bal.nextExpiryMicro === null ? null : microToCredits(bal.nextExpiryMicro),
+        nextExpiryMicro: bal.nextExpiryMicro,
         activeHolds,
+        lots: lots.filter((lot) => lot.expiresAt === null || new Date(lot.expiresAt).getTime() > now.getTime()),
       };
     },
 
@@ -79,13 +86,13 @@ export type WalletService = ReturnType<typeof createWalletService>;
 
 /** The lots that still count and the number of open holds, read with the service role. Expiry is judged by the caller. */
 async function readLotsFromDatabase(accountId: string): Promise<{ lots: LotRow[]; activeHolds: number }> {
-  const lotsQ = await supabase.from("wallet_lots").select("kind, remaining_units, reserved_units, expires_at, expired_at").eq("account_id", accountId);
+  const lotsQ = await supabase.from("wallet_lots").select("kind, remaining_units, reserved_units, expires_at, expired_at, bound_plan").eq("account_id", accountId);
   if (lotsQ.error) throw new Error(`wallet lots read failed: ${lotsQ.error.message}`);
   const holdsQ = await supabase.from("wallet_holds").select("id").eq("account_id", accountId).eq("status", "held");
   if (holdsQ.error) throw new Error(`wallet holds read failed: ${holdsQ.error.message}`);
   const lots = (lotsQ.data ?? [])
     .filter((r) => r.expired_at == null)
-    .map((r) => ({ kind: r.kind as LotKind, remainingMicro: Number(r.remaining_units), reservedMicro: Number(r.reserved_units), expiresAt: (r.expires_at as string | null) ?? null }));
+    .map((r) => ({ kind: r.kind as LotKind, remainingMicro: Number(r.remaining_units), reservedMicro: Number(r.reserved_units), expiresAt: (r.expires_at as string | null) ?? null, boundPlan: (r.bound_plan as string | null) ?? null }));
   return { lots, activeHolds: (holdsQ.data ?? []).length };
 }
 
