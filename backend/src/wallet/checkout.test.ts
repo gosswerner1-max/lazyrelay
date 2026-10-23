@@ -112,3 +112,24 @@ describe("buildCatalogView", () => {
     expect(items.find((i) => i.sku === SKU.starterPack)?.expires).toBe(false);
   });
 });
+
+describe("buildCatalogView with the live Growth Pack gate (wallet_packs.requires_plan = 'growth')", () => {
+  const livePack: PackRow = { sku: SKU.growthPack, name: "LazyCredits Growth Pack", kind: "pack", price_cents: 5000, credits: 1500, expires: false, interval: "one_time", requires_plan: "growth", active: true };
+  const topUp: PackRow = { sku: SKU.proTopUp, name: "LazyCredits Pro Top-Up", kind: "pack", price_cents: 3000, credits: 1500, expires: false, interval: "one_time", requires_plan: "pro", active: true };
+  const verdict = (tier: Parameters<typeof buildCatalogView>[1]["tier"], cancelPending = false) =>
+    Object.fromEntries(buildCatalogView([livePack, topUp], { tier, legacy: false, cancelPending }).map((i) => [i.sku, [i.purchasable, i.reason]]));
+
+  it("names the Growth plan, not Pro, as the missing plan for the Growth Pack", () => {
+    for (const tier of ["free", "lazy_pro", "business"] as const) expect(verdict(tier)[SKU.growthPack], tier).toEqual([false, "needs_growth"]);
+  });
+
+  it("keeps needs_pro for the Pro Top-Up", () => {
+    expect(verdict("free")[SKU.proTopUp]).toEqual([false, "needs_pro"]);
+    expect(verdict("growth")[SKU.proTopUp]).toEqual([false, "needs_pro"]);
+  });
+
+  it("the Growth plan can buy the Growth Pack, and a pending cancel makes it plan_ending", () => {
+    expect(verdict("growth")[SKU.growthPack]).toEqual([true, null]);
+    expect(verdict("growth", true)[SKU.growthPack]).toEqual([false, "plan_ending"]);
+  });
+});

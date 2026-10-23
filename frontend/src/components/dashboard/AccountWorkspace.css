@@ -1,19 +1,31 @@
 /* Account workspace: Midnight Canvas shell around the existing settings sections. Every class is prefixed ac-; the sections themselves keep their own markup. */
-.ac-root { display: grid; grid-template-columns: 220px 1fr; gap: 20px; background: #0b0f19; border-radius: 24px; padding: 28px; color: #e6edf8; height: calc(100dvh - 250px); min-height: 520px; max-height: 860px; }
-.ac-nav { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; }
+.ac-root { display: grid; grid-template-columns: 220px 1fr; gap: 20px; background: #0b0f19; border-radius: 24px; padding: 28px; color: #e6edf8; align-items: start; }
+.ac-nav { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 16px; padding-right: 4px; }
 .ac-title { margin: 0 0 12px; font-size: 24px; letter-spacing: -0.02em; line-height: 1.1; color: #fff; }
 .ac-nav__item { text-align: left; border: 0; border-radius: 12px; padding: 10px 14px; font: inherit; font-weight: 600; font-size: 14px; color: #94a3b8; background: transparent; cursor: pointer; transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease; }
 .ac-nav__item:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
 .ac-nav__item:active { transform: scale(0.97); }
 .ac-nav__item:focus-visible { outline: 2px solid #ff5630; outline-offset: 2px; }
-.ac-body { overflow-y: auto; min-width: 0; padding-right: 8px; scrollbar-width: thin; }
+.ac-body { min-width: 0; }
 .ac-body section { background: #141b2d; border-radius: 24px; padding: 24px; margin: 0 0 16px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); }
 .ac-body section h2 { margin-top: 0; color: #fff; }
 .ac-body section, .ac-body section p, .ac-body section label, .ac-body section li { color: #cbd5e1; }
 .ac-body section input, .ac-body section select, .ac-body section textarea { background: #0b0f19; color: #e6edf8; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 12px; }
+/* Billing (Settings > Plan & billing): the wallet fills the section. No second frame around it, no frame around the buy panel, and the pack cards sit in one grid:
+   three columns on a desktop, two on a tablet, one on a phone. The page scrolls once (the account body no longer has its own scroll box). */
+.ac-root .ac-body .billing-mock.byok-panels.bm-live { padding: 0; gap: 16px; border: 0; border-radius: 0; background: none; }
+.ac-root .ac-body .bm-buy { padding: 0; margin: 0; gap: 16px; background: none; border: 0; border-radius: 0; box-shadow: none; }
+.ac-root .ac-body .bm-buy__list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.ac-root .ac-body .bm-buy__item { gap: 6px; padding: 16px; background: rgba(255, 255, 255, 0.04); border: 0; border-radius: 16px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); }
+.ac-root .ac-body .bm-buy__item .bm-btn { margin-top: 6px; }
+.ac-root .ac-body .bm-buy__title { font-size: 18px; letter-spacing: -0.015em; }
+@media (max-width: 1100px) { .ac-root .ac-body .bm-buy__list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .ac-root .ac-body .bm-buy__list { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-transparency: reduce) { .ac-root .ac-body .bm-buy__item { background: #0b0f19; } }
+@media (prefers-contrast: more) { .ac-root .ac-body .bm-buy__item { box-shadow: inset 0 0 0 2px #fff; } }
 @media (max-width: 860px) {
-  .ac-root { grid-template-columns: 1fr; height: auto; max-height: none; }
-  .ac-nav { flex-direction: row; flex-wrap: wrap; overflow: visible; }
+  .ac-root { grid-template-columns: 1fr; }
+  .ac-nav { flex-direction: row; flex-wrap: wrap; position: static; }
   .ac-title { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .ac-nav__item { transition: none; } .ac-nav__item:active { transform: none; } }

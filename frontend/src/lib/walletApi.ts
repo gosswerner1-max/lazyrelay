@@ -21,7 +21,7 @@ export interface Wallet {
   prices: { post_publish: number; competitor_teardown: number };
 }
 
-export type CatalogReason = "needs_pro" | "already_subscribed" | "legacy_account" | "plan_ending";
+export type CatalogReason = "needs_pro" | "needs_growth" | "already_subscribed" | "legacy_account" | "plan_ending";
 
 export interface CatalogItem {
   sku: string;
@@ -48,7 +48,7 @@ const oneOf = <T extends string>(v: unknown, allowed: readonly T[]): v is T => t
 
 const LOT_KINDS: readonly LotKind[] = ["subscription", "topup", "pack", "signup"];
 const WALLET_PLANS: readonly WalletPlanName[] = ["free", "payg", "growth", "pro"];
-const REASONS: readonly CatalogReason[] = ["needs_pro", "already_subscribed", "legacy_account", "plan_ending"];
+const REASONS: readonly CatalogReason[] = ["needs_pro", "needs_growth", "already_subscribed", "legacy_account", "plan_ending"];
 
 function readLot(v: unknown): CreditLot | null {
   if (!isObj(v) || !oneOf(v.kind, LOT_KINDS) || !isCount(v.remaining)) return null;

@@ -65,7 +65,7 @@ export interface CatalogItem {
   reason: CatalogReason | null;
 }
 
-export type CatalogReason = "needs_pro" | "already_subscribed" | "legacy_account" | "plan_ending";
+export type CatalogReason = "needs_pro" | "needs_growth" | "already_subscribed" | "legacy_account" | "plan_ending";
 
 /** What the catalog needs to know about the signed in account to say what it can buy right now. */
 export interface CatalogContext {
@@ -82,7 +82,7 @@ function reasonFor(sku: SkuId, requiresPlan: string | null, ctx: CatalogContext)
   if (ctx.legacy) return "legacy_account";
   const plan = walletPlanForTier(ctx.tier);
   if (requiresPlan !== null) {
-    if (plan !== requiresPlan) return "needs_pro";
+    if (plan !== requiresPlan) return requiresPlan === "growth" ? "needs_growth" : "needs_pro";
     return ctx.cancelPending ? "plan_ending" : null;
   }
   const sold = SUBSCRIPTION_PLAN[sku];
